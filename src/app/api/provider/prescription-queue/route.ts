@@ -140,195 +140,115 @@ async function handleGet(req: NextRequest, user: AuthUser) {
     // before they can be prescribed. They are visible in /api/finance/pending-profiles.
     // Load data and counts in parallel (no circuit breaker — this is a critical provider view
     // and must stay consistent with the /count endpoint which also uses raw Prisma)
-    const [invoices, refills, queuedOrders, invoiceCount, refillCount, queuedOrderCount] =
-      await Promise.all([
-        prisma.invoice.findMany({
-          where: {
-            clinicId: { in: clinicIds },
-            status: 'PAID',
-            prescriptionProcessed: false,
-            patient: {
-              profileStatus: { not: 'PENDING_COMPLETION' },
-            },
+
+    // Shared query fragments
+    const invoiceWhere = {
+      clinicId: { in: clinicIds },
+      status: 'PAID' as const,
+      prescriptionProcessed: false,
+      patient: { profileStatus: { not: 'PENDING_COMPLETION' as const } },
+    };
+    const invoiceInclude = {
+      clinic: { select: { id: true, name: true, subdomain: true, lifefileEnabled: true, lifefilePracticeName: true } },
+      patient: {
+        select: {
+          id: true, patientId: true, firstName: true, lastName: true,
+          email: true, phone: true, dob: true, clinicId: true,
+          intakeSubmissions: { where: { status: 'completed' }, orderBy: { completedAt: 'desc' as const }, take: 1, select: { id: true, completedAt: true } },
+          soapNotes: { orderBy: { createdAt: 'desc' as const }, take: 1, select: { id: true, status: true, createdAt: true, approvedAt: true, approvedBy: true } },
+        },
+      },
+    };
+    const refillInclude = {
+      clinic: { select: { id: true, name: true, subdomain: true, lifefileEnabled: true, lifefilePracticeName: true } },
+      patient: {
+        select: {
+          id: true, patientId: true, firstName: true, lastName: true,
+          email: true, phone: true, dob: true, clinicId: true,
+          intakeSubmissions: { where: { status: 'completed' }, orderBy: { completedAt: 'desc' as const }, take: 1, select: { id: true, completedAt: true } },
+          soapNotes: { orderBy: { createdAt: 'desc' as const }, take: 1, select: { id: true, status: true, createdAt: true, approvedAt: true, approvedBy: true } },
+        },
+      },
+      subscription: { select: { id: true, planName: true, status: true } },
+    };
+    const orderInclude = {
+      clinic: { select: { id: true, name: true, subdomain: true, lifefileEnabled: true, lifefilePracticeName: true } },
+      patient: {
+        select: {
+          id: true, patientId: true, firstName: true, lastName: true,
+          email: true, phone: true, dob: true, clinicId: true,
+          soapNotes: { orderBy: { createdAt: 'desc' as const }, take: 1, select: { id: true, status: true, createdAt: true, approvedAt: true, approvedBy: true } },
+        },
+      },
+      provider: { select: { id: true, firstName: true, lastName: true, email: true } },
+      rxs: true,
+    };
+
+    let invoices: any[], refills: any[], queuedOrders: any[];
+    let invoiceCount: number, refillCount: number, queuedOrderCount: number;
+    let holdColumnsAvailable = true;
+
+    try {
+      // Primary path: includes hold columns (requires migration 20260228120000)
+      [invoices, refills, queuedOrders, invoiceCount, refillCount, queuedOrderCount] =
+        await Promise.all([
+          prisma.invoice.findMany({ where: invoiceWhere, include: invoiceInclude, orderBy: { paidAt: 'asc' }, take: limit, skip: offset }),
+          prisma.refillQueue.findMany({ where: { clinicId: { in: clinicIds }, status: { in: ['APPROVED', 'PENDING_PROVIDER', 'ON_HOLD'] } }, include: refillInclude, orderBy: { providerQueuedAt: 'asc' }, take: limit, skip: offset }),
+          prisma.order.findMany({ where: { clinicId: { in: clinicIds }, status: { in: ['queued_for_provider', 'needs_info'] } }, include: orderInclude, orderBy: { queuedForProviderAt: 'asc' }, take: limit, skip: offset }),
+          prisma.invoice.count({ where: invoiceWhere }),
+          prisma.refillQueue.count({ where: { clinicId: { in: clinicIds }, status: { in: ['APPROVED', 'PENDING_PROVIDER', 'ON_HOLD'] } } }),
+          prisma.order.count({ where: { clinicId: { in: clinicIds }, status: { in: ['queued_for_provider', 'needs_info'] } } }),
+        ]);
+    } catch (primaryError: any) {
+      // Fallback: hold columns may not exist yet (migration not applied).
+      // Use explicit `select` to avoid referencing new columns, and original status filters.
+      holdColumnsAvailable = false;
+      logger.warn('[PRESCRIPTION-QUEUE] Hold columns not yet migrated, using fallback queries', {
+        error: primaryError?.message?.substring(0, 200),
+      });
+      const invoiceSelect = {
+        id: true, createdAt: true, clinicId: true, amount: true, amountPaid: true,
+        paidAt: true, metadata: true, lineItems: true, stripeInvoiceId: true,
+        prescriptionProcessed: true, prescriptionProcessedAt: true, prescriptionProcessedBy: true,
+        description: true, orderId: true, status: true,
+        clinic: { select: { id: true, name: true, subdomain: true, lifefileEnabled: true, lifefilePracticeName: true } },
+        patient: {
+          select: {
+            id: true, patientId: true, firstName: true, lastName: true,
+            email: true, phone: true, dob: true, clinicId: true,
+            intakeSubmissions: { where: { status: 'completed' as const }, orderBy: { completedAt: 'desc' as const }, take: 1, select: { id: true, completedAt: true } },
+            soapNotes: { orderBy: { createdAt: 'desc' as const }, take: 1, select: { id: true, status: true, createdAt: true, approvedAt: true, approvedBy: true } },
           },
-          include: {
-            clinic: {
-              select: {
-                id: true,
-                name: true,
-                subdomain: true,
-                lifefileEnabled: true,
-                lifefilePracticeName: true,
-              },
-            },
-            patient: {
-              select: {
-                id: true,
-                patientId: true,
-                firstName: true,
-                lastName: true,
-                email: true,
-                phone: true,
-                dob: true,
-                clinicId: true,
-                intakeSubmissions: {
-                  where: { status: 'completed' },
-                  orderBy: { completedAt: 'desc' },
-                  take: 1,
-                  select: {
-                    id: true,
-                    completedAt: true,
-                  },
-                },
-                soapNotes: {
-                  orderBy: { createdAt: 'desc' },
-                  take: 1,
-                  select: {
-                    id: true,
-                    status: true,
-                    createdAt: true,
-                    approvedAt: true,
-                    approvedBy: true,
-                  },
-                },
-              },
-            },
+        },
+      };
+      const refillSelect = {
+        id: true, createdAt: true, updatedAt: true, clinicId: true, patientId: true,
+        invoiceId: true, vialCount: true, nextRefillDate: true, lastRefillDate: true,
+        status: true, providerQueuedAt: true, prescribedAt: true, prescribedBy: true,
+        requestedEarly: true, patientNotes: true, adminApproved: true,
+        medicationName: true, medicationStrength: true, medicationForm: true, planName: true,
+        subscriptionId: true, lastOrderId: true, shipmentNumber: true, totalShipments: true,
+        clinic: { select: { id: true, name: true, subdomain: true, lifefileEnabled: true, lifefilePracticeName: true } },
+        patient: {
+          select: {
+            id: true, patientId: true, firstName: true, lastName: true,
+            email: true, phone: true, dob: true, clinicId: true,
+            intakeSubmissions: { where: { status: 'completed' as const }, orderBy: { completedAt: 'desc' as const }, take: 1, select: { id: true, completedAt: true } },
+            soapNotes: { orderBy: { createdAt: 'desc' as const }, take: 1, select: { id: true, status: true, createdAt: true, approvedAt: true, approvedBy: true } },
           },
-          orderBy: {
-            paidAt: 'asc',
-          },
-          take: limit,
-          skip: offset,
-        }),
-        prisma.refillQueue.findMany({
-          where: {
-            clinicId: { in: clinicIds },
-            status: { in: ['APPROVED', 'PENDING_PROVIDER', 'ON_HOLD'] },
-          },
-          include: {
-            clinic: {
-              select: {
-                id: true,
-                name: true,
-                subdomain: true,
-                lifefileEnabled: true,
-                lifefilePracticeName: true,
-              },
-            },
-            patient: {
-              select: {
-                id: true,
-                patientId: true,
-                firstName: true,
-                lastName: true,
-                email: true,
-                phone: true,
-                dob: true,
-                clinicId: true,
-                intakeSubmissions: {
-                  where: { status: 'completed' },
-                  orderBy: { completedAt: 'desc' },
-                  take: 1,
-                  select: {
-                    id: true,
-                    completedAt: true,
-                  },
-                },
-                soapNotes: {
-                  orderBy: { createdAt: 'desc' },
-                  take: 1,
-                  select: {
-                    id: true,
-                    status: true,
-                    createdAt: true,
-                    approvedAt: true,
-                    approvedBy: true,
-                  },
-                },
-              },
-            },
-            subscription: {
-              select: {
-                id: true,
-                planName: true,
-                status: true,
-              },
-            },
-          },
-          orderBy: {
-            providerQueuedAt: 'asc',
-          },
-          take: limit,
-          skip: offset,
-        }),
-        prisma.order.findMany({
-          where: {
-            clinicId: { in: clinicIds },
-            status: { in: ['queued_for_provider', 'needs_info'] },
-          },
-          include: {
-            clinic: {
-              select: {
-                id: true,
-                name: true,
-                subdomain: true,
-                lifefileEnabled: true,
-                lifefilePracticeName: true,
-              },
-            },
-            patient: {
-              select: {
-                id: true,
-                patientId: true,
-                firstName: true,
-                lastName: true,
-                email: true,
-                phone: true,
-                dob: true,
-                clinicId: true,
-                soapNotes: {
-                  orderBy: { createdAt: 'desc' },
-                  take: 1,
-                  select: {
-                    id: true,
-                    status: true,
-                    createdAt: true,
-                    approvedAt: true,
-                    approvedBy: true,
-                  },
-                },
-              },
-            },
-            provider: { select: { id: true, firstName: true, lastName: true, email: true } },
-            rxs: true,
-          },
-          orderBy: { queuedForProviderAt: 'asc' },
-          take: limit,
-          skip: offset,
-        }),
-        prisma.invoice.count({
-          where: {
-            clinicId: { in: clinicIds },
-            status: 'PAID',
-            prescriptionProcessed: false,
-            patient: {
-              profileStatus: { not: 'PENDING_COMPLETION' },
-            },
-          },
-        }),
-        prisma.refillQueue.count({
-          where: {
-            clinicId: { in: clinicIds },
-            status: { in: ['APPROVED', 'PENDING_PROVIDER', 'ON_HOLD'] },
-          },
-        }),
-        prisma.order.count({
-          where: {
-            clinicId: { in: clinicIds },
-            status: { in: ['queued_for_provider', 'needs_info'] },
-          },
-        }),
-      ]);
+        },
+        subscription: { select: { id: true, planName: true, status: true } },
+      };
+      [invoices, refills, queuedOrders, invoiceCount, refillCount, queuedOrderCount] =
+        await Promise.all([
+          prisma.invoice.findMany({ where: invoiceWhere, select: invoiceSelect, orderBy: { paidAt: 'asc' }, take: limit, skip: offset }),
+          prisma.refillQueue.findMany({ where: { clinicId: { in: clinicIds }, status: { in: ['APPROVED', 'PENDING_PROVIDER'] } }, select: refillSelect, orderBy: { providerQueuedAt: 'asc' }, take: limit, skip: offset }),
+          prisma.order.findMany({ where: { clinicId: { in: clinicIds }, status: 'queued_for_provider' }, include: orderInclude, orderBy: { queuedForProviderAt: 'asc' }, take: limit, skip: offset }),
+          prisma.invoice.count({ where: invoiceWhere }),
+          prisma.refillQueue.count({ where: { clinicId: { in: clinicIds }, status: { in: ['APPROVED', 'PENDING_PROVIDER'] } } }),
+          prisma.order.count({ where: { clinicId: { in: clinicIds }, status: 'queued_for_provider' } }),
+        ]);
+    }
 
     const totalCount = invoiceCount + refillCount + queuedOrderCount;
 
@@ -1174,9 +1094,9 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         // If true, this record has a clinic mismatch between invoice and patient
         clinicMismatch: invoiceClinicId !== patientClinicId,
         patientClinicId: patientClinicId, // Include for debugging/fixing
-        // Hold status
-        holdReason: invoice.prescriptionHoldReason || null,
-        heldAt: invoice.prescriptionHeldAt?.toISOString() || null,
+        // Hold status (safe access: columns may not exist if migration not applied)
+        holdReason: holdColumnsAvailable ? (invoice.prescriptionHoldReason || null) : null,
+        heldAt: holdColumnsAvailable ? (invoice.prescriptionHeldAt?.toISOString() || null) : null,
       };
     });
 
@@ -1298,9 +1218,9 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         // CRITICAL: Flag for multi-tenant isolation violation detection
         clinicMismatch: refillClinicId !== refillPatientClinicId,
         patientClinicId: refillPatientClinicId,
-        // Hold status
-        holdReason: refill.status === 'ON_HOLD' ? (refill.providerHoldReason || 'Held for more information') : null,
-        heldAt: refill.status === 'ON_HOLD' ? refill.updatedAt?.toISOString() : null,
+        // Hold status (safe access: providerHoldReason may not exist if migration not applied)
+        holdReason: holdColumnsAvailable && refill.status === 'ON_HOLD' ? (refill.providerHoldReason || 'Held for more information') : null,
+        heldAt: holdColumnsAvailable && refill.status === 'ON_HOLD' ? refill.updatedAt?.toISOString() : null,
       };
     });
 
@@ -1485,22 +1405,28 @@ async function handlePatch(req: NextRequest, user: AuthUser) {
       }
 
       // Invoice hold
-      const invoice = await prisma.invoice.findFirst({
-        where: { id: invoiceId, clinicId: { in: clinicIds }, status: 'PAID', prescriptionProcessed: false },
-      });
-      if (!invoice) {
-        return NextResponse.json({ error: 'Invoice not found or not in active queue' }, { status: 404 });
+      try {
+        const invoice = await prisma.invoice.findFirst({
+          where: { id: invoiceId, clinicId: { in: clinicIds }, status: 'PAID', prescriptionProcessed: false },
+          select: { id: true },
+        });
+        if (!invoice) {
+          return NextResponse.json({ error: 'Invoice not found or not in active queue' }, { status: 404 });
+        }
+        await prisma.invoice.update({
+          where: { id: invoiceId },
+          data: {
+            prescriptionHoldReason: reason.trim(),
+            prescriptionHeldAt: new Date(),
+            prescriptionHeldBy: providerId ?? user.id,
+          },
+        });
+        logger.info('[PRESCRIPTION-QUEUE] Invoice held for more info', { invoiceId, userId: user.id });
+        return NextResponse.json({ success: true, message: 'Prescription held for more information' });
+      } catch (holdError: any) {
+        logger.warn('[PRESCRIPTION-QUEUE] Hold columns not available (migration needed)', { error: holdError?.message?.substring(0, 100) });
+        return NextResponse.json({ error: 'Hold feature requires a database migration. Please contact your administrator.' }, { status: 503 });
       }
-      await prisma.invoice.update({
-        where: { id: invoiceId },
-        data: {
-          prescriptionHoldReason: reason.trim(),
-          prescriptionHeldAt: new Date(),
-          prescriptionHeldBy: providerId ?? user.id,
-        },
-      });
-      logger.info('[PRESCRIPTION-QUEUE] Invoice held for more info', { invoiceId, userId: user.id });
-      return NextResponse.json({ success: true, message: 'Prescription held for more information' });
     }
 
     // ── Resume from Hold ───────────────────────────────────────────────────
@@ -1537,24 +1463,30 @@ async function handlePatch(req: NextRequest, user: AuthUser) {
       }
 
       // Invoice resume
-      const invoice = await prisma.invoice.findFirst({
-        where: {
-          id: invoiceId,
-          clinicId: { in: clinicIds },
-          status: 'PAID',
-          prescriptionProcessed: false,
-          prescriptionHoldReason: { not: null },
-        },
-      });
-      if (!invoice) {
-        return NextResponse.json({ error: 'Held invoice not found' }, { status: 404 });
+      try {
+        const invoice = await prisma.invoice.findFirst({
+          where: {
+            id: invoiceId,
+            clinicId: { in: clinicIds },
+            status: 'PAID',
+            prescriptionProcessed: false,
+            prescriptionHoldReason: { not: null },
+          },
+          select: { id: true },
+        });
+        if (!invoice) {
+          return NextResponse.json({ error: 'Held invoice not found' }, { status: 404 });
+        }
+        await prisma.invoice.update({
+          where: { id: invoiceId },
+          data: { prescriptionHoldReason: null, prescriptionHeldAt: null, prescriptionHeldBy: null },
+        });
+        logger.info('[PRESCRIPTION-QUEUE] Invoice resumed from hold', { invoiceId, userId: user.id });
+        return NextResponse.json({ success: true, message: 'Prescription returned to queue' });
+      } catch (resumeError: any) {
+        logger.warn('[PRESCRIPTION-QUEUE] Hold columns not available (migration needed)', { error: resumeError?.message?.substring(0, 100) });
+        return NextResponse.json({ error: 'Hold feature requires a database migration. Please contact your administrator.' }, { status: 503 });
       }
-      await prisma.invoice.update({
-        where: { id: invoiceId },
-        data: { prescriptionHoldReason: null, prescriptionHeldAt: null, prescriptionHeldBy: null },
-      });
-      logger.info('[PRESCRIPTION-QUEUE] Invoice resumed from hold', { invoiceId, userId: user.id });
-      return NextResponse.json({ success: true, message: 'Prescription returned to queue' });
     }
 
     // ── Mark Processed (legacy default) ────────────────────────────────────
