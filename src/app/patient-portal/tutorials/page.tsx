@@ -1,8 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import Link from 'next/link';
-import { ChevronLeft, Play, Clock, Star, Filter } from 'lucide-react';
+import { ChevronLeft, Play, Clock, Star, X, Syringe } from 'lucide-react';
+import { useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
+
+const INJECTION_VIDEO_ID = 'RUxd5uk_lAc';
+const INJECTION_VIDEO_CLINICS = ['eonmeds', 'wellmedr'];
 
 interface Video {
   id: string;
@@ -10,12 +14,19 @@ interface Video {
   duration: string;
   category: string;
   thumbnail: string;
+  youtubeId?: string;
   rating: number;
   views: number;
 }
 
 export default function TutorialVideosPage() {
   const [selectedCategory, setSelectedCategory] = useState('all');
+  const [playingVideoId, setPlayingVideoId] = useState<string | null>(null);
+  const { branding } = useClinicBranding();
+
+  const subdomain = branding?.subdomain?.toLowerCase() ?? '';
+  const showInjectionVideo = INJECTION_VIDEO_CLINICS.includes(subdomain);
+  const primaryColor = branding?.primaryColor || '#f97316';
 
   const categories = [
     { id: 'all', label: 'All', color: 'bg-gray-500' },
@@ -26,15 +37,20 @@ export default function TutorialVideosPage() {
   ];
 
   const videos: Video[] = [
-    {
-      id: '1',
-      title: 'How to Inject Semaglutide',
-      duration: '5:30',
-      category: 'injection',
-      thumbnail: '/api/placeholder/400/225',
-      rating: 4.8,
-      views: 1250,
-    },
+    ...(showInjectionVideo
+      ? [
+          {
+            id: 'eon-inject',
+            title: 'How to Safely Apply a Semaglutide Injection at Home',
+            duration: '2:32',
+            category: 'injection',
+            thumbnail: `https://img.youtube.com/vi/${INJECTION_VIDEO_ID}/mqdefault.jpg`,
+            youtubeId: INJECTION_VIDEO_ID,
+            rating: 4.9,
+            views: 2100,
+          },
+        ]
+      : []),
     {
       id: '2',
       title: 'Morning Yoga for Beginners',
@@ -85,8 +101,37 @@ export default function TutorialVideosPage() {
   const filteredVideos =
     selectedCategory === 'all' ? videos : videos.filter((v) => v.category === selectedCategory);
 
+  const handlePlay = useCallback((video: Video) => {
+    if (video.youtubeId) {
+      setPlayingVideoId(video.youtubeId);
+    }
+  }, []);
+
   return (
     <div className="min-h-screen bg-[var(--brand-primary-light)]">
+      {/* YouTube Player Modal */}
+      {playingVideoId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
+          <div className="relative w-full max-w-3xl">
+            <button
+              onClick={() => setPlayingVideoId(null)}
+              className="absolute -top-10 right-0 rounded-full p-1 text-white/80 hover:text-white"
+            >
+              <X className="h-6 w-6" />
+            </button>
+            <div className="relative aspect-video w-full overflow-hidden rounded-2xl bg-black">
+              <iframe
+                src={`https://www.youtube.com/embed/${playingVideoId}?autoplay=1&rel=0`}
+                title="Tutorial Video"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+                className="absolute inset-0 h-full w-full"
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="sticky top-0 z-10">
         <div className="mx-auto max-w-2xl px-4 py-3">
@@ -120,29 +165,49 @@ export default function TutorialVideosPage() {
         </div>
       </div>
 
-      {/* Featured Video */}
       <div className="mx-auto max-w-2xl px-4 py-6">
-        <div className="mb-6 rounded-2xl bg-gradient-to-br from-orange-400 to-orange-500 p-6 text-white">
-          <h2 className="mb-2 text-xl font-semibold">Featured: Weight Loss Journey</h2>
-          <p className="mb-4 text-sm text-orange-100">Get started from anywhere</p>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="rounded-xl bg-white/20 p-4 backdrop-blur">
-              <div className="relative mb-2 aspect-video overflow-hidden rounded-lg bg-black/20">
-                <Play className="absolute left-1/2 top-1/2 h-8 w-8 -translate-x-1/2 -translate-y-1/2 text-white/80" />
+        {/* Featured Injection Video (eonmeds & wellmedr only) */}
+        {showInjectionVideo && (selectedCategory === 'all' || selectedCategory === 'injection') && (
+          <button
+            onClick={() => setPlayingVideoId(INJECTION_VIDEO_ID)}
+            className="mb-6 w-full overflow-hidden rounded-2xl text-left shadow-md transition-shadow hover:shadow-lg"
+            style={{ background: `linear-gradient(135deg, ${primaryColor}, ${primaryColor}dd)` }}
+          >
+            <div className="relative">
+              <img
+                src={`https://img.youtube.com/vi/${INJECTION_VIDEO_ID}/maxresdefault.jpg`}
+                alt="How to inject semaglutide"
+                className="aspect-video w-full object-cover opacity-80"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = `https://img.youtube.com/vi/${INJECTION_VIDEO_ID}/hqdefault.jpg`;
+                }}
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white/90 shadow-lg transition-transform hover:scale-110">
+                  <Play className="ml-1 h-7 w-7" style={{ color: primaryColor }} />
+                </div>
               </div>
-              <p className="text-sm font-medium">Beginner Exercises</p>
-              <p className="text-xs text-orange-100">2 min</p>
-            </div>
-            <div className="rounded-xl bg-white/20 p-4 backdrop-blur">
-              <div className="relative mb-2 aspect-video overflow-hidden rounded-lg bg-black/20">
-                <Play className="absolute left-1/2 top-1/2 h-8 w-8 -translate-x-1/2 -translate-y-1/2 text-white/80" />
+              <div className="absolute bottom-0 left-0 right-0 p-5 text-white">
+                <div className="mb-2 flex items-center gap-2">
+                  <span className="flex items-center gap-1 rounded-full bg-white/20 px-2.5 py-1 text-xs font-medium backdrop-blur-sm">
+                    <Syringe className="h-3 w-3" />
+                    Featured Guide
+                  </span>
+                  <span className="rounded-full bg-white/20 px-2.5 py-1 text-xs backdrop-blur-sm">
+                    2:32
+                  </span>
+                </div>
+                <h2 className="text-lg font-semibold leading-tight">
+                  How to Safely Apply a Semaglutide Injection at Home
+                </h2>
+                <p className="mt-1 text-sm text-white/80">
+                  Step-by-step guide from EON Medical + Wellness
+                </p>
               </div>
-              <p className="text-sm font-medium">Advanced Moves</p>
-              <p className="text-xs text-orange-100">3 min</p>
             </div>
-          </div>
-        </div>
+          </button>
+        )}
 
         {/* Video List */}
         <div className="space-y-4">
@@ -156,11 +221,19 @@ export default function TutorialVideosPage() {
             {filteredVideos.map((video) => (
               <button
                 key={video.id}
+                onClick={() => handlePlay(video)}
                 className="rounded-xl bg-white p-4 text-left shadow-sm transition-shadow hover:shadow-md"
               >
                 <div className="flex gap-4">
                   {/* Thumbnail */}
                   <div className="relative h-20 w-32 flex-shrink-0 overflow-hidden rounded-lg bg-gray-200">
+                    {video.thumbnail && !video.thumbnail.startsWith('/api/placeholder') ? (
+                      <img
+                        src={video.thumbnail}
+                        alt={video.title}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : null}
                     <div className="absolute inset-0 bg-gradient-to-br from-black/20 to-transparent" />
                     <Play className="absolute left-1/2 top-1/2 h-6 w-6 -translate-x-1/2 -translate-y-1/2 text-white" />
                     <span className="absolute bottom-1 right-1 rounded bg-black/50 px-1 text-xs text-white">

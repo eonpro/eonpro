@@ -27,17 +27,10 @@ interface Resource {
   duration?: string;
 }
 
+const INJECTION_VIDEO_ID = 'RUxd5uk_lAc';
+const INJECTION_VIDEO_CLINICS = ['eonmeds', 'wellmedr'];
+
 const defaultResources: Resource[] = [
-  {
-    id: 'v1',
-    title: 'How to Self-Inject: Complete Guide',
-    description: 'Step-by-step video guide for subcutaneous injection technique',
-    type: 'video',
-    category: 'Tutorials',
-    url: 'https://www.youtube.com/watch?v=example1',
-    thumbnail: '/images/injection-guide-thumb.jpg',
-    duration: '8:45',
-  },
   {
     id: 'v2',
     title: 'Understanding GLP-1 Medications',
@@ -131,19 +124,39 @@ export default function ResourcesPage() {
   const [activeTab, setActiveTab] = useState<'videos' | 'articles' | 'faq'>('videos');
 
   useEffect(() => {
-    // Load clinic-specific resources if available
-    if (branding?.resourceVideos && branding.resourceVideos.length > 0) {
-      const clinicResources: Resource[] = branding.resourceVideos.map((video) => ({
-        id: video.id,
-        title: video.title,
-        description: video.description,
-        type: 'video' as const,
-        category: video.category || 'Tutorials',
-        url: video.url,
-        thumbnail: video.thumbnail,
-      }));
-      setResources([...clinicResources, ...defaultResources]);
-    }
+    const subdomain = branding?.subdomain?.toLowerCase() ?? '';
+    const injectionVideo: Resource | null = INJECTION_VIDEO_CLINICS.includes(subdomain)
+      ? {
+          id: 'v-injection-eon',
+          title: 'How to Safely Apply a Semaglutide Injection at Home',
+          description:
+            'Step-by-step guide from EON Medical + Wellness covering preparation, dosage, injection technique, and post-injection care.',
+          type: 'video',
+          category: 'Tutorials',
+          url: `https://www.youtube.com/watch?v=${INJECTION_VIDEO_ID}`,
+          thumbnail: `https://img.youtube.com/vi/${INJECTION_VIDEO_ID}/mqdefault.jpg`,
+          duration: '2:32',
+        }
+      : null;
+
+    const clinicResources: Resource[] =
+      branding?.resourceVideos && branding.resourceVideos.length > 0
+        ? branding.resourceVideos.map((video) => ({
+            id: video.id,
+            title: video.title,
+            description: video.description,
+            type: 'video' as const,
+            category: video.category || 'Tutorials',
+            url: video.url,
+            thumbnail: video.thumbnail,
+          }))
+        : [];
+
+    setResources([
+      ...(injectionVideo ? [injectionVideo] : []),
+      ...clinicResources,
+      ...defaultResources,
+    ]);
   }, [branding]);
 
   const filteredResources = resources.filter((resource) => {
