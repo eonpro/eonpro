@@ -34,6 +34,10 @@ model Invoice {
   prescriptionProcessed   Boolean                 @default(false)
   prescriptionProcessedAt DateTime?
   prescriptionProcessedBy Int? // Provider ID who processed
+  // Prescription hold: provider needs more info before prescribing
+  prescriptionHoldReason  String?
+  prescriptionHeldAt      DateTime?
+  prescriptionHeldBy      Int?
   patient                 Patient                 @relation(fields: [patientId], references: [id])
   commission              Commission?
   payments                Payment[]
@@ -42,6 +46,7 @@ model Invoice {
   refillQueue             RefillQueue[]
 
   @@index([prescriptionProcessed])
+  @@index([prescriptionHoldReason])
 }
 
 model Payment {

@@ -214,6 +214,9 @@ interface QueueItem {
   }>;
   requestJson?: string | null;
   queuedByUserId?: number | null;
+  // Hold status (provider needs more information)
+  holdReason?: string | null;
+  heldAt?: string | null;
 }
 
 interface PatientDetails {
@@ -401,6 +404,15 @@ export default function PrescriptionQueuePage() {
   } | null>(null);
   const [declineReason, setDeclineReason] = useState('');
   const [declining, setDeclining] = useState(false);
+
+  // Hold for info modal state
+  const [holdModal, setHoldModal] = useState<{ item: QueueItem } | null>(null);
+  const [holdReason, setHoldReason] = useState('');
+  const [holding, setHolding] = useState(false);
+  const [resuming, setResuming] = useState<number | null>(null);
+
+  // Queue tab state
+  const [activeTab, setActiveTab] = useState<'ready' | 'needs_info'>('ready');
 
   // Check user role on mount (for showing/hiding approve button)
   useEffect(() => {
@@ -1163,6 +1175,101 @@ export default function PrescriptionQueuePage() {
     }
   };
 
+  const handleHoldForInfo = async () => {
+    if (!holdModal || !holdReason.trim()) return;
+    setHolding(true);
+    setError('');
+
+    try {
+      const item = holdModal.item;
+      const body: Record<string, unknown> = {
+        action: 'hold_for_info',
+        reason: holdReason.trim(),
+      };
+      if (item.queueType === 'refill' && item.refillId) body.refillId = item.refillId;
+      else if (item.queueType === 'queued_order' && item.orderId) body.orderId = item.orderId;
+      else body.invoiceId = item.invoiceId;
+
+      const response = await apiFetch('/api/provider/prescription-queue', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${getAuthToken()}`,
+        },
+        body: JSON.stringify(body),
+      });
+
+      if (response.ok) {
+        setQueueItems((prev) =>
+          prev.map((qi) => {
+            const match =
+              (item.refillId && qi.refillId === item.refillId) ||
+              (item.orderId && qi.orderId === item.orderId) ||
+              (item.invoiceId && qi.invoiceId === item.invoiceId);
+            return match
+              ? { ...qi, holdReason: holdReason.trim(), heldAt: new Date().toISOString() }
+              : qi;
+          })
+        );
+        setSuccessMessage(`${item.patientName} moved to Needs Info`);
+        setTimeout(() => setSuccessMessage(''), 4000);
+        setHoldModal(null);
+        setHoldReason('');
+        setActiveTab('needs_info');
+      } else {
+        const errorData = await response.json();
+        setError(errorData.error || 'Failed to hold prescription');
+      }
+    } catch {
+      setError('Failed to hold prescription for more info');
+    } finally {
+      setHolding(false);
+    }
+  };
+
+  const handleResumeFromHold = async (item: QueueItem) => {
+    const trackingId = item.refillId || item.invoiceId || item.orderId;
+    setResuming(trackingId ?? null);
+    setError('');
+
+    try {
+      const body: Record<string, unknown> = { action: 'resume_from_hold' };
+      if (item.queueType === 'refill' && item.refillId) body.refillId = item.refillId;
+      else if (item.queueType === 'queued_order' && item.orderId) body.orderId = item.orderId;
+      else body.invoiceId = item.invoiceId;
+
+      const response = await apiFetch('/api/provider/prescription-queue', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${getAuthToken()}`,
+        },
+        body: JSON.stringify(body),
+      });
+
+      if (response.ok) {
+        setQueueItems((prev) =>
+          prev.map((qi) => {
+            const match =
+              (item.refillId && qi.refillId === item.refillId) ||
+              (item.orderId && qi.orderId === item.orderId) ||
+              (item.invoiceId && qi.invoiceId === item.invoiceId);
+            return match ? { ...qi, holdReason: null, heldAt: null } : qi;
+          })
+        );
+        setSuccessMessage(`${item.patientName} returned to Ready queue`);
+        setTimeout(() => setSuccessMessage(''), 4000);
+      } else {
+        const errorData = await response.json();
+        setError(errorData.error || 'Failed to resume prescription');
+      }
+    } catch {
+      setError('Failed to resume prescription');
+    } finally {
+      setResuming(null);
+    }
+  };
+
   const formatDate = (dateString: string) => {
     if (!dateString) return '-';
     const date = new Date(dateString);
@@ -1193,7 +1300,10 @@ export default function PrescriptionQueuePage() {
     item.invoiceNumber,
     item.patientDisplayId,
   ]);
-  const filteredItems = searchResult.matches;
+  const allFilteredItems = searchResult.matches;
+  const readyItems = allFilteredItems.filter((i) => !i.holdReason);
+  const needsInfoItems = allFilteredItems.filter((i) => !!i.holdReason);
+  const filteredItems = activeTab === 'ready' ? readyItems : needsInfoItems;
 
   return (
     <div className="min-h-[100dvh]" style={{ backgroundColor: '#efece7' }}>
@@ -1316,6 +1426,46 @@ export default function PrescriptionQueuePage() {
           )}
         </div>
 
+        {/* Tab Bar */}
+        <div className="flex gap-1 rounded-xl bg-gray-100 p-1">
+          <button
+            onClick={() => setActiveTab('ready')}
+            className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-all ${
+              activeTab === 'ready'
+                ? 'bg-white text-gray-900 shadow-sm'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            <ClipboardList className="h-4 w-4" />
+            Ready to Prescribe
+            {readyItems.length > 0 && (
+              <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+                activeTab === 'ready' ? 'bg-rose-100 text-rose-700' : 'bg-gray-200 text-gray-600'
+              }`}>
+                {readyItems.length}
+              </span>
+            )}
+          </button>
+          <button
+            onClick={() => setActiveTab('needs_info')}
+            className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-all ${
+              activeTab === 'needs_info'
+                ? 'bg-white text-gray-900 shadow-sm'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            <FileWarning className="h-4 w-4" />
+            Needs Info
+            {needsInfoItems.length > 0 && (
+              <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+                activeTab === 'needs_info' ? 'bg-amber-100 text-amber-700' : 'bg-gray-200 text-gray-600'
+              }`}>
+                {needsInfoItems.length}
+              </span>
+            )}
+          </button>
+        </div>
+
         {/* Queue Cards */}
         {loading ? (
           <div className="flex items-center justify-center py-16">
@@ -1351,12 +1501,18 @@ export default function PrescriptionQueuePage() {
               <CheckIcon className="h-8 w-8 text-green-600" />
             </div>
             <h3 className="mb-2 text-lg font-semibold text-gray-900">
-              {searchTerm ? 'No matching results' : 'All caught up!'}
+              {searchTerm
+                ? 'No matching results'
+                : activeTab === 'needs_info'
+                  ? 'No items waiting for info'
+                  : 'All caught up!'}
             </h3>
             <p className="text-gray-500">
               {searchTerm
                 ? 'No patients match your search. Try a different name or check the spelling.'
-                : 'No prescriptions pending. Great work!'}
+                : activeTab === 'needs_info'
+                  ? 'No prescriptions are currently on hold for more information.'
+                  : 'No prescriptions pending. Great work!'}
             </p>
             {searchTerm && (
               <button
@@ -1613,7 +1769,7 @@ export default function PrescriptionQueuePage() {
 
                       {/* Actions - Col 6 - full-width touch-friendly on mobile */}
                       <div className="flex flex-wrap items-stretch justify-end gap-2 border-t border-gray-100 pt-3 xl:border-t-0 xl:pt-0">
-                        {!isQueuedOrder && (
+                        {!isQueuedOrder && activeTab === 'ready' && (
                           <>
                             <button
                               onClick={() => handleExpandItem(item.invoiceId!)}
@@ -1653,6 +1809,13 @@ export default function PrescriptionQueuePage() {
                               <span>Done</span>
                             </button>
                             <button
+                              onClick={() => setHoldModal({ item })}
+                              className="flex min-h-[44px] min-w-[44px] touch-manipulation items-center justify-center rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm font-medium text-amber-700 transition-all hover:bg-amber-100"
+                              title="More information needed"
+                            >
+                              <FileWarning className="h-4 w-4" />
+                            </button>
+                            <button
                               onClick={() => setDeclineModal({ item })}
                               className="flex min-h-[44px] min-w-[44px] touch-manipulation items-center justify-center rounded-xl border border-red-200 bg-red-50 px-3 py-2.5 text-sm font-medium text-red-600 transition-all hover:bg-red-100"
                               title="Decline prescription request"
@@ -1661,7 +1824,40 @@ export default function PrescriptionQueuePage() {
                             </button>
                           </>
                         )}
-                        {isQueuedOrder && (
+                        {!isQueuedOrder && activeTab === 'needs_info' && (
+                          <>
+                            <button
+                              onClick={() => handleResumeFromHold(item)}
+                              disabled={resuming === (item.refillId || item.invoiceId || item.orderId)}
+                              className="flex min-h-[48px] min-w-0 flex-1 touch-manipulation items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-3 py-2.5 text-sm font-medium text-white shadow-sm transition-all hover:from-emerald-600 hover:to-emerald-700 disabled:opacity-50 sm:flex-initial"
+                              title="Return to ready queue"
+                            >
+                              {resuming === (item.refillId || item.invoiceId || item.orderId) ? (
+                                <Loader2 className="h-4 w-4 animate-spin flex-shrink-0" />
+                              ) : (
+                                <RefreshCw className="h-4 w-4 flex-shrink-0" />
+                              )}
+                              <span>Resume</span>
+                            </button>
+                            <button
+                              onClick={() => handleOpenPrescriptionPanel(item)}
+                              disabled={!item.clinic?.lifefileEnabled}
+                              className="flex min-h-[48px] min-w-0 flex-1 touch-manipulation items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-rose-500 to-rose-600 px-3 py-2.5 text-sm font-medium text-white shadow-sm transition-all hover:from-rose-600 hover:to-rose-700 disabled:cursor-not-allowed disabled:opacity-50 sm:flex-initial"
+                              title="Write and send prescription"
+                            >
+                              <Send className="h-4 w-4 flex-shrink-0" />
+                              <span>Write Rx</span>
+                            </button>
+                            <button
+                              onClick={() => setDeclineModal({ item })}
+                              className="flex min-h-[44px] min-w-[44px] touch-manipulation items-center justify-center rounded-xl border border-red-200 bg-red-50 px-3 py-2.5 text-sm font-medium text-red-600 transition-all hover:bg-red-100"
+                              title="Decline prescription request"
+                            >
+                              <X className="h-4 w-4" />
+                            </button>
+                          </>
+                        )}
+                        {isQueuedOrder && activeTab === 'ready' && (
                           <>
                             <button
                               onClick={() => item.orderId && handleExpandOrderItem(item.orderId)}
@@ -1699,6 +1895,37 @@ export default function PrescriptionQueuePage() {
                               <span>Approve & Send</span>
                             </button>
                             <button
+                              onClick={() => setHoldModal({ item })}
+                              className="flex min-h-[44px] min-w-[44px] touch-manipulation items-center justify-center rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm font-medium text-amber-700 transition-all hover:bg-amber-100"
+                              title="More information needed"
+                            >
+                              <FileWarning className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={() => setDeclineModal({ item })}
+                              className="flex min-h-[44px] min-w-[44px] touch-manipulation items-center justify-center rounded-xl border border-red-200 bg-red-50 px-3 py-2.5 text-sm font-medium text-red-600 transition-all hover:bg-red-100"
+                              title="Decline this queued prescription"
+                            >
+                              <X className="h-4 w-4" />
+                            </button>
+                          </>
+                        )}
+                        {isQueuedOrder && activeTab === 'needs_info' && (
+                          <>
+                            <button
+                              onClick={() => handleResumeFromHold(item)}
+                              disabled={resuming === (item.refillId || item.invoiceId || item.orderId)}
+                              className="flex min-h-[48px] min-w-0 flex-1 touch-manipulation items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-3 py-2.5 text-sm font-medium text-white shadow-sm transition-all hover:from-emerald-600 hover:to-emerald-700 disabled:opacity-50 sm:flex-initial"
+                              title="Return to ready queue"
+                            >
+                              {resuming === (item.refillId || item.invoiceId || item.orderId) ? (
+                                <Loader2 className="h-4 w-4 animate-spin flex-shrink-0" />
+                              ) : (
+                                <RefreshCw className="h-4 w-4 flex-shrink-0" />
+                              )}
+                              <span>Resume</span>
+                            </button>
+                            <button
                               onClick={() => setDeclineModal({ item })}
                               className="flex min-h-[44px] min-w-[44px] touch-manipulation items-center justify-center rounded-xl border border-red-200 bg-red-50 px-3 py-2.5 text-sm font-medium text-red-600 transition-all hover:bg-red-100"
                               title="Decline this queued prescription"
@@ -1710,6 +1937,25 @@ export default function PrescriptionQueuePage() {
                       </div>
                     </div>
                   </div>
+
+                  {/* Hold Reason Banner (Needs Info tab) */}
+                  {activeTab === 'needs_info' && item.holdReason && (
+                    <div className="flex items-start gap-2 border-t border-amber-200 bg-amber-50 px-4 py-3">
+                      <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-600" />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">
+                          More Information Needed
+                        </p>
+                        <p className="mt-0.5 text-sm text-amber-900">{item.holdReason}</p>
+                        {item.heldAt && (
+                          <p className="mt-1 text-xs text-amber-600">
+                            Held on {new Date(item.heldAt).toLocaleDateString()} at{' '}
+                            {new Date(item.heldAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
 
                   {/* Expanded Patient Details (invoice/refill only) */}
                   {!isQueuedOrder && expandedItem === item.invoiceId && (
@@ -2320,6 +2566,125 @@ export default function PrescriptionQueuePage() {
                   <>
                     <X className="h-4 w-4" />
                     Decline Prescription
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Hold for Info Modal */}
+      {holdModal && (
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-4"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) {
+              setHoldModal(null);
+              setHoldReason('');
+            }
+          }}
+        >
+          <div className="relative w-full max-w-md rounded-2xl bg-white shadow-xl">
+            <button
+              type="button"
+              onClick={() => { setHoldModal(null); setHoldReason(''); }}
+              className="absolute right-4 top-4 z-10 rounded p-1 text-gray-400 hover:text-gray-600"
+            >
+              <X className="h-5 w-5" />
+            </button>
+
+            <div className="rounded-t-2xl border-b border-amber-100 bg-amber-50 px-6 py-4">
+              <div className="flex items-center gap-3">
+                <div className="rounded-lg bg-amber-100 p-2">
+                  <FileWarning className="h-5 w-5 text-amber-600" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold text-gray-900">More Information Needed</h2>
+                  <p className="text-sm text-gray-600">{holdModal.item.patientName}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-4 p-6">
+              <div className="flex items-start gap-3 rounded-lg border border-blue-200 bg-blue-50 p-3">
+                <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-blue-600" />
+                <div className="text-sm text-blue-800">
+                  <p className="font-medium">This patient will be moved to the &quot;Needs Info&quot; tab.</p>
+                  <p className="mt-1">
+                    They will remain in queue but separated from new patients until you resume them.
+                  </p>
+                </div>
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-medium text-gray-700">
+                  What additional information is needed? *
+                </label>
+                <textarea
+                  value={holdReason}
+                  onChange={(e) => setHoldReason(e.target.value)}
+                  rows={4}
+                  className="w-full resize-none rounded-xl border border-gray-300 px-4 py-3 focus:border-transparent focus:ring-2 focus:ring-amber-400"
+                  placeholder="Describe what information is missing or needs to be confirmed (e.g., lab results pending, intake form incomplete, need to verify allergy history, etc.)"
+                />
+                <p className="mt-1 text-xs text-gray-500">Minimum 10 characters required</p>
+              </div>
+
+              <div className="rounded-lg bg-gray-50 p-3 text-sm">
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <span className="text-gray-500">Treatment:</span>
+                    <p className="font-medium">{holdModal.item.treatment}</p>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">Plan:</span>
+                    <p className="font-medium">{holdModal.item.plan}</p>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">Amount:</span>
+                    <p className="font-medium">{holdModal.item.amountFormatted}</p>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">Invoice:</span>
+                    <p className="text-xs font-medium">{holdModal.item.invoiceNumber}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-3 rounded-b-2xl border-t border-gray-100 bg-gray-50 px-4 py-4 sm:flex-row sm:px-6">
+              <button
+                type="button"
+                onMouseDown={(e) => {
+                  e.stopPropagation();
+                  setHoldModal(null);
+                  setHoldReason('');
+                }}
+                className="min-h-[48px] flex-1 touch-manipulation rounded-xl border border-gray-300 px-4 py-2.5 text-base font-medium text-gray-700 transition-colors hover:bg-gray-100 active:bg-gray-200"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onMouseDown={(e) => {
+                  e.stopPropagation();
+                  if (!holding && holdReason.trim().length >= 10) {
+                    handleHoldForInfo();
+                  }
+                }}
+                disabled={holding || holdReason.trim().length < 10}
+                className="flex min-h-[48px] flex-1 touch-manipulation items-center justify-center gap-2 rounded-xl bg-amber-500 px-4 py-2.5 text-base font-medium text-white transition-all hover:bg-amber-600 active:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {holding ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Holding...
+                  </>
+                ) : (
+                  <>
+                    <FileWarning className="h-4 w-4" />
+                    Hold for Info
                   </>
                 )}
               </button>

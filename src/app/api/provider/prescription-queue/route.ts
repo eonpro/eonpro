@@ -203,7 +203,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         prisma.refillQueue.findMany({
           where: {
             clinicId: { in: clinicIds },
-            status: { in: ['APPROVED', 'PENDING_PROVIDER'] },
+            status: { in: ['APPROVED', 'PENDING_PROVIDER', 'ON_HOLD'] },
           },
           include: {
             clinic: {
@@ -264,7 +264,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         prisma.order.findMany({
           where: {
             clinicId: { in: clinicIds },
-            status: 'queued_for_provider',
+            status: { in: ['queued_for_provider', 'needs_info'] },
           },
           include: {
             clinic: {
@@ -319,13 +319,13 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         prisma.refillQueue.count({
           where: {
             clinicId: { in: clinicIds },
-            status: { in: ['APPROVED', 'PENDING_PROVIDER'] },
+            status: { in: ['APPROVED', 'PENDING_PROVIDER', 'ON_HOLD'] },
           },
         }),
         prisma.order.count({
           where: {
             clinicId: { in: clinicIds },
-            status: 'queued_for_provider',
+            status: { in: ['queued_for_provider', 'needs_info'] },
           },
         }),
       ]);
@@ -1174,6 +1174,9 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         // If true, this record has a clinic mismatch between invoice and patient
         clinicMismatch: invoiceClinicId !== patientClinicId,
         patientClinicId: patientClinicId, // Include for debugging/fixing
+        // Hold status
+        holdReason: invoice.prescriptionHoldReason || null,
+        heldAt: invoice.prescriptionHeldAt?.toISOString() || null,
       };
     });
 
@@ -1295,6 +1298,9 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         // CRITICAL: Flag for multi-tenant isolation violation detection
         clinicMismatch: refillClinicId !== refillPatientClinicId,
         patientClinicId: refillPatientClinicId,
+        // Hold status
+        holdReason: refill.status === 'ON_HOLD' ? (refill.providerHoldReason || 'Held for more information') : null,
+        heldAt: refill.status === 'ON_HOLD' ? refill.updatedAt?.toISOString() : null,
       };
     });
 
@@ -1361,6 +1367,8 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         rxs: order.rxs,
         requestJson: order.requestJson,
         queuedByUserId: order.queuedByUserId,
+        holdReason: order.status === 'needs_info' ? 'Held for more information' : null,
+        heldAt: order.status === 'needs_info' ? order.updatedAt?.toISOString() : null,
       };
     });
 
@@ -1407,20 +1415,20 @@ async function handleGet(req: NextRequest, user: AuthUser) {
 
 /**
  * PATCH /api/provider/prescription-queue
- * Mark a prescription as processed
+ * Actions: mark_processed (default), hold_for_info, resume_from_hold
  *
  * Body:
- * - invoiceId: ID of the invoice to mark as processed (for invoice-based queue items)
- * - refillId: ID of the refill to mark as processed (for refill-based queue items)
- * At least one of invoiceId or refillId must be provided
+ * - invoiceId / refillId / orderId: identifies the queue item
+ * - action?: 'hold_for_info' | 'resume_from_hold' (omit for legacy mark-processed)
+ * - reason?: string (required for hold_for_info)
  */
 async function handlePatch(req: NextRequest, user: AuthUser) {
   try {
     const body = await req.json();
-    const { invoiceId, refillId } = body;
+    const { invoiceId, refillId, orderId, action, reason } = body;
 
-    if (!invoiceId && !refillId) {
-      return NextResponse.json({ error: 'Invoice ID or Refill ID is required' }, { status: 400 });
+    if (!invoiceId && !refillId && !orderId) {
+      return NextResponse.json({ error: 'Invoice ID, Refill ID, or Order ID is required' }, { status: 400 });
     }
 
     if (!user.clinicId) {
@@ -1431,7 +1439,6 @@ async function handlePatch(req: NextRequest, user: AuthUser) {
     }
     const clinicIds = [user.clinicId];
 
-    // Get provider ID if user is linked to a provider
     let providerId: number | null = null;
     if (user.id) {
       const userData = await prisma.user.findUnique({
@@ -1440,6 +1447,117 @@ async function handlePatch(req: NextRequest, user: AuthUser) {
       });
       providerId = userData?.providerId || null;
     }
+
+    // ── Hold for Info ──────────────────────────────────────────────────────
+    if (action === 'hold_for_info') {
+      if (!reason || typeof reason !== 'string' || reason.trim().length < 5) {
+        return NextResponse.json({ error: 'A reason is required (min 5 characters)' }, { status: 400 });
+      }
+
+      if (refillId) {
+        const refill = await prisma.refillQueue.findFirst({
+          where: { id: refillId, clinicId: { in: clinicIds }, status: { in: ['APPROVED', 'PENDING_PROVIDER'] } },
+        });
+        if (!refill) {
+          return NextResponse.json({ error: 'Refill not found or not in active queue' }, { status: 404 });
+        }
+        await prisma.refillQueue.update({
+          where: { id: refillId },
+          data: { status: 'ON_HOLD', providerHoldReason: reason.trim() },
+        });
+        logger.info('[PRESCRIPTION-QUEUE] Refill held for more info', { refillId, userId: user.id });
+        return NextResponse.json({ success: true, message: 'Refill held for more information' });
+      }
+
+      if (orderId) {
+        const order = await prisma.order.findFirst({
+          where: { id: orderId, clinicId: { in: clinicIds }, status: 'queued_for_provider' },
+        });
+        if (!order) {
+          return NextResponse.json({ error: 'Order not found or not in active queue' }, { status: 404 });
+        }
+        await prisma.order.update({
+          where: { id: orderId },
+          data: { status: 'needs_info' },
+        });
+        logger.info('[PRESCRIPTION-QUEUE] Queued order held for more info', { orderId, userId: user.id });
+        return NextResponse.json({ success: true, message: 'Order held for more information' });
+      }
+
+      // Invoice hold
+      const invoice = await prisma.invoice.findFirst({
+        where: { id: invoiceId, clinicId: { in: clinicIds }, status: 'PAID', prescriptionProcessed: false },
+      });
+      if (!invoice) {
+        return NextResponse.json({ error: 'Invoice not found or not in active queue' }, { status: 404 });
+      }
+      await prisma.invoice.update({
+        where: { id: invoiceId },
+        data: {
+          prescriptionHoldReason: reason.trim(),
+          prescriptionHeldAt: new Date(),
+          prescriptionHeldBy: providerId ?? user.id,
+        },
+      });
+      logger.info('[PRESCRIPTION-QUEUE] Invoice held for more info', { invoiceId, userId: user.id });
+      return NextResponse.json({ success: true, message: 'Prescription held for more information' });
+    }
+
+    // ── Resume from Hold ───────────────────────────────────────────────────
+    if (action === 'resume_from_hold') {
+      if (refillId) {
+        const refill = await prisma.refillQueue.findFirst({
+          where: { id: refillId, clinicId: { in: clinicIds }, status: 'ON_HOLD' },
+        });
+        if (!refill) {
+          return NextResponse.json({ error: 'Held refill not found' }, { status: 404 });
+        }
+        const resumeStatus = refill.adminApproved ? 'APPROVED' : 'PENDING_PROVIDER';
+        await prisma.refillQueue.update({
+          where: { id: refillId },
+          data: { status: resumeStatus, providerHoldReason: null },
+        });
+        logger.info('[PRESCRIPTION-QUEUE] Refill resumed from hold', { refillId, userId: user.id });
+        return NextResponse.json({ success: true, message: 'Refill returned to queue' });
+      }
+
+      if (orderId) {
+        const order = await prisma.order.findFirst({
+          where: { id: orderId, clinicId: { in: clinicIds }, status: 'needs_info' },
+        });
+        if (!order) {
+          return NextResponse.json({ error: 'Held order not found' }, { status: 404 });
+        }
+        await prisma.order.update({
+          where: { id: orderId },
+          data: { status: 'queued_for_provider' },
+        });
+        logger.info('[PRESCRIPTION-QUEUE] Queued order resumed from hold', { orderId, userId: user.id });
+        return NextResponse.json({ success: true, message: 'Order returned to queue' });
+      }
+
+      // Invoice resume
+      const invoice = await prisma.invoice.findFirst({
+        where: {
+          id: invoiceId,
+          clinicId: { in: clinicIds },
+          status: 'PAID',
+          prescriptionProcessed: false,
+          prescriptionHoldReason: { not: null },
+        },
+      });
+      if (!invoice) {
+        return NextResponse.json({ error: 'Held invoice not found' }, { status: 404 });
+      }
+      await prisma.invoice.update({
+        where: { id: invoiceId },
+        data: { prescriptionHoldReason: null, prescriptionHeldAt: null, prescriptionHeldBy: null },
+      });
+      logger.info('[PRESCRIPTION-QUEUE] Invoice resumed from hold', { invoiceId, userId: user.id });
+      return NextResponse.json({ success: true, message: 'Prescription returned to queue' });
+    }
+
+    // ── Mark Processed (legacy default) ────────────────────────────────────
 
     // Handle refill-based queue items
     if (refillId && !invoiceId) {
@@ -1457,7 +1575,6 @@ async function handlePatch(req: NextRequest, user: AuthUser) {
       });
 
       if (!refill) {
-        // Idempotent: if already prescribed, return success instead of 404
         const alreadyPrescribed = await prisma.refillQueue.findFirst({
           where: { id: refillId, clinicId: { in: clinicIds }, status: 'PRESCRIBED' },
           select: { id: true, status: true },
@@ -1503,11 +1620,6 @@ async function handlePatch(req: NextRequest, user: AuthUser) {
     }
 
     // Handle invoice-based queue items
-    // CRITICAL: Verify invoice exists, belongs to one of provider's clinics, and is in the queue
-    // This ensures prescriptions use the correct clinic context for:
-    // - Lifefile API credentials (pharmacy routing, billing)
-    // - E-prescription PDF branding (clinic name, address, phone)
-    // - Tracking webhook routing back to correct clinic
     const invoice = await prisma.invoice.findFirst({
       where: {
         id: invoiceId,
@@ -1536,7 +1648,6 @@ async function handlePatch(req: NextRequest, user: AuthUser) {
     });
 
     if (!invoice) {
-      // Idempotent: if already processed, return success instead of 404
       const alreadyProcessed = await prisma.invoice.findFirst({
         where: { id: invoiceId, clinicId: { in: clinicIds }, prescriptionProcessed: true },
         select: { id: true, prescriptionProcessedAt: true },
@@ -1559,33 +1670,31 @@ async function handlePatch(req: NextRequest, user: AuthUser) {
       );
     }
 
-    // CRITICAL: Validate clinic context consistency
     if (invoice.patient.clinicId !== invoice.clinicId) {
       logger.warn('Clinic mismatch: patient clinic differs from invoice clinic', {
         invoiceId,
         invoiceClinicId: invoice.clinicId,
         patientClinicId: invoice.patient.clinicId,
       });
-      // Allow processing but log the mismatch for audit
     }
 
-    // Mark as processed
     const updatedInvoice = await prisma.invoice.update({
       where: { id: invoiceId },
       data: {
         prescriptionProcessed: true,
         prescriptionProcessedAt: new Date(),
         prescriptionProcessedBy: providerId,
+        prescriptionHoldReason: null,
+        prescriptionHeldAt: null,
+        prescriptionHeldBy: null,
       },
     });
 
     logger.info('Prescription marked as processed', {
       invoiceId,
       patientId: invoice.patient.id,
-      patientName: `${invoice.patient.firstName} ${invoice.patient.lastName}`,
       processedBy: user.email,
       providerId,
-      // CRITICAL: Log clinic context for audit trail
       clinicId: invoice.clinicId,
       clinicName: invoice.clinic?.name,
       lifefileEnabled: invoice.clinic?.lifefileEnabled,
@@ -1598,13 +1707,12 @@ async function handlePatch(req: NextRequest, user: AuthUser) {
         id: updatedInvoice.id,
         prescriptionProcessed: updatedInvoice.prescriptionProcessed,
         prescriptionProcessedAt: updatedInvoice.prescriptionProcessedAt,
-        // Return clinic context so frontend can use correct clinic for prescription
         clinicId: invoice.clinicId,
       },
     });
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    logger.error('Error marking prescription as processed', {
+    logger.error('Error in prescription queue PATCH', {
       error: errorMessage,
       userId: user.id,
     });
