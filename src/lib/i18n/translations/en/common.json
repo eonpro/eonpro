@@ -92,7 +92,7 @@
     "noData": "No data available",
     "noResults": "No results found",
     "required": "This field is required",
-    "invalid": "Invalid input",
+    "invalid": "Invalid email or password",
     "sessionExpired": "Your session has expired",
     "networkError": "Network error. Please check your connection.",
     "unexpectedError": "An unexpected error occurred",
