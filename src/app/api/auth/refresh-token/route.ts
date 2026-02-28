@@ -146,7 +146,39 @@ async function refreshTokenHandler(req: NextRequest) {
       if (appUser) {
         // Create session record so production auth (validateSession) can find it
         const userRole = String(appUser.role).toLowerCase();
-        const userClinicId = (appUser as { clinicId?: number }).clinicId;
+        let userClinicId = (appUser as { clinicId?: number }).clinicId ?? null;
+
+        // Resolve clinicId from related records when User.clinicId is null.
+        // During login, clinicId is resolved from subdomain/UserClinic/Patient fallbacks,
+        // but the refresh path previously only read User.clinicId. When it was null,
+        // the refreshed token lacked clinicId, causing TenantContextRequiredError (500s)
+        // on every subsequent API call for that patient.
+        if (userClinicId == null) {
+          try {
+            const patientId = (appUser as { patientId?: number }).patientId;
+            if (userRole === 'patient' && patientId) {
+              const patient = await prisma.patient.findUnique({
+                where: { id: patientId },
+                select: { clinicId: true },
+              });
+              if (patient?.clinicId) userClinicId = patient.clinicId;
+            }
+            if (userClinicId == null) {
+              const uc = await prisma.userClinic.findFirst({
+                where: { userId: appUser.id, isActive: true },
+                select: { clinicId: true },
+                orderBy: { createdAt: 'desc' },
+              });
+              if (uc?.clinicId) userClinicId = uc.clinicId;
+            }
+          } catch (err) {
+            logger.warn('[RefreshToken] clinicId resolution fallback failed', {
+              userId: appUser.id,
+              error: err instanceof Error ? err.message : String(err),
+            });
+          }
+        }
+
         const { sessionId } = await createSessionRecord(
           String(appUser.id),
           userRole,
@@ -166,6 +198,12 @@ async function refreshTokenHandler(req: NextRequest) {
           sessionId,
         };
         if (userClinicId != null) tokenPayload.clinicId = userClinicId;
+        if (userRole === 'patient' && userClinicId == null) {
+          logger.warn('[RefreshToken] Patient token refreshed without clinicId', {
+            userId: appUser.id,
+            patientId: (appUser as { patientId?: number }).patientId,
+          });
+        }
         if ((appUser as { providerId?: number }).providerId != null)
           tokenPayload.providerId = (appUser as { providerId?: number }).providerId;
         if ((appUser as { patientId?: number }).patientId != null)

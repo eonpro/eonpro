@@ -21,6 +21,7 @@ import {
   BadRequestError,
   ConflictError,
   DatabaseError,
+  ForbiddenError,
   InternalError,
   isAppError,
   NotFoundError,
@@ -28,6 +29,7 @@ import {
   ValidationError,
   type ValidationErrorDetail,
 } from './AppError';
+import { TenantContextRequiredError } from '@/lib/tenant-context-errors';
 
 // ============================================================================
 // Constants
@@ -133,6 +135,14 @@ function normalizeError(error: unknown): AppError {
   // Already an AppError
   if (isAppError(error)) {
     return error;
+  }
+
+  // Tenant context missing — session likely lacks clinicId (e.g. after token refresh).
+  // Return 403 so the client can prompt re-login instead of showing a generic 500.
+  if (error instanceof TenantContextRequiredError) {
+    return new ForbiddenError(
+      'Clinic context is required. Please log in again.'
+    );
   }
 
   // Zod validation errors

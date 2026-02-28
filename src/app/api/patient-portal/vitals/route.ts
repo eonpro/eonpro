@@ -5,6 +5,7 @@ import { auditLog, AuditEventType } from '@/lib/audit/hipaa-audit';
 import { handleApiError } from '@/domains/shared/errors';
 import { extractVitalsFromIntake, parseDocumentData } from '@/lib/utils/vitals-extraction';
 import { loadPatientIntakeData } from '@/lib/database/intake-data-loader';
+import { withRetry } from '@/lib/database/connection-pool';
 
 /**
  * GET /api/patient-portal/vitals
@@ -17,18 +18,19 @@ import { loadPatientIntakeData } from '@/lib/database/intake-data-loader';
 
 const getHandler = withAuth(async (request: NextRequest, user) => {
   try {
-    // Only patients can access this endpoint
     if (user.role !== 'patient' || !user.patientId) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 
     const patientId = user.patientId;
 
-    // Fetch patient with intake documents and submissions (centralized loader)
-    const patient = await loadPatientIntakeData(patientId, {
-      includeDocumentData: true,
-      submissionOrder: 'desc',
-    });
+    const patient = await withRetry(
+      () => loadPatientIntakeData(patientId, {
+        includeDocumentData: true,
+        submissionOrder: 'desc',
+      }),
+      { maxRetries: 2, initialDelayMs: 150 }
+    );
 
     if (!patient) {
       return NextResponse.json({ error: 'Patient not found' }, { status: 404 });

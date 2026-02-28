@@ -17,7 +17,7 @@ export const SESSION_EXPIRED_MESSAGE = 'Your session has expired. Please log in 
  */
 export function getPortalResponseError(response: Response): string | null {
   if (response.status === 401) return SESSION_EXPIRED_MESSAGE;
-  if (response.status === 403) return 'Access denied. Please contact your care team.';
+  if (response.status === 403) return SESSION_EXPIRED_MESSAGE;
   return null;
 }
 
