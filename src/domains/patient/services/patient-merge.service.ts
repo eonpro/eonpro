@@ -723,6 +723,22 @@ export function createPatientMergeService(db: PrismaClient = prisma): PatientMer
             ? preview.source.createdAt
             : preview.target.createdAt;
 
+        // =====================================================================
+        // 3a. CLEAR UNIQUE FIELDS FROM SOURCE BEFORE UPDATING TARGET
+        // =====================================================================
+        // stripeCustomerId has a @unique constraint. If we're moving it from
+        // source to target, we must clear it from source FIRST to avoid a
+        // unique constraint violation during the target update.
+        if (
+          preview.source.stripeCustomerId &&
+          preview.source.stripeCustomerId === stripeCustomerId
+        ) {
+          await tx.patient.update({
+            where: { id: sourcePatientId },
+            data: { stripeCustomerId: null },
+          });
+        }
+
         // Encrypt PHI fields before writing to database
         let encryptedMergedFields: Record<string, unknown>;
         try {
@@ -804,17 +820,6 @@ export function createPatientMergeService(db: PrismaClient = prisma): PatientMer
         // =====================================================================
         // 5. DELETE SOURCE PATIENT
         // =====================================================================
-
-        // Clear stripeCustomerId from source if it was moved (to avoid unique constraint)
-        if (
-          preview.source.stripeCustomerId &&
-          preview.source.stripeCustomerId === stripeCustomerId
-        ) {
-          await tx.patient.update({
-            where: { id: sourcePatientId },
-            data: { stripeCustomerId: null },
-          });
-        }
 
         // Delete the source patient
         await tx.patient.delete({
