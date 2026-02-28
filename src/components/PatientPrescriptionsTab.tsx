@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import PrescriptionModal from './PrescriptionModal';
 import PatientShippingHistory from './PatientShippingHistory';
 import OrderManagementModal from './OrderManagementModal';
+import DoseSpotPrescriber from './dosespot/DoseSpotPrescriber';
 
 type Order = {
   id: number;
@@ -64,12 +65,16 @@ type PatientPrescriptionsTabProps = {
   };
   orders: Order[];
   shippingLabelMap: Map<string | number, string>;
+  doseSpotEnabled?: boolean;
+  providerId?: number;
 };
 
 export default function PatientPrescriptionsTab({
   patient,
   orders,
   shippingLabelMap,
+  doseSpotEnabled = false,
+  providerId,
 }: PatientPrescriptionsTabProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
@@ -102,20 +107,30 @@ export default function PatientPrescriptionsTab({
         {orders.length === 0 ? (
           <div className="py-8 text-center">
             <p className="mb-4 text-gray-500">No prescriptions yet.</p>
-            <button
-              onClick={() => setIsModalOpen(true)}
-              className="inline-flex items-center rounded-lg bg-[#4fa77e] px-4 py-2 text-white transition-colors hover:bg-[#3f8660]"
-            >
-              <svg className="mr-2 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 4v16m8-8H4"
+            <div className="flex items-center justify-center gap-3">
+              <button
+                onClick={() => setIsModalOpen(true)}
+                className="inline-flex items-center rounded-lg bg-[#4fa77e] px-4 py-2 text-white transition-colors hover:bg-[#3f8660]"
+              >
+                <svg className="mr-2 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 4v16m8-8H4"
+                  />
+                </svg>
+                Create First Prescription
+              </button>
+              {doseSpotEnabled && providerId && (
+                <DoseSpotPrescriber
+                  patientId={patient.id}
+                  prescriberId={providerId}
+                  patientName={`${patient.firstName} ${patient.lastName}`}
+                  onComplete={() => router.refresh()}
                 />
-              </svg>
-              Create First Prescription
-            </button>
+              )}
+            </div>
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -300,20 +315,30 @@ export default function PatientPrescriptionsTab({
             <p className="mb-4 text-sm text-gray-600">
               Create a new prescription order for {patient.firstName} {patient.lastName}
             </p>
-            <button
-              onClick={() => setIsModalOpen(true)}
-              className="inline-flex items-center rounded-lg bg-[#4fa77e] px-6 py-3 font-medium text-white transition-colors hover:bg-[#3f8660]"
-            >
-              <svg className="mr-2 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 4v16m8-8H4"
+            <div className="flex items-center justify-center gap-3">
+              <button
+                onClick={() => setIsModalOpen(true)}
+                className="inline-flex items-center rounded-lg bg-[#4fa77e] px-6 py-3 font-medium text-white transition-colors hover:bg-[#3f8660]"
+              >
+                <svg className="mr-2 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 4v16m8-8H4"
+                  />
+                </svg>
+                New Prescription
+              </button>
+              {doseSpotEnabled && providerId && (
+                <DoseSpotPrescriber
+                  patientId={patient.id}
+                  prescriberId={providerId}
+                  patientName={`${patient.firstName} ${patient.lastName}`}
+                  onComplete={() => router.refresh()}
                 />
-              </svg>
-              New Prescription
-            </button>
+              )}
+            </div>
           </div>
         </section>
       )}

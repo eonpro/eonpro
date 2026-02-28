@@ -130,7 +130,7 @@ export default function DoseSpotPrescriberDashboard({
                     </Dialog.Title>
                     <button
                       type="button"
-                      className="rounded-md bg-white text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      className="rounded-md bg-white text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-[#4fa77e]"
                       onClick={handleClose}
                     >
                       <span className="sr-only">Close</span>
