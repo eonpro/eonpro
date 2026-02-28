@@ -18,6 +18,7 @@ import {
 import { logger } from '@/lib/logger';
 import { verifyAuth } from '@/lib/auth/middleware';
 import { withApiHandler } from '@/domains/shared/errors';
+import { checkReadReplicaHealth, hasReadReplica } from '@/lib/database/read-replica';
 
 interface HealthCheck {
   name: string;
@@ -666,6 +667,47 @@ async function checkAffiliateSystem(): Promise<HealthCheck> {
   }
 }
 
+async function checkReadReplica(): Promise<HealthCheck> {
+  const start = Date.now();
+
+  if (!hasReadReplica) {
+    return {
+      name: 'Read Replica',
+      status: 'degraded',
+      responseTime: Date.now() - start,
+      message: 'DATABASE_READ_REPLICA_URL not configured — all reads go to primary',
+    };
+  }
+
+  try {
+    const result = await checkReadReplicaHealth();
+
+    if (!result.healthy) {
+      return {
+        name: 'Read Replica',
+        status: 'unhealthy',
+        responseTime: result.latencyMs ?? Date.now() - start,
+        message: result.error || 'Replica not responding',
+      };
+    }
+
+    return {
+      name: 'Read Replica',
+      status: (result.latencyMs ?? 0) > 500 ? 'degraded' : 'healthy',
+      responseTime: result.latencyMs ?? Date.now() - start,
+      message: 'Connected and responsive',
+      details: { latencyMs: result.latencyMs },
+    };
+  } catch (error: any) {
+    return {
+      name: 'Read Replica',
+      status: 'unhealthy',
+      responseTime: Date.now() - start,
+      message: error.message,
+    };
+  }
+}
+
 async function healthHandler(req: NextRequest) {
   const startTime = Date.now();
   const { searchParams } = new URL(req.url);
@@ -714,6 +756,7 @@ async function healthHandler(req: NextRequest) {
     // Run all checks in parallel for speed
     const checks = await Promise.all([
       checkDatabase(),
+      checkReadReplica(),
       checkConnectionPool(),
       checkMigrations(),
       checkStripe(),

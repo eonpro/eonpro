@@ -7,6 +7,7 @@ import { retrieveFile, deleteFile } from '@/lib/storage/secure-storage';
 import { auditLog, AuditEventType } from '@/lib/audit/hipaa-audit';
 import { isS3Enabled, STORAGE_CONFIG } from '@/lib/integrations/aws/s3Config';
 import { downloadFromS3, deleteFromS3 } from '@/lib/integrations/aws/s3Service';
+import { readPdfData } from '@/lib/storage/document-data-store';
 
 // Helper to create safe Content-Disposition header value
 function getSafeContentDisposition(filename: string, defaultName: string = 'document'): string {
@@ -116,9 +117,30 @@ export const GET = withAuthParams(
       // Helper to check if buffer is a PDF
       const isPdfBuffer = (buffer: Buffer): boolean => {
         if (buffer.length < 4) return false;
-        // Check for %PDF magic bytes
         return buffer[0] === 0x25 && buffer[1] === 0x50 && buffer[2] === 0x44 && buffer[3] === 0x46;
       };
+
+      // PRIORITY 0: Serve from S3 via readPdfData (prefers S3 when S3_PDF_STORAGE_ENABLED=true)
+      if (document.s3DataKey && document.s3DataKey.startsWith('documents/')) {
+        try {
+          const s3Buffer = await readPdfData(document);
+          if (s3Buffer && s3Buffer.length > 0 && isPdfBuffer(s3Buffer)) {
+            logger.debug(`Serving document ${documentId} from S3 via readPdfData, size: ${s3Buffer.length}`);
+            return new NextResponse(new Uint8Array(s3Buffer), {
+              headers: {
+                'Content-Type': 'application/pdf',
+                'Content-Disposition': getSafeContentDisposition(document.filename, 'document.pdf'),
+                'Content-Length': s3Buffer.length.toString(),
+                'Cache-Control': 'private, no-cache',
+              },
+            });
+          }
+        } catch (err) {
+          logger.warn(`S3 readPdfData failed for document ${documentId}, falling through`, {
+            error: err instanceof Error ? err.message : String(err),
+          });
+        }
+      }
 
       // PRIORITY 1: Serve from database 'data' field (preferred for PDFs)
       if (document.data) {

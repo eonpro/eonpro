@@ -21,6 +21,7 @@ import {
   calculateDateRange,
 } from '@/services/reporting/ReportingService';
 import { prisma, getClinicContext } from '@/lib/db';
+import { getReadPrisma } from '@/lib/database/read-replica';
 import { AGGREGATION_TAKE } from '@/lib/pagination';
 import { standardRateLimit } from '@/lib/rateLimit';
 import { logger } from '@/lib/logger';
@@ -28,6 +29,7 @@ import { logger } from '@/lib/logger';
 async function getPatientReportsHandler(req: NextRequest, user: AuthUser): Promise<Response> {
   try {
     requirePermission(toPermissionContext(user), 'report:run');
+    const readDb = getReadPrisma();
     const url = new URL(req.url);
     const type = url.searchParams.get('type') || 'metrics';
     const rangeParam = (url.searchParams.get('range') || 'this_month') as DateRange;
@@ -89,7 +91,7 @@ async function getPatientReportsHandler(req: NextRequest, user: AuthUser): Promi
         return NextResponse.json({ metrics, dateRange: { start, end } });
 
       case 'new':
-        const newPatients = await prisma.patient.findMany({
+        const newPatients = await readDb.patient.findMany({
           where: {
             ...clinicFilter,
             createdAt: { gte: start, lte: end },
@@ -120,7 +122,7 @@ async function getPatientReportsHandler(req: NextRequest, user: AuthUser): Promi
         const ninetyDaysAgo = new Date();
         ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
 
-        const activePatients = await prisma.patient.findMany({
+        const activePatients = await readDb.patient.findMany({
           where: {
             ...clinicFilter,
             OR: [
@@ -156,7 +158,7 @@ async function getPatientReportsHandler(req: NextRequest, user: AuthUser): Promi
         const inactiveThreshold = new Date();
         inactiveThreshold.setDate(inactiveThreshold.getDate() - 90);
 
-        const inactivePatients = await prisma.patient.findMany({
+        const inactivePatients = await readDb.patient.findMany({
           where: {
             ...clinicFilter,
             AND: [
@@ -196,7 +198,7 @@ async function getPatientReportsHandler(req: NextRequest, user: AuthUser): Promi
         });
 
       case 'by-source':
-        const patientsBySource = await prisma.patient.groupBy({
+        const patientsBySource = await readDb.patient.groupBy({
           by: ['source'],
           where: {
             ...clinicFilter,
@@ -210,7 +212,7 @@ async function getPatientReportsHandler(req: NextRequest, user: AuthUser): Promi
         // Fetch patient details for all source groups in parallel
         await Promise.all(
           patientsBySource.map(async (group) => {
-            const patients = await prisma.patient.findMany({
+            const patients = await readDb.patient.findMany({
               where: {
                 ...clinicFilter,
                 source: group.source,

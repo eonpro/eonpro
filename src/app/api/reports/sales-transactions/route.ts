@@ -25,6 +25,7 @@ import {
   calculateDateRange,
 } from '@/services/reporting/ReportingService';
 import { prisma } from '@/lib/db';
+import { getReadPrisma } from '@/lib/database/read-replica';
 import { standardRateLimit } from '@/lib/rateLimit';
 import { logger } from '@/lib/logger';
 import { Prisma } from '@prisma/client';
@@ -56,6 +57,7 @@ function formatCurrency(cents: number): string {
 async function handler(req: NextRequest, user: AuthUser): Promise<Response> {
   try {
     requirePermission(toPermissionContext(user), 'report:run');
+    const readDb = getReadPrisma();
 
     const url = new URL(req.url);
     const rangeParam = (url.searchParams.get('range') || 'today') as DateRange;
@@ -95,7 +97,7 @@ async function handler(req: NextRequest, user: AuthUser): Promise<Response> {
       allRefundedAmountAgg,
     ] = await Promise.all([
       // 1. Transaction rows (paginated)
-      prisma.payment.findMany({
+      readDb.payment.findMany({
         where,
         include: {
           patient: {
@@ -151,37 +153,37 @@ async function handler(req: NextRequest, user: AuthUser): Promise<Response> {
       }),
 
       // 2. Total count for pagination (respects status filter)
-      prisma.payment.count({ where }),
+      readDb.payment.count({ where }),
 
       // 3-7. Per-status aggregates (always computed against full date range, ignoring status filter)
-      prisma.payment.aggregate({
+      readDb.payment.aggregate({
         where: { ...dateWhere, status: 'SUCCEEDED' },
         _sum: { amount: true },
         _count: true,
       }),
-      prisma.payment.aggregate({
+      readDb.payment.aggregate({
         where: { ...dateWhere, status: 'FAILED' },
         _sum: { amount: true },
         _count: true,
       }),
-      prisma.payment.aggregate({
+      readDb.payment.aggregate({
         where: { ...dateWhere, status: { in: ['REFUNDED', 'PARTIALLY_REFUNDED'] } },
         _sum: { amount: true },
         _count: true,
       }),
-      prisma.payment.aggregate({
+      readDb.payment.aggregate({
         where: { ...dateWhere, status: { in: ['PENDING', 'PROCESSING'] } },
         _sum: { amount: true },
         _count: true,
       }),
-      prisma.payment.aggregate({
+      readDb.payment.aggregate({
         where: { ...dateWhere, status: 'CANCELED' },
         _sum: { amount: true },
         _count: true,
       }),
 
       // 8. Total refunded dollars (from refundedAmount field on SUCCEEDED payments that were partially refunded)
-      prisma.payment.aggregate({
+      readDb.payment.aggregate({
         where: {
           ...dateWhere,
           refundedAmount: { gt: 0 },

@@ -4,7 +4,7 @@ import { logger } from '@/lib/logger';
 import { withAuthParams } from '@/lib/auth/middleware-with-params';
 import { generateIntakePdf } from '@/services/intakePdfService';
 import type { NormalizedIntake } from '@/lib/heyflow/types';
-import { readIntakeData } from '@/lib/storage/document-data-store';
+import { readIntakeData, storePdfData } from '@/lib/storage/document-data-store';
 import { uploadToS3 } from '@/lib/integrations/aws/s3Service';
 import { isS3Enabled, FileCategory } from '@/lib/integrations/aws/s3Config';
 
@@ -191,10 +191,19 @@ export const POST = withAuthParams(
             logger.warn(`[PDF REGENERATION] S3 upload failed (non-fatal):`, { error: s3ErrMsg });
           }
 
+          // Dual-write: also store PDF in S3 via storePdfData for s3DataKey path
+          const pdfStoreResult = await storePdfData(pdfBuffer, {
+            documentId: doc.id,
+            patientId: doc.patientId,
+            clinicId: doc.clinicId ?? null,
+            filename: doc.filename || `regen-${doc.id}.pdf`,
+          });
+
           await prisma.patientDocument.update({
             where: { id: doc.id },
             data: {
               ...(pdfExternalUrl ? { externalUrl: pdfExternalUrl } : {}),
+              ...(pdfStoreResult.s3DataKey ? { s3DataKey: pdfStoreResult.s3DataKey } : {}),
             },
           });
 

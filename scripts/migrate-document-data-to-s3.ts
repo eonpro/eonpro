@@ -3,24 +3,25 @@
  * MIGRATION SCRIPT: Backfill PatientDocument.data → S3
  * =====================================================
  *
- * Phase 3.3 of the Enterprise Remediation Roadmap.
- *
  * Scans PatientDocument records where:
  *   - `data IS NOT NULL`
  *   - `s3DataKey IS NULL`
- *   - `data` contains JSON (not binary PDF)
  *
- * For each matching record, uploads the JSON data to S3 and sets `s3DataKey`.
+ * By default, migrates only JSON intake data. With --include-pdfs, also
+ * migrates binary PDF documents to S3.
  *
  * Usage:
  *   # Dry run (no changes, just report)
  *   npx tsx scripts/migrate-document-data-to-s3.ts --dry-run
  *
- *   # Actual migration
+ *   # Migrate JSON intake data only (default)
  *   npx tsx scripts/migrate-document-data-to-s3.ts
  *
+ *   # Migrate both JSON and PDF data
+ *   npx tsx scripts/migrate-document-data-to-s3.ts --include-pdfs
+ *
  *   # With custom batch size and rate limit
- *   npx tsx scripts/migrate-document-data-to-s3.ts --batch-size=100 --delay-ms=200
+ *   npx tsx scripts/migrate-document-data-to-s3.ts --include-pdfs --batch-size=100 --delay-ms=200
  *
  * Safety:
  *   - Idempotent: skips records that already have `s3DataKey`
@@ -39,6 +40,7 @@ import { PrismaClient } from '@prisma/client';
 
 const args = process.argv.slice(2);
 const DRY_RUN = args.includes('--dry-run');
+const INCLUDE_PDFS = args.includes('--include-pdfs');
 const BATCH_SIZE = parseInt(
   args.find((a) => a.startsWith('--batch-size='))?.split('=')[1] || '50',
   10
@@ -120,11 +122,12 @@ function sleep(ms: number): Promise<void> {
 async function migrate() {
   console.log('');
   console.log('═══════════════════════════════════════════════════════════');
-  console.log('  Phase 3.3: Migrate PatientDocument.data → S3');
+  console.log('  Migrate PatientDocument.data → S3');
   console.log('═══════════════════════════════════════════════════════════');
-  console.log(`  Mode:       ${DRY_RUN ? '🔍 DRY RUN (no changes)' : '🚀 LIVE'}`);
-  console.log(`  Batch size: ${BATCH_SIZE}`);
-  console.log(`  Delay:      ${DELAY_MS}ms between batches`);
+  console.log(`  Mode:         ${DRY_RUN ? '🔍 DRY RUN (no changes)' : '🚀 LIVE'}`);
+  console.log(`  Include PDFs: ${INCLUDE_PDFS ? '✅ Yes' : '❌ No (JSON only)'}`);
+  console.log(`  Batch size:   ${BATCH_SIZE}`);
+  console.log(`  Delay:        ${DELAY_MS}ms between batches`);
   console.log('═══════════════════════════════════════════════════════════');
   console.log('');
 
@@ -148,8 +151,9 @@ async function migrate() {
   }
 
   let processed = 0;
-  let migrated = 0;
-  let skippedBinary = 0;
+  let migratedJson = 0;
+  let migratedPdf = 0;
+  let skipped = 0;
   let errors = 0;
   let cursor: number | undefined;
 
@@ -166,6 +170,7 @@ async function migrate() {
         clinicId: true,
         data: true,
         s3DataKey: true,
+        mimeType: true,
         category: true,
       },
       orderBy: { id: 'asc' },
@@ -180,23 +185,31 @@ async function migrate() {
 
       const buffer = toBuffer(doc.data);
       if (!buffer || buffer.length === 0) {
-        skippedBinary++;
-        continue;
-      }
-
-      if (!isJsonData(buffer)) {
-        skippedBinary++;
+        skipped++;
         continue;
       }
 
       const cId = doc.clinicId ?? 0;
-      const key = `intake-data/${cId}/${doc.patientId}/${doc.id}.json`;
+      const isJson = isJsonData(buffer);
+
+      if (!isJson && !INCLUDE_PDFS) {
+        skipped++;
+        continue;
+      }
+
+      const key = isJson
+        ? `intake-data/${cId}/${doc.patientId}/${doc.id}.json`
+        : `documents/${cId}/${doc.patientId}/${doc.id}.pdf`;
+      const contentType = isJson ? 'application/json' : (doc.mimeType || 'application/pdf');
+      const dataType = isJson ? 'intake-json-data' : 'pdf-document';
 
       if (DRY_RUN) {
-        migrated++;
-        if (migrated <= 10) {
+        if (isJson) migratedJson++;
+        else migratedPdf++;
+        const total = migratedJson + migratedPdf;
+        if (total <= 10) {
           console.log(
-            `  [DRY] Would migrate doc ${doc.id} → ${key} (${buffer.length} bytes)`
+            `  [DRY] Would migrate doc ${doc.id} (${isJson ? 'JSON' : 'PDF'}) → ${key} (${buffer.length} bytes)`
           );
         }
         continue;
@@ -208,13 +221,13 @@ async function migrate() {
             Bucket: bucketName,
             Key: key,
             Body: buffer,
-            ContentType: 'application/json',
+            ContentType: contentType,
             ServerSideEncryption: 'AES256',
             Metadata: {
               clinicId: String(cId),
               patientId: String(doc.patientId),
               documentId: String(doc.id),
-              type: 'intake-json-data',
+              type: dataType,
               migratedAt: new Date().toISOString(),
             },
           })
@@ -225,11 +238,13 @@ async function migrate() {
           data: { s3DataKey: key },
         });
 
-        migrated++;
+        if (isJson) migratedJson++;
+        else migratedPdf++;
 
-        if (migrated % 100 === 0) {
+        const total = migratedJson + migratedPdf;
+        if (total % 100 === 0) {
           console.log(
-            `  ✅ Migrated ${migrated}/${totalCandidates} (processed ${processed}, errors ${errors})`
+            `  ✅ Migrated ${total}/${totalCandidates} (JSON: ${migratedJson}, PDF: ${migratedPdf}, errors: ${errors})`
           );
         }
       } catch (err) {
@@ -241,26 +256,31 @@ async function migrate() {
       }
     }
 
-    // Rate limiting between batches
     if (DELAY_MS > 0 && batch.length === BATCH_SIZE) {
       await sleep(DELAY_MS);
     }
   }
+
+  const totalMigrated = migratedJson + migratedPdf;
 
   console.log('');
   console.log('═══════════════════════════════════════════════════════════');
   console.log('  MIGRATION COMPLETE');
   console.log('═══════════════════════════════════════════════════════════');
   console.log(`  Total processed:  ${processed}`);
-  console.log(`  Migrated to S3:   ${migrated}`);
-  console.log(`  Skipped (binary): ${skippedBinary}`);
+  console.log(`  Migrated JSON:    ${migratedJson}`);
+  console.log(`  Migrated PDF:     ${migratedPdf}`);
+  console.log(`  Skipped:          ${skipped}`);
   console.log(`  Errors:           ${errors}`);
   console.log(`  Mode:             ${DRY_RUN ? 'DRY RUN' : 'LIVE'}`);
   console.log('═══════════════════════════════════════════════════════════');
   console.log('');
 
-  if (DRY_RUN && migrated > 0) {
+  if (DRY_RUN && totalMigrated > 0) {
     console.log('💡 Run without --dry-run to perform the actual migration.');
+    if (!INCLUDE_PDFS && skipped > 0) {
+      console.log('💡 Add --include-pdfs to also migrate binary PDF documents.');
+    }
   }
 }
 

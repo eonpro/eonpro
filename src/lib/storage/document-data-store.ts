@@ -2,16 +2,16 @@
  * DOCUMENT DATA STORE — S3 Externalization Abstraction
  * =====================================================
  *
- * Unified read/write layer for PatientDocument intake data.
- * Transparently stores and retrieves JSON intake data from S3
+ * Unified read/write layer for PatientDocument data (both intake JSON
+ * and binary PDFs). Transparently stores and retrieves from S3
  * (when enabled) or falls back to the DB `data` column.
- *
- * Phase 3.3 of the Enterprise Remediation Roadmap.
  *
  * Design:
  *   - Dual-write: S3 + DB `data` column (for instant rollback)
- *   - Feature flag: `S3_INTAKE_DATA_ENABLED` controls read path
- *   - S3 path: `intake-data/{clinicId}/{patientId}/{documentId}.json`
+ *   - Feature flags: `S3_INTAKE_DATA_ENABLED` (JSON), `S3_PDF_STORAGE_ENABLED` (PDFs)
+ *   - S3 paths:
+ *       JSON: `intake-data/{clinicId}/{patientId}/{documentId}.json`
+ *       PDF:  `documents/{clinicId}/{patientId}/{documentId}.pdf`
  *   - AES256 encryption via existing S3 service config
  *
  * @module storage/document-data-store
@@ -23,13 +23,12 @@ import { logger } from '@/lib/logger';
 // CONFIGURATION
 // =============================================================================
 
-/**
- * Feature flag for S3 intake data reads.
- * When false, reads always use the DB `data` column (original behavior).
- * When true, reads prefer S3 (via `s3DataKey`) and fall back to DB.
- */
 function isS3IntakeDataEnabled(): boolean {
   return process.env.S3_INTAKE_DATA_ENABLED === 'true';
+}
+
+function isS3PdfStorageEnabled(): boolean {
+  return process.env.S3_PDF_STORAGE_ENABLED === 'true';
 }
 
 // =============================================================================
@@ -206,6 +205,123 @@ export function readBinaryData(
 }
 
 // =============================================================================
+// WRITE — storePdfData
+// =============================================================================
+
+export interface StorePdfDataResult {
+  s3DataKey: string | null;
+  dataBuffer: Buffer;
+}
+
+/**
+ * Prepare PDF binary data for dual-write (S3 + DB).
+ *
+ * Returns:
+ *   - `dataBuffer`: The raw PDF buffer for the DB `data` column
+ *   - `s3DataKey`:  Set only if S3 upload succeeded; null otherwise
+ *
+ * The caller should write BOTH to the Prisma record:
+ *   `data: result.dataBuffer, s3DataKey: result.s3DataKey`
+ */
+export async function storePdfData(
+  pdfBuffer: Buffer,
+  context: {
+    documentId?: number;
+    patientId: number;
+    clinicId: number | null | undefined;
+    filename: string;
+  }
+): Promise<StorePdfDataResult> {
+  let s3DataKey: string | null = null;
+
+  try {
+    const s3 = await getS3Service();
+    if (s3) {
+      const cId = context.clinicId ?? 0;
+      const pId = context.patientId;
+      const dId = context.documentId ?? Date.now();
+      const ext = context.filename.endsWith('.pdf') ? '' : '.pdf';
+      const key = `documents/${cId}/${pId}/${dId}${ext}`;
+
+      const { getS3Client } = await import('@/lib/integrations/aws/s3Service');
+      const { s3Config } = await import('@/lib/integrations/aws/s3Config');
+      const { PutObjectCommand } = await import('@aws-sdk/client-s3');
+
+      const client = getS3Client();
+      await client.send(
+        new PutObjectCommand({
+          Bucket: s3Config.bucketName,
+          Key: key,
+          Body: pdfBuffer,
+          ContentType: 'application/pdf',
+          ServerSideEncryption: 'AES256',
+          Metadata: {
+            clinicId: String(cId),
+            patientId: String(pId),
+            documentId: String(dId),
+            type: 'pdf-document',
+            filename: context.filename,
+          },
+        })
+      );
+
+      s3DataKey = key;
+
+      logger.info('[DocumentDataStore] PDF uploaded to S3', {
+        s3DataKey: key,
+        patientId: pId,
+        sizeBytes: pdfBuffer.length,
+      });
+    }
+  } catch (err) {
+    logger.warn('[DocumentDataStore] S3 PDF upload failed, DB-only write', {
+      error: err instanceof Error ? err.message : String(err),
+      patientId: context.patientId,
+    });
+    s3DataKey = null;
+  }
+
+  return { s3DataKey, dataBuffer: pdfBuffer };
+}
+
+// =============================================================================
+// READ — readPdfData
+// =============================================================================
+
+/**
+ * Read PDF binary data from the best available source.
+ *
+ * Priority:
+ *   1. S3 (if `s3DataKey` is set AND feature flag is on)
+ *   2. DB `data` column
+ *
+ * Returns the raw Buffer, or null if no data is available.
+ */
+export async function readPdfData(
+  document: DocumentForRead
+): Promise<Buffer | null> {
+  if (isS3PdfStorageEnabled() && document.s3DataKey) {
+    try {
+      const s3 = await getS3Service();
+      if (s3) {
+        const buffer = await s3.downloadFromS3(document.s3DataKey);
+        if (buffer && buffer.length > 0) {
+          return buffer;
+        }
+      }
+    } catch (err) {
+      logger.warn('[DocumentDataStore] S3 PDF read failed, falling back to DB', {
+        s3DataKey: document.s3DataKey,
+        documentId: document.id,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+
+  return toBuffer(document.data);
+}
+
+// =============================================================================
 // MIGRATION — migrateDocumentData
 // =============================================================================
 
@@ -213,6 +329,7 @@ export function readBinaryData(
  * Migrate a single document's `data` column to S3.
  * Used by the batch migration script.
  *
+ * Handles both JSON intake data and binary PDF documents.
  * Returns the S3 key if successful, null if skipped or failed.
  */
 export async function migrateDocumentData(
@@ -220,28 +337,27 @@ export async function migrateDocumentData(
     id: number;
     patientId: number;
     clinicId: number | null;
+    mimeType?: string;
+    filename?: string;
     data: Buffer | Uint8Array | null;
     s3DataKey: string | null;
   }
 ): Promise<string | null> {
-  // Skip if already migrated
   if (document.s3DataKey) return document.s3DataKey;
-
-  // Skip if no data to migrate
   if (!document.data) return null;
 
-  // Only migrate JSON data (not binary PDFs)
   const buffer = toBuffer(document.data);
   if (!buffer || buffer.length === 0) return null;
 
-  const firstChar = buffer.toString('utf8', 0, 1);
-  if (firstChar !== '{' && firstChar !== '[') {
-    // Binary content (PDF etc.) — skip, these are served from externalUrl
-    return null;
-  }
-
   const cId = document.clinicId ?? 0;
-  const key = `intake-data/${cId}/${document.patientId}/${document.id}.json`;
+  const firstChar = buffer.toString('utf8', 0, 1);
+  const isJson = firstChar === '{' || firstChar === '[';
+
+  const key = isJson
+    ? `intake-data/${cId}/${document.patientId}/${document.id}.json`
+    : `documents/${cId}/${document.patientId}/${document.id}.pdf`;
+  const contentType = isJson ? 'application/json' : (document.mimeType || 'application/pdf');
+  const dataType = isJson ? 'intake-json-data' : 'pdf-document';
 
   try {
     const { getS3Client } = await import('@/lib/integrations/aws/s3Service');
@@ -260,13 +376,13 @@ export async function migrateDocumentData(
         Bucket: s3Config.bucketName,
         Key: key,
         Body: buffer,
-        ContentType: 'application/json',
+        ContentType: contentType,
         ServerSideEncryption: 'AES256',
         Metadata: {
           clinicId: String(cId),
           patientId: String(document.patientId),
           documentId: String(document.id),
-          type: 'intake-json-data',
+          type: dataType,
           migratedAt: new Date().toISOString(),
         },
       })

@@ -12,6 +12,7 @@
 
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
+import { getReadPrisma } from '@/lib/database/read-replica';
 import { patientService, type UserContext } from '@/domains/patient';
 import { getDashboardCache, getDashboardCacheAsync, setDashboardCache } from '@/lib/cache/dashboard';
 import { executeDbRead } from '@/lib/database/executeDb';
@@ -85,11 +86,13 @@ export async function getAdminDashboard(
   //   Query C: Subscription MRR groupBy (kept as Prisma — interval-based logic)
   const clinicWhere = clinicId ? Prisma.sql`AND "clinicId" = ${clinicId}` : Prisma.empty;
 
+  const readDb = getReadPrisma();
+
   const statsResult = await executeDbRead(
     () =>
       Promise.all([
         // Query A: All counts + revenue in a single round-trip
-        prisma.$queryRaw<
+        readDb.$queryRaw<
           [
             {
               total_patients: bigint;
@@ -117,7 +120,7 @@ export async function getAdminDashboard(
         `),
 
         // Query B: Distinct converted patient IDs (union of payment + order)
-        prisma.$queryRaw<Array<{ patient_id: number }>>(Prisma.sql`
+        readDb.$queryRaw<Array<{ patient_id: number }>>(Prisma.sql`
         SELECT DISTINCT sub."patientId" AS patient_id FROM (
           SELECT "patientId" FROM "Payment"
           WHERE status = 'SUCCEEDED'
@@ -129,7 +132,7 @@ export async function getAdminDashboard(
         `),
 
         // Query C: Subscription MRR (kept as Prisma groupBy — small result set)
-        prisma.subscription
+        readDb.subscription
           .groupBy({
             by: ['interval'],
             where: { ...clinicFilter, status: 'ACTIVE' },
@@ -290,6 +293,7 @@ async function prismaFallbackStats(
   totalConverted: number;
   subscriptionMrr: number;
 }> {
+  const db = getReadPrisma();
   const [
     totalPatients,
     totalOrders,
@@ -301,29 +305,29 @@ async function prismaFallbackStats(
     convertedOrders,
     mrrGroups,
   ] = await Promise.all([
-    prisma.patient.count({ where: { ...clinicFilter } }),
-    prisma.order.count({ where: { ...clinicFilter } }),
-    prisma.patient.count({ where: { ...clinicFilter, createdAt: { gte: twentyFourHoursAgo } } }),
-    prisma.order.count({ where: { ...clinicFilter, createdAt: { gte: twentyFourHoursAgo } } }),
-    prisma.invoice.aggregate({
+    db.patient.count({ where: { ...clinicFilter } }),
+    db.order.count({ where: { ...clinicFilter } }),
+    db.patient.count({ where: { ...clinicFilter, createdAt: { gte: twentyFourHoursAgo } } }),
+    db.order.count({ where: { ...clinicFilter, createdAt: { gte: twentyFourHoursAgo } } }),
+    db.invoice.aggregate({
       where: { ...clinicFilter, status: 'PAID' },
       _sum: { amountPaid: true },
     }),
-    prisma.invoice.aggregate({
+    db.invoice.aggregate({
       where: { ...clinicFilter, status: 'PAID', paidAt: { gte: twentyFourHoursAgo } },
       _sum: { amountPaid: true },
     }),
-    prisma.payment.findMany({
+    db.payment.findMany({
       where: { status: 'SUCCEEDED', patient: { ...clinicFilter } },
       select: { patientId: true },
       distinct: ['patientId'],
     }),
-    prisma.order.findMany({
+    db.order.findMany({
       where: { patient: { ...clinicFilter } },
       select: { patientId: true },
       distinct: ['patientId'],
     }),
-    prisma.subscription.groupBy({
+    db.subscription.groupBy({
       by: ['interval'],
       where: { ...clinicFilter, status: 'ACTIVE' },
       _sum: { amount: true },

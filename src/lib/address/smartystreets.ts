@@ -8,6 +8,7 @@
  */
 
 import { logger } from '@/lib/logger';
+import { circuitBreakers } from '@/lib/resilience/circuitBreaker';
 import type {
   ParsedAddress,
   ValidatedAddress,
@@ -158,9 +159,6 @@ export async function validateWithSmartyStreets(
       match: acceptPartialMatch ? 'invalid' : 'strict',
     });
 
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeout);
-
     logger.debug('[SmartyStreets] Validating address', {
       street: address.address1?.substring(0, 20),
       city: address.city,
@@ -168,12 +166,21 @@ export async function validateWithSmartyStreets(
       zip: address.zip,
     });
 
-    const response = await fetch(`${SMARTYSTREETS_API_URL}?${params}`, {
-      method: 'GET',
-      signal: controller.signal,
+    const response = await circuitBreakers.addressValidation.execute(async () => {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeout);
+      try {
+        const res = await fetch(`${SMARTYSTREETS_API_URL}?${params}`, {
+          method: 'GET',
+          signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+        return res;
+      } catch (err) {
+        clearTimeout(timeoutId);
+        throw err;
+      }
     });
-
-    clearTimeout(timeoutId);
 
     if (!response.ok) {
       const errorText = await response.text();

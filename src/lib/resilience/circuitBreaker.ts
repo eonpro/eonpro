@@ -408,6 +408,46 @@ export const circuitBreakers = {
       );
     },
   }),
+
+  zoom: createCircuitBreaker({
+    name: 'zoom',
+    timeout: 15000,
+    errorThreshold: 50,
+    volumeThreshold: 5,
+    sleepWindow: 60000,
+    fallback: async () => {
+      throw new Error('Zoom service is temporarily unavailable. Please try again shortly.');
+    },
+  }),
+
+  addressValidation: createCircuitBreaker({
+    name: 'addressValidation',
+    timeout: 6000,
+    errorThreshold: 50,
+    volumeThreshold: 5,
+    sleepWindow: 30000,
+    fallback: async () => null,
+  }),
+
+  npiRegistry: createCircuitBreaker({
+    name: 'npiRegistry',
+    timeout: 10000,
+    errorThreshold: 50,
+    volumeThreshold: 5,
+    sleepWindow: 30000,
+    fallback: async () => {
+      throw new Error('NPI Registry is temporarily unavailable. Please try again shortly.');
+    },
+  }),
+
+  ipIntel: createCircuitBreaker({
+    name: 'ipIntel',
+    timeout: 10000,
+    errorThreshold: 50,
+    volumeThreshold: 5,
+    sleepWindow: 30000,
+    fallback: async () => null,
+  }),
 };
 
 // Register all pre-configured breakers

@@ -13,6 +13,7 @@
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { getRequestId } from '@/lib/observability/request-context';
+import { circuitBreakers } from '@/lib/resilience/circuitBreaker';
 import crypto from 'crypto';
 
 export interface IpIntelResult {
@@ -121,18 +122,23 @@ async function queryIpQualityScore(ip: string): Promise<IpIntelResult | null> {
       lighter_penalties: 'false',
     });
 
-    const response = await fetch(
-      `https://ipqualityscore.com/api/json/ip/${apiKey}/${ip}?${params}`,
-      {
-        method: 'GET',
-        headers: { Accept: 'application/json' },
-      }
-    );
+    const response = await circuitBreakers.ipIntel.execute(async () => {
+      const res = await fetch(
+        `https://ipqualityscore.com/api/json/ip/${apiKey}/${ip}?${params}`,
+        {
+          method: 'GET',
+          headers: { Accept: 'application/json' },
+        }
+      );
 
-    if (!response.ok) {
-      logger.error('[IpIntel] IPQualityScore API error', { status: response.status });
-      return null;
-    }
+      if (!res.ok) {
+        throw new Error(`IPQualityScore API error: ${res.status}`);
+      }
+
+      return res;
+    });
+
+    if (!response) return null;
 
     const data: IpQualityScoreResponse = await response.json();
 

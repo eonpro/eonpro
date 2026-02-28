@@ -13,6 +13,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import { getReadPrisma } from '@/lib/database/read-replica';
 import { Prisma } from '@prisma/client';
 import { withAdminAuth, type AuthUser } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
@@ -42,7 +43,7 @@ function isDatabaseConnectionError(error: unknown): boolean {
 
 async function handleGet(request: NextRequest, user: AuthUser) {
   try {
-    // withAdminAuth sets user.clinicId to the effective clinic (including subdomain override)
+    const readDb = getReadPrisma();
     const clinicId = user.clinicId;
 
     if (!clinicId) {
@@ -74,7 +75,7 @@ async function handleGet(request: NextRequest, user: AuthUser) {
     // Get paid invoices for the period (primary source of revenue)
     const [paidInvoices, allTimePaidInvoices, previousPeriodInvoices] = await Promise.all([
       // Current period paid invoices
-      prisma.invoice.aggregate({
+      readDb.invoice.aggregate({
         where: {
           clinicId,
           status: 'PAID',
@@ -84,7 +85,7 @@ async function handleGet(request: NextRequest, user: AuthUser) {
         _count: true,
       }),
       // All-time paid invoices for total revenue
-      prisma.invoice.aggregate({
+      readDb.invoice.aggregate({
         where: {
           clinicId,
           status: 'PAID',
@@ -93,7 +94,7 @@ async function handleGet(request: NextRequest, user: AuthUser) {
         _count: true,
       }),
       // Previous period for growth calculation
-      prisma.invoice.aggregate({
+      readDb.invoice.aggregate({
         where: {
           clinicId,
           status: 'PAID',
@@ -125,7 +126,7 @@ async function handleGet(request: NextRequest, user: AuthUser) {
     const averageOrderValue = invoiceCount > 0 ? Math.round(grossRevenue / invoiceCount) : 0;
 
     // Get MRR from active subscriptions
-    const activeSubscriptions = await prisma.subscription.findMany({
+    const activeSubscriptions = await readDb.subscription.findMany({
       where: {
         clinicId,
         status: 'ACTIVE',
@@ -162,7 +163,7 @@ async function handleGet(request: NextRequest, user: AuthUser) {
     const arr = mrr * 12;
 
     // Get outstanding invoices
-    const outstandingInvoices = await prisma.invoice.findMany({
+    const outstandingInvoices = await readDb.invoice.findMany({
       where: {
         clinicId,
         status: { in: ['OPEN', 'DRAFT'] },
@@ -180,7 +181,7 @@ async function handleGet(request: NextRequest, user: AuthUser) {
 
     // Calculate churn rate (subscriptions canceled this month / active at start of month)
     const monthStart = startOfMonth(now);
-    const canceledThisMonth = await prisma.subscription.count({
+    const canceledThisMonth = await readDb.subscription.count({
       where: {
         clinicId,
         status: 'CANCELED',

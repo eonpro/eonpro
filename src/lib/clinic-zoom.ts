@@ -12,6 +12,7 @@ import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { decrypt, encrypt } from '@/lib/security/encryption';
 import { zoomConfig, isZoomConfigured } from './integrations/zoom/config';
+import { circuitBreakers } from '@/lib/resilience/circuitBreaker';
 
 // ============================================================================
 // Types
@@ -233,36 +234,38 @@ export async function exchangeZoomCode(
   clientSecret: string
 ): Promise<ZoomOAuthTokens | null> {
   try {
-    const tokenUrl = 'https://zoom.us/oauth/token';
-    const auth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
+    return await circuitBreakers.zoom.execute(async () => {
+      const tokenUrl = 'https://zoom.us/oauth/token';
+      const auth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
 
-    const response = await fetch(tokenUrl, {
-      method: 'POST',
-      headers: {
-        Authorization: `Basic ${auth}`,
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: new URLSearchParams({
-        grant_type: 'authorization_code',
-        code,
-        redirect_uri: redirectUri,
-      }),
+      const response = await fetch(tokenUrl, {
+        method: 'POST',
+        headers: {
+          Authorization: `Basic ${auth}`,
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({
+          grant_type: 'authorization_code',
+          code,
+          redirect_uri: redirectUri,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.text();
+        logger.error('Zoom OAuth token exchange failed', { status: response.status, error });
+        throw new Error(`Zoom OAuth failed: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return {
+        accessToken: data.access_token,
+        refreshToken: data.refresh_token,
+        expiresIn: data.expires_in,
+        tokenType: data.token_type,
+        scope: data.scope,
+      };
     });
-
-    if (!response.ok) {
-      const error = await response.text();
-      logger.error('Zoom OAuth token exchange failed', { status: response.status, error });
-      return null;
-    }
-
-    const data = await response.json();
-    return {
-      accessToken: data.access_token,
-      refreshToken: data.refresh_token,
-      expiresIn: data.expires_in,
-      tokenType: data.token_type,
-      scope: data.scope,
-    };
   } catch (error) {
     logger.error('Zoom OAuth exchange error:', error);
     return null;
@@ -278,35 +281,37 @@ export async function refreshZoomToken(
   clientSecret: string
 ): Promise<ZoomOAuthTokens | null> {
   try {
-    const tokenUrl = 'https://zoom.us/oauth/token';
-    const auth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
+    return await circuitBreakers.zoom.execute(async () => {
+      const tokenUrl = 'https://zoom.us/oauth/token';
+      const auth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
 
-    const response = await fetch(tokenUrl, {
-      method: 'POST',
-      headers: {
-        Authorization: `Basic ${auth}`,
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: new URLSearchParams({
-        grant_type: 'refresh_token',
-        refresh_token: refreshToken,
-      }),
+      const response = await fetch(tokenUrl, {
+        method: 'POST',
+        headers: {
+          Authorization: `Basic ${auth}`,
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({
+          grant_type: 'refresh_token',
+          refresh_token: refreshToken,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.text();
+        logger.error('Zoom token refresh failed', { status: response.status, error });
+        throw new Error(`Zoom token refresh failed: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return {
+        accessToken: data.access_token,
+        refreshToken: data.refresh_token,
+        expiresIn: data.expires_in,
+        tokenType: data.token_type,
+        scope: data.scope,
+      };
     });
-
-    if (!response.ok) {
-      const error = await response.text();
-      logger.error('Zoom token refresh failed', { status: response.status, error });
-      return null;
-    }
-
-    const data = await response.json();
-    return {
-      accessToken: data.access_token,
-      refreshToken: data.refresh_token,
-      expiresIn: data.expires_in,
-      tokenType: data.token_type,
-      scope: data.scope,
-    };
   } catch (error) {
     logger.error('Zoom token refresh error:', error);
     return null;
@@ -479,19 +484,20 @@ export async function getClinicZoomUser(clinicId: number): Promise<any | null> {
   }
 
   try {
-    const response = await fetch('https://api.zoom.us/v2/users/me', {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-      },
+    return await circuitBreakers.zoom.execute(async () => {
+      const response = await fetch('https://api.zoom.us/v2/users/me', {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Zoom user info failed: ${response.status}`);
+      }
+
+      return response.json();
     });
-
-    if (!response.ok) {
-      logger.error('Failed to get Zoom user info', { status: response.status });
-      return null;
-    }
-
-    return response.json();
   } catch (error) {
     logger.error('Error fetching Zoom user:', error);
     return null;
@@ -519,42 +525,44 @@ export async function createClinicZoomMeeting(
   }
 
   try {
-    const response = await fetch('https://api.zoom.us/v2/users/me/meetings', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        topic: options.topic,
-        type: options.startTime ? 2 : 1, // 2 = scheduled, 1 = instant
-        start_time: options.startTime?.toISOString(),
-        duration: options.duration,
-        timezone: 'America/New_York',
-        agenda: options.agenda,
-        settings: {
-          host_video: true,
-          participant_video: true,
-          join_before_host: false,
-          mute_upon_entry: true,
-          waiting_room: credentials.waitingRoomEnabled,
-          auto_recording: credentials.recordingEnabled ? 'cloud' : 'none',
-          encryption_type: credentials.hipaaCompliant
-            ? 'enhanced_encryption'
-            : 'enhanced_encryption',
-          watermark: true,
-          audio: 'both',
+    return await circuitBreakers.zoom.execute(async () => {
+      const response = await fetch('https://api.zoom.us/v2/users/me/meetings', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
         },
-      }),
+        body: JSON.stringify({
+          topic: options.topic,
+          type: options.startTime ? 2 : 1,
+          start_time: options.startTime?.toISOString(),
+          duration: options.duration,
+          timezone: 'America/New_York',
+          agenda: options.agenda,
+          settings: {
+            host_video: true,
+            participant_video: true,
+            join_before_host: false,
+            mute_upon_entry: true,
+            waiting_room: credentials.waitingRoomEnabled,
+            auto_recording: credentials.recordingEnabled ? 'cloud' : 'none',
+            encryption_type: credentials.hipaaCompliant
+              ? 'enhanced_encryption'
+              : 'enhanced_encryption',
+            watermark: true,
+            audio: 'both',
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.text();
+        logger.error('Failed to create Zoom meeting', { status: response.status, error });
+        throw new Error(`Zoom create meeting failed: ${response.status}`);
+      }
+
+      return response.json();
     });
-
-    if (!response.ok) {
-      const error = await response.text();
-      logger.error('Failed to create Zoom meeting', { status: response.status, error });
-      return null;
-    }
-
-    return response.json();
   } catch (error) {
     logger.error('Error creating Zoom meeting:', error);
     return null;
@@ -576,19 +584,20 @@ export async function cancelClinicZoomMeeting(
   }
 
   try {
-    const response = await fetch(`https://api.zoom.us/v2/meetings/${meetingId}`, {
-      method: 'DELETE',
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
+    return await circuitBreakers.zoom.execute(async () => {
+      const response = await fetch(`https://api.zoom.us/v2/meetings/${meetingId}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+
+      if (!response.ok && response.status !== 204) {
+        throw new Error(`Zoom cancel meeting failed: ${response.status}`);
+      }
+
+      return true;
     });
-
-    if (!response.ok && response.status !== 204) {
-      logger.error('Failed to cancel Zoom meeting', { status: response.status });
-      return false;
-    }
-
-    return true;
   } catch (error) {
     logger.error('Error canceling Zoom meeting:', error);
     return false;

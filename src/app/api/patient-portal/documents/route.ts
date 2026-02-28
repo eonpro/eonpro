@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { withAuth } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
 import { prisma } from '@/lib/db';
+import { storePdfData } from '@/lib/storage/document-data-store';
 import { z } from 'zod';
 import { PatientDocumentCategory } from '@prisma/client';
 import { auditLog, AuditEventType, logPHICreate, logPHIDelete } from '@/lib/audit/hipaa-audit';
@@ -175,7 +176,21 @@ export const POST = withAuth(async (req: NextRequest, user) => {
       }
     }
 
-    // Create document record
+    // Dual-write: S3 + DB for binary uploads (Phase 4A)
+    let dataToStore: Buffer | null = null;
+    let s3DataKey: string | null = null;
+
+    if (parsed.data.data) {
+      const rawBuffer = Buffer.from(parsed.data.data, 'base64');
+      const pdfResult = await storePdfData(rawBuffer, {
+        patientId,
+        clinicId: patient.clinicId,
+        filename: parsed.data.filename,
+      });
+      dataToStore = pdfResult.dataBuffer;
+      s3DataKey = pdfResult.s3DataKey;
+    }
+
     const document = await prisma.patientDocument.create({
       data: {
         patientId,
@@ -184,7 +199,8 @@ export const POST = withAuth(async (req: NextRequest, user) => {
         mimeType: parsed.data.mimeType,
         category: parsed.data.category as PatientDocumentCategory,
         source: 'patient_upload',
-        data: parsed.data.data ? Buffer.from(parsed.data.data, 'base64') : null,
+        data: dataToStore,
+        s3DataKey,
         externalUrl: parsed.data.externalUrl,
       },
       select: {

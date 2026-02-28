@@ -7,6 +7,7 @@ import { auditLog, AuditEventType } from '@/lib/audit/hipaa-audit';
 import { handleApiError, BadRequestError, NotFoundError, ForbiddenError } from '@/domains/shared/errors';
 import { isS3Enabled, STORAGE_CONFIG } from '@/lib/integrations/aws/s3Config';
 import { downloadFromS3 } from '@/lib/integrations/aws/s3Service';
+import { readPdfData } from '@/lib/storage/document-data-store';
 
 // Helper to convert data field to Buffer
 const toBuffer = (data: any): Buffer | null => {
@@ -95,6 +96,27 @@ const downloadDocumentHandler = withAuthParams(
       logger.debug(
         `Download request for document ${documentId}, hasData: ${!!document.data}, externalUrl: ${document.externalUrl}`
       );
+
+      // PRIORITY 0: Serve from S3 via readPdfData (prefers S3 when S3_PDF_STORAGE_ENABLED=true)
+      if (document.s3DataKey && document.s3DataKey.startsWith('documents/')) {
+        try {
+          const s3Buffer = await readPdfData(document);
+          if (s3Buffer && s3Buffer.length > 0 && isPdfBuffer(s3Buffer)) {
+            logger.debug(`Serving download from S3 for document ${documentId}, size: ${s3Buffer.length}`);
+            return new NextResponse(new Uint8Array(s3Buffer), {
+              headers: {
+                'Content-Type': 'application/pdf',
+                'Content-Disposition': `attachment; filename="${document.filename || 'document.pdf'}"`,
+                'Content-Length': s3Buffer.length.toString(),
+              },
+            });
+          }
+        } catch (err) {
+          logger.warn(`S3 readPdfData failed for download ${documentId}, falling through`, {
+            error: err instanceof Error ? err.message : String(err),
+          });
+        }
+      }
 
       // PRIORITY 1: Serve from database 'data' field (preferred for PDFs)
       if (document.data) {

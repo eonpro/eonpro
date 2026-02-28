@@ -18,6 +18,7 @@ import {
   calculateDateRange,
 } from '@/services/reporting/ReportingService';
 import { prisma } from '@/lib/db';
+import { getReadPrisma } from '@/lib/database/read-replica';
 import { AGGREGATION_TAKE } from '@/lib/pagination';
 import { standardRateLimit } from '@/lib/rateLimit';
 import { logger } from '@/lib/logger';
@@ -41,6 +42,7 @@ type ReportType =
 async function exportReportHandler(req: NextRequest, user: AuthUser): Promise<Response> {
   try {
     requirePermission(toPermissionContext(user), 'report:run');
+    const readDb = getReadPrisma();
     const url = new URL(req.url);
     const format = (url.searchParams.get('format') || 'csv') as ExportFormat;
     const report = (url.searchParams.get('report') || 'comprehensive') as ReportType;
@@ -63,7 +65,7 @@ async function exportReportHandler(req: NextRequest, user: AuthUser): Promise<Re
 
     switch (report) {
       case 'patients':
-        const patients = await prisma.patient.findMany({
+        const patients = await readDb.patient.findMany({
           where: {
             ...clinicFilter,
             createdAt: { gte: start, lte: end },
@@ -113,7 +115,7 @@ async function exportReportHandler(req: NextRequest, user: AuthUser): Promise<Re
         break;
 
       case 'payments':
-        const payments = await prisma.payment.findMany({
+        const payments = await readDb.payment.findMany({
           where: {
             ...clinicFilter,
             createdAt: { gte: start, lte: end },
@@ -148,7 +150,7 @@ async function exportReportHandler(req: NextRequest, user: AuthUser): Promise<Re
         break;
 
       case 'subscriptions':
-        const subscriptions = await prisma.subscription.findMany({
+        const subscriptions = await readDb.subscription.findMany({
           where: clinicFilter,
           include: {
             patient: {
@@ -195,7 +197,7 @@ async function exportReportHandler(req: NextRequest, user: AuthUser): Promise<Re
           memberships_paused: 'PAUSED' as const,
         };
         const membershipStatus = statusMap[report];
-        const membershipSubs = await prisma.subscription.findMany({
+        const membershipSubs = await readDb.subscription.findMany({
           where: { ...clinicFilter, status: membershipStatus },
           include: {
             patient: {
@@ -377,7 +379,7 @@ async function exportReportHandler(req: NextRequest, user: AuthUser): Promise<Re
       }
 
       case 'sales_transactions': {
-        const salesPayments = await prisma.payment.findMany({
+        const salesPayments = await readDb.payment.findMany({
           where: {
             ...clinicFilter,
             createdAt: { gte: start, lte: end },
