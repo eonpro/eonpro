@@ -22,6 +22,7 @@ import {
   Ticket,
   Menu,
   X,
+  CreditCard,
 } from 'lucide-react';
 import InternalChat from '@/components/InternalChat';
 import {
@@ -42,6 +43,7 @@ const mainNavItems = [
   { icon: Calendar, path: '/provider/calendar', label: 'Calendar' },
   { icon: Stethoscope, path: '/provider/consultations', label: 'Consultations' },
   { icon: Pill, path: '/provider/prescriptions', label: 'Prescriptions' },
+  { icon: CreditCard, path: '/provider/subscription-renewals', label: 'Renewals' },
   { icon: TestTube, path: '/provider/labs', label: 'Lab Results' },
   { icon: FileText, path: '/provider/soap-notes', label: 'SOAP Notes' },
   { icon: MessageSquare, path: '/provider/messages', label: 'Messages' },

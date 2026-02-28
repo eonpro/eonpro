@@ -289,24 +289,22 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
       return NextResponse.json({ error: errorMessage ?? 'Invalid medication' }, { status: 400 });
     }
 
-    // ── 1-Month Treatment Vial Safeguard ──
-    // GLP-1 medications on a 1-month plan should only have 1 vial.
-    // Block if >1 vial unless the caller explicitly acknowledges the override.
+    // ── Vial Quantity Safeguards ──
     const glp1Rxs = rxsWithMeds.filter(({ med }) => GLP1_PRODUCT_IDS.has(med.id));
     const totalGlp1Vials = glp1Rxs.reduce((sum, { rx }) => sum + (Number(rx.quantity) || 1), 0);
 
-    if (totalGlp1Vials > 1 && glp1Rxs.length > 0) {
-      // Determine plan duration from explicit field or days supply
+    if (glp1Rxs.length > 0) {
       const explicitPlanMonths = (body as any).planMonths ?? (body as any).planDurationMonths;
       const maxDaysSupply = Math.max(
         ...p.rxs.map((rx: any) => Number(rx.daysSupply) || 30)
       );
-      // Infer 1-month if explicitly set, or if max days supply <= 30
       const is1Month = explicitPlanMonths != null
         ? Number(explicitPlanMonths) <= 1
         : maxDaysSupply <= 30;
+      const isMultiMonth = explicitPlanMonths != null && Number(explicitPlanMonths) > 1;
 
-      if (is1Month && !(body as any).overrideVialSafeguard) {
+      // 1-month: block >1 vial
+      if (totalGlp1Vials > 1 && is1Month && !(body as any).overrideVialSafeguard) {
         logger.warn('[PRESCRIPTIONS] 1-month plan with multiple GLP-1 vials blocked', {
           userId: user.id,
           totalGlp1Vials,
@@ -325,6 +323,30 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
             recoverable: true,
             totalGlp1Vials,
             planMonths: explicitPlanMonths ?? 1,
+          },
+          { status: 422 }
+        );
+      }
+
+      // Multi-month (3/6/12): require >1 vial
+      if (totalGlp1Vials <= 1 && isMultiMonth && !(body as any).overrideVialSafeguard) {
+        logger.warn('[PRESCRIPTIONS] Multi-month plan with single GLP-1 vial blocked', {
+          userId: user.id,
+          totalGlp1Vials,
+          planMonths: explicitPlanMonths,
+          medications: glp1Rxs.map(({ med, rx }) => ({
+            name: med.name,
+            quantity: rx.quantity,
+          })),
+        });
+        return NextResponse.json(
+          {
+            error: `A ${explicitPlanMonths}-month treatment should include more than 1 vial.`,
+            code: 'MULTI_MONTH_VIAL_MINIMUM',
+            detail: `This is a ${explicitPlanMonths}-month plan but only ${totalGlp1Vials} GLP-1 vial was specified. Multi-month plans require more than 1 vial. Confirm the override if this is intentional.`,
+            recoverable: true,
+            totalGlp1Vials,
+            planMonths: explicitPlanMonths,
           },
           { status: 422 }
         );

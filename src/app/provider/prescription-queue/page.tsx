@@ -41,6 +41,10 @@ import SigBuilder from '@/components/SigBuilder';
 import MedicationSelector, { getGLP1SubCategory } from '@/components/MedicationSelector';
 import OrderSetSelector, { AppliedMedication } from '@/components/OrderSetSelector';
 import {
+  getGlp1Preselection,
+  findOrderSetByName,
+} from '@/lib/prescriptions/glp1-preselection';
+import {
   parseAddressString,
   isApartmentString,
   isStateName,
@@ -338,10 +342,6 @@ interface PrescriptionFormState {
   zip: string;
 }
 
-// Pre-selection keys: new GLP-1 users (never used before)
-const SEMAGLUTIDE_NEW_USER_KEY = '203448971'; // Semaglutide 2.5mg/1ml
-const TIRZEPATIDE_NEW_USER_KEY = '203448972'; // Tirzepatide 10mg/1ml
-
 // WellMedR default: FedEx 2 Day (not UPS 2 Day)
 const WELLMEDR_DEFAULT_SHIPPING_ID = '8234'; // FEDEX- 2 DAY
 
@@ -388,6 +388,7 @@ export default function PrescriptionQueuePage() {
   });
   const [submittingPrescription, setSubmittingPrescription] = useState(false);
   const [approvingOrderId, setApprovingOrderId] = useState<number | null>(null);
+  const [autoSelectedOrderSetId, setAutoSelectedOrderSetId] = useState<number | null>(null);
 
   // SOAP Note generation state
   const [generatingSoapNote, setGeneratingSoapNote] = useState<number | null>(null);
@@ -707,17 +708,16 @@ export default function PrescriptionQueuePage() {
     const details = await fetchPatientDetails(item.invoiceId!);
     if (details) {
       setPrescriptionPanel({ item, details });
+      setAutoSelectedOrderSetId(null);
       const parsedAddress = getPatientAddress(details.patient);
       const isWellmedr =
         item.clinic?.subdomain?.toLowerCase().includes('wellmedr') ||
         (typeof window !== 'undefined' && window.location.hostname.toLowerCase().includes('wellmedr'));
 
-      // Determine pharmacy gender: Lifefile only accepts 'm' or 'f'
       const patientGender = (details.patient.gender || '').toLowerCase().trim();
       let pharmacyGender: 'm' | 'f' | '' = '';
       if (['m', 'male', 'man'].includes(patientGender)) pharmacyGender = 'm';
       else if (['f', 'female', 'woman'].includes(patientGender)) pharmacyGender = 'f';
-      // If 'other' or empty, leave as '' so provider must select
 
       setPrescriptionForm({
         medications: [createEmptyMedication()],
@@ -729,79 +729,80 @@ export default function PrescriptionQueuePage() {
         state: parsedAddress.state,
         zip: parsedAddress.zip,
       });
-      autoSelectMedication(item.treatment, details, item.glp1Info);
+
+      const glp1Info = item.glp1Info || { usedGlp1: false, glp1Type: null, lastDose: null };
+      const preselection = getGlp1Preselection(item.treatment, glp1Info);
+
+      if (preselection) {
+        const isMultiMonth = (item.planMonths ?? 1) > 1;
+
+        if (!isMultiMonth) {
+          // 1-month: pre-select individual medication + dose based on GLP-1 history
+          const ps = preselection.oneMonth;
+          setPrescriptionForm((prev) => ({
+            ...prev,
+            medications: [
+              {
+                id: crypto.randomUUID(),
+                medicationKey: ps.medicationKey,
+                sig: ps.sig,
+                quantity: ps.quantity,
+                refills: ps.refills,
+                daysSupply: ps.daysSupply,
+              },
+            ],
+          }));
+        } else {
+          // 3/6/12-month: auto-apply matching order set
+          try {
+            const res = await apiFetch('/api/clinic/order-sets', {
+              headers: { Authorization: `Bearer ${getAuthToken()}` },
+            });
+            if (res.ok) {
+              const data = await res.json();
+              const orderSets = data.orderSets || [];
+              const matched = findOrderSetByName(orderSets, preselection.multiMonth.orderSetName);
+              if (matched) {
+                const fullSet = orderSets.find((s: any) => s.id === matched.id);
+                if (fullSet?.items?.length) {
+                  setAutoSelectedOrderSetId(fullSet.id);
+                  setPrescriptionForm((prev) => ({
+                    ...prev,
+                    medications: fullSet.items.map((os: any) => ({
+                      id: crypto.randomUUID(),
+                      medicationKey: os.medicationKey,
+                      sig: os.sig,
+                      quantity: os.quantity,
+                      refills: os.refills,
+                      daysSupply: String(os.daysSupply || '28'),
+                    })),
+                  }));
+                }
+              }
+            }
+          } catch {
+            // Order set fetch failed silently; provider can select manually
+          }
+        }
+      } else {
+        // Non-GLP-1 medication: fall back to generic treatment matching
+        autoSelectNonGlp1Medication(item.treatment, details);
+      }
     }
   };
 
-  const autoSelectMedication = (
-    treatment: string,
-    details: PatientDetails,
-    glp1Info?: { usedGlp1: boolean; glp1Type: string | null; lastDose: string | null }
-  ) => {
+  /** Fallback pre-selection for non-GLP-1 medications (e.g., testosterone, sermorelin). */
+  const autoSelectNonGlp1Medication = (treatment: string, details: PatientDetails) => {
     const treatmentLower = treatment.toLowerCase();
     const metadata = details.invoice.metadata as Record<string, string>;
 
-    // Try to match medication from MEDS
     let matchedKey = '';
     let matchedSig = '';
     let matchedQty = '1';
     let matchedRefills = '0';
 
-    // Determine the medication type from treatment string
-    // IMPORTANT: Check for specific medication names to avoid confusion
-    const isTirzepatide =
-      treatmentLower.includes('tirzepatide') ||
-      treatmentLower.includes('mounjaro') ||
-      treatmentLower.includes('zepbound');
-    const isSemaglutide =
-      treatmentLower.includes('semaglutide') ||
-      treatmentLower.includes('ozempic') ||
-      treatmentLower.includes('wegovy');
-
-    // Pre-select for new GLP-1 users (never used before): Semaglutide → 2.5mg/1ml, Tirzepatide → 10mg/1ml
-    const isNewUser = glp1Info && !glp1Info.usedGlp1;
-    if (isNewUser) {
-      if (isSemaglutide) {
-        const med = MEDS[SEMAGLUTIDE_NEW_USER_KEY];
-        if (med) {
-          matchedKey = SEMAGLUTIDE_NEW_USER_KEY;
-          if (med.sigTemplates?.[0]) {
-            matchedSig = med.sigTemplates[0].sig;
-            matchedQty = med.sigTemplates[0].quantity;
-            matchedRefills = med.sigTemplates[0].refills;
-          } else if (med.defaultSig) {
-            matchedSig = med.defaultSig;
-            matchedQty = med.defaultQuantity || '1';
-            matchedRefills = med.defaultRefills || '0';
-          }
-        }
-      } else if (isTirzepatide) {
-        const med = MEDS[TIRZEPATIDE_NEW_USER_KEY];
-        if (med) {
-          matchedKey = TIRZEPATIDE_NEW_USER_KEY;
-          if (med.sigTemplates?.[0]) {
-            matchedSig = med.sigTemplates[0].sig;
-            matchedQty = med.sigTemplates[0].quantity;
-            matchedRefills = med.sigTemplates[0].refills;
-          } else if (med.defaultSig) {
-            matchedSig = med.defaultSig;
-            matchedQty = med.defaultQuantity || '1';
-            matchedRefills = med.defaultRefills || '0';
-          }
-        }
-      }
-    }
-
-    // If no new-user pre-select, find matching medication - prioritize exact medication type matches
-    if (!matchedKey) {
     for (const [key, med] of Object.entries(MEDS)) {
       const nameLower = med.name.toLowerCase();
-
-      // For GLP-1 medications, ensure we match the correct type
-      if (isTirzepatide && nameLower.includes('semaglutide')) continue;
-      if (isSemaglutide && nameLower.includes('tirzepatide')) continue;
-
-      // Check if this medication matches the treatment
       const firstWord = treatmentLower.split(' ')[0];
       if (treatmentLower.includes(nameLower) || nameLower.includes(firstWord)) {
         matchedKey = key;
@@ -814,45 +815,35 @@ export default function PrescriptionQueuePage() {
           matchedQty = med.defaultQuantity || '1';
           matchedRefills = med.defaultRefills || '0';
         }
-        // Stop after finding a good match (prefer first match for consistent behavior)
         break;
       }
     }
 
-    // Also check metadata for product info if no match found
     if (!matchedKey && metadata?.product) {
       const productLower = metadata.product.toLowerCase();
-      const productIsTirzepatide = productLower.includes('tirzepatide');
-      const productIsSemaglutide = productLower.includes('semaglutide');
-
       for (const [key, med] of Object.entries(MEDS)) {
         const nameLower = med.name.toLowerCase();
-
-        // Ensure correct medication type matching
-        if (productIsTirzepatide && nameLower.includes('semaglutide')) continue;
-        if (productIsSemaglutide && nameLower.includes('tirzepatide')) continue;
-
         if (nameLower.includes(productLower) || productLower.includes(nameLower.split('/')[0])) {
           matchedKey = key;
           break;
         }
       }
     }
-    }
 
-    // Update the first medication in the array
-    setPrescriptionForm((prev) => ({
-      ...prev,
-      medications: [
-        {
-          ...prev.medications[0],
-          medicationKey: matchedKey,
-          sig: matchedSig || prev.medications[0].sig,
-          quantity: matchedQty,
-          refills: matchedRefills,
-        },
-      ],
-    }));
+    if (matchedKey) {
+      setPrescriptionForm((prev) => ({
+        ...prev,
+        medications: [
+          {
+            ...prev.medications[0],
+            medicationKey: matchedKey,
+            sig: matchedSig || prev.medications[0].sig,
+            quantity: matchedQty,
+            refills: matchedRefills,
+          },
+        ],
+      }));
+    }
   };
 
   const handleMedicationChange = (index: number, key: string) => {
@@ -980,9 +971,10 @@ export default function PrescriptionQueuePage() {
         body: JSON.stringify(payload),
       });
 
-      // Handle 1-month vial safeguard: prompt user to confirm override
+      // Handle vial safeguards: prompt user to confirm override
       if (!response.ok) {
         const peek = await response.clone().json().catch(() => null);
+
         if (peek?.code === 'VIAL_QUANTITY_SAFEGUARD') {
           const confirmed = window.confirm(
             `⚠️ 1-Month Treatment Safeguard\n\n` +
@@ -994,7 +986,25 @@ export default function PrescriptionQueuePage() {
             setSubmittingPrescription(false);
             return;
           }
-          // Re-submit with override
+          response = await apiFetch('/api/prescriptions', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${getAuthToken()}`,
+            },
+            body: JSON.stringify(buildPayload(true)),
+          });
+        } else if (peek?.code === 'MULTI_MONTH_VIAL_MINIMUM') {
+          const confirmed = window.confirm(
+            `⚠️ Multi-Month Treatment Safeguard\n\n` +
+            `This is a ${peek.planMonths}-month plan but only ${peek.totalGlp1Vials} GLP-1 vial is being sent.\n` +
+            `Multi-month plans typically require more than 1 vial.\n\n` +
+            `Do you want to proceed anyway?`
+          );
+          if (!confirmed) {
+            setSubmittingPrescription(false);
+            return;
+          }
           response = await apiFetch('/api/prescriptions', {
             method: 'POST',
             headers: {
@@ -2872,7 +2882,9 @@ export default function PrescriptionQueuePage() {
 
                       {/* Order Set Selector */}
                       <OrderSetSelector
+                        externalSelectedId={autoSelectedOrderSetId}
                         onApply={(medications: AppliedMedication[]) => {
+                          setAutoSelectedOrderSetId(null);
                           setPrescriptionForm((prev) => ({
                             ...prev,
                             medications: medications.map((m) => ({

@@ -37,6 +37,7 @@ export interface AppliedMedication {
 
 interface OrderSetSelectorProps {
   onApply: (medications: AppliedMedication[]) => void;
+  externalSelectedId?: number | null;
 }
 
 // ============================================================================
@@ -387,10 +388,11 @@ function OrderSetModal({
 // MAIN SELECTOR COMPONENT
 // ============================================================================
 
-export default function OrderSetSelector({ onApply }: OrderSetSelectorProps) {
+export default function OrderSetSelector({ onApply, externalSelectedId }: OrderSetSelectorProps) {
   const [orderSets, setOrderSets] = useState<OrderSet[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [internalSelectedId, setInternalSelectedId] = useState<number | null>(null);
+  const selectedId = internalSelectedId ?? externalSelectedId ?? null;
   const [showModal, setShowModal] = useState(false);
   const [editingSet, setEditingSet] = useState<OrderSet | null>(null);
 
@@ -423,7 +425,7 @@ export default function OrderSetSelector({ onApply }: OrderSetSelectorProps) {
       refills: item.refills,
       daysSupply: String(item.daysSupply),
     }));
-    setSelectedId(set.id);
+    setInternalSelectedId(set.id);
     onApply(medications);
   };
 
