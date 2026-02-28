@@ -56,7 +56,7 @@ export function createInvoiceService(): InvoiceService {
       const where: Prisma.InvoiceWhereInput = {};
       if (filter.clinicId) where.clinicId = filter.clinicId;
       if (filter.patientId) where.patientId = filter.patientId;
-      if (filter.status) where.status = filter.status;
+      if (filter.status) where.status = filter.status as any;
       if (filter.prescriptionProcessed !== undefined) {
         where.prescriptionProcessed = filter.prescriptionProcessed;
       }

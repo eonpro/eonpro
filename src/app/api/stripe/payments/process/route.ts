@@ -134,8 +134,8 @@ async function handlePost(request: NextRequest, _user: AuthUser) {
         }
 
         stripePaymentMethodId = existingMethod.stripePaymentMethodId;
-        cardLast4 = existingMethod.cardLast4;
-        cardBrand = existingMethod.cardBrand;
+        cardLast4 = existingMethod.cardLast4 ?? '';
+        cardBrand = existingMethod.cardBrand ?? '';
         localPaymentMethodId = existingMethod.id;
       }
 

@@ -80,7 +80,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing signature' }, { status: 400 });
     }
 
-    let event: Stripe.Event;
+    let event!: Stripe.Event;
 
     // Try primary secret (EonMeds clinic account), then Connect platform secret (Wellmedr etc.)
     const secrets = [
@@ -346,9 +346,9 @@ async function processWebhookEvent(
         await StripeInvoiceService.updateFromWebhook(invoice);
 
         // If this invoice is for a subscription renewal, trigger Rx refill
-        const invoiceSubscriptionId = typeof invoice.subscription === 'string'
-          ? invoice.subscription
-          : invoice.subscription?.id;
+        const invoiceSubscriptionId = typeof (invoice as any).subscription === 'string'
+          ? (invoice as any).subscription
+          : (invoice as any).subscription?.id;
 
         let refillTriggered = false;
 

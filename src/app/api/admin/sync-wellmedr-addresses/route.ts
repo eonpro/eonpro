@@ -66,7 +66,7 @@ interface AirtableResponse {
 function safeDecrypt(value: unknown): string {
   if (value == null || value === '') return '';
   try {
-    return decryptPHI(String(value));
+    return decryptPHI(String(value)) ?? '';
   } catch {
     return '';
   }
@@ -370,11 +370,11 @@ async function runSync(req: NextRequest): Promise<Response> {
       where: {
         clinicId: WELLMEDR_CLINIC_ID,
         OR: [
-          { address1: null },
+          { address1: null as any },
           { address1: '' },
-          { city: null },
+          { city: null as any },
           { city: '' },
-          { zip: null },
+          { zip: null as any },
           { zip: '' },
         ],
       },

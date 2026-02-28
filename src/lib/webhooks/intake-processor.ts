@@ -319,7 +319,7 @@ export class IntakeProcessor {
         where: { id: existingDocument.id },
         data: {
           filename,
-          data: intakeDataBuffer,
+          data: new Uint8Array(intakeDataBuffer),
           ...(s3DataKey != null ? { s3DataKey } : {}),
           externalUrl: pdfExternalUrl || existingDocument.externalUrl,
         },
@@ -334,7 +334,7 @@ export class IntakeProcessor {
           source: this.source,
           sourceSubmissionId: normalized.submissionId,
           category: PatientDocumentCategory.MEDICAL_INTAKE_FORM,
-          data: intakeDataBuffer,
+          data: new Uint8Array(intakeDataBuffer),
           ...(s3DataKey != null ? { s3DataKey } : {}),
           externalUrl: pdfExternalUrl,
         },

@@ -652,9 +652,9 @@ async function processOTWebhookEvent(
 
             if (amountPaidCents > 0) {
               const paymentIntentId =
-                typeof invoice.payment_intent === 'string'
-                  ? invoice.payment_intent
-                  : (invoice.payment_intent as any)?.id;
+                typeof (invoice as any).payment_intent === 'string'
+                  ? (invoice as any).payment_intent
+                  : (invoice as any).payment_intent?.id;
 
               const isFirstPayment = checkIfFirstPayment
                 ? await checkIfFirstPayment(dbInvoice.patientId, paymentIntentId || undefined)

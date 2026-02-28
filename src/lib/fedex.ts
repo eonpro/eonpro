@@ -176,7 +176,7 @@ function getEnvCredentials(): FedExCredentials | null {
 }
 
 function maybeDecrypt(value: string): string {
-  return isEncrypted(value) ? decryptPHI(value) : value;
+  return isEncrypted(value) ? (decryptPHI(value) || '') : value;
 }
 
 export function resolveCredentials(clinic?: {

@@ -22,8 +22,10 @@ import {
   Clock as ClockIcon,
   User as UserIcon,
   Tag as TagIcon,
+  UserPlus,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api/fetch';
+import SavedViewsSidebar from '@/components/tickets/SavedViewsSidebar';
 
 // Types
 interface TicketListItem {
@@ -145,6 +147,11 @@ export default function TicketsPage() {
     hasSlaBreach: searchParams.get('hasSlaBreach') === 'true',
   });
 
+  // Quick-assign state
+  const [assignDropdownId, setAssignDropdownId] = useState<number | null>(null);
+  const [assignUsers, setAssignUsers] = useState<Array<{ userId: number; firstName: string; lastName: string; role: string; openTicketCount: number }>>([]);
+  const [assigningTicketId, setAssigningTicketId] = useState<number | null>(null);
+
   // Fetch tickets
   const fetchTickets = useCallback(async () => {
     setLoading(true);
@@ -201,6 +208,43 @@ export default function TicketsPage() {
   useEffect(() => {
     fetchTickets();
   }, [fetchTickets]);
+
+  // Fetch assign users when dropdown opens
+  useEffect(() => {
+    if (assignDropdownId !== null && assignUsers.length === 0) {
+      apiFetch('/api/users/workload')
+        .then((r) => r.ok ? r.json() : { workload: [] })
+        .then((data) => setAssignUsers(data.workload || []))
+        .catch(() => setAssignUsers([]));
+    }
+  }, [assignDropdownId, assignUsers.length]);
+
+  // Close assign dropdown on outside click
+  useEffect(() => {
+    if (assignDropdownId === null) return;
+    const handleClick = () => setAssignDropdownId(null);
+    const timer = setTimeout(() => document.addEventListener('click', handleClick), 0);
+    return () => { clearTimeout(timer); document.removeEventListener('click', handleClick); };
+  }, [assignDropdownId]);
+
+  // Quick assign handler
+  const handleQuickAssign = async (ticketId: number, userId: number | null) => {
+    setAssigningTicketId(ticketId);
+    try {
+      const response = await apiFetch(`/api/tickets/${ticketId}/assign`, {
+        method: 'POST',
+        body: JSON.stringify({ assignedToId: userId }),
+      });
+      if (response.ok) {
+        await fetchTickets();
+      }
+    } catch {
+      // Silently handle
+    } finally {
+      setAssigningTicketId(null);
+      setAssignDropdownId(null);
+    }
+  };
 
   // Format date
   const formatDate = (dateString: string) => {
@@ -263,8 +307,32 @@ export default function TicketsPage() {
     setShowFilters(false);
   };
 
+  const [showSidebar, setShowSidebar] = useState(true);
+
+  const handleApplyView = (viewFilters: Record<string, unknown>) => {
+    const params = new URLSearchParams();
+    if (viewFilters.myTickets) params.set('myTickets', 'true');
+    if (viewFilters.isUnassigned) params.set('isUnassigned', 'true');
+    if (viewFilters.hasSlaBreach) params.set('hasSlaBreach', 'true');
+    if (Array.isArray(viewFilters.status)) viewFilters.status.forEach((s: string) => params.append('status', s));
+    if (Array.isArray(viewFilters.priority)) viewFilters.priority.forEach((p: string) => params.append('priority', p));
+    params.set('page', '1');
+    window.location.href = `/tickets?${params.toString()}`;
+  };
+
   return (
-    <div className="space-y-6">
+    <div className="flex gap-6">
+      {/* Saved Views Sidebar */}
+      {showSidebar && (
+        <div className="hidden lg:block">
+          <SavedViewsSidebar
+            currentFilters={filters}
+            onApplyView={handleApplyView}
+          />
+        </div>
+      )}
+
+      <div className="min-w-0 flex-1 space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -553,7 +621,7 @@ export default function TicketsPage() {
                     key={ticket.id}
                     onClick={() => { window.location.href = `/tickets/${ticket.id}`; }}
                     onKeyDown={(e) => { if (e.key === 'Enter') window.location.href = `/tickets/${ticket.id}`; }}
-                    className="cursor-pointer hover:bg-gray-50 focus:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-emerald-500"
+                    className="group cursor-pointer hover:bg-gray-50 focus:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-emerald-500"
                     tabIndex={0}
                     role="link"
                   >
@@ -589,19 +657,70 @@ export default function TicketsPage() {
                       </span>
                     </td>
                     <td className="px-6 py-4">
-                      {ticket.assignedTo ? (
-                        <div className="flex items-center gap-2">
-                          <div className="flex h-6 w-6 items-center justify-center rounded-full bg-gray-200 text-xs font-medium text-gray-600">
-                            {ticket.assignedTo.firstName[0]}
-                            {ticket.assignedTo.lastName[0]}
+                      <div className="relative flex items-center gap-2">
+                        {ticket.assignedTo ? (
+                          <div className="flex items-center gap-2">
+                            <div className="flex h-6 w-6 items-center justify-center rounded-full bg-gray-200 text-xs font-medium text-gray-600">
+                              {ticket.assignedTo.firstName[0]}
+                              {ticket.assignedTo.lastName[0]}
+                            </div>
+                            <span className="text-sm text-gray-900">
+                              {ticket.assignedTo.firstName} {ticket.assignedTo.lastName}
+                            </span>
                           </div>
-                          <span className="text-sm text-gray-900">
-                            {ticket.assignedTo.firstName} {ticket.assignedTo.lastName}
-                          </span>
-                        </div>
-                      ) : (
-                        <span className="text-sm text-gray-400">Unassigned</span>
-                      )}
+                        ) : (
+                          <span className="text-sm text-gray-400">Unassigned</span>
+                        )}
+                        <button
+                          type="button"
+                          title="Quick assign"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setAssignDropdownId(assignDropdownId === ticket.id ? null : ticket.id);
+                          }}
+                          className="rounded p-1 text-gray-400 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-gray-100 hover:text-gray-600"
+                        >
+                          <UserPlus className="h-4 w-4" />
+                        </button>
+                        {assignDropdownId === ticket.id && (
+                          <div
+                            className="absolute left-0 top-full z-50 mt-1 w-56 rounded-lg border border-gray-200 bg-white py-1 shadow-lg"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {ticket.assignedTo && (
+                              <button
+                                type="button"
+                                onClick={() => handleQuickAssign(ticket.id, null)}
+                                disabled={assigningTicketId === ticket.id}
+                                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+                              >
+                                Unassign
+                              </button>
+                            )}
+                            {assignUsers.map((u) => (
+                              <button
+                                key={u.userId}
+                                type="button"
+                                onClick={() => handleQuickAssign(ticket.id, u.userId)}
+                                disabled={assigningTicketId === ticket.id}
+                                className={`flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50 disabled:opacity-50 ${
+                                  u.userId === ticket.assignedTo?.id ? 'bg-blue-50' : ''
+                                }`}
+                              >
+                                <span className="truncate">
+                                  {u.firstName} {u.lastName}
+                                </span>
+                                <span className="flex-shrink-0 rounded-full bg-gray-100 px-1.5 py-0.5 text-xs text-gray-600">
+                                  {u.openTicketCount}
+                                </span>
+                              </button>
+                            ))}
+                            {assignUsers.length === 0 && (
+                              <div className="px-3 py-2 text-sm text-gray-500">Loading...</div>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     </td>
                     <td className="px-6 py-4">
                       {ticket.patient ? (
@@ -656,6 +775,7 @@ export default function TicketsPage() {
             </div>
           </div>
         )}
+      </div>
       </div>
     </div>
   );

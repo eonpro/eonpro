@@ -11,6 +11,8 @@
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { ticketRepository } from '../repositories/ticket.repository';
+import { ticketNotificationService } from './ticket-notification.service';
+import { ticketAutomationService } from './ticket-automation.service';
 import { NotFoundError, ForbiddenError, ValidationError } from '@/domains/shared/errors';
 import type { UserContext } from '@/domains/shared/types';
 import type {
@@ -184,8 +186,37 @@ export const ticketService = {
       createdById: userContext.id,
     });
 
-    // Return with relations
-    return this.getById(ticket.id, userContext);
+    const fullTicket = await this.getById(ticket.id, userContext);
+
+    ticketAutomationService.evaluate('ON_CREATE', {
+      id: ticket.id,
+      clinicId: data.clinicId,
+      status: 'NEW',
+      priority: data.priority || 'P3_MEDIUM',
+      category: data.category || 'GENERAL',
+      source: data.source || 'INTERNAL',
+      assignedToId: data.assignedToId || null,
+      teamId: data.teamId || null,
+      tags: data.tags || [],
+      createdById: userContext.id,
+      patientId: data.patientId || null,
+      title: data.title,
+      description: data.description,
+    }, userContext.id).catch(() => {});
+
+    if (data.assignedToId) {
+      ticketNotificationService.notify('assigned', {
+        ticketId: ticket.id,
+        ticketNumber: ticket.ticketNumber,
+        ticketTitle: data.title,
+        clinicId: data.clinicId,
+        actorId: userContext.id,
+        actorName: `${userContext.email}`,
+        assigneeId: data.assignedToId,
+      }).catch(() => {});
+    }
+
+    return fullTicket;
   },
 
   /**
@@ -369,6 +400,19 @@ export const ticketService = {
       changedById: userContext.id,
     });
 
+    ticketNotificationService.notify('status_changed', {
+      ticketId: id,
+      ticketNumber: existing.ticketNumber,
+      ticketTitle: existing.title,
+      clinicId: existing.clinicId,
+      actorId: userContext.id,
+      actorName: userContext.email,
+      assigneeId: existing.assignedToId,
+      creatorId: existing.createdById,
+      newStatus,
+      oldStatus: existing.status,
+    }).catch(() => {});
+
     return this.getById(id, userContext);
   },
 
@@ -458,6 +502,18 @@ export const ticketService = {
       assignedById: userContext.id,
     });
 
+    const eventType = previousAssigneeId ? 'reassigned' : 'assigned';
+    ticketNotificationService.notify(data.isEscalation ? 'escalated' : eventType, {
+      ticketId: id,
+      ticketNumber: existing.ticketNumber,
+      ticketTitle: existing.title,
+      clinicId: existing.clinicId,
+      actorId: userContext.id,
+      actorName: userContext.email,
+      assigneeId: data.assignedToId,
+      previousAssigneeId,
+    }).catch(() => {});
+
     return this.getById(id, userContext);
   },
 
@@ -535,6 +591,17 @@ export const ticketService = {
       resolvedById: userContext.id,
     });
 
+    ticketNotificationService.notify('resolved', {
+      ticketId: id,
+      ticketNumber: existing.ticketNumber,
+      ticketTitle: existing.title,
+      clinicId: existing.clinicId,
+      actorId: userContext.id,
+      actorName: userContext.email,
+      assigneeId: existing.assignedToId,
+      creatorId: existing.createdById,
+    }).catch(() => {});
+
     return this.getById(id, userContext);
   },
 
@@ -592,6 +659,17 @@ export const ticketService = {
       reason,
       reopenedById: userContext.id,
     });
+
+    ticketNotificationService.notify('reopened', {
+      ticketId: id,
+      ticketNumber: existing.ticketNumber,
+      ticketTitle: existing.title,
+      clinicId: existing.clinicId,
+      actorId: userContext.id,
+      actorName: userContext.email,
+      assigneeId: existing.assignedToId,
+      creatorId: existing.createdById,
+    }).catch(() => {});
 
     return this.getById(id, userContext);
   },
@@ -673,7 +751,101 @@ export const ticketService = {
       authorId: userContext.id,
     });
 
+    ticketNotificationService.notify('comment_added', {
+      ticketId: data.ticketId,
+      ticketNumber: ticket.ticketNumber,
+      ticketTitle: ticket.title,
+      clinicId: ticket.clinicId,
+      actorId: userContext.id,
+      actorName: userContext.email,
+      assigneeId: ticket.assignedToId,
+      creatorId: ticket.createdById,
+      isInternal: data.isInternal,
+    }).catch(() => {});
+
     return comment as TicketCommentWithAuthor;
+  },
+
+  // ==========================================================================
+  // Timeline
+  // ==========================================================================
+
+  async getTimeline(
+    ticketId: number,
+    userContext: UserContext,
+    options: { limit?: number; offset?: number } = {}
+  ) {
+    await this.getById(ticketId, userContext);
+    return ticketRepository.getTimeline(ticketId, options);
+  },
+
+  // ==========================================================================
+  // Work Log
+  // ==========================================================================
+
+  async addWorkLog(
+    data: {
+      ticketId: number;
+      action: string;
+      duration?: number;
+      description: string;
+      isInternal?: boolean;
+      metadata?: Record<string, unknown>;
+    },
+    userContext: UserContext
+  ) {
+    const ticket = await this.getById(data.ticketId, userContext);
+    this.checkTicketAccess(ticket, userContext, 'update');
+
+    if (!data.description?.trim()) {
+      throw new ValidationError('Work log description is required');
+    }
+
+    const workLog = await prisma.$transaction(async (tx) => {
+      const newWorkLog = await ticketRepository.createWorkLog(
+        {
+          ticketId: data.ticketId,
+          userId: userContext.id,
+          action: data.action,
+          duration: data.duration,
+          description: data.description,
+          isInternal: data.isInternal,
+          metadata: data.metadata,
+        },
+        tx
+      );
+
+      await ticketRepository.logActivity(
+        {
+          ticketId: data.ticketId,
+          activityType: 'TIME_LOGGED',
+          details: {
+            workLogId: newWorkLog.id,
+            action: data.action,
+            duration: data.duration,
+          },
+        },
+        userContext,
+        tx
+      );
+
+      return newWorkLog;
+    }, { timeout: 15000 });
+
+    logger.info('[TicketService] Work log added', {
+      ticketId: data.ticketId,
+      workLogId: workLog.id,
+      action: data.action,
+      duration: data.duration,
+      userId: userContext.id,
+    });
+
+    return workLog;
+  },
+
+  async getWorkLogSummary(ticketId: number, userContext: UserContext) {
+    await this.getById(ticketId, userContext);
+    return ticketRepository.getWorkLogSummary(ticketId);
   },
 
   // ==========================================================================
@@ -935,13 +1107,27 @@ export const ticketService = {
       total: stats.total,
       byStatus: stats.byStatus as Record<TicketStatus, number>,
       byPriority: stats.byPriority as Record<string, number>,
-      byCategory: {} as Record<string, number>, // TODO: Implement
+      byCategory: stats.byCategory as Record<string, number>,
       unassigned: stats.unassigned,
-      overdue: 0, // TODO: Calculate based on due dates
+      overdue: 0,
       slaBreach: stats.slaBreach,
-      avgResolutionTime: 0, // TODO: Calculate
-      avgFirstResponseTime: 0, // TODO: Calculate
+      avgResolutionTime: stats.avgResolutionTime,
+      avgFirstResponseTime: 0,
     };
+  },
+
+  async getTrends(clinicId: number, days: number, userContext: UserContext) {
+    if (userContext.role !== 'super_admin' && clinicId !== userContext.clinicId) {
+      throw new ForbiddenError('Cannot access trends for another clinic');
+    }
+    return ticketRepository.getTrends(clinicId, days);
+  },
+
+  async getAgentPerformance(clinicId: number, userContext: UserContext) {
+    if (userContext.role !== 'super_admin' && clinicId !== userContext.clinicId) {
+      throw new ForbiddenError('Cannot access agent performance for another clinic');
+    }
+    return ticketRepository.getAgentPerformance(clinicId);
   },
 
   // ==========================================================================

@@ -554,6 +554,48 @@ export interface AgentPerformance {
 }
 
 // ============================================================================
+// Timeline Types
+// ============================================================================
+
+export type TimelineEntryType =
+  | 'comment'
+  | 'internal_note'
+  | 'status_change'
+  | 'assignment'
+  | 'work_log'
+  | 'escalation'
+  | 'resolution'
+  | 'reopen'
+  | 'created'
+  | 'system';
+
+export interface TimelineEntry {
+  id: string;
+  type: TimelineEntryType;
+  timestamp: string;
+  actor: {
+    id: number;
+    firstName: string;
+    lastName: string;
+  } | null;
+  content: string;
+  metadata?: Record<string, unknown>;
+}
+
+// ============================================================================
+// Work Log Input Types
+// ============================================================================
+
+export interface CreateWorkLogInput {
+  ticketId: number;
+  action: TicketAction;
+  duration?: number;
+  description: string;
+  isInternal?: boolean;
+  metadata?: Record<string, unknown>;
+}
+
+// ============================================================================
 // Notification Types
 // ============================================================================
 

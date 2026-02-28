@@ -157,7 +157,7 @@ export async function executeDb<T>(
       success: false,
       error: {
         type: 'CIRCUIT_OPEN',
-        message: decision.reason,
+        message: decision.reason ?? '',
         retryable: false,
         tier,
       },

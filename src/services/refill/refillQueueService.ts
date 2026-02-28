@@ -1221,7 +1221,7 @@ export async function triggerRefillForSubscriptionPayment(
       paymentVerified: true,
       paymentVerifiedAt: now,
       paymentVerifiedBy: 0,
-      paymentMethod: paymentMethodOverride || 'STRIPE_AUTO',
+      paymentMethod: (paymentMethodOverride || 'STRIPE_AUTO') as any,
       stripePaymentId: stripePaymentId || undefined,
       invoiceId: invoiceId || undefined,
       adminApproved: false,

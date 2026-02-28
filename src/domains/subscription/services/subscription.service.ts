@@ -41,7 +41,7 @@ export function createSubscriptionService(): SubscriptionService {
       // Cancel in Stripe first
       if (sub.stripeSubscriptionId) {
         try {
-          const stripe = (await import('@/lib/stripe')).default;
+          const stripe = (await import('@/lib/stripe')).requireStripeClient();
           await stripe.subscriptions.update(sub.stripeSubscriptionId, {
             cancel_at_period_end: input.cancelAtPeriodEnd ?? true,
           });

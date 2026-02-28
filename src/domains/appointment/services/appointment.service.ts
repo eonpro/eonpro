@@ -46,7 +46,7 @@ export function createAppointmentService(): AppointmentService {
     async cancel(id: number, reason?: string) {
       const updated = await prisma.appointment.update({
         where: { id },
-        data: { status: 'cancelled', cancelReason: reason ?? null },
+        data: { status: 'CANCELLED', cancelReason: reason ?? null },
       });
       return updated as unknown as Record<string, unknown>;
     },

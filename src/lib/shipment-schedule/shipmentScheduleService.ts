@@ -532,7 +532,7 @@ export async function scheduleFutureRefillsFromInvoice(
           budDays,
           paymentVerified: true,
           paymentVerifiedAt: new Date(),
-          paymentMethod: 'invoice-prepaid',
+          paymentMethod: 'invoice-prepaid' as any,
         },
       });
 

@@ -821,6 +821,187 @@ export const ticketRepository = {
   },
 
   // ==========================================================================
+  // Timeline (merged view)
+  // ==========================================================================
+
+  async getTimeline(
+    ticketId: number,
+    options: { limit?: number; offset?: number } = {}
+  ) {
+    const take = options.limit || 100;
+    const skip = options.offset || 0;
+
+    const [comments, activities, workLogs] = await Promise.all([
+      prisma.ticketComment.findMany({
+        where: { ticketId },
+        orderBy: { createdAt: 'asc' },
+        include: {
+          author: {
+            select: { id: true, firstName: true, lastName: true, email: true, role: true },
+          },
+        },
+      }),
+      prisma.ticketActivity.findMany({
+        where: {
+          ticketId,
+          activityType: {
+            notIn: ['COMMENT_ADDED', 'INTERNAL_NOTE_ADDED', 'VIEWED', 'LOCKED', 'UNLOCKED'],
+          },
+        },
+        orderBy: { createdAt: 'asc' },
+        include: {
+          user: { select: { id: true, firstName: true, lastName: true } },
+        },
+      }),
+      prisma.ticketWorkLog.findMany({
+        where: { ticketId },
+        orderBy: { createdAt: 'asc' },
+        include: {
+          user: { select: { id: true, firstName: true, lastName: true } },
+        },
+      }),
+    ]);
+
+    type TimelineRaw = {
+      id: string;
+      type: string;
+      timestamp: Date;
+      actor: { id: number; firstName: string; lastName: string } | null;
+      content: string;
+      metadata?: Record<string, unknown>;
+    };
+
+    const entries: TimelineRaw[] = [];
+
+    for (const c of comments) {
+      entries.push({
+        id: `comment-${c.id}`,
+        type: c.isInternal ? 'internal_note' : 'comment',
+        timestamp: c.createdAt,
+        actor: c.author ? { id: c.author.id, firstName: c.author.firstName, lastName: c.author.lastName } : null,
+        content: c.comment,
+        metadata: { isInternal: c.isInternal, commentId: c.id },
+      });
+    }
+
+    for (const a of activities) {
+      let content = a.activityType.toLowerCase().replace(/_/g, ' ');
+      if (a.fieldChanged) {
+        content += ` ${a.fieldChanged}`;
+        if (a.oldValue && a.newValue) {
+          content += ` from ${a.oldValue.replace(/_/g, ' ')} to ${a.newValue.replace(/_/g, ' ')}`;
+        }
+      }
+
+      let type = 'system';
+      if (['STATUS_CHANGED'].includes(a.activityType)) type = 'status_change';
+      else if (['ASSIGNED', 'REASSIGNED', 'UNASSIGNED'].includes(a.activityType)) type = 'assignment';
+      else if (['ESCALATED'].includes(a.activityType)) type = 'escalation';
+      else if (['RESOLVED'].includes(a.activityType)) type = 'resolution';
+      else if (['REOPENED'].includes(a.activityType)) type = 'reopen';
+      else if (['CREATED'].includes(a.activityType)) type = 'created';
+
+      entries.push({
+        id: `activity-${a.id}`,
+        type,
+        timestamp: a.createdAt,
+        actor: a.user,
+        content,
+        metadata: {
+          activityType: a.activityType,
+          fieldChanged: a.fieldChanged,
+          oldValue: a.oldValue,
+          newValue: a.newValue,
+          ...(a.details && typeof a.details === 'object' ? a.details as Record<string, unknown> : {}),
+        },
+      });
+    }
+
+    for (const w of workLogs) {
+      entries.push({
+        id: `worklog-${w.id}`,
+        type: 'work_log',
+        timestamp: w.createdAt,
+        actor: w.user,
+        content: w.description,
+        metadata: {
+          action: w.action,
+          duration: w.duration,
+          isInternal: w.isInternal,
+          workLogId: w.id,
+        },
+      });
+    }
+
+    entries.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+
+    const sliced = entries.slice(skip, skip + take);
+
+    return sliced.map((e) => ({
+      ...e,
+      timestamp: e.timestamp.toISOString(),
+    }));
+  },
+
+  // ==========================================================================
+  // Work Log
+  // ==========================================================================
+
+  async createWorkLog(
+    data: {
+      ticketId: number;
+      userId: number;
+      action: string;
+      duration?: number;
+      description: string;
+      isInternal?: boolean;
+      metadata?: unknown;
+    },
+    tx?: Prisma.TransactionClient
+  ) {
+    const db = tx || prisma;
+
+    const workLog = await db.ticketWorkLog.create({
+      data: {
+        ticketId: data.ticketId,
+        userId: data.userId,
+        action: data.action as never,
+        duration: data.duration || null,
+        description: data.description,
+        isInternal: data.isInternal ?? true,
+        metadata: data.metadata as any,
+      },
+      include: {
+        user: { select: { id: true, firstName: true, lastName: true, email: true, role: true } },
+      },
+    });
+
+    await db.ticket.update({
+      where: { id: data.ticketId },
+      data: {
+        lastWorkedById: data.userId,
+        lastWorkedAt: new Date(),
+        lastActivityAt: new Date(),
+        ...(data.duration ? { actualWorkTime: { increment: data.duration } } : {}),
+      },
+    });
+
+    return workLog;
+  },
+
+  async getWorkLogSummary(ticketId: number) {
+    const workLogs = await prisma.ticketWorkLog.findMany({
+      where: { ticketId },
+      select: { duration: true, userId: true },
+    });
+
+    const totalMinutes = workLogs.reduce((sum, w) => sum + (w.duration || 0), 0);
+    const uniqueWorkers = new Set(workLogs.map((w) => w.userId)).size;
+
+    return { totalMinutes, totalEntries: workLogs.length, uniqueWorkers };
+  },
+
+  // ==========================================================================
   // Statistics
   // ==========================================================================
 
@@ -828,7 +1009,7 @@ export const ticketRepository = {
    * Get ticket statistics for a clinic
    */
   async getStats(clinicId: number) {
-    const [total, byStatus, byPriority, slaBreach, unassigned] = await Promise.all([
+    const [total, byStatus, byPriority, byCategory, slaBreach, unassigned, resolvedTickets] = await Promise.all([
       prisma.ticket.count({ where: { clinicId } }),
       prisma.ticket.groupBy({
         by: ['status'],
@@ -839,6 +1020,11 @@ export const ticketRepository = {
         by: ['priority'],
         where: { clinicId },
         _count: { priority: true },
+      }),
+      prisma.ticket.groupBy({
+        by: ['category'],
+        where: { clinicId },
+        _count: { category: true },
       }),
       prisma.ticket.count({
         where: {
@@ -854,15 +1040,136 @@ export const ticketRepository = {
           status: { notIn: ['CLOSED', 'CANCELLED', 'RESOLVED'] },
         },
       }),
+      prisma.ticket.findMany({
+        where: {
+          clinicId,
+          resolvedAt: { not: null },
+          createdAt: { gte: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000) },
+        },
+        select: { createdAt: true, resolvedAt: true },
+        take: 1000,
+      }),
     ]);
+
+    let avgResolutionTime = 0;
+    if (resolvedTickets.length > 0) {
+      const totalMinutes = resolvedTickets.reduce((sum, t) => {
+        if (!t.resolvedAt) return sum;
+        return sum + (t.resolvedAt.getTime() - t.createdAt.getTime()) / 60000;
+      }, 0);
+      avgResolutionTime = Math.round(totalMinutes / resolvedTickets.length);
+    }
 
     return {
       total,
       byStatus: Object.fromEntries(byStatus.map((s) => [s.status, s._count.status])),
       byPriority: Object.fromEntries(byPriority.map((p) => [p.priority, p._count.priority])),
+      byCategory: Object.fromEntries(byCategory.map((c) => [c.category, c._count.category])),
       slaBreach,
       unassigned,
+      avgResolutionTime,
     };
+  },
+
+  async getTrends(clinicId: number, days: number = 30) {
+    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+    const [created, resolved] = await Promise.all([
+      prisma.ticket.findMany({
+        where: { clinicId, createdAt: { gte: since } },
+        select: { createdAt: true },
+      }),
+      prisma.ticket.findMany({
+        where: { clinicId, resolvedAt: { gte: since } },
+        select: { resolvedAt: true },
+      }),
+    ]);
+
+    const dateMap = new Map<string, { created: number; resolved: number }>();
+    for (let i = 0; i < days; i++) {
+      const d = new Date(Date.now() - (days - 1 - i) * 24 * 60 * 60 * 1000);
+      const key = d.toISOString().split('T')[0];
+      dateMap.set(key, { created: 0, resolved: 0 });
+    }
+
+    for (const t of created) {
+      const key = t.createdAt.toISOString().split('T')[0];
+      const entry = dateMap.get(key);
+      if (entry) entry.created++;
+    }
+    for (const t of resolved) {
+      if (!t.resolvedAt) continue;
+      const key = t.resolvedAt.toISOString().split('T')[0];
+      const entry = dateMap.get(key);
+      if (entry) entry.resolved++;
+    }
+
+    return Array.from(dateMap.entries()).map(([date, counts]) => ({
+      date,
+      ...counts,
+    }));
+  },
+
+  async getAgentPerformance(clinicId: number) {
+    const agents = await prisma.user.findMany({
+      where: {
+        status: 'ACTIVE',
+        role: { in: ['ADMIN', 'STAFF', 'PROVIDER', 'SUPPORT'] },
+        OR: [
+          { clinicId },
+          { userClinics: { some: { clinicId, isActive: true } } },
+        ],
+      },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        role: true,
+        _count: {
+          select: {
+            ticketsAssigned: { where: { clinicId, status: { notIn: ['CLOSED', 'CANCELLED'] } } },
+          },
+        },
+      },
+    });
+
+    const results = [];
+    for (const agent of agents) {
+      const resolved = await prisma.ticket.count({
+        where: { clinicId, resolvedById: agent.id },
+      });
+
+      const resolvedWithTime = await prisma.ticket.findMany({
+        where: {
+          clinicId,
+          resolvedById: agent.id,
+          resolvedAt: { not: null },
+          createdAt: { gte: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000) },
+        },
+        select: { createdAt: true, resolvedAt: true },
+        take: 200,
+      });
+
+      let avgTime = 0;
+      if (resolvedWithTime.length > 0) {
+        const total = resolvedWithTime.reduce((s, t) =>
+          s + ((t.resolvedAt?.getTime() || 0) - t.createdAt.getTime()) / 60000, 0);
+        avgTime = Math.round(total / resolvedWithTime.length);
+      }
+
+      if (agent._count.ticketsAssigned > 0 || resolved > 0) {
+        results.push({
+          userId: agent.id,
+          name: `${agent.firstName} ${agent.lastName}`,
+          role: agent.role,
+          openTickets: agent._count.ticketsAssigned,
+          resolvedTickets: resolved,
+          avgResolutionMinutes: avgTime,
+        });
+      }
+    }
+
+    return results.sort((a, b) => b.resolvedTickets - a.resolvedTickets);
   },
 
   // ==========================================================================
