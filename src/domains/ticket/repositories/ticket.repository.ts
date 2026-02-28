@@ -10,6 +10,7 @@
 
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import { decryptPHI } from '@/lib/security/phi-encryption';
 import type { Prisma, TicketStatus, TicketPriority } from '@prisma/client';
 import type {
   Ticket,
@@ -28,6 +29,26 @@ import type { UserContext } from '@/domains/shared/types';
 // ============================================================================
 // Helper Functions
 // ============================================================================
+
+/**
+ * Decrypt patient PHI fields in ticket query results.
+ * Patient firstName/lastName are encrypted at rest; this decrypts them for display.
+ */
+function decryptPatientFields<T extends { patient?: { firstName?: string | null; lastName?: string | null } | null }>(
+  record: T
+): T {
+  if (record.patient) {
+    return {
+      ...record,
+      patient: {
+        ...record.patient,
+        firstName: decryptPHI(record.patient.firstName ?? null) ?? record.patient.firstName,
+        lastName: decryptPHI(record.patient.lastName ?? null) ?? record.patient.lastName,
+      },
+    };
+  }
+  return record;
+}
 
 /**
  * Generate next ticket number for a clinic
@@ -361,7 +382,7 @@ export const ticketRepository = {
       return null;
     }
 
-    return ticket as unknown as TicketWithRelations;
+    return decryptPatientFields(ticket) as unknown as TicketWithRelations;
   },
 
   /**
@@ -489,8 +510,10 @@ export const ticketRepository = {
 
     const totalPages = Math.ceil(total / limit);
 
+    const decryptedTickets = tickets.map((t) => decryptPatientFields(t));
+
     return {
-      tickets: tickets as TicketListItem[],
+      tickets: decryptedTickets as TicketListItem[],
       pagination: {
         page,
         limit,
