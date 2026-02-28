@@ -70,7 +70,7 @@ async function getRevenueReportsHandler(req: NextRequest, user: AuthUser): Promi
             subscriptionId: true,
           },
           orderBy: { createdAt: 'asc' },
-          take: 10000,
+          take: 500,
         });
 
         const dailyRevenue: Record<
@@ -175,7 +175,7 @@ async function getRevenueReportsHandler(req: NextRequest, user: AuthUser): Promi
             intervalCount: true,
             nextBillingDate: true,
           },
-          take: 10000,
+          take: 500,
         });
 
         const currentMRR = subscriptions.reduce(

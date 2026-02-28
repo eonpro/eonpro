@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { withAuth } from '@/lib/auth/middleware';
 import { auditLog, AuditEventType } from '@/lib/audit/hipaa-audit';
 import { handleApiError } from '@/domains/shared/errors';
 import { extractVitalsFromIntake, parseDocumentData } from '@/lib/utils/vitals-extraction';
+import { loadPatientIntakeData } from '@/lib/database/intake-data-loader';
 
 /**
  * GET /api/patient-portal/vitals
@@ -24,35 +24,10 @@ const getHandler = withAuth(async (request: NextRequest, user) => {
 
     const patientId = user.patientId;
 
-    // Fetch patient with intake documents and submissions
-    const patient = await prisma.patient.findUnique({
-      where: { id: patientId },
-      include: {
-        documents: {
-          where: { category: 'MEDICAL_INTAKE_FORM' },
-          orderBy: { createdAt: 'desc' },
-          take: 1,
-          select: {
-            id: true,
-            patientId: true,
-            category: true,
-            filename: true,
-            createdAt: true,
-            data: true,
-          },
-        },
-        intakeSubmissions: {
-          include: {
-            responses: {
-              include: {
-                question: true,
-              },
-            },
-          },
-          orderBy: { createdAt: 'desc' },
-          take: 1,
-        },
-      },
+    // Fetch patient with intake documents and submissions (centralized loader)
+    const patient = await loadPatientIntakeData(patientId, {
+      includeDocumentData: true,
+      submissionOrder: 'desc',
     });
 
     if (!patient) {

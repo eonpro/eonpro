@@ -82,7 +82,7 @@ async function getSubscriptionReportsHandler(req: NextRequest, user: AuthUser): 
             },
           },
           orderBy: { startDate: 'desc' },
-          take: 10000,
+          take: 500,
         });
 
         const now = new Date();
@@ -228,7 +228,7 @@ async function getSubscriptionReportsHandler(req: NextRequest, user: AuthUser): 
             },
           },
           orderBy: { startDate: 'desc' },
-          take: 10000,
+          take: 500,
         });
 
         const byMonth: Record<

@@ -36,7 +36,9 @@ async function handleGet(req: NextRequest, user: AuthUser, context?: unknown) {
       );
     }
 
-    // Fetch invoice with full patient and clinic details
+    // Split the former depth-4 include chain into two flat queries:
+    // 1. Invoice + patient basic info + clinic
+    // 2. Intake submissions for the patient (loaded separately)
     const invoice = await prisma.invoice.findFirst({
       where: {
         id: invoiceIdNum,
@@ -54,42 +56,47 @@ async function handleGet(req: NextRequest, user: AuthUser, context?: unknown) {
             lifefilePracticePhone: true,
           },
         },
-        patient: {
-          include: {
-            intakeSubmissions: {
-              where: { status: 'completed' },
-              orderBy: { completedAt: 'desc' },
-              take: 1,
-              include: {
-                responses: {
-                  include: {
-                    question: {
-                      select: {
-                        id: true,
-                        questionText: true,
-                        questionType: true,
-                        section: true,
-                      },
-                    },
-                  },
-                },
-                template: {
-                  select: {
-                    id: true,
-                    name: true,
-                    treatmentType: true,
-                  },
-                },
-              },
-            },
-          },
-        },
+        patient: true,
       },
     });
 
     if (!invoice) {
       return NextResponse.json({ error: 'Invoice not found' }, { status: 404 });
     }
+
+    // Load intake submissions separately (reduces query depth from 4 to 2)
+    const intakeSubmissions = await prisma.intakeFormSubmission.findMany({
+      where: {
+        patientId: invoice.patient.id,
+        status: 'completed',
+      },
+      orderBy: { completedAt: 'desc' },
+      take: 1,
+      include: {
+        responses: {
+          include: {
+            question: {
+              select: {
+                id: true,
+                questionText: true,
+                questionType: true,
+                section: true,
+              },
+            },
+          },
+        },
+        template: {
+          select: {
+            id: true,
+            name: true,
+            treatmentType: true,
+          },
+        },
+      },
+    });
+
+    // Attach submissions to the patient object for downstream compatibility
+    (invoice.patient as any).intakeSubmissions = intakeSubmissions;
 
     // Extract intake data - either from IntakeFormSubmission or invoice metadata
     let intakeData: Record<string, unknown> = {};

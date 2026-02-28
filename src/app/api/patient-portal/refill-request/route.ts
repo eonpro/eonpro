@@ -94,7 +94,7 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
       return NextResponse.json({ error: 'Patient not found' }, { status: 404 });
     }
 
-    // Get active subscriptions for the patient
+    // Get active subscriptions for the patient (bounded)
     const subscriptions = await prisma.subscription.findMany({
       where: {
         patientId: patient.id,
@@ -109,9 +109,10 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
         nextBillingDate: true,
       },
       orderBy: { createdAt: 'desc' },
+      take: 50,
     });
 
-    // Get refill queue items for the patient
+    // Get refill queue items for the patient (bounded)
     const refillQueue = await prisma.refillQueue.findMany({
       where: {
         patientId: patient.id,
@@ -120,6 +121,7 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
         },
       },
       orderBy: { nextRefillDate: 'asc' },
+      take: 100,
       select: {
         id: true,
         status: true,

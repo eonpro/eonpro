@@ -19,6 +19,7 @@ export const GET = withAuth(
       const reports = await prisma.labReport.findMany({
         where: { patientId: user.patientId },
         orderBy: { reportedAt: 'desc' },
+        take: 100,
         select: {
           id: true,
           labName: true,

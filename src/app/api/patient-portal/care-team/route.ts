@@ -20,7 +20,7 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
       return NextResponse.json({ providers: [] });
     }
 
-    // Get providers assigned to this clinic
+    // Get providers assigned to this clinic (bounded)
     const providerClinics = await prisma.providerClinic.findMany({
       where: {
         clinicId: patient.clinicId,
@@ -37,6 +37,7 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
           },
         },
       },
+      take: 100,
     });
 
     const providers = providerClinics

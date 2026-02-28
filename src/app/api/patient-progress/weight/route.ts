@@ -7,6 +7,7 @@ import { handleApiError } from '@/domains/shared/errors';
 import { logPHIAccess, logPHICreate, logPHIDelete } from '@/lib/audit/hipaa-audit';
 import { withRateLimit, RATE_LIMIT_CONFIGS } from '@/lib/security/rate-limiter';
 import { canAccessPatientWithClinic } from '@/lib/auth/patient-access';
+import { loadPatientIntakeData } from '@/lib/database/intake-data-loader';
 
 export const maxDuration = 30;
 
@@ -144,35 +145,10 @@ async function getIntakeWeight(
   patientId: number
 ): Promise<{ weight: number; recordedAt: Date } | null> {
   try {
-    // Fetch patient with intake documents and submissions
-    const patient = await prisma.patient.findUnique({
-      where: { id: patientId },
-      include: {
-        documents: {
-          where: { category: 'MEDICAL_INTAKE_FORM' },
-          orderBy: { createdAt: 'asc' }, // Get oldest first (initial intake)
-          take: 1,
-          select: {
-            id: true,
-            patientId: true,
-            category: true,
-            filename: true,
-            createdAt: true,
-            data: true,
-          },
-        },
-        intakeSubmissions: {
-          include: {
-            responses: {
-              include: {
-                question: true,
-              },
-            },
-          },
-          orderBy: { createdAt: 'asc' },
-          take: 1,
-        },
-      },
+    // Fetch patient with intake documents and submissions (centralized loader)
+    const patient = await loadPatientIntakeData(patientId, {
+      includeDocumentData: true,
+      submissionOrder: 'asc',
     });
 
     if (!patient) return null;
