@@ -12,6 +12,7 @@ import { prisma, getClinicContext, withClinicContext } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { z } from 'zod';
 import { handleApiError } from '@/domains/shared/errors';
+import { decryptPHI } from '@/lib/security/phi-encryption';
 
 const querySchema = z.object({
   interval: z.enum(['all', 'monthly', 'quarterly', 'semiannual', 'annual']).default('all'),
@@ -112,11 +113,10 @@ async function handler(req: NextRequest, user: AuthUser) {
       }
 
       if (params.search) {
+        const searchLower = params.search.toLowerCase();
         baseWhere.OR = [
           { planName: { contains: params.search, mode: 'insensitive' } },
-          { patient: { firstName: { contains: params.search, mode: 'insensitive' } } },
-          { patient: { lastName: { contains: params.search, mode: 'insensitive' } } },
-          { patient: { email: { contains: params.search, mode: 'insensitive' } } },
+          { patient: { searchIndex: { contains: searchLower, mode: 'insensitive' } } },
         ];
       }
 
@@ -138,6 +138,7 @@ async function handler(req: NextRequest, user: AuthUser) {
                 firstName: true,
                 lastName: true,
                 email: true,
+                searchIndex: true,
               },
             },
             payments: {
@@ -177,13 +178,17 @@ async function handler(req: NextRequest, user: AuthUser) {
         const lastPayment = sub.payments[0] || null;
         const intervalCategory = classifyInterval(sub.interval, sub.intervalCount);
 
+        const firstName = decryptPHI(sub.patient?.firstName) || '';
+        const lastName = decryptPHI(sub.patient?.lastName) || '';
+        const email = decryptPHI(sub.patient?.email) || '';
+
         return {
           id: sub.id,
           patientId: sub.patientId,
           patientName: sub.patient
-            ? `${sub.patient.firstName || ''} ${sub.patient.lastName || ''}`.trim()
+            ? `${firstName} ${lastName}`.trim()
             : 'Unknown',
-          patientEmail: sub.patient?.email || '',
+          patientEmail: email,
           planName: sub.planName || 'Unknown Plan',
           planDescription: sub.planDescription || '',
           amount: sub.amount,
