@@ -29,7 +29,7 @@ const DEFAULT_BATCH_SIZE = 200;
 function safeDecrypt(value: unknown, fieldName: string, patientId: number): string {
   if (value == null || value === '') return '';
   try {
-    return decryptPHI(String(value));
+    return decryptPHI(String(value)) ?? '';
   } catch {
     logger.warn('[FIX-INCOMPLETE] Decryption failed', { fieldName, patientId });
     return '';

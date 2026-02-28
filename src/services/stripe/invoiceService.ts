@@ -437,7 +437,7 @@ export class StripeInvoiceService {
    */
   private static async createInvoiceFromStripeWebhook(
     stripeInvoice: Stripe.Invoice
-  ): Promise<(typeof prisma.invoice.$inferSelect & { patient: any; items: any[] }) | null> {
+  ): Promise<(any & { patient: any; items: any[] }) | null> {
     const customerId =
       typeof stripeInvoice.customer === 'string'
         ? stripeInvoice.customer
@@ -507,14 +507,14 @@ export class StripeInvoiceService {
       : new Date();
 
     const paymentIntentId =
-      typeof stripeInvoice.payment_intent === 'string'
-        ? stripeInvoice.payment_intent
-        : stripeInvoice.payment_intent?.id;
+      typeof (stripeInvoice as any).payment_intent === 'string'
+        ? (stripeInvoice as any).payment_intent
+        : (stripeInvoice as any).payment_intent?.id;
 
     const subscriptionId =
-      typeof stripeInvoice.subscription === 'string'
-        ? stripeInvoice.subscription
-        : stripeInvoice.subscription?.id;
+      typeof (stripeInvoice as any).subscription === 'string'
+        ? (stripeInvoice as any).subscription
+        : (stripeInvoice as any).subscription?.id;
 
     try {
       const result = await prisma.$transaction(async (tx) => {
@@ -647,9 +647,9 @@ export class StripeInvoiceService {
     );
 
     const paymentIntentId =
-      typeof stripeInvoice.payment_intent === 'string'
-        ? stripeInvoice.payment_intent
-        : stripeInvoice.payment_intent?.id;
+      typeof (stripeInvoice as any).payment_intent === 'string'
+        ? (stripeInvoice as any).payment_intent
+        : (stripeInvoice as any).payment_intent?.id;
 
     const isFirstPayment = await checkIfFirstPayment(
       invoice.patientId,

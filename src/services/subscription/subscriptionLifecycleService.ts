@@ -216,7 +216,7 @@ export async function createSubscription(
     const customer = await StripeCustomerService.getOrCreateCustomer(patientId);
     const stripeInterval = mapIntervalToStripe(interval, intervalCount);
 
-    const priceData: Stripe.SubscriptionCreateParams.Item.PriceData = {
+    const priceData: any = {
       currency: 'usd',
       unit_amount: amount,
       product_data: { name: planName },

@@ -103,7 +103,7 @@ async function loginHandler(req: NextRequest) {
     const validationResult = loginSchema.safeParse(body);
     if (!validationResult.success) {
       return NextResponse.json(
-        { error: 'Invalid input', details: validationResult.error.flatten() },
+        { error: 'Invalid email or password', details: validationResult.error.flatten() },
         { status: 400 }
       );
     }
@@ -368,7 +368,7 @@ async function loginHandler(req: NextRequest) {
           }),
         })
         .catch((e) => logger.debug('[Login] LoginAudit create failed', { error: e }));
-      return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
+      return NextResponse.json({ error: 'Incorrect email or password' }, { status: 401 });
     }
 
     // Durable lockout: check User.lockedUntil (generic 401 to avoid enumeration)
@@ -387,7 +387,7 @@ async function loginHandler(req: NextRequest) {
           }),
         })
         .catch((e) => logger.debug('[Login] LoginAudit create failed', { error: e }));
-      return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
+      return NextResponse.json({ error: 'Incorrect email or password' }, { status: 401 });
     }
 
     // Verify password (if passwordHash exists); atomic lockout via transaction
@@ -429,7 +429,7 @@ async function loginHandler(req: NextRequest) {
 
         return NextResponse.json(
           {
-            error: 'Invalid credentials',
+            error: 'Incorrect email or password',
             remainingAttempts: rateLimitResult.remainingAttempts - 1,
             requiresCaptcha: rateLimitResult.requiresCaptcha,
             securityLevel: rateLimitResult.securityLevel,

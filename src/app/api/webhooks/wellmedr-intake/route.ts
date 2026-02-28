@@ -975,7 +975,7 @@ export async function POST(req: NextRequest) {
           where: { id: existingDoc.id },
           data: {
             filename: stored?.filename || `wellmedr-intake-${normalized.submissionId}.json`,
-            data: intakeDataBuffer,
+            data: new Uint8Array(intakeDataBuffer),
             ...s3DataFields,
             externalUrl: pdfExternalUrl,
           },
@@ -988,7 +988,7 @@ export async function POST(req: NextRequest) {
             where: { id: existingDoc.id },
             data: {
               filename: stored?.filename || `wellmedr-intake-${normalized.submissionId}.json`,
-              data: intakeDataBuffer,
+              data: new Uint8Array(intakeDataBuffer),
               externalUrl: pdfExternalUrl,
             },
           });
@@ -1006,7 +1006,7 @@ export async function POST(req: NextRequest) {
             filename: stored?.filename || `wellmedr-intake-${normalized.submissionId}.json`,
             mimeType: 'application/json',
             category: PatientDocumentCategory.MEDICAL_INTAKE_FORM,
-            data: intakeDataBuffer,
+            data: new Uint8Array(intakeDataBuffer),
             ...s3DataFields,
             externalUrl: pdfExternalUrl,
             source: 'wellmedr-intake',
@@ -1023,10 +1023,10 @@ export async function POST(req: NextRequest) {
               clinicId: clinicId,
               filename: stored?.filename || `wellmedr-intake-${normalized.submissionId}.json`,
               mimeType: 'application/json',
-              category: PatientDocumentCategory.MEDICAL_INTAKE_FORM,
-              data: intakeDataBuffer,
-              externalUrl: pdfExternalUrl,
-              source: 'wellmedr-intake',
+            category: PatientDocumentCategory.MEDICAL_INTAKE_FORM,
+            data: new Uint8Array(intakeDataBuffer),
+            externalUrl: pdfExternalUrl,
+            source: 'wellmedr-intake',
               sourceSubmissionId: normalized.submissionId,
             },
           });

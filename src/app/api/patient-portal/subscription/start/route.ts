@@ -134,13 +134,13 @@ async function handler(req: NextRequest, user: AuthUser) {
         userEmail: user.email,
         userRole: user.role,
         clinicId: user.clinicId ?? undefined,
-        eventType: AuditEventType.CREATE,
+        eventType: AuditEventType.PHI_CREATE,
         resourceType: 'Subscription',
         resourceId: String(result.subscription?.id),
         patientId: user.patientId,
         action: 'portal_subscription_start',
         outcome: 'SUCCESS',
-        details: { planId: plan.id, planName: plan.name },
+        metadata: { planId: plan.id, planName: plan.name },
       });
     } catch (auditErr: unknown) {
       logger.warn('Failed to create HIPAA audit log for subscription start', {

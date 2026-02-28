@@ -150,7 +150,7 @@ async function handler(req: NextRequest): Promise<Response> {
         where: {
           ...clinicFilter,
           occurredAt: { gte: dateFrom },
-          status: { in: ACTIVE_COMMISSION_STATUSES },
+          status: { in: ACTIVE_COMMISSION_STATUSES as any },
         },
         _sum: { eventAmountCents: true },
       }),
@@ -163,7 +163,7 @@ async function handler(req: NextRequest): Promise<Response> {
     const codesMap = new Map(codesByClinic.map(r => [r.clinicId, r._count]));
     const clicksMap = new Map(clicksByClinic.map(r => [r.clinicId, r._count]));
     const conversionsMap = new Map(conversionsByClinic.map(r => [r.clinicId, r._count]));
-    const revenueMap = new Map(revenueByClinic.map(r => [r.clinicId, r._sum.eventAmountCents || 0]));
+    const revenueMap = new Map(revenueByClinic.map(r => [r.clinicId, r._sum?.eventAmountCents || 0]));
 
     const clinicBreakdown: ClinicBreakdown[] = clinics.map((clinic: ClinicRecord) => ({
       clinicId: clinic.id,
@@ -232,7 +232,7 @@ async function handler(req: NextRequest): Promise<Response> {
         by: ['affiliateId'],
         where: {
           occurredAt: { gte: dateFrom },
-          status: { in: ACTIVE_COMMISSION_STATUSES },
+          status: { in: ACTIVE_COMMISSION_STATUSES as any },
         },
         _sum: { eventAmountCents: true },
       }),

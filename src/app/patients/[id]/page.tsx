@@ -136,7 +136,7 @@ export default async function PatientDetailPage({
       );
     }
 
-    const patientInclude = {
+    const patientInclude: Record<string, unknown> = {
       user: { select: { id: true } },
       clinic: {
         select: { id: true, subdomain: true, name: true, features: true, address: true, phone: true },
@@ -482,6 +482,13 @@ export default async function PatientDetailPage({
       patientWithDecryptedPHI.clinic?.features,
       'BLOODWORK_LABS',
       true
+    );
+
+    // DoseSpot e-prescribing: driven by clinic feature DOSESPOT (default false).
+    const doseSpotEnabled = getClinicFeatureBoolean(
+      patientWithDecryptedPHI.clinic?.features,
+      'DOSESPOT',
+      false
     );
 
     const resolvedSearchParams = searchParams ? await searchParams : undefined;
@@ -1078,6 +1085,8 @@ export default async function PatientDetailPage({
                 patient={patientCore}
                 orders={patientWithDecryptedPHI.orders ?? []}
                 shippingLabelMap={shippingLabelMap}
+                doseSpotEnabled={doseSpotEnabled}
+                providerId={user.providerId ?? undefined}
               />
             ) : currentTab === 'billing' ? (
               <div className="space-y-6">

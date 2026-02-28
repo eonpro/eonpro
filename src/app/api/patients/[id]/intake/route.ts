@@ -173,7 +173,7 @@ export const PUT = withAuthParams(
         intakeDoc = await prisma.patientDocument.update({
           where: { id: intakeDoc.id },
           data: {
-            data: dataBuffer,
+            data: new Uint8Array(dataBuffer),
             ...(s3DataKey != null ? { s3DataKey } : {}),
           },
         });
@@ -187,7 +187,7 @@ export const PUT = withAuthParams(
             filename: `intake-manual-${Date.now()}.json`,
             mimeType: 'application/json',
             category: PatientDocumentCategory.MEDICAL_INTAKE_FORM,
-            data: dataBuffer,
+            data: new Uint8Array(dataBuffer),
             ...(s3DataKey != null ? { s3DataKey } : {}),
             source: 'manual_entry',
             sourceSubmissionId: intakeDataToStore.submissionId,

@@ -64,9 +64,26 @@ export const salesRepNavConfig: AdminNavItemConfig[] = [
   salesRepLinksNavConfig,
 ];
 
+/**
+ * Staff nav: operational subset of admin nav.
+ * No analytics, finance, stripe, registration codes, affiliates, sales rep commissions.
+ */
+export const staffNavConfig: AdminNavItemConfig[] = [
+  { path: '/staff', label: 'Home', iconKey: 'Home' },
+  { path: '/admin/intakes', label: 'Intakes', iconKey: 'UserPlus' },
+  { path: '/admin/patients', label: 'Patients', iconKey: 'Users' },
+  { path: '/admin/messages', label: 'Messages', iconKey: 'MessageSquare' },
+  { path: '/admin/orders', label: 'Orders', iconKey: 'ShoppingCart' },
+  { path: '/tickets', label: 'Tickets', iconKey: 'Ticket' },
+  { path: '/admin/products', label: 'Products', iconKey: 'Store' },
+];
+
 export function getAdminNavConfig(role: string | null): AdminNavItemConfig[] {
   if (role === 'sales_rep') {
     return [...salesRepNavConfig];
+  }
+  if (role === 'staff') {
+    return [...staffNavConfig];
   }
   const items = [...baseAdminNavConfig];
   if (role === 'super_admin') {

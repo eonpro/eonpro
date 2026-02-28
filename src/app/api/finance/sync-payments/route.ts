@@ -429,9 +429,9 @@ async function handlePost(request: NextRequest, user: AuthUser) {
 
         // Invoice not in DB — process its payment intent
         const paymentIntentId =
-          typeof stripeInvoice.payment_intent === 'string'
-            ? stripeInvoice.payment_intent
-            : (stripeInvoice.payment_intent as Stripe.PaymentIntent | null)?.id;
+          typeof (stripeInvoice as any).payment_intent === 'string'
+            ? (stripeInvoice as any).payment_intent
+            : ((stripeInvoice as any).payment_intent as Stripe.PaymentIntent | null)?.id;
 
         if (!paymentIntentId) continue;
 
@@ -495,7 +495,7 @@ async function handlePost(request: NextRequest, user: AuthUser) {
         });
 
         const standalone = chargePage.data.filter(
-          (c) => c.status === 'succeeded' && !c.payment_intent && !c.invoice
+          (c) => c.status === 'succeeded' && !c.payment_intent && !(c as any).invoice
         );
         allCharges.push(...standalone);
 

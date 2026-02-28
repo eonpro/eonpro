@@ -613,7 +613,7 @@ export async function POST(req: NextRequest) {
         where: { id: existingDoc.id },
         data: {
           filename: stored?.filename || `intake-${normalized.submissionId}.json`,
-          data: intakeDataBuffer,
+          data: new Uint8Array(intakeDataBuffer),
           ...(s3DataKey != null ? { s3DataKey } : {}),
           externalUrl: pdfExternalUrl || existingDoc.externalUrl,
         },
@@ -627,7 +627,7 @@ export async function POST(req: NextRequest) {
           filename: stored?.filename || `intake-${normalized.submissionId}.json`,
           mimeType: 'application/json',
           category: PatientDocumentCategory.MEDICAL_INTAKE_FORM,
-          data: intakeDataBuffer,
+          data: new Uint8Array(intakeDataBuffer),
           ...(s3DataKey != null ? { s3DataKey } : {}),
           externalUrl: pdfExternalUrl,
           source: 'weightlossintake',

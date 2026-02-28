@@ -74,13 +74,13 @@ async function handler(req: NextRequest, user: AuthUser) {
         userEmail: user.email,
         userRole: user.role,
         clinicId: user.clinicId ?? undefined,
-        eventType: AuditEventType.UPDATE,
+        eventType: AuditEventType.PHI_UPDATE,
         resourceType: 'Subscription',
         resourceId: String(subscription.id),
         patientId: user.patientId,
         action: 'portal_subscription_pause',
         outcome: 'SUCCESS',
-        details: { reason },
+        metadata: { reason },
       });
     } catch (auditErr: unknown) {
       logger.warn('Failed to create HIPAA audit log for subscription pause', {

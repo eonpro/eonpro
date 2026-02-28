@@ -139,7 +139,7 @@ export async function POST(req: NextRequest) {
           filename: stored.filename,
           category: PatientDocumentCategory.MEDICAL_INTAKE_FORM,
           mimeType: 'application/pdf',
-          data: intakeDataBuffer,
+          data: new Uint8Array(intakeDataBuffer),
           ...(s3DataKey != null ? { s3DataKey } : {}),
           externalUrl: stored.s3Key,
           sourceSubmissionId: normalized.submissionId,

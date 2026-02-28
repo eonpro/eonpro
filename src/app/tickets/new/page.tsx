@@ -14,6 +14,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { ArrowLeft as ArrowLeftIcon, AlertTriangle as ExclamationTriangleIcon } from 'lucide-react';
 import { apiFetch } from '@/lib/api/fetch';
 import { formatPatientDisplayId } from '@/lib/utils/formatPatientDisplayId';
+import TemplateSelector from '@/components/tickets/TemplateSelector';
 
 // Types
 interface User {
@@ -241,6 +242,21 @@ export default function NewTicketPage() {
           </div>
         </div>
       )}
+
+      {/* Template Selector */}
+      <TemplateSelector
+        onSelect={(template) => {
+          setFormData((prev) => ({
+            ...prev,
+            title: template.title,
+            description: template.description,
+            category: template.category,
+            priority: template.priority,
+            tags: template.tags.join(', '),
+            assignedToId: template.assignedToId ? String(template.assignedToId) : '',
+          }));
+        }}
+      />
 
       {/* Form */}
       <form onSubmit={handleSubmit} className="space-y-6">

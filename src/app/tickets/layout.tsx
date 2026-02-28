@@ -28,6 +28,12 @@ import {
   UserCog,
   Activity,
   MessageSquare,
+  BarChart3,
+  List,
+  Plus,
+  Zap,
+  BookOpen,
+  Clock,
 } from 'lucide-react';
 import InternalChat from '@/components/InternalChat';
 import {
@@ -358,6 +364,46 @@ function TicketsLayoutInner({ children }: { children: React.ReactNode }) {
               <span className="text-sm font-medium text-gray-600">Notifications</span>
             </div>
           </div>
+        </div>
+
+        {/* Ticket Sub-Navigation */}
+        <div className="border-b border-gray-200/50 bg-white/80 px-6 backdrop-blur-sm">
+          <nav className="flex gap-1 overflow-x-auto py-1">
+            {[
+              { path: '/tickets/dashboard', label: 'Dashboard', icon: BarChart3 },
+              { path: '/tickets', label: 'All Tickets', icon: List, exact: true },
+              { path: '/tickets/new', label: 'New Ticket', icon: Plus },
+              { path: '/tickets/macros', label: 'Macros', icon: Zap },
+              { path: '/tickets/automations', label: 'Automations', icon: BookOpen },
+              ...(['admin', 'super_admin'].includes(userRole) ? [
+                { path: '/tickets/teams', label: 'Teams', icon: Users },
+                { path: '/tickets/sla-policies', label: 'SLA Policies', icon: Shield },
+                { path: '/tickets/business-hours', label: 'Hours', icon: Clock },
+              ] : []),
+            ].map((item) => {
+              const Icon = item.icon;
+              const active = item.exact
+                ? pathname === item.path
+                : pathname === item.path || pathname?.startsWith(item.path + '/');
+              return (
+                <button
+                  key={item.path}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    window.location.href = item.path;
+                  }}
+                  className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                    active
+                      ? 'bg-gray-900 text-white'
+                      : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                  }`}
+                >
+                  <Icon className="h-4 w-4" />
+                  {item.label}
+                </button>
+              );
+            })}
+          </nav>
         </div>
 
         <div className="p-6">{children}</div>

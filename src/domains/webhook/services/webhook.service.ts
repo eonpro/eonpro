@@ -125,7 +125,7 @@ export function createWebhookService(): WebhookService {
           rawBody: options.rawBody,
           signature: options.signature ?? null,
           idempotencyKey,
-          status: 'RECEIVED',
+          status: 'RECEIVED' as any,
           receivedAt: new Date(),
         },
       });
@@ -136,7 +136,7 @@ export function createWebhookService(): WebhookService {
           key: idempotencyKey,
           response: JSON.stringify({ deliveryId: delivery.id }),
           expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-        },
+        } as any,
       });
 
       // Step 4: Enqueue for async processing via BullMQ
@@ -178,7 +178,7 @@ export function createWebhookService(): WebhookService {
       // Step 5: Mark as processing
       await basePrisma.webhookDelivery.update({
         where: { id: delivery.id },
-        data: { status: 'PROCESSING' },
+        data: { status: 'PROCESSING' as any },
       });
 
       logger.info('[WebhookService] Webhook accepted', {

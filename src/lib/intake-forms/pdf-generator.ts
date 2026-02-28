@@ -154,7 +154,7 @@ export async function generateIntakeFormPDF(options: PDFGenerationOptions): Prom
         externalUrl: s3Result.key,
         source: 'System',
         sourceSubmissionId: String(submissionId),
-        data: intakeDataBuffer,
+        data: new Uint8Array(intakeDataBuffer),
         s3DataKey,
       },
     });

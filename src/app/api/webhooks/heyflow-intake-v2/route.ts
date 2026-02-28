@@ -349,7 +349,7 @@ export async function POST(req: NextRequest) {
           where: { id: existingDocument.id },
           data: {
             filename: stored.filename,
-            data: intakeDataBuffer,
+            data: new Uint8Array(intakeDataBuffer),
             ...(s3DataKey != null ? { s3DataKey } : {}),
             externalUrl: stored.s3Key || existingDocument.externalUrl,
           },
@@ -364,7 +364,7 @@ export async function POST(req: NextRequest) {
             source: 'heyflow',
             sourceSubmissionId: normalized.submissionId,
             category: PatientDocumentCategory.MEDICAL_INTAKE_FORM,
-            data: intakeDataBuffer,
+            data: new Uint8Array(intakeDataBuffer),
             ...(s3DataKey != null ? { s3DataKey } : {}),
             externalUrl: stored.s3Key,
           },

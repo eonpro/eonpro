@@ -224,8 +224,8 @@ async function handleGet(req: NextRequest, user: AuthUser) {
 
       recentShippingUpdates: shippingUpdates.slice(0, 10).map((update) => ({
         id: update.id,
-        patient: `${update.patient.firstName} ${update.patient.lastName}`,
-        patientId: update.patient.patientId,
+        patient: `${update.patient?.firstName ?? ''} ${update.patient?.lastName ?? ''}`,
+        patientId: update.patient?.patientId,
         trackingNumber: update.trackingNumber,
         carrier: update.carrier,
         status: update.status,

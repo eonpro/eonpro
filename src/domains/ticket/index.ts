@@ -86,6 +86,10 @@ export type {
   TicketStats,
   TicketTrend,
   AgentPerformance,
+  // Timeline & Work Log types
+  TimelineEntry,
+  TimelineEntryType,
+  CreateWorkLogInput,
   // Other types
   AutomationCondition,
   AutomationAction,

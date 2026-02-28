@@ -212,6 +212,7 @@ export default function ClinicDetailPage() {
       | 'branding'
       | 'features'
       | 'pharmacy'
+      | 'dosespot'
       | 'users'
       | 'settings') || 'overview';
 
@@ -219,7 +220,7 @@ export default function ClinicDetailPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState<
-    'overview' | 'branding' | 'features' | 'pharmacy' | 'users' | 'settings'
+    'overview' | 'branding' | 'features' | 'pharmacy' | 'dosespot' | 'users' | 'settings'
   >(initialTab);
 
   // Lifefile/Pharmacy settings state
@@ -2652,16 +2653,16 @@ export default function ClinicDetailPage() {
                 </div>
                 <a
                   href={`/super-admin/clinics/${clinicId}/dosespot`}
-                  className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500"
+                  className="inline-flex items-center gap-2 rounded-lg bg-[#4fa77e] px-4 py-2 text-sm font-medium text-white hover:bg-[#3d8c65]"
                 >
                   <Settings className="h-4 w-4" />
                   Configure DoseSpot
                 </a>
               </div>
             </div>
-            <div className="rounded-xl border border-indigo-200 bg-indigo-50 p-6">
-              <h4 className="font-semibold text-indigo-900">About DoseSpot</h4>
-              <ul className="mt-2 space-y-1 text-sm text-indigo-800">
+            <div className="rounded-xl border border-teal-200 bg-teal-50 p-6">
+              <h4 className="font-semibold text-teal-900">About DoseSpot</h4>
+              <ul className="mt-2 space-y-1 text-sm text-teal-800">
                 <li>Enables providers to e-prescribe to any US pharmacy via SSO</li>
                 <li>Supports EPCS (electronic prescribing of controlled substances)</li>
                 <li>Patients and providers are synced automatically on first use</li>

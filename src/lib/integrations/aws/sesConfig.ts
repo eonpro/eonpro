@@ -83,6 +83,13 @@ export enum EmailTemplate {
   DOCUMENT_RECEIVED = 'document_received',
   SIGNATURE_REQUIRED = 'signature_required',
 
+  // Ticket Communications
+  TICKET_ASSIGNED = 'ticket_assigned',
+  TICKET_RESOLVED = 'ticket_resolved',
+  TICKET_ESCALATED = 'ticket_escalated',
+  TICKET_SLA_WARNING = 'ticket_sla_warning',
+  TICKET_CSAT_SURVEY = 'ticket_csat_survey',
+
   // Notification Digest
   NOTIFICATION_DIGEST = 'notification_digest',
 
@@ -189,6 +196,12 @@ export const DEFAULT_SUBJECTS: Record<EmailTemplate, string> = {
   [EmailTemplate.NEW_PATIENT_ASSIGNED]: 'New Patient Assigned',
   [EmailTemplate.DOCUMENT_RECEIVED]: 'New Document Received',
   [EmailTemplate.SIGNATURE_REQUIRED]: 'Signature Required',
+
+  [EmailTemplate.TICKET_ASSIGNED]: 'Ticket Assigned: {{ticketNumber}} - {{ticketTitle}}',
+  [EmailTemplate.TICKET_RESOLVED]: 'Ticket Resolved: {{ticketNumber}} - {{ticketTitle}}',
+  [EmailTemplate.TICKET_ESCALATED]: 'ESCALATION: {{ticketNumber}} - {{ticketTitle}}',
+  [EmailTemplate.TICKET_SLA_WARNING]: 'SLA Warning: {{ticketNumber}} - {{ticketTitle}}',
+  [EmailTemplate.TICKET_CSAT_SURVEY]: 'How was your experience? - Ticket {{ticketNumber}}',
 
   [EmailTemplate.NOTIFICATION_DIGEST]: 'Your Weekly Notification Summary',
 

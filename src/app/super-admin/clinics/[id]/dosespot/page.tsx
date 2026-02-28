@@ -126,11 +126,11 @@ export default function ClinicDoseSpotSettingsPage() {
       <div className="mb-8 flex items-center justify-between">
         <div>
           <div className="mb-2 flex items-center gap-2 text-sm text-gray-500">
-            <Link href="/super-admin" className="hover:text-indigo-600">
+            <Link href="/super-admin" className="hover:text-[#4fa77e]">
               Super Admin
             </Link>
             <span>&rarr;</span>
-            <Link href="/super-admin/clinics" className="hover:text-indigo-600">
+            <Link href="/super-admin/clinics" className="hover:text-[#4fa77e]">
               Clinics
             </Link>
             <span>&rarr;</span>
@@ -174,7 +174,7 @@ export default function ClinicDoseSpotSettingsPage() {
               onChange={(e) => updateForm('doseSpotEnabled', e.target.checked)}
               className="peer sr-only"
             />
-            <div className="peer h-6 w-11 rounded-full bg-gray-200 after:absolute after:start-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-[''] peer-checked:bg-indigo-600 peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-600/20 rtl:peer-checked:after:-translate-x-full"></div>
+            <div className="peer h-6 w-11 rounded-full bg-gray-200 after:absolute after:start-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-[''] peer-checked:bg-[#4fa77e] peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#4fa77e]/20 rtl:peer-checked:after:-translate-x-full"></div>
           </label>
         </div>
         {settings?.hasCredentials && (
@@ -298,9 +298,9 @@ export default function ClinicDoseSpotSettingsPage() {
       </div>
 
       {/* Info Box */}
-      <div className="mb-6 rounded-xl border border-indigo-200 bg-indigo-50 p-6">
-        <h3 className="font-semibold text-indigo-900">How DoseSpot works</h3>
-        <ul className="mt-2 space-y-1 text-sm text-indigo-800">
+      <div className="mb-6 rounded-xl border border-teal-200 bg-teal-50 p-6">
+        <h3 className="font-semibold text-teal-900">How DoseSpot works</h3>
+        <ul className="mt-2 space-y-1 text-sm text-teal-800">
           <li>
             Providers open the DoseSpot UI via SSO to write prescriptions
           </li>
@@ -327,7 +327,7 @@ export default function ClinicDoseSpotSettingsPage() {
         <button
           onClick={handleSave}
           disabled={saving}
-          className="rounded-lg bg-indigo-600 px-6 py-2 text-white hover:bg-indigo-500 disabled:opacity-50"
+          className="rounded-lg bg-[#4fa77e] px-6 py-2 text-white hover:bg-[#3d8c65] disabled:opacity-50"
         >
           {saving ? 'Saving...' : 'Save Settings'}
         </button>

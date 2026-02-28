@@ -197,9 +197,9 @@ export function createPrescriptionService(): PrescriptionService {
               rx: {
                 medicationKey: String(SYRINGE_KIT_PRODUCT_ID),
                 sig: 'Use supplies as directed for subcutaneous injection.',
-                quantity: String(glp1VialCount),
-                refills: '0',
-                daysSupply: '30',
+                quantity: Number(glp1VialCount),
+                refills: 0,
+                daysSupply: 30,
               },
               med: syringeKitMed,
             });
@@ -287,7 +287,7 @@ export function createPrescriptionService(): PrescriptionService {
           quantity: rx.quantity,
           refills: rx.refills,
           daysSupply: Number(rx.daysSupply) || 30,
-        })),
+        })) as any[],
         shipping: {
           methodLabel: SHIPPING_METHODS.find((m: any) => m.id === input.shippingMethod)?.label ?? `Service ${input.shippingMethod}`,
           addressLine1: input.patient.address1,
@@ -342,7 +342,7 @@ export function createPrescriptionService(): PrescriptionService {
             city: input.patient.city,
             state: input.patient.state,
             zipCode: input.patient.zip,
-            service: input.shippingMethod,
+            service: input.shippingMethod as any,
           },
           billing: { payorType: 'pat' },
           rxs: rxsWithMeds.map(({ rx, med }) => ({
@@ -358,7 +358,7 @@ export function createPrescriptionService(): PrescriptionService {
             dateWritten,
             daysSupply: Number(rx.daysSupply) || 30,
             clinicalDifferenceStatement: getClinicalDifferenceStatement(med.name),
-          })),
+          })) as any[],
           document: { pdfBase64 },
         },
       };
