@@ -25,6 +25,7 @@ export const GET = withAuth(async (request, user) => {
         isActive: true,
       },
       orderBy: [{ category: 'asc' }, { name: 'asc' }],
+      take: 200,
     });
 
     return NextResponse.json({ templates });

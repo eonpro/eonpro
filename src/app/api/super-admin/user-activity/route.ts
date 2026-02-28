@@ -55,13 +55,14 @@ export const GET = withAuth(
         whereClause.lastLogin = null;
       }
 
-      // Get active sessions for online filtering
+      // Get active sessions for online filtering (bounded to prevent runaway queries)
       const activeSessions = await prisma.userSession.findMany({
         where: {
           lastActivity: { gte: fifteenMinutesAgo },
           expiresAt: { gt: now },
         },
         select: { userId: true },
+        take: 1000,
       });
       const onlineUserIds = new Set(activeSessions.map((s: { userId: number }) => s.userId));
 

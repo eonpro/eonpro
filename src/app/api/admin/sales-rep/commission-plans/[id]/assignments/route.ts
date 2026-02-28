@@ -53,6 +53,7 @@ export const GET = withAuth(
             },
           },
           orderBy: { createdAt: 'desc' },
+          take: 500,
         })
       );
 

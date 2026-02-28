@@ -22,6 +22,7 @@ export const GET = withAuth(async (request, user) => {
     const policies = await prisma.slaPolicyConfig.findMany({
       where: { ...(clinicId ? { clinicId } : {}) },
       orderBy: [{ isDefault: 'desc' }, { name: 'asc' }],
+      take: 200,
       include: {
         businessHours: { select: { id: true, name: true, timezone: true } },
         _count: { select: { ticketSlas: true } },

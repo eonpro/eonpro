@@ -23,8 +23,8 @@ function parseEnums(schemaContent) {
     const name = match[1];
     const values = match[2]
       .split('\n')
-      .map((line) => line.trim())
-      .filter((line) => line && !line.startsWith('//'));
+      .map((line) => line.replace(/\/\/.*$/, '').trim())
+      .filter((line) => line && line.length > 0);
 
     enums.push({ name, values });
   }

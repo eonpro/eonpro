@@ -23,6 +23,7 @@ import {
 import { prisma } from '@/lib/db';
 import { standardRateLimit } from '@/lib/rateLimit';
 import { logger } from '@/lib/logger';
+import { AGGREGATION_TAKE_UI } from '@/lib/pagination';
 
 async function getPaymentReportsHandler(req: NextRequest, user: AuthUser): Promise<Response> {
   try {
@@ -183,7 +184,7 @@ async function getPaymentReportsHandler(req: NextRequest, user: AuthUser): Promi
             },
           },
           orderBy: { createdAt: 'desc' },
-          take: 10000,
+          take: AGGREGATION_TAKE_UI,
         });
 
         const failedDetails = failedPayments.map(
@@ -281,7 +282,7 @@ async function getPaymentReportsHandler(req: NextRequest, user: AuthUser): Promi
             createdAt: { gte: start, lte: end },
           },
           orderBy: { createdAt: 'desc' },
-          take: 10000,
+          take: AGGREGATION_TAKE_UI,
           include: {
             patient: {
               select: {

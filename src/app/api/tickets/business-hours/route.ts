@@ -18,6 +18,7 @@ export const GET = withAuth(async (request, user) => {
     const businessHours = await prisma.ticketBusinessHours.findMany({
       where: { ...(clinicId ? { clinicId } : {}), isActive: true },
       orderBy: [{ isDefault: 'desc' }, { name: 'asc' }],
+      take: 200,
     });
 
     return NextResponse.json({ businessHours });

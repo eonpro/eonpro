@@ -91,6 +91,7 @@ async function getHandler(request: NextRequest, user: AuthUser) {
         },
         distinct: ['patientId'],
         orderBy: { createdAt: 'desc' },
+        take: 500,
         select: { patientId: true, direction: true },
       });
       const needsReplyIds = new Set(
@@ -113,6 +114,7 @@ async function getHandler(request: NextRequest, user: AuthUser) {
           searchIndex: { contains: search.toLowerCase(), mode: 'insensitive' },
         },
         select: { id: true },
+        take: 500,
       });
       const matchSet = new Set(matchingPatients.map((p) => p.id));
       const filteredOrdered = orderedPatientIds.filter((id) => matchSet.has(id));
@@ -122,6 +124,7 @@ async function getHandler(request: NextRequest, user: AuthUser) {
     // Step 3: Fetch patient details + latest message for the page
     const patientsWithMessages = await prisma.patient.findMany({
       where: { id: { in: finalIds } },
+      take: 100,
       select: {
         id: true,
         firstName: true,

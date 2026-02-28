@@ -841,6 +841,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
           },
           orderBy: { createdAt: 'desc' },
           distinct: ['patientId'],
+          take: 500,
           select: {
             id: true,
             patientId: true,
@@ -886,6 +887,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
           },
           orderBy: { createdAt: 'desc' },
           distinct: ['patientId'],
+          take: 500,
           select: {
             patientId: true,
             data: true,
