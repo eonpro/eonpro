@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { ClinicSwitcher } from '@/components/clinic/ClinicSwitcher';
 import { EONPRO_LOGO } from '@/lib/constants/brand-assets';
+import { safeParseJsonString } from '@/lib/utils/safe-json';
 import { LogOut, User, Shield, Menu, X, ChevronRight } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
@@ -24,7 +25,8 @@ export default function ConditionalHeader() {
   useEffect(() => {
     const userData = localStorage.getItem('user');
     if (userData) {
-      setUser(JSON.parse(userData));
+      const parsed = safeParseJsonString(userData);
+      if (parsed) setUser(parsed);
     }
   }, []);
 

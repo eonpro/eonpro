@@ -19,6 +19,7 @@ import {
 import { apiFetch } from '@/lib/api/fetch';
 import { AdminDashboardSkeleton } from '@/components/dashboards/AdminDashboardSkeleton';
 import { USMapChart } from '@/components/dashboards/USMapChart';
+import { safeParseJsonString } from '@/lib/utils/safe-json';
 
 // Helper to detect if data looks like encrypted PHI (base64:base64:base64 format)
 const isEncryptedData = (value: string | null | undefined): boolean => {
@@ -94,8 +95,8 @@ export default function AdminPage() {
     const user = localStorage.getItem('user');
     if (user) {
       try {
-        const parsed = JSON.parse(user) as Record<string, unknown>;
-        // Super admin has no clinic — redirect to their dedicated dashboard
+        const parsed = safeParseJsonString<Record<string, unknown>>(user);
+        if (!parsed) return;
         if (typeof parsed.role === 'string' && parsed.role.toLowerCase() === 'super_admin') {
           window.location.href = '/super-admin';
           return;

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { apiFetch } from '@/lib/api/fetch';
 import { useRouter } from 'next/navigation';
 
@@ -139,7 +139,7 @@ function formatDateTime(dateString: string): string {
 // Stat Card Component
 // SVG Icon component for StatCard
 function StatIcon({ type }: { type: string }) {
-  const icons: Record<string, JSX.Element> = {
+  const icons: Record<string, React.ReactElement> = {
     users: (
       <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path

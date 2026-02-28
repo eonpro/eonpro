@@ -1478,7 +1478,7 @@ async function handlePatch(req: NextRequest, user: AuthUser) {
         data: {
           status: 'PRESCRIBED',
           prescribedAt: new Date(),
-          prescribedByProviderId: providerId,
+          prescribedBy: providerId,
         },
       });
 

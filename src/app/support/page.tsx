@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import SupportLayout from '@/components/layouts/SupportLayout';
+import { safeParseJsonString } from '@/lib/utils/safe-json';
 import {
   Ticket,
   MessageCircle,
@@ -27,7 +28,8 @@ export default function SupportDashboard() {
     }
 
     try {
-      const data = JSON.parse(user);
+      const data = safeParseJsonString(user);
+      if (!data) { router.push('/login'); return; }
       if (data.role?.toLowerCase() !== 'support') {
         router.push('/login');
         return;

@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { apiFetch } from '@/lib/api/fetch';
+import { safeParseJsonString } from '@/lib/utils/safe-json';
 
 interface HealthCheck {
   name: string;
@@ -68,7 +69,8 @@ export default function MonitoringDashboard() {
         router.replace('/login');
         return;
       }
-      const parsed = JSON.parse(user);
+      const parsed = safeParseJsonString(user);
+      if (!parsed) { router.replace('/login'); return; }
       const role = parsed?.role?.toLowerCase();
       if (role !== 'super_admin') {
         router.replace('/admin');

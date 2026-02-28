@@ -637,7 +637,7 @@ export async function parseQuestBloodworkPdf(buffer: Buffer): Promise<QuestParse
   let extractText: (src: ArrayBuffer) => Promise<{ totalPages: number; text: string }>;
   try {
     const mod = await import('unpdf');
-    extractText = mod.extractText;
+    extractText = mod.extractText as unknown as typeof extractText;
     if (typeof extractText !== 'function') {
       throw new Error('PDF text extraction function not available');
     }
@@ -652,7 +652,7 @@ export async function parseQuestBloodworkPdf(buffer: Buffer): Promise<QuestParse
   });
 
   try {
-    const arrayBuffer = buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);
+    const arrayBuffer = buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength) as ArrayBuffer;
     const result = await Promise.race([extractText(arrayBuffer), timeoutPromise]);
     const text = result?.text ?? '';
     if (!text || text.length < 100) {

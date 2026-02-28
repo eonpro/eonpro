@@ -136,19 +136,19 @@ model PaymentMethod {
   clinic                Clinic?        @relation(fields: [clinicId], references: [id])
   updatedAt             DateTime       @updatedAt
   patientId             Int
-  encryptedCardNumber   String
+  encryptedCardNumber   String?
   cardLast4             String
   cardBrand             String?
-  expiryMonth           Int
-  expiryYear            Int
-  cardholderName        String
+  expiryMonth           Int?
+  expiryYear            Int?
+  cardholderName        String?
   encryptedCvv          String?
-  billingZip            String
+  billingZip            String?
   stripePaymentMethodId String?        @unique
   isDefault             Boolean        @default(false)
   isActive              Boolean        @default(true)
   lastUsedAt            DateTime?
-  encryptionKeyId       String
+  encryptionKeyId       String?
   fingerprint           String?
   patient               Patient        @relation(fields: [patientId], references: [id])
   subscriptions         Subscription[]

@@ -17,6 +17,7 @@ import {
   Building2,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api/fetch';
+import { safeParseJsonString } from '@/lib/utils/safe-json';
 
 interface ProviderSettings {
   user: {
@@ -98,7 +99,8 @@ export default function ProviderSettingsPage() {
       return;
     }
     try {
-      const data = JSON.parse(user);
+      const data = safeParseJsonString(user);
+      if (!data) { router.push('/login'); return; }
       if (data.role?.toLowerCase() !== 'provider') {
         router.push('/login');
         return;

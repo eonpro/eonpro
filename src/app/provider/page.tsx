@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { ProviderDashboardSkeleton } from '@/components/dashboards/ProviderDashboardSkeleton';
 import { apiFetch } from '@/lib/api/fetch';
+import { safeParseJsonString } from '@/lib/utils/safe-json';
 
 interface DashboardStats {
   totalIntakes: number;
@@ -61,7 +62,8 @@ export default function ProviderDashboard() {
       return;
     }
     try {
-      const data = JSON.parse(user);
+      const data = safeParseJsonString(user);
+      if (!data) { router.push('/login'); return; }
       if (data.role?.toLowerCase() !== 'provider') {
         router.push('/login');
         return;

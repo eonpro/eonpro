@@ -10,9 +10,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import lifefile from '@/lib/lifefile';
-import { verifyAuth } from '@/lib/auth/middleware';
+import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { handleApiError } from '@/domains/shared/errors';
-import { requirePermission, toPermissionContext } from '@/lib/rbac/permissions';
 import { logger } from '@/lib/logger';
 
 type Params = {
@@ -26,31 +25,26 @@ type Params = {
  * Note: This fetches status directly from Lifefile pharmacy API,
  * not from our local database. The ID is the Lifefile order ID.
  *
- * @security Requires authentication
+ * @security Requires authentication with order:view permission
  */
-export async function GET(req: NextRequest, { params }: Params) {
+async function handler(req: NextRequest, user: AuthUser) {
   try {
-    const authResult = await verifyAuth(req);
-    if (!authResult.success) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-    if (authResult.user) {
-      requirePermission(toPermissionContext(authResult.user), 'order:view');
-    }
+    const url = new URL(req.url);
+    const id = url.pathname.split('/').pop();
 
-    const resolvedParams = await params;
-    const { id } = resolvedParams;
+    if (!id) {
+      return NextResponse.json({ error: 'Order ID required' }, { status: 400 });
+    }
 
     logger.info('[Orders] Fetching Lifefile order status', {
       lifefileOrderId: id,
-      userId: authResult.user?.id,
+      userId: user.id,
     });
 
     const status = await lifefile.getOrderStatus(id);
 
     return NextResponse.json({ success: true, status });
   } catch (error) {
-    // Return 502 for Lifefile API errors (external service)
     if (error instanceof Error) {
       return NextResponse.json({ success: false, error: error.message }, { status: 502 });
     }
@@ -60,3 +54,5 @@ export async function GET(req: NextRequest, { params }: Params) {
     });
   }
 }
+
+export const GET = withAuth(handler, { roles: ['admin', 'super_admin', 'provider', 'staff'] });

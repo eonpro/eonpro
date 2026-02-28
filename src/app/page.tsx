@@ -34,6 +34,7 @@ import { ClinicBrandingProvider, useClinicBranding } from '@/lib/contexts/Clinic
 import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
 import { USMapChart } from '@/components/dashboards/USMapChart';
 import { EONPRO_LOGO, EONPRO_ICON } from '@/lib/constants/brand-assets';
+import { safeParseJsonString } from '@/lib/utils/safe-json';
 
 interface PatientIntake {
   id: number;
@@ -159,7 +160,7 @@ function HomePageInner() {
             try {
               const storedUser = localStorage.getItem('user');
               if (storedUser) {
-                previousRole = JSON.parse(storedUser)?.role?.toLowerCase();
+                previousRole = safeParseJsonString<{role?: string}>(storedUser)?.role?.toLowerCase();
               }
             } catch {}
 
@@ -222,7 +223,8 @@ function HomePageInner() {
       }
 
       try {
-        const parsedUser = JSON.parse(user);
+        const parsedUser = safeParseJsonString(user);
+        if (!parsedUser) return;
         const role = parsedUser.role?.toLowerCase();
 
         if (role === 'affiliate') {
@@ -302,7 +304,7 @@ function HomePageInner() {
       try {
         const user = localStorage.getItem('user');
         if (user) {
-          const parsed = JSON.parse(user);
+          const parsed = safeParseJsonString<{role?: string}>(user);
           isSalesRep = parsed?.role?.toLowerCase() === 'sales_rep';
         }
       } catch {

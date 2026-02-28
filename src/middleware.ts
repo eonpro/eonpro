@@ -111,6 +111,17 @@ function isPatientPortalRoute(pathname: string): boolean {
   return pathname === portalBase || pathname.startsWith(portalBase + '/');
 }
 
+/**
+ * Validate JWT format beyond just counting dots.
+ * Checks that each segment is valid base64url and non-empty.
+ */
+function isValidJwtFormat(token: string): boolean {
+  const parts = token.split('.');
+  if (parts.length !== 3) return false;
+  const base64urlPattern = /^[A-Za-z0-9_-]+$/;
+  return parts.every((part) => part.length > 0 && base64urlPattern.test(part));
+}
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
@@ -159,7 +170,7 @@ export async function middleware(request: NextRequest) {
     const token =
       request.cookies.get('affiliate_session')?.value ||
       request.cookies.get('auth-token')?.value;
-    if (!token || token.split('.').length !== 3) {
+    if (!token || !isValidJwtFormat(token)) {
       const loginUrl = new URL('/affiliate/login', request.url);
       loginUrl.searchParams.set('redirect', pathname);
       loginUrl.searchParams.set('reason', 'no_session');
@@ -172,7 +183,7 @@ export async function middleware(request: NextRequest) {
     const token =
       request.cookies.get('affiliate_session')?.value ||
       request.cookies.get('auth-token')?.value;
-    if (!token || token.split('.').length !== 3) {
+    if (!token || !isValidJwtFormat(token)) {
       const loginUrl = new URL('/affiliate/login', request.url);
       loginUrl.searchParams.set('redirect', '/affiliate');
       loginUrl.searchParams.set('reason', 'no_session');
@@ -183,7 +194,7 @@ export async function middleware(request: NextRequest) {
   if (isPatientPortalRoute(pathname)) {
     const token =
       request.cookies.get('patient-token')?.value || request.cookies.get('auth-token')?.value;
-    if (!token || token.split('.').length !== 3) {
+    if (!token || !isValidJwtFormat(token)) {
       const loginUrl = new URL('/patient-login', request.url);
       loginUrl.searchParams.set('reason', 'no_session');
       return NextResponse.redirect(loginUrl);
@@ -191,7 +202,10 @@ export async function middleware(request: NextRequest) {
   }
 
   if (isStaticAsset(pathname)) {
-    return NextResponse.next();
+    const response = NextResponse.next();
+    response.headers.set('X-Content-Type-Options', 'nosniff');
+    response.headers.set('X-Frame-Options', 'SAMEORIGIN');
+    return response;
   }
 
   let response: NextResponse;

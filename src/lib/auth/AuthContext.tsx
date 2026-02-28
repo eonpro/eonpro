@@ -290,7 +290,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const checkPermission = useCallback(
     (permission: string): boolean => {
       if (!user) return false;
-      if ((user.role as string) === 'admin') return true; // Admins have all permissions
+      if ((user.role as string) === 'super_admin' || (user.role as string) === 'admin') return true;
       return user.permissions?.includes(permission) || false;
     },
     [user]

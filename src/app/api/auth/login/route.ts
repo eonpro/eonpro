@@ -390,8 +390,18 @@ async function loginHandler(req: NextRequest) {
       return NextResponse.json({ error: 'Incorrect email or password' }, { status: 401 });
     }
 
-    // Verify password (if passwordHash exists); atomic lockout via transaction
-    if (passwordHash) {
+    // Password is REQUIRED — reject accounts without a stored hash (legacy migration gap)
+    if (!passwordHash) {
+      logger.security('Login rejected: account has no password hash', {
+        userId: user?.id,
+        role,
+        requestId,
+      });
+      return NextResponse.json({ error: 'Incorrect email or password' }, { status: 401 });
+    }
+
+    // Verify password; atomic lockout via transaction
+    {
       const isValid = await bcrypt.compare(password, passwordHash);
       if (!isValid) {
         logger.warn('Invalid password for login attempt', {
@@ -1107,14 +1117,16 @@ async function loginHandler(req: NextRequest) {
       );
     }
 
-    // Return error details (safe to show in production for debugging login issues)
+    const isProd = process.env.NODE_ENV === 'production';
     return NextResponse.json(
       {
         error: 'An error occurred during login',
-        details: errorMessage,
-        code: prismaError || 'UNKNOWN',
-        step: debugInfo?.step,
-        duration,
+        ...(isProd ? {} : {
+          details: errorMessage,
+          code: prismaError || 'UNKNOWN',
+          step: debugInfo?.step,
+          duration,
+        }),
       },
       { status: 500 }
     );

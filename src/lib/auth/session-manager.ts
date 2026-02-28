@@ -496,11 +496,11 @@ export async function terminateSession(
   const session = await getSession(sessionId);
 
   if (session) {
-    // Remove session from storage
-    await deleteSession(sessionId);
-
-    // Increment token version to invalidate all tokens
+    // Increment token version FIRST so any in-flight requests see the revocation,
+    // then persist the bumped version, then delete the session.
     session.tokenVersion++;
+    await saveSession(sessionId, session);
+    await deleteSession(sessionId);
 
     // Log logout
     if (request) {

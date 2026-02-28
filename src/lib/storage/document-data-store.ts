@@ -42,10 +42,10 @@ function isS3IntakeDataEnabled(): boolean {
  */
 async function getS3Service() {
   try {
-    const { isS3Enabled, uploadToS3, downloadFromS3 } = await import(
+    const { uploadToS3, downloadFromS3 } = await import(
       '@/lib/integrations/aws/s3Service'
     );
-    const { FileCategory } = await import('@/lib/integrations/aws/s3Config');
+    const { isS3Enabled, FileCategory } = await import('@/lib/integrations/aws/s3Config');
     if (!isS3Enabled()) return null;
     return { uploadToS3, downloadFromS3, FileCategory };
   } catch {

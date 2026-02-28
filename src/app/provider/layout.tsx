@@ -33,6 +33,7 @@ import { ClinicBrandingProvider, useClinicBranding } from '@/lib/contexts/Clinic
 import { SubdomainClinicBanner } from '@/components/SubdomainClinicBanner';
 import { apiFetch } from '@/lib/api/fetch';
 import { EONPRO_LOGO, EONPRO_ICON } from '@/lib/constants/brand-assets';
+import { safeParseJsonString } from '@/lib/utils/safe-json';
 
 const mainNavItems = [
   { icon: Home, path: '/provider', label: 'Dashboard', exact: true },
@@ -98,7 +99,8 @@ function ProviderLayoutInner({ children }: { children: React.ReactNode }) {
     }
 
     try {
-      const parsedUser = JSON.parse(user);
+      const parsedUser = safeParseJsonString(user);
+      if (!parsedUser) { router.push('/login'); return; }
       const role = parsedUser.role?.toLowerCase();
       if (role !== 'provider') {
         router.push('/login');

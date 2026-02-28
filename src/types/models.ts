@@ -104,7 +104,7 @@ export interface Invoice extends BaseRecord {
   amountDue: number;
   amountPaid: number;
   currency: string;
-  status: 'DRAFT' | 'OPEN' | 'PAID' | 'VOID' | 'UNCOLLECTIBLE';
+  status: 'DRAFT' | 'OPEN' | 'PAID' | 'VOID' | 'UNCOLLECTIBLE' | 'REFUNDED' | 'PARTIALLY_REFUNDED';
   dueDate?: Date;
   paidAt?: Date;
   items?: InvoiceItem[];
@@ -136,7 +136,7 @@ export interface Payment extends BaseRecord {
   patientId: number;
   amount: number;
   currency: string;
-  status: 'PENDING' | 'processing' | 'succeeded' | 'failed' | 'canceled';
+  status: 'PENDING' | 'PROCESSING' | 'SUCCEEDED' | 'FAILED' | 'CANCELED' | 'REFUNDED' | 'PARTIALLY_REFUNDED';
   paymentMethod?: string;
   invoiceId?: number;
   metadata?: Record<string, unknown>;

@@ -55,10 +55,15 @@ const removeTagHandler = withAuthParams(
 
       const normalizedTag = parseResult.data.tag.toLowerCase();
 
-      const patient = await prisma.patient.findUnique({ where: { id } });
+      const patient = await prisma.patient.findUnique({ where: { id }, select: { id: true, clinicId: true, tags: true } });
 
       if (!patient) {
         return Response.json({ error: 'Patient not found' }, { status: 404 });
+      }
+
+      // Enforce clinic isolation
+      if (user.role !== 'super_admin' && patient.clinicId !== user.clinicId) {
+        return Response.json({ error: 'Access denied' }, { status: 403 });
       }
 
       // Get current tags
@@ -148,10 +153,15 @@ const addTagHandler = withAuthParams(
 
       const normalizedTag = parseResult.data.tag;
 
-      const patient = await prisma.patient.findUnique({ where: { id } });
+      const patient = await prisma.patient.findUnique({ where: { id }, select: { id: true, clinicId: true, tags: true } });
 
       if (!patient) {
         return Response.json({ error: 'Patient not found' }, { status: 404 });
+      }
+
+      // Enforce clinic isolation
+      if (user.role !== 'super_admin' && patient.clinicId !== user.clinicId) {
+        return Response.json({ error: 'Access denied' }, { status: 403 });
       }
 
       // Get current tags

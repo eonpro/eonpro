@@ -12,6 +12,7 @@ import { withProviderAuth, AuthUser } from '@/lib/auth/middleware';
 import { auditLog, AuditEventType } from '@/lib/audit/hipaa-audit';
 import { tenantNotFoundResponse } from '@/lib/tenant-response';
 import { logger } from '@/lib/logger';
+import { providerService } from '@/domains/provider';
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -43,6 +44,10 @@ async function handler(req: NextRequest, user: AuthUser, context?: Params) {
         { status: 400 }
       );
     }
+
+    const providerClinicIds = await providerService.getClinicIdsForProviderUser(
+      user.id, user.providerId ?? null
+    );
 
     const order = await runWithClinicContext(user.clinicId, () =>
       prisma.order.findUnique({

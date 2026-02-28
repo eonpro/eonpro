@@ -837,6 +837,7 @@ export default function ClinicBillingPage() {
                                         next[idx] = {
                                           ...rule,
                                           charge: {
+                                            type: rule.charge?.type ?? 'FLAT',
                                             ...rule.charge,
                                             minCents: Math.round(parseFloat(e.target.value || '0') * 100),
                                           },
@@ -858,6 +859,7 @@ export default function ClinicBillingPage() {
                                         next[idx] = {
                                           ...rule,
                                           charge: {
+                                            type: rule.charge?.type ?? 'FLAT',
                                             ...rule.charge,
                                             maxCents: v === '' ? undefined : Math.round(parseFloat(v || '0') * 100),
                                           },

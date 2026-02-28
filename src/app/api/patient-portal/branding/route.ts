@@ -96,6 +96,7 @@ const getBrandingHandler = async (request: NextRequest) => {
       select: {
         id: true,
         name: true,
+        subdomain: true,
         logoUrl: true,
         iconUrl: true,
         faviconUrl: true,
@@ -128,6 +129,7 @@ const getBrandingHandler = async (request: NextRequest) => {
     const branding = {
       clinicId: clinic.id,
       clinicName: clinic.name,
+      subdomain: clinic.subdomain ?? null,
       logoUrl: clinic.logoUrl,
       iconUrl: clinic.iconUrl,
       faviconUrl: clinic.faviconUrl,

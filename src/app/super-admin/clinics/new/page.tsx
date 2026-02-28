@@ -17,6 +17,7 @@ import {
 import { US_STATES } from '@/components/AddressAutocomplete';
 import { BrandingImageUploader } from '@/components/admin/BrandingImageUploader';
 import { apiFetch } from '@/lib/api/fetch';
+import { safeParseJsonString } from '@/lib/utils/safe-json';
 
 // Helper function to calculate text color based on background luminance
 function getTextColorForBg(hex: string, mode: 'auto' | 'light' | 'dark'): string {
@@ -52,7 +53,8 @@ export default function CreateClinicPage() {
     }
     if (user) {
       try {
-        const userData = JSON.parse(user);
+        const userData = safeParseJsonString(user);
+        if (!userData) { router.push('/login'); return; }
         const role = userData.role?.toLowerCase();
         if (role !== 'super_admin') {
           setError('Access denied. Super Admin privileges required.');
