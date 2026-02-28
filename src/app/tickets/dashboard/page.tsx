@@ -19,6 +19,7 @@ import {
   TrendingUp,
   Users,
   RefreshCw,
+  Star,
 } from 'lucide-react';
 import {
   AreaChart,
@@ -102,6 +103,8 @@ export default function TicketDashboardPage() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [trends, setTrends] = useState<TrendPoint[]>([]);
   const [agents, setAgents] = useState<AgentMetric[]>([]);
+  const [csatScore, setCsatScore] = useState<number>(0);
+  const [csatResponses, setCsatResponses] = useState<number>(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -109,10 +112,11 @@ export default function TicketDashboardPage() {
     setLoading(true);
     setError(null);
     try {
-      const [statsRes, trendsRes, agentsRes] = await Promise.all([
+      const [statsRes, trendsRes, agentsRes, csatRes] = await Promise.all([
         apiFetch('/api/tickets/stats'),
         apiFetch('/api/tickets/stats/trends?days=30'),
         apiFetch('/api/tickets/stats/agents'),
+        apiFetch('/api/tickets/stats/csat'),
       ]);
 
       if (statsRes.ok) {
@@ -126,6 +130,11 @@ export default function TicketDashboardPage() {
       if (agentsRes.ok) {
         const d = await agentsRes.json();
         setAgents(d.agents || []);
+      }
+      if (csatRes.ok) {
+        const d = await csatRes.json();
+        setCsatScore(d.avgScore || 0);
+        setCsatResponses(d.totalResponses || 0);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load dashboard');
@@ -213,7 +222,7 @@ export default function TicketDashboardPage() {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
         <div className="rounded-xl border border-gray-200 bg-white p-5">
           <div className="flex items-center justify-between">
             <div>
@@ -263,6 +272,23 @@ export default function TicketDashboardPage() {
             </div>
           </div>
         </div>
+
+        <div className="rounded-xl border border-gray-200 bg-white p-5">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-500">CSAT Score</p>
+              <p className="mt-1 text-3xl font-bold text-gray-900">
+                {csatScore > 0 ? `${csatScore}/5` : 'N/A'}
+              </p>
+              {csatResponses > 0 && (
+                <p className="mt-0.5 text-xs text-gray-400">{csatResponses} responses</p>
+              )}
+            </div>
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-yellow-50">
+              <Star className="h-5 w-5 text-yellow-500" />
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Trend Chart */}
@@ -277,7 +303,7 @@ export default function TicketDashboardPage() {
               <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
               <XAxis dataKey="date" tickFormatter={formatShortDate} tick={{ fontSize: 12 }} />
               <YAxis tick={{ fontSize: 12 }} />
-              <Tooltip labelFormatter={formatShortDate} />
+              <Tooltip labelFormatter={(label) => formatShortDate(String(label))} />
               <Legend />
               <Area type="monotone" dataKey="created" name="Created" stroke="#3b82f6" fill="#3b82f680" strokeWidth={2} />
               <Area type="monotone" dataKey="resolved" name="Resolved" stroke="#22c55e" fill="#22c55e80" strokeWidth={2} />
@@ -333,7 +359,7 @@ export default function TicketDashboardPage() {
           <ResponsiveContainer width="100%" height={250}>
             <BarChart data={categoryData}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-              <XAxis dataKey="name" tick={{ fontSize: 11, angle: -25 }} height={60} />
+              <XAxis dataKey="name" tick={{ fontSize: 11 }} angle={-25} height={60} />
               <YAxis tick={{ fontSize: 12 }} />
               <Tooltip />
               <Bar dataKey="value" name="Tickets" fill="#6366f1" radius={[4, 4, 0, 0]} />

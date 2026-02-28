@@ -88,6 +88,7 @@ export enum EmailTemplate {
   TICKET_RESOLVED = 'ticket_resolved',
   TICKET_ESCALATED = 'ticket_escalated',
   TICKET_SLA_WARNING = 'ticket_sla_warning',
+  TICKET_CSAT_SURVEY = 'ticket_csat_survey',
 
   // Notification Digest
   NOTIFICATION_DIGEST = 'notification_digest',
@@ -200,6 +201,7 @@ export const DEFAULT_SUBJECTS: Record<EmailTemplate, string> = {
   [EmailTemplate.TICKET_RESOLVED]: 'Ticket Resolved: {{ticketNumber}} - {{ticketTitle}}',
   [EmailTemplate.TICKET_ESCALATED]: 'ESCALATION: {{ticketNumber}} - {{ticketTitle}}',
   [EmailTemplate.TICKET_SLA_WARNING]: 'SLA Warning: {{ticketNumber}} - {{ticketTitle}}',
+  [EmailTemplate.TICKET_CSAT_SURVEY]: 'How was your experience? - Ticket {{ticketNumber}}',
 
   [EmailTemplate.NOTIFICATION_DIGEST]: 'Your Weekly Notification Summary',
 

@@ -159,6 +159,14 @@ export const NAV_MODULES: readonly PortalNavModule[] = [
     defaultOn: false,
   },
   {
+    id: 'support',
+    pathSuffix: '/support',
+    labelKey: 'navSupport',
+    featureFlagKey: null,
+    navSlot: 'both',
+    defaultOn: true,
+  },
+  {
     id: 'settings',
     pathSuffix: '/settings',
     labelKey: 'navSettings',

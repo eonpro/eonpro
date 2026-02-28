@@ -33,6 +33,7 @@ import {
   Plus,
   Zap,
   BookOpen,
+  Clock,
 } from 'lucide-react';
 import InternalChat from '@/components/InternalChat';
 import {
@@ -374,6 +375,11 @@ function TicketsLayoutInner({ children }: { children: React.ReactNode }) {
               { path: '/tickets/new', label: 'New Ticket', icon: Plus },
               { path: '/tickets/macros', label: 'Macros', icon: Zap },
               { path: '/tickets/automations', label: 'Automations', icon: BookOpen },
+              ...(['admin', 'super_admin'].includes(userRole) ? [
+                { path: '/tickets/teams', label: 'Teams', icon: Users },
+                { path: '/tickets/sla-policies', label: 'SLA Policies', icon: Shield },
+                { path: '/tickets/business-hours', label: 'Hours', icon: Clock },
+              ] : []),
             ].map((item) => {
               const Icon = item.icon;
               const active = item.exact

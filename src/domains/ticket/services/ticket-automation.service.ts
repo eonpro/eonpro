@@ -13,7 +13,15 @@
 
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
-import type { TicketAutomationRule, AutomationTrigger } from '@prisma/client';
+import {
+  type TicketAutomationRule,
+  type AutomationTrigger,
+  Prisma,
+  TicketPriority,
+  TicketStatus,
+  TicketCategory,
+} from '@prisma/client';
+import { assertEnum } from '@/lib/utils/enum-guard';
 
 type TriggerEvent = AutomationTrigger;
 
@@ -183,21 +191,21 @@ class TicketAutomationService {
         case 'SET_PRIORITY':
           await prisma.ticket.update({
             where: { id: ticket.id },
-            data: { priority: action.params.priority as string },
+            data: { priority: assertEnum(TicketPriority, action.params.priority, 'priority') },
           });
           break;
 
         case 'SET_STATUS':
           await prisma.ticket.update({
             where: { id: ticket.id },
-            data: { status: action.params.status as string },
+            data: { status: assertEnum(TicketStatus, action.params.status, 'status') },
           });
           break;
 
         case 'SET_CATEGORY':
           await prisma.ticket.update({
             where: { id: ticket.id },
-            data: { category: action.params.category as string },
+            data: { category: assertEnum(TicketCategory, action.params.category, 'category') },
           });
           break;
 
@@ -268,7 +276,7 @@ class TicketAutomationService {
           ticketId: ticket.id,
           userId: actorId,
           activityType: 'AUTOMATION_TRIGGERED',
-          details: { automationId, action: action.action, params: action.params },
+          details: { automationId, action: action.action, params: action.params } as unknown as Prisma.InputJsonValue,
           automationId,
         },
       });

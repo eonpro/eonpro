@@ -13,6 +13,7 @@ import { logger } from '@/lib/logger';
 import { ticketRepository } from '../repositories/ticket.repository';
 import { ticketNotificationService } from './ticket-notification.service';
 import { ticketAutomationService } from './ticket-automation.service';
+import { ticketCsatService } from './ticket-csat.service';
 import { NotFoundError, ForbiddenError, ValidationError } from '@/domains/shared/errors';
 import type { UserContext } from '@/domains/shared/types';
 import type {
@@ -601,6 +602,8 @@ export const ticketService = {
       assigneeId: existing.assignedToId,
       creatorId: existing.createdById,
     }).catch(() => {});
+
+    ticketCsatService.sendSurvey(id).catch(() => {});
 
     return this.getById(id, userContext);
   },
