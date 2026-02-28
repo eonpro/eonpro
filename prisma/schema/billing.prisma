@@ -34,10 +34,8 @@ model Invoice {
   prescriptionProcessed   Boolean                 @default(false)
   prescriptionProcessedAt DateTime?
   prescriptionProcessedBy Int? // Provider ID who processed
-  // Prescription hold: provider needs more info before prescribing
-  prescriptionHoldReason  String?
-  prescriptionHeldAt      DateTime?
-  prescriptionHeldBy      Int?
+  // Hold columns (prescriptionHoldReason, prescriptionHeldAt, prescriptionHeldBy) managed via raw SQL.
+  // They are NOT in the Prisma schema to avoid breaking queries before the migration is applied.
   patient                 Patient                 @relation(fields: [patientId], references: [id])
   commission              Commission?
   payments                Payment[]
@@ -46,7 +44,6 @@ model Invoice {
   refillQueue             RefillQueue[]
 
   @@index([prescriptionProcessed])
-  @@index([prescriptionHoldReason])
 }
 
 model Payment {

@@ -208,9 +208,9 @@ model RefillQueue {
   order            Order?    @relation("RefillNewOrder", fields: [orderId], references: [id])
 
   // Patient Request Metadata
-  requestedEarly    Boolean @default(false) // Patient requested early refill
-  patientNotes      String? // Notes from patient request
-  providerHoldReason String? // Reason provider held this refill for more info
+  requestedEarly Boolean @default(false) // Patient requested early refill
+  patientNotes   String? // Notes from patient request
+  // providerHoldReason managed via raw SQL to avoid breaking queries before migration
 
   // Medication Info (cached from subscription/last order for quick reference)
   medicationName     String?
