@@ -31,6 +31,7 @@ import { getStoredUserRole } from '@/lib/auth/stored-role';
 import { getAdminNavConfig, getNonAdminNavConfig } from '@/lib/nav/adminNav';
 import { logger } from '@/lib/logger';
 import { EONPRO_LOGO, EONPRO_ICON } from '@/lib/constants/brand-assets';
+import { safeParseJsonString } from '@/lib/utils/safe-json';
 
 const adminNavIconMap = {
   Home,
@@ -98,7 +99,8 @@ function PatientsLayoutInner({ children }: { children: React.ReactNode }) {
     }
 
     try {
-      const parsedUser = JSON.parse(user);
+      const parsedUser = safeParseJsonString(user);
+      if (!parsedUser) { router.push('/login'); return; }
       const role = parsedUser.role?.toLowerCase();
       if (!ALLOWED_ROLES.includes(role)) {
         // User doesn't have permission to view patients

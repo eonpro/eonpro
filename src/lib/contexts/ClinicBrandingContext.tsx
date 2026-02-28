@@ -39,6 +39,7 @@ export interface TreatmentProtocol {
 export interface ClinicBranding {
   clinicId: number;
   clinicName: string;
+  subdomain: string | null;
   logoUrl: string | null;
   iconUrl: string | null; // App icon for PWA/mobile (192x192)
   faviconUrl: string | null;
@@ -82,6 +83,7 @@ export interface ClinicBranding {
     showCarePlan: boolean;
     showCareTeam: boolean;
     showDocuments?: boolean;
+    showDevices?: boolean;
   };
 
   // Content customization
@@ -150,11 +152,13 @@ const defaultFeatures = {
   showCarePlan: true,
   showCareTeam: true,
   showDocuments: true,
+  showDevices: false,
 };
 
 const defaultBranding: ClinicBranding = {
   clinicId: 0,
   clinicName: 'EONPRO',
+  subdomain: null,
   logoUrl: null,
   iconUrl: null,
   faviconUrl: null,

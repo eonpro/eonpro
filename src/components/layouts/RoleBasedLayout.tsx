@@ -10,6 +10,7 @@ import StaffLayout from './StaffLayout';
 import SupportLayout from './SupportLayout';
 import PatientLayout from './PatientLayout';
 import { logger } from '@/lib/logger';
+import { safeParseJsonString } from '@/lib/utils/safe-json';
 
 interface RoleBasedLayoutProps {
   children: React.ReactNode;
@@ -141,7 +142,8 @@ export function withRoleBasedLayout<P extends object>(
       // Get user data from localStorage or session
       const storedUser = localStorage.getItem('user');
       if (storedUser) {
-        const user = JSON.parse(storedUser);
+        const user = safeParseJsonString(storedUser);
+        if (!user) return;
         setUserRole(user.role);
         setUserData(user);
 

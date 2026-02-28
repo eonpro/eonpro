@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { basePrisma as prisma } from '@/lib/db';
+import { UserRole } from '@prisma/client';
 import { withAuthParams, AuthUser } from '@/lib/auth/middleware-with-params';
 import bcrypt from 'bcryptjs';
 import { logger } from '@/lib/logger';
+import { assertEnum } from '@/lib/utils/enum-guard';
 
 type RouteParams = { id: string; userId: string };
 type RouteContext = { params: Promise<RouteParams> };
@@ -129,7 +131,7 @@ export const PUT = withSuperAdminAuth(
         if (userData.role) {
           await tx.userClinic.updateMany({
             where: { userId, clinicId },
-            data: { role: userData.role as string },
+            data: { role: assertEnum(UserRole, userData.role, 'role') },
           });
         }
       });

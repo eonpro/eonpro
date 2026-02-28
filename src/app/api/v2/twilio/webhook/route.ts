@@ -195,7 +195,7 @@ export async function POST(req: NextRequest) {
           const decryptedLast = safeDecrypt(patientRecord?.lastName) || '';
           const senderName = `${decryptedFirst} ${decryptedLast}`.trim();
 
-          await runWithClinicContext(clinicId, async () => {
+          await runWithClinicContext(clinicId ?? undefined, async () => {
             const existingThread = await prisma.patientChatMessage.findFirst({
               where: { patientId: resolvedPatientId!, channel: 'SMS' },
               orderBy: { createdAt: 'desc' },

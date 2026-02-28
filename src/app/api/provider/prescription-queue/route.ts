@@ -841,6 +841,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
           },
           orderBy: { createdAt: 'desc' },
           distinct: ['patientId'],
+          take: 500,
           select: {
             id: true,
             patientId: true,
@@ -886,6 +887,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
           },
           orderBy: { createdAt: 'desc' },
           distinct: ['patientId'],
+          take: 500,
           select: {
             patientId: true,
             data: true,
@@ -1478,7 +1480,7 @@ async function handlePatch(req: NextRequest, user: AuthUser) {
         data: {
           status: 'PRESCRIBED',
           prescribedAt: new Date(),
-          prescribedByProviderId: providerId,
+          prescribedBy: providerId,
         },
       });
 

@@ -62,6 +62,7 @@ const getHandler = withAuthParams(
       const notes = await prisma.patientNote.findMany({
         where: { patientId },
         orderBy: { createdAt: 'desc' },
+        take: 100,
         include: {
           createdBy: {
             select: { id: true, firstName: true, lastName: true, role: true },

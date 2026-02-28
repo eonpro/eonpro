@@ -34,7 +34,8 @@ export const GET = withAuth(
       const roleList = searchParams.getAll('role').filter(Boolean);
       const roleRaw = roleList.length ? roleList : (roleParam ? [roleParam] : []);
       // Support comma-separated roles (e.g. ?role=staff,admin,provider,support from New Ticket page)
-      const roles = roleRaw.flatMap((r) => r.split(',').map((s) => s.trim()).filter(Boolean));
+      // Normalize to UPPER_CASE to match the Prisma UserRole enum
+      const roles = roleRaw.flatMap((r) => r.split(',').map((s) => s.trim().toUpperCase()).filter(Boolean));
       const status = searchParams.get('status');
       const search = searchParams.get('search')?.trim() || null;
       const clinicIdParam = searchParams.get('clinicId');

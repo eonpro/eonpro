@@ -31,6 +31,7 @@ import {
   Filter,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api/fetch';
+import { safeParseJsonString } from '@/lib/utils/safe-json';
 
 // Date range options
 const DATE_RANGES = [
@@ -353,7 +354,8 @@ export default function StripeDashboard() {
       return;
     }
     try {
-      const parsedUser = JSON.parse(user);
+      const parsedUser = safeParseJsonString<{role?: string}>(user);
+      if (!parsedUser) { router.push('/login'); return; }
       const role = parsedUser.role?.toLowerCase();
       if (role !== 'admin' && role !== 'super_admin') {
         router.push('/login');

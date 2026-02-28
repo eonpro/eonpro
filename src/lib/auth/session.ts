@@ -5,6 +5,7 @@
  */
 
 import { AsyncLocalStorage } from 'async_hooks';
+import crypto from 'crypto';
 import { cookies } from 'next/headers';
 import { jwtVerify } from 'jose';
 import { JWT_SECRET } from './config';
@@ -140,10 +141,10 @@ export function createSession(user: Omit<UserSession, 'sessionId' | 'expiresAt'>
 }
 
 /**
- * Generate a unique session ID
+ * Generate a cryptographically secure session ID
  */
 function generateSessionId(): string {
-  return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  return crypto.randomBytes(32).toString('hex');
 }
 
 /**
@@ -382,8 +383,8 @@ export function withUserContext<T>(handler: (req: any, user: UserSession) => Pro
  * Check if user has permission
  */
 export function hasPermission(user: UserSession, permission: string): boolean {
-  // Admins have all permissions
-  if ((user.role as string) === 'admin') return true;
+  // Super admins and admins have all permissions
+  if ((user.role as string) === 'super_admin' || (user.role as string) === 'admin') return true;
 
   // Check specific permissions
   return user.permissions?.includes(permission) || false;

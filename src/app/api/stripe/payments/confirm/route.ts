@@ -124,12 +124,18 @@ async function handlePost(request: NextRequest, _user: AuthUser) {
           where: { patientId: patient.id, isActive: true },
         });
 
+        const stripePm = pm as Stripe.PaymentMethod;
         const created = await prisma.paymentMethod.create({
           data: {
             patientId: patient.id,
+            clinicId: patient.clinicId,
             stripePaymentMethodId,
             cardLast4: last4,
             cardBrand: brand,
+            expiryMonth: stripePm.card?.exp_month,
+            expiryYear: stripePm.card?.exp_year,
+            cardholderName: stripePm.billing_details?.name ?? undefined,
+            billingZip: stripePm.billing_details?.address?.postal_code ?? undefined,
             isDefault: patientPaymentMethods === 0,
             isActive: true,
             lastUsedAt: new Date(),

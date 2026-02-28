@@ -141,6 +141,7 @@ model WebhookDelivery {
   event       String
   payload     Json
   status      WebhookDeliveryStatus
+  source      String?
   attempts    Int                   @default(1)
   statusCode  Int?
   response    Json?
@@ -150,6 +151,7 @@ model WebhookDelivery {
 
   @@index([webhookId, status])
   @@index([createdAt(sort: Desc)])
+  @@index([source])
 }
 
 model IntegrationLog {

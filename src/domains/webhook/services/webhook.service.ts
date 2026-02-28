@@ -127,7 +127,7 @@ export function createWebhookService(): WebhookService {
           idempotencyKey,
           status: 'RECEIVED' as any,
           receivedAt: new Date(),
-        },
+        } as any,
       });
 
       // Step 3: Record idempotency key (7-day TTL)

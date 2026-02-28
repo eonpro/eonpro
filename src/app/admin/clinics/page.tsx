@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { apiFetch } from '@/lib/api/fetch';
+import { safeParseJsonString } from '@/lib/utils/safe-json';
 
 interface ClinicData {
   id: number;
@@ -61,8 +62,8 @@ export default function ClinicsAdminPage() {
     const user = localStorage.getItem('user');
     if (user) {
       try {
-        const parsedUser = JSON.parse(user);
-        const role = parsedUser.role?.toLowerCase();
+        const parsedUser = safeParseJsonString(user);
+        const role = parsedUser?.role?.toLowerCase();
         setUserRole(role);
 
         if (role !== 'super_admin') {

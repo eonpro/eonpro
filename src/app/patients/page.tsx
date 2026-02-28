@@ -9,6 +9,7 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import { logger } from '@/lib/logger';
 import { apiFetch } from '@/lib/api/fetch';
 import { formatPatientDisplayId } from '@/lib/utils/formatPatientDisplayId';
+import { safeParseJsonString } from '@/lib/utils/safe-json';
 
 type Patient = {
   id: number;
@@ -209,7 +210,8 @@ export default function PatientsPage() {
     const userData = localStorage.getItem('user');
     if (userData) {
       try {
-        const parsedUser = JSON.parse(userData);
+        const parsedUser = safeParseJsonString(userData);
+        if (!parsedUser) return;
         setUserRole(parsedUser.role?.toLowerCase());
         setUserClinicId(parsedUser.clinicId || null);
       } catch (e) {

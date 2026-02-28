@@ -50,6 +50,7 @@ export const GET = withAuth(async (request, user) => {
         },
       },
       orderBy: [{ firstName: 'asc' }, { lastName: 'asc' }],
+      take: 100,
     });
 
     const workload = staffUsers.map((u) => ({

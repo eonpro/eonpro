@@ -1,335 +1,207 @@
 /**
- * SAFE DATABASE QUERY WRAPPER
+ * SAFE QUERY UTILITIES
+ * ====================
  *
- * Wraps critical database queries with:
- * 1. Circuit breaker guard (tier-aware fail-fast)
- * 2. Pre-query schema validation (optional)
- * 3. Automatic retry on transient failures (suppressed for P2024)
- * 4. Detailed error logging
- * 5. Query timeout protection
+ * Enterprise-safe wrappers for common Prisma operations that enforce
+ * bounded queries, pagination, and blob exclusion by default.
  *
- * Use this for CRITICAL operations like:
- * - Fetching invoices/payments (billing data)
- * - Fetching prescriptions (patient safety)
- * - Fetching SOAP notes (medical records)
+ * These are opt-in utilities — existing routes continue working unmodified.
+ * New and refactored routes should use these to prevent unbounded queries.
  *
- * Circuit breaker integration:
- *   When `tier` is provided the query flows through `executeDb` which
- *   enforces tier-based bulkhead isolation. When omitted, the legacy
- *   retry loop runs as before (backwards compatible).
+ * @module database/safe-query
  */
 
-import { PrismaClient } from '@prisma/client';
-import { logger } from '@/lib/logger';
-import { executeDb, DbTier, type ExecuteDbResult } from './executeDb';
+import { NextRequest } from 'next/server';
+import {
+  DEFAULT_PAGE_SIZE,
+  MAX_PAGE_SIZE,
+  AGGREGATION_TAKE_UI,
+  normalizePagination,
+} from '@/lib/pagination';
 
-export interface SafeQueryOptions {
-  /** Name of the operation for logging */
-  operationName: string;
-  /** Maximum retry attempts (default: 3) */
-  maxRetries?: number;
-  /** Timeout in milliseconds (default: 10000) */
-  timeout?: number;
-  /** Whether to validate schema before query (default: false for performance) */
-  validateSchema?: boolean;
-  /** Table name for schema validation */
-  tableName?: string;
-  /**
-   * Circuit breaker tier (optional).
-   * When set, the query goes through the circuit breaker + executeDb layer.
-   * When omitted, the legacy retry path is used (backwards compatible).
-   */
-  tier?: DbTier;
+// =============================================================================
+// TYPES
+// =============================================================================
+
+export interface PaginationMeta {
+  total: number;
+  limit: number;
+  offset: number;
+  page: number;
+  hasMore: boolean;
+  totalPages: number;
 }
 
-export interface SafeQueryResult<T> {
-  success: boolean;
-  data?: T;
-  error?: {
-    type: 'SCHEMA_ERROR' | 'QUERY_ERROR' | 'TIMEOUT' | 'CIRCUIT_OPEN' | 'UNKNOWN';
-    message: string;
-    retryable: boolean;
-  };
-  attempts: number;
-  duration: number;
+export interface PaginatedResult<T> {
+  data: T[];
+  pagination: PaginationMeta;
 }
+
+export interface SafeFindManyOptions {
+  /** Maximum allowed take for this query. Defaults to MAX_PAGE_SIZE (100). */
+  maxTake?: number;
+  /** Skip the parallel count query (when you don't need total). */
+  skipCount?: boolean;
+}
+
+// =============================================================================
+// SAFE FIND MANY
+// =============================================================================
 
 /**
- * Execute a database query with safety guards
+ * Execute a paginated findMany with automatic take enforcement and total count.
+ *
+ * Accepts any Prisma delegate (prisma.patient, prisma.invoice, etc.) and
+ * returns `{ data, pagination }` with bounded results.
+ *
+ * @example
+ * const result = await safeFindMany(prisma.patient, {
+ *   where: { clinicId },
+ *   orderBy: { createdAt: 'desc' },
+ * }, parsePaginationFromRequest(req));
+ *
+ * return NextResponse.json(result);
  */
-export async function safeQuery<T>(
-  queryFn: () => Promise<T>,
-  options: SafeQueryOptions
-): Promise<SafeQueryResult<T>> {
-  const {
-    operationName,
-    maxRetries = 3,
-    timeout = 10000,
-    validateSchema = false,
-    tableName,
-    tier,
-  } = options;
+export async function safeFindMany<T>(
+  delegate: {
+    findMany: (args: any) => Promise<T[]>;
+    count: (args?: any) => Promise<number>;
+  },
+  findManyArgs: Record<string, any>,
+  pagination: { take: number; skip: number; page: number },
+  options: SafeFindManyOptions = {}
+): Promise<PaginatedResult<T>> {
+  const { maxTake = MAX_PAGE_SIZE, skipCount = false } = options;
 
-  const startTime = Date.now();
+  const take = Math.min(pagination.take, maxTake);
+  const skip = pagination.skip;
 
-  // Schema validation (only if explicitly requested — runs BEFORE breaker check)
-  if (validateSchema && tableName) {
-    try {
-      const { prisma } = await import('@/lib/db');
-      const { validateTableBeforeOperation } = await import('./schema-validator');
+  const queryArgs = {
+    ...findManyArgs,
+    take,
+    skip,
+  };
 
-      const schemaResult = await validateTableBeforeOperation(tableName as any, prisma);
+  // Build count args from the where clause only
+  const countArgs = findManyArgs.where ? { where: findManyArgs.where } : undefined;
 
-      if (!schemaResult.valid) {
-        logger.error(`[SafeQuery] Schema validation failed for ${operationName}`, {
-          table: tableName,
-          error: schemaResult.error,
-        });
-
-        return {
-          success: false,
-          error: {
-            type: 'SCHEMA_ERROR',
-            message: schemaResult.error || 'Schema validation failed',
-            retryable: false,
-          },
-          attempts: 0,
-          duration: Date.now() - startTime,
-        };
-      }
-    } catch (error: any) {
-      logger.warn(`[SafeQuery] Schema validation check failed`, { error: error.message });
-    }
-  }
-
-  // ── Circuit-breaker path (when tier is specified) ─────────────────────
-  if (tier !== undefined) {
-    const result: ExecuteDbResult<T> = await executeDb(queryFn, {
-      operationName,
-      tier,
-      timeoutMs: timeout,
-      maxRetries,
-    });
-
+  if (skipCount) {
+    const data = await delegate.findMany(queryArgs);
     return {
-      success: result.success,
-      data: result.data,
-      error: result.error
-        ? {
-            type: result.error.type,
-            message: result.error.message,
-            retryable: result.error.retryable,
-          }
-        : undefined,
-      attempts: result.attempts,
-      duration: result.durationMs,
+      data,
+      pagination: {
+        total: -1,
+        limit: take,
+        offset: skip,
+        page: pagination.page,
+        hasMore: data.length === take,
+        totalPages: -1,
+      },
     };
   }
 
-  // ── Legacy path (no tier — backwards compatible) ──────────────────────
-  let attempts = 0;
-  let lastError: Error | null = null;
-
-  while (attempts < maxRetries) {
-    attempts++;
-
-    try {
-      const result = await Promise.race([
-        queryFn(),
-        new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error('Query timeout')), timeout)
-        ),
-      ]);
-
-      const duration = Date.now() - startTime;
-
-      if (attempts > 1) {
-        logger.info(`[SafeQuery] ${operationName} succeeded after ${attempts} attempts`, {
-          duration,
-        });
-      }
-
-      return {
-        success: true,
-        data: result,
-        attempts,
-        duration,
-      };
-    } catch (error: any) {
-      lastError = error;
-
-      const isRetryable = isRetryableError(error);
-
-      logger.warn(`[SafeQuery] ${operationName} attempt ${attempts} failed`, {
-        error: error.message,
-        retryable: isRetryable,
-        willRetry: isRetryable && attempts < maxRetries,
-      });
-
-      if (!isRetryable) {
-        break;
-      }
-
-      if (attempts < maxRetries) {
-        await sleep(Math.min(1000 * Math.pow(2, attempts - 1), 5000));
-      }
-    }
-  }
-
-  const duration = Date.now() - startTime;
-
-  logger.error(`[SafeQuery] ${operationName} failed after ${attempts} attempts`, {
-    error: lastError?.message,
-    duration,
-  });
+  const [data, total] = await Promise.all([
+    delegate.findMany(queryArgs),
+    delegate.count(countArgs),
+  ]);
 
   return {
-    success: false,
-    error: {
-      type: lastError?.message === 'Query timeout' ? 'TIMEOUT' : 'QUERY_ERROR',
-      message: lastError?.message || 'Unknown error',
-      retryable: false,
+    data,
+    pagination: {
+      total,
+      limit: take,
+      offset: skip,
+      page: pagination.page,
+      hasMore: skip + data.length < total,
+      totalPages: Math.ceil(total / take),
     },
-    attempts,
-    duration,
   };
 }
 
+// =============================================================================
+// REQUEST HELPERS
+// =============================================================================
+
 /**
- * Safe wrapper for invoice queries - CRITICAL for billing
- * Tier 0 (CRITICAL): allowed to probe when breaker is OPEN.
+ * Parse pagination parameters from a NextRequest's search params.
+ * Supports both page-based (`page`, `pageSize`) and offset-based (`limit`, `offset`) styles.
+ *
+ * @example
+ * export const GET = withAuth(async (req) => {
+ *   const pagination = parsePaginationFromRequest(req);
+ *   const result = await safeFindMany(prisma.patient, { where }, pagination);
+ *   return NextResponse.json(result);
+ * });
  */
-export async function safeInvoiceQuery<T>(
-  queryFn: () => Promise<T>,
-  description: string
-): Promise<SafeQueryResult<T>> {
-  return safeQuery(queryFn, {
-    operationName: `Invoice: ${description}`,
-    validateSchema: true,
-    tableName: 'Invoice',
-    maxRetries: 3,
-    timeout: 15000,
-    tier: DbTier.CRITICAL,
+export function parsePaginationFromRequest(req: NextRequest): {
+  take: number;
+  skip: number;
+  page: number;
+} {
+  const params = req.nextUrl.searchParams;
+
+  // Support offset-based params (limit/offset)
+  const offsetStr = params.get('offset');
+  if (offsetStr !== null) {
+    const limit = Math.min(
+      MAX_PAGE_SIZE,
+      Math.max(1, parseInt(params.get('limit') || String(DEFAULT_PAGE_SIZE), 10) || DEFAULT_PAGE_SIZE)
+    );
+    const offset = Math.max(0, parseInt(offsetStr, 10) || 0);
+    return {
+      take: limit,
+      skip: offset,
+      page: Math.floor(offset / limit) + 1,
+    };
+  }
+
+  // Fall back to page-based params
+  return normalizePagination({
+    page: params.get('page') ?? undefined,
+    pageSize: params.get('pageSize') ?? params.get('limit') ?? undefined,
   });
 }
 
 /**
- * Safe wrapper for payment queries - CRITICAL for billing
- * Tier 0 (CRITICAL): allowed to probe when breaker is OPEN.
+ * Shortcut for routes that need a high-limit aggregation query (admin dashboards).
+ * Caps at AGGREGATION_TAKE_UI (500).
  */
-export async function safePaymentQuery<T>(
-  queryFn: () => Promise<T>,
-  description: string
-): Promise<SafeQueryResult<T>> {
-  return safeQuery(queryFn, {
-    operationName: `Payment: ${description}`,
-    validateSchema: true,
-    tableName: 'Payment',
-    maxRetries: 3,
-    timeout: 15000,
-    tier: DbTier.CRITICAL,
+export function parseAggregationPagination(req: NextRequest): {
+  take: number;
+  skip: number;
+  page: number;
+} {
+  const params = req.nextUrl.searchParams;
+  return normalizePagination({
+    page: params.get('page') ?? undefined,
+    pageSize: params.get('pageSize') ?? params.get('limit') ?? String(AGGREGATION_TAKE_UI),
   });
 }
 
-/**
- * Safe wrapper for prescription queries - CRITICAL for patient safety
- * Tier 0 (CRITICAL): allowed to probe when breaker is OPEN.
- */
-export async function safePrescriptionQuery<T>(
-  queryFn: () => Promise<T>,
-  description: string
-): Promise<SafeQueryResult<T>> {
-  return safeQuery(queryFn, {
-    operationName: `Prescription: ${description}`,
-    validateSchema: true,
-    tableName: 'Prescription',
-    maxRetries: 3,
-    timeout: 10000,
-    tier: DbTier.CRITICAL,
-  });
-}
+// =============================================================================
+// BLOB GUARD
+// =============================================================================
 
 /**
- * Determine if an error is transient and can be retried
+ * Default select shape for PatientDocument list queries.
+ * Explicitly excludes the `data` (Bytes) field to prevent blob loading in list contexts.
+ *
+ * Use this whenever listing documents — only load `data` in dedicated download endpoints.
  */
-function isRetryableError(error: Error): boolean {
-  const message = error.message.toLowerCase();
-
-  // Retryable errors
-  const retryablePatterns = [
-    'connection',
-    'timeout',
-    'econnreset',
-    'econnrefused',
-    'temporarily unavailable',
-    'too many connections',
-    'deadlock',
-    'lock wait timeout',
-  ];
-
-  // Non-retryable errors
-  const nonRetryablePatterns = [
-    'does not exist',
-    'invalid',
-    'syntax error',
-    'permission denied',
-    'foreign key',
-    'unique constraint',
-    'not null constraint',
-  ];
-
-  for (const pattern of nonRetryablePatterns) {
-    if (message.includes(pattern)) {
-      return false;
-    }
-  }
-
-  for (const pattern of retryablePatterns) {
-    if (message.includes(pattern)) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-/**
- * Batch query executor for multiple related queries
- * Ensures all queries succeed or returns partial results with errors
- */
-export async function safeBatchQuery<T extends Record<string, () => Promise<any>>>(
-  queries: T,
-  options: Omit<SafeQueryOptions, 'operationName'>
-): Promise<{
-  success: boolean;
-  results: { [K in keyof T]?: Awaited<ReturnType<T[K]>> };
-  errors: { [K in keyof T]?: string };
-}> {
-  const results: Record<string, any> = {};
-  const errors: Record<string, string> = {};
-  let allSuccess = true;
-
-  for (const [name, queryFn] of Object.entries(queries)) {
-    const result = await safeQuery(queryFn, {
-      ...options,
-      operationName: name,
-    });
-
-    if (result.success) {
-      results[name] = result.data;
-    } else {
-      allSuccess = false;
-      errors[name] = result.error?.message || 'Unknown error';
-    }
-  }
-
-  return {
-    success: allSuccess,
-    results,
-    errors,
-  };
-}
+export const PATIENT_DOCUMENT_LIST_SELECT = {
+  id: true,
+  patientId: true,
+  clinicId: true,
+  type: true,
+  title: true,
+  fileName: true,
+  mimeType: true,
+  fileSize: true,
+  s3DataKey: true,
+  category: true,
+  status: true,
+  metadata: true,
+  createdAt: true,
+  updatedAt: true,
+  // data: false — intentionally omitted to prevent blob loading
+} as const;

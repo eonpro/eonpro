@@ -83,10 +83,20 @@ export const POST = withProviderAuth(async (req, user) => {
         phone: body.phone,
       });
 
-      // Create patient
+      // Whitelist fields to prevent mass assignment of privileged fields
       const newPatient = await tx.patient.create({
         data: {
-          ...body,
+          firstName: body.firstName,
+          lastName: body.lastName,
+          email: body.email,
+          phone: body.phone,
+          dob: body.dob,
+          gender: body.gender,
+          address1: body.address1,
+          address2: body.address2,
+          city: body.city,
+          state: body.state,
+          zip: body.zip,
           searchIndex,
           createdById: user.id,
           providerId:

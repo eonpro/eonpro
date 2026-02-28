@@ -16,7 +16,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { circuitBreaker } from '@/lib/database/circuit-breaker';
+import { circuitBreaker } from '@/lib/database/circuit-breaker/index';
 import { getQueryBudgetMetrics } from '@/lib/database/query-budget';
 import { logger } from '@/lib/logger';
 

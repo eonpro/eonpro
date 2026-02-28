@@ -100,8 +100,8 @@ export async function POST(req: NextRequest) {
       try {
         const existingDoc = patient.documents[0];
         const parsedData = await readIntakeData(existingDoc);
-        if (parsedData && typeof parsedData === 'object') {
-          normalizedIntake = normalizeMedLinkPayload(parsedData);
+        if (parsedData && typeof parsedData === 'object' && parsedData !== null) {
+          normalizedIntake = normalizeMedLinkPayload(parsedData as Record<string, unknown>);
           results.intakeSource = 'existing_document';
         }
       } catch (e) {

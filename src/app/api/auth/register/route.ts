@@ -17,13 +17,27 @@ import {
   resendVerificationEmail,
 } from '@/lib/auth/registration';
 
+const PASSWORD_MIN_LENGTH = 12;
+const passwordSchema = z
+  .string()
+  .min(PASSWORD_MIN_LENGTH, `Password must be at least ${PASSWORD_MIN_LENGTH} characters`)
+  .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
+  .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
+  .regex(/[0-9]/, 'Password must contain at least one number')
+  .regex(/[^A-Za-z0-9]/, 'Password must contain at least one special character');
+
+const phoneSchema = z
+  .string()
+  .min(10, 'Phone number must be at least 10 digits')
+  .regex(/^\+?[\d\s\-().]+$/, 'Phone number contains invalid characters');
+
 // Schema for patient registration (with clinic code)
 const registerSchema = z.object({
   email: z.string().email('Invalid email address'),
-  password: z.string().min(8, 'Password must be at least 8 characters'),
+  password: passwordSchema,
   firstName: z.string().min(1, 'First name is required').max(100),
   lastName: z.string().min(1, 'Last name is required').max(100),
-  phone: z.string().min(10, 'Phone number must be at least 10 digits'),
+  phone: phoneSchema,
   dob: z.string().min(1, 'Date of birth is required'),
   clinicCode: z.string().min(1, 'Clinic code is required'),
 });
@@ -31,10 +45,10 @@ const registerSchema = z.object({
 // Schema for registration via one-time portal invite link (no clinic code)
 const registerWithInviteSchema = z.object({
   email: z.string().email('Invalid email address'),
-  password: z.string().min(8, 'Password must be at least 8 characters'),
+  password: passwordSchema,
   firstName: z.string().min(1, 'First name is required').max(100),
   lastName: z.string().min(1, 'Last name is required').max(100),
-  phone: z.string().min(10, 'Phone number must be at least 10 digits'),
+  phone: phoneSchema,
   dob: z.string().min(1, 'Date of birth is required'),
   inviteToken: z.string().min(32, 'Invalid invite link'),
 });

@@ -158,7 +158,7 @@ export default function ProviderPatientsPage() {
   useEffect(() => {
     setOffset(0);
     setPatients([]);
-    setMeta({ count: 0, total: 0, hasMore: false });
+    setMeta({ count: 0, total: 0, totalInSystem: 0, hasMore: false });
     fetchPatients(0, true, searchQuery);
   }, [searchQuery, fetchPatients]);
 

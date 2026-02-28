@@ -23,6 +23,7 @@ export const GET = withAuth(async (request, user) => {
     const automations = await prisma.ticketAutomationRule.findMany({
       where: { ...(clinicId ? { clinicId } : {}), isActive: true },
       orderBy: [{ priority: 'asc' }, { name: 'asc' }],
+      take: 200,
       include: { createdBy: { select: { id: true, firstName: true, lastName: true } } },
     });
 

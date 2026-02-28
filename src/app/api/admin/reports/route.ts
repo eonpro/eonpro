@@ -6,6 +6,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { withAdminAuth } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
@@ -94,7 +95,7 @@ async function handlePost(req: NextRequest, user: any): Promise<Response> {
         name: data.name,
         description: data.description,
         type: data.type,
-        config: data.config,
+        config: data.config as unknown as Prisma.InputJsonValue,
         isPublic: data.isPublic ?? false,
         isScheduled: data.isScheduled ?? false,
         schedule: data.schedule,

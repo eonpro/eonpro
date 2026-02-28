@@ -92,6 +92,17 @@ vi.mock('@/lib/cache/request-scoped', () => ({
   setClinicBySubdomainCache: vi.fn(),
 }));
 
+// --- Mock: middleware-cache (hasClinicAccess, resolveSubdomainClinicId, etc.) ---
+vi.mock('@/lib/auth/middleware-cache', () => ({
+  resolveSubdomainClinicId: vi.fn(async () =>
+    mockState.subdomainClinic ? mockState.subdomainClinic.id : null
+  ),
+  hasClinicAccess: vi.fn(async () => mockState.userClinicAccess || mockState.providerClinicAccess),
+  trackSessionActivity: vi.fn(async () => {}),
+  invalidateClinicAccessCache: vi.fn(async () => {}),
+  invalidateSubdomainCache: vi.fn(async () => {}),
+}));
+
 // --- Mock: observability ---
 vi.mock('@/lib/observability/request-context', () => ({
   runWithRequestContext: vi.fn((_ctx: unknown, fn: () => unknown) => fn()),
@@ -375,6 +386,9 @@ const parityCases: ParityCase[] = [
     token: async () =>
       makeJWT(validClaims({ clinicId: null, sessionId: undefined })),
     headers: { 'x-clinic-id': '7' },
+    setup: () => {
+      mockState.userClinicAccess = true;
+    },
     expectedStatus: 200,
     expectedClinicId: 7,
   },
@@ -393,6 +407,7 @@ const parityCases: ParityCase[] = [
     headers: { 'x-clinic-subdomain': 'overtime' },
     setup: () => {
       mockState.subdomainClinic = { id: 99 };
+      mockState.userClinicAccess = true;
     },
     expectedStatus: 200,
     expectedClinicId: 99,
@@ -511,6 +526,7 @@ describe('Clinic ID coercion parity', () => {
 
 describe('x-clinic-id header fallback parity', () => {
   it('both paths use x-clinic-id when JWT clinicId is null', async () => {
+    mockState.userClinicAccess = true;
     const token = await makeJWT(
       validClaims({ clinicId: null, sessionId: undefined })
     );

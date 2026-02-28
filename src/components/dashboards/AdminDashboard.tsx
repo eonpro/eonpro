@@ -19,6 +19,7 @@ import {
 import Link from 'next/link';
 import { apiFetch } from '@/lib/api/fetch';
 import { normalizedIncludes } from '@/lib/utils/search';
+import { safeParseJsonString } from '@/lib/utils/safe-json';
 
 interface PatientIntake {
   id: number;
@@ -72,7 +73,7 @@ export default function AdminDashboard({ userName }: AdminDashboardProps) {
       try {
         const user = localStorage.getItem('user');
         if (user) {
-          const userData = JSON.parse(user);
+          const userData = safeParseJsonString(user);
           setDisplayName(userData.firstName || userData.email?.split('@')[0] || 'there');
         }
       } catch {

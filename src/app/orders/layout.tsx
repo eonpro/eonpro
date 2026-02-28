@@ -30,6 +30,7 @@ import { ClinicBrandingProvider, useClinicBranding } from '@/lib/contexts/Clinic
 import { getStoredUserRole } from '@/lib/auth/stored-role';
 import { getAdminNavConfig, getNonAdminNavConfig } from '@/lib/nav/adminNav';
 import { EONPRO_LOGO, EONPRO_ICON } from '@/lib/constants/brand-assets';
+import { safeParseJsonString } from '@/lib/utils/safe-json';
 
 const ALLOWED_ROLES = ['admin', 'super_admin', 'provider', 'staff', 'support'];
 
@@ -89,7 +90,8 @@ function OrdersLayoutInner({ children }: { children: React.ReactNode }) {
       return;
     }
     try {
-      const parsed = JSON.parse(user);
+      const parsed = safeParseJsonString(user);
+      if (!parsed) { router.push('/login'); return; }
       const role = (parsed.role || '').toLowerCase();
       if (!ALLOWED_ROLES.includes(role)) {
         router.push('/');

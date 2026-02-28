@@ -30,6 +30,7 @@ import {
   LogIn,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api/fetch';
+import { safeParseJsonString } from '@/lib/utils/safe-json';
 
 interface StripeStatus {
   hasConnectedAccount: boolean;
@@ -92,8 +93,9 @@ function StripeSettingsContent() {
           return;
         }
 
-        const user = JSON.parse(userData);
-        if (!['admin', 'super_admin'].includes(user.role?.toLowerCase())) {
+        const user = safeParseJsonString<{role?: string; clinicId?: number}>(userData);
+        if (!user) { router.push('/login'); return; }
+        if (!['admin', 'super_admin'].includes(user.role?.toLowerCase() ?? '')) {
           router.push('/login');
           return;
         }
@@ -185,7 +187,7 @@ function StripeSettingsContent() {
       const userData = localStorage.getItem('user');
       if (userData) {
         try {
-          const parsed = JSON.parse(userData);
+          const parsed = safeParseJsonString<{email?: string}>(userData);
           adminEmail = parsed?.email ?? '';
         } catch {
           // Ignore corrupted localStorage

@@ -25,6 +25,7 @@ import {
 } from '@/components/notifications';
 import { ClinicBrandingProvider } from '@/lib/contexts/ClinicBrandingContext';
 import { EONPRO_ICON, EONPRO_LOGO } from '@/lib/constants/brand-assets';
+import { safeParseJsonString } from '@/lib/utils/safe-json';
 
 const navItems = [
   { icon: Shield, path: '/super-admin', label: 'Dashboard', exact: true },
@@ -55,7 +56,8 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
     }
 
     try {
-      const parsedUser = JSON.parse(user);
+      const parsedUser = safeParseJsonString(user);
+      if (!parsedUser) { router.push('/login'); return; }
       const role = parsedUser.role?.toLowerCase();
       if (role !== 'super_admin') {
         router.push('/login');

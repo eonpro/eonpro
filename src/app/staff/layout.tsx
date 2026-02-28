@@ -23,6 +23,7 @@ import {
 import { ClinicBrandingProvider, useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
 import { getAdminNavConfig } from '@/lib/nav/adminNav';
 import { EONPRO_LOGO, EONPRO_ICON } from '@/lib/constants/brand-assets';
+import { safeParseJsonString } from '@/lib/utils/safe-json';
 
 const staffNavIconMap = {
   Home,
@@ -55,7 +56,8 @@ function StaffLayoutInner({ children }: { children: React.ReactNode }) {
         router.push('/login');
         return;
       }
-      const parsedUser = JSON.parse(user);
+      const parsedUser = safeParseJsonString(user);
+      if (!parsedUser) { router.push('/login'); return; }
       const role = parsedUser.role?.toLowerCase();
       if (role !== 'staff') {
         router.push('/login');

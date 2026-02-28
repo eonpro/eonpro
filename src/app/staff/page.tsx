@@ -13,6 +13,7 @@ import {
   TrendingUp,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api/fetch';
+import { safeParseJsonString } from '@/lib/utils/safe-json';
 
 const isEncryptedData = (value: string | null | undefined): boolean => {
   if (!value || typeof value !== 'string') return false;
@@ -123,7 +124,8 @@ export default function StaffDashboard() {
     const user = localStorage.getItem('user');
     if (user) {
       try {
-        const parsed = JSON.parse(user) as Record<string, unknown>;
+        const parsed = safeParseJsonString<Record<string, unknown>>(user);
+        if (!parsed) { router.push('/login'); return; }
         if (typeof parsed.role === 'string' && parsed.role.toLowerCase() !== 'staff') {
           router.push('/login');
           return;

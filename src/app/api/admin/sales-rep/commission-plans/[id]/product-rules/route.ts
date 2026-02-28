@@ -51,6 +51,7 @@ export const GET = withAuth(
             },
           },
           orderBy: { id: 'asc' },
+          take: 500,
         })
       );
 

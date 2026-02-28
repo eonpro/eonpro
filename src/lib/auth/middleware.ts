@@ -471,14 +471,28 @@ export function withAuth<T = unknown>(
       }
       if (!options.skipSessionValidation) {
         if (!user.sessionId) {
-          // Log for monitoring — helps track down tokens issued without sessionId
-          logger.warn('Token missing sessionId — allowing (JWT verified)', {
+          // Tokens issued before session management must be rejected after sunset date.
+          // Sunset: 2026-04-01 — all tokens without sessionId are invalid after this date.
+          const SESSION_ID_SUNSET = new Date('2026-04-01T00:00:00Z').getTime();
+          if (Date.now() > SESSION_ID_SUNSET) {
+            logger.security('Token rejected: missing sessionId after sunset date', {
+              userId: user.id,
+              role: user.role,
+              tokenIat: user.iat,
+              requestId,
+            });
+            return NextResponse.json(
+              { error: 'Session expired. Please log in again.' },
+              { status: 401 }
+            );
+          }
+          logger.warn('Token missing sessionId — allowing until sunset (JWT verified)', {
             userId: user.id,
             role: user.role,
             tokenIat: user.iat,
             requestId,
+            sunsetDate: '2026-04-01',
           });
-          // Continue to handler — JWT is verified, user is authenticated
         } else {
           const sessionResult = await validateSession(token, req);
 

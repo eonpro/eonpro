@@ -22,6 +22,7 @@ export const GET = withAuth(async (request, user) => {
     const teams = await prisma.ticketTeam.findMany({
       where: { ...(clinicId ? { clinicId } : {}), isActive: true },
       orderBy: { name: 'asc' },
+      take: 200,
       include: {
         members: {
           include: { user: { select: { id: true, firstName: true, lastName: true, role: true } } },

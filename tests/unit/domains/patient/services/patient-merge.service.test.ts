@@ -29,7 +29,7 @@ vi.mock('@/lib/db', () => {
       carePlan: { updateMany: vi.fn() },
       ticket: { updateMany: vi.fn() },
       patientWeightLog: { updateMany: vi.fn() },
-      patientMedicationReminder: { updateMany: vi.fn() },
+      patientMedicationReminder: { findMany: vi.fn(), deleteMany: vi.fn(), updateMany: vi.fn() },
       patientWaterLog: { updateMany: vi.fn() },
       patientExerciseLog: { updateMany: vi.fn() },
       patientSleepLog: { updateMany: vi.fn() },
@@ -96,7 +96,7 @@ const createMockPrisma = () => ({
   carePlan: { updateMany: vi.fn() },
   ticket: { updateMany: vi.fn() },
   patientWeightLog: { updateMany: vi.fn() },
-  patientMedicationReminder: { updateMany: vi.fn() },
+  patientMedicationReminder: { findMany: vi.fn(), deleteMany: vi.fn(), updateMany: vi.fn() },
   patientWaterLog: { updateMany: vi.fn() },
   patientExerciseLog: { updateMany: vi.fn() },
   patientSleepLog: { updateMany: vi.fn() },
@@ -117,16 +117,16 @@ const createMockPrisma = () => ({
   patientPhoto: { updateMany: vi.fn() },
   labReport: { updateMany: vi.fn() },
   patientDeviceConnection: { updateMany: vi.fn() },
-  patientStreak: { updateMany: vi.fn() },
-  patientAchievement: { updateMany: vi.fn() },
+  patientStreak: { findMany: vi.fn(), deleteMany: vi.fn(), updateMany: vi.fn() },
+  patientAchievement: { findMany: vi.fn(), deleteMany: vi.fn(), updateMany: vi.fn() },
   pointsHistory: { updateMany: vi.fn() },
-  challengeParticipant: { updateMany: vi.fn() },
+  challengeParticipant: { findMany: vi.fn(), deleteMany: vi.fn(), updateMany: vi.fn() },
   patientPoints: { findUnique: vi.fn(), update: vi.fn() },
   shipmentLabel: { updateMany: vi.fn() },
   intakeFormDraft: { updateMany: vi.fn() },
   patientPortalInvite: { updateMany: vi.fn() },
   telehealthSession: { updateMany: vi.fn() },
-  patientPrescriptionCycle: { updateMany: vi.fn() },
+  patientPrescriptionCycle: { findMany: vi.fn(), deleteMany: vi.fn(), updateMany: vi.fn() },
   platformFeeEvent: { updateMany: vi.fn() },
   pushSubscription: { updateMany: vi.fn() },
   referralTracking: {
@@ -305,6 +305,12 @@ describe('PatientMergeService', () => {
     (mockDb.patientAudit.create as Mock).mockResolvedValue({ id: 100 });
     (mockDb.patient.update as Mock).mockResolvedValue({ ...mockTargetPatient, ...mockSourcePatient });
     (mockDb.patient.delete as Mock).mockResolvedValue(mockSourcePatient);
+    (mockDb.patientMedicationReminder.findMany as Mock).mockResolvedValue([]);
+    (mockDb.patientStreak.findMany as Mock).mockResolvedValue([]);
+    (mockDb.patientAchievement.findMany as Mock).mockResolvedValue([]);
+    (mockDb.challengeParticipant.findMany as Mock).mockResolvedValue([]);
+    (mockDb.patientPrescriptionCycle.findMany as Mock).mockResolvedValue([]);
+    (mockDb.patientPoints.findUnique as Mock).mockResolvedValue(null);
   });
 
   describe('previewMerge', () => {

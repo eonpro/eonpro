@@ -61,6 +61,7 @@ async function handler(request: NextRequest, user: AuthUser) {
         },
       },
       orderBy: { createdAt: 'desc' },
+      take: 100,
     });
 
     const bucketMap = new Map<string, DailyBucket>();

@@ -304,10 +304,11 @@ async function handleGet(req: NextRequest, user: AuthUser, context?: unknown) {
         clinicalContext.reproductiveStatus = getField(['pregnant-or-nursing', 'pregnantOrNursing', 'pregnant_or_nursing']);
 
         // GLP-1 history: WellMedR stores nested glp1History { usedLast30Days, medicationType, doseMg }
-        const nestedGlp1 = docJson.glp1History as { usedLast30Days?: string; medicationType?: string; doseMg?: string; sideEffects?: string } | undefined;
+        const nestedGlp1 = docJson.glp1History as { usedLast30Days?: string | boolean; medicationType?: string; doseMg?: string; sideEffects?: string } | undefined;
         if (nestedGlp1 && typeof nestedGlp1 === 'object') {
           const usedVal = nestedGlp1.usedLast30Days;
-          if (usedVal && (String(usedVal).toLowerCase() === 'yes' || usedVal === true)) {
+          const isUsed = usedVal === true || (typeof usedVal === 'string' && usedVal.toLowerCase() === 'yes');
+          if (isUsed) {
             clinicalContext.glp1History.used = true;
             if (nestedGlp1.medicationType && String(nestedGlp1.medicationType).trim())
               clinicalContext.glp1History.type = String(nestedGlp1.medicationType).trim();

@@ -600,7 +600,7 @@ export async function POST(req: NextRequest) {
   try {
     const existingDoc = await prisma.patientDocument.findUnique({
       where: { sourceSubmissionId: normalized.submissionId },
-      select: { id: true },
+      select: { id: true, externalUrl: true },
     });
 
     const ipAddress =

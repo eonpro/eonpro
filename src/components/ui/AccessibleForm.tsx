@@ -71,7 +71,7 @@ export function FormField({
   const helperId = `${id}-helper`;
 
   // Clone child with accessibility attributes
-  const child = React.cloneElement(children, {
+  const child = React.cloneElement(children as React.ReactElement<Record<string, unknown>>, {
     id,
     'aria-describedby': cn(error && errorId, helperText && helperId) || undefined,
     'aria-invalid': error ? 'true' : undefined,

@@ -138,17 +138,22 @@ function extractRequestContext(request: NextRequest | Headers): RequestContext {
 }
 
 /**
- * Calculate hash for tamper detection
+ * Calculate HMAC for tamper detection.
+ * Uses HMAC-SHA256 with a dedicated audit secret so DB-level access
+ * alone cannot forge valid hashes (satisfies HIPAA tamper-evidence).
  */
+function getAuditHmacSecret(): string {
+  return process.env.AUDIT_HMAC_SECRET || process.env.JWT_SECRET || 'audit-hmac-fallback-key';
+}
+
 function calculateAuditHash(data: any): string {
   const content = JSON.stringify({
     ...data,
-    // Exclude the hash field itself
     hash: undefined,
     integrity: undefined,
   });
 
-  return crypto.createHash('sha256').update(content).digest('hex');
+  return crypto.createHmac('sha256', getAuditHmacSecret()).update(content).digest('hex');
 }
 
 /**
@@ -248,14 +253,18 @@ export async function auditLog(request: AuditRequestSource, context: AuditContex
       await logCriticalEvent(redactPhiForLogs(auditData as Record<string, unknown>), hash);
     }
   } catch (error) {
-    // Audit logging should never break the application
+    // Primary audit failed — attempt fallback
     logger.error('Audit logging failed', error);
 
-    // Try fallback logging
     try {
       await fallbackAuditLog(context);
     } catch (fallbackError) {
-      logger.error('Fallback audit logging failed', fallbackError);
+      // HIPAA §164.312(b): audit controls are mandatory.
+      // If both DB and fallback fail, the operation MUST NOT proceed silently.
+      logger.error('CRITICAL: All audit channels failed — re-throwing to block operation', fallbackError);
+      throw new Error(
+        'Audit logging failed on all channels. Operation blocked for HIPAA compliance.'
+      );
     }
   }
 }
@@ -491,11 +500,17 @@ export async function generateAuditReport(
     return JSON.stringify(logs, null, 2);
   } else if (format === 'csv') {
     // Convert to CSV
+    const sanitizeCsvValue = (v: unknown): string => {
+      const str = String(v ?? '');
+      // Prevent formula injection: prefix dangerous start characters with a single quote
+      const sanitized = /^[=+\-@\t\r]/.test(str) ? `'${str}` : str;
+      return sanitized.includes(',') || sanitized.includes('"') || sanitized.includes('\n')
+        ? `"${sanitized.replace(/"/g, '""')}"`
+        : sanitized;
+    };
     const headers = Object.keys(logs[0] || {}).join(',');
     const rows = logs.map((log) =>
-      Object.values(log)
-        .map((v) => (typeof v === 'string' && v.includes(',') ? `"${v}"` : v))
-        .join(',')
+      Object.values(log).map(sanitizeCsvValue).join(',')
     );
     return [headers, ...rows].join('\n');
   } else {
@@ -520,7 +535,7 @@ export async function verifyAuditIntegrity(
       return { valid: false, reason: 'Audit entry not found' };
     }
 
-    // Reconstruct the data object for hash verification
+    // Reconstruct the data object for hash verification (must match auditLog() shape exactly)
     const auditData = {
       userId: entry.userId,
       userEmail: entry.userEmail,
@@ -530,16 +545,18 @@ export async function verifyAuditIntegrity(
       resourceType: entry.resourceType,
       resourceId: entry.resourceId,
       patientId: entry.patientId,
+      action: (entry as any).action,
+      outcome: entry.outcome,
+      reason: entry.reason,
       ipAddress: entry.ipAddress,
       userAgent: entry.userAgent,
       sessionId: entry.sessionId,
       requestId: entry.requestId,
       requestMethod: entry.requestMethod,
       requestPath: entry.requestPath,
-      outcome: entry.outcome,
-      reason: entry.reason,
       metadata: entry.metadata,
       emergency: entry.emergency,
+      timestamp: entry.createdAt,
     };
 
     const recalculatedHash = calculateAuditHash(auditData);

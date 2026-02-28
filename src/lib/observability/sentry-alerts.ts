@@ -176,9 +176,9 @@ export function trackAlertMetric(
 ): void {
   try {
     Sentry.metrics.distribution(name, value, {
-      tags,
+      ...(tags ? { tags: tags as Record<string, string> } : {}),
       unit: name.includes('time') || name.includes('duration') ? 'millisecond' : 'none',
-    });
+    } as Parameters<typeof Sentry.metrics.distribution>[2]);
   } catch {
     // Metrics API may not be available in all environments
   }

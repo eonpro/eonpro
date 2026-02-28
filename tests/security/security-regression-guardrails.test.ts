@@ -40,6 +40,9 @@ const ALLOWED_BASE_PRISMA_PATTERNS = [
   '/internal/',
   '/init-database/',
   '/patient-portal/', // resolve clinic
+  '/admin/sales-rep/', // admin manages commission plans cross-clinic
+  '/sales-rep/track/', // sales-rep attribution needs cross-clinic ref code lookup
+  '/v2/twilio/', // webhook resolves clinic context from phone number
 ];
 
 function pathIsAllowedForBasePrisma(fullPath: string): boolean {

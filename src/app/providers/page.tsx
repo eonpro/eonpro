@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { logger } from '@/lib/logger';
 import { apiFetch } from '@/lib/api/fetch';
+import { safeParseJsonString } from '@/lib/utils/safe-json';
 
 type Provider = {
   id: number;
@@ -187,7 +188,8 @@ export default function ProvidersPage() {
     const userData = localStorage.getItem('user');
     if (!userData) return;
     try {
-      const user = JSON.parse(userData);
+      const user = safeParseJsonString(userData);
+      if (!user) return;
       const role = user.role?.toLowerCase() || '';
       setUserRole(role);
       setUserClinicId(user.clinicId ?? null);

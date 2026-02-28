@@ -28,6 +28,7 @@ export const GET = withAuth(async (request, user) => {
         ],
       },
       orderBy: [{ position: 'asc' }, { name: 'asc' }],
+      take: 200,
       include: {
         createdBy: { select: { id: true, firstName: true, lastName: true } },
       },

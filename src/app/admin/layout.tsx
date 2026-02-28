@@ -44,6 +44,7 @@ import { logger } from '@/lib/logger';
 import * as Sentry from '@sentry/nextjs';
 import { apiFetch } from '@/lib/api/fetch';
 import { EONPRO_LOGO, EONPRO_ICON } from '@/lib/constants/brand-assets';
+import { safeParseJsonString } from '@/lib/utils/safe-json';
 
 // Error Boundary to catch and recover from React errors
 interface ErrorBoundaryState {
@@ -186,7 +187,8 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      const parsedUser = JSON.parse(user);
+      const parsedUser = safeParseJsonString(user);
+      if (!parsedUser) { router.push('/login'); return; }
       const role = parsedUser.role?.toLowerCase();
       const allowedAdminRoles = ['admin', 'super_admin', 'sales_rep', 'provider', 'staff'];
       if (!role || !allowedAdminRoles.includes(role)) {

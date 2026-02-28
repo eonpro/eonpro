@@ -125,11 +125,16 @@ async function getHandler(req: NextRequest, user: AuthUser) {
     // If the scoped query fails (wrong clinic), try basePrisma lookup
     if (!patientRecord) {
       const { basePrisma } = await import('@/lib/db');
-      const fallback = await basePrisma.patient.findFirst({
-        where: { userId: user.id },
-        select: { id: true, clinicId: true },
-        orderBy: { createdAt: 'desc' },
+      const fallbackUser = await basePrisma.user.findUnique({
+        where: { id: user.id },
+        select: { patientId: true },
       });
+      const fallback = fallbackUser?.patientId
+        ? await basePrisma.patient.findUnique({
+            where: { id: fallbackUser.patientId },
+            select: { id: true, clinicId: true },
+          })
+        : null;
       if (fallback) {
         logger.info('[Portal Tracking] Resolved patientId via userId fallback', {
           jwtPatientId: patientId,
@@ -337,7 +342,7 @@ async function getHandler(req: NextRequest, user: AuthUser) {
 
     // Convert to array and sort
     const allShipments = Array.from(shipmentMap.values()).sort(
-      (a, b) => new Date(b.orderedAt).getTime() - new Date(a.orderedAt).getTime()
+      (a, b) => new Date(b.orderedAt as string).getTime() - new Date(a.orderedAt as string).getTime()
     );
 
     const TRACKING_VISIBLE_LIMIT_MS = 3 * 24 * 60 * 60 * 1000;

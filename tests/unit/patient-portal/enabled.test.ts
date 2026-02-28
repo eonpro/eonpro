@@ -47,12 +47,11 @@ const defaultFeatures: PortalFeatures = {
 
 describe('Patient portal registry', () => {
   it('NAV_MODULES has expected length and ids', () => {
-    expect(NAV_MODULES.length).toBe(17);
+    expect(NAV_MODULES.length).toBe(16);
     const ids = NAV_MODULES.map((m) => m.id);
     expect(ids).toContain('home');
     expect(ids).not.toContain('appointments');
     expect(ids).toContain('care-team');
-    expect(ids).toContain('health-score');
     expect(ids).toContain('documents');
     expect(ids).toContain('progress');
     expect(ids).toContain('settings');
@@ -70,15 +69,14 @@ describe('Patient portal registry', () => {
 });
 
 describe('getEnabledNavModuleIds', () => {
-  it('with default features returns 15 nav modules (documents included via showDocuments defaultOn, bloodwork excluded when showLabResults false)', () => {
+  it('with default features returns 14 nav modules (documents included via showDocuments defaultOn, bloodwork excluded when showLabResults false)', () => {
     const ids = getEnabledNavModuleIds(defaultFeatures);
-    expect(ids.length).toBe(15);
+    expect(ids.length).toBe(14);
     expect(ids).toContain('home');
     expect(ids).toContain('settings');
     expect(ids).toContain('progress');
     expect(ids).not.toContain('appointments');
     expect(ids).toContain('care-team');
-    expect(ids).toContain('health-score');
     expect(ids).toContain('documents');
     expect(ids).not.toContain('bloodwork');
     expect(ids).not.toContain('devices');
@@ -86,15 +84,14 @@ describe('getEnabledNavModuleIds', () => {
 
   it('with empty features uses defaultOn for flags', () => {
     const ids = getEnabledNavModuleIds({});
-    // 14 modules have defaultOn: true; 3 have defaultOn: false (achievements, symptom-checker, devices); appointments removed
-    expect(ids.length).toBe(14);
+    expect(ids.length).toBe(13);
   });
 
   it('with showWeightTracking false hides progress only', () => {
     const ids = getEnabledNavModuleIds({ ...defaultFeatures, showWeightTracking: false });
     expect(ids).not.toContain('progress');
     expect(ids).toContain('home');
-    expect(ids.length).toBe(14);
+    expect(ids.length).toBe(13);
   });
 
   it('items with featureFlagKey null are always included', () => {
@@ -176,7 +173,7 @@ describe('Route guard (getNavModuleIdForPath, isPortalPath)', () => {
     expect(getNavModuleIdForPath('/portal/', base)).toBe('home');
     expect(getNavModuleIdForPath('/portal/appointments', base)).toBe(null);
     expect(getNavModuleIdForPath('/portal/care-team', base)).toBe('care-team');
-    expect(getNavModuleIdForPath('/portal/health-score', base)).toBe('health-score');
+    expect(getNavModuleIdForPath('/portal/health-score', base)).toBe(null);
     expect(getNavModuleIdForPath('/portal/documents', base)).toBe('documents');
     expect(getNavModuleIdForPath('/portal/progress', base)).toBe('progress');
     expect(getNavModuleIdForPath('/portal/settings', base)).toBe('settings');
@@ -206,13 +203,13 @@ describe('Treatment presets', () => {
 
   it('getEnabledNavModuleIds with primaryTreatment includes achievements for weight_loss (treatmentTypes)', () => {
     const ids = getEnabledNavModuleIds(defaultFeatures, 'weight_loss');
-    expect(ids.length).toBe(15);
+    expect(ids.length).toBe(14);
     expect(ids).toContain('achievements');
   });
 
   it('getEnabledNavModuleIds with primaryTreatment sexual_health excludes achievements (treatmentTypes filter)', () => {
     const ids = getEnabledNavModuleIds(defaultFeatures, 'sexual_health');
     expect(ids).not.toContain('achievements');
-    expect(ids.length).toBe(14);
+    expect(ids.length).toBe(13);
   });
 });

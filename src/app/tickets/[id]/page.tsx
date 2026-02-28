@@ -27,6 +27,7 @@ import {
   Tag as TagIcon,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api/fetch';
+import { safeParseJsonString } from '@/lib/utils/safe-json';
 import { formatPatientDisplayId } from '@/lib/utils/formatPatientDisplayId';
 import EmployeeAssignPicker from '@/components/tickets/EmployeeAssignPicker';
 import UnifiedTimeline from '@/components/tickets/UnifiedTimeline';
@@ -204,7 +205,8 @@ export default function TicketDetailPage() {
     try {
       const stored = localStorage.getItem('user');
       if (stored) {
-        const u = JSON.parse(stored);
+        const u = safeParseJsonString(stored);
+        if (!u) return;
         setCurrentUser({ id: u.id, name: `${u.firstName || ''} ${u.lastName || ''}`.trim() });
       }
     } catch { /* */ }

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { apiFetch } from '@/lib/api/fetch';
+import { safeParseJsonString } from '@/lib/utils/safe-json';
 
 interface FeatureFlagItem {
   flag: string;
@@ -38,7 +39,7 @@ export default function FeatureFlagsPage() {
     try {
       const user = localStorage.getItem('user');
       if (user) {
-        const parsed = JSON.parse(user);
+        const parsed = safeParseJsonString(user);
         if (parsed.role === 'super_admin') {
           setAccessAllowed(true);
         } else {

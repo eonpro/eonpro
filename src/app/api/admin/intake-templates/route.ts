@@ -28,6 +28,7 @@ export const GET = withAuth(
       const rows = await prisma.intakeFormTemplate.findMany({
         where: { clinicId: user.clinicId },
         orderBy: { createdAt: 'desc' },
+        take: 500,
         select: {
           id: true,
           name: true,
