@@ -324,7 +324,7 @@ export const orderRepository = {
     if (filters.awaitingFulfillment) {
       where.trackingNumber = null;
       where.lifefileOrderId = { not: null };
-      where.status = { notIn: ['CANCELLED', 'ERROR', 'error', 'DELIVERED'] };
+      where.status = { notIn: ['CANCELLED', 'COMPLETED', 'ERROR', 'error', 'DELIVERED', 'completed', 'cancelled'] };
       where.shippingUpdates = { none: {} };
     }
 
