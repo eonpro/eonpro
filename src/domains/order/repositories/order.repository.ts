@@ -325,7 +325,7 @@ export const orderRepository = {
       where.trackingNumber = null;
       where.lifefileOrderId = { not: null };
       where.status = { notIn: ['CANCELLED', 'ERROR', 'error', 'DELIVERED'] };
-      where.shippingUpdates = { none: { trackingNumber: { not: null } } };
+      where.shippingUpdates = { none: {} };
     }
 
     // Server-side search: match patient name (via searchIndex) OR medication name
