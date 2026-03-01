@@ -26,54 +26,70 @@ const querySchema = z.object({
 
 type IntervalCategory = 'monthly' | 'quarterly' | 'semiannual' | 'annual';
 
+/** Intervals that explicitly map to quarterly / semiannual / annual */
+const QUARTERLY_INTERVALS = ['quarter', 'quarterly'];
+const SEMIANNUAL_INTERVALS = ['semiannual'];
+const ANNUAL_INTERVALS = ['year', 'annual'];
+
 function classifyInterval(interval: string | null, intervalCount: number): IntervalCategory {
   const normalizedInterval = interval?.toLowerCase() || 'month';
 
-  if (normalizedInterval === 'year' || normalizedInterval === 'annual' || intervalCount === 12) {
+  if (ANNUAL_INTERVALS.includes(normalizedInterval) || intervalCount === 12) {
     return 'annual';
   }
-  if (normalizedInterval === 'semiannual' || intervalCount === 6) {
+  if (SEMIANNUAL_INTERVALS.includes(normalizedInterval) || intervalCount === 6) {
     return 'semiannual';
   }
-  if (normalizedInterval === 'quarter' || normalizedInterval === 'quarterly' || intervalCount === 3) {
+  if (QUARTERLY_INTERVALS.includes(normalizedInterval) || intervalCount === 3) {
     return 'quarterly';
   }
+  // Everything else is "monthly" — including day-based billing (every 28 days),
+  // week-based, or non-standard intervalCount values like 2, 4, 5, etc.
   return 'monthly';
 }
 
 function buildIntervalWhere(interval: string) {
   if (interval === 'all') return {};
 
+  const quarterlyFilter = {
+    OR: [
+      { interval: { in: QUARTERLY_INTERVALS } },
+      { intervalCount: 3 },
+    ],
+  };
+  const semiannualFilter = {
+    OR: [
+      { interval: { in: SEMIANNUAL_INTERVALS } },
+      { intervalCount: 6 },
+    ],
+  };
+  const annualFilter = {
+    OR: [
+      { interval: { in: ANNUAL_INTERVALS } },
+      { intervalCount: 12 },
+    ],
+  };
+
   switch (interval) {
     case 'monthly':
+      // "Monthly" is the catch-all: anything NOT quarterly/semiannual/annual.
+      // This covers: interval 'month'/'day'/'week'/null with any intervalCount,
+      // plus non-standard intervalCount values (2, 4, 5, 7, 8, 28, etc.)
       return {
-        OR: [
-          { interval: 'month', intervalCount: 1 },
-          { interval: 'monthly', intervalCount: 1 },
-          { interval: { not: { in: ['quarter', 'quarterly', 'semiannual', 'year', 'annual'] } }, intervalCount: 1 },
-        ],
+        NOT: {
+          OR: [
+            ...quarterlyFilter.OR,
+            ...semiannualFilter.OR,
+            ...annualFilter.OR,
+          ],
+        },
       };
     case 'quarterly':
-      return {
-        OR: [
-          { interval: { in: ['quarter', 'quarterly'] } },
-          { intervalCount: 3 },
-        ],
-      };
+      return quarterlyFilter;
     case 'semiannual':
-      return {
-        OR: [
-          { interval: 'semiannual' },
-          { intervalCount: 6 },
-        ],
-      };
+      return semiannualFilter;
     case 'annual':
-      return {
-        OR: [
-          { interval: { in: ['year', 'annual'] } },
-          { intervalCount: 12 },
-        ],
-      };
+      return annualFilter;
     default:
       return {};
   }
