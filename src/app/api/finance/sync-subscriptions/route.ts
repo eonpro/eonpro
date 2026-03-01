@@ -126,7 +126,7 @@ export async function POST(request: NextRequest) {
       const listParams = withConnectedAccount(stripeContext, {
         limit: 100,
         status: 'all',
-        expand: ['data.customer', 'data.items.data.price.product'],
+        expand: ['data.customer', 'data.items.data.price.product', 'data.latest_invoice'],
         ...(startingAfter ? { starting_after: startingAfter } : {}),
       } as Stripe.SubscriptionListParams);
 

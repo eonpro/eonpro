@@ -31,6 +31,24 @@ const STRIPE_STATUS_TO_OUR: Record<
   incomplete_expired: 'CANCELED',
 };
 
+/**
+ * Derive failedAttempts from Stripe latest_invoice (if expanded) or subscription status.
+ * Stripe invoice.attempt_count tracks how many collection attempts were made.
+ * For paid invoices, attempt_count includes the successful attempt, so we subtract 1.
+ */
+function deriveFailedAttempts(
+  latestInvoice: any,
+  ourStatus: string,
+): number {
+  if (typeof latestInvoice === 'object' && latestInvoice) {
+    const attemptCount: number = latestInvoice.attempt_count ?? 0;
+    if (latestInvoice.status === 'paid') return Math.max(0, attemptCount - 1);
+    if (latestInvoice.status === 'open' || latestInvoice.status === 'uncollectible') return Math.max(1, attemptCount);
+    return attemptCount;
+  }
+  return ourStatus === 'PAST_DUE' ? 1 : 0;
+}
+
 export interface SyncSubscriptionResult {
   success: boolean;
   subscriptionId?: number;
@@ -226,6 +244,10 @@ export async function syncSubscriptionFromStripe(
   const nextBilling =
     status === 'ACTIVE' && currentPeriodEnd ? currentPeriodEnd : null;
 
+  // Derive failedAttempts: use latest_invoice attempt_count if expanded, else infer from status
+  const latestInvoice = (stripeSubscription as any).latest_invoice;
+  const failedAttempts = deriveFailedAttempts(latestInvoice, status);
+
   try {
     const subscription = await prisma.subscription.upsert({
       where: { stripeSubscriptionId },
@@ -247,6 +269,7 @@ export async function syncSubscriptionFromStripe(
         currentPeriodStart,
         currentPeriodEnd: currentPeriodEnd ?? undefined,
         nextBillingDate: nextBilling,
+        failedAttempts,
         canceledAt,
         endedAt,
         metadata: stripeSubscription.metadata ? (stripeSubscription.metadata as object) : undefined,
@@ -262,6 +285,7 @@ export async function syncSubscriptionFromStripe(
         currentPeriodStart,
         currentPeriodEnd: currentPeriodEnd ?? undefined,
         nextBillingDate: nextBilling,
+        failedAttempts,
         canceledAt,
         endedAt,
         metadata: stripeSubscription.metadata ? (stripeSubscription.metadata as object) : undefined,
@@ -357,6 +381,9 @@ export async function syncSubscriptionFromStripeByEmail(
   const nextBilling =
     status === 'ACTIVE' && currentPeriodEnd ? currentPeriodEnd : null;
 
+  const latestInvoiceE = (stripeSubscription as any).latest_invoice;
+  const failedAttempts = deriveFailedAttempts(latestInvoiceE, status);
+
   try {
     const subscription = await prisma.$transaction(async (tx) => {
       if (customerId && !patient.stripeCustomerId) {
@@ -385,6 +412,7 @@ export async function syncSubscriptionFromStripeByEmail(
           currentPeriodStart,
           currentPeriodEnd: currentPeriodEnd ?? undefined,
           nextBillingDate: nextBilling,
+          failedAttempts,
           canceledAt,
           endedAt,
           metadata: stripeSubscription.metadata ? (stripeSubscription.metadata as object) : undefined,
@@ -400,6 +428,7 @@ export async function syncSubscriptionFromStripeByEmail(
           currentPeriodStart,
           currentPeriodEnd: currentPeriodEnd ?? undefined,
           nextBillingDate: nextBilling,
+          failedAttempts,
           canceledAt,
           endedAt,
           metadata: stripeSubscription.metadata ? (stripeSubscription.metadata as object) : undefined,

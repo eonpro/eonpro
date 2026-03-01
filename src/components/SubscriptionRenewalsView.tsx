@@ -143,7 +143,12 @@ function getIntervalLabel(category: IntervalCategory): string {
   }
 }
 
-function getPaymentStatusBadge(payment: LastPayment | null, subStatus: string) {
+function getPaymentStatusBadge(
+  payment: LastPayment | null,
+  subStatus: string,
+  nextBillingDate: string | null,
+  failedAttempts: number,
+) {
   if (subStatus === 'PAST_DUE') {
     return {
       label: 'Past Due',
@@ -154,6 +159,12 @@ function getPaymentStatusBadge(payment: LastPayment | null, subStatus: string) {
   }
 
   if (!payment) {
+    if (failedAttempts > 0) {
+      return { label: 'Payment Failed', bg: 'bg-red-100', text: 'text-red-700', icon: XCircle };
+    }
+    if (isValidBillingDate(nextBillingDate) && new Date(nextBillingDate!) < new Date()) {
+      return { label: 'Overdue', bg: 'bg-orange-100', text: 'text-orange-700', icon: AlertTriangle };
+    }
     return {
       label: 'No Payment',
       bg: 'bg-gray-100',
@@ -503,7 +514,7 @@ export default function SubscriptionRenewalsView({
               <tbody className="divide-y divide-gray-100">
                 {renewals.map((sub) => {
                   const rebillRelative = formatDateRelative(sub.nextBillingDate);
-                  const paymentBadge = getPaymentStatusBadge(sub.lastPayment, sub.status);
+                  const paymentBadge = getPaymentStatusBadge(sub.lastPayment, sub.status, sub.nextBillingDate, sub.failedAttempts);
                   const statusBadge = getSubscriptionStatusBadge(sub.status);
                   const PaymentIcon = paymentBadge.icon;
 
