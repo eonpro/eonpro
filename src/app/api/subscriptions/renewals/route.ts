@@ -143,13 +143,33 @@ async function handler(req: NextRequest, user: AuthUser) {
             },
             payments: {
               orderBy: { createdAt: 'desc' },
-              take: 1,
+              take: 5,
               select: {
                 id: true,
                 status: true,
                 amount: true,
                 createdAt: true,
                 failureReason: true,
+              },
+            },
+            paymentMethod: {
+              select: {
+                cardLast4: true,
+                cardBrand: true,
+                expiryMonth: true,
+                expiryYear: true,
+                isActive: true,
+              },
+            },
+            actions: {
+              where: { actionType: { in: ['CANCEL', 'PAUSE'] } },
+              orderBy: { createdAt: 'desc' },
+              take: 1,
+              select: {
+                actionType: true,
+                reason: true,
+                cancellationReason: true,
+                createdAt: true,
               },
             },
           },
@@ -176,11 +196,46 @@ async function handler(req: NextRequest, user: AuthUser) {
 
       const renewals = filteredSubscriptions.map((sub) => {
         const lastPayment = sub.payments[0] || null;
+        const lastFailedPayment = sub.payments.find((p) => p.status === 'FAILED') || null;
         const intervalCategory = classifyInterval(sub.interval, sub.intervalCount);
 
         const firstName = decryptPHI(sub.patient?.firstName) || '';
         const lastName = decryptPHI(sub.patient?.lastName) || '';
         const email = decryptPHI(sub.patient?.email) || '';
+
+        const pm = (sub as any).paymentMethod;
+        const lastAction = (sub as any).actions?.[0] || null;
+
+        const now = new Date();
+        const isCardExpired =
+          pm?.expiryYear != null &&
+          pm?.expiryMonth != null &&
+          (pm.expiryYear < now.getFullYear() ||
+            (pm.expiryYear === now.getFullYear() && pm.expiryMonth < now.getMonth() + 1));
+
+        let overdueReason: string | null = null;
+        const isOverdue =
+          sub.nextBillingDate && new Date(sub.nextBillingDate) < now;
+
+        if (isOverdue || sub.status === 'PAST_DUE' || sub.failedAttempts > 0) {
+          if (lastFailedPayment?.failureReason) {
+            overdueReason = lastFailedPayment.failureReason;
+          } else if (sub.failedAttempts > 0 && !lastFailedPayment) {
+            overdueReason = 'Payment charge failed';
+          } else if (isCardExpired) {
+            overdueReason = `Card expired (${String(pm.expiryMonth).padStart(2, '0')}/${pm.expiryYear})`;
+          } else if (!pm || !pm.isActive) {
+            overdueReason = 'No active payment method';
+          } else if (lastAction?.actionType === 'CANCEL') {
+            overdueReason = lastAction.cancellationReason || lastAction.reason || 'Subscription cancelled';
+          } else if (lastAction?.actionType === 'PAUSE') {
+            overdueReason = lastAction.reason || 'Subscription paused';
+          } else if (!lastPayment) {
+            overdueReason = 'Payment not attempted';
+          } else if (lastPayment.status === 'SUCCEEDED') {
+            overdueReason = 'Renewal payment not yet processed';
+          }
+        }
 
         return {
           id: sub.id,
@@ -203,6 +258,14 @@ async function handler(req: NextRequest, user: AuthUser) {
           nextBillingDate: sub.nextBillingDate,
           failedAttempts: sub.failedAttempts,
           stripeSubscriptionId: sub.stripeSubscriptionId,
+          overdueReason,
+          cardInfo: pm
+            ? {
+                last4: pm.cardLast4,
+                brand: pm.cardBrand,
+                expired: isCardExpired,
+              }
+            : null,
           lastPayment: lastPayment
             ? {
                 id: lastPayment.id,
@@ -210,6 +273,13 @@ async function handler(req: NextRequest, user: AuthUser) {
                 amount: lastPayment.amount,
                 date: lastPayment.createdAt,
                 failureReason: lastPayment.failureReason,
+              }
+            : null,
+          lastFailedPayment: lastFailedPayment
+            ? {
+                status: lastFailedPayment.status,
+                date: lastFailedPayment.createdAt,
+                failureReason: lastFailedPayment.failureReason,
               }
             : null,
         };

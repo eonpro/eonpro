@@ -34,6 +34,18 @@ interface LastPayment {
   failureReason: string | null;
 }
 
+interface LastFailedPayment {
+  status: string;
+  date: string;
+  failureReason: string | null;
+}
+
+interface CardInfo {
+  last4: string;
+  brand: string | null;
+  expired: boolean;
+}
+
 interface RenewalSubscription {
   id: number;
   patientId: number;
@@ -53,7 +65,10 @@ interface RenewalSubscription {
   nextBillingDate: string | null;
   failedAttempts: number;
   stripeSubscriptionId: string | null;
+  overdueReason: string | null;
+  cardInfo: CardInfo | null;
   lastPayment: LastPayment | null;
+  lastFailedPayment: LastFailedPayment | null;
 }
 
 interface RenewalsSummary {
@@ -581,16 +596,28 @@ export default function SubscriptionRenewalsView({
                             <PaymentIcon className="h-3 w-3" />
                             {paymentBadge.label}
                           </span>
-                          {sub.lastPayment?.failureReason && (
-                            <span className="text-xs text-red-500" title={sub.lastPayment.failureReason}>
-                              {sub.lastPayment.failureReason.length > 30
-                                ? sub.lastPayment.failureReason.slice(0, 30) + '...'
-                                : sub.lastPayment.failureReason}
+                          {sub.overdueReason && (
+                            <span
+                              className="max-w-[200px] truncate text-xs text-red-600"
+                              title={sub.overdueReason}
+                            >
+                              {sub.overdueReason}
+                            </span>
+                          )}
+                          {!sub.overdueReason && sub.lastPayment?.failureReason && (
+                            <span className="max-w-[200px] truncate text-xs text-red-500" title={sub.lastPayment.failureReason}>
+                              {sub.lastPayment.failureReason}
                             </span>
                           )}
                           {sub.failedAttempts > 0 && (
                             <span className="text-xs text-orange-500">
                               {sub.failedAttempts} failed attempt{sub.failedAttempts !== 1 ? 's' : ''}
+                            </span>
+                          )}
+                          {sub.cardInfo && (
+                            <span className={`text-xs ${sub.cardInfo.expired ? 'font-medium text-red-500' : 'text-gray-400'}`}>
+                              {sub.cardInfo.brand || 'Card'} ••{sub.cardInfo.last4}
+                              {sub.cardInfo.expired && ' (expired)'}
                             </span>
                           )}
                         </div>
