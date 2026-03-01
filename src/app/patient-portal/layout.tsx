@@ -388,7 +388,7 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
       </aside>
 
       {/* Mobile Header - Optimized for iPhone notch (hidden on chat page) */}
-      <header className={`fixed left-0 right-0 top-0 z-50 bg-white/95 backdrop-blur-lg lg:hidden ${isChatPage ? 'hidden' : ''}`}>
+      <header className={`portal-header fixed left-0 right-0 top-0 z-50 bg-white/95 backdrop-blur-lg lg:hidden ${isChatPage ? 'hidden' : ''}`}>
         <div className="safe-top" />
         <div className="flex h-14 items-center justify-between px-4">
           <Link href={PATIENT_PORTAL_PATH} className="flex items-center gap-3">
@@ -486,7 +486,7 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
       </main>
 
       {/* Mobile Bottom Navigation - iPhone optimized */}
-      <nav className={`fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-lg lg:hidden`}>
+      <nav className={`portal-bottom-nav fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-lg lg:hidden`}>
         <div className="border-t border-gray-200">
           <div className="mx-auto flex max-w-md justify-around gap-1 px-1">
             {mobileNavItems.map((item) => {
@@ -538,7 +538,7 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
       {showChat && !isChatPage && (
         <Link
           href={`${PATIENT_PORTAL_PATH}/chat`}
-          className="fixed z-30 flex h-14 w-14 items-center justify-center rounded-full text-white shadow-xl transition-all active:scale-95 lg:bottom-6 lg:right-6"
+          className="portal-chat-fab fixed z-30 flex h-14 w-14 items-center justify-center rounded-full text-white shadow-xl transition-all active:scale-95 lg:bottom-6 lg:right-6"
           style={{
             backgroundColor: primaryColor,
             bottom: 'calc(80px + env(safe-area-inset-bottom, 0px))',

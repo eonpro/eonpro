@@ -4,7 +4,7 @@ import { logger } from '@/lib/logger';
 import { withAuth } from '@/lib/auth/middleware';
 import { z } from 'zod';
 import { handleApiError } from '@/domains/shared/errors';
-import { logPHIAccess, logPHICreate, logPHIDelete } from '@/lib/audit/hipaa-audit';
+import { logPHIAccess, logPHICreate, logPHIDelete, logPHIUpdate } from '@/lib/audit/hipaa-audit';
 import { withRateLimit, RATE_LIMIT_CONFIGS } from '@/lib/security/rate-limiter';
 import { canAccessPatientWithClinic } from '@/lib/auth/patient-access';
 import { loadPatientIntakeData } from '@/lib/database/intake-data-loader';
@@ -50,6 +50,22 @@ const deleteWeightLogSchema = z.object({
     .string()
     .transform((val) => parseInt(val, 10))
     .refine((n) => !isNaN(n) && n > 0, { message: 'id must be a positive integer' }),
+});
+
+const updateWeightLogSchema = z.object({
+  id: z
+    .union([z.string(), z.number()])
+    .transform((val) => (typeof val === 'string' ? parseInt(val, 10) : val))
+    .refine((n) => !isNaN(n) && n > 0, { message: 'id must be a positive integer' }),
+  weight: z
+    .union([z.string(), z.number()])
+    .transform((val) => (typeof val === 'string' ? parseFloat(val) : val))
+    .refine((n) => !isNaN(n) && n > 0, { message: 'Weight must be a positive number' })
+    .refine((n) => n <= 2000, { message: 'Weight must be 2000 lbs / 907 kg or less' })
+    .optional(),
+  unit: z.enum(['lbs', 'kg']).optional(),
+  notes: z.string().max(1000).optional().nullable(),
+  recordedAt: z.string().datetime().optional(),
 });
 
 // ============================================================================
@@ -425,3 +441,111 @@ const deleteHandler = withAuth(async (request: NextRequest, user) => {
 });
 
 export const DELETE = withRateLimit(deleteHandler, RATE_LIMIT_CONFIGS.phiAccess);
+
+// ============================================================================
+// PATCH /api/patient-progress/weight - Edit a weight log entry
+// ============================================================================
+
+const patchHandler = withAuth(async (request: NextRequest, user) => {
+  try {
+    const rawData = await request.json();
+    const parseResult = updateWeightLogSchema.safeParse(rawData);
+
+    if (!parseResult.success) {
+      return NextResponse.json(
+        { error: 'Invalid input', details: parseResult.error.issues.map((i) => i.message) },
+        { status: 400 }
+      );
+    }
+
+    const { id, weight, unit, notes, recordedAt } = parseResult.data;
+
+    // Require at least one updateable field
+    const hasUpdate =
+      weight !== undefined ||
+      unit !== undefined ||
+      notes !== undefined ||
+      recordedAt !== undefined;
+    if (!hasUpdate) {
+      return NextResponse.json(
+        { error: 'At least one of weight, unit, notes, or recordedAt must be provided' },
+        { status: 400 }
+      );
+    }
+
+    // Fetch the log to verify it exists and check authorization
+    const log = await prisma.patientWeightLog.findUnique({
+      where: { id },
+      select: { id: true, patientId: true, source: true },
+    });
+
+    if (!log) {
+      return NextResponse.json({ error: 'Weight log not found' }, { status: 404 });
+    }
+
+    // AUTHORIZATION CHECK - verify user can access this patient's data (with clinic isolation)
+    if (!(await canAccessPatientWithClinic(user, log.patientId))) {
+      logger.warn('Unauthorized weight log update attempt', {
+        userId: user.id,
+        logId: id,
+        patientId: log.patientId,
+      });
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+    }
+
+    // Patients can only edit their own entries (source='patient')
+    if (user.role === 'patient' && log.source !== 'patient') {
+      logger.warn('Patient attempted to edit non-patient weight log', {
+        userId: user.id,
+        logId: id,
+        source: log.source,
+      });
+      return NextResponse.json(
+        { error: 'Patients can only edit entries they created' },
+        { status: 403 }
+      );
+    }
+
+    // Build update data from only provided fields
+    const updateData: {
+      weight?: number;
+      unit?: string;
+      notes?: string | null;
+      recordedAt?: Date;
+    } = {};
+    if (weight !== undefined) updateData.weight = weight;
+    if (unit !== undefined) updateData.unit = unit;
+    if (notes !== undefined) updateData.notes = notes;
+    if (recordedAt !== undefined) updateData.recordedAt = new Date(recordedAt);
+
+    const updated = await prisma.patientWeightLog.update({
+      where: { id },
+      data: updateData,
+    });
+
+    logger.info('Weight log updated', {
+      id,
+      userId: user.id,
+      patientId: log.patientId,
+      changedFields: Object.keys(updateData),
+    });
+
+    await logPHIUpdate(
+      request,
+      user,
+      'PatientWeightLog',
+      id,
+      log.patientId,
+      Object.keys(updateData)
+    );
+
+    return NextResponse.json(updated);
+  } catch (error) {
+    return handleApiError(error, {
+      route: 'PATCH /api/patient-progress/weight',
+      context: { userId: user.id },
+    });
+  }
+});
+
+export const PATCH = withRateLimit(patchHandler, RATE_LIMIT_CONFIGS.phiAccess);

@@ -4,7 +4,7 @@ import { logger } from '@/lib/logger';
 import { withAuth } from '@/lib/auth/middleware';
 import { standardRateLimit } from '@/lib/rateLimit';
 import { z } from 'zod';
-import { logPHIAccess, logPHICreate } from '@/lib/audit/hipaa-audit';
+import { logPHIAccess, logPHICreate, logPHIUpdate, logPHIDelete } from '@/lib/audit/hipaa-audit';
 import { handleApiError } from '@/domains/shared/errors';
 import { canAccessPatientWithClinic } from '@/lib/auth/patient-access';
 
@@ -30,6 +30,29 @@ const getWaterLogsSchema = z.object({
     .transform((val) => parseInt(val, 10))
     .refine((n) => !isNaN(n) && n > 0, { message: 'patientId must be a positive integer' }),
   date: z.string().nullish(),
+});
+
+const updateWaterLogSchema = z.object({
+  id: z
+    .union([z.string(), z.number()])
+    .transform((val) => (typeof val === 'string' ? parseInt(val, 10) : val))
+    .refine((n) => !isNaN(n) && n > 0, { message: 'id must be a positive integer' }),
+  amount: z
+    .union([z.string(), z.number()])
+    .transform((val) => (typeof val === 'string' ? parseFloat(val) : val))
+    .refine((n) => !isNaN(n) && n > 0, { message: 'Amount must be a positive number' })
+    .refine((n) => n <= 200, { message: 'Amount must be 200 oz or less' })
+    .optional(),
+  unit: z.enum(['oz', 'ml']).optional(),
+  notes: z.string().max(500).optional().nullable(),
+  recordedAt: z.string().datetime().optional(),
+});
+
+const deleteWaterLogSchema = z.object({
+  id: z
+    .string()
+    .transform((val) => parseInt(val, 10))
+    .refine((n) => !isNaN(n) && n > 0, { message: 'id must be a positive integer' }),
 });
 
 // POST - Create water log
@@ -148,3 +171,128 @@ const getHandler = withAuth(async (request: NextRequest, user) => {
 });
 
 export const GET = standardRateLimit(getHandler);
+
+// PATCH - Update water log
+const patchHandler = withAuth(async (request: NextRequest, user) => {
+  try {
+    const rawData = await request.json();
+    const parseResult = updateWaterLogSchema.safeParse(rawData);
+
+    if (!parseResult.success) {
+      return NextResponse.json(
+        { error: 'Invalid input', details: parseResult.error.issues.map((i) => i.message) },
+        { status: 400 }
+      );
+    }
+
+    const { id, amount, unit, notes, recordedAt } = parseResult.data;
+
+    const hasUpdate =
+      amount !== undefined ||
+      unit !== undefined ||
+      notes !== undefined ||
+      recordedAt !== undefined;
+    if (!hasUpdate) {
+      return NextResponse.json(
+        { error: 'At least one of amount, unit, notes, or recordedAt must be provided' },
+        { status: 400 }
+      );
+    }
+
+    const log = await prisma.patientWaterLog.findUnique({
+      where: { id },
+      select: { id: true, patientId: true, source: true },
+    });
+
+    if (!log) {
+      return NextResponse.json({ error: 'Water log not found' }, { status: 404 });
+    }
+
+    if (!(await canAccessPatientWithClinic(user, log.patientId))) {
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+    }
+
+    if (user.role === 'patient' && log.source !== 'patient') {
+      return NextResponse.json(
+        { error: 'Patients can only edit entries they created' },
+        { status: 403 }
+      );
+    }
+
+    const updateData: {
+      amount?: number;
+      unit?: string;
+      notes?: string | null;
+      recordedAt?: Date;
+    } = {};
+    if (amount !== undefined) updateData.amount = amount;
+    if (unit !== undefined) updateData.unit = unit;
+    if (notes !== undefined) updateData.notes = notes;
+    if (recordedAt !== undefined) updateData.recordedAt = new Date(recordedAt);
+
+    const updated = await prisma.patientWaterLog.update({
+      where: { id },
+      data: updateData,
+    });
+
+    logPHIUpdate(request, user, 'PatientWaterLog', id, log.patientId, Object.keys(updateData)).catch(
+      () => {}
+    );
+
+    return NextResponse.json(updated);
+  } catch (error) {
+    return handleApiError(error, {
+      route: 'PATCH /api/patient-progress/water',
+      context: { userId: user.id },
+    });
+  }
+});
+
+export const PATCH = standardRateLimit(patchHandler);
+
+// DELETE - Delete water log
+const deleteHandler = withAuth(async (request: NextRequest, user) => {
+  try {
+    const urlParams = new URL(request.url).searchParams;
+    const nextParams = request.nextUrl.searchParams;
+    const idParam = nextParams.get('id') ?? urlParams.get('id');
+
+    const parseResult = deleteWaterLogSchema.safeParse({ id: idParam });
+
+    if (!parseResult.success) {
+      return NextResponse.json({ error: 'Invalid parameters' }, { status: 400 });
+    }
+
+    const { id } = parseResult.data;
+
+    const log = await prisma.patientWaterLog.findUnique({
+      where: { id },
+      select: { id: true, patientId: true },
+    });
+
+    if (!log) {
+      return NextResponse.json({ error: 'Water log not found' }, { status: 404 });
+    }
+
+    if (!(await canAccessPatientWithClinic(user, log.patientId))) {
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+    }
+
+    await prisma.patientWaterLog.delete({
+      where: { id },
+    });
+
+    logPHIDelete(request, user, 'PatientWaterLog', id, log.patientId, 'user_request').catch(
+      () => {}
+    );
+
+    return NextResponse.json({ success: true, deletedId: id });
+  } catch (error) {
+    return handleApiError(error, {
+      route: 'DELETE /api/patient-progress/water',
+      context: { userId: user.id },
+    });
+  }
+});
+
+export const DELETE = standardRateLimit(deleteHandler);

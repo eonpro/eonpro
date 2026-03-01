@@ -4,7 +4,7 @@ import { logger } from '@/lib/logger';
 import { withAuth } from '@/lib/auth/middleware';
 import { standardRateLimit } from '@/lib/rateLimit';
 import { z } from 'zod';
-import { logPHIAccess, logPHICreate } from '@/lib/audit/hipaa-audit';
+import { logPHIAccess, logPHICreate, logPHIUpdate, logPHIDelete } from '@/lib/audit/hipaa-audit';
 import { handleApiError } from '@/domains/shared/errors';
 import { canAccessPatientWithClinic } from '@/lib/auth/patient-access';
 
@@ -53,6 +53,39 @@ const getExerciseLogsSchema = z.object({
     .string()
     .transform((val) => parseInt(val, 10))
     .refine((n) => !isNaN(n) && n > 0, { message: 'patientId must be a positive integer' }),
+});
+
+const updateExerciseLogSchema = z.object({
+  id: z
+    .union([z.string(), z.number()])
+    .transform((val) => (typeof val === 'string' ? parseInt(val, 10) : val))
+    .refine((n) => !isNaN(n) && n > 0, { message: 'id must be a positive integer' }),
+  activityType: z.string().min(1).max(100).optional(),
+  duration: z
+    .union([z.string(), z.number()])
+    .transform((val) => (typeof val === 'string' ? parseInt(val, 10) : val))
+    .refine((n) => !isNaN(n) && n > 0, { message: 'Duration must be a positive number' })
+    .refine((n) => n <= 1440, { message: 'Duration must be 1440 minutes or less' })
+    .optional(),
+  intensity: z.enum(['light', 'moderate', 'vigorous']).optional(),
+  calories: z
+    .union([z.string(), z.number()])
+    .optional()
+    .nullable()
+    .transform((val) => {
+      if (val == null) return undefined;
+      const num = typeof val === 'string' ? parseInt(val, 10) : val;
+      return isNaN(num) ? undefined : num;
+    }),
+  notes: z.string().max(500).optional().nullable(),
+  recordedAt: z.string().datetime().optional(),
+});
+
+const deleteExerciseLogSchema = z.object({
+  id: z
+    .string()
+    .transform((val) => parseInt(val, 10))
+    .refine((n) => !isNaN(n) && n > 0, { message: 'id must be a positive integer' }),
 });
 
 const postHandler = withAuth(async (request: NextRequest, user) => {
@@ -175,3 +208,127 @@ const getHandler = withAuth(async (request: NextRequest, user) => {
 });
 
 export const GET = standardRateLimit(getHandler);
+
+const patchHandler = withAuth(async (request: NextRequest, user) => {
+  try {
+    const rawData = await request.json();
+    const parseResult = updateExerciseLogSchema.safeParse(rawData);
+
+    if (!parseResult.success) {
+      return NextResponse.json(
+        { error: 'Invalid input', details: parseResult.error.issues.map((i) => i.message) },
+        { status: 400 }
+      );
+    }
+
+    const { id, activityType, duration, intensity, calories, notes, recordedAt } =
+      parseResult.data;
+
+    const log = await prisma.patientExerciseLog.findUnique({
+      where: { id },
+      select: { id: true, patientId: true, source: true },
+    });
+
+    if (!log) {
+      return NextResponse.json({ error: 'Exercise log not found' }, { status: 404 });
+    }
+
+    if (!(await canAccessPatientWithClinic(user, log.patientId))) {
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+    }
+
+    if (user.role === 'patient' && log.source !== 'patient') {
+      return NextResponse.json(
+        { error: 'Patients can only edit entries they created' },
+        { status: 403 }
+      );
+    }
+
+    const updateData: {
+      activityType?: string;
+      duration?: number;
+      intensity?: string;
+      calories?: number | null;
+      notes?: string | null;
+      recordedAt?: Date;
+    } = {};
+    if (activityType !== undefined) updateData.activityType = activityType;
+    if (duration !== undefined) updateData.duration = duration;
+    if (intensity !== undefined) updateData.intensity = intensity;
+    if (calories !== undefined) updateData.calories = calories;
+    if (notes !== undefined) updateData.notes = notes;
+    if (recordedAt !== undefined) updateData.recordedAt = new Date(recordedAt);
+
+    const hasUpdate = Object.keys(updateData).length > 0;
+    if (!hasUpdate) {
+      return NextResponse.json(
+        { error: 'At least one field must be provided to update' },
+        { status: 400 }
+      );
+    }
+
+    const updated = await prisma.patientExerciseLog.update({
+      where: { id },
+      data: updateData,
+    });
+
+    logPHIUpdate(request, user, 'PatientExerciseLog', id, log.patientId, Object.keys(updateData)).catch(
+      () => {}
+    );
+
+    return NextResponse.json(updated);
+  } catch (error) {
+    return handleApiError(error, {
+      route: 'PATCH /api/patient-progress/exercise',
+      context: { userId: user.id },
+    });
+  }
+});
+
+export const PATCH = standardRateLimit(patchHandler);
+
+const deleteHandler = withAuth(async (request: NextRequest, user) => {
+  try {
+    const nextParams = request.nextUrl.searchParams;
+    const urlParams = new URL(request.url).searchParams;
+    const idParam = nextParams.get('id') ?? urlParams.get('id');
+
+    const parseResult = deleteExerciseLogSchema.safeParse({ id: idParam });
+
+    if (!parseResult.success) {
+      return NextResponse.json({ error: 'Invalid parameters' }, { status: 400 });
+    }
+
+    const { id } = parseResult.data;
+
+    const log = await prisma.patientExerciseLog.findUnique({
+      where: { id },
+      select: { id: true, patientId: true },
+    });
+
+    if (!log) {
+      return NextResponse.json({ error: 'Exercise log not found' }, { status: 404 });
+    }
+
+    if (!(await canAccessPatientWithClinic(user, log.patientId))) {
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+    }
+
+    await prisma.patientExerciseLog.delete({
+      where: { id },
+    });
+
+    logPHIDelete(request, user, 'PatientExerciseLog', id, log.patientId, 'user_request').catch(
+      () => {}
+    );
+
+    return NextResponse.json({ success: true, deletedId: id });
+  } catch (error) {
+    return handleApiError(error, {
+      route: 'DELETE /api/patient-progress/exercise',
+      context: { userId: user.id },
+    });
+  }
+});
+
+export const DELETE = standardRateLimit(deleteHandler);

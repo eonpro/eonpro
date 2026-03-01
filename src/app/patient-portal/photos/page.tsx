@@ -25,6 +25,9 @@ import {
   CheckCircle,
   AlertCircle,
   Loader2,
+  Trash2,
+  X,
+  ShieldCheck,
 } from 'lucide-react';
 import Link from 'next/link';
 import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
@@ -36,6 +39,15 @@ import { format, parseISO } from 'date-fns';
 // Types
 // =============================================================================
 
+interface RecentPhoto {
+  id: number;
+  type: string;
+  thumbnailUrl: string | null;
+  s3Url: string | null;
+  createdAt: string;
+  verificationStatus: string;
+}
+
 interface PhotoStats {
   progress: number;
   verification: {
@@ -43,12 +55,16 @@ interface PhotoStats {
     count: number;
   };
   medical: number;
-  recent: {
-    id: number;
-    type: string;
-    thumbnailUrl: string | null;
-    createdAt: string;
-  }[];
+  recent: RecentPhoto[];
+}
+
+const ID_VERIFICATION_TYPES = ['ID_FRONT', 'ID_BACK', 'SELFIE'];
+
+function isPhotoDeletable(photo: RecentPhoto): boolean {
+  if (ID_VERIFICATION_TYPES.includes(photo.type) && photo.verificationStatus === 'VERIFIED') {
+    return false;
+  }
+  return true;
 }
 
 // =============================================================================
@@ -62,6 +78,8 @@ export default function PhotosHubPage() {
   const [stats, setStats] = useState<PhotoStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<RecentPhoto | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Fetch photo stats
   const fetchStats = useCallback(async () => {
@@ -112,11 +130,13 @@ export default function PhotosHubPage() {
           count: verificationPhotos.length,
         },
         medical: medicalPhotos.length,
-        recent: photos.slice(0, 4).map((p: any) => ({
+        recent: photos.slice(0, 8).map((p: any) => ({
           id: p.id,
           type: p.type,
           thumbnailUrl: p.thumbnailUrl || p.s3Url,
+          s3Url: p.s3Url,
           createdAt: p.createdAt,
+          verificationStatus: p.verificationStatus || 'NOT_APPLICABLE',
         })),
       });
     } catch (err) {
@@ -137,6 +157,34 @@ export default function PhotosHubPage() {
   useEffect(() => {
     fetchStats();
   }, [fetchStats]);
+
+  const handleDeletePhoto = async (photo: RecentPhoto) => {
+    if (!isPhotoDeletable(photo)) return;
+    setIsDeleting(true);
+    try {
+      const response = await portalFetch(`/api/patient-portal/photos/${photo.id}`, {
+        method: 'DELETE',
+      });
+      if (response.ok) {
+        setStats((prev) =>
+          prev
+            ? { ...prev, recent: prev.recent.filter((p) => p.id !== photo.id) }
+            : prev,
+        );
+        fetchStats();
+      } else {
+        const data = await response.json().catch(() => ({}));
+        logger.error('Failed to delete photo', { photoId: photo.id, error: data.error });
+      }
+    } catch (err) {
+      logger.error('Failed to delete photo', {
+        error: err instanceof Error ? err.message : 'Unknown',
+      });
+    } finally {
+      setIsDeleting(false);
+      setDeleteConfirm(null);
+    }
+  };
 
   const sections = [
     {
@@ -311,21 +359,95 @@ export default function PhotosHubPage() {
         <div className="mb-6">
           <h3 className="mb-3 text-sm font-semibold text-gray-700">Recent Uploads</h3>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            {stats.recent.map((photo) => (
-              <div key={photo.id} className="aspect-square overflow-hidden rounded-xl bg-gray-100">
-                {photo.thumbnailUrl ? (
-                  <img
-                    src={photo.thumbnailUrl}
-                    alt="Recent photo"
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center">
-                    <ImageIcon className="h-6 w-6 text-gray-300" />
-                  </div>
-                )}
+            {stats.recent.map((photo) => {
+              const deletable = isPhotoDeletable(photo);
+              const isVerifiedId =
+                ID_VERIFICATION_TYPES.includes(photo.type) &&
+                photo.verificationStatus === 'VERIFIED';
+
+              return (
+                <div
+                  key={photo.id}
+                  className="group relative aspect-square overflow-hidden rounded-xl bg-gray-100"
+                >
+                  {photo.thumbnailUrl ? (
+                    <img
+                      src={photo.thumbnailUrl}
+                      alt="Recent photo"
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center">
+                      <ImageIcon className="h-6 w-6 text-gray-300" />
+                    </div>
+                  )}
+
+                  {/* Verified badge for protected photos */}
+                  {isVerifiedId && (
+                    <div className="absolute left-1.5 top-1.5 flex items-center gap-1 rounded-full bg-green-500/90 px-2 py-1">
+                      <ShieldCheck className="h-3 w-3 text-white" />
+                      <span className="text-[10px] font-medium text-white">Verified</span>
+                    </div>
+                  )}
+
+                  {/* Delete button — always visible on mobile, hover on desktop */}
+                  {deletable && (
+                    <button
+                      onClick={() => setDeleteConfirm(photo)}
+                      className="absolute right-1.5 top-1.5 flex h-8 w-8 items-center justify-center rounded-full bg-black/50 text-white transition-opacity sm:opacity-0 sm:group-hover:opacity-100"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Dialog */}
+      {deleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl">
+            <div className="mb-4 flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100">
+                <Trash2 className="h-5 w-5 text-red-600" />
               </div>
-            ))}
+              <div>
+                <h3 className="font-semibold text-gray-900">Delete Photo</h3>
+                <p className="text-sm text-gray-500">This action cannot be undone</p>
+              </div>
+            </div>
+            {deleteConfirm.thumbnailUrl && (
+              <div className="mb-4 overflow-hidden rounded-xl">
+                <img
+                  src={deleteConfirm.thumbnailUrl}
+                  alt="Photo to delete"
+                  className="h-40 w-full object-cover"
+                />
+              </div>
+            )}
+            <div className="flex gap-3">
+              <button
+                onClick={() => setDeleteConfirm(null)}
+                disabled={isDeleting}
+                className="flex-1 rounded-xl bg-gray-100 py-3 font-semibold text-gray-700 transition-colors hover:bg-gray-200"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleDeletePhoto(deleteConfirm)}
+                disabled={isDeleting}
+                className="flex-1 rounded-xl bg-red-600 py-3 font-semibold text-white transition-colors hover:bg-red-700"
+              >
+                {isDeleting ? (
+                  <Loader2 className="mx-auto h-5 w-5 animate-spin" />
+                ) : (
+                  'Delete'
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}

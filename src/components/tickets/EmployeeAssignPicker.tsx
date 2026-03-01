@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Search, ChevronDown, X, User as UserIcon, Loader2 } from 'lucide-react';
+import { Search, ChevronDown, X, Loader2, Headset } from 'lucide-react';
 import { apiFetch } from '@/lib/api/fetch';
 
 interface WorkloadUser {
@@ -24,7 +24,7 @@ const ROLE_LABELS: Record<string, string> = {
   STAFF: 'Staff',
   PROVIDER: 'Provider',
   SUPPORT: 'Support',
-  SUPER_ADMIN: 'Super Admin',
+  SUPER_ADMIN: 'EonPro',
 };
 
 const ROLE_COLORS: Record<string, string> = {
@@ -42,6 +42,46 @@ function getWorkloadColor(count: number): string {
   return 'bg-red-100 text-red-700';
 }
 
+function UserRow({
+  u,
+  isSelected,
+  onSelect,
+}: {
+  u: WorkloadUser;
+  isSelected: boolean;
+  onSelect: (userId: number) => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => onSelect(u.userId)}
+      className={`flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm hover:bg-gray-50 ${
+        isSelected ? 'bg-blue-50' : ''
+      }`}
+    >
+      <div className="flex items-center gap-2.5 overflow-hidden">
+        <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-gray-200 text-xs font-medium text-gray-600">
+          {u.firstName[0]}{u.lastName[0]}
+        </span>
+        <div className="min-w-0">
+          <div className="truncate font-medium text-gray-900">
+            {u.firstName} {u.lastName}
+          </div>
+          <span className={`inline-block rounded px-1.5 py-0.5 text-[10px] font-medium ${ROLE_COLORS[u.role] || 'bg-gray-100 text-gray-600'}`}>
+            {ROLE_LABELS[u.role] || u.role}
+          </span>
+        </div>
+      </div>
+      <span
+        className={`flex-shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${getWorkloadColor(u.openTicketCount)}`}
+        title={`${u.openTicketCount} open tickets`}
+      >
+        {u.openTicketCount}
+      </span>
+    </button>
+  );
+}
+
 export default function EmployeeAssignPicker({
   currentAssigneeId,
   currentAssigneeName,
@@ -51,8 +91,10 @@ export default function EmployeeAssignPicker({
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [users, setUsers] = useState<WorkloadUser[]>([]);
+  const [eonproTeam, setEonproTeam] = useState<WorkloadUser[]>([]);
   const [loading, setLoading] = useState(false);
   const [assigning, setAssigning] = useState(false);
+  const [fetched, setFetched] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -63,6 +105,8 @@ export default function EmployeeAssignPicker({
       if (response.ok) {
         const data = await response.json();
         setUsers(data.workload || []);
+        setEonproTeam(data.eonproTeam || []);
+        setFetched(true);
       }
     } catch {
       // Silently handle - users will see empty list
@@ -72,10 +116,10 @@ export default function EmployeeAssignPicker({
   }, []);
 
   useEffect(() => {
-    if (isOpen && users.length === 0) {
+    if (isOpen && !fetched) {
       fetchWorkload();
     }
-  }, [isOpen, users.length, fetchWorkload]);
+  }, [isOpen, fetched, fetchWorkload]);
 
   useEffect(() => {
     if (isOpen && inputRef.current) {
@@ -94,15 +138,21 @@ export default function EmployeeAssignPicker({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const filteredUsers = users.filter((u) => {
-    if (!search) return true;
+  const filterBySearch = (list: WorkloadUser[]) => {
+    if (!search) return list;
     const term = search.toLowerCase();
-    return (
-      u.firstName.toLowerCase().includes(term) ||
-      u.lastName.toLowerCase().includes(term) ||
-      (ROLE_LABELS[u.role] || u.role).toLowerCase().includes(term)
+    return list.filter(
+      (u) =>
+        u.firstName.toLowerCase().includes(term) ||
+        u.lastName.toLowerCase().includes(term) ||
+        (ROLE_LABELS[u.role] || u.role).toLowerCase().includes(term) ||
+        'eonpro'.includes(term)
     );
-  });
+  };
+
+  const filteredUsers = filterBySearch(users);
+  const filteredEonpro = filterBySearch(eonproTeam);
+  const hasResults = filteredUsers.length > 0 || filteredEonpro.length > 0;
 
   const handleSelect = async (userId: number | null) => {
     if (userId === currentAssigneeId) {
@@ -171,7 +221,7 @@ export default function EmployeeAssignPicker({
             </div>
           </div>
 
-          <div className="max-h-64 overflow-y-auto py-1">
+          <div className="max-h-72 overflow-y-auto py-1">
             {/* Unassign option */}
             {currentAssigneeId && (
               <button
@@ -188,41 +238,43 @@ export default function EmployeeAssignPicker({
               <div className="flex items-center justify-center py-4">
                 <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
               </div>
-            ) : filteredUsers.length === 0 ? (
+            ) : !hasResults ? (
               <div className="px-3 py-4 text-center text-sm text-gray-500">
                 {search ? 'No employees match your search' : 'No employees available'}
               </div>
             ) : (
-              filteredUsers.map((u) => (
-                <button
-                  key={u.userId}
-                  type="button"
-                  onClick={() => handleSelect(u.userId)}
-                  className={`flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm hover:bg-gray-50 ${
-                    u.userId === currentAssigneeId ? 'bg-blue-50' : ''
-                  }`}
-                >
-                  <div className="flex items-center gap-2.5 overflow-hidden">
-                    <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-gray-200 text-xs font-medium text-gray-600">
-                      {u.firstName[0]}{u.lastName[0]}
-                    </span>
-                    <div className="min-w-0">
-                      <div className="truncate font-medium text-gray-900">
-                        {u.firstName} {u.lastName}
-                      </div>
-                      <span className={`inline-block rounded px-1.5 py-0.5 text-[10px] font-medium ${ROLE_COLORS[u.role] || 'bg-gray-100 text-gray-600'}`}>
-                        {ROLE_LABELS[u.role] || u.role}
+              <>
+                {/* Clinic employees */}
+                {filteredUsers.map((u) => (
+                  <UserRow
+                    key={u.userId}
+                    u={u}
+                    isSelected={u.userId === currentAssigneeId}
+                    onSelect={(id) => handleSelect(id)}
+                  />
+                ))}
+
+                {/* EonPro Support divider + users */}
+                {filteredEonpro.length > 0 && (
+                  <>
+                    <div className="mx-3 my-1.5 flex items-center gap-2 border-t border-gray-200 pt-2">
+                      <Headset className="h-3.5 w-3.5 text-red-500" />
+                      <span className="text-[11px] font-semibold uppercase tracking-wide text-red-600">
+                        EonPro Support
                       </span>
+                      <span className="text-[10px] text-gray-400">Software Issues</span>
                     </div>
-                  </div>
-                  <span
-                    className={`flex-shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${getWorkloadColor(u.openTicketCount)}`}
-                    title={`${u.openTicketCount} open tickets`}
-                  >
-                    {u.openTicketCount}
-                  </span>
-                </button>
-              ))
+                    {filteredEonpro.map((u) => (
+                      <UserRow
+                        key={u.userId}
+                        u={u}
+                        isSelected={u.userId === currentAssigneeId}
+                        onSelect={(id) => handleSelect(id)}
+                      />
+                    ))}
+                  </>
+                )}
+              </>
             )}
           </div>
         </div>

@@ -267,6 +267,19 @@ async function handleDelete(
       return NextResponse.json({ error: 'Cannot delete this photo' }, { status: 403 });
     }
 
+    // Patients cannot delete clinic-verified ID photos
+    const ID_VERIFICATION_TYPES = ['ID_FRONT', 'ID_BACK', 'SELFIE'];
+    if (
+      user.role === 'patient' &&
+      ID_VERIFICATION_TYPES.includes(photo.type) &&
+      photo.verificationStatus === 'VERIFIED'
+    ) {
+      return NextResponse.json(
+        { error: 'Verified ID photos cannot be removed' },
+        { status: 403 },
+      );
+    }
+
     // Permanent deletion (only for super_admin or if already soft-deleted)
     if (permanent && (user.role === 'super_admin' || photo.isDeleted)) {
       // Delete from S3

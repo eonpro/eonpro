@@ -16,6 +16,8 @@ const WeightTracker = dynamic(() => import('@/components/WeightTracker'), {
   ssr: false,
 });
 
+import LogEntryHistory from '@/components/patient-portal/LogEntryHistory';
+import type { BaseLogEntry } from '@/components/patient-portal/LogEntryHistory';
 import {
   Scale,
   Droplets,
@@ -51,6 +53,9 @@ interface WeightLog {
   id: number;
   recordedAt: string;
   weight: number;
+  unit?: string;
+  notes?: string | null;
+  source?: string;
 }
 
 type TabType = 'weight' | 'water' | 'exercise' | 'sleep' | 'nutrition';
@@ -126,6 +131,7 @@ export default function ProgressPage() {
   // Water state
   const [waterAmount, setWaterAmount] = useState('');
   const [todayWater, setTodayWater] = useState(0);
+  const [waterLogs, setWaterLogs] = useState<BaseLogEntry[]>([]);
   const waterGoal = 64; // 64 oz default goal
 
   // Exercise state
@@ -133,18 +139,21 @@ export default function ProgressPage() {
   const [exerciseDuration, setExerciseDuration] = useState('');
   const [exerciseIntensity, setExerciseIntensity] = useState('moderate');
   const [weeklyMinutes, setWeeklyMinutes] = useState(0);
+  const [exerciseLogs, setExerciseLogs] = useState<BaseLogEntry[]>([]);
 
   // Sleep state
   const [sleepStart, setSleepStart] = useState('22:00');
   const [sleepEnd, setSleepEnd] = useState('06:00');
   const [sleepQuality, setSleepQuality] = useState(7);
   const [avgSleepHours, setAvgSleepHours] = useState(0);
+  const [sleepLogs, setSleepLogs] = useState<BaseLogEntry[]>([]);
 
   // Nutrition state
   const [mealType, setMealType] = useState('breakfast');
   const [mealDescription, setMealDescription] = useState('');
   const [mealCalories, setMealCalories] = useState('');
   const [todayCalories, setTodayCalories] = useState(0);
+  const [nutritionLogs, setNutritionLogs] = useState<BaseLogEntry[]>([]);
 
   // Enterprise: single resolution of patientId — never show progress content without it (or clear error)
   useEffect(() => {
@@ -233,8 +242,9 @@ export default function ProgressPage() {
           return;
         }
         if (response.ok) {
-          const result = await safeParseJson(response);
-          setTodayWater((result as { meta?: { todayTotal?: number } } | null)?.meta?.todayTotal || 0);
+          const result = await safeParseJson(response) as { data?: BaseLogEntry[]; meta?: { todayTotal?: number } } | null;
+          setTodayWater(result?.meta?.todayTotal || 0);
+          setWaterLogs(Array.isArray(result?.data) ? result.data : []);
         } else {
           logger.error('Failed to fetch water data', { status: response.status });
           setError('Could not load water data. Please try again.');
@@ -246,8 +256,9 @@ export default function ProgressPage() {
           return;
         }
         if (response.ok) {
-          const result = await safeParseJson(response);
-          setWeeklyMinutes((result as { meta?: { weeklyMinutes?: number } } | null)?.meta?.weeklyMinutes || 0);
+          const result = await safeParseJson(response) as { data?: BaseLogEntry[]; meta?: { weeklyMinutes?: number } } | null;
+          setWeeklyMinutes(result?.meta?.weeklyMinutes || 0);
+          setExerciseLogs(Array.isArray(result?.data) ? result.data : []);
         } else {
           logger.error('Failed to fetch exercise data', { status: response.status });
           setError('Could not load exercise data. Please try again.');
@@ -259,8 +270,9 @@ export default function ProgressPage() {
           return;
         }
         if (response.ok) {
-          const result = await safeParseJson(response);
-          setAvgSleepHours((result as { meta?: { avgSleepHours?: number } } | null)?.meta?.avgSleepHours || 0);
+          const result = await safeParseJson(response) as { data?: BaseLogEntry[]; meta?: { avgSleepHours?: number } } | null;
+          setAvgSleepHours(result?.meta?.avgSleepHours || 0);
+          setSleepLogs(Array.isArray(result?.data) ? result.data : []);
         } else {
           logger.error('Failed to fetch sleep data', { status: response.status });
           setError('Could not load sleep data. Please try again.');
@@ -272,8 +284,9 @@ export default function ProgressPage() {
           return;
         }
         if (response.ok) {
-          const result = await safeParseJson(response);
-          setTodayCalories((result as { meta?: { todayCalories?: number } } | null)?.meta?.todayCalories || 0);
+          const result = await safeParseJson(response) as { data?: BaseLogEntry[]; meta?: { todayCalories?: number } } | null;
+          setTodayCalories(result?.meta?.todayCalories || 0);
+          setNutritionLogs(Array.isArray(result?.data) ? result.data : []);
         } else {
           logger.error('Failed to fetch nutrition data', { status: response.status });
           setError('Could not load nutrition data. Please try again.');
@@ -499,6 +512,48 @@ export default function ProgressPage() {
     }
   };
 
+  const handleEditLog = async (type: TabType, id: number, data: Record<string, unknown>): Promise<boolean> => {
+    try {
+      const response = await portalFetch(`/api/patient-progress/${type}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, ...data }),
+      });
+      if (response.ok) {
+        toast.success('Entry updated');
+        fetchData();
+        return true;
+      }
+      const errBody = await safeParseJson(response);
+      const msg = (errBody && typeof errBody === 'object' && 'error' in errBody ? String((errBody as { error?: string }).error) : 'Failed to update entry');
+      toast.error(msg);
+      return false;
+    } catch {
+      toast.error('Failed to update entry');
+      return false;
+    }
+  };
+
+  const handleDeleteLog = async (type: TabType, id: number): Promise<boolean> => {
+    try {
+      const response = await portalFetch(`/api/patient-progress/${type}?id=${id}`, {
+        method: 'DELETE',
+      });
+      if (response.ok) {
+        toast.success('Entry deleted');
+        fetchData();
+        return true;
+      }
+      const errBody = await safeParseJson(response);
+      const msg = (errBody && typeof errBody === 'object' && 'error' in errBody ? String((errBody as { error?: string }).error) : 'Failed to delete entry');
+      toast.error(msg);
+      return false;
+    } catch {
+      toast.error('Failed to delete entry');
+      return false;
+    }
+  };
+
   // Calculate weight stats
   const sortedLogs = [...weightLogs].sort(
     (a, b) => new Date(a.recordedAt).getTime() - new Date(b.recordedAt).getTime()
@@ -666,6 +721,16 @@ export default function ProgressPage() {
               <Plus className="h-4 w-4 text-white sm:h-5 sm:w-5" />
             </div>
           </Link>
+
+          {/* Weight History - edit/delete */}
+          <LogEntryHistory
+            entries={weightLogs as unknown as BaseLogEntry[]}
+            type="weight"
+            primaryColor={primaryColor}
+            disabled={saving}
+            onEdit={(id, data) => handleEditLog('weight', id, data)}
+            onDelete={(id) => handleDeleteLog('weight', id)}
+          />
         </div>
       )}
 
@@ -750,6 +815,16 @@ export default function ProgressPage() {
               </button>
             </form>
           </div>
+
+          {/* Water History - edit/delete */}
+          <LogEntryHistory
+            entries={waterLogs}
+            type="water"
+            primaryColor={primaryColor}
+            disabled={saving}
+            onEdit={(id, data) => handleEditLog('water', id, data)}
+            onDelete={(id) => handleDeleteLog('water', id)}
+          />
         </div>
       )}
 
@@ -857,6 +932,16 @@ export default function ProgressPage() {
               {saving ? 'Saving...' : 'Log Exercise'}
             </button>
           </div>
+
+          {/* Exercise History - edit/delete */}
+          <LogEntryHistory
+            entries={exerciseLogs}
+            type="exercise"
+            primaryColor={primaryColor}
+            disabled={saving}
+            onEdit={(id, data) => handleEditLog('exercise', id, data)}
+            onDelete={(id) => handleDeleteLog('exercise', id)}
+          />
         </div>
       )}
 
@@ -936,6 +1021,16 @@ export default function ProgressPage() {
               {saving ? 'Saving...' : 'Log Sleep'}
             </button>
           </div>
+
+          {/* Sleep History - edit/delete */}
+          <LogEntryHistory
+            entries={sleepLogs}
+            type="sleep"
+            primaryColor={primaryColor}
+            disabled={saving}
+            onEdit={(id, data) => handleEditLog('sleep', id, data)}
+            onDelete={(id) => handleDeleteLog('sleep', id)}
+          />
         </div>
       )}
 
@@ -1028,6 +1123,16 @@ export default function ProgressPage() {
               {saving ? 'Saving...' : 'Log Meal'}
             </button>
           </div>
+
+          {/* Nutrition History - edit/delete */}
+          <LogEntryHistory
+            entries={nutritionLogs}
+            type="nutrition"
+            primaryColor={primaryColor}
+            disabled={saving}
+            onEdit={(id, data) => handleEditLog('nutrition', id, data)}
+            onDelete={(id) => handleDeleteLog('nutrition', id)}
+          />
         </div>
       )}
 

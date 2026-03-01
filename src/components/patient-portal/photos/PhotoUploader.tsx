@@ -12,6 +12,7 @@
  */
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Camera,
   Upload,
@@ -231,12 +232,13 @@ export function PhotoUploader({
 
   const maxSizeBytes = maxSizeMB * 1024 * 1024;
 
-  // Cleanup camera stream on unmount
+  // Cleanup camera stream and fullscreen class on unmount
   useEffect(() => {
     return () => {
       if (cameraStream) {
         cameraStream.getTracks().forEach((track) => track.stop());
       }
+      document.documentElement.classList.remove('camera-fullscreen');
     };
   }, [cameraStream]);
 
@@ -442,6 +444,7 @@ export function PhotoUploader({
       });
       setCameraStream(stream);
       setIsCameraOpen(true);
+      document.documentElement.classList.add('camera-fullscreen');
     } catch (error) {
       onUploadError?.('Unable to access camera. Please check permissions.');
     }
@@ -453,6 +456,7 @@ export function PhotoUploader({
     }
     setCameraStream(null);
     setIsCameraOpen(false);
+    document.documentElement.classList.remove('camera-fullscreen');
   };
 
   const switchCamera = async () => {
@@ -633,9 +637,9 @@ export function PhotoUploader({
         </div>
       )}
 
-      {/* Camera Modal — z-[100] to cover ALL layout elements (header z-50, nav z-40) */}
-      {isCameraOpen && (
-        <div className="fixed inset-0 z-[100] flex flex-col bg-black">
+      {/* Camera Modal — portal to document.body to escape layout stacking context */}
+      {isCameraOpen && createPortal(
+        <div className="fixed inset-0 z-[9999] flex flex-col bg-black" style={{ touchAction: 'none' }}>
           {/* Camera Header */}
           <div
             className="flex shrink-0 items-center justify-between bg-black px-4 py-3"
@@ -683,7 +687,8 @@ export function PhotoUploader({
 
           {/* Hidden canvas for capture */}
           <canvas ref={canvasRef} className="hidden" />
-        </div>
+        </div>,
+        document.body,
       )}
 
       {/* Upload Limit Reached */}

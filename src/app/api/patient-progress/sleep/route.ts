@@ -4,7 +4,7 @@ import { logger } from '@/lib/logger';
 import { withAuth } from '@/lib/auth/middleware';
 import { standardRateLimit } from '@/lib/rateLimit';
 import { z } from 'zod';
-import { logPHIAccess, logPHICreate } from '@/lib/audit/hipaa-audit';
+import { logPHIAccess, logPHICreate, logPHIUpdate, logPHIDelete } from '@/lib/audit/hipaa-audit';
 import { handleApiError } from '@/domains/shared/errors';
 import { canAccessPatientWithClinic } from '@/lib/auth/patient-access';
 
@@ -32,6 +32,33 @@ const getSleepLogsSchema = z.object({
     .string()
     .transform((val) => parseInt(val, 10))
     .refine((n) => !isNaN(n) && n > 0, { message: 'patientId must be a positive integer' }),
+});
+
+const updateSleepLogSchema = z.object({
+  id: z
+    .union([z.string(), z.number()])
+    .transform((val) => (typeof val === 'string' ? parseInt(val, 10) : val))
+    .refine((n) => !isNaN(n) && n > 0, { message: 'id must be a positive integer' }),
+  sleepStart: z.string().datetime().optional(),
+  sleepEnd: z.string().datetime().optional(),
+  quality: z
+    .union([z.string(), z.number()])
+    .optional()
+    .nullable()
+    .transform((val) => {
+      if (val == null) return undefined;
+      const num = typeof val === 'string' ? parseInt(val, 10) : val;
+      if (isNaN(num) || num < 1 || num > 10) return undefined;
+      return num;
+    }),
+  notes: z.string().max(500).optional().nullable(),
+});
+
+const deleteSleepLogSchema = z.object({
+  id: z
+    .string()
+    .transform((val) => parseInt(val, 10))
+    .refine((n) => !isNaN(n) && n > 0, { message: 'id must be a positive integer' }),
 });
 
 const postHandler = withAuth(async (request: NextRequest, user) => {
@@ -152,3 +179,134 @@ const getHandler = withAuth(async (request: NextRequest, user) => {
 });
 
 export const GET = standardRateLimit(getHandler);
+
+const patchHandler = withAuth(async (request: NextRequest, user) => {
+  try {
+    const rawData = await request.json();
+    const parseResult = updateSleepLogSchema.safeParse(rawData);
+
+    if (!parseResult.success) {
+      return NextResponse.json(
+        { error: 'Invalid input', details: parseResult.error.issues.map((i) => i.message) },
+        { status: 400 }
+      );
+    }
+
+    const { id, sleepStart, sleepEnd, quality, notes } = parseResult.data;
+
+    const hasUpdate =
+      sleepStart !== undefined ||
+      sleepEnd !== undefined ||
+      quality !== undefined ||
+      notes !== undefined;
+    if (!hasUpdate) {
+      return NextResponse.json(
+        { error: 'At least one of sleepStart, sleepEnd, quality, or notes must be provided' },
+        { status: 400 }
+      );
+    }
+
+    const log = await prisma.patientSleepLog.findUnique({
+      where: { id },
+      select: { id: true, patientId: true, source: true, sleepStart: true, sleepEnd: true },
+    });
+
+    if (!log) {
+      return NextResponse.json({ error: 'Sleep log not found' }, { status: 404 });
+    }
+
+    if (!(await canAccessPatientWithClinic(user, log.patientId))) {
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+    }
+
+    if (user.role === 'patient' && log.source !== 'patient') {
+      return NextResponse.json(
+        { error: 'Patients can only edit entries they created' },
+        { status: 403 }
+      );
+    }
+
+    const updateData: {
+      sleepStart?: Date;
+      sleepEnd?: Date;
+      duration?: number;
+      quality?: number | null;
+      notes?: string | null;
+    } = {};
+
+    const start = sleepStart !== undefined ? new Date(sleepStart) : new Date(log.sleepStart);
+    const end = sleepEnd !== undefined ? new Date(sleepEnd) : new Date(log.sleepEnd);
+
+    if (sleepStart !== undefined) updateData.sleepStart = start;
+    if (sleepEnd !== undefined) updateData.sleepEnd = end;
+    if (sleepStart !== undefined || sleepEnd !== undefined) {
+      updateData.duration = Math.round((end.getTime() - start.getTime()) / (1000 * 60));
+    }
+    if (quality !== undefined) updateData.quality = quality;
+    if (notes !== undefined) updateData.notes = notes;
+
+    const updated = await prisma.patientSleepLog.update({
+      where: { id },
+      data: updateData,
+    });
+
+    logPHIUpdate(request, user, 'PatientSleepLog', id, log.patientId, Object.keys(updateData)).catch(
+      () => {}
+    );
+
+    return NextResponse.json(updated);
+  } catch (error) {
+    return handleApiError(error, {
+      route: 'PATCH /api/patient-progress/sleep',
+      context: { userId: user.id },
+    });
+  }
+});
+
+export const PATCH = standardRateLimit(patchHandler);
+
+const deleteHandler = withAuth(async (request: NextRequest, user) => {
+  try {
+    const urlParams = new URL(request.url).searchParams;
+    const nextParams = request.nextUrl.searchParams;
+    const idParam = nextParams.get('id') ?? urlParams.get('id');
+
+    const parseResult = deleteSleepLogSchema.safeParse({ id: idParam });
+
+    if (!parseResult.success) {
+      return NextResponse.json({ error: 'Invalid parameters' }, { status: 400 });
+    }
+
+    const { id } = parseResult.data;
+
+    const log = await prisma.patientSleepLog.findUnique({
+      where: { id },
+      select: { id: true, patientId: true },
+    });
+
+    if (!log) {
+      return NextResponse.json({ error: 'Sleep log not found' }, { status: 404 });
+    }
+
+    if (!(await canAccessPatientWithClinic(user, log.patientId))) {
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+    }
+
+    await prisma.patientSleepLog.delete({
+      where: { id },
+    });
+
+    logPHIDelete(request, user, 'PatientSleepLog', id, log.patientId, 'user_request').catch(
+      () => {}
+    );
+
+    return NextResponse.json({ success: true, deletedId: id });
+  } catch (error) {
+    return handleApiError(error, {
+      route: 'DELETE /api/patient-progress/sleep',
+      context: { userId: user.id },
+    });
+  }
+});
+
+export const DELETE = standardRateLimit(deleteHandler);

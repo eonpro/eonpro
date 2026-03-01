@@ -20,38 +20,63 @@ export const GET = withAuth(async (request, user) => {
       return NextResponse.json({ error: 'Clinic context required' }, { status: 400 });
     }
 
-    const staffUsers = await prisma.user.findMany({
-      where: {
-        status: 'ACTIVE',
-        role: { in: ['ADMIN', 'STAFF', 'PROVIDER', 'SUPPORT'] },
-        ...(clinicId
-          ? {
-              OR: [
-                { clinicId },
-                { userClinics: { some: { clinicId, isActive: true } } },
-              ],
-            }
-          : {}),
-      },
-      select: {
-        id: true,
-        firstName: true,
-        lastName: true,
-        role: true,
-        _count: {
-          select: {
-            ticketsAssigned: {
-              where: {
-                status: { notIn: ['CLOSED', 'CANCELLED', 'RESOLVED'] },
-                ...(clinicId ? { clinicId } : {}),
+    const [staffUsers, eonproUsers] = await Promise.all([
+      prisma.user.findMany({
+        where: {
+          status: 'ACTIVE',
+          role: { in: ['ADMIN', 'STAFF', 'PROVIDER', 'SUPPORT'] },
+          ...(clinicId
+            ? {
+                OR: [
+                  { clinicId },
+                  { userClinics: { some: { clinicId, isActive: true } } },
+                ],
+              }
+            : {}),
+        },
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          role: true,
+          _count: {
+            select: {
+              ticketsAssigned: {
+                where: {
+                  status: { notIn: ['CLOSED', 'CANCELLED', 'RESOLVED'] },
+                  ...(clinicId ? { clinicId } : {}),
+                },
               },
             },
           },
         },
-      },
-      orderBy: [{ firstName: 'asc' }, { lastName: 'asc' }],
-      take: 100,
-    });
+        orderBy: [{ firstName: 'asc' }, { lastName: 'asc' }],
+        take: 100,
+      }),
+      prisma.user.findMany({
+        where: {
+          status: 'ACTIVE',
+          role: 'SUPER_ADMIN',
+        },
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          role: true,
+          _count: {
+            select: {
+              ticketsAssigned: {
+                where: {
+                  status: { notIn: ['CLOSED', 'CANCELLED', 'RESOLVED'] },
+                },
+              },
+            },
+          },
+        },
+        orderBy: [{ firstName: 'asc' }, { lastName: 'asc' }],
+        take: 20,
+      }),
+    ]);
 
     const workload = staffUsers.map((u) => ({
       userId: u.id,
@@ -61,7 +86,15 @@ export const GET = withAuth(async (request, user) => {
       openTicketCount: u._count.ticketsAssigned,
     }));
 
-    return NextResponse.json({ workload });
+    const eonproTeam = eonproUsers.map((u) => ({
+      userId: u.id,
+      firstName: u.firstName,
+      lastName: u.lastName,
+      role: u.role,
+      openTicketCount: u._count.ticketsAssigned,
+    }));
+
+    return NextResponse.json({ workload, eonproTeam });
   } catch (error) {
     logger.error('[API] Users workload GET - error', {
       error: error instanceof Error ? error.message : String(error),
