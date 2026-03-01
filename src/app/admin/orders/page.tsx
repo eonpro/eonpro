@@ -643,12 +643,52 @@ function DispositionModal({
 }) {
   const [password, setPassword] = useState('');
   const [trackingNumber, setTrackingNumber] = useState('');
-  const [carrier, setCarrier] = useState('UPS');
+  const [carrier, setCarrier] = useState('');
+  const [carrierAutoDetected, setCarrierAutoDetected] = useState(false);
   const [trackingUrl, setTrackingUrl] = useState('');
   const [reason, setReason] = useState('');
   const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const detectCarrier = useCallback((num: string) => {
+    const t = num.trim().replace(/\s/g, '');
+    if (!t) return;
+    // UPS: starts with 1Z, 18-25 alphanumeric
+    if (/^1Z[A-Z0-9]{16,22}$/i.test(t)) {
+      setCarrier('UPS');
+      setCarrierAutoDetected(true);
+      setTrackingUrl(`https://www.ups.com/track?tracknum=${t}`);
+      return;
+    }
+    // FedEx: 12, 15, 20, or 22 digits
+    if (/^\d{12}$|^\d{15}$|^\d{20}$|^\d{22}$/.test(t)) {
+      setCarrier('FedEx');
+      setCarrierAutoDetected(true);
+      setTrackingUrl(`https://www.fedex.com/fedextrack/?trknbr=${t}`);
+      return;
+    }
+    // USPS: 20-22 digits, or starts with 94/93/92 + 20-22 digits
+    if (/^(94|93|92|42)\d{18,28}$/.test(t) || /^\d{20,22}$/.test(t)) {
+      setCarrier('USPS');
+      setCarrierAutoDetected(true);
+      setTrackingUrl(`https://tools.usps.com/go/TrackConfirmAction?tLabels=${t}`);
+      return;
+    }
+    // DHL: 10 digits or starts with JD/JJD + 18 digits
+    if (/^\d{10}$/.test(t) || /^(JD|JJD)\d{18,}$/i.test(t)) {
+      setCarrier('DHL');
+      setCarrierAutoDetected(true);
+      setTrackingUrl(`https://www.dhl.com/us-en/home/tracking.html?tracking-id=${t}`);
+      return;
+    }
+    setCarrierAutoDetected(false);
+  }, []);
+
+  const handleTrackingNumberChange = useCallback((value: string) => {
+    setTrackingNumber(value);
+    detectCarrier(value);
+  }, [detectCarrier]);
 
   const titles: Record<DispositionAction, string> = {
     add_tracking: 'Add Tracking Number',
@@ -754,7 +794,7 @@ function DispositionModal({
                 <input
                   type="text"
                   value={trackingNumber}
-                  onChange={(e) => setTrackingNumber(e.target.value)}
+                  onChange={(e) => handleTrackingNumberChange(e.target.value)}
                   placeholder="e.g., 1ZV948J10332806643"
                   className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   autoFocus
@@ -763,29 +803,30 @@ function DispositionModal({
               <div>
                 <label className="mb-1 block text-sm font-medium text-gray-700">
                   Carrier <span className="text-red-500">*</span>
+                  {carrierAutoDetected && carrier && (
+                    <span className="ml-2 text-xs font-normal text-emerald-600">Auto-detected</span>
+                  )}
                 </label>
                 <select
                   value={carrier}
-                  onChange={(e) => setCarrier(e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  onChange={(e) => { setCarrier(e.target.value); setCarrierAutoDetected(false); }}
+                  className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 ${
+                    carrierAutoDetected ? 'border-emerald-300 bg-emerald-50' : 'border-gray-300'
+                  }`}
                 >
+                  <option value="">Select carrier...</option>
                   <option value="UPS">UPS</option>
-                  <option value="USPS">USPS</option>
                   <option value="FedEx">FedEx</option>
+                  <option value="USPS">USPS</option>
                   <option value="DHL">DHL</option>
                   <option value="Other">Other</option>
                 </select>
               </div>
-              <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">Tracking URL</label>
-                <input
-                  type="text"
-                  value={trackingUrl}
-                  onChange={(e) => setTrackingUrl(e.target.value)}
-                  placeholder="https://..."
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                />
-              </div>
+              {trackingUrl && (
+                <div className="rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-500">
+                  Tracking URL auto-generated: <span className="font-mono text-gray-700">{trackingUrl.length > 50 ? trackingUrl.slice(0, 50) + '...' : trackingUrl}</span>
+                </div>
+              )}
             </div>
           )}
 
