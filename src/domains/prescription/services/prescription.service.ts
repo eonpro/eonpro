@@ -163,9 +163,11 @@ export function createPrescriptionService(): PrescriptionService {
         const maxDaysSupply = Math.max(
           ...input.rxs.map((rx: any) => Number(rx.daysSupply) || 30)
         );
+        // When planMonths isn't explicitly provided, also check total vial count:
+        // multiple GLP-1 vials means multi-month plan (each vial ≈ 1 month)
         const is1Month = explicitPlanMonths != null
           ? Number(explicitPlanMonths) <= 1
-          : maxDaysSupply <= 30;
+          : totalGlp1Vials <= 1 && maxDaysSupply <= 30;
         const isMultiMonth = explicitPlanMonths != null && Number(explicitPlanMonths) > 1;
 
         // 1-month: block >1 vial
