@@ -22,6 +22,12 @@ import {
   AlertTriangle,
   BarChart3,
   Timer,
+  MoreVertical,
+  PackagePlus,
+  Ban,
+  PackageCheck,
+  Lock,
+  X,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api/fetch';
 
@@ -53,6 +59,15 @@ interface AwaitingStats {
   totalAwaiting: number;
   avgWaitDays: number;
   maxWaitDays: number;
+}
+
+type DispositionAction = 'add_tracking' | 'cancel' | 'completed';
+
+interface DispositionTarget {
+  orderId: number;
+  action: DispositionAction;
+  patientName: string;
+  medName: string | null;
 }
 
 function getAgingDays(createdAt: string): number {
@@ -249,9 +264,25 @@ export default function AdminOrdersPage() {
   const setPage = activeTab === 'tracked' ? setTrackedPage : setAwaitingPage;
   const refetch = activeTab === 'tracked' ? fetchTrackedOrders : fetchAwaitingOrders;
 
+  // Disposition modal state
+  const [dispositionTarget, setDispositionTarget] = useState<DispositionTarget | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
   const handleTabChange = (tab: ActiveTab) => {
     setActiveTab(tab);
     setStatusFilter('all');
+  };
+
+  const handleDispositionRequest = (target: DispositionTarget) => {
+    setDispositionTarget(target);
+  };
+
+  const handleDispositionSuccess = (message: string) => {
+    setDispositionTarget(null);
+    setSuccessMessage(message);
+    setTimeout(() => setSuccessMessage(null), 4000);
+    fetchAwaitingOrders();
+    fetchTrackedOrders();
   };
 
   return (
@@ -521,7 +552,7 @@ export default function AdminOrdersPage() {
                 ))
               ) : (
                 awaitingOrders.map((order) => (
-                  <AwaitingOrderRow key={order.id} order={order} />
+                  <AwaitingOrderRow key={order.id} order={order} onDisposition={handleDispositionRequest} />
                 ))
               )}
             </tbody>
@@ -576,9 +607,302 @@ export default function AdminOrdersPage() {
           )}
         </div>
       )}
+
+      {/* Success Toast */}
+      {successMessage && (
+        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-4 py-3 shadow-lg">
+          <CheckCircle className="h-5 w-5 text-green-600" />
+          <span className="text-sm font-medium text-green-800">{successMessage}</span>
+        </div>
+      )}
+
+      {/* Disposition Modal */}
+      {dispositionTarget && (
+        <DispositionModal
+          target={dispositionTarget}
+          onClose={() => setDispositionTarget(null)}
+          onSuccess={handleDispositionSuccess}
+        />
+      )}
     </div>
   );
 }
+
+// =============================================================================
+// Disposition Modal
+// =============================================================================
+
+function DispositionModal({
+  target,
+  onClose,
+  onSuccess,
+}: {
+  target: DispositionTarget;
+  onClose: () => void;
+  onSuccess: (message: string) => void;
+}) {
+  const [password, setPassword] = useState('');
+  const [trackingNumber, setTrackingNumber] = useState('');
+  const [carrier, setCarrier] = useState('UPS');
+  const [trackingUrl, setTrackingUrl] = useState('');
+  const [reason, setReason] = useState('');
+  const [notes, setNotes] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const titles: Record<DispositionAction, string> = {
+    add_tracking: 'Add Tracking Number',
+    cancel: 'Cancel Order',
+    completed: 'Mark as Completed',
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+
+    if (!password.trim()) {
+      setError('Admin password is required');
+      return;
+    }
+
+    if (target.action === 'add_tracking' && (!trackingNumber.trim() || !carrier.trim())) {
+      setError('Tracking number and carrier are required');
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const body: Record<string, string> = {
+        action: target.action,
+        password,
+      };
+
+      if (target.action === 'add_tracking') {
+        body.trackingNumber = trackingNumber.trim();
+        body.carrier = carrier.trim();
+        if (trackingUrl.trim()) body.trackingUrl = trackingUrl.trim();
+      }
+
+      if (reason.trim()) body.reason = reason.trim();
+      if (notes.trim()) body.notes = notes.trim();
+
+      const response = await apiFetch(`/api/orders/${target.orderId}/disposition`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setError(data.error || 'Failed to process action');
+        return;
+      }
+
+      const messages: Record<DispositionAction, string> = {
+        add_tracking: `Tracking added for order #${target.orderId}`,
+        cancel: `Order #${target.orderId} cancelled`,
+        completed: `Order #${target.orderId} marked completed`,
+      };
+
+      onSuccess(data.warning ? `${messages[target.action]} — ${data.warning}` : messages[target.action]);
+    } catch {
+      setError('Network error. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
+      <div
+        className="w-full max-w-md rounded-xl bg-white shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900">{titles[target.action]}</h3>
+            <p className="mt-0.5 text-sm text-gray-500">
+              Order #{target.orderId} &middot; {target.patientName}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        {/* Body */}
+        <form onSubmit={handleSubmit} className="px-6 py-4">
+          {target.medName && (
+            <div className="mb-4 rounded-lg bg-gray-50 px-3 py-2 text-sm text-gray-600">
+              {target.medName}
+            </div>
+          )}
+
+          {/* Action-specific fields */}
+          {target.action === 'add_tracking' && (
+            <div className="mb-4 space-y-3">
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  Tracking Number <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={trackingNumber}
+                  onChange={(e) => setTrackingNumber(e.target.value)}
+                  placeholder="e.g., 1ZV948J10332806643"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  autoFocus
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  Carrier <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={carrier}
+                  onChange={(e) => setCarrier(e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                >
+                  <option value="UPS">UPS</option>
+                  <option value="USPS">USPS</option>
+                  <option value="FedEx">FedEx</option>
+                  <option value="DHL">DHL</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Tracking URL</label>
+                <input
+                  type="text"
+                  value={trackingUrl}
+                  onChange={(e) => setTrackingUrl(e.target.value)}
+                  placeholder="https://..."
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+              </div>
+            </div>
+          )}
+
+          {(target.action === 'cancel' || target.action === 'completed') && (
+            <div className="mb-4 space-y-3">
+              {target.action === 'cancel' && (
+                <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3">
+                  <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0 text-red-500" />
+                  <p className="text-sm text-red-700">
+                    This will cancel the order in LifeFile and void any associated compensation and fees.
+                  </p>
+                </div>
+              )}
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Reason</label>
+                <select
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                >
+                  <option value="">Select a reason...</option>
+                  {target.action === 'cancel' ? (
+                    <>
+                      <option value="patient_request">Patient request</option>
+                      <option value="provider_request">Provider request</option>
+                      <option value="duplicate_order">Duplicate order</option>
+                      <option value="pharmacy_issue">Pharmacy issue</option>
+                      <option value="other">Other</option>
+                    </>
+                  ) : (
+                    <>
+                      <option value="picked_up">Picked up in person</option>
+                      <option value="fulfilled_externally">Fulfilled externally</option>
+                      <option value="tracking_not_needed">Tracking not needed</option>
+                      <option value="other">Other</option>
+                    </>
+                  )}
+                </select>
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Notes</label>
+                <textarea
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="Optional notes..."
+                  rows={2}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Password confirmation */}
+          <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3">
+            <div className="mb-2 flex items-center gap-2">
+              <Lock className="h-4 w-4 text-amber-600" />
+              <span className="text-sm font-medium text-amber-800">Admin Verification Required</span>
+            </div>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Enter your password to confirm"
+              className="w-full rounded-lg border border-amber-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+              autoFocus={target.action !== 'add_tracking'}
+            />
+          </div>
+
+          {/* Error */}
+          {error && (
+            <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              {error}
+            </div>
+          )}
+
+          {/* Actions */}
+          <div className="flex items-center justify-end gap-3">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={submitting}
+              className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={submitting}
+              className={`inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white shadow-sm disabled:opacity-50 ${
+                target.action === 'cancel'
+                  ? 'bg-red-600 hover:bg-red-700'
+                  : 'bg-emerald-600 hover:bg-emerald-700'
+              }`}
+            >
+              {submitting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Lock className="h-4 w-4" />
+              )}
+              {submitting
+                ? 'Processing...'
+                : target.action === 'add_tracking'
+                  ? 'Add Tracking'
+                  : target.action === 'cancel'
+                    ? 'Cancel Order'
+                    : 'Mark Completed'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// =============================================================================
+// Table Row Components
+// =============================================================================
 
 function TrackedOrderRow({ order }: { order: OrderWithTracking }) {
   return (
@@ -721,19 +1045,40 @@ function TrackedOrderRow({ order }: { order: OrderWithTracking }) {
   );
 }
 
-function AwaitingOrderRow({ order }: { order: OrderWithTracking }) {
+function AwaitingOrderRow({
+  order,
+  onDisposition,
+}: {
+  order: OrderWithTracking;
+  onDisposition: (target: DispositionTarget) => void;
+}) {
   const days = getAgingDays(order.createdAt);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [menuOpen]);
+
+  const patientName = `${order.patient.firstName} ${order.patient.lastName}`;
+  const medName = order.primaryMedName
+    ? `${order.primaryMedName}${order.primaryMedStrength ? ` ${order.primaryMedStrength}` : ''}`
+    : null;
+
+  const openDisposition = (action: DispositionAction) => {
+    setMenuOpen(false);
+    onDisposition({ orderId: order.id, action, patientName, medName });
+  };
 
   return (
-    <tr
-      className="cursor-pointer transition-colors hover:bg-gray-50 focus:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-emerald-500"
-      tabIndex={0}
-      role="link"
-      onClick={() => (window.location.href = `/patients/${order.patient.id}`)}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter') window.location.href = `/patients/${order.patient.id}`;
-      }}
-    >
+    <tr className="transition-colors hover:bg-gray-50">
       <td className="whitespace-nowrap px-6 py-4 text-sm font-medium text-emerald-600">
         #{order.id}
       </td>
@@ -741,7 +1086,6 @@ function AwaitingOrderRow({ order }: { order: OrderWithTracking }) {
         <Link
           href={`/patients/${order.patient.id}`}
           className="text-sm font-medium text-gray-900 hover:text-emerald-600 hover:underline"
-          onClick={(e) => e.stopPropagation()}
         >
           {order.patient.firstName} {order.patient.lastName}
         </Link>
@@ -786,14 +1130,54 @@ function AwaitingOrderRow({ order }: { order: OrderWithTracking }) {
         </div>
       </td>
       <td className="whitespace-nowrap px-6 py-4">
-        <Link
-          href={`/patients/${order.patient.id}`}
-          className="text-emerald-600 hover:text-emerald-700"
-          title="View patient"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <Eye className="h-5 w-5" />
-        </Link>
+        <div className="relative" ref={menuRef}>
+          <button
+            type="button"
+            onClick={() => setMenuOpen(!menuOpen)}
+            className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+            title="Actions"
+          >
+            <MoreVertical className="h-5 w-5" />
+          </button>
+          {menuOpen && (
+            <div className="absolute right-0 z-20 mt-1 w-48 rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
+              <button
+                type="button"
+                onClick={() => openDisposition('add_tracking')}
+                className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+              >
+                <PackagePlus className="h-4 w-4 text-emerald-500" />
+                Add Tracking
+              </button>
+              <button
+                type="button"
+                onClick={() => openDisposition('completed')}
+                className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+              >
+                <PackageCheck className="h-4 w-4 text-blue-500" />
+                Mark Completed
+              </button>
+              <div className="my-1 border-t border-gray-100" />
+              <button
+                type="button"
+                onClick={() => openDisposition('cancel')}
+                className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50"
+              >
+                <Ban className="h-4 w-4" />
+                Cancel Order
+              </button>
+              <div className="my-1 border-t border-gray-100" />
+              <Link
+                href={`/patients/${order.patient.id}`}
+                className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+                onClick={() => setMenuOpen(false)}
+              >
+                <Eye className="h-4 w-4 text-gray-400" />
+                View Patient
+              </Link>
+            </div>
+          )}
+        </div>
       </td>
     </tr>
   );
