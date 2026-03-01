@@ -59,6 +59,24 @@ const resendSchema = z.object({
   action: z.literal('resend'),
 });
 
+function formatZodErrors(issues: z.ZodIssue[]): string {
+  const messages = issues.map((issue) => {
+    if (issue.path.length > 0) {
+      const field = issue.path[issue.path.length - 1];
+      const fieldLabel =
+        typeof field === 'string'
+          ? field
+              .replace(/([A-Z])/g, ' $1')
+              .replace(/^./, (s) => s.toUpperCase())
+              .trim()
+          : String(field);
+      return `${fieldLabel}: ${issue.message}`;
+    }
+    return issue.message;
+  });
+  return messages.join('. ');
+}
+
 async function handler(req: NextRequest): Promise<Response> {
   try {
     const body = await req.json();
@@ -68,7 +86,7 @@ async function handler(req: NextRequest): Promise<Response> {
       const validated = resendSchema.safeParse(body);
       if (!validated.success) {
         return NextResponse.json(
-          { error: 'Invalid input', details: validated.error.issues },
+          { error: formatZodErrors(validated.error.issues), details: validated.error.issues },
           { status: 400 }
         );
       }
@@ -90,7 +108,7 @@ async function handler(req: NextRequest): Promise<Response> {
       const validated = registerWithInviteSchema.safeParse(body);
       if (!validated.success) {
         return NextResponse.json(
-          { error: 'Invalid input', details: validated.error.issues },
+          { error: formatZodErrors(validated.error.issues), details: validated.error.issues },
           { status: 400 }
         );
       }
@@ -112,7 +130,7 @@ async function handler(req: NextRequest): Promise<Response> {
 
     if (!validated.success) {
       return NextResponse.json(
-        { error: 'Invalid input', details: validated.error.issues },
+        { error: formatZodErrors(validated.error.issues), details: validated.error.issues },
         { status: 400 }
       );
     }

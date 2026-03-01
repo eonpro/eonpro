@@ -111,7 +111,7 @@ export default function RegisterPage() {
 
   // Password validation
   const passwordRequirements = [
-    { label: 'At least 8 characters', met: password.length >= 8 },
+    { label: 'At least 12 characters', met: password.length >= 12 },
     { label: 'One uppercase letter', met: /[A-Z]/.test(password) },
     { label: 'One lowercase letter', met: /[a-z]/.test(password) },
     { label: 'One number', met: /\d/.test(password) },
@@ -208,7 +208,17 @@ export default function RegisterPage() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || 'Registration failed');
+        let errorMessage = data.error || 'Registration failed';
+        if (
+          errorMessage === 'Invalid input' &&
+          Array.isArray(data.details) &&
+          data.details.length > 0
+        ) {
+          errorMessage = data.details
+            .map((d: { path?: string[]; message?: string }) => d.message || 'Unknown error')
+            .join('. ');
+        }
+        throw new Error(errorMessage);
       }
 
       // Invite-based signups are auto-verified, redirect to login immediately
