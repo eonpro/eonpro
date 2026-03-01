@@ -77,6 +77,31 @@ async function findPatientByStripeCustomerId(
  * When product is expanded (data.items.data.price.product), planName comes from Stripe Product name
  * (e.g. "Tirzepatide Injection - 3 Month Supply"). vialCount/refillIntervalDays are derived for refill queue.
  */
+/**
+ * Normalize Stripe's raw interval/intervalCount to month-based equivalents.
+ * Stripe allows day/week/month/year intervals. We normalize to month so that
+ * downstream classification (monthly/quarterly/semiannual/annual) works correctly.
+ * E.g. "every 84 days" → month/3, "every 12 weeks" → month/3, "every 1 year" → month/12.
+ */
+function normalizeInterval(rawInterval: string, rawCount: number): { interval: string; intervalCount: number } {
+  switch (rawInterval) {
+    case 'day': {
+      const months = Math.round(rawCount / 30);
+      if (months >= 1) return { interval: 'month', intervalCount: months };
+      return { interval: 'month', intervalCount: 1 };
+    }
+    case 'week': {
+      const months = Math.round(rawCount / 4.33);
+      if (months >= 1) return { interval: 'month', intervalCount: months };
+      return { interval: 'month', intervalCount: 1 };
+    }
+    case 'year':
+      return { interval: 'month', intervalCount: 12 * rawCount };
+    default:
+      return { interval: rawInterval, intervalCount: rawCount };
+  }
+}
+
 function extractSubscriptionDetails(sub: Stripe.Subscription): {
   amount: number;
   currency: string;
@@ -93,8 +118,9 @@ function extractSubscriptionDetails(sub: Stripe.Subscription): {
   const amount = price?.unit_amount ?? 0;
   const currency = (price?.currency ?? 'usd').toLowerCase();
   const recurring = price?.recurring;
-  const interval = recurring?.interval ?? 'month';
-  const intervalCount = recurring?.interval_count ?? 1;
+  const rawInterval = recurring?.interval ?? 'month';
+  const rawIntervalCount = recurring?.interval_count ?? 1;
+  const { interval, intervalCount } = normalizeInterval(rawInterval, rawIntervalCount);
 
   // Plan identity: prefer product name, fallback to price id
   let planId = price?.id ?? sub.id;

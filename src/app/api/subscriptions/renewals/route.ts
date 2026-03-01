@@ -34,39 +34,50 @@ const ANNUAL_INTERVALS = ['year', 'annual'];
 function classifyInterval(interval: string | null, intervalCount: number): IntervalCategory {
   const normalizedInterval = interval?.toLowerCase() || 'month';
 
-  if (ANNUAL_INTERVALS.includes(normalizedInterval) || intervalCount === 12) {
+  // Normalize day/week-based intervals to approximate months for classification
+  let effectiveMonths = intervalCount;
+  if (normalizedInterval === 'day') effectiveMonths = Math.round(intervalCount / 30);
+  else if (normalizedInterval === 'week') effectiveMonths = Math.round(intervalCount / 4.33);
+  else if (normalizedInterval === 'year' || ANNUAL_INTERVALS.includes(normalizedInterval)) effectiveMonths = 12 * intervalCount;
+
+  if (ANNUAL_INTERVALS.includes(normalizedInterval) || effectiveMonths === 12) {
     return 'annual';
   }
-  if (SEMIANNUAL_INTERVALS.includes(normalizedInterval) || intervalCount === 6) {
+  if (SEMIANNUAL_INTERVALS.includes(normalizedInterval) || effectiveMonths === 6) {
     return 'semiannual';
   }
-  if (QUARTERLY_INTERVALS.includes(normalizedInterval) || intervalCount === 3) {
+  if (QUARTERLY_INTERVALS.includes(normalizedInterval) || effectiveMonths === 3) {
     return 'quarterly';
   }
-  // Everything else is "monthly" — including day-based billing (every 28 days),
-  // week-based, or non-standard intervalCount values like 2, 4, 5, etc.
   return 'monthly';
 }
 
 function buildIntervalWhere(interval: string) {
   if (interval === 'all') return {};
 
+  // Match both normalized (month-based) and raw (day/week-based) intervals
   const quarterlyFilter = {
     OR: [
       { interval: { in: QUARTERLY_INTERVALS } },
-      { intervalCount: 3 },
+      { interval: 'month', intervalCount: 3 },
+      { interval: 'day', intervalCount: { gte: 75, lte: 93 } },
+      { interval: 'week', intervalCount: { gte: 11, lte: 14 } },
     ],
   };
   const semiannualFilter = {
     OR: [
       { interval: { in: SEMIANNUAL_INTERVALS } },
-      { intervalCount: 6 },
+      { interval: 'month', intervalCount: 6 },
+      { interval: 'day', intervalCount: { gte: 165, lte: 195 } },
+      { interval: 'week', intervalCount: { gte: 24, lte: 28 } },
     ],
   };
   const annualFilter = {
     OR: [
       { interval: { in: ANNUAL_INTERVALS } },
-      { intervalCount: 12 },
+      { interval: 'month', intervalCount: 12 },
+      { interval: 'day', intervalCount: { gte: 350, lte: 380 } },
+      { interval: 'week', intervalCount: { gte: 50, lte: 54 } },
     ],
   };
 
