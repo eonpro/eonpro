@@ -19,6 +19,61 @@ import {
   cancelSubscriptionFromStripe,
 } from '@/services/stripe/subscriptionSyncService';
 import type Stripe from 'stripe';
+import type { SyncSubscriptionResult } from '@/services/stripe/subscriptionSyncService';
+
+export const maxDuration = 300;
+
+const SYNC_CONCURRENCY = 10;
+
+async function syncOneSub(
+  sub: Stripe.Subscription,
+  clinicId: number,
+  stripeAccountId: string | null,
+): Promise<{ synced: number; skipped: number; canceled: number; errors: number }> {
+  const r = { synced: 0, skipped: 0, canceled: 0, errors: 0 };
+  try {
+    if (
+      sub.status === 'canceled' ||
+      sub.status === 'unpaid' ||
+      sub.status === 'incomplete_expired'
+    ) {
+      const res = await cancelSubscriptionFromStripe(
+        sub.id,
+        sub.canceled_at ? new Date(sub.canceled_at * 1000) : undefined,
+      );
+      if (res.success && !res.skipped) r.canceled++;
+      else if (res.skipped) r.skipped++;
+    } else {
+      let res: SyncSubscriptionResult = await syncSubscriptionFromStripe(sub, undefined, {
+        clinicId,
+        stripeAccountId: stripeAccountId || undefined,
+      });
+
+      if (res.skipped) {
+        const customer = sub.customer;
+        const email =
+          typeof customer === 'object' && customer && 'email' in customer
+            ? (customer as { email?: string | null }).email?.trim()
+            : null;
+
+        if (email) {
+          res = await syncSubscriptionFromStripeByEmail(sub, email, clinicId);
+        }
+      }
+
+      if (res.success && !res.skipped) r.synced++;
+      else if (res.skipped) r.skipped++;
+      else r.errors++;
+    }
+  } catch (e) {
+    r.errors++;
+    logger.warn('[SyncSubscriptions] Failed to sync one subscription', {
+      stripeSubscriptionId: sub.id,
+      error: e instanceof Error ? e.message : 'Unknown',
+    });
+  }
+  return r;
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -52,7 +107,7 @@ export async function POST(request: NextRequest) {
               ? msg
               : 'Set EONMEDS_STRIPE_SECRET_KEY for Eonmeds, or connect Stripe in clinic settings.',
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -60,7 +115,7 @@ export async function POST(request: NextRequest) {
     if (!stripe) {
       return NextResponse.json(
         { error: 'This clinic does not have a Stripe account configured' },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -95,53 +150,21 @@ export async function POST(request: NextRequest) {
                 ? 'Invalid or missing Stripe API key for this clinic.'
                 : msg,
           },
-          { status: 502 }
+          { status: 502 },
         );
       }
 
-      for (const sub of subs.data) {
-        try {
-          if (
-            sub.status === 'canceled' ||
-            sub.status === 'unpaid' ||
-            sub.status === 'incomplete_expired'
-          ) {
-            const r = await cancelSubscriptionFromStripe(
-              sub.id,
-              sub.canceled_at ? new Date(sub.canceled_at * 1000) : undefined
-            );
-            if (r.success && !r.skipped) results.canceled++;
-            else if (r.skipped) results.skipped++;
-          } else {
-            // Try standard sync first (stripeCustomerId fast path + email fallback)
-            let r = await syncSubscriptionFromStripe(sub, undefined, {
-              clinicId,
-              stripeAccountId: stripeAccountId || undefined,
-            });
-
-            // If skipped (no patient link), try email-based sync from expanded customer
-            if (r.skipped) {
-              const customer = sub.customer;
-              const email =
-                typeof customer === 'object' && customer && 'email' in customer
-                  ? (customer as { email?: string | null }).email?.trim()
-                  : null;
-
-              if (email) {
-                r = await syncSubscriptionFromStripeByEmail(sub, email, clinicId);
-              }
-            }
-
-            if (r.success && !r.skipped) results.synced++;
-            else if (r.skipped) results.skipped++;
-            else results.errors++;
-          }
-        } catch (e) {
-          results.errors++;
-          logger.warn('[SyncSubscriptions] Failed to sync one subscription', {
-            stripeSubscriptionId: sub.id,
-            error: e instanceof Error ? e.message : 'Unknown',
-          });
+      // Process subscriptions in concurrent batches to stay within timeout
+      for (let i = 0; i < subs.data.length; i += SYNC_CONCURRENCY) {
+        const batch = subs.data.slice(i, i + SYNC_CONCURRENCY);
+        const batchResults = await Promise.all(
+          batch.map((sub) => syncOneSub(sub, clinicId, stripeAccountId)),
+        );
+        for (const br of batchResults) {
+          results.synced += br.synced;
+          results.skipped += br.skipped;
+          results.canceled += br.canceled;
+          results.errors += br.errors;
         }
       }
 
@@ -163,7 +186,7 @@ export async function POST(request: NextRequest) {
     logger.error('[SyncSubscriptions] Failed', { error: message });
     return NextResponse.json(
       { error: 'Failed to sync subscriptions', details: message },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
