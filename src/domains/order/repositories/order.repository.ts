@@ -320,12 +320,13 @@ export const orderRepository = {
     }
 
     // Awaiting fulfillment: sent to LifeFile but no tracking yet, excluding terminal statuses.
-    // Also excludes orders that have tracking via linked PatientShippingUpdate records.
+    // Excludes orders with tracking via order-linked OR patient-linked PatientShippingUpdate.
     if (filters.awaitingFulfillment) {
       where.trackingNumber = null;
       where.lifefileOrderId = { not: null };
       where.status = { notIn: ['CANCELLED', 'COMPLETED', 'ERROR', 'error', 'DELIVERED', 'completed', 'cancelled'] };
       where.shippingUpdates = { none: {} };
+      where.patient = { shippingUpdates: { none: {} } };
     }
 
     // Server-side search: match patient name (via searchIndex) OR medication name
