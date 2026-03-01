@@ -3006,6 +3006,68 @@ export default function PrescriptionQueuePage() {
                         </div>
                       )}
 
+                      {/* Previous Dosage & Amount Paid cards */}
+                      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        {/* Previous Dosage Card */}
+                        <div className="rounded-xl border border-blue-200 bg-blue-50 p-4">
+                          <h3 className="mb-2 flex items-center gap-2 text-sm font-medium text-blue-800">
+                            <Pill className="h-4 w-4 text-blue-600" />
+                            Previous Dosage
+                          </h3>
+                          {(() => {
+                            const glp1 = prescriptionPanel.item.glp1Info;
+                            const ctx = prescriptionPanel.details.clinicalContext?.glp1History;
+                            const medType = ctx?.type || glp1?.glp1Type;
+                            const dose = ctx?.dose || glp1?.lastDose;
+                            const hasHistory = glp1?.usedGlp1 || ctx?.used;
+
+                            if (hasHistory && (medType || dose)) {
+                              return (
+                                <div>
+                                  <p className="text-2xl font-bold text-blue-900">
+                                    {dose ? `${dose}mg` : 'N/A'}
+                                  </p>
+                                  <p className="mt-1 text-sm font-medium text-blue-700">
+                                    {medType || 'GLP-1 Medication'}
+                                  </p>
+                                  {ctx?.sideEffects && (
+                                    <p className="mt-2 text-xs text-blue-600">
+                                      Side effects: {ctx.sideEffects}
+                                    </p>
+                                  )}
+                                </div>
+                              );
+                            }
+                            return (
+                              <p className="text-lg font-semibold text-blue-400">
+                                No prior GLP-1 history
+                              </p>
+                            );
+                          })()}
+                        </div>
+
+                        {/* Amount Paid Card */}
+                        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+                          <h3 className="mb-2 flex items-center gap-2 text-sm font-medium text-emerald-800">
+                            <DollarSign className="h-4 w-4 text-emerald-600" />
+                            Patient Paid
+                          </h3>
+                          <p className="text-2xl font-bold text-emerald-900">
+                            {prescriptionPanel.details.invoice?.amountFormatted ||
+                              prescriptionPanel.item.amountFormatted ||
+                              '-'}
+                          </p>
+                          <p className="mt-1 text-sm font-medium text-emerald-700">
+                            {prescriptionPanel.item.treatment || 'Treatment'}
+                          </p>
+                          {prescriptionPanel.item.plan && prescriptionPanel.item.plan !== 'N/A' && (
+                            <p className="mt-1 text-xs text-emerald-600">
+                              Plan: {prescriptionPanel.item.plan}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
                       {/* Shipping Address - Editable */}
                       <div
                         className={`rounded-xl p-4 ${isAddressComplete(prescriptionForm) ? 'bg-gray-50' : 'border border-red-200 bg-red-50'}`}
