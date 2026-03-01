@@ -24,6 +24,7 @@ import {
   Loader2,
   RefreshCw,
   RotateCcw,
+  Trash2,
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { apiFetch } from '@/lib/api/fetch';
@@ -139,6 +140,8 @@ export default function PatientPhotosView({ patientId, patientName }: PatientPho
   const [verifying, setVerifying] = useState(false);
   const [verificationNotes, setVerificationNotes] = useState('');
   const [verificationSuccess, setVerificationSuccess] = useState<string | null>(null);
+  const [deleteConfirmPhoto, setDeleteConfirmPhoto] = useState<Photo | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const fetchPhotos = useCallback(async () => {
     setLoading(true);
@@ -210,6 +213,28 @@ export default function PatientPhotosView({ patientId, patientName }: PatientPho
       setError(err instanceof Error ? err.message : 'Failed to update verification');
     } finally {
       setVerifying(false);
+    }
+  };
+
+  const handleDeletePhoto = async (photo: Photo) => {
+    setIsDeleting(true);
+    try {
+      const response = await apiFetch(
+        `/api/patient-portal/photos/${photo.id}`,
+        { method: 'DELETE' },
+      );
+      if (response.ok) {
+        setPhotos((prev) => prev.filter((p) => p.id !== photo.id));
+        if (selectedPhoto?.id === photo.id) setSelectedPhoto(null);
+        setDeleteConfirmPhoto(null);
+      } else {
+        const data = await response.json().catch(() => ({}));
+        setError(data.error || 'Failed to delete photo');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete photo');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -593,8 +618,70 @@ export default function PatientPhotosView({ patientId, patientName }: PatientPho
                       <p className="text-gray-700">{selectedPhoto.category}</p>
                     </div>
                   )}
+
+                  {/* Delete Photo */}
+                  <div className="border-t border-gray-200 pt-4">
+                    <button
+                      onClick={() => setDeleteConfirmPhoto(selectedPhoto)}
+                      className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-sm font-medium text-red-700 transition-colors hover:bg-red-100"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      Delete Photo
+                    </button>
+                  </div>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Dialog */}
+      {deleteConfirmPhoto && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl">
+            <div className="mb-4 flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100">
+                <Trash2 className="h-5 w-5 text-red-600" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-gray-900">Delete Photo</h3>
+                <p className="text-sm text-gray-500">
+                  {photoTypeLabels[deleteConfirmPhoto.type] || deleteConfirmPhoto.type}
+                </p>
+              </div>
+            </div>
+            <p className="mb-4 text-sm text-gray-600">
+              This will permanently remove this photo from the patient&apos;s record. This action cannot be undone.
+            </p>
+            {(deleteConfirmPhoto.thumbnailUrl || deleteConfirmPhoto.s3Url) && (
+              <div className="mb-4 overflow-hidden rounded-xl">
+                <img
+                  src={deleteConfirmPhoto.thumbnailUrl || deleteConfirmPhoto.s3Url || ''}
+                  alt="Photo to delete"
+                  className="h-40 w-full object-cover"
+                />
+              </div>
+            )}
+            <div className="flex gap-3">
+              <button
+                onClick={() => setDeleteConfirmPhoto(null)}
+                disabled={isDeleting}
+                className="flex-1 rounded-xl bg-gray-100 py-3 font-semibold text-gray-700 transition-colors hover:bg-gray-200"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleDeletePhoto(deleteConfirmPhoto)}
+                disabled={isDeleting}
+                className="flex-1 rounded-xl bg-red-600 py-3 font-semibold text-white transition-colors hover:bg-red-700"
+              >
+                {isDeleting ? (
+                  <Loader2 className="mx-auto h-5 w-5 animate-spin" />
+                ) : (
+                  'Delete'
+                )}
+              </button>
             </div>
           </div>
         </div>

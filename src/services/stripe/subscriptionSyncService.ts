@@ -204,12 +204,27 @@ export async function syncSubscriptionFromStripe(
     0;
 
   const currentPeriodStart = rawPeriodStart ? new Date(rawPeriodStart * 1000) : new Date();
-  const currentPeriodEnd = rawPeriodEnd ? new Date(rawPeriodEnd * 1000) : null;
+  let currentPeriodEnd = rawPeriodEnd ? new Date(rawPeriodEnd * 1000) : null;
+
+  // Fallback: compute currentPeriodEnd from start + interval when Stripe doesn't provide it
+  if (!currentPeriodEnd && currentPeriodStart) {
+    const fallback = new Date(currentPeriodStart);
+    const intervalMonths =
+      details.interval === 'year'
+        ? 12 * details.intervalCount
+        : details.intervalCount;
+    fallback.setMonth(fallback.getMonth() + intervalMonths);
+    currentPeriodEnd = fallback;
+  }
+
   const startDate = new Date((stripeSubscription.start_date ?? stripeSubscription.created) * 1000);
   const canceledAt = stripeSubscription.canceled_at
     ? new Date(stripeSubscription.canceled_at * 1000)
     : null;
   const endedAt = stripeSubscription.ended_at ? new Date(stripeSubscription.ended_at * 1000) : null;
+
+  const nextBilling =
+    status === 'ACTIVE' && currentPeriodEnd ? currentPeriodEnd : null;
 
   try {
     const subscription = await prisma.subscription.upsert({
@@ -231,7 +246,7 @@ export async function syncSubscriptionFromStripe(
         startDate,
         currentPeriodStart,
         currentPeriodEnd: currentPeriodEnd ?? undefined,
-        nextBillingDate: status === 'ACTIVE' ? (currentPeriodEnd ?? undefined) : undefined,
+        nextBillingDate: nextBilling,
         canceledAt,
         endedAt,
         metadata: stripeSubscription.metadata ? (stripeSubscription.metadata as object) : undefined,
@@ -246,7 +261,7 @@ export async function syncSubscriptionFromStripe(
         refillIntervalDays: details.refillIntervalDays,
         currentPeriodStart,
         currentPeriodEnd: currentPeriodEnd ?? undefined,
-        nextBillingDate: status === 'ACTIVE' ? (currentPeriodEnd ?? undefined) : undefined,
+        nextBillingDate: nextBilling,
         canceledAt,
         endedAt,
         metadata: stripeSubscription.metadata ? (stripeSubscription.metadata as object) : undefined,
@@ -320,12 +335,27 @@ export async function syncSubscriptionFromStripeByEmail(
     0;
 
   const currentPeriodStart = rawPeriodStartE ? new Date(rawPeriodStartE * 1000) : new Date();
-  const currentPeriodEnd = rawPeriodEndE ? new Date(rawPeriodEndE * 1000) : null;
+  let currentPeriodEnd = rawPeriodEndE ? new Date(rawPeriodEndE * 1000) : null;
+
+  // Fallback: compute currentPeriodEnd from start + interval when Stripe doesn't provide it
+  if (!currentPeriodEnd && currentPeriodStart) {
+    const fallback = new Date(currentPeriodStart);
+    const intervalMonths =
+      details.interval === 'year'
+        ? 12 * details.intervalCount
+        : details.intervalCount;
+    fallback.setMonth(fallback.getMonth() + intervalMonths);
+    currentPeriodEnd = fallback;
+  }
+
   const startDate = new Date((stripeSubscription.start_date ?? stripeSubscription.created) * 1000);
   const canceledAt = stripeSubscription.canceled_at
     ? new Date(stripeSubscription.canceled_at * 1000)
     : null;
   const endedAt = stripeSubscription.ended_at ? new Date(stripeSubscription.ended_at * 1000) : null;
+
+  const nextBilling =
+    status === 'ACTIVE' && currentPeriodEnd ? currentPeriodEnd : null;
 
   try {
     const subscription = await prisma.$transaction(async (tx) => {
@@ -354,7 +384,7 @@ export async function syncSubscriptionFromStripeByEmail(
           startDate,
           currentPeriodStart,
           currentPeriodEnd: currentPeriodEnd ?? undefined,
-          nextBillingDate: status === 'ACTIVE' ? (currentPeriodEnd ?? undefined) : undefined,
+          nextBillingDate: nextBilling,
           canceledAt,
           endedAt,
           metadata: stripeSubscription.metadata ? (stripeSubscription.metadata as object) : undefined,
@@ -369,7 +399,7 @@ export async function syncSubscriptionFromStripeByEmail(
           refillIntervalDays: details.refillIntervalDays,
           currentPeriodStart,
           currentPeriodEnd: currentPeriodEnd ?? undefined,
-          nextBillingDate: status === 'ACTIVE' ? (currentPeriodEnd ?? undefined) : undefined,
+          nextBillingDate: nextBilling,
           canceledAt,
           endedAt,
           metadata: stripeSubscription.metadata ? (stripeSubscription.metadata as object) : undefined,

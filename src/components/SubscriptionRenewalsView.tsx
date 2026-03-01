@@ -105,9 +105,15 @@ function formatCurrency(cents: number): string {
   }).format(cents / 100);
 }
 
+function isValidBillingDate(dateStr: string | null): boolean {
+  if (!dateStr) return false;
+  const ts = new Date(dateStr).getTime();
+  return !isNaN(ts) && ts > 946684800000; // after 2000-01-01
+}
+
 function formatDate(dateStr: string | null): string {
-  if (!dateStr) return '—';
-  return new Date(dateStr).toLocaleDateString('en-US', {
+  if (!isValidBillingDate(dateStr)) return '—';
+  return new Date(dateStr!).toLocaleDateString('en-US', {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
@@ -115,8 +121,8 @@ function formatDate(dateStr: string | null): string {
 }
 
 function formatDateRelative(dateStr: string | null): { text: string; urgency: 'overdue' | 'soon' | 'upcoming' | 'none' } {
-  if (!dateStr) return { text: 'No date', urgency: 'none' };
-  const date = new Date(dateStr);
+  if (!isValidBillingDate(dateStr)) return { text: 'No date', urgency: 'none' };
+  const date = new Date(dateStr!);
   const now = new Date();
   const diffMs = date.getTime() - now.getTime();
   const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));

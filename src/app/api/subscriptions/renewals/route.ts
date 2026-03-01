@@ -215,10 +215,12 @@ async function handler(req: NextRequest, user: AuthUser) {
         };
       });
 
-      // Summary counts by interval
+      // Summary counts by interval — totalActive is an independent count so subscriptions
+      // with non-standard intervalCount values aren't silently excluded from the total.
       const allActiveWhere = { clinicId, status: { in: ['ACTIVE' as const, 'PAST_DUE' as const] } };
-      const [monthlyCount, quarterlyCount, semiannualCount, annualCount, pastDueCount, upcomingRenewals] =
+      const [totalActive, monthlyCount, quarterlyCount, semiannualCount, annualCount, pastDueCount, upcomingRenewals] =
         await Promise.all([
+          prisma.subscription.count({ where: allActiveWhere }),
           prisma.subscription.count({
             where: { ...allActiveWhere, ...buildIntervalWhere('monthly') },
           }),
@@ -259,7 +261,7 @@ async function handler(req: NextRequest, user: AuthUser) {
           quarterly: quarterlyCount,
           semiannual: semiannualCount,
           annual: annualCount,
-          total: monthlyCount + quarterlyCount + semiannualCount + annualCount,
+          total: totalActive,
           pastDue: pastDueCount,
           upcomingNext7Days: upcomingRenewals,
         },
