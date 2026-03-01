@@ -16,7 +16,6 @@ import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 import { prisma, runWithClinicContext } from '@/lib/db';
 import { withAuthParams, AuthUser } from '@/lib/auth/middleware-with-params';
-import { strictRateLimit } from '@/lib/rateLimit';
 import { logger } from '@/lib/logger';
 import { cancelOrder, CancelOrderError } from '@/domains/order/services/cancel-order';
 
@@ -258,4 +257,4 @@ async function handler(req: NextRequest, user: AuthUser, context: RouteContext) 
   }
 }
 
-export const POST = strictRateLimit(withAuthParams(handler));
+export const POST = withAuthParams(handler);
