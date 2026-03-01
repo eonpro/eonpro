@@ -17,7 +17,6 @@ import { z } from 'zod';
 import { prisma, runWithClinicContext } from '@/lib/db';
 import { withAuthParams, AuthUser } from '@/lib/auth/middleware-with-params';
 import { logger } from '@/lib/logger';
-import { cancelOrder, CancelOrderError } from '@/domains/order/services/cancel-order';
 
 const dispositionSchema = z
   .object({
@@ -173,19 +172,19 @@ async function handler(req: NextRequest, user: AuthUser, context: RouteContext) 
     }
 
     if (action === 'cancel') {
-      try {
-        const result = await cancelOrder({
-          orderId,
-          userId: user.id,
-          userEmail: user.email,
-          userRole: user.role,
-          clinicId: user.clinicId,
-          reason: reason || 'admin_disposition',
-          notes,
+      await prisma.$transaction(async (tx) => {
+        await tx.order.update({
+          where: { id: orderId },
+          data: {
+            status: 'CANCELLED',
+            cancelledAt: new Date(),
+            cancelledBy: user.id,
+            cancellationReason: reason || 'admin_disposition',
+            cancellationNotes: notes,
+          },
         });
 
-        // Additional disposition audit event on top of the cancel event
-        await prisma.orderEvent.create({
+        await tx.orderEvent.create({
           data: {
             orderId,
             lifefileOrderId: order.lifefileOrderId,
@@ -196,24 +195,19 @@ async function handler(req: NextRequest, user: AuthUser, context: RouteContext) 
               approvedByEmail: user.email,
               reason,
               notes,
+              recordOnly: true,
             } as any,
-            note: `Order disposition (cancel) approved by ${user.email}`,
+            note: `Order marked cancelled by ${user.email}${reason ? `: ${reason}` : ''}`,
           },
         });
+      });
 
-        return NextResponse.json({
-          success: true,
-          message: result.message,
-          action: 'cancel',
-          orderId,
-          warning: result.warning,
-        });
-      } catch (err) {
-        if (err instanceof CancelOrderError) {
-          return NextResponse.json({ error: err.message }, { status: err.statusCode });
-        }
-        throw err;
-      }
+      return NextResponse.json({
+        success: true,
+        message: 'Order marked as cancelled',
+        action: 'cancel',
+        orderId,
+      });
     }
 
     if (action === 'completed') {

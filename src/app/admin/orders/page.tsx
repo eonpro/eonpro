@@ -836,7 +836,7 @@ function DispositionModal({
                 <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3">
                   <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0 text-red-500" />
                   <p className="text-sm text-red-700">
-                    This will cancel the order in LifeFile and void any associated compensation and fees.
+                    This will mark the order as cancelled in our system. It does not cancel in LifeFile — use this when the order was already cancelled elsewhere.
                   </p>
                 </div>
               )}
