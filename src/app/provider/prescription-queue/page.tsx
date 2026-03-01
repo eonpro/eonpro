@@ -403,6 +403,7 @@ export default function PrescriptionQueuePage() {
     zip: '',
   });
   const [submittingPrescription, setSubmittingPrescription] = useState(false);
+  const [showConfirmation, setShowConfirmation] = useState(false);
   const [approvingOrderId, setApprovingOrderId] = useState<number | null>(null);
   const [autoSelectedOrderSetId, setAutoSelectedOrderSetId] = useState<number | null>(null);
 
@@ -1048,8 +1049,8 @@ export default function PrescriptionQueuePage() {
         }
         setTotal((prev) => Math.max(0, prev - 1));
 
-
         setPrescriptionPanel(null);
+        setShowConfirmation(false);
         setSuccessMessage(
           `Prescription for ${item.patientName} sent to Lifefile successfully!`
         );
@@ -3593,7 +3594,7 @@ export default function PrescriptionQueuePage() {
                             Cancel
                           </button>
                           <button
-                            onClick={handleSubmitPrescription}
+                            onClick={() => setShowConfirmation(true)}
                             disabled={
                               submittingPrescription ||
                               !hasValidMedication() ||
@@ -3602,12 +3603,7 @@ export default function PrescriptionQueuePage() {
                             }
                             className="flex flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-gradient-to-r from-rose-500 to-rose-600 px-4 py-3 font-medium text-white transition-all hover:from-rose-600 hover:to-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
                           >
-                            {submittingPrescription ? (
-                              <>
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                                Sending...
-                              </>
-                            ) : !prescriptionForm.pharmacyGender ? (
+                            {!prescriptionForm.pharmacyGender ? (
                               <>
                                 <AlertCircle className="h-4 w-4" />
                                 Select Biological Sex
@@ -3625,19 +3621,7 @@ export default function PrescriptionQueuePage() {
                             ) : (
                               <>
                                 <Send className="h-4 w-4" />
-                                Send{' '}
-                                {
-                                  prescriptionForm.medications.filter(
-                                    (m) => m.medicationKey && m.sig
-                                  ).length
-                                }{' '}
-                                Rx
-                                {prescriptionForm.medications.filter(
-                                  (m) => m.medicationKey && m.sig
-                                ).length > 1
-                                  ? 's'
-                                  : ''}{' '}
-                                to Pharmacy
+                                Review &amp; Send Rx
                               </>
                             )}
                           </button>
@@ -3647,6 +3631,166 @@ export default function PrescriptionQueuePage() {
                   )}
                 </div>
               </div>
+
+              {/* ── Confirmation Safeguard Overlay ── */}
+              {showConfirmation && prescriptionPanel && (
+                <div className="absolute inset-0 z-30 flex flex-col overflow-y-auto bg-white">
+                  <div className="sticky top-0 z-10 border-b border-gray-200 bg-white px-4 py-4 sm:px-6">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-rose-100">
+                        <ShieldAlert className="h-5 w-5 text-rose-600" />
+                      </div>
+                      <div>
+                        <h2 className="text-lg font-bold text-gray-900">Confirm Prescription</h2>
+                        <p className="text-sm text-gray-500">
+                          Review before sending to pharmacy for{' '}
+                          <span className="font-semibold text-gray-700">{prescriptionPanel.item.patientName}</span>
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex-1 space-y-4 p-4 sm:p-6">
+                    {/* Card 1: GLP-1 History */}
+                    <div className="overflow-hidden rounded-xl border border-amber-200 bg-amber-50">
+                      <div className="flex items-center gap-2 border-b border-amber-200 bg-amber-100/60 px-4 py-2.5">
+                        <Activity className="h-4 w-4 text-amber-700" />
+                        <h3 className="text-sm font-semibold text-amber-900">GLP-1 History</h3>
+                      </div>
+                      <div className="px-4 py-3">
+                        {prescriptionPanel.item.glp1Info?.usedGlp1 ? (
+                          <div className="space-y-1.5">
+                            <div className="flex items-center gap-2">
+                              <span className="rounded-full bg-amber-200 px-2 py-0.5 text-xs font-semibold text-amber-800">
+                                Previous User
+                              </span>
+                            </div>
+                            {prescriptionPanel.item.glp1Info.glp1Type && (
+                              <p className="text-sm text-amber-900">
+                                <span className="font-medium">Medication:</span>{' '}
+                                {prescriptionPanel.item.glp1Info.glp1Type}
+                              </p>
+                            )}
+                            {prescriptionPanel.item.glp1Info.lastDose && (
+                              <p className="text-sm text-amber-900">
+                                <span className="font-medium">Last Dose:</span>{' '}
+                                {prescriptionPanel.item.glp1Info.lastDose} mg
+                              </p>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-semibold text-green-800">
+                              New Patient
+                            </span>
+                            <span className="text-sm text-gray-600">No previous GLP-1 history</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Card 2: What Patient Paid For */}
+                    <div className="overflow-hidden rounded-xl border border-blue-200 bg-blue-50">
+                      <div className="flex items-center gap-2 border-b border-blue-200 bg-blue-100/60 px-4 py-2.5">
+                        <DollarSign className="h-4 w-4 text-blue-700" />
+                        <h3 className="text-sm font-semibold text-blue-900">What Patient Paid For</h3>
+                      </div>
+                      <div className="grid grid-cols-2 gap-x-4 gap-y-2 px-4 py-3">
+                        <div>
+                          <p className="text-xs text-blue-600">Treatment</p>
+                          <p className="text-sm font-semibold text-blue-900">{prescriptionPanel.item.treatment}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-blue-600">Plan</p>
+                          <p className="text-sm font-semibold text-blue-900">
+                            {prescriptionPanel.item.plan} ({prescriptionPanel.item.planMonths} mo)
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-blue-600">Amount Paid</p>
+                          <p className="text-sm font-semibold text-blue-900">{prescriptionPanel.item.amountFormatted}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-blue-600">Invoice</p>
+                          <p className="text-xs font-semibold text-blue-900">{prescriptionPanel.item.invoiceNumber}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Card 3: Medications Being Prescribed */}
+                    <div className="overflow-hidden rounded-xl border border-emerald-200 bg-emerald-50">
+                      <div className="flex items-center gap-2 border-b border-emerald-200 bg-emerald-100/60 px-4 py-2.5">
+                        <Pill className="h-4 w-4 text-emerald-700" />
+                        <h3 className="text-sm font-semibold text-emerald-900">
+                          Medications Being Sent to Pharmacy
+                        </h3>
+                      </div>
+                      <div className="divide-y divide-emerald-200 px-4">
+                        {prescriptionForm.medications
+                          .filter((m) => m.medicationKey && m.sig)
+                          .map((m, i) => {
+                            const med = MEDS[m.medicationKey];
+                            const isGlp1 = med && GLP1_PRODUCT_IDS.has(med.id);
+                            return (
+                              <div key={m.id || i} className="py-3">
+                                <div className="flex items-start justify-between gap-2">
+                                  <div className="min-w-0 flex-1">
+                                    <p className="text-sm font-semibold text-emerald-900">
+                                      {med?.name || m.medicationKey}
+                                    </p>
+                                    <p className="mt-0.5 text-xs leading-relaxed text-emerald-700">{m.sig}</p>
+                                  </div>
+                                  {isGlp1 && (
+                                    <span className="flex-shrink-0 rounded-full bg-emerald-200 px-2 py-0.5 text-xs font-semibold text-emerald-800">
+                                      GLP-1
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="mt-1.5 flex gap-4 text-xs text-emerald-600">
+                                  <span>Qty: <span className="font-semibold text-emerald-800">{m.quantity}</span></span>
+                                  <span>Refills: <span className="font-semibold text-emerald-800">{m.refills}</span></span>
+                                  <span>Days: <span className="font-semibold text-emerald-800">{m.daysSupply || '30'}</span></span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Sticky footer */}
+                  <div className="sticky bottom-0 border-t border-gray-200 bg-gray-50 p-4 sm:px-6">
+                    <div className="flex gap-3">
+                      <button
+                        onClick={() => setShowConfirmation(false)}
+                        className="flex-1 rounded-xl border border-gray-300 px-4 py-3 font-medium text-gray-700 transition-colors hover:bg-gray-100"
+                      >
+                        Go Back
+                      </button>
+                      <button
+                        onClick={() => {
+                          setShowConfirmation(false);
+                          handleSubmitPrescription();
+                        }}
+                        disabled={submittingPrescription}
+                        className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-rose-500 to-rose-600 px-4 py-3 font-medium text-white transition-all hover:from-rose-600 hover:to-rose-700 disabled:opacity-50"
+                      >
+                        {submittingPrescription ? (
+                          <>
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            Sending...
+                          </>
+                        ) : (
+                          <>
+                            <Send className="h-4 w-4" />
+                            Confirm &amp; Send to Pharmacy
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
