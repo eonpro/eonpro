@@ -176,6 +176,17 @@ const TIRZEPATIDE_TIERS: DoseTier[] = [
     },
     orderSetName: 'Tirzepatide E- 3 Month',
   },
+  {
+    previousDose: 12.5,
+    oneMonth: {
+      medicationKey: TIRZ_30MG_2ML,
+      sig: 'Inject 15 mg (50 units) subcutaneously once weekly.',
+      quantity: '1',
+      refills: '0',
+      daysSupply: '28',
+    },
+    orderSetName: 'Tirzepatide E- 3 Month',
+  },
 ];
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
