@@ -60,6 +60,7 @@ export async function GET(request: NextRequest) {
     // Parse query params
     const { searchParams } = new URL(request.url);
     const hasTrackingNumber = searchParams.get('hasTrackingNumber');
+    const awaitingFulfillment = searchParams.get('awaitingFulfillment');
     const search = searchParams.get('search') || undefined;
     const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10) || 1);
     const rawPageSize = parseInt(searchParams.get('pageSize') || '20', 10) || 20;
@@ -71,6 +72,7 @@ export async function GET(request: NextRequest) {
       offset: hasTrackingNumber === 'true' ? 0 : (page - 1) * pageSize,
       hasTrackingNumber:
         hasTrackingNumber === 'true' ? true : hasTrackingNumber === 'false' ? false : undefined,
+      awaitingFulfillment: awaitingFulfillment === 'true' ? true : undefined,
       search,
     });
 
@@ -100,6 +102,31 @@ export async function GET(request: NextRequest) {
         };
       })
     );
+
+    // Awaiting fulfillment path: return orders with aging stats
+    if (awaitingFulfillment === 'true') {
+      const now = Date.now();
+      const agingDays = result.orders.map((o) =>
+        Math.floor((now - new Date(o.createdAt).getTime()) / 86400000)
+      );
+
+      const stats = {
+        totalAwaiting: result.total,
+        avgWaitDays: agingDays.length
+          ? Math.round(agingDays.reduce((a, b) => a + b, 0) / agingDays.length)
+          : 0,
+        maxWaitDays: agingDays.length ? Math.max(...agingDays) : 0,
+      };
+
+      return Response.json({
+        orders: result.orders,
+        total: result.total,
+        page,
+        pageSize,
+        hasMore: result.hasMore,
+        stats,
+      });
+    }
 
     // If requesting orders with tracking numbers, also fetch from PatientShippingUpdate
     // This catches shipments that weren't linked to an Order record

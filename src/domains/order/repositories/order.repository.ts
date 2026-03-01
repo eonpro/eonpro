@@ -319,6 +319,13 @@ export const orderRepository = {
       where.trackingNumber = null;
     }
 
+    // Awaiting fulfillment: sent to LifeFile but no tracking yet, excluding terminal statuses
+    if (filters.awaitingFulfillment) {
+      where.trackingNumber = null;
+      where.lifefileOrderId = { not: null };
+      where.status = { notIn: ['CANCELLED', 'ERROR', 'error', 'DELIVERED'] };
+    }
+
     // Server-side search: match patient name (via searchIndex) OR medication name
     if (filters.search && filters.search.trim().length > 0) {
       const searchTerm = filters.search.trim().toLowerCase();
@@ -355,9 +362,11 @@ export const orderRepository = {
 
     logger.debug('[OrderRepository] list query', { filters: { ...filters, search: filters.search ? '[REDACTED]' : undefined }, where, limit, offset });
 
-    const sortBy = filters.hasTrackingNumber
-      ? [{ lastWebhookAt: 'desc' as const }, { updatedAt: 'desc' as const }]
-      : { createdAt: 'desc' as const };
+    const sortBy = filters.awaitingFulfillment
+      ? { createdAt: 'asc' as const }
+      : filters.hasTrackingNumber
+        ? [{ lastWebhookAt: 'desc' as const }, { updatedAt: 'desc' as const }]
+        : { createdAt: 'desc' as const };
 
     // Execute query and count in parallel for efficiency
     const [orders, total] = await Promise.all([

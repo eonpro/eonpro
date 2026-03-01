@@ -119,6 +119,7 @@ export const orderService = {
       patientId?: number;
       providerId?: number;
       hasTrackingNumber?: boolean;
+      awaitingFulfillment?: boolean;
       search?: string;
     } = {}
   ): Promise<ListOrdersResult> {
@@ -182,6 +183,11 @@ export const orderService = {
     // Tracking number filter
     if (options.hasTrackingNumber !== undefined) {
       filters.hasTrackingNumber = options.hasTrackingNumber;
+    }
+
+    // Awaiting fulfillment filter
+    if (options.awaitingFulfillment) {
+      filters.awaitingFulfillment = true;
     }
 
     // Search filter (patient name via searchIndex, medication name)

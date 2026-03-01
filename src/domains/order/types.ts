@@ -220,6 +220,8 @@ export interface OrderListFilters {
   limit?: number;
   offset?: number;
   hasTrackingNumber?: boolean;
+  /** Composite filter: trackingNumber IS NULL, lifefileOrderId IS NOT NULL, status not cancelled/error */
+  awaitingFulfillment?: boolean;
   /** Server-side search by patient name (via searchIndex) or medication name */
   search?: string;
 }
