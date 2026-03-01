@@ -419,6 +419,11 @@ export default function PrescriptionQueuePage() {
   const [declineReason, setDeclineReason] = useState('');
   const [declining, setDeclining] = useState(false);
 
+  // Approve confirmation modal (includes duplicate warning when applicable)
+  const [approveConfirmModal, setApproveConfirmModal] = useState<{
+    item: QueueItem;
+  } | null>(null);
+
   // Hold for info state
   const [resuming, setResuming] = useState<number | null>(null);
 
@@ -1898,16 +1903,7 @@ export default function PrescriptionQueuePage() {
                               )}
                             </button>
                             <button
-                              onClick={() => {
-                                if (
-                                  window.confirm(
-                                    `Approve and send this prescription for ${item.patientName} to the pharmacy? This will be logged for compliance.`
-                                  )
-                                ) {
-                                  item.orderId &&
-                                    handleApproveAndSendOrder(item.orderId, item.patientName);
-                                }
-                              }}
+                              onClick={() => setApproveConfirmModal({ item })}
                               disabled={
                                 !item.clinic?.lifefileEnabled || approvingOrderId === item.orderId
                               }
@@ -2635,6 +2631,153 @@ export default function PrescriptionQueuePage() {
         </div>
       )}
 
+      {/* Approve & Send Confirmation Modal */}
+      {approveConfirmModal && (
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-4"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) setApproveConfirmModal(null);
+          }}
+        >
+          <div className="relative w-full max-w-md rounded-2xl bg-white shadow-xl">
+            <button
+              type="button"
+              onClick={() => setApproveConfirmModal(null)}
+              className="absolute right-4 top-4 z-10 rounded p-1 text-gray-400 hover:text-gray-600"
+            >
+              <X className="h-5 w-5" />
+            </button>
+
+            {approveConfirmModal.item.recentPrescription?.hasDuplicate ? (
+              <>
+                <div className="rounded-t-2xl border-b border-red-100 bg-red-50 px-6 py-4">
+                  <div className="flex items-center gap-3">
+                    <div className="rounded-lg bg-red-100 p-2">
+                      <ShieldAlert className="h-5 w-5 text-red-600" />
+                    </div>
+                    <div>
+                      <h2 className="text-lg font-semibold text-gray-900">Duplicate Prescription Warning</h2>
+                      <p className="text-sm text-gray-600">{approveConfirmModal.item.patientName}</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="space-y-4 p-6">
+                  <div className="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-3">
+                    <AlertTriangle className="mt-0.5 h-5 w-5 flex-shrink-0 text-red-600" />
+                    <div className="text-sm text-red-800">
+                      <p className="font-medium">
+                        This patient has {approveConfirmModal.item.recentPrescription!.orders.length} prescription
+                        {approveConfirmModal.item.recentPrescription!.orders.length > 1 ? 's' : ''} in the last{' '}
+                        {approveConfirmModal.item.recentPrescription!.windowDays} days.
+                      </p>
+                      <p className="mt-1">Please verify this is not a duplicate before approving.</p>
+                    </div>
+                  </div>
+                  <ul className="space-y-2 rounded-lg border border-red-100 bg-red-50 p-3">
+                    {approveConfirmModal.item.recentPrescription!.orders.slice(0, 3).map((order) => (
+                      <li key={order.orderId} className="flex items-center gap-2 text-sm text-red-800">
+                        <span className="h-1.5 w-1.5 flex-shrink-0 rounded-full bg-red-400" />
+                        <span className="font-medium">{order.primaryMedName || 'Unknown'}</span>
+                        {order.primaryMedStrength && <span className="text-red-600">{order.primaryMedStrength}</span>}
+                        <span className="text-red-600">— {new Date(order.createdAt).toLocaleDateString()}</span>
+                        {order.providerName && <span className="text-red-500">by {order.providerName}</span>}
+                        {order.status && (
+                          <span className="rounded bg-red-100 px-1 py-0.5 text-[9px] font-medium uppercase text-red-700">
+                            {order.status}
+                          </span>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="text-xs text-gray-500">This action will be logged for compliance.</p>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="rounded-t-2xl border-b border-amber-100 bg-amber-50 px-6 py-4">
+                  <div className="flex items-center gap-3">
+                    <div className="rounded-lg bg-amber-100 p-2">
+                      <ClipboardCheck className="h-5 w-5 text-amber-600" />
+                    </div>
+                    <div>
+                      <h2 className="text-lg font-semibold text-gray-900">Approve & Send to Pharmacy</h2>
+                      <p className="text-sm text-gray-600">{approveConfirmModal.item.patientName}</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="space-y-4 p-6">
+                  {approveConfirmModal.item.rxs && approveConfirmModal.item.rxs.length > 0 && (
+                    <div className="rounded-lg bg-gray-50 p-3">
+                      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Medications</p>
+                      <ul className="space-y-1">
+                        {approveConfirmModal.item.rxs.map((rx, idx) => (
+                          <li key={idx} className="text-sm text-gray-800">
+                            <span className="font-medium">{rx.medName}</span>
+                            {rx.strength && ` ${rx.strength}`}
+                            {rx.quantity && ` — Qty: ${rx.quantity}`}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  <p className="text-sm text-gray-700">
+                    This will send the prescription to the pharmacy for fulfillment.
+                  </p>
+                  <p className="text-xs text-gray-500">This action will be logged for compliance.</p>
+                </div>
+              </>
+            )}
+
+            <div className="flex flex-col gap-3 rounded-b-2xl border-t border-gray-100 bg-gray-50 px-4 py-4 sm:flex-row sm:px-6">
+              <button
+                type="button"
+                onMouseDown={(e) => {
+                  e.stopPropagation();
+                  setApproveConfirmModal(null);
+                }}
+                className="min-h-[48px] flex-1 touch-manipulation rounded-xl border border-gray-300 px-4 py-2.5 text-base font-medium text-gray-700 transition-colors hover:bg-gray-100 active:bg-gray-200"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onMouseDown={(e) => {
+                  e.stopPropagation();
+                  const item = approveConfirmModal.item;
+                  setApproveConfirmModal(null);
+                  if (item.orderId) {
+                    handleApproveAndSendOrder(item.orderId, item.patientName);
+                  }
+                }}
+                disabled={approvingOrderId === approveConfirmModal.item.orderId}
+                className={`flex min-h-[48px] flex-1 touch-manipulation items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-base font-medium text-white transition-all disabled:cursor-not-allowed disabled:opacity-50 ${
+                  approveConfirmModal.item.recentPrescription?.hasDuplicate
+                    ? 'bg-red-600 hover:bg-red-700 active:bg-red-800'
+                    : 'bg-amber-500 hover:bg-amber-600 active:bg-amber-700'
+                }`}
+              >
+                {approvingOrderId === approveConfirmModal.item.orderId ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Sending...
+                  </>
+                ) : approveConfirmModal.item.recentPrescription?.hasDuplicate ? (
+                  <>
+                    <ShieldAlert className="h-4 w-4" />
+                    Approve Anyway
+                  </>
+                ) : (
+                  <>
+                    <ClipboardCheck className="h-4 w-4" />
+                    Approve & Send
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Prescription Slide-Over Panel */}
       {prescriptionPanel && (
         <div className="fixed inset-0 z-50 overflow-hidden">
@@ -2760,13 +2903,7 @@ export default function PrescriptionQueuePage() {
                         </button>
                         <button
                           type="button"
-                          onClick={() =>
-                            prescriptionPanel.item.orderId &&
-                            handleApproveAndSendOrder(
-                              prescriptionPanel.item.orderId,
-                              prescriptionPanel.item.patientName
-                            )
-                          }
+                          onClick={() => setApproveConfirmModal({ item: prescriptionPanel.item })}
                           disabled={
                             approvingOrderId === prescriptionPanel.item.orderId ||
                             !prescriptionPanel.item.clinic?.lifefileEnabled

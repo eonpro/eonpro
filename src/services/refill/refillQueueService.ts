@@ -1146,8 +1146,9 @@ export async function hasPendingRefillsAwaitingPayment(
 /**
  * Trigger a refill entry when a subscription payment is confirmed (or manually enrolled).
  *
- * Creates a RefillQueue entry at PENDING_ADMIN with payment auto-verified.
- * Admin must still review and approve before it goes to provider queue.
+ * For Stripe-verified subscription renewals (paymentMethod = STRIPE_AUTO), the refill
+ * is auto-approved and goes directly to the provider queue — no admin bottleneck.
+ * For manual/other payment methods, it stays at PENDING_ADMIN for review.
  *
  * Called by:
  * - Stripe webhook on invoice.payment_succeeded (for subscription renewals)
@@ -1208,6 +1209,11 @@ export async function triggerRefillForSubscriptionPayment(
     subscription.vialCount || vialCountFromPlanCategory(subscription.planId) || DEFAULT_VIAL_COUNT;
   const intervalDays = calculateIntervalDays(vialCount);
   const now = new Date();
+  const paymentMethod = (paymentMethodOverride || 'STRIPE_AUTO') as any;
+
+  // Auto-approve for Stripe-verified renewals — skip admin bottleneck
+  const isStripeVerified = paymentMethod === 'STRIPE_AUTO';
+  const initialStatus: RefillStatus = isStripeVerified ? 'APPROVED' : 'PENDING_ADMIN';
 
   const refill = await prisma.refillQueue.create({
     data: {
@@ -1217,14 +1223,18 @@ export async function triggerRefillForSubscriptionPayment(
       vialCount,
       refillIntervalDays: intervalDays,
       nextRefillDate: now,
-      status: 'PENDING_ADMIN',
+      status: initialStatus,
       paymentVerified: true,
       paymentVerifiedAt: now,
       paymentVerifiedBy: 0,
-      paymentMethod: (paymentMethodOverride || 'STRIPE_AUTO') as any,
+      paymentMethod,
       stripePaymentId: stripePaymentId || undefined,
       invoiceId: invoiceId || undefined,
-      adminApproved: false,
+      adminApproved: isStripeVerified,
+      adminApprovedAt: isStripeVerified ? now : undefined,
+      adminApprovedBy: isStripeVerified ? 0 : undefined,
+      adminNotes: isStripeVerified ? 'Auto-approved: Stripe payment verified' : undefined,
+      providerQueuedAt: isStripeVerified ? now : undefined,
       planName: subscription.planName,
       medicationName: extractMedicationName(subscription.planName),
     },
@@ -1239,16 +1249,31 @@ export async function triggerRefillForSubscriptionPayment(
     },
   });
 
-  logger.info('[RefillQueue] Triggered refill for subscription payment (→ pending admin review)', {
-    refillId: refill.id,
-    subscriptionId,
-    patientId: subscription.patientId,
-    clinicId: subscription.clinicId,
-    stripePaymentId,
-  });
+  if (isStripeVerified) {
+    logger.info('[RefillQueue] Triggered refill for subscription payment (→ auto-approved → provider queue)', {
+      refillId: refill.id,
+      subscriptionId,
+      patientId: subscription.patientId,
+      clinicId: subscription.clinicId,
+      stripePaymentId,
+    });
 
-  // Notify admins that a refill is due (non-blocking)
-  notifyRefillDue(subscription, refill).catch(() => {});
+    // Notify providers directly — prescription is ready for them
+    notifyRefillApproved(refill).catch(() => {});
+    // Also notify admins for visibility
+    notifyRefillDue(subscription, refill).catch(() => {});
+  } else {
+    logger.info('[RefillQueue] Triggered refill for subscription payment (→ pending admin review)', {
+      refillId: refill.id,
+      subscriptionId,
+      patientId: subscription.patientId,
+      clinicId: subscription.clinicId,
+      stripePaymentId,
+    });
+
+    // Notify admins that a refill is due
+    notifyRefillDue(subscription, refill).catch(() => {});
+  }
 
   return refill;
 }

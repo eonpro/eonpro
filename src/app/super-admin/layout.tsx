@@ -15,6 +15,7 @@ import {
   Activity,
   Ticket,
   Receipt,
+  Pill,
 } from 'lucide-react';
 import { isBrowser, safeLocalStorage } from '@/lib/utils/ssr-safe';
 import InternalChat from '@/components/InternalChat';
@@ -35,6 +36,7 @@ const navItems = [
   { icon: Ticket, path: '/tickets', label: 'Tickets' },
   { icon: Activity, path: '/super-admin/user-activity', label: 'User Activity' },
   { icon: DollarSign, path: '/super-admin/commission-plans', label: 'Commission Plans' },
+  { icon: Pill, path: '/super-admin/prescription-reports', label: 'Rx Reports' },
   // Clinic Billing (config, invoices, reports) — super-admin only; do not add to tickets or admin nav
   { icon: Receipt, path: '/super-admin/clinic-billing', label: 'Clinic Billing' },
   { icon: Settings, path: '/super-admin/settings', label: 'Settings' },

@@ -123,52 +123,6 @@ export default function PatientPrescriptionsTab({
 
   return (
     <div className="space-y-6">
-      {/* Duplicate Prescription Warning Banner */}
-      {recentOrders.length > 0 && (
-        <div className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4 shadow-sm">
-          <svg
-            className="mt-0.5 h-5 w-5 flex-shrink-0 text-red-600"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z"
-            />
-          </svg>
-          <div>
-            <h3 className="text-sm font-semibold text-red-800">
-              Recent Prescription Detected
-            </h3>
-            <p className="mt-0.5 text-sm text-red-700">
-              This patient has {recentOrders.length} prescription{recentOrders.length > 1 ? 's' : ''} in the last {DUPLICATE_WINDOW_DAYS} days. Please verify before creating a new one.
-            </p>
-            <ul className="mt-2 space-y-1">
-              {recentOrders.slice(0, 3).map((order) => (
-                <li key={order.id} className="flex items-center gap-2 text-xs text-red-800">
-                  <span className="h-1.5 w-1.5 flex-shrink-0 rounded-full bg-red-400" />
-                  <span className="font-medium">
-                    {order.rxs.map((rx) => rx.medName || rx.medicationKey).join(', ') || 'Unknown'}
-                  </span>
-                  <span className="text-red-600">
-                    — {new Date(order.createdAt).toLocaleDateString()}{' '}
-                    {order.provider && `by ${order.provider.firstName} ${order.provider.lastName}`}
-                  </span>
-                  {order.status && (
-                    <span className="rounded bg-red-100 px-1 py-0.5 text-[9px] font-medium uppercase text-red-700">
-                      {order.status}
-                    </span>
-                  )}
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-      )}
-
       {/* Prescription History */}
       <section className="rounded-xl border bg-white p-6 shadow">
         <div className="mb-4 flex items-center justify-between">
