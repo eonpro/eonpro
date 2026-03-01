@@ -19,6 +19,7 @@ import {
 import { format } from 'date-fns';
 import { apiFetch } from '@/lib/api/fetch';
 import { toast } from '@/components/Toast';
+import { useBrandingColors } from '@/lib/contexts/ClinicBrandingContext';
 import {
   TrendingUp,
   TrendingDown,
@@ -178,7 +179,8 @@ function SourceBadge({ source }: { source?: string }) {
 // =============================================================================
 
 export default function PatientProgressView({ patient }: PatientProgressViewProps) {
-  // Existing state
+  const { primary: brandPrimary } = useBrandingColors();
+
   const [weightData, setWeightData] = useState<WeightEntry[]>([]);
   const [medicationReminders, setMedicationReminders] = useState<any[]>([]);
   const [hasActiveTreatment, setHasActiveTreatment] = useState(false);
@@ -432,7 +434,8 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
         <button
           type="button"
           onClick={() => setShowWeightForm(true)}
-          className="mt-4 inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+          className="mt-4 inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-[var(--brand-primary-text,#fff)] transition-opacity hover:opacity-90"
+          style={{ backgroundColor: brandPrimary }}
         >
           <Plus className="h-4 w-4" />
           Log First Weight
@@ -516,7 +519,7 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
       {/* ================================================================== */}
       <div
         className="rounded-xl border p-6"
-        style={{ backgroundColor: '#faffac', borderColor: '#a8ac40' }}
+        style={{ backgroundColor: `${brandPrimary}10`, borderColor: `${brandPrimary}40` }}
       >
         <div className="mb-6 flex items-center justify-between">
           <div>
@@ -530,14 +533,15 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
               </span>
             )}
             <span
-              className="rounded-full px-3 py-1 text-xs text-green-800"
-              style={{ backgroundColor: 'rgba(255,255,255,0.6)' }}
+              className="rounded-full px-3 py-1 text-xs"
+              style={{ backgroundColor: `${brandPrimary}20`, color: brandPrimary }}
             >
               {weightData.length} entries
             </span>
             <button
               onClick={() => setShowWeightForm(!showWeightForm)}
-              className="flex items-center gap-1 rounded-full bg-green-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-green-700"
+              className="flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-medium text-[var(--brand-primary-text,#fff)] transition-opacity hover:opacity-90"
+              style={{ backgroundColor: brandPrimary }}
             >
               <Plus className="h-3 w-3" />
               Add Weight
@@ -547,7 +551,7 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
 
         {/* Add Weight Form */}
         {showWeightForm && (
-          <div className="mb-6 rounded-lg border border-green-300 bg-white p-4">
+          <div className="mb-6 rounded-lg border bg-white p-4" style={{ borderColor: `${brandPrimary}50` }}>
             <div className="mb-3 flex items-center justify-between">
               <h3 className="flex items-center gap-2 font-medium text-gray-900">
                 <Scale className="h-4 w-4" />
@@ -569,7 +573,8 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
                   value={newWeight}
                   onChange={(e) => setNewWeight(e.target.value)}
                   placeholder="e.g., 185.5"
-                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-green-500 focus:outline-none focus:ring-1 focus:ring-green-500"
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-1"
+                  style={{ '--tw-ring-color': brandPrimary } as React.CSSProperties}
                 />
               </div>
               <div>
@@ -578,7 +583,8 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
                   type="date"
                   value={weightDate}
                   onChange={(e) => setWeightDate(e.target.value)}
-                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-green-500 focus:outline-none focus:ring-1 focus:ring-green-500"
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-1"
+                  style={{ '--tw-ring-color': brandPrimary } as React.CSSProperties}
                 />
               </div>
               <div>
@@ -590,7 +596,8 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
                   value={weightNotes}
                   onChange={(e) => setWeightNotes(e.target.value)}
                   placeholder="e.g., Weekly check-in"
-                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-green-500 focus:outline-none focus:ring-1 focus:ring-green-500"
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-1"
+                  style={{ '--tw-ring-color': brandPrimary } as React.CSSProperties}
                 />
               </div>
             </div>
@@ -604,7 +611,8 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
               <button
                 onClick={handleAddWeight}
                 disabled={!newWeight || savingWeight}
-                className="flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
+                className="flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-[var(--brand-primary-text,#fff)] transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                style={{ backgroundColor: brandPrimary }}
               >
                 {savingWeight ? (
                   <>
@@ -627,8 +635,8 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
 
         {/* Chart */}
         <div
-          className="relative h-64 overflow-hidden rounded-lg border p-4 shadow-sm"
-          style={{ backgroundColor: '#faffac', borderColor: '#a8ac40' }}
+          className="relative h-64 overflow-hidden rounded-lg border p-4 shadow-sm bg-white"
+          style={{ borderColor: `${brandPrimary}30` }}
         >
           {weightData.length > 0 ? (
             <div className="h-full w-full [&_canvas]:!bg-transparent">
@@ -638,14 +646,14 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
                   datasets: [
                     {
                       data: weightData.map((d) => d.weight),
-                      borderColor: '#16a34a',
-                      pointBackgroundColor: '#16a34a',
+                      borderColor: brandPrimary,
+                      pointBackgroundColor: brandPrimary,
                       pointBorderColor: '#fff',
                       pointBorderWidth: 2,
                       pointRadius: 6,
                       fill: true,
                       tension: 0.4,
-                      backgroundColor: 'rgba(22, 163, 74, 0.15)',
+                      backgroundColor: `${brandPrimary}20`,
                     },
                   ],
                 }}
@@ -692,11 +700,12 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
                 <div
                   key={entry.id || idx}
                   className="flex items-center justify-between rounded-lg px-4 py-3"
-                  style={{ backgroundColor: '#faffac' }}
+                  style={{ backgroundColor: `${brandPrimary}08` }}
                 >
                   <div className="flex items-center gap-3">
                     <div
-                      className={`h-2 w-2 rounded-full ${idx === 0 ? 'bg-green-500' : 'bg-gray-300'}`}
+                      className="h-2 w-2 rounded-full"
+                      style={{ backgroundColor: idx === 0 ? brandPrimary : '#d1d5db' }}
                     />
                     <div>
                       <span className="text-sm font-medium">
@@ -724,7 +733,7 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
                 </div>
               ))
             ) : (
-              <div className="rounded-lg py-4 text-center" style={{ backgroundColor: '#faffac' }}>
+              <div className="rounded-lg py-4 text-center" style={{ backgroundColor: `${brandPrimary}08` }}>
                 <p className="text-sm text-gray-600">No weight data logged yet</p>
                 <p className="mt-1 text-xs text-gray-500">
                   Click &quot;Add Weight&quot; above or patient can log from their dashboard
