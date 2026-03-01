@@ -14,6 +14,7 @@ import {
   ClipboardCheck,
   Eye,
   Filter,
+  ShieldAlert,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api/fetch';
 
@@ -31,6 +32,18 @@ interface RxQueueItem {
   createdAt: string;
   updatedAt?: string;
   metadata?: Record<string, unknown>;
+  recentPrescription?: {
+    hasDuplicate: boolean;
+    orders: Array<{
+      orderId: number;
+      createdAt: string;
+      status: string | null;
+      primaryMedName: string | null;
+      primaryMedStrength: string | null;
+      providerName?: string;
+    }>;
+    windowDays: number;
+  } | null;
 }
 
 interface QueueCounts {
@@ -372,10 +385,27 @@ export default function AdminRxQueuePage() {
                           <User className="h-4 w-4 text-gray-500" />
                         </div>
                         <div className="ml-3">
-                          <div className="text-sm font-medium text-gray-900">
-                            {item.patientName}
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-sm font-medium text-gray-900">
+                              {item.patientName}
+                            </span>
+                            {item.recentPrescription?.hasDuplicate && (
+                              <span
+                                className="inline-flex items-center gap-0.5 rounded-full border border-red-300 bg-red-100 px-1.5 py-0.5 text-[9px] font-bold text-red-700"
+                                title={`${item.recentPrescription.orders.length} prescription(s) in the last ${item.recentPrescription.windowDays} days`}
+                              >
+                                <ShieldAlert className="h-2.5 w-2.5" />
+                                Recent Rx
+                              </span>
+                            )}
                           </div>
                           <div className="text-xs text-gray-500">ID: {item.patientId}</div>
+                          {item.recentPrescription?.hasDuplicate && (
+                            <div className="mt-0.5 text-[10px] text-red-600">
+                              {item.recentPrescription.orders[0]?.primaryMedName || 'Rx'} on{' '}
+                              {new Date(item.recentPrescription.orders[0]?.createdAt).toLocaleDateString()}
+                            </div>
+                          )}
                         </div>
                       </div>
                     </td>

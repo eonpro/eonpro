@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import PrescriptionModal from './PrescriptionModal';
@@ -79,10 +79,36 @@ export default function PatientPrescriptionsTab({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [isManageModalOpen, setIsManageModalOpen] = useState(false);
+  const [showDuplicateConfirm, setShowDuplicateConfirm] = useState(false);
   const router = useRouter();
 
+  const DUPLICATE_WINDOW_DAYS = 3;
+
+  const recentOrders = useMemo(() => {
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - DUPLICATE_WINDOW_DAYS);
+    return orders.filter((order) => {
+      const created = new Date(order.createdAt);
+      const isCancelled = !!order.cancelledAt;
+      const isErrorOrDeclined = order.status === 'error' || order.status === 'cancelled' || order.status === 'declined';
+      return created >= cutoff && !isCancelled && !isErrorOrDeclined;
+    });
+  }, [orders]);
+
+  const handleNewPrescriptionClick = () => {
+    if (recentOrders.length > 0) {
+      setShowDuplicateConfirm(true);
+    } else {
+      setIsModalOpen(true);
+    }
+  };
+
+  const handleConfirmDuplicate = () => {
+    setShowDuplicateConfirm(false);
+    setIsModalOpen(true);
+  };
+
   const handlePrescriptionSuccess = () => {
-    // Refresh the page to show the new prescription
     router.refresh();
   };
 
@@ -97,6 +123,52 @@ export default function PatientPrescriptionsTab({
 
   return (
     <div className="space-y-6">
+      {/* Duplicate Prescription Warning Banner */}
+      {recentOrders.length > 0 && (
+        <div className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4 shadow-sm">
+          <svg
+            className="mt-0.5 h-5 w-5 flex-shrink-0 text-red-600"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z"
+            />
+          </svg>
+          <div>
+            <h3 className="text-sm font-semibold text-red-800">
+              Recent Prescription Detected
+            </h3>
+            <p className="mt-0.5 text-sm text-red-700">
+              This patient has {recentOrders.length} prescription{recentOrders.length > 1 ? 's' : ''} in the last {DUPLICATE_WINDOW_DAYS} days. Please verify before creating a new one.
+            </p>
+            <ul className="mt-2 space-y-1">
+              {recentOrders.slice(0, 3).map((order) => (
+                <li key={order.id} className="flex items-center gap-2 text-xs text-red-800">
+                  <span className="h-1.5 w-1.5 flex-shrink-0 rounded-full bg-red-400" />
+                  <span className="font-medium">
+                    {order.rxs.map((rx) => rx.medName || rx.medicationKey).join(', ') || 'Unknown'}
+                  </span>
+                  <span className="text-red-600">
+                    — {new Date(order.createdAt).toLocaleDateString()}{' '}
+                    {order.provider && `by ${order.provider.firstName} ${order.provider.lastName}`}
+                  </span>
+                  {order.status && (
+                    <span className="rounded bg-red-100 px-1 py-0.5 text-[9px] font-medium uppercase text-red-700">
+                      {order.status}
+                    </span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
+
       {/* Prescription History */}
       <section className="rounded-xl border bg-white p-6 shadow">
         <div className="mb-4 flex items-center justify-between">
@@ -109,7 +181,7 @@ export default function PatientPrescriptionsTab({
             <p className="mb-4 text-gray-500">No prescriptions yet.</p>
             <div className="flex items-center justify-center gap-3">
               <button
-                onClick={() => setIsModalOpen(true)}
+                onClick={handleNewPrescriptionClick}
                 className="inline-flex items-center rounded-lg bg-[#4fa77e] px-4 py-2 text-white transition-colors hover:bg-[#3f8660]"
               >
                 <svg className="mr-2 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -317,7 +389,7 @@ export default function PatientPrescriptionsTab({
             </p>
             <div className="flex items-center justify-center gap-3">
               <button
-                onClick={() => setIsModalOpen(true)}
+                onClick={handleNewPrescriptionClick}
                 className="inline-flex items-center rounded-lg bg-[#4fa77e] px-6 py-3 font-medium text-white transition-colors hover:bg-[#3f8660]"
               >
                 <svg className="mr-2 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -365,6 +437,75 @@ export default function PatientPrescriptionsTab({
           }}
           onSuccess={handleManageSuccess}
         />
+      )}
+
+      {/* Duplicate Prescription Confirmation Dialog */}
+      {showDuplicateConfirm && (
+        <>
+          <div
+            className="fixed inset-0 z-40 bg-black bg-opacity-50"
+            onClick={() => setShowDuplicateConfirm(false)}
+          />
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="w-full max-w-md rounded-xl bg-white shadow-xl">
+              <div className="p-6">
+                <div className="mb-4 flex items-center gap-3">
+                  <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-red-100">
+                    <svg
+                      className="h-5 w-5 text-red-600"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z"
+                      />
+                    </svg>
+                  </div>
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    Duplicate Prescription Warning
+                  </h3>
+                </div>
+                <p className="mb-3 text-sm text-gray-700">
+                  This patient already has {recentOrders.length} prescription{recentOrders.length > 1 ? 's' : ''} in the last {DUPLICATE_WINDOW_DAYS} days:
+                </p>
+                <ul className="mb-4 space-y-2 rounded-lg border border-red-100 bg-red-50 p-3">
+                  {recentOrders.slice(0, 3).map((order) => (
+                    <li key={order.id} className="flex items-center gap-2 text-sm text-red-800">
+                      <span className="h-1.5 w-1.5 flex-shrink-0 rounded-full bg-red-400" />
+                      <span className="font-medium">
+                        {order.rxs.map((rx) => rx.medName || rx.medicationKey).join(', ') || 'Unknown'}
+                      </span>
+                      <span className="text-red-600">
+                        — {new Date(order.createdAt).toLocaleDateString()}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+                <p className="mb-4 text-sm font-medium text-red-700">
+                  Are you sure you want to create another prescription?
+                </p>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setShowDuplicateConfirm(false)}
+                    className="flex-1 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleConfirmDuplicate}
+                    className="flex-1 rounded-lg bg-red-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-red-700"
+                  >
+                    Continue Anyway
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
       )}
     </div>
   );

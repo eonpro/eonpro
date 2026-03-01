@@ -9,6 +9,14 @@
 
 export { prescriptionService, createPrescriptionService, PrescriptionError } from './services/prescription.service';
 export type { PrescriptionService } from './services/prescription.service';
+export {
+  checkRecentPrescriptions,
+  batchCheckRecentPrescriptions,
+} from './services/duplicate-rx-check';
+export type {
+  RecentPrescription,
+  DuplicateRxCheckResult,
+} from './services/duplicate-rx-check';
 export type {
   CreatePrescriptionInput,
   PrescriptionResult,

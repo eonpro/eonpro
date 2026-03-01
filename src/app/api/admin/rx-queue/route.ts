@@ -16,6 +16,7 @@ import { withAdminAuth, AuthUser } from '@/lib/auth/middleware';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { handleApiError } from '@/domains/shared/errors';
+import { batchCheckRecentPrescriptions } from '@/domains/prescription';
 import { decryptPHI } from '@/lib/security/phi-encryption';
 import { normalizeSearch, nameMatchesSearch } from '@/lib/utils/search';
 
@@ -268,12 +269,36 @@ async function handleGet(req: NextRequest, user: AuthUser) {
     // Sort all items by createdAt (oldest first - FIFO)
     queueItems.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 
+    // Duplicate prescription safeguard: batch-check all queue patients for recent Rx (last 3 days)
+    const queuePatientIds = [...new Set(queueItems.map((item) => item.patientId))];
+    const duplicateRxMap = await batchCheckRecentPrescriptions(queuePatientIds);
+    const enrichedItems = queueItems.map((item) => {
+      const dupCheck = duplicateRxMap.get(item.patientId);
+      return {
+        ...item,
+        recentPrescription: dupCheck?.hasDuplicate
+          ? {
+              hasDuplicate: true,
+              orders: dupCheck.recentOrders.map((o) => ({
+                orderId: o.orderId,
+                createdAt: o.createdAt,
+                status: o.status,
+                primaryMedName: o.primaryMedName,
+                primaryMedStrength: o.primaryMedStrength,
+                providerName: o.providerName,
+              })),
+              windowDays: dupCheck.windowDays,
+            }
+          : null,
+      };
+    });
+
     // Calculate counts by type
     const counts = {
-      total: queueItems.length,
-      invoices: queueItems.filter((i) => i.type === 'invoice').length,
-      soap_notes: queueItems.filter((i) => i.type === 'soap_note').length,
-      refills: queueItems.filter((i) => i.type === 'refill').length,
+      total: enrichedItems.length,
+      invoices: enrichedItems.filter((i) => i.type === 'invoice').length,
+      soap_notes: enrichedItems.filter((i) => i.type === 'soap_note').length,
+      refills: enrichedItems.filter((i) => i.type === 'refill').length,
     };
 
     logger.info('[ADMIN-RX-QUEUE] List RX queue', {
@@ -282,10 +307,11 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       filter,
       counts,
       search: search || undefined,
+      patientsWithRecentRx: [...duplicateRxMap.values()].filter((r) => r.hasDuplicate).length,
     });
 
     return NextResponse.json({
-      items: queueItems,
+      items: enrichedItems,
       counts,
       meta: {
         filter,

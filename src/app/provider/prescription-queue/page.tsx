@@ -217,6 +217,19 @@ interface QueueItem {
   // Hold status (provider needs more information)
   holdReason?: string | null;
   heldAt?: string | null;
+  // Duplicate prescription safeguard
+  recentPrescription?: {
+    hasDuplicate: boolean;
+    orders: Array<{
+      orderId: number;
+      createdAt: string;
+      status: string | null;
+      primaryMedName: string | null;
+      primaryMedStrength: string | null;
+      providerName?: string;
+    }>;
+    windowDays: number;
+  } | null;
 }
 
 interface PatientDetails {
@@ -1633,6 +1646,15 @@ export default function PrescriptionQueuePage() {
                                 Admin Queued
                               </span>
                             )}
+                            {item.recentPrescription?.hasDuplicate && (
+                              <span
+                                className="inline-flex items-center gap-0.5 rounded-full border border-red-300 bg-red-100 px-1.5 py-0.5 text-[9px] font-bold text-red-700"
+                                title={`${item.recentPrescription.orders.length} prescription(s) in the last ${item.recentPrescription.windowDays} days`}
+                              >
+                                <ShieldAlert className="h-2.5 w-2.5" />
+                                Recent Rx
+                              </span>
+                            )}
                             <span
                               className="hidden items-center rounded bg-slate-100 px-1.5 py-0.5 text-[9px] font-medium text-slate-600 xl:inline-flex"
                               title="Clinic"
@@ -1957,6 +1979,40 @@ export default function PrescriptionQueuePage() {
                             {new Date(item.heldAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           </p>
                         )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Duplicate Prescription Warning Banner */}
+                  {item.recentPrescription?.hasDuplicate && (
+                    <div className="flex items-start gap-2 border-t border-red-200 bg-red-50 px-4 py-3">
+                      <ShieldAlert className="mt-0.5 h-4 w-4 flex-shrink-0 text-red-600" />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-red-700">
+                          Duplicate Prescription Warning
+                        </p>
+                        <p className="mt-0.5 text-sm text-red-900">
+                          This patient has {item.recentPrescription.orders.length} prescription{item.recentPrescription.orders.length > 1 ? 's' : ''} in the last {item.recentPrescription.windowDays} days:
+                        </p>
+                        <ul className="mt-1 space-y-0.5">
+                          {item.recentPrescription.orders.slice(0, 3).map((order) => (
+                            <li key={order.orderId} className="text-xs text-red-800">
+                              <span className="font-medium">{order.primaryMedName || 'Unknown'}</span>
+                              {order.primaryMedStrength && ` ${order.primaryMedStrength}`}
+                              {' — '}
+                              {new Date(order.createdAt).toLocaleDateString()}{' '}
+                              {order.providerName && <span className="text-red-600">by {order.providerName}</span>}
+                              {order.status && (
+                                <span className="ml-1 rounded bg-red-100 px-1 py-0.5 text-[9px] font-medium uppercase text-red-700">
+                                  {order.status}
+                                </span>
+                              )}
+                            </li>
+                          ))}
+                        </ul>
+                        <p className="mt-1.5 text-[10px] font-medium text-red-600">
+                          Please verify this is not a duplicate before prescribing.
+                        </p>
                       </div>
                     </div>
                   )}

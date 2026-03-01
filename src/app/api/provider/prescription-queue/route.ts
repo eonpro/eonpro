@@ -19,6 +19,7 @@ import { logger } from '@/lib/logger';
 import { decryptPHI } from '@/lib/security/phi-encryption';
 import { formatPatientDisplayId } from '@/lib/utils/formatPatientDisplayId';
 import { handleApiError } from '@/domains/shared/errors';
+import { batchCheckRecentPrescriptions } from '@/domains/prescription';
 // Circuit breaker removed from this endpoint — it must stay consistent with the /count
 // endpoint (which uses raw Prisma). The circuit breaker was causing the data query to fail
 // while the count succeeded, resulting in a misleading "All caught up!" empty state.
@@ -1417,16 +1418,41 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       return dateA - dateB;
     });
 
+    // Duplicate prescription safeguard: batch-check all queue patients for recent Rx (last 3 days)
+    const queuePatientIds = [...new Set(queueItems.map((item) => item.patientId))];
+    const duplicateRxMap = await batchCheckRecentPrescriptions(queuePatientIds);
+    const enrichedItems = queueItems.map((item) => {
+      const dupCheck = duplicateRxMap.get(item.patientId);
+      return {
+        ...item,
+        recentPrescription: dupCheck?.hasDuplicate
+          ? {
+              hasDuplicate: true,
+              orders: dupCheck.recentOrders.map((o) => ({
+                orderId: o.orderId,
+                createdAt: o.createdAt,
+                status: o.status,
+                primaryMedName: o.primaryMedName,
+                primaryMedStrength: o.primaryMedStrength,
+                providerName: o.providerName,
+              })),
+              windowDays: dupCheck.windowDays,
+            }
+          : null,
+      };
+    });
+
     logger.info('[PRESCRIPTION-QUEUE] Queue loaded successfully', {
       userId: user.id,
       invoiceCount,
       refillCount,
       queuedOrderCount,
-      totalItems: queueItems.length,
+      totalItems: enrichedItems.length,
+      patientsWithRecentRx: [...duplicateRxMap.values()].filter((r) => r.hasDuplicate).length,
     });
 
     return NextResponse.json({
-      items: queueItems,
+      items: enrichedItems,
       total: totalCount,
       invoiceCount,
       refillCount,
