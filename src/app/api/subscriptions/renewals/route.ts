@@ -162,7 +162,7 @@ async function handler(req: NextRequest, user: AuthUser) {
               },
             },
             actions: {
-              where: { actionType: { in: ['CANCEL', 'PAUSE'] } },
+              where: { actionType: { in: ['CANCELLED', 'PAUSED'] } },
               orderBy: { createdAt: 'desc' },
               take: 1,
               select: {
@@ -226,9 +226,9 @@ async function handler(req: NextRequest, user: AuthUser) {
             overdueReason = `Card expired (${String(pm.expiryMonth).padStart(2, '0')}/${pm.expiryYear})`;
           } else if (!pm || !pm.isActive) {
             overdueReason = 'No active payment method';
-          } else if (lastAction?.actionType === 'CANCEL') {
+          } else if (lastAction?.actionType === 'CANCELLED') {
             overdueReason = lastAction.cancellationReason || lastAction.reason || 'Subscription cancelled';
-          } else if (lastAction?.actionType === 'PAUSE') {
+          } else if (lastAction?.actionType === 'PAUSED') {
             overdueReason = lastAction.reason || 'Subscription paused';
           } else if (!lastPayment) {
             overdueReason = 'Payment not attempted';
