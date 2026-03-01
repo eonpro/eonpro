@@ -124,6 +124,7 @@ async function handler(req: NextRequest, user: AuthUser, context: RouteContext) 
             trackingNumber: trackingNumber!,
             trackingUrl: trackingUrl || null,
             shippingStatus: 'shipped',
+            status: 'COMPLETED',
           },
         });
 
