@@ -218,7 +218,7 @@ function getSubscriptionStatusBadge(status: string) {
 
 export default function SubscriptionRenewalsView({
   userRole,
-  patientLinkPrefix = '/admin/patients',
+  patientLinkPrefix = '/patients',
 }: SubscriptionRenewalsViewProps) {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<RenewalsResponse | null>(null);
