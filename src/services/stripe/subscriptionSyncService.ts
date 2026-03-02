@@ -78,6 +78,69 @@ async function findPatientByStripeCustomerId(
  * (e.g. "Tirzepatide Injection - 3 Month Supply"). vialCount/refillIntervalDays are derived for refill queue.
  */
 /**
+ * Compute the next billing date from Stripe's billing_cycle_anchor.
+ * Stripe billing is deterministic: charges recur at anchor + n*interval.
+ * We find the smallest future date in that series.
+ */
+function computeNextBillingFromAnchor(
+  anchorUnix: number,
+  interval: string,
+  intervalCount: number,
+): Date {
+  const now = new Date();
+  const anchor = new Date(anchorUnix * 1000);
+
+  if (interval === 'month' || interval === 'year') {
+    const totalMonths = interval === 'year' ? intervalCount * 12 : intervalCount;
+    const candidate = new Date(anchor);
+    const monthsElapsed =
+      (now.getFullYear() - anchor.getFullYear()) * 12 + (now.getMonth() - anchor.getMonth());
+    const periodsElapsed = Math.max(0, Math.floor(monthsElapsed / totalMonths));
+    candidate.setMonth(anchor.getMonth() + totalMonths * periodsElapsed);
+    if (candidate <= now) {
+      candidate.setMonth(candidate.getMonth() + totalMonths);
+    }
+    if (candidate <= now) {
+      candidate.setMonth(candidate.getMonth() + totalMonths);
+    }
+    return candidate;
+  }
+
+  const intervalMs =
+    interval === 'week'
+      ? intervalCount * 7 * 86400000
+      : intervalCount * 86400000;
+  const elapsed = now.getTime() - anchor.getTime();
+  const periodsElapsed = Math.max(0, Math.floor(elapsed / intervalMs));
+  let candidate = new Date(anchor.getTime() + intervalMs * (periodsElapsed + 1));
+  if (candidate <= now) candidate = new Date(candidate.getTime() + intervalMs);
+  return candidate;
+}
+
+/**
+ * Extract `currentPeriodEnd` from a Stripe subscription using multiple sources.
+ * Returns the Unix timestamp (seconds) or 0 if unavailable.
+ */
+function extractPeriodEndTimestamp(sub: Stripe.Subscription): number {
+  const topLevel = (sub as any).current_period_end;
+  if (typeof topLevel === 'number' && topLevel > 0) return topLevel;
+
+  const item0 = sub.items?.data?.[0] as any;
+  const itemLevel = item0?.current_period_end;
+  if (typeof itemLevel === 'number' && itemLevel > 0) return itemLevel;
+
+  const latestInvoice = (sub as any).latest_invoice;
+  if (typeof latestInvoice === 'object' && latestInvoice) {
+    const lineItem = latestInvoice.lines?.data?.[0];
+    if (typeof lineItem?.period?.end === 'number' && lineItem.period.end > 0) {
+      return lineItem.period.end;
+    }
+  }
+
+  return 0;
+}
+
+/**
  * Normalize Stripe's raw interval/intervalCount to month-based equivalents.
  * Stripe allows day/week/month/year intervals. We normalize to month so that
  * downstream classification (monthly/quarterly/semiannual/annual) works correctly.
@@ -242,23 +305,30 @@ export async function syncSubscriptionFromStripe(
     item0?.current_period_start ??
     stripeSubscription.billing_cycle_anchor ??
     stripeSubscription.created;
-  const rawPeriodEnd =
-    (stripeSubscription as any).current_period_end ??
-    item0?.current_period_end ??
-    0;
+  const rawPeriodEnd = extractPeriodEndTimestamp(stripeSubscription);
 
   const currentPeriodStart = rawPeriodStart ? new Date(rawPeriodStart * 1000) : new Date();
   let currentPeriodEnd = rawPeriodEnd ? new Date(rawPeriodEnd * 1000) : null;
 
-  // Fallback: compute currentPeriodEnd from start + interval when Stripe doesn't provide it
-  if (!currentPeriodEnd && currentPeriodStart) {
-    const fallback = new Date(currentPeriodStart);
-    const intervalMonths =
-      details.interval === 'year'
-        ? 12 * details.intervalCount
-        : details.intervalCount;
-    fallback.setMonth(fallback.getMonth() + intervalMonths);
-    currentPeriodEnd = fallback;
+  // Fallback: compute currentPeriodEnd from billing_cycle_anchor aligned to current cycle
+  if (!currentPeriodEnd) {
+    const anchor =
+      stripeSubscription.billing_cycle_anchor ?? stripeSubscription.created;
+    if (anchor && typeof anchor === 'number') {
+      currentPeriodEnd = computeNextBillingFromAnchor(
+        anchor,
+        details.interval,
+        details.intervalCount,
+      );
+    } else {
+      const fallback = new Date(currentPeriodStart);
+      const intervalMonths =
+        details.interval === 'year'
+          ? 12 * details.intervalCount
+          : details.intervalCount;
+      fallback.setMonth(fallback.getMonth() + intervalMonths);
+      currentPeriodEnd = fallback;
+    }
   }
 
   const startDate = new Date((stripeSubscription.start_date ?? stripeSubscription.created) * 1000);
@@ -379,23 +449,30 @@ export async function syncSubscriptionFromStripeByEmail(
     emailItem0?.current_period_start ??
     stripeSubscription.billing_cycle_anchor ??
     stripeSubscription.created;
-  const rawPeriodEndE =
-    (stripeSubscription as any).current_period_end ??
-    emailItem0?.current_period_end ??
-    0;
+  const rawPeriodEndE = extractPeriodEndTimestamp(stripeSubscription);
 
   const currentPeriodStart = rawPeriodStartE ? new Date(rawPeriodStartE * 1000) : new Date();
   let currentPeriodEnd = rawPeriodEndE ? new Date(rawPeriodEndE * 1000) : null;
 
-  // Fallback: compute currentPeriodEnd from start + interval when Stripe doesn't provide it
-  if (!currentPeriodEnd && currentPeriodStart) {
-    const fallback = new Date(currentPeriodStart);
-    const intervalMonths =
-      details.interval === 'year'
-        ? 12 * details.intervalCount
-        : details.intervalCount;
-    fallback.setMonth(fallback.getMonth() + intervalMonths);
-    currentPeriodEnd = fallback;
+  // Fallback: compute currentPeriodEnd from billing_cycle_anchor aligned to current cycle
+  if (!currentPeriodEnd) {
+    const anchor =
+      stripeSubscription.billing_cycle_anchor ?? stripeSubscription.created;
+    if (anchor && typeof anchor === 'number') {
+      currentPeriodEnd = computeNextBillingFromAnchor(
+        anchor,
+        details.interval,
+        details.intervalCount,
+      );
+    } else {
+      const fallback = new Date(currentPeriodStart);
+      const intervalMonths =
+        details.interval === 'year'
+          ? 12 * details.intervalCount
+          : details.intervalCount;
+      fallback.setMonth(fallback.getMonth() + intervalMonths);
+      currentPeriodEnd = fallback;
+    }
   }
 
   const startDate = new Date((stripeSubscription.start_date ?? stripeSubscription.created) * 1000);

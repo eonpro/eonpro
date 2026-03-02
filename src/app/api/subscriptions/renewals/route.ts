@@ -150,7 +150,9 @@ async function handler(req: NextRequest, user: AuthUser) {
       const orderBy: any =
         params.sortBy === 'patientName'
           ? { patient: { lastName: params.sortOrder } }
-          : { [params.sortBy]: params.sortOrder };
+          : params.sortBy === 'nextBillingDate'
+            ? { nextBillingDate: { sort: params.sortOrder, nulls: 'last' } }
+            : { [params.sortBy]: params.sortOrder };
 
       const [subscriptions, total] = await Promise.all([
         prisma.subscription.findMany({
@@ -234,6 +236,27 @@ async function handler(req: NextRequest, user: AuthUser) {
         const lastAction = (sub as any).actions?.[0] || null;
 
         const now = new Date();
+
+        // Compute nextBillingDate on-the-fly when DB value is null but subscription is active
+        let effectiveNextBillingDate: Date | null = sub.nextBillingDate;
+        if (!effectiveNextBillingDate && (sub.status === 'ACTIVE' || sub.status === 'PAST_DUE')) {
+          if (sub.currentPeriodEnd && new Date(sub.currentPeriodEnd).getTime() > 946684800000) {
+            effectiveNextBillingDate = new Date(sub.currentPeriodEnd);
+          } else if (sub.startDate) {
+            const anchor = new Date(sub.startDate);
+            const totalMonths =
+              sub.interval === 'year' ? sub.intervalCount * 12 : sub.intervalCount;
+            const monthsElapsed =
+              (now.getFullYear() - anchor.getFullYear()) * 12 + (now.getMonth() - anchor.getMonth());
+            const periodsElapsed = Math.max(0, Math.floor(monthsElapsed / totalMonths));
+            const candidate = new Date(anchor);
+            candidate.setMonth(anchor.getMonth() + totalMonths * periodsElapsed);
+            if (candidate <= now) candidate.setMonth(candidate.getMonth() + totalMonths);
+            if (candidate <= now) candidate.setMonth(candidate.getMonth() + totalMonths);
+            effectiveNextBillingDate = candidate;
+          }
+        }
+
         const isCardExpired =
           pm?.expiryYear != null &&
           pm?.expiryMonth != null &&
@@ -242,7 +265,7 @@ async function handler(req: NextRequest, user: AuthUser) {
 
         let overdueReason: string | null = null;
         const isOverdue =
-          sub.nextBillingDate && new Date(sub.nextBillingDate) < now;
+          effectiveNextBillingDate && new Date(effectiveNextBillingDate) < now;
 
         if (isOverdue || sub.status === 'PAST_DUE' || sub.failedAttempts > 0) {
           if (lastFailedPayment?.failureReason) {
@@ -282,7 +305,7 @@ async function handler(req: NextRequest, user: AuthUser) {
           startDate: sub.startDate,
           currentPeriodStart: sub.currentPeriodStart,
           currentPeriodEnd: sub.currentPeriodEnd,
-          nextBillingDate: sub.nextBillingDate,
+          nextBillingDate: effectiveNextBillingDate ?? sub.nextBillingDate,
           failedAttempts: sub.failedAttempts,
           stripeSubscriptionId: sub.stripeSubscriptionId,
           overdueReason,
@@ -337,10 +360,21 @@ async function handler(req: NextRequest, user: AuthUser) {
             where: {
               clinicId,
               status: 'ACTIVE',
-              nextBillingDate: {
-                gte: new Date(),
-                lte: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-              },
+              OR: [
+                {
+                  nextBillingDate: {
+                    gte: new Date(),
+                    lte: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+                  },
+                },
+                {
+                  nextBillingDate: null,
+                  currentPeriodEnd: {
+                    gte: new Date(),
+                    lte: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+                  },
+                },
+              ],
             },
           }),
         ]);
