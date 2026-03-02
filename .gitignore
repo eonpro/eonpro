@@ -85,5 +85,9 @@ Thumbs.db
 .env.rds
 .env.migrate.rds
 test-results/
+audit-logs/
 .env.backup
 .env.local.backup
+.env.bak
+*.env.bak
+*.bak

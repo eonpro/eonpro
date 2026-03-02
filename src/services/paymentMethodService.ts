@@ -32,82 +32,19 @@ export interface SavedCard {
 
 export class PaymentMethodService {
   /**
-   * Add a new payment method for a patient
+   * @deprecated Raw card storage is a PCI DSS violation. Use Stripe Elements +
+   * SetupIntent flow instead (POST /api/payment-methods/setup-intent →
+   * POST /api/payment-methods/save-stripe). This method is kept only to avoid
+   * breaking existing callers during migration and will throw at runtime.
    */
   static async addPaymentMethod(
-    patientId: number,
-    cardDetails: CardDetails,
-    setAsDefault: boolean = false
+    _patientId: number,
+    _cardDetails: CardDetails,
+    _setAsDefault: boolean = false
   ): Promise<PaymentMethod> {
-    // Validate card number
-    if (!validateCardNumber(cardDetails.cardNumber)) {
-      throw new Error('Invalid card number');
-    }
-
-    // Validate expiry
-    const now = new Date();
-    const expiryDate = new Date(cardDetails.expiryYear, cardDetails.expiryMonth - 1);
-    if (expiryDate < now) {
-      throw new Error('Card has expired');
-    }
-
-    // Generate fingerprint to check for duplicates
-    const fingerprint = generateCardFingerprint(cardDetails.cardNumber);
-
-    // Check if card already exists for this patient
-    const existingCard: any = await prisma.paymentMethod.findFirst({
-      where: {
-        patientId,
-        fingerprint,
-        isActive: true,
-      },
-    });
-
-    if (existingCard) {
-      throw new Error('This card is already saved');
-    }
-
-    // If setting as default, unset other defaults
-    if (setAsDefault) {
-      await prisma.paymentMethod.updateMany({
-        where: {
-          patientId,
-          isDefault: true,
-        },
-        data: {
-          isDefault: false,
-        },
-      });
-    }
-
-    // Encrypt sensitive data
-    const encryptedCardNumber = encrypt(cardDetails.cardNumber);
-    const encryptedCvv = cardDetails.cvv ? encrypt(cardDetails.cvv) : undefined;
-
-    // Create payment method
-    const paymentMethod = await prisma.paymentMethod.create({
-      data: {
-        patientId,
-        encryptedCardNumber,
-        cardLast4: getLast4(cardDetails.cardNumber),
-        cardBrand: detectCardBrand(cardDetails.cardNumber),
-        expiryMonth: cardDetails.expiryMonth,
-        expiryYear: cardDetails.expiryYear,
-        cardholderName: cardDetails.cardholderName,
-        encryptedCvv,
-        billingZip: cardDetails.billingZip,
-        isDefault: setAsDefault,
-        encryptionKeyId: 'v1', // Version of encryption key
-        fingerprint,
-      },
-    });
-
-    // Clear CVV from memory
-    if (cardDetails.cvv) {
-      cardDetails.cvv = '';
-    }
-
-    return paymentMethod;
+    throw new Error(
+      'Raw card storage is disabled (PCI DSS). Use the Stripe Elements SetupIntent flow.'
+    );
   }
 
   /**
@@ -135,43 +72,16 @@ export class PaymentMethodService {
   }
 
   /**
-   * Get decrypted card details (use with extreme caution)
+   * @deprecated Decrypting stored card data is a PCI DSS violation. Card data
+   * should only be handled by Stripe. This method has been removed.
    */
   static async getDecryptedCard(
-    paymentMethodId: number,
-    patientId: number
+    _paymentMethodId: number,
+    _patientId: number
   ): Promise<CardDetails | null> {
-    const method: any = await prisma.paymentMethod.findFirst({
-      where: {
-        id: paymentMethodId,
-        patientId,
-        isActive: true,
-      },
-    });
-
-    if (!method) {
-      return null;
-    }
-
-    try {
-      const cardNumber = decrypt(method.encryptedCardNumber);
-      const cvv = method.encryptedCvv ? decrypt(method.encryptedCvv) : undefined;
-
-      return {
-        cardNumber,
-        expiryMonth: method.expiryMonth,
-        expiryYear: method.expiryYear,
-        cvv,
-        cardholderName: method.cardholderName,
-        billingZip: method.billingZip,
-      };
-    } catch (error: unknown) {
-      logger.error(
-        'Failed to decrypt card:',
-        error instanceof Error ? error : new Error(String(error))
-      );
-      throw new Error('Failed to decrypt payment method');
-    }
+    throw new Error(
+      'Card decryption is disabled (PCI DSS). Use Stripe PaymentMethod tokens instead.'
+    );
   }
 
   /**

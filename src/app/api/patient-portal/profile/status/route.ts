@@ -25,6 +25,8 @@ export const GET = withAuth(async (_req: NextRequest, user: AuthUser) => {
       where: { id: user.patientId },
       select: {
         profileStatus: true,
+        phone: true,
+        dob: true,
         _count: {
           select: {
             intakeSubmissions: { where: { status: 'completed' } },
@@ -40,9 +42,15 @@ export const GET = withAuth(async (_req: NextRequest, user: AuthUser) => {
       );
     }
 
+    const missingFields: string[] = [];
+    if (!patient.phone) missingFields.push('phone');
+    if (!patient.dob) missingFields.push('dateOfBirth');
+
     return NextResponse.json({
       profileStatus: patient.profileStatus,
       hasCompletedIntake: patient._count.intakeSubmissions > 0,
+      needsProfileCompletion: patient.profileStatus === 'PENDING_COMPLETION' || missingFields.length > 0,
+      missingFields,
     });
   } catch (error) {
     logger.error('Failed to fetch patient profile status', {

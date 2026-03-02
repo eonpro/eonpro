@@ -27,6 +27,7 @@ import {
   Activity,
   Camera,
   Watch,
+  AlertCircle,
 } from 'lucide-react';
 import {
   ClinicBrandingProvider,
@@ -99,6 +100,8 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [notifications, setNotifications] = useState(0);
   const [portalMode, setPortalMode] = useState<PortalMode>('patient');
+  const [profileCompletionBanner, setProfileCompletionBanner] = useState<{ show: boolean; missingFields: string[] }>({ show: false, missingFields: [] });
+  const [bannerDismissed, setBannerDismissed] = useState(false);
 
   // Build nav from registry (single source of truth; clinic features + treatment gate visibility)
   const enabledNavIds = getEnabledNavModuleIds(features, branding?.primaryTreatment);
@@ -225,12 +228,21 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
       })
       .then((data) => {
         if (cancelled || !data || typeof data !== 'object') return;
-        const d = data as { profileStatus?: string; hasCompletedIntake?: boolean };
+        const d = data as {
+          profileStatus?: string;
+          hasCompletedIntake?: boolean;
+          needsProfileCompletion?: boolean;
+          missingFields?: string[];
+        };
         const mode = getPortalMode(
           d.profileStatus ?? 'ACTIVE',
           d.hasCompletedIntake ?? true,
         );
         setPortalMode(mode);
+
+        if (d.needsProfileCompletion && d.missingFields && d.missingFields.length > 0) {
+          setProfileCompletionBanner({ show: true, missingFields: d.missingFields });
+        }
       })
       .catch(() => {
         // Default to patient mode on error
@@ -481,6 +493,37 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
         className={`min-w-0 flex-1 overflow-x-hidden transition-all duration-300 lg:ml-20 ${sidebarExpanded ? 'lg:ml-56' : ''}`}
       >
         <div className={`min-h-[100dvh] w-full max-w-[100vw] min-w-0 overflow-x-hidden lg:max-w-none ${isChatPage ? 'pb-0 pt-0 lg:pb-0 lg:pt-0' : 'pb-24 pt-[calc(56px+env(safe-area-inset-top,0px))] lg:pb-0 lg:pt-0'}`}>
+          {profileCompletionBanner.show && !bannerDismissed && !isChatPage && (
+            <div className="mx-4 mt-4 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 lg:mx-6">
+              <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-amber-600" />
+              <div className="flex-1">
+                <p className="text-sm font-medium text-amber-900">
+                  Please complete your profile
+                </p>
+                <p className="mt-0.5 text-sm text-amber-700">
+                  Your {profileCompletionBanner.missingFields.map(f =>
+                    f === 'dateOfBirth' ? 'date of birth' : f
+                  ).join(' and ')} {profileCompletionBanner.missingFields.length === 1 ? 'is' : 'are'} missing.
+                  Update your profile so your care team has your complete information.
+                </p>
+                <Link
+                  href={`${PATIENT_PORTAL_PATH}/settings`}
+                  className="mt-2 inline-flex items-center gap-1 text-sm font-semibold hover:underline"
+                  style={{ color: primaryColor }}
+                >
+                  Go to Settings
+                  <ChevronRight className="h-4 w-4" />
+                </Link>
+              </div>
+              <button
+                type="button"
+                onClick={() => setBannerDismissed(true)}
+                className="flex-shrink-0 text-amber-400 hover:text-amber-600"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+          )}
           {children}
         </div>
       </main>

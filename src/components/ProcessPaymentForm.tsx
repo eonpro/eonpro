@@ -6,13 +6,6 @@ import {
   formatPlanPrice,
   getPlanById,
 } from '@/config/billingPlans';
-import {
-  formatCardNumber,
-  validateCardNumber,
-  validateExpiryDate,
-  validateCVV,
-  getCardBrand,
-} from '@/lib/encryption';
 import { Patient, Provider, Order } from '@/types/models';
 import { apiFetch } from '@/lib/api/fetch';
 import { getCardNetworkLogo } from '@/lib/constants/brand-assets';
@@ -67,15 +60,8 @@ export function ProcessPaymentForm({ patientId, patientName, clinicSubdomain, on
   const [selectedCardId, setSelectedCardId] = useState<string | number | null>(null);
   const [loadingCards, setLoadingCards] = useState(true);
 
-  // Credit card fields
-  const [cardNumber, setCardNumber] = useState('');
-  const [cardholderName, setCardholderName] = useState('');
-  const [expiryMonth, setExpiryMonth] = useState('');
-  const [expiryYear, setExpiryYear] = useState('');
-  const [cvv, setCvv] = useState('');
-  const [billingZip, setBillingZip] = useState('');
+  // Stripe Elements for PCI-compliant card entry (no raw card data touches our server)
   const [saveCard, setSaveCard] = useState(true);
-  const [cardBrand, setCardBrand] = useState('');
 
   // Other states
   const [notes, setNotes] = useState<string>('');
@@ -85,29 +71,18 @@ export function ProcessPaymentForm({ patientId, patientName, clinicSubdomain, on
   const [cardErrors, setCardErrors] = useState<{ [key: string]: string }>({});
   const [formSubmitted, setFormSubmitted] = useState(false);
   const groupedPlans = getGroupedPlans(clinicSubdomain);
+  const [stripeReady, setStripeReady] = useState(false);
 
-  // Stripe.js confirmation flow for local-only cards
-  const [stripeConfirmation, setStripeConfirmation] = useState<{
-    clientSecret: string;
-    paymentIntentId: string;
-    localPaymentMethodId: number;
-    stripePublishableKey?: string;
-    stripeConnectedAccountId?: string | null;
-  } | null>(null);
   const stripeCardRef = useRef<HTMLDivElement>(null);
   const stripeElementRef = useRef<StripeCardElement | null>(null);
   const stripeInstanceRef = useRef<Stripe | null>(null);
 
-  // Mount Stripe CardElement when confirmation is needed
+  // Mount Stripe CardElement for new card entry on component load
   useEffect(() => {
-    if (!stripeConfirmation || !stripeCardRef.current) return;
-
     let mounted = true;
+
     const mountCard = async () => {
-      const stripeP = getStripeInstance(
-        stripeConfirmation.stripePublishableKey,
-        stripeConfirmation.stripeConnectedAccountId,
-      );
+      const stripeP = getStripeInstance();
       if (!stripeP) return;
       const stripeInstance = await stripeP;
       if (!stripeInstance || !mounted) return;
@@ -128,6 +103,7 @@ export function ProcessPaymentForm({ patientId, patientName, clinicSubdomain, on
       if (stripeCardRef.current) {
         card.mount(stripeCardRef.current);
         stripeElementRef.current = card;
+        setStripeReady(true);
       }
     };
     mountCard();
@@ -137,7 +113,7 @@ export function ProcessPaymentForm({ patientId, patientName, clinicSubdomain, on
       stripeElementRef.current?.unmount();
       stripeElementRef.current = null;
     };
-  }, [stripeConfirmation]);
+  }, []);
 
   useEffect(() => {
     const fetchSavedCards = async () => {
@@ -181,67 +157,6 @@ export function ProcessPaymentForm({ patientId, patientName, clinicSubdomain, on
     }
   }, [selectedPlanId]);
 
-  const handleCardNumberChange = (value: string) => {
-    const formatted = formatCardNumber(value);
-    setCardNumber(formatted);
-
-    // Detect card brand
-    const brand = getCardBrand(value);
-    setCardBrand(brand);
-
-    // Validate card number
-    if (value.replace(/\s/g, '').length >= 13) {
-      if (!validateCardNumber(value)) {
-        setCardErrors({ ...cardErrors, cardNumber: 'Invalid card number' });
-      } else {
-        const newErrors = { ...cardErrors };
-        delete newErrors.cardNumber;
-        setCardErrors(newErrors);
-      }
-    }
-  };
-
-  const handleExpiryMonthChange = (value: string) => {
-    setExpiryMonth(value);
-    if (value && expiryYear) {
-      if (!validateExpiryDate(value, expiryYear)) {
-        setCardErrors({ ...cardErrors, expiry: 'Card has expired or invalid date' });
-      } else {
-        const newErrors = { ...cardErrors };
-        delete newErrors.expiry;
-        setCardErrors(newErrors);
-      }
-    }
-  };
-
-  const handleExpiryYearChange = (value: string) => {
-    setExpiryYear(value);
-    if (expiryMonth && value) {
-      if (!validateExpiryDate(expiryMonth, value)) {
-        setCardErrors({ ...cardErrors, expiry: 'Card has expired or invalid date' });
-      } else {
-        const newErrors = { ...cardErrors };
-        delete newErrors.expiry;
-        setCardErrors(newErrors);
-      }
-    }
-  };
-
-  const handleCVVChange = (value: string) => {
-    const cleaned = value.replace(/\D/g, '');
-    setCvv(cleaned);
-
-    if (cleaned.length >= 3) {
-      if (!validateCVV(cleaned, cardBrand)) {
-        setCardErrors({ ...cardErrors, cvv: 'Invalid CVV' });
-      } else {
-        const newErrors = { ...cardErrors };
-        delete newErrors.cvv;
-        setCardErrors(newErrors);
-      }
-    }
-  };
-
   const handleAmountChange = (value: string) => {
     // Allow typing intermediate values like "8." or "8.0" without normalizing to "8.00"
     const sanitized = value.replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1');
@@ -266,32 +181,6 @@ export function ProcessPaymentForm({ patientId, patientName, clinicSubdomain, on
         if (card && isCardExpired(card.expiryMonth, card.expiryYear)) {
           errors.savedCard = 'Selected card is expired. Please choose another or enter a new card.';
         }
-      }
-    } else {
-      if (!cardNumber || cardNumber.trim().length === 0) {
-        errors.cardNumber = 'Card number is required';
-      } else if (!validateCardNumber(cardNumber)) {
-        errors.cardNumber = 'Invalid card number';
-      }
-
-      if (!cardholderName || cardholderName.trim().length === 0) {
-        errors.cardholderName = 'Cardholder name is required';
-      }
-
-      if (!expiryMonth || !expiryYear) {
-        errors.expiry = 'Expiry date is required';
-      } else if (!validateExpiryDate(expiryMonth, expiryYear)) {
-        errors.expiry = 'Card has expired or invalid date';
-      }
-
-      if (!cvv || cvv.trim().length === 0) {
-        errors.cvv = 'CVV is required';
-      } else if (!validateCVV(cvv, cardBrand)) {
-        errors.cvv = 'Invalid CVV';
-      }
-
-      if (!billingZip || billingZip.trim().length === 0) {
-        errors.billingZip = 'Billing ZIP code is required';
       }
     }
 
@@ -337,21 +226,13 @@ export function ProcessPaymentForm({ patientId, patientName, clinicSubdomain, on
           };
         })(),
         notes,
+        saveCard: paymentMode === 'new' ? saveCard : undefined,
       };
 
       if (paymentMode === 'saved' && selectedCardId) {
         payload.paymentMethodId = selectedCardId;
       } else {
-        payload.paymentDetails = {
-          cardNumber: cardNumber.replace(/\s/g, ''),
-          cardholderName,
-          expiryMonth: parseInt(expiryMonth),
-          expiryYear: parseInt(expiryYear),
-          cvv,
-          billingZip,
-          cardBrand,
-          saveCard,
-        };
+        payload.useStripeElements = true;
       }
 
       const res = await apiFetch('/api/stripe/payments/process', {
@@ -366,17 +247,33 @@ export function ProcessPaymentForm({ patientId, patientName, clinicSubdomain, on
         throw new Error(data.error || 'Failed to process payment');
       }
 
-      // Backend says the card needs Stripe.js confirmation (local-only card)
-      if (data.requiresStripeConfirmation) {
-        setStripeConfirmation({
-          clientSecret: data.clientSecret,
-          paymentIntentId: data.paymentIntentId,
-          localPaymentMethodId: data.localPaymentMethodId,
-          stripePublishableKey: data.stripePublishableKey,
-          stripeConnectedAccountId: data.stripeConnectedAccountId,
+      if (data.requiresStripeConfirmation && data.clientSecret) {
+        if (!stripeInstanceRef.current || !stripeElementRef.current) {
+          throw new Error('Payment form not ready. Please refresh and try again.');
+        }
+
+        const { error: stripeError, paymentIntent } = await stripeInstanceRef.current.confirmCardPayment(
+          data.clientSecret,
+          { payment_method: { card: stripeElementRef.current } }
+        );
+
+        if (stripeError) {
+          throw new Error(stripeError.message || 'Payment failed');
+        }
+
+        const confirmRes = await apiFetch('/api/stripe/payments/confirm', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            paymentIntentId: data.paymentIntentId,
+            stripePaymentMethodId: paymentIntent?.payment_method,
+          }),
         });
-        setSubmitting(false);
-        return;
+
+        const confirmData = await confirmRes.json();
+        if (!confirmRes.ok) {
+          throw new Error(confirmData.error || 'Failed to confirm payment');
+        }
       }
 
       setSuccessMessage(
@@ -385,78 +282,21 @@ export function ProcessPaymentForm({ patientId, patientName, clinicSubdomain, on
           : 'Payment processed successfully!'
       );
 
-      // Reset form
       setSelectedPlanId('');
       setAmount(0);
       setDescription('');
-      setCardNumber('');
-      setCardholderName('');
-      setExpiryMonth('');
-      setExpiryYear('');
-      setCvv('');
-      setBillingZip('');
       setNotes('');
       setIsRecurring(false);
       setSaveCard(true);
-      setCardBrand('');
       setCardErrors({});
       setFormSubmitted(false);
 
-      // Notify parent and trigger refresh
       setTimeout(() => {
         onSuccess();
       }, 1500);
-    } catch (err: any) {
-      // @ts-ignore
-
+    } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
       setError(errorMessage || 'An unexpected error occurred.');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleStripeConfirm = async () => {
-    if (!stripeConfirmation || !stripeInstanceRef.current || !stripeElementRef.current) return;
-    setSubmitting(true);
-    setError(null);
-
-    try {
-      const { error: stripeError, paymentIntent } = await stripeInstanceRef.current.confirmCardPayment(
-        stripeConfirmation.clientSecret,
-        { payment_method: { card: stripeElementRef.current } }
-      );
-
-      if (stripeError) {
-        throw new Error(stripeError.message || 'Payment failed');
-      }
-
-      // Tell the backend to finalize
-      const confirmRes = await apiFetch('/api/stripe/payments/confirm', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          paymentIntentId: stripeConfirmation.paymentIntentId,
-          stripePaymentMethodId: paymentIntent?.payment_method,
-          localPaymentMethodId: stripeConfirmation.localPaymentMethodId,
-        }),
-      });
-
-      const confirmData = await confirmRes.json();
-      if (!confirmRes.ok) {
-        throw new Error(confirmData.error || 'Failed to confirm payment');
-      }
-
-      setStripeConfirmation(null);
-      setSuccessMessage(
-        isRecurring
-          ? 'Payment processed and recurring subscription set up successfully!'
-          : 'Payment processed successfully!'
-      );
-
-      setTimeout(() => { onSuccess(); }, 1500);
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Payment confirmation failed');
     } finally {
       setSubmitting(false);
     }
@@ -466,21 +306,14 @@ export function ProcessPaymentForm({ patientId, patientName, clinicSubdomain, on
     setSelectedPlanId('');
     setAmount(0);
     setDescription('');
-    setCardNumber('');
-    setCardholderName('');
-    setExpiryMonth('');
-    setExpiryYear('');
-    setCvv('');
-    setBillingZip('');
     setNotes('');
     setError(null);
     setSuccessMessage(null);
     setCardErrors({});
     setIsRecurring(false);
     setSaveCard(true);
-    setCardBrand('');
     setFormSubmitted(false);
-    setStripeConfirmation(null);
+    stripeElementRef.current?.clear();
     if (savedCards.length > 0) {
       setPaymentMode('saved');
       const defaultCard = savedCards.find((c) => c.isDefault) || savedCards[0];
@@ -490,10 +323,6 @@ export function ProcessPaymentForm({ patientId, patientName, clinicSubdomain, on
       setSelectedCardId(null);
     }
   };
-
-  // Generate year options (current year + next 10 years)
-  const currentYear = new Date().getFullYear();
-  const yearOptions = Array.from({ length: 11 }, (_, i) => currentYear + i);
 
   return (
     <div className="rounded-lg bg-white p-6 shadow">
@@ -510,39 +339,7 @@ export function ProcessPaymentForm({ patientId, patientName, clinicSubdomain, on
         </div>
       )}
 
-      {stripeConfirmation && (
-        <div className="space-y-4">
-          <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
-            <p className="text-sm font-medium text-amber-800">
-              This card needs to be verified for secure payment processing.
-              Please enter the card details below to complete the payment.
-            </p>
-          </div>
-          <div className="rounded-lg border border-gray-200 p-4">
-            <label className="mb-2 block text-sm font-medium text-gray-700">Card Details</label>
-            <div ref={stripeCardRef} className="rounded border border-gray-300 p-3" />
-          </div>
-          <div className="flex gap-3">
-            <button
-              type="button"
-              onClick={() => { setStripeConfirmation(null); setError(null); }}
-              className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={handleStripeConfirm}
-              disabled={submitting}
-              className="rounded-lg bg-green-600 px-6 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50"
-            >
-              {submitting ? 'Processing...' : 'Confirm Payment'}
-            </button>
-          </div>
-        </div>
-      )}
-
-      <form onSubmit={handleSubmit} className={`space-y-6 ${stripeConfirmation ? 'hidden' : ''}`}>
+      <form onSubmit={handleSubmit} className="space-y-6">
         {/* Billing Plan Selection */}
         <div>
           <label htmlFor="billingPlan" className="mb-1 block text-sm font-medium text-gray-700">
@@ -729,150 +526,28 @@ export function ProcessPaymentForm({ patientId, patientName, clinicSubdomain, on
                 </div>
               )}
 
-              {/* New Card Entry */}
+              {/* New Card Entry via Stripe Elements (PCI DSS compliant) */}
               {paymentMode === 'new' && (
-                <>
-                  {/* Card Number */}
-                  <div className="mb-4">
-                    <label htmlFor="cardNumber" className="mb-1 block text-sm font-medium text-gray-700">
-                      Card Number
-                    </label>
-                    <div className="relative">
-                      <input
-                        type="text"
-                        id="cardNumber"
-                        value={cardNumber}
-                        onChange={(e: any) => handleCardNumberChange(e.target.value)}
-                        className={`w-full rounded-lg border px-3 py-2 focus:border-[#4fa77e] focus:ring-2 focus:ring-[#4fa77e] ${
-                          formSubmitted && cardErrors.cardNumber ? 'border-red-500' : 'border-gray-300'
-                        }`}
-                        placeholder="1234 5678 9012 3456"
-                        maxLength={19}
-                        required
-                      />
-                      {cardBrand && (
-                        <span className="absolute right-3 top-2.5 text-sm font-medium text-gray-600">
-                          {cardBrand}
-                        </span>
-                      )}
+                <div className="space-y-4">
+                  <div className="rounded-lg border border-gray-200 bg-gray-50 p-1">
+                    <div className="flex items-center gap-2 px-3 pb-1 pt-2">
+                      <svg className="h-4 w-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                      </svg>
+                      <span className="text-xs font-medium text-gray-500">Secure card entry powered by Stripe</span>
                     </div>
-                    {formSubmitted && cardErrors.cardNumber && (
-                      <p className="mt-1 text-sm text-red-600">{cardErrors.cardNumber}</p>
-                    )}
+                    <div ref={stripeCardRef} className="rounded-md bg-white p-3" />
                   </div>
+                  {!stripeReady && (
+                    <p className="text-sm text-gray-400">Loading secure payment form...</p>
+                  )}
 
-                  {/* Cardholder Name */}
-                  <div className="mb-4">
-                    <label
-                      htmlFor="cardholderName"
-                      className="mb-1 block text-sm font-medium text-gray-700"
-                    >
-                      Cardholder Name
-                    </label>
-                    <input
-                      type="text"
-                      id="cardholderName"
-                      value={cardholderName}
-                      onChange={(e: any) => setCardholderName(e.target.value)}
-                      className={`w-full rounded-lg border px-3 py-2 focus:border-[#4fa77e] focus:ring-2 focus:ring-[#4fa77e] ${
-                        formSubmitted && cardErrors.cardholderName ? 'border-red-500' : 'border-gray-300'
-                      }`}
-                      placeholder="John Doe"
-                      required
-                    />
-                    {formSubmitted && cardErrors.cardholderName && (
-                      <p className="mt-1 text-sm text-red-600">{cardErrors.cardholderName}</p>
-                    )}
-                  </div>
-
-                  {/* Expiry Date, CVV, ZIP */}
-                  <div className="grid grid-cols-3 gap-4">
-                    <div>
-                      <label className="mb-1 block text-sm font-medium text-gray-700">Expiry Date</label>
-                      <div className="flex gap-2">
-                        <select
-                          value={expiryMonth}
-                          onChange={(e: any) => handleExpiryMonthChange(e.target.value)}
-                          className={`flex-1 rounded-lg border px-2 py-2 focus:border-[#4fa77e] focus:ring-2 focus:ring-[#4fa77e] ${
-                            formSubmitted && cardErrors.expiry ? 'border-red-500' : 'border-gray-300'
-                          }`}
-                          required
-                        >
-                          <option value="">MM</option>
-                          {Array.from({ length: 12 }, (_, i) => i + 1).map((month: any) => (
-                            <option key={month} value={month.toString().padStart(2, '0')}>
-                              {month.toString().padStart(2, '0')}
-                            </option>
-                          ))}
-                        </select>
-                        <select
-                          value={expiryYear}
-                          onChange={(e: any) => handleExpiryYearChange(e.target.value)}
-                          className={`flex-1 rounded-lg border px-2 py-2 focus:border-[#4fa77e] focus:ring-2 focus:ring-[#4fa77e] ${
-                            formSubmitted && cardErrors.expiry ? 'border-red-500' : 'border-gray-300'
-                          }`}
-                          required
-                        >
-                          <option value="">YYYY</option>
-                          {yearOptions.map((year: any) => (
-                            <option key={year} value={year.toString()}>
-                              {year}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      {formSubmitted && cardErrors.expiry && (
-                        <p className="mt-1 text-sm text-red-600">{cardErrors.expiry}</p>
-                      )}
-                    </div>
-                    <div>
-                      <label htmlFor="cvv" className="mb-1 block text-sm font-medium text-gray-700">
-                        CVV
-                      </label>
-                      <input
-                        type="text"
-                        id="cvv"
-                        value={cvv}
-                        onChange={(e: any) => handleCVVChange(e.target.value)}
-                        className={`w-full rounded-lg border px-3 py-2 focus:border-[#4fa77e] focus:ring-2 focus:ring-[#4fa77e] ${
-                          formSubmitted && cardErrors.cvv ? 'border-red-500' : 'border-gray-300'
-                        }`}
-                        placeholder={cardBrand === 'American Express' ? '1234' : '123'}
-                        maxLength={cardBrand === 'American Express' ? 4 : 3}
-                        required
-                      />
-                      {formSubmitted && cardErrors.cvv && (
-                        <p className="mt-1 text-sm text-red-600">{cardErrors.cvv}</p>
-                      )}
-                    </div>
-                    <div>
-                      <label htmlFor="billingZip" className="mb-1 block text-sm font-medium text-gray-700">
-                        Billing ZIP
-                      </label>
-                      <input
-                        type="text"
-                        id="billingZip"
-                        value={billingZip}
-                        onChange={(e: any) => setBillingZip(e.target.value)}
-                        className={`w-full rounded-lg border px-3 py-2 focus:border-[#4fa77e] focus:ring-2 focus:ring-[#4fa77e] ${
-                          formSubmitted && cardErrors.billingZip ? 'border-red-500' : 'border-gray-300'
-                        }`}
-                        placeholder="12345"
-                        required
-                      />
-                      {formSubmitted && cardErrors.billingZip && (
-                        <p className="mt-1 text-sm text-red-600">{cardErrors.billingZip}</p>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Save Card Checkbox */}
-                  <div className="mt-4">
+                  <div className="mt-2">
                     <label className="flex items-center">
                       <input
                         type="checkbox"
                         checked={saveCard}
-                        onChange={(e: any) => setSaveCard(e.target.checked)}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSaveCard(e.target.checked)}
                         disabled={isRecurring}
                         className="mr-2 rounded border-gray-300 text-[#4fa77e] focus:ring-[#4fa77e]"
                       />
@@ -882,7 +557,7 @@ export function ProcessPaymentForm({ patientId, patientName, clinicSubdomain, on
                       </span>
                     </label>
                   </div>
-                </>
+                </div>
               )}
             </>
           )}

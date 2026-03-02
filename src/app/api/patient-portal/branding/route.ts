@@ -77,16 +77,23 @@ const getBrandingHandler = async (request: NextRequest) => {
 
     const { clinicId } = parseResult.data;
 
-    // Optional: resolve patient-specific treatment when authenticated as patient
+    // Optional: resolve patient-specific treatment when authenticated as patient.
+    // Only attempt auth if the request carries a token (cookie or header) to avoid
+    // expensive dynamic-import + JWT verification on admin/unauthenticated loads.
     let patientTreatment: PortalTreatmentType | null = null;
-    try {
-      const { verifyAuth } = await import('@/lib/auth/middleware');
-      const authResult = await verifyAuth(request);
-      if (authResult.success && authResult.user?.role === 'patient' && authResult.user.patientId) {
-        patientTreatment = await resolvePatientTreatmentType(authResult.user.patientId);
+    const hasAuthToken =
+      request.cookies.has('token') || request.headers.has('authorization');
+
+    if (hasAuthToken) {
+      try {
+        const { verifyAuth } = await import('@/lib/auth/middleware');
+        const authResult = await verifyAuth(request);
+        if (authResult.success && authResult.user?.role === 'patient' && authResult.user.patientId) {
+          patientTreatment = await resolvePatientTreatmentType(authResult.user.patientId);
+        }
+      } catch {
+        // Non-blocking: continue with clinic default
       }
-    } catch {
-      // Non-blocking: continue with clinic default
     }
 
     // Note: Not selecting buttonTextColor directly as it may not exist in production DB

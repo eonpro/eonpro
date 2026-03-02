@@ -471,32 +471,20 @@ export function withAuth<T = unknown>(
       }
       if (!options.skipSessionValidation) {
         if (!user.sessionId) {
-          // Tokens issued before session management must be rejected after sunset date.
-          // Sunset: 2026-04-01 — all tokens without sessionId are invalid after this date.
-          const SESSION_ID_SUNSET = new Date('2026-04-01T00:00:00Z').getTime();
-          if (Date.now() > SESSION_ID_SUNSET) {
-            logger.security('Token rejected: missing sessionId after sunset date', {
-              userId: user.id,
-              role: user.role,
-              tokenIat: user.iat,
-              requestId,
-            });
-            return NextResponse.json(
-              { error: 'Session expired. Please log in again.' },
-              { status: 401 }
-            );
-          }
-          logger.warn('Token missing sessionId — allowing until sunset (JWT verified)', {
+          logger.security('Token rejected: missing sessionId (session management required)', {
             userId: user.id,
             role: user.role,
             tokenIat: user.iat,
             requestId,
-            sunsetDate: '2026-04-01',
           });
+          return NextResponse.json(
+            { error: 'Session expired. Please log in again.' },
+            { status: 401 }
+          );
         } else {
           const sessionResult = await validateSession(token, req);
 
-          if (!sessionResult.valid && sessionResult.reason !== 'Session not found') {
+          if (!sessionResult.valid) {
             await auditLog(req, {
               userId: user.id.toString(),
               userEmail: user.email,

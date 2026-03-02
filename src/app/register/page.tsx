@@ -76,7 +76,7 @@ export default function RegisterPage() {
           setPhone(
             rawPhone.length >= 10
               ? `(${rawPhone.slice(0, 3)}) ${rawPhone.slice(3, 6)}-${rawPhone.slice(6, 10)}`
-              : data.phone || ''
+              : ''
           );
           const rawDob = data.dob || '';
           setDob(
@@ -87,9 +87,9 @@ export default function RegisterPage() {
                     const [m, d, y] = rawDob.split('/');
                     return y && m && d
                       ? `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`
-                      : rawDob;
+                      : '';
                   })()
-                : rawDob
+                : ''
           );
           setClinic({
             id: 0,
@@ -186,16 +186,19 @@ export default function RegisterPage() {
     setLoading(true);
 
     try {
+      const strippedPhone = phone.replace(/\D/g, '');
       const body: Record<string, string> = {
         email: email.trim(),
         password,
         firstName: firstName.trim(),
         lastName: lastName.trim(),
-        phone: phone.replace(/\D/g, ''),
+        phone: strippedPhone,
         dob,
       };
       if (inviteToken) {
         body.inviteToken = inviteToken;
+        if (!strippedPhone) delete body.phone;
+        if (!dob) delete body.dob;
       } else {
         body.clinicCode = clinicCode.trim();
       }

@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useContext, useEffect, useState, ReactNode, useMemo } from 'react';
-import { isBrowser, getLocalStorageItem } from '@/lib/utils/ssr-safe';
+import { isBrowser, getLocalStorageItem, setLocalStorageItem } from '@/lib/utils/ssr-safe';
 
 // Treatment types supported by clinics
 export type TreatmentType =
@@ -306,9 +306,43 @@ export function ClinicBrandingProvider({
 
     let cancelled = false;
 
+    const BRANDING_CACHE_TTL = 10 * 60 * 1000; // 10 minutes fresh
+    const BRANDING_CACHE_STALE_TTL = 60 * 60 * 1000; // 1 hour max stale
+    const RESOLVE_TIMEOUT = 8000;
+    const BRANDING_TIMEOUT = 15000;
+
+    function getBrandingCacheKey(id: number) {
+      return `clinic-branding:${id}`;
+    }
+
+    function getCachedBranding(id: number): { data: ClinicBranding; isStale: boolean } | null {
+      const raw = getLocalStorageItem(getBrandingCacheKey(id));
+      if (!raw) return null;
+      try {
+        const cached = JSON.parse(raw);
+        if (!cached.data || !cached.ts) return null;
+        const age = Date.now() - cached.ts;
+        if (age > BRANDING_CACHE_STALE_TTL) return null;
+        return { data: cached.data, isStale: age > BRANDING_CACHE_TTL };
+      } catch {
+        return null;
+      }
+    }
+
+    function setCachedBranding(id: number, data: ClinicBranding) {
+      setLocalStorageItem(getBrandingCacheKey(id), JSON.stringify({ data, ts: Date.now() }));
+    }
+
+    function mergeBranding(data: Record<string, unknown>): ClinicBranding {
+      return {
+        ...defaultBranding,
+        ...data,
+        features: { ...defaultFeatures, ...(data.features as Record<string, boolean> | undefined) },
+      };
+    }
+
     const fetchBranding = async () => {
       try {
-        setIsLoading(true);
         setError(null);
 
         // WHITE-LABEL BRANDING LOGIC:
@@ -316,35 +350,29 @@ export function ClinicBrandingProvider({
         // - app.eonpro.io = Always EONPRO branding (native app)
         // - wellmedr.eonpro.io = Wellmedr branding (white-labeled)
         // - ot.eonpro.io = OT branding (white-labeled)
-        // This allows users from any clinic to use the main app with EONPRO branding
 
         let cId = clinicId;
 
-        // FIRST: Check domain to determine if this is a white-labeled subdomain
         if (isBrowser) {
           const domain = window.location.hostname;
-          const isMainAppDomain =
+          const isMainDomain =
             domain.includes('app.eonpro.io') ||
             domain === 'app.eonpro.io' ||
             domain === 'localhost' ||
             domain.startsWith('localhost:') ||
-            // Vercel preview deployments (not clinic-specific)
             domain.endsWith('.vercel.app');
 
-          // Main app domain or preview deployment always uses EONPRO branding; skip API call
-          if (isMainAppDomain) {
+          if (isMainDomain) {
             if (!cancelled) setBranding(defaultBranding);
             return;
           }
 
-          // Try localStorage cache first to avoid slow /api/clinic/resolve calls
-          // (the resolve endpoint does a DB query that can timeout on cold starts)
+          // Try localStorage cache for clinic ID resolution
           const cacheKey = `clinic-resolve:${domain}`;
           const cached = getLocalStorageItem(cacheKey);
           if (cached) {
             try {
               const cachedData = JSON.parse(cached);
-              // Cache entries expire after 1 hour
               if (cachedData.clinicId && cachedData.ts && Date.now() - cachedData.ts < 3600_000) {
                 cId = cachedData.clinicId;
               }
@@ -353,26 +381,21 @@ export function ClinicBrandingProvider({
             }
           }
 
-          // If no cached clinicId, call the resolve API
           if (!cId) {
             try {
               const controller = new AbortController();
-              const timeoutId = setTimeout(() => controller.abort(), 8000);
+              const timeoutId = setTimeout(() => controller.abort(), RESOLVE_TIMEOUT);
 
               const resolveResponse = await fetch(
                 `/api/clinic/resolve?domain=${encodeURIComponent(domain)}`,
-                {
-                  signal: controller.signal,
-                }
+                { signal: controller.signal }
               );
               clearTimeout(timeoutId);
 
               if (resolveResponse.ok) {
                 const resolveData = await resolveResponse.json();
-
                 if (resolveData.clinicId) {
                   cId = resolveData.clinicId;
-                  // Cache for future loads
                   try {
                     localStorage.setItem(cacheKey, JSON.stringify({ clinicId: cId, ts: Date.now() }));
                   } catch {
@@ -394,8 +417,6 @@ export function ClinicBrandingProvider({
 
         if (cancelled) return;
 
-        // FALLBACK: If no domain-based clinic found, check prop or user data
-        // This is for cases like direct clinicId prop or non-standard access patterns
         if (!cId && clinicId) {
           cId = clinicId;
         }
@@ -405,16 +426,14 @@ export function ClinicBrandingProvider({
           if (user) {
             try {
               const userData = JSON.parse(user);
-              // Only use user's clinicId if we couldn't resolve from domain
-              // AND we're not on a known main app domain
               const domain = window.location.hostname;
-              const isMainAppDomain =
+              const isMainDomain =
                 domain.includes('app.eonpro.io') ||
                 domain === 'app.eonpro.io' ||
                 domain === 'localhost' ||
                 domain.startsWith('localhost:') ||
                 domain.endsWith('.vercel.app');
-              if (!isMainAppDomain) {
+              if (!isMainDomain) {
                 cId = userData.clinicId;
               }
             } catch {
@@ -424,19 +443,32 @@ export function ClinicBrandingProvider({
         }
 
         if (!cId) {
-          // Use default branding if no clinic
           if (!cancelled) setBranding(defaultBranding);
           return;
         }
 
-        // Add timeout to prevent hanging
+        // STALE-WHILE-REVALIDATE: serve cached branding immediately, refresh in background
+        const cachedBranding = getCachedBranding(cId);
+        if (cachedBranding) {
+          if (!cancelled) {
+            setBranding(cachedBranding.data);
+            setIsLoading(false);
+          }
+          if (!cachedBranding.isStale) {
+            return; // Cache is fresh, no need to refetch
+          }
+          // Cache is stale — continue to refetch in background (isLoading stays false)
+        } else {
+          setIsLoading(true);
+        }
+
         const brandingController = new AbortController();
-        const brandingTimeoutId = setTimeout(() => brandingController.abort(), 5000);
+        const brandingTimeoutId = setTimeout(() => brandingController.abort(), BRANDING_TIMEOUT);
 
         try {
           const response = await fetch(`/api/patient-portal/branding?clinicId=${cId}`, {
             signal: brandingController.signal,
-            credentials: 'include', // Send cookies so patient auth can drive per-patient treatment (portal features)
+            credentials: 'include',
           });
           clearTimeout(brandingTimeoutId);
 
@@ -445,21 +477,19 @@ export function ClinicBrandingProvider({
           if (!response.ok) {
             if (response.status === 404) {
               console.warn('[ClinicBranding] Clinic not found, using defaults');
-              setBranding(defaultBranding);
+              if (!cachedBranding) setBranding(defaultBranding);
               return;
             }
             console.warn('[ClinicBranding] Failed to fetch branding:', response.status);
-            setBranding(defaultBranding);
+            if (!cachedBranding) setBranding(defaultBranding);
             return;
           }
 
           const data = await response.json();
           if (!cancelled) {
-            setBranding({
-              ...defaultBranding,
-              ...data,
-              features: { ...defaultFeatures, ...data.features },
-            });
+            const merged = mergeBranding(data);
+            setBranding(merged);
+            setCachedBranding(cId, merged);
           }
         } catch (brandingErr) {
           clearTimeout(brandingTimeoutId);
@@ -468,7 +498,8 @@ export function ClinicBrandingProvider({
           } else {
             console.warn('[ClinicBranding] Error fetching branding:', brandingErr);
           }
-          if (!cancelled) setBranding(defaultBranding);
+          // Only fall back to defaults if we have no cached branding
+          if (!cancelled && !cachedBranding) setBranding(defaultBranding);
         }
       } catch (err) {
         console.error('Error fetching clinic branding:', err);

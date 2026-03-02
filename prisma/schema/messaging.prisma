@@ -87,6 +87,7 @@ model SmsLog {
   @@index([clinicId])
   @@index([status, createdAt])
   @@index([messageSid, status])
+  @@index([templateType, patientId])
 }
 
 // ===== SMS OPT-OUT (TCPA Compliance) =====

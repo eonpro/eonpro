@@ -231,24 +231,35 @@ async function handlePatch(req: NextRequest, user: AuthUser) {
         const phiChanged = firstName !== undefined || lastName !== undefined ||
           email !== undefined || phone !== undefined;
 
-        if (phiChanged) {
-          const existing = await tx.patient.findUnique({
-            where: { id: dbUser.patientId },
-            select: { firstName: true, lastName: true, email: true, phone: true, patientId: true },
-          });
+        const existing = await tx.patient.findUnique({
+          where: { id: dbUser.patientId },
+          select: {
+            firstName: true, lastName: true, email: true, phone: true,
+            patientId: true, profileStatus: true, dob: true,
+          },
+        });
 
+        if (phiChanged && existing) {
           const safeDecrypt = (v: unknown): string => {
             if (v == null || v === '') return '';
             try { return decryptPHI(String(v)) ?? ''; } catch { return String(v); }
           };
 
           patientUpdateData.searchIndex = buildPatientSearchIndex({
-            firstName: firstName ?? safeDecrypt(existing?.firstName),
-            lastName: lastName ?? safeDecrypt(existing?.lastName),
-            email: email ?? safeDecrypt(existing?.email),
-            phone: phone ?? safeDecrypt(existing?.phone),
-            patientId: existing?.patientId ?? null,
+            firstName: firstName ?? safeDecrypt(existing.firstName),
+            lastName: lastName ?? safeDecrypt(existing.lastName),
+            email: email ?? safeDecrypt(existing.email),
+            phone: phone ?? safeDecrypt(existing.phone),
+            patientId: existing.patientId ?? null,
           });
+        }
+
+        if (existing?.profileStatus === 'PENDING_COMPLETION') {
+          const hasPhone = phone ? !!phone.trim() : !!existing.phone;
+          const hasDob = dateOfBirth ? !!dateOfBirth.trim() : !!existing.dob;
+          if (hasPhone && hasDob) {
+            patientUpdateData.profileStatus = 'ACTIVE';
+          }
         }
 
         await tx.patient.update({ where: { id: dbUser.patientId }, data: patientUpdateData });

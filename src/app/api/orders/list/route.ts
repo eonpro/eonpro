@@ -76,32 +76,54 @@ export async function GET(request: NextRequest) {
       search,
     });
 
-    // Fetch events and SMS status for each order (for backward compatibility)
-    const ordersWithEvents = await Promise.all(
-      result.orders.map(async (order) => {
-        const events = await orderRepository.getEventsByOrderId(order.id, 5);
+    // Batch-load events and SMS status to avoid N+1 queries
+    const orderIds = result.orders.map((o) => o.id);
 
-        let smsStatus: string | null = null;
-        if (order.trackingNumber && order.patientId) {
-          const sms = await prisma.smsLog.findFirst({
-            where: {
-              patientId: order.patientId,
-              templateType: 'SHIPPING_TRACKING',
-              body: { contains: order.trackingNumber },
-            },
-            orderBy: { createdAt: 'desc' },
-            select: { status: true },
-          });
-          smsStatus = sms?.status || null;
-        }
+    // Single query: all events for all orders on this page
+    const allEvents = orderIds.length > 0
+      ? await prisma.orderEvent.findMany({
+          where: { orderId: { in: orderIds } },
+          orderBy: { createdAt: 'desc' },
+        })
+      : [];
 
-        return {
-          ...order,
-          events,
-          smsStatus,
-        };
-      })
-    );
+    const eventsByOrderId = new Map<number, typeof allEvents>();
+    for (const event of allEvents) {
+      const list = eventsByOrderId.get(event.orderId) || [];
+      if (list.length < 5) list.push(event);
+      eventsByOrderId.set(event.orderId, list);
+    }
+
+    // Single query: SMS status for all orders with tracking numbers
+    const trackingOrders = result.orders.filter((o) => o.trackingNumber && o.patientId);
+    const smsStatusMap = new Map<number, string | null>();
+
+    if (trackingOrders.length > 0) {
+      const smsLogs = await prisma.smsLog.findMany({
+        where: {
+          patientId: { in: trackingOrders.map((o) => o.patientId) },
+          templateType: 'SHIPPING_TRACKING',
+        },
+        orderBy: { createdAt: 'desc' },
+        select: { patientId: true, status: true, body: true },
+      });
+
+      for (const order of trackingOrders) {
+        const match = smsLogs.find(
+          (sms) =>
+            sms.patientId === order.patientId &&
+            order.trackingNumber &&
+            sms.body?.includes(order.trackingNumber)
+        );
+        smsStatusMap.set(order.id, match?.status || null);
+      }
+    }
+
+    const ordersWithEvents = result.orders.map((order) => ({
+      ...order,
+      events: eventsByOrderId.get(order.id) || [],
+      smsStatus: smsStatusMap.get(order.id) || null,
+    }));
 
     // Awaiting fulfillment path: return orders with aging stats
     if (awaitingFulfillment === 'true') {
@@ -167,51 +189,67 @@ export async function GET(request: NextRequest) {
         take: 1000,
       });
 
-      // Convert PatientShippingUpdate records to order-like format
-      const shippingOnlyRecords = await Promise.all(
-        patientShipments
-          .filter((s: any) => !existingOrderIds.has(s.orderId || -1))
-          .map(async (shipment: any) => {
-            let smsStatus: string | null = null;
-            if (shipment.trackingNumber && shipment.patientId) {
-              const sms = await prisma.smsLog.findFirst({
-                where: {
-                  patientId: shipment.patientId,
-                  templateType: 'SHIPPING_TRACKING',
-                  body: { contains: shipment.trackingNumber },
-                },
-                orderBy: { createdAt: 'desc' },
-                select: { status: true },
-              });
-              smsStatus = sms?.status || null;
-            }
-
-            return {
-              id: shipment.orderId || -shipment.id,
-              _isShipmentOnly: true,
-              _shipmentId: shipment.id,
-              createdAt: shipment.createdAt,
-              updatedAt: shipment.updatedAt,
-              clinicId: shipment.clinicId,
-              patient: {
-                id: shipment.patient?.id,
-                firstName: decryptPHI(shipment.patient?.firstName) || 'Unknown',
-                lastName: decryptPHI(shipment.patient?.lastName) || '',
-              },
-              patientId: shipment.patientId,
-              primaryMedName: shipment.medicationName || shipment.order?.primaryMedName || null,
-              primaryMedStrength:
-                shipment.medicationStrength || shipment.order?.primaryMedStrength || null,
-              status: shipment.status,
-              shippingStatus: shipment.status,
-              trackingNumber: shipment.trackingNumber,
-              trackingUrl: shipment.trackingUrl,
-              lifefileOrderId: shipment.lifefileOrderId,
-              events: [],
-              smsStatus,
-            };
-          })
+      // Batch-load SMS status for all shipments
+      const filteredShipments = patientShipments.filter(
+        (s: any) => !existingOrderIds.has(s.orderId || -1)
       );
+
+      const shipmentPatientIds = [
+        ...new Set(
+          filteredShipments
+            .filter((s: any) => s.patientId && s.trackingNumber)
+            .map((s: any) => s.patientId as number)
+        ),
+      ];
+
+      const shipmentSmsLogs =
+        shipmentPatientIds.length > 0
+          ? await prisma.smsLog.findMany({
+              where: {
+                patientId: { in: shipmentPatientIds },
+                templateType: 'SHIPPING_TRACKING',
+              },
+              orderBy: { createdAt: 'desc' },
+              select: { patientId: true, status: true, body: true },
+            })
+          : [];
+
+      const shippingOnlyRecords = filteredShipments.map((shipment: any) => {
+        let smsStatus: string | null = null;
+        if (shipment.trackingNumber && shipment.patientId) {
+          const match = shipmentSmsLogs.find(
+            (sms) =>
+              sms.patientId === shipment.patientId &&
+              sms.body?.includes(shipment.trackingNumber)
+          );
+          smsStatus = match?.status || null;
+        }
+
+        return {
+          id: shipment.orderId || -shipment.id,
+          _isShipmentOnly: true,
+          _shipmentId: shipment.id,
+          createdAt: shipment.createdAt,
+          updatedAt: shipment.updatedAt,
+          clinicId: shipment.clinicId,
+          patient: {
+            id: shipment.patient?.id,
+            firstName: decryptPHI(shipment.patient?.firstName) || 'Unknown',
+            lastName: decryptPHI(shipment.patient?.lastName) || '',
+          },
+          patientId: shipment.patientId,
+          primaryMedName: shipment.medicationName || shipment.order?.primaryMedName || null,
+          primaryMedStrength:
+            shipment.medicationStrength || shipment.order?.primaryMedStrength || null,
+          status: shipment.status,
+          shippingStatus: shipment.status,
+          trackingNumber: shipment.trackingNumber,
+          trackingUrl: shipment.trackingUrl,
+          lifefileOrderId: shipment.lifefileOrderId,
+          events: [],
+          smsStatus,
+        };
+      });
 
       // Merge and sort by most recent activity (tracking date or creation date)
       const allOrders = [...ordersWithEvents, ...shippingOnlyRecords].sort((a, b) => {

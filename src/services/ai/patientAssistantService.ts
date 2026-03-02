@@ -17,6 +17,7 @@
 
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import { anonymizeText, anonymizeName } from '@/lib/security/phi-anonymization';
 import OpenAI from 'openai';
 
 const openai = new OpenAI({
@@ -122,11 +123,9 @@ function checkForEscalation(message: string): { shouldEscalate: boolean; reason?
 /**
  * Get patient context for AI
  *
- * TODO: Apply anonymizeForAI from @/lib/security/anonymize to the patient data
- * before building the context string. Currently, firstName and other PHI fields
- * are sent directly to OpenAI, which is a HIPAA concern. The anonymization should
- * replace real names with tokens (e.g., [PATIENT_1]) and be de-anonymized only
- * in the final response if needed.
+ * HIPAA: All PHI is anonymized via phi-anonymization before being sent to OpenAI.
+ * Patient names are replaced with consistent pseudonyms. The AI sees anonymized
+ * data only; real PHI never leaves the server boundary to third-party AI providers.
  */
 async function getPatientContext(patientId: number): Promise<string> {
   try {
@@ -175,8 +174,10 @@ async function getPatientContext(patientId: number): Promise<string> {
 
     if (!patient) return '';
 
+    const anonName = anonymizeName(patient.firstName || '', patient.lastName || '');
+
     const context: string[] = [];
-    context.push(`Patient name: ${patient.firstName}`);
+    context.push(`Patient name: ${anonName}`);
 
     if (patient.orders.length > 0) {
       const order = patient.orders[0];
@@ -210,7 +211,8 @@ async function getPatientContext(patientId: number): Promise<string> {
       context.push(`Has active medication reminders set up`);
     }
 
-    return context.join('\n');
+    const rawContext = context.join('\n');
+    return anonymizeText(rawContext);
   } catch (error) {
     logger.error('Failed to get patient context', {
       error: error instanceof Error ? error.message : 'Unknown error',
@@ -260,17 +262,17 @@ export async function processPatientChat(
       });
     }
 
-    // Add conversation history (last 10 messages)
+    // Add conversation history (last 10 messages), anonymized for HIPAA
     const recentHistory = conversationHistory.slice(-10);
     for (const msg of recentHistory) {
       messages.push({
         role: msg.role,
-        content: msg.content,
+        content: anonymizeText(msg.content),
       });
     }
 
-    // Add current message
-    messages.push({ role: 'user', content: message });
+    // Add current message, anonymized before sending to OpenAI
+    messages.push({ role: 'user', content: anonymizeText(message) });
 
     // Call OpenAI
     const completion = await openai.chat.completions.create({
@@ -434,7 +436,7 @@ export async function generatePatientInsights(patientId: number): Promise<Patien
         insights.push({
           id: 'weight_progress',
           type: 'achievement',
-          title: `Amazing Progress, ${patient.firstName}!`,
+          title: 'Amazing Progress!',
           message: `You've lost ${totalLoss.toFixed(1)} lbs since you started. Keep up the great work!`,
           icon: 'trophy',
           priority: 'medium',
@@ -605,7 +607,7 @@ export async function generateWeeklySummary(patientId: number): Promise<string> 
     if (!patient) return '';
 
     const summary: string[] = [];
-    summary.push(`Weekly Summary for ${patient.firstName}`);
+    summary.push(`Weekly Summary for ${anonymizeText(patient.firstName || 'Patient')}`);
     summary.push('');
 
     // Weight

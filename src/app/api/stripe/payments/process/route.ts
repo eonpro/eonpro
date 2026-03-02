@@ -10,15 +10,10 @@ import { getStripeForClinic, getDedicatedAccountPublishableKey } from '@/lib/str
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { StripeCustomerService } from '@/services/stripe/customerService';
 
-interface PaymentDetails {
-  cardNumber: string;
-  cardholderName: string;
-  expiryMonth: number;
-  expiryYear: number;
-  cvv: string;
-  billingZip: string;
-  cardBrand: string;
-  saveCard: boolean;
+/** @deprecated Raw card data is no longer accepted. Use Stripe Elements (PCI DSS). */
+interface _LegacyPaymentDetails {
+  cardNumber: never;
+  cvv: never;
 }
 
 interface SubscriptionInfo {
@@ -85,15 +80,15 @@ async function getOrCreateStripePrice(
 async function handlePost(request: NextRequest, _user: AuthUser) {
   try {
     const body = await request.json();
-    const { patientId, amount, description, paymentDetails, paymentMethodId: savedPaymentMethodId, subscription, notes } = body;
+    const { patientId, amount, description, paymentMethodId: savedPaymentMethodId, subscription, notes, useStripeElements, saveCard } = body;
 
     if (!patientId || !amount || !description) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    if (!paymentDetails && !savedPaymentMethodId) {
+    if (!useStripeElements && !savedPaymentMethodId) {
       return NextResponse.json(
-        { error: 'Either paymentDetails or paymentMethodId is required' },
+        { error: 'Either useStripeElements or paymentMethodId is required' },
         { status: 400 }
       );
     }
@@ -482,10 +477,9 @@ async function handlePost(request: NextRequest, _user: AuthUser) {
       });
     }
 
-    // --- New card path: charge via Stripe (never record SUCCEEDED without Stripe) ---
-    // Raw card details cannot be sent to Stripe server-side (PCI). Create an unconfirmed
-    // PaymentIntent and return clientSecret so the frontend confirms via Stripe.js.
-    const { saveCard } = (paymentDetails || {}) as Partial<PaymentDetails>;
+    // --- New card path via Stripe Elements (PCI DSS compliant) ---
+    // No raw card data reaches this server. We create an unconfirmed PaymentIntent
+    // and return clientSecret so the frontend confirms via Stripe.js CardElement.
 
     let stripeCustomerId = patient.stripeCustomerId;
     if (!stripeCustomerId) {

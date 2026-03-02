@@ -42,14 +42,17 @@ const registerSchema = z.object({
   clinicCode: z.string().min(1, 'Clinic code is required'),
 });
 
-// Schema for registration via one-time portal invite link (no clinic code)
+// Schema for registration via one-time portal invite link (no clinic code).
+// Phone and DOB are optional — the patient record may have been created without
+// them (e.g. from a Stripe payment). Missing info is collected post-login via
+// the profile completion prompt.
 const registerWithInviteSchema = z.object({
   email: z.string().email('Invalid email address'),
   password: passwordSchema,
   firstName: z.string().min(1, 'First name is required').max(100),
   lastName: z.string().min(1, 'Last name is required').max(100),
-  phone: phoneSchema,
-  dob: z.string().min(1, 'Date of birth is required'),
+  phone: phoneSchema.optional().or(z.literal('')),
+  dob: z.string().optional().or(z.literal('')),
   inviteToken: z.string().min(32, 'Invalid invite link'),
 });
 

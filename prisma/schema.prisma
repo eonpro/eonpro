@@ -196,6 +196,12 @@ model Order {
   @@index([cancelledAt])
   @@index([assignedProviderId])
   @@index([clinicId, status])
+  @@index([patientId])
+  @@index([providerId])
+  @@index([trackingNumber])
+  @@index([lifefileOrderId])
+  @@index([createdAt])
+  @@index([lastWebhookAt])
 }
 
 model Rx {
@@ -210,6 +216,8 @@ model Rx {
   sig           String
   daysSupply    Int    @default(30)
   order         Order  @relation(fields: [orderId], references: [id])
+
+  @@index([orderId])
 }
 
 model Provider {
@@ -366,6 +374,8 @@ model OrderEvent {
   payload         Json?
   note            String?
   order           Order    @relation(fields: [orderId], references: [id])
+
+  @@index([orderId])
 }
 
 model ProviderAudit {
@@ -3279,6 +3289,7 @@ model SmsLog {
   @@index([clinicId])
   @@index([status, createdAt])
   @@index([messageSid, status])
+  @@index([templateType, patientId])
 }
 
 // ===== SMS OPT-OUT (TCPA Compliance) =====

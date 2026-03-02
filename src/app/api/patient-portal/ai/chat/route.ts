@@ -2,11 +2,9 @@
  * Patient AI Chat API
  * Endpoint for patient-facing Becca AI assistant
  *
- * NOTE: Patient data is passed to the AI service which sends it to OpenAI.
- * The patientAssistantService handles context building internally.
- * TODO: anonymizeForAI from @/lib/security/anonymize should be applied in
- * patientAssistantService.getPatientContext() before sending to OpenAI to
- * ensure PHI is not transmitted to third-party AI providers (HIPAA).
+ * HIPAA: PHI is anonymized in patientAssistantService via phi-anonymization
+ * before any data is sent to OpenAI. Patient names, addresses, phone numbers,
+ * and other PHI are replaced with consistent pseudonyms/redactions.
  */
 
 import { NextRequest, NextResponse } from 'next/server';

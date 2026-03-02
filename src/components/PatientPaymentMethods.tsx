@@ -1,12 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { logger } from '@/lib/logger';
-// Using inline SVG icons instead of lucide-react
-import { formatCardNumber, validateCardNumber } from '@/lib/encryption';
-import { Patient, Provider, Order } from '@/types/models';
 import { apiFetch } from '@/lib/api/fetch';
 import { getCardNetworkLogo } from '@/lib/constants/brand-assets';
+import { loadStripe, Stripe, StripeCardElement } from '@stripe/stripe-js';
+
+const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || '');
 
 // Icon components
 const CreditCard = ({ className }: { className?: string }) => (
@@ -99,16 +99,12 @@ export default function PatientPaymentMethods({
   const [showAddCard, setShowAddCard] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-
-  // Form state
-  const [cardNumber, setCardNumber] = useState('');
-  const [expiryMonth, setExpiryMonth] = useState('');
-  const [expiryYear, setExpiryYear] = useState('');
-  const [cvv, setCvv] = useState('');
-  const [cardholderName, setCardholderName] = useState('');
-  const [billingZip, setBillingZip] = useState('');
   const [setAsDefault, setSetAsDefault] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+
+  const stripeCardRef = useRef<HTMLDivElement>(null);
+  const stripeElementRef = useRef<StripeCardElement | null>(null);
+  const stripeInstanceRef = useRef<Stripe | null>(null);
 
   // Fetch saved cards
   const fetchCards = async () => {
@@ -131,106 +127,105 @@ export default function PatientPaymentMethods({
     fetchCards();
   }, [patientId]);
 
-  // Handle card number input with formatting
-  const handleCardNumberChange = (value: string) => {
-    // Remove non-digits
-    const cleaned = value.replace(/\D/g, '');
+  // Mount Stripe CardElement when Add Card form is shown
+  useEffect(() => {
+    if (!showAddCard) return;
 
-    // Limit to 19 digits
-    if (cleaned.length > 19) return;
+    let mounted = true;
+    const mountCard = async () => {
+      const stripeInstance = await stripePromise;
+      if (!stripeInstance || !mounted) return;
+      stripeInstanceRef.current = stripeInstance;
 
-    // Format with spaces
-    let formatted = '';
-    for (let i = 0; i < cleaned.length; i++) {
-      if (i > 0 && i % 4 === 0) {
-        formatted += ' ';
-      }
-      formatted += cleaned[i];
-    }
+      // Wait for DOM ref
+      await new Promise((r) => setTimeout(r, 50));
+      if (!stripeCardRef.current || !mounted) return;
 
-    setCardNumber(formatted);
-  };
+      const elements = stripeInstance.elements();
+      const card = elements.create('card', {
+        style: {
+          base: {
+            fontSize: '16px',
+            color: '#1a1a1a',
+            fontFamily: 'inherit',
+            '::placeholder': { color: '#9ca3af' },
+          },
+          invalid: { color: '#ef4444' },
+        },
+      });
+      card.mount(stripeCardRef.current);
+      stripeElementRef.current = card;
+    };
+    mountCard();
 
-  // Handle expiry month
-  const handleExpiryMonthChange = (value: string) => {
-    const cleaned = value.replace(/\D/g, '');
-    if (cleaned.length > 2) return;
+    return () => {
+      mounted = false;
+      stripeElementRef.current?.unmount();
+      stripeElementRef.current = null;
+    };
+  }, [showAddCard]);
 
-    const month = parseInt(cleaned);
-    if (month > 12) return;
-
-    setExpiryMonth(cleaned);
-  };
-
-  // Handle expiry year
-  const handleExpiryYearChange = (value: string) => {
-    const cleaned = value.replace(/\D/g, '');
-    if (cleaned.length > 4) return;
-    setExpiryYear(cleaned);
-  };
-
-  // Handle CVV
-  const handleCvvChange = (value: string) => {
-    const cleaned = value.replace(/\D/g, '');
-    if (cleaned.length > 4) return;
-    setCvv(cleaned);
-  };
-
-  // Add new card
+  // Add card via Stripe SetupIntent (PCI DSS compliant — no raw card data touches our server)
   const handleAddCard = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setSuccessMessage(null);
 
-    // Validate card number
-    const cleanedCardNumber = cardNumber.replace(/\s/g, '');
-    if (!validateCardNumber(cleanedCardNumber)) {
-      setError('Invalid card number');
+    if (!stripeInstanceRef.current || !stripeElementRef.current) {
+      setError('Payment form not ready. Please try again.');
       return;
     }
 
     setSubmitting(true);
 
     try {
-      const response = await apiFetch('/api/payment-methods', {
+      // Ask server to create a SetupIntent
+      const setupRes = await apiFetch('/api/payment-methods/setup-intent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ patientId }),
+      });
+
+      const setupData = await setupRes.json();
+      if (!setupRes.ok) {
+        throw new Error(setupData.error || 'Failed to initialize card setup');
+      }
+
+      // Confirm with Stripe.js (card data goes directly to Stripe, never to our server)
+      const { error: stripeError, setupIntent } = await stripeInstanceRef.current.confirmCardSetup(
+        setupData.clientSecret,
+        { payment_method: { card: stripeElementRef.current } }
+      );
+
+      if (stripeError) {
+        throw new Error(stripeError.message || 'Card verification failed');
+      }
+
+      // Tell server the SetupIntent succeeded so it can save the payment method reference
+      const saveRes = await apiFetch('/api/payment-methods/save-stripe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           patientId,
-          cardNumber: cleanedCardNumber,
-          expiryMonth: parseInt(expiryMonth),
-          expiryYear: parseInt(expiryYear),
-          cvv: cvv || undefined,
-          cardholderName,
-          billingZip,
+          setupIntentId: setupIntent?.id,
+          stripePaymentMethodId: setupIntent?.payment_method,
           setAsDefault: setAsDefault || cards.length === 0,
         }),
       });
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to add card');
+      const saveData = await saveRes.json();
+      if (!saveRes.ok) {
+        throw new Error(saveData.error || 'Failed to save card');
       }
 
-      // Refresh cards list
       await fetchCards();
-
-      // Reset form
-      setCardNumber('');
-      setExpiryMonth('');
-      setExpiryYear('');
-      setCvv('');
-      setCardholderName('');
-      setBillingZip('');
       setSetAsDefault(false);
       setShowAddCard(false);
+      stripeElementRef.current?.clear();
 
       setSuccessMessage('Payment method added successfully');
       setTimeout(() => setSuccessMessage(null), 5000);
-    } catch (err: any) {
-      // @ts-ignore
-
+    } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
       setError(errorMessage || 'Failed to add payment method');
     } finally {
@@ -439,90 +434,19 @@ export default function PatientPaymentMethods({
           </div>
         )}
 
-        {/* Add Card Form */}
+        {/* Add Card Form (Stripe Elements - PCI DSS compliant) */}
         {showAddCard && (
           <div className="mt-6 border-t pt-6">
             <h3 className="mb-4 text-lg font-medium">Add New Payment Method</h3>
             <form onSubmit={handleAddCard} className="space-y-4">
-              <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">
-                  Cardholder Name
-                </label>
-                <input
-                  type="text"
-                  value={cardholderName}
-                  onChange={(e: any) => setCardholderName(e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
-                  placeholder="John Doe"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">Card Number</label>
-                <input
-                  type="text"
-                  value={cardNumber}
-                  onChange={(e: any) => handleCardNumberChange(e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
-                  placeholder="4242 4242 4242 4242"
-                  required
-                />
-              </div>
-
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">
-                    Expiry Month
-                  </label>
-                  <input
-                    type="text"
-                    value={expiryMonth}
-                    onChange={(e: any) => handleExpiryMonthChange(e.target.value)}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
-                    placeholder="MM"
-                    required
-                  />
+              <div className="rounded-lg border border-gray-200 bg-gray-50 p-1">
+                <div className="flex items-center gap-2 px-3 pb-1 pt-2">
+                  <svg className="h-4 w-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                  </svg>
+                  <span className="text-xs font-medium text-gray-500">Secure card entry powered by Stripe</span>
                 </div>
-
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">
-                    Expiry Year
-                  </label>
-                  <input
-                    type="text"
-                    value={expiryYear}
-                    onChange={(e: any) => handleExpiryYearChange(e.target.value)}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
-                    placeholder="YYYY"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">CVV</label>
-                  <input
-                    type="text"
-                    value={cvv}
-                    onChange={(e: any) => handleCvvChange(e.target.value)}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
-                    placeholder="123"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">
-                  Billing ZIP Code
-                </label>
-                <input
-                  type="text"
-                  value={billingZip}
-                  onChange={(e: any) => setBillingZip(e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
-                  placeholder="12345"
-                  required
-                />
+                <div ref={stripeCardRef} className="rounded-md bg-white p-3" />
               </div>
 
               {cards.length > 0 && (
@@ -531,7 +455,7 @@ export default function PatientPaymentMethods({
                     type="checkbox"
                     id="setAsDefault"
                     checked={setAsDefault}
-                    onChange={(e: any) => setSetAsDefault(e.target.checked)}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSetAsDefault(e.target.checked)}
                     className="h-4 w-4 rounded border-gray-300 text-[#4fa77e] focus:ring-[#4fa77e]"
                   />
                   <label htmlFor="setAsDefault" className="ml-2 text-sm text-gray-700">
@@ -552,12 +476,6 @@ export default function PatientPaymentMethods({
                   type="button"
                   onClick={() => {
                     setShowAddCard(false);
-                    setCardNumber('');
-                    setExpiryMonth('');
-                    setExpiryYear('');
-                    setCvv('');
-                    setCardholderName('');
-                    setBillingZip('');
                     setError(null);
                   }}
                   className="rounded-lg border border-gray-300 px-4 py-2 transition-colors hover:bg-gray-50"
@@ -577,8 +495,8 @@ export default function PatientPaymentMethods({
           <div>
             <p className="font-medium text-gray-700">Your payment information is secure</p>
             <p className="mt-1">
-              Card numbers are encrypted using AES-256-GCM encryption and stored securely. Only the
-              last 4 digits are displayed. CVV codes are never stored after processing.
+              Card details are handled directly by Stripe and never touch our servers. Only a secure
+              token and last 4 digits are stored for display. We are PCI DSS compliant.
             </p>
           </div>
         </div>

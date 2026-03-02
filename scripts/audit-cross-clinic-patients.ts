@@ -19,6 +19,10 @@
  * @security Contains PHI — output to terminal only, never to external systems
  */
 
+import { config } from 'dotenv';
+config({ path: '.env.production.local' });
+config({ path: '.env.local' });
+
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();

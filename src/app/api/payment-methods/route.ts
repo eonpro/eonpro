@@ -7,6 +7,11 @@ import { getStripeForClinic } from '@/lib/stripe/connect';
 import type Stripe from 'stripe';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
 
+/**
+ * @deprecated Raw card data should NOT be submitted via this route.
+ * Use /api/payment-methods/setup-intent + /api/payment-methods/save-stripe instead (PCI DSS).
+ * This schema is kept temporarily for backwards compatibility but will reject requests.
+ */
 const AddCardSchema = z.object({
   patientId: z.number(),
   cardNumber: z.string().min(13).max(19),
@@ -95,66 +100,22 @@ async function handleGet(request: NextRequest, _user: AuthUser) {
   }
 }
 
-async function handlePost(request: NextRequest, _user: AuthUser) {
-  try {
-    const body = await request.json();
-
-    const validationResult = AddCardSchema.safeParse(body);
-    if (!validationResult.success) {
-      return NextResponse.json(
-        {
-          error: 'Invalid input',
-          details: validationResult.error.errors,
-        },
-        { status: 400 }
-      );
-    }
-
-    const data = validationResult.data;
-
-    const paymentMethod = await PaymentMethodService.addPaymentMethod(
-      data.patientId,
-      {
-        cardNumber: data.cardNumber.replace(/\s/g, ''),
-        expiryMonth: data.expiryMonth,
-        expiryYear: data.expiryYear,
-        cvv: data.cvv,
-        cardholderName: data.cardholderName,
-        billingZip: data.billingZip,
-      },
-      data.setAsDefault
-    );
-
-    return NextResponse.json({
-      success: true,
-      data: {
-        id: paymentMethod.id,
-        last4: paymentMethod.cardLast4,
-        brand: paymentMethod.cardBrand,
-        expiryMonth: paymentMethod.expiryMonth,
-        expiryYear: paymentMethod.expiryYear,
-        cardholderName: paymentMethod.cardholderName,
-        isDefault: paymentMethod.isDefault,
-      },
-    });
-  } catch (error: any) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    logger.error('[PAYMENT_METHODS] POST error:', error);
-
-    if (errorMessage === 'Invalid card number') {
-      return NextResponse.json({ error: 'Invalid card number' }, { status: 400 });
-    }
-
-    if (error.message === 'Card has expired') {
-      return NextResponse.json({ error: 'Card has expired' }, { status: 400 });
-    }
-
-    if (error.message === 'This card is already saved') {
-      return NextResponse.json({ error: 'This card is already saved' }, { status: 409 });
-    }
-
-    return NextResponse.json({ error: 'Failed to add payment method' }, { status: 500 });
-  }
+/**
+ * POST /api/payment-methods
+ * @deprecated — Raw card data must not be sent to our server (PCI DSS violation).
+ * Use the Stripe Elements flow: POST /api/payment-methods/setup-intent → Stripe.js
+ * confirmCardSetup → POST /api/payment-methods/save-stripe.
+ */
+async function handlePost(_request: NextRequest, _user: AuthUser) {
+  logger.security('[PAYMENT_METHODS] BLOCKED: Raw card POST rejected (PCI DSS)');
+  return NextResponse.json(
+    {
+      error: 'Direct card submission is no longer supported. Use the secure Stripe Elements flow.',
+      code: 'PCI_DSS_VIOLATION',
+      migration: 'Use POST /api/payment-methods/setup-intent then POST /api/payment-methods/save-stripe',
+    },
+    { status: 400 }
+  );
 }
 
 async function handleDelete(request: NextRequest, _user: AuthUser) {

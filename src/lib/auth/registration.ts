@@ -52,8 +52,8 @@ export interface RegisterWithInviteInput {
   password: string;
   firstName: string;
   lastName: string;
-  phone: string;
-  dob: string;
+  phone?: string;
+  dob?: string;
   inviteToken: string;
 }
 
@@ -519,8 +519,8 @@ export async function registerWithInviteToken(
 
   try {
     const normalizedEmail = email.toLowerCase().trim();
-    const normalizedPhone = formatPhone(phone);
-    const normalizedDOB = normalizeDOB(dob);
+    const normalizedPhone = phone ? formatPhone(phone) : '';
+    const normalizedDOB = dob ? normalizeDOB(dob) : '';
 
     const invite = await validateInviteToken(inviteToken);
     if (!invite) {
@@ -539,7 +539,7 @@ export async function registerWithInviteToken(
     }
 
     const inviteDob = (invite.patient.dob || '').trim();
-    if (inviteDob) {
+    if (inviteDob && normalizedDOB) {
       const inviteDobNormalized = normalizeDOB(inviteDob);
       if (normalizedDOB !== inviteDobNormalized) {
         return {
@@ -564,12 +564,14 @@ export async function registerWithInviteToken(
     if (!passwordValidation.isValid) {
       return { success: false, error: passwordValidation.errors.join('. ') };
     }
-    if (!validatePhone(phone)) {
+    if (phone && !validatePhone(phone)) {
       return { success: false, error: 'Invalid phone number format' };
     }
-    const dobValidation = validateDOB(dob);
-    if (!dobValidation.isValid) {
-      return { success: false, error: dobValidation.error };
+    if (dob) {
+      const dobValidation = validateDOB(dob);
+      if (!dobValidation.isValid) {
+        return { success: false, error: dobValidation.error };
+      }
     }
 
     const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
@@ -582,6 +584,8 @@ export async function registerWithInviteToken(
       where: { id: invite.clinicId },
       select: { name: true },
     });
+
+    const needsProfileCompletion = !phone || !dob;
 
     // Invite-based registration: the invite link was sent to the patient's email,
     // so the email is already verified by possessing the invite token.
@@ -601,6 +605,16 @@ export async function registerWithInviteToken(
           emailVerifiedAt: new Date(),
         },
       });
+
+      if (needsProfileCompletion) {
+        await tx.patient.update({
+          where: { id: invite.patientId },
+          data: {
+            profileStatus: 'PENDING_COMPLETION',
+          },
+        });
+      }
+
       return { user };
     }, { timeout: 15000 });
 
@@ -635,9 +649,12 @@ export async function registerWithInviteToken(
 
     return {
       success: true,
-      message: 'Account created successfully! You can now log in.',
+      message: needsProfileCompletion
+        ? 'Account created successfully! Please complete your profile after logging in.'
+        : 'Account created successfully! You can now log in.',
       userId: result.user.id,
       patientId: invite.patientId,
+      needsProfileCompletion,
     };
   } catch (error: any) {
     logger.error('Register with invite failed', { error: error.message });

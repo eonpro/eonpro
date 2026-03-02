@@ -2,9 +2,8 @@
  * Patient AI Insights API
  * Personalized health insights for the patient dashboard
  *
- * NOTE: Patient data is fetched and processed by the AI service layer.
- * TODO: anonymizeForAI from @/lib/security/anonymize should be applied in
- * patientAssistantService before sending patient context to OpenAI (HIPAA).
+ * HIPAA: PHI is anonymized in patientAssistantService via phi-anonymization
+ * before any data is sent to OpenAI.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
