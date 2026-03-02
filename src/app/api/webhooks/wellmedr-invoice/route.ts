@@ -249,7 +249,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid JSON payload' }, { status: 400 });
   }
 
-  // STEP 3b: Idempotency check — SHA-256 hash of full request body
+  // STEP 3b: Idempotency — two layers:
+  //   Layer 1: SHA-256 hash of raw body (catches exact byte-identical replays)
+  //   Layer 2: Logical key on submission_id (catches replays with different formatting/fields)
   const idempotencyKey = `wellmedr-invoice_${createHash('sha256').update(rawBody).digest('hex')}`;
 
   const existingIdempotencyRecord = await prisma.idempotencyRecord.findUnique({
@@ -273,6 +275,28 @@ export async function POST(req: NextRequest) {
       message: 'Request already processed (idempotency)',
       ...(cachedResponse || {}),
     });
+  }
+
+  // Layer 2: Logical idempotency on submission_id — catches replays where the same Airtable
+  // order is sent again with different payload formatting (whitespace, new fields, timestamps).
+  // The body-hash above only catches byte-identical replays; this catches logical duplicates.
+  if (payload.submission_id) {
+    const logicalKey = `wellmedr-invoice_sub_${payload.submission_id}`;
+    const existingLogical = await prisma.idempotencyRecord.findUnique({
+      where: { key: logicalKey },
+    }).catch(() => null);
+
+    if (existingLogical) {
+      logger.info(`[WELLMEDR-INVOICE ${requestId}] Logical duplicate detected (same submission_id)`, {
+        submissionId: payload.submission_id,
+        logicalKey,
+      });
+      return NextResponse.json({
+        success: true,
+        duplicate: true,
+        message: 'Request already processed (submission_id idempotency)',
+      });
+    }
   }
 
   // STEP 4: Validate required fields
@@ -1473,23 +1497,32 @@ export async function POST(req: NextRequest) {
       },
     };
 
-    // Record idempotency so duplicate requests get the cached response
-    try {
-      await prisma.idempotencyRecord.create({
-        data: {
-          key: idempotencyKey,
-          resource: 'wellmedr_invoice_create',
-          responseStatus: 200,
-          responseBody: responsePayload as any,
-        },
+    // Record idempotency so duplicate requests get the cached response.
+    // Store both the body-hash key AND a logical key on submission_id (if available).
+    // The body-hash catches byte-identical replays; the logical key catches replays
+    // with different formatting that represent the same Airtable order.
+    const idempotencyRecords: Array<{ key: string; resource: string; responseStatus: number; responseBody: any }> = [
+      { key: idempotencyKey, resource: 'wellmedr_invoice_create', responseStatus: 200, responseBody: responsePayload },
+    ];
+    if (payload.submission_id) {
+      idempotencyRecords.push({
+        key: `wellmedr-invoice_sub_${payload.submission_id}`,
+        resource: 'wellmedr_invoice_create',
+        responseStatus: 200,
+        responseBody: responsePayload,
       });
-    } catch (idemErr) {
-      // Non-fatal — duplicate key (P2002) means another request beat us, which is fine
-      const code = (idemErr as any)?.code;
-      if (code !== 'P2002') {
-        logger.warn(`[WELLMEDR-INVOICE ${requestId}] Idempotency record creation failed`, {
-          error: idemErr instanceof Error ? idemErr.message : String(idemErr),
-        });
+    }
+    for (const rec of idempotencyRecords) {
+      try {
+        await prisma.idempotencyRecord.create({ data: rec as any });
+      } catch (idemErr) {
+        const code = (idemErr as any)?.code;
+        if (code !== 'P2002') {
+          logger.warn(`[WELLMEDR-INVOICE ${requestId}] Idempotency record creation failed`, {
+            error: idemErr instanceof Error ? idemErr.message : String(idemErr),
+            key: rec.key.substring(0, 40),
+          });
+        }
       }
     }
 
