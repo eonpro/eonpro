@@ -110,25 +110,16 @@ export async function POST(request: NextRequest) {
     // Tenant-safe idempotency: resolve clinic before any DB writes; key = stripe:${clinicId}:${eventId}
     let clinicId = getClinicIdFromStripeEvent(event);
 
-    // EonMeds fallback: main webhook uses EONMEDS_STRIPE_WEBHOOK_SECRET; events are from EonMeds account.
-    // When metadata.clinicId is missing (Payment Links from Dashboard, external checkouts), default to
-    // DEFAULT_CLINIC_ID so payments are processed instead of dropped. Set DEFAULT_CLINIC_ID=3 for EonMeds.
-    if (clinicId === 0 && process.env.DEFAULT_CLINIC_ID) {
-      const fallback = parseInt(process.env.DEFAULT_CLINIC_ID, 10);
-      if (!Number.isNaN(fallback) && fallback > 0) {
-        clinicId = fallback;
-        logger.info('[STRIPE WEBHOOK] Using DEFAULT_CLINIC_ID fallback (metadata.clinicId missing)', {
-          eventId: event.id,
-          eventType: event.type,
-          clinicId: fallback,
-        });
-      }
-    }
-
-    // Stripe Connect fallback: events from connected accounts (e.g. Wellmedr) include event.account.
-    // Resolve clinic by Clinic.stripeAccountId so subscription renewals and payments are attributed correctly.
+    // Stripe Connect: events from connected accounts (e.g. Wellmedr) include event.account.
+    // Resolve clinic by Clinic.stripeAccountId FIRST — this MUST run before DEFAULT_CLINIC_ID
+    // so Connect events are attributed to the correct clinic, not the platform default.
+    // BUG FIX: Previously DEFAULT_CLINIC_ID ran first, causing WellMedR Connect payments
+    // (which lack metadata.clinicId) to be incorrectly assigned to EONMeds, creating
+    // duplicate patients in the wrong clinic.
     const connectAccountId = (event as Stripe.Event & { account?: string }).account;
-    if (clinicId === 0 && connectAccountId && typeof connectAccountId === 'string') {
+    const isConnectEvent = !!connectAccountId && typeof connectAccountId === 'string';
+
+    if (clinicId === 0 && isConnectEvent) {
       const clinicByAccount = await prisma.clinic.findFirst({
         where: { stripeAccountId: connectAccountId },
         select: { id: true },
@@ -140,6 +131,30 @@ export async function POST(request: NextRequest) {
           eventType: event.type,
           clinicId,
           accountId: connectAccountId.substring(0, 12) + '…',
+        });
+      } else {
+        logger.warn('[STRIPE WEBHOOK] Connect event has unrecognized account — cannot resolve clinic', {
+          eventId: event.id,
+          eventType: event.type,
+          accountId: connectAccountId.substring(0, 12) + '…',
+        });
+      }
+    }
+
+    // Platform-direct fallback: only for non-Connect events (platform's own Stripe account).
+    // When metadata.clinicId is missing (Payment Links from Dashboard, external checkouts), default to
+    // DEFAULT_CLINIC_ID so payments are processed instead of dropped.
+    // CRITICAL: Never apply this fallback for Connect events — those must be resolved via
+    // event.account above. Applying DEFAULT_CLINIC_ID to Connect events causes cross-clinic
+    // data leakage (patients created in the wrong clinic).
+    if (clinicId === 0 && !isConnectEvent && process.env.DEFAULT_CLINIC_ID) {
+      const fallback = parseInt(process.env.DEFAULT_CLINIC_ID, 10);
+      if (!Number.isNaN(fallback) && fallback > 0) {
+        clinicId = fallback;
+        logger.info('[STRIPE WEBHOOK] Using DEFAULT_CLINIC_ID fallback (platform-direct event, no metadata)', {
+          eventId: event.id,
+          eventType: event.type,
+          clinicId: fallback,
         });
       }
     }

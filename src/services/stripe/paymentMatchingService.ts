@@ -16,7 +16,7 @@
  * 4. Full name match (firstName + lastName)
  */
 
-import { prisma } from '@/lib/db';
+import { prisma, getClinicContext } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { generatePatientId } from '@/lib/patients';
 import { decryptPHI, encryptPatientPHI } from '@/lib/security/phi-encryption';
@@ -1331,10 +1331,19 @@ export async function processStripePayment(
     // This ensures we have the best possible customer data before matching or creating patients
     const enhancedPaymentData = await enhancePaymentDataWithCustomerInfo(paymentData);
 
-    // Determine clinic ID from metadata or default
+    // Determine clinic ID: metadata > request clinic context > DEFAULT_CLINIC_ID
+    // The request clinic context (from runWithClinicContext in the webhook handler) is the
+    // most reliable source for Connect events where metadata.clinicId is missing.
     let clinicId: number | undefined;
     if (enhancedPaymentData.metadata.clinicId) {
       clinicId = parseInt(enhancedPaymentData.metadata.clinicId, 10);
+    }
+    if (!clinicId) {
+      const contextClinicId = getClinicContext();
+      if (contextClinicId && contextClinicId > 0) {
+        clinicId = contextClinicId;
+        logger.debug('[PaymentMatching] Using clinic context from webhook handler', { clinicId });
+      }
     }
 
     // Try to match existing patient using enhanced data
@@ -1345,7 +1354,7 @@ export async function processStripePayment(
 
     // If no match, create new patient
     if (!patient) {
-      // Determine clinic for new patient
+      // Use resolved clinicId; only fall back to DEFAULT_CLINIC_ID as last resort
       const targetClinicId = clinicId || parseInt(process.env.DEFAULT_CLINIC_ID || '0', 10);
 
       if (!targetClinicId) {
