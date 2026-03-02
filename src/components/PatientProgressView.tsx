@@ -243,6 +243,7 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
           notes: log.notes,
           source: log.source,
         }));
+        formattedData.sort((a, b) => a.date.getTime() - b.date.getTime());
         setWeightData(formattedData);
         if (formattedData.length > 0) {
           setHasActiveTreatment(true);
@@ -696,7 +697,7 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
           <h3 className="mb-3 text-sm font-medium text-gray-700">Recent Weight Logs</h3>
           <div className="space-y-2">
             {weightData.length > 0 ? (
-              weightData.slice(0, 5).map((entry, idx) => (
+              [...weightData].reverse().slice(0, 5).map((entry, idx) => (
                 <div
                   key={entry.id || idx}
                   className="flex items-center justify-between rounded-lg px-4 py-3"
