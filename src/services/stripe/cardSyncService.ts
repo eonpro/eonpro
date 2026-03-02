@@ -144,6 +144,7 @@ async function upsertPaymentMethod(
         patientId,
         clinicId,
         stripePaymentMethodId: pm.id,
+        encryptedCardNumber: '',
         cardLast4: card.last4,
         cardBrand: capitalize(card.brand),
         expiryMonth: card.exp_month,
@@ -356,11 +357,23 @@ async function processStripeCustomer(
 
   // Link stripeCustomerId if not already set
   if (!patient.stripeCustomerId && !dryRun) {
-    await prisma.patient.update({
-      where: { id: patient.id },
-      data: { stripeCustomerId: customer.id },
-    });
-    stats.stripeCustomerIdsLinked++;
+    try {
+      await prisma.patient.update({
+        where: { id: patient.id },
+        data: { stripeCustomerId: customer.id },
+      });
+      stats.stripeCustomerIdsLinked++;
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : '';
+      if (msg.includes('Unique constraint')) {
+        logger.warn('[CardSync] stripeCustomerId already taken, skipping link', {
+          patientId: patient.id,
+          stripeCustomerId: customer.id,
+        });
+      } else {
+        throw err;
+      }
+    }
   } else if (!patient.stripeCustomerId) {
     stats.stripeCustomerIdsLinked++;
   }
