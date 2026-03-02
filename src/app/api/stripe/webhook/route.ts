@@ -970,6 +970,45 @@ async function processWebhookEvent(
         return { success: true, details: { customerId: customer.id } };
       }
 
+      // ================================================================
+      // Payment Method Events — sync saved cards to patient profiles
+      // ================================================================
+      case 'payment_method.attached': {
+        const pm = event.data.object as Stripe.PaymentMethod;
+        const { handlePaymentMethodAttached } =
+          await import('@/services/stripe/cardSyncService');
+        const attachResult = await handlePaymentMethodAttached(pm, resolvedClinicId);
+        if (!attachResult.success) {
+          return { success: false, error: attachResult.error, details: { paymentMethodId: pm.id } };
+        }
+        return {
+          success: true,
+          details: { paymentMethodId: pm.id, action: attachResult.action },
+        };
+      }
+
+      case 'payment_method.detached': {
+        const pm = event.data.object as Stripe.PaymentMethod;
+        const { handlePaymentMethodDetached } =
+          await import('@/services/stripe/cardSyncService');
+        const detachResult = await handlePaymentMethodDetached(pm);
+        return {
+          success: true,
+          details: { paymentMethodId: pm.id, action: detachResult.action },
+        };
+      }
+
+      case 'payment_method.updated': {
+        const pm = event.data.object as Stripe.PaymentMethod;
+        const { handlePaymentMethodUpdated } =
+          await import('@/services/stripe/cardSyncService');
+        const updateResult = await handlePaymentMethodUpdated(pm);
+        return {
+          success: true,
+          details: { paymentMethodId: pm.id, action: updateResult.action },
+        };
+      }
+
       default:
         return { success: true, details: { skipped: true, reason: 'Unhandled event type' } };
     }

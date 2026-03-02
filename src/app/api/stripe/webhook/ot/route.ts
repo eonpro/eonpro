@@ -716,6 +716,45 @@ async function processOTWebhookEvent(
       }
 
       // ================================================================
+      // Payment Method Events — sync saved cards to patient profiles
+      // ================================================================
+      case 'payment_method.attached': {
+        const pm = event.data.object as Stripe.PaymentMethod;
+        const { handlePaymentMethodAttached } =
+          await import('@/services/stripe/cardSyncService');
+        const attachResult = await handlePaymentMethodAttached(pm, clinicId);
+        if (!attachResult.success) {
+          return { success: false, error: attachResult.error, details: { paymentMethodId: pm.id, clinicId } };
+        }
+        return {
+          success: true,
+          details: { paymentMethodId: pm.id, action: attachResult.action, clinicId },
+        };
+      }
+
+      case 'payment_method.detached': {
+        const pm = event.data.object as Stripe.PaymentMethod;
+        const { handlePaymentMethodDetached } =
+          await import('@/services/stripe/cardSyncService');
+        const detachResult = await handlePaymentMethodDetached(pm);
+        return {
+          success: true,
+          details: { paymentMethodId: pm.id, action: detachResult.action, clinicId },
+        };
+      }
+
+      case 'payment_method.updated': {
+        const pm = event.data.object as Stripe.PaymentMethod;
+        const { handlePaymentMethodUpdated } =
+          await import('@/services/stripe/cardSyncService');
+        const updateResult = await handlePaymentMethodUpdated(pm);
+        return {
+          success: true,
+          details: { paymentMethodId: pm.id, action: updateResult.action, clinicId },
+        };
+      }
+
+      // ================================================================
       // Other Events
       // ================================================================
       default:

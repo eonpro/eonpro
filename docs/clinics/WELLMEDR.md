@@ -477,6 +477,39 @@ When patients pay via **Stripe subscriptions** (e.g. monthly Tirzepatide), renew
 
 ---
 
+## Stripe Saved Cards Sync
+
+Saved payment methods (cards) on Stripe customer profiles can be synced to matching patient profiles on the platform. This gives providers visibility into which cards a patient has on file.
+
+### Backfill (CLI)
+
+```bash
+# Dry run (preview)
+npx tsx scripts/sync-stripe-cards.ts --clinic wellmedr
+
+# Execute (write to DB)
+npx tsx scripts/sync-stripe-cards.ts --clinic wellmedr --execute
+```
+
+The script uses Stripe Connect (`stripeAccountId` on the WellMedR clinic) to list customers and payment methods. Matching is by `stripeCustomerId` first, then email (scoped to the WellMedR clinic).
+
+### Admin API
+
+```bash
+curl -X POST https://wellmedr.eonpro.io/api/admin/sync-stripe-cards \
+  -H "Authorization: Bearer <SUPER_ADMIN_TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{ "clinicId": 7, "dryRun": false }'
+```
+
+### Ongoing Sync
+
+After the initial backfill, `payment_method.attached` / `detached` / `updated` webhook events keep cards in sync automatically. Ensure these events are enabled in the Stripe Dashboard for the WellMedR Connect account.
+
+See also: [EONMEDS_STRIPE_SYNC_RUNBOOK.md](../EONMEDS_STRIPE_SYNC_RUNBOOK.md#syncing-saved-cards-to-patient-profiles) for full parameter reference.
+
+---
+
 ## Invoice Webhook (Airtable → EONPRO)
 
 ### Purpose

@@ -646,6 +646,50 @@ curl https://eonpro-kappa.vercel.app/api/webhooks/overtime-intake
 
 ---
 
+## Stripe Saved Cards Sync
+
+Saved payment methods (cards) on the OT Stripe account can be synced to matching patient profiles on the platform. OT uses a dedicated Stripe account (`OT_STRIPE_SECRET_KEY`), handled transparently by `getStripeForClinic()`.
+
+### Backfill (CLI)
+
+```bash
+# Dry run (preview what would be synced)
+npx tsx scripts/sync-stripe-cards.ts --clinic ot
+
+# Execute (write PaymentMethod records to DB)
+npx tsx scripts/sync-stripe-cards.ts --clinic ot --execute
+
+# Include expired cards
+npx tsx scripts/sync-stripe-cards.ts --clinic ot --execute --include-expired
+```
+
+For production:
+```bash
+env $(grep -v '^#' .env.production.local | grep -v '^\s*$' | tr -d '\r' | xargs) \
+  npx tsx scripts/sync-stripe-cards.ts --clinic ot --execute
+```
+
+### Admin API
+
+```bash
+curl -X POST https://ot.eonpro.io/api/admin/sync-stripe-cards \
+  -H "Authorization: Bearer <SUPER_ADMIN_TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{ "clinicId": 8, "dryRun": false }'
+```
+
+### Ongoing Sync
+
+After the initial backfill, `payment_method.attached` / `detached` / `updated` webhook events keep cards in sync automatically via the OT webhook at `/api/stripe/webhook/ot`. Ensure these events are enabled in OT's Stripe Dashboard under Developers -> Webhooks.
+
+### Matching
+
+Customers are matched to patients by `stripeCustomerId` first, then by email (scoped to OT clinic). Unmatched customers are skipped and reported in the summary.
+
+See also: [EONMEDS_STRIPE_SYNC_RUNBOOK.md](../EONMEDS_STRIPE_SYNC_RUNBOOK.md#syncing-saved-cards-to-patient-profiles) for full parameter reference.
+
+---
+
 ## Security Considerations
 
 1. **Always use HTTPS** in production

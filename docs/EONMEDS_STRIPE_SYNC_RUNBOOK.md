@@ -172,6 +172,89 @@ Reduce `batchSize` to 25–30. Run multiple requests instead of one large batch.
 
 ---
 
+## Syncing Saved Cards to Patient Profiles
+
+Stripe customers may have saved payment methods (cards) that are not yet stored on their matching patient profile in the platform. The card sync pulls these from Stripe and creates local `PaymentMethod` records.
+
+Supported clinics: **EonMeds** (dedicated account), **WellMedR** (Connect), **OT / Overtime** (dedicated account).
+
+### CLI Script (Backfill)
+
+```bash
+# Dry run — preview what would be synced (no DB writes)
+npx tsx scripts/sync-stripe-cards.ts --clinic eonmeds
+npx tsx scripts/sync-stripe-cards.ts --clinic wellmedr
+npx tsx scripts/sync-stripe-cards.ts --clinic ot
+
+# Execute — create PaymentMethod records and link stripeCustomerId
+npx tsx scripts/sync-stripe-cards.ts --clinic eonmeds --execute
+npx tsx scripts/sync-stripe-cards.ts --clinic ot --execute
+
+# Include expired cards
+npx tsx scripts/sync-stripe-cards.ts --clinic eonmeds --execute --include-expired
+
+# Limit to first 50 customers (for testing)
+npx tsx scripts/sync-stripe-cards.ts --clinic eonmeds --limit 50
+```
+
+For production:
+```bash
+env $(grep -v '^#' .env.production.local | grep -v '^\s*$' | tr -d '\r' | xargs) \
+  npx tsx scripts/sync-stripe-cards.ts --clinic eonmeds --execute
+```
+
+### Admin API
+
+Super admins can trigger a sync via API:
+
+```bash
+curl -X POST https://eonmeds.eonpro.io/api/admin/sync-stripe-cards \
+  -H "Authorization: Bearer <SUPER_ADMIN_TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "clinicId": 3,
+    "dryRun": false,
+    "includeExpired": false
+  }'
+```
+
+| Param | Default | Description |
+|-------|---------|-------------|
+| `clinicId` | (required) | Clinic ID to sync cards for |
+| `dryRun` | `true` | Preview only; set `false` to write |
+| `includeExpired` | `false` | Include expired cards |
+| `limit` | `0` | Max Stripe customers to process (0 = unlimited) |
+
+### Ongoing Sync (Webhooks)
+
+After the initial backfill, new cards are synced automatically via Stripe webhooks:
+
+- `payment_method.attached` — upserts a new card locally
+- `payment_method.detached` — soft-deletes the local card (`isActive: false`)
+- `payment_method.updated` — updates card details (e.g. network-updated expiry)
+
+Ensure the appropriate Stripe webhook endpoint is configured to receive these events in each clinic's Stripe Dashboard under Developers -> Webhooks:
+
+- **EonMeds**: `/api/stripe/webhook`
+- **WellMedR**: `/api/stripe/webhook` (Connect events via platform)
+- **OT**: `/api/stripe/webhook/ot`
+
+### What Gets Created
+
+For each synced card:
+
+1. **PaymentMethod** — Local record with `stripePaymentMethodId`, last4, brand, expiry, cardholder name
+2. **Patient.stripeCustomerId** — Set when a match is found by email but the link was missing
+
+### Matching Strategy
+
+1. `stripeCustomerId` exact match (already linked)
+2. Email match (case-insensitive, scoped to clinic)
+
+Unmatched customers are skipped and reported in the summary.
+
+---
+
 ## Related Docs
 
 - [EONMEDS_STRIPE_PAYMENT_DEEP_DIVE.md](./EONMEDS_STRIPE_PAYMENT_DEEP_DIVE.md) — Root cause and webhook fix  
