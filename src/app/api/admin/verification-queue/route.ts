@@ -137,21 +137,27 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       return acc;
     }, {});
 
-    // Get stats
-    const stats = await prisma.patientPhoto.groupBy({
-      by: ['verificationStatus'],
-      where: {
-        type: { in: ['ID_FRONT', 'ID_BACK', 'SELFIE'] },
-        isDeleted: false,
-        ...(user.role !== 'super_admin' ? { clinicId: user.clinicId } : {}),
-      },
-      _count: true,
-    });
+    // Stats: count distinct PATIENTS (not photos) by their overall verification state
+    const clinicFilter = user.role !== 'super_admin' ? { clinicId: user.clinicId } : {};
+    const idPhotoBase = { type: { in: ['ID_FRONT' as const, 'ID_BACK' as const, 'SELFIE' as const] }, isDeleted: false, ...clinicFilter };
 
-    const statsByStatus = stats.reduce((acc: Record<string, number>, s) => {
-      acc[s.verificationStatus] = s._count;
-      return acc;
-    }, {});
+    const [verifiedPatientCount, rejectedPatientCount, pendingPatientCount] = await Promise.all([
+      prisma.patient.count({ where: { ...clinicFilter, identityVerified: true } }),
+      prisma.patientPhoto.findMany({
+        where: { ...idPhotoBase, verificationStatus: { in: ['REJECTED', 'EXPIRED'] } },
+        select: { patientId: true }, distinct: ['patientId'],
+      }).then((r) => r.length),
+      prisma.patientPhoto.findMany({
+        where: { ...idPhotoBase, verificationStatus: { in: ['PENDING', 'IN_REVIEW'] } },
+        select: { patientId: true }, distinct: ['patientId'],
+      }).then((r) => r.length),
+    ]);
+
+    const statsByStatus: Record<string, number> = {
+      PENDING: pendingPatientCount,
+      VERIFIED: verifiedPatientCount,
+      REJECTED: rejectedPatientCount,
+    };
 
     return NextResponse.json({
       verifications: Object.values(grouped),
@@ -283,18 +289,25 @@ async function handlePatch(req: NextRequest, user: AuthUser) {
       verifiedBy: user.id,
     });
 
-    // Check if all ID photos for this patient are now verified
+    // Check if patient now has one verified photo of each required type
     if (action === 'approve') {
-      const pendingPhotos = await prisma.patientPhoto.count({
+      const requiredTypes = ['ID_FRONT', 'ID_BACK', 'SELFIE'] as const;
+      const verifiedByType = await prisma.patientPhoto.findMany({
         where: {
           patientId: photo.patientId,
-          type: { in: ['ID_FRONT', 'ID_BACK', 'SELFIE'] },
-          verificationStatus: { not: 'VERIFIED' },
+          type: { in: [...requiredTypes] },
+          verificationStatus: 'VERIFIED',
           isDeleted: false,
         },
+        select: { id: true, type: true },
+        orderBy: { verifiedAt: 'asc' },
       });
 
-      if (pendingPhotos === 0) {
+      const typesVerified = new Set(verifiedByType.map((p) => p.type));
+      const allTypesVerified = requiredTypes.every((t) => typesVerified.has(t));
+
+      if (allTypesVerified) {
+        // Mark patient as identity verified
         await prisma.patient.update({
           where: { id: photo.patientId },
           data: {
@@ -303,6 +316,35 @@ async function handlePatch(req: NextRequest, user: AuthUser) {
             identityVerifiedBy: user.id,
           },
         });
+
+        // Keep only the first verified photo per type, soft-delete the rest
+        const keepIds = new Set<number>();
+        for (const t of requiredTypes) {
+          const first = verifiedByType.find((p) => p.type === t);
+          if (first) keepIds.add(first.id);
+        }
+        const extraPhotos = await prisma.patientPhoto.findMany({
+          where: {
+            patientId: photo.patientId,
+            type: { in: [...requiredTypes] },
+            isDeleted: false,
+            id: { notIn: [...keepIds] },
+          },
+          select: { id: true },
+        });
+
+        if (extraPhotos.length > 0) {
+          await prisma.patientPhoto.updateMany({
+            where: { id: { in: extraPhotos.map((p) => p.id) } },
+            data: { isDeleted: true, deletedAt: new Date(), deletedBy: user.id, deletionReason: 'auto_cleanup_after_verification' },
+          });
+
+          logger.info('[Verification Queue] Cleaned up extra photos after verification', {
+            patientId: photo.patientId,
+            deletedCount: extraPhotos.length,
+            keptIds: [...keepIds],
+          });
+        }
 
         logger.info('[Verification Queue] Patient identity verified', {
           patientId: photo.patientId,
