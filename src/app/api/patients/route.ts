@@ -117,8 +117,8 @@ const getPatientsHandler = withClinicalAuth(async (req: NextRequest, user) => {
         source: patient.source,
         createdAt: patient.createdAt,
         clinicId: patient.clinicId,
-        // Include clinic name for super admin
         clinicName: 'clinicName' in patient ? patient.clinicName : null,
+        identityVerified: patient.identityVerified ?? false,
       };
 
       // HIPAA: Only include contact info if explicitly requested

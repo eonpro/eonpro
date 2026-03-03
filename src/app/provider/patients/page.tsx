@@ -10,6 +10,7 @@ import { PatientSearchBar, useRecentSearches } from '@/components/PatientSearchB
 import { AddressInput, type AddressData } from '@/components/AddressAutocomplete';
 import { apiFetch } from '@/lib/api/fetch';
 import { US_STATE_OPTIONS } from '@/lib/usStates';
+import VerifiedBadge from '@/components/VerifiedBadge';
 import { formatPatientDisplayId } from '@/lib/utils/formatPatientDisplayId';
 
 interface Patient {
@@ -23,6 +24,7 @@ interface Patient {
   gender: string;
   status: string;
   createdAt: string;
+  identityVerified?: boolean;
 }
 
 interface PaginationMeta {
@@ -488,8 +490,9 @@ export default function ProviderPatientsPage() {
                       onKeyDown={(e) => { if (e.key === 'Enter') window.location.href = `/provider/patients/${patient.id}`; }}
                     >
                       <td className="px-4 py-3">
-                        <div className="font-medium">
+                        <div className="flex items-center gap-1 font-medium">
                           {patient.firstName} {patient.lastName}
+                          {patient.identityVerified && <VerifiedBadge size="sm" />}
                         </div>
                         <div className="text-sm text-gray-500">
                           ID: {formatPatientDisplayId(patient.patientId, patient.id)}

@@ -288,12 +288,40 @@ async function handlePatch(req: NextRequest, user: AuthUser) {
       });
 
       if (pendingPhotos === 0) {
-        // All ID photos verified - could trigger notification or update patient status
-        logger.info('[Verification Queue] Patient fully verified', {
+        await prisma.patient.update({
+          where: { id: photo.patientId },
+          data: {
+            identityVerified: true,
+            identityVerifiedAt: new Date(),
+            identityVerifiedBy: user.id,
+          },
+        });
+
+        logger.info('[Verification Queue] Patient identity verified', {
           patientId: photo.patientId,
           clinicId: photo.clinicId,
+          verifiedBy: user.id,
         });
       }
+    }
+
+    // Revoke verification if a photo is rejected or needs resubmission
+    if (action === 'reject' || action === 'request_resubmit') {
+      await prisma.patient.update({
+        where: { id: photo.patientId },
+        data: {
+          identityVerified: false,
+          identityVerifiedAt: null,
+          identityVerifiedBy: null,
+        },
+      });
+
+      logger.info('[Verification Queue] Patient identity verification revoked', {
+        patientId: photo.patientId,
+        clinicId: photo.clinicId,
+        reason: action,
+        revokedBy: user.id,
+      });
     }
 
     return NextResponse.json({

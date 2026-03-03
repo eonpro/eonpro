@@ -25,6 +25,7 @@ import {
 import MergePatientModal from '@/components/MergePatientModal';
 import DeletePatientModal from '@/components/DeletePatientModal';
 import SalesRepAssignmentModal from '@/components/SalesRepAssignmentModal';
+import VerifiedBadge from '@/components/VerifiedBadge';
 import { apiFetch } from '@/lib/api/fetch';
 
 interface SalesRep {
@@ -58,6 +59,7 @@ interface Patient {
   source?: string | null;
   salesRep?: SalesRep | null;
   salesRepId?: number | null;
+  identityVerified?: boolean;
 }
 
 interface SalesRepOption {
@@ -584,8 +586,9 @@ export default function AdminPatientsPage() {
                           </span>
                         </div>
                         <div className="ml-4">
-                          <div className="text-sm font-medium text-gray-900">
+                          <div className="flex items-center gap-1 text-sm font-medium text-gray-900">
                             {patient.firstName} {patient.lastName}
+                            {patient.identityVerified && <VerifiedBadge size="sm" />}
                           </div>
                           <div className="text-sm text-gray-500">
                             ID: {formatPatientDisplayId(patient.patientId, patient.id)}

@@ -125,6 +125,11 @@ model Patient {
   // PATIENT PORTAL: Notification preferences (email reminders, sms, shipments, etc.)
   portalNotificationPrefs Json?
 
+  // ID VERIFICATION: Tracks whether the patient's identity has been verified via uploaded ID photos
+  identityVerified   Boolean   @default(false)
+  identityVerifiedAt DateTime?
+  identityVerifiedBy Int?
+
   @@unique([clinicId, patientId])
   @@index([clinicId])
   @@index([profileStatus]) // For efficiently querying pending profiles

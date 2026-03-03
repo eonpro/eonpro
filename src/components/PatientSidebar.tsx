@@ -8,6 +8,7 @@ import DeletePatientModal from './DeletePatientModal';
 import MergePatientModal from './MergePatientModal';
 import FedExLabelModal from './FedExLabelModal';
 import SalesRepDropdown from './SalesRepDropdown';
+import VerifiedBadge from './VerifiedBadge';
 import { apiFetch } from '@/lib/api/fetch';
 import { formatPatientDisplayId } from '@/lib/utils/formatPatientDisplayId';
 
@@ -32,6 +33,7 @@ interface PatientSidebarProps {
     city: string;
     state: string;
     zip: string;
+    identityVerified?: boolean;
   };
   currentTab: string;
   affiliateCode?: string | null;
@@ -641,8 +643,9 @@ export default function PatientSidebar({
         </div>
 
         {/* Name and basic info */}
-        <h2 className="text-xl font-bold text-gray-900">
+        <h2 className="flex items-center gap-1.5 text-xl font-bold text-gray-900">
           {patient.firstName} {patient.lastName}
+          {patient.identityVerified && <VerifiedBadge size="md" />}
         </h2>
         {activeMembership && (
           <span

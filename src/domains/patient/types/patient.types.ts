@@ -118,6 +118,7 @@ export interface PatientSummary {
   source: PatientSource;
   createdAt: Date;
   clinicId: number;
+  identityVerified: boolean;
 }
 
 /**

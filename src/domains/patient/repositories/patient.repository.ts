@@ -64,6 +64,7 @@ const PATIENT_SUMMARY_SELECT = {
   source: true,
   createdAt: true,
   clinicId: true,
+  identityVerified: true,
 } as const;
 
 // PHI_FIELDS imported from '../types/patient.types' — single source of truth
@@ -931,6 +932,7 @@ function decryptPatientSummary(patient: Record<string, unknown>): PatientSummary
     source: (patient.source as PatientSummary['source']) ?? null,
     createdAt: (patient.createdAt as Date) ?? new Date(),
     clinicId: (patient.clinicId as number) ?? 0,
+    identityVerified: (patient.identityVerified as boolean) ?? false,
   };
 }
 

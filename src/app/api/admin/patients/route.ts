@@ -146,6 +146,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       state: true,
       zip: true,
       searchIndex: true,
+      identityVerified: true,
       clinic: {
         select: { id: true, name: true, subdomain: true },
       },
@@ -413,6 +414,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
             }
           : null,
         salesRepId: salesRepAssignment?.salesRepId || null,
+        identityVerified: patient.identityVerified ?? false,
       };
 
       if (includeContact) {

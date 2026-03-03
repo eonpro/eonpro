@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { X, User, Loader2, UserPlus } from 'lucide-react';
+import VerifiedBadge from './VerifiedBadge';
 import { formatPatientDisplayId } from '@/lib/utils/formatPatientDisplayId';
 
 interface PatientResult {
@@ -11,6 +12,7 @@ interface PatientResult {
   lastName: string;
   email?: string;
   clinicName?: string | null;
+  identityVerified?: boolean;
 }
 
 interface PatientQuickSearchProps {
@@ -246,8 +248,9 @@ export default function PatientQuickSearch({
                   </div>
                   {/* Patient Info */}
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-gray-900">
+                    <p className="flex items-center gap-1 truncate text-sm font-medium text-gray-900">
                       {patient.firstName} {patient.lastName}
+                      {patient.identityVerified && <VerifiedBadge size="sm" />}
                     </p>
                     <p className="truncate text-xs text-gray-500">
                       #{formatPatientDisplayId(patient.patientId, patient.id)}
