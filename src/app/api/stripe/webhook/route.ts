@@ -212,6 +212,7 @@ export async function POST(request: NextRequest) {
         reverseCommissionForRefund,
         checkIfFirstPayment,
         autoMatchPendingRefillsForPatient,
+        isConnectEvent,
       })
     );
 
@@ -325,6 +326,7 @@ interface ProcessingServices {
   reverseCommissionForRefund?: any;
   checkIfFirstPayment?: any;
   autoMatchPendingRefillsForPatient?: any;
+  isConnectEvent?: boolean;
 }
 
 interface ProcessingResult {
@@ -349,7 +351,14 @@ async function processWebhookEvent(
     reverseCommissionForRefund,
     checkIfFirstPayment,
     autoMatchPendingRefillsForPatient,
+    isConnectEvent,
   } = services;
+
+  // Connect events (e.g. WellMedR) have their own invoice creation flow
+  // (Airtable automation → /api/webhooks/wellmedr-invoice). The Stripe webhook
+  // must NOT also create invoices via processStripePayment, or every payment
+  // generates 3 duplicate invoices (stripe_webhook + stripe_webhook_auto_create + wellmedr-airtable).
+  const skipInvoiceCreation = !!isConnectEvent;
 
   try {
     switch (event.type) {
@@ -501,6 +510,20 @@ async function processWebhookEvent(
           };
         }
 
+        // Connect clinics handle invoice creation via their own automation (e.g. Airtable)
+        if (skipInvoiceCreation) {
+          logger.info('[STRIPE WEBHOOK] Skipping invoice creation for Connect event (handled by external automation)', {
+            eventId: event.id,
+            paymentIntentId: paymentIntent.id,
+            clinicId: resolvedClinicId,
+          });
+          try { await StripePaymentService.updatePaymentFromIntent(paymentIntent); } catch {}
+          return {
+            success: true,
+            details: { skipped: true, reason: 'Connect event — invoice created by external automation' },
+          };
+        }
+
         const intentPaymentData = await extractPaymentDataFromPaymentIntent(paymentIntent);
         if (resolvedClinicId > 0 && !intentPaymentData.metadata?.clinicId) {
           intentPaymentData.metadata = { ...intentPaymentData.metadata, clinicId: String(resolvedClinicId) };
@@ -608,6 +631,19 @@ async function processWebhookEvent(
           return {
             success: true,
             details: { skipped: true, reason: 'Has payment_intent or invoice' },
+          };
+        }
+
+        // Connect clinics handle invoice creation via their own automation (e.g. Airtable)
+        if (skipInvoiceCreation) {
+          logger.info('[STRIPE WEBHOOK] Skipping invoice creation for Connect charge event', {
+            eventId: event.id,
+            chargeId: charge.id,
+            clinicId: resolvedClinicId,
+          });
+          return {
+            success: true,
+            details: { skipped: true, reason: 'Connect event — invoice created by external automation' },
           };
         }
 
@@ -730,6 +766,19 @@ async function processWebhookEvent(
               skipped: true,
               reason: session.payment_status !== 'paid' ? 'Not paid' : 'Has invoice',
             },
+          };
+        }
+
+        // Connect clinics handle invoice creation via their own automation (e.g. Airtable)
+        if (skipInvoiceCreation) {
+          logger.info('[STRIPE WEBHOOK] Skipping invoice creation for Connect checkout session', {
+            eventId: event.id,
+            sessionId: session.id,
+            clinicId: resolvedClinicId,
+          });
+          return {
+            success: true,
+            details: { skipped: true, reason: 'Connect event — invoice created by external automation' },
           };
         }
 
