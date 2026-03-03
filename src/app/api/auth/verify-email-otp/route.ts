@@ -15,6 +15,8 @@ import { logger } from '@/lib/logger';
 import { verifyOTPCode } from '@/lib/auth/verification';
 import { SignJWT } from 'jose';
 import { AUTH_CONFIG, JWT_SECRET } from '@/lib/auth/config';
+import { createSessionRecord } from '@/lib/auth/session-manager';
+import { authRateLimiter } from '@/lib/security/enterprise-rate-limiter';
 
 const verifyEmailOtpSchema = z.object({
   email: z.string().email().transform((v) => v.toLowerCase().trim()),
@@ -153,12 +155,49 @@ export const POST = standardRateLimit(async (req: NextRequest) => {
       }
     }
 
+    // Create a session record so the auth middleware can validate this token.
+    // This mirrors what the password login route does — without a sessionId
+    // in the JWT, the middleware rejects the token as "session expired."
+    const effectiveUserId = isPatientLogin && patient ? patient.id : user!.id;
+    const effectiveRole = (tokenPayload.role as string) || 'patient';
+    const effectiveClinicId = (tokenPayload.clinicId as number) || undefined;
+
+    const { sessionId } = await createSessionRecord(
+      String(effectiveUserId),
+      effectiveRole,
+      effectiveClinicId,
+      req
+    );
+    tokenPayload.sessionId = sessionId;
+
+    // Clear lockout state and rate limits on successful OTP login
+    const clientIp = authRateLimiter.getClientIp(req);
+    const clearPromises: Promise<unknown>[] = [
+      authRateLimiter.clearRateLimit(clientIp, email).catch((err: unknown) => {
+        logger.warn('[VERIFY-EMAIL-OTP] Rate limit clear failed', {
+          error: err instanceof Error ? err.message : 'Unknown error',
+        });
+      }),
+    ];
+    if (user) {
+      clearPromises.push(
+        prisma.user.update({
+          where: { id: user.id },
+          data: { failedLoginAttempts: 0, lockedUntil: null },
+        }).catch((err: unknown) => {
+          logger.warn('[VERIFY-EMAIL-OTP] Lockout clear failed', {
+            error: err instanceof Error ? err.message : 'Unknown error',
+          });
+        })
+      );
+    }
+    await Promise.all(clearPromises);
+
     // Determine token expiry based on role
-    const role = (tokenPayload.role as string) || 'patient';
     const expiry =
-      role === 'patient'
+      effectiveRole === 'patient'
         ? AUTH_CONFIG.tokenExpiry.patient
-        : role === 'provider'
+        : effectiveRole === 'provider'
           ? AUTH_CONFIG.tokenExpiry.provider
           : AUTH_CONFIG.tokenExpiry.access;
 
@@ -172,6 +211,7 @@ export const POST = standardRateLimit(async (req: NextRequest) => {
       userId: user?.id,
       patientId: patient?.id,
       loginMethod: 'email_otp',
+      sessionId,
     });
 
     // Audit log (non-blocking)
@@ -183,6 +223,7 @@ export const POST = standardRateLimit(async (req: NextRequest) => {
           details: {
             method: 'email_otp',
             isPatient: isPatientLogin,
+            sessionId,
           },
         },
       });
