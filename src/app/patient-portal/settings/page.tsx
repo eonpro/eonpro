@@ -11,7 +11,13 @@ import { getMinimalPortalUserPayload, setPortalUserStorage } from '@/lib/utils/p
 import { ringColorStyle } from '@/lib/utils/css-ring-color';
 import { logger } from '@/lib/logger';
 import { toast } from '@/components/Toast';
-import { AddressInput, type AddressData } from '@/components/AddressAutocomplete';
+import dynamic from 'next/dynamic';
+import type { AddressData } from '@/components/AddressAutocomplete';
+
+const AddressInput = dynamic(
+  () => import('@/components/AddressAutocomplete').then((mod) => mod.AddressInput),
+  { ssr: false, loading: () => <div className="h-10 animate-pulse rounded-lg bg-gray-100" /> },
+);
 import {
   User,
   Mail,

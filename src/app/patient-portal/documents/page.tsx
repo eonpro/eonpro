@@ -62,27 +62,17 @@ export default function PatientPortalDocuments() {
             }
           }
         }
-        if (!cancelled && pid != null) setPatientId(pid);
-        else if (!cancelled) router.push(PATIENT_PORTAL_PATH);
-      } catch {
-        if (!cancelled) router.push(PATIENT_PORTAL_PATH);
-      }
-    };
+        if (cancelled) return;
+        if (pid == null) {
+          router.push(PATIENT_PORTAL_PATH);
+          return;
+        }
+        setPatientId(pid);
 
-    run();
-    return () => {
-      cancelled = true;
-    };
-  }, [router]);
-
-  useEffect(() => {
-    if (!patientId) return;
-
-    const fetchDocuments = async () => {
-      try {
         setIsLoading(true);
         setError(null);
         const response = await portalFetch('/api/patient-portal/documents');
+        if (cancelled) return;
         const sessionError = getPortalResponseError(response);
         if (sessionError) {
           setError(sessionError);
@@ -102,15 +92,20 @@ export default function PatientPortalDocuments() {
           setError('Failed to load documents. Please try again.');
         }
       } catch (err) {
-        logger.error('Error fetching documents', { error: err instanceof Error ? err.message : 'Unknown' });
-        setError('Failed to load documents. Please check your connection and try again.');
+        if (!cancelled) {
+          logger.error('Error loading documents page', { error: err instanceof Error ? err.message : 'Unknown' });
+          setError('Failed to load documents. Please check your connection and try again.');
+        }
       } finally {
-        setIsLoading(false);
+        if (!cancelled) setIsLoading(false);
       }
     };
 
-    fetchDocuments();
-  }, [patientId]);
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [router]);
 
   const documentCategories = [
     { value: 'MEDICAL_RECORDS', label: 'Medical Records' },

@@ -15,7 +15,13 @@ import { useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
 import { portalFetch } from '@/lib/api/patient-portal-client';
 import { safeParseJson } from '@/lib/utils/safe-json';
 import { logger } from '@/lib/logger';
-import { PhotoUploader, PhotoGallery, PhotoComparison } from '@/components/patient-portal/photos';
+import dynamic from 'next/dynamic';
+import { PhotoUploader, PhotoGallery } from '@/components/patient-portal/photos';
+
+const PhotoComparison = dynamic(
+  () => import('@/components/patient-portal/photos').then((mod) => mod.PhotoComparison),
+  { ssr: false },
+);
 import {
   Camera,
   TrendingDown,

@@ -215,13 +215,22 @@ export default function PatientPortalDashboard() {
   const loadPatientData = async (patientId: number) => {
     setDataError(null);
     try {
-      // Load intake vitals (initial height, weight, BMI from intake form)
-      const vitalsRes = await portalFetch('/api/patient-portal/vitals');
-      const err = getPortalResponseError(vitalsRes);
-      if (err) {
-        setDataError(err);
+      const [vitalsRes, weightRes, remindersRes, trackingRes, photosRes] =
+        await Promise.all([
+          portalFetch('/api/patient-portal/vitals'),
+          portalFetch(`/api/patient-progress/weight?patientId=${patientId}`),
+          portalFetch(`/api/patient-progress/medication-reminders?patientId=${patientId}`),
+          portalFetch('/api/patient-portal/tracking').catch(() => null),
+          portalFetch('/api/patient-portal/photos').catch(() => null),
+        ]);
+
+      const authErr = getPortalResponseError(vitalsRes) || getPortalResponseError(weightRes) || getPortalResponseError(remindersRes);
+      if (authErr) {
+        setDataError(authErr);
         return;
       }
+
+      // --- Vitals ---
       if (vitalsRes.ok) {
         const result = await safeParseJson(vitalsRes);
         if (result && typeof result === 'object' && 'success' in result && result.success && 'data' in result && result.data) {
@@ -229,16 +238,9 @@ export default function PatientPortalDashboard() {
         }
       }
 
-      // Load weight data from database (logged weights over time)
-      const weightRes = await portalFetch(`/api/patient-progress/weight?patientId=${patientId}`);
-      const weightErr = getPortalResponseError(weightRes);
-      if (weightErr) {
-        setDataError(weightErr);
-        return;
-      }
+      // --- Weight ---
       if (weightRes.ok) {
         const result = await safeParseJson(weightRes);
-        // Handle both array format and { data: [...] } format
         const logs = Array.isArray(result) ? result : (result && typeof result === 'object' && 'data' in result ? (result as { data?: unknown[] }).data : null) || [];
         interface WeightLog { recordedAt?: string; weight?: number }
         const formattedData = (logs as WeightLog[]).map((log) => ({
@@ -261,46 +263,17 @@ export default function PatientPortalDashboard() {
         }
       }
 
-      // Load medication reminders from database
-      const remindersRes = await portalFetch(
-        `/api/patient-progress/medication-reminders?patientId=${patientId}`
-      );
-      const remindersErr = getPortalResponseError(remindersRes);
-      if (remindersErr) {
-        setDataError(remindersErr);
-        return;
-      }
+      // --- Reminders ---
       if (remindersRes.ok) {
         const result = await safeParseJson(remindersRes);
-        // Handle both array format and { data: [...] } format
         const reminders = Array.isArray(result) ? result : (result && typeof result === 'object' && 'data' in result ? (result as { data?: unknown[] }).data : null) || [];
         if (reminders.length > 0) {
-          // Find the next upcoming reminder
-          const dayNames = [
-            'Sunday',
-            'Monday',
-            'Tuesday',
-            'Wednesday',
-            'Thursday',
-            'Friday',
-            'Saturday',
-          ];
+          const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
           const today = new Date().getDay();
-
-          // Sort by next occurrence
-          interface ReminderWithDays {
-            dayOfWeek: number;
-            medicationName: string;
-            timeOfDay: string;
-            daysUntil: number;
-          }
+          interface ReminderWithDays { dayOfWeek: number; medicationName: string; timeOfDay: string; daysUntil: number }
           const sortedReminders = (reminders as ReminderWithDays[])
-            .map((r) => ({
-              ...r,
-              daysUntil: (r.dayOfWeek - today + 7) % 7 || 7,
-            }))
+            .map((r) => ({ ...r, daysUntil: (r.dayOfWeek - today + 7) % 7 || 7 }))
             .sort((a, b) => a.daysUntil - b.daysUntil);
-
           const next = sortedReminders[0];
           setNextReminder({
             medication: next.medicationName.split(' ')[0],
@@ -310,81 +283,52 @@ export default function PatientPortalDashboard() {
         }
       }
 
-      // Load recent shipment for dashboard widget
-      try {
-        const trackingRes = await portalFetch('/api/patient-portal/tracking');
-        if (trackingRes.ok) {
-          const trackingResult = await safeParseJson(trackingRes);
-          if (trackingResult && typeof trackingResult === 'object' && 'activeShipments' in trackingResult) {
-            const active = (trackingResult as { activeShipments: RecentShipmentDisplay[] }).activeShipments;
-            if (Array.isArray(active) && active.length > 0) {
-              setRecentShipment(active[0]);
-            }
+      // --- Tracking (non-critical) ---
+      if (trackingRes?.ok) {
+        const trackingResult = await safeParseJson(trackingRes);
+        if (trackingResult && typeof trackingResult === 'object' && 'activeShipments' in trackingResult) {
+          const active = (trackingResult as { activeShipments: RecentShipmentDisplay[] }).activeShipments;
+          if (Array.isArray(active) && active.length > 0) {
+            setRecentShipment(active[0]);
           }
         }
-      } catch (trackingError) {
-        logger.error('PatientPortal: failed to load tracking data', {
-          error: trackingError instanceof Error ? trackingError.message : 'Unknown',
-        });
       }
 
-      // Load photo stats for dashboard widget
-      try {
-        const photosRes = await portalFetch('/api/patient-portal/photos');
-        const photosErr = getPortalResponseError(photosRes);
-        if (photosErr) {
-          setDataError(photosErr);
-          return;
-        }
-        if (photosRes.ok) {
-          const photosResult = await safeParseJson(photosRes);
-          if (photosResult && typeof photosResult === 'object' && 'success' in photosResult && photosResult.success && 'data' in photosResult && photosResult.data) {
-            const photos = photosResult.data;
-            interface PhotoItem {
-              type?: string;
-              createdAt?: string;
-              verificationStatus?: string;
-            }
-            const progressPhotos = (photos as PhotoItem[]).filter((p) => p.type === 'PROGRESS');
-            const idPhotos = (photos as PhotoItem[]).filter(
-              (p) => p.type === 'ID_FRONT' || p.type === 'ID_BACK'
-            );
+      // --- Photos (non-critical) ---
+      if (photosRes?.ok) {
+        const photosResult = await safeParseJson(photosRes);
+        if (photosResult && typeof photosResult === 'object' && 'success' in photosResult && photosResult.success && 'data' in photosResult && photosResult.data) {
+          const photos = photosResult.data;
+          interface PhotoItem { type?: string; createdAt?: string; verificationStatus?: string }
+          const progressPhotos = (photos as PhotoItem[]).filter((p) => p.type === 'PROGRESS');
+          const idPhotos = (photos as PhotoItem[]).filter((p) => p.type === 'ID_FRONT' || p.type === 'ID_BACK');
 
-            let idStatus: 'PENDING' | 'VERIFIED' | 'REJECTED' | 'NOT_SUBMITTED' = 'NOT_SUBMITTED';
-            if (idPhotos.length > 0) {
-              const latestIdPhoto = [...idPhotos].sort(
-                (a, b) =>
-                  new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime()
-              )[0];
-              idStatus = (latestIdPhoto.verificationStatus || 'PENDING') as typeof idStatus;
-            }
-
-            // Get most recent progress photo URL
-            const recentProgressPhoto =
-              progressPhotos.length > 0
-                ? ([...progressPhotos].sort(
-                    (a, b) =>
-                      new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime()
-                  )[0] as PhotoItem & { url?: string })?.url
-                : null;
-
-            setPhotoStats({
-              totalPhotos: Array.isArray(photos) ? photos.length : 0,
-              recentPhoto: recentProgressPhoto ?? null,
-              idVerificationStatus: idStatus,
-            });
+          let idStatus: 'PENDING' | 'VERIFIED' | 'REJECTED' | 'NOT_SUBMITTED' = 'NOT_SUBMITTED';
+          if (idPhotos.length > 0) {
+            const latestIdPhoto = [...idPhotos].sort(
+              (a, b) => new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime()
+            )[0];
+            idStatus = (latestIdPhoto.verificationStatus || 'PENDING') as typeof idStatus;
           }
+
+          const recentProgressPhoto =
+            progressPhotos.length > 0
+              ? ([...progressPhotos].sort(
+                  (a, b) => new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime()
+                )[0] as PhotoItem & { url?: string })?.url
+              : null;
+
+          setPhotoStats({
+            totalPhotos: Array.isArray(photos) ? photos.length : 0,
+            recentPhoto: recentProgressPhoto ?? null,
+            idVerificationStatus: idStatus,
+          });
         }
-      } catch (photoError) {
-        logger.error('PatientPortal: failed to load photo stats', {
-          error: photoError instanceof Error ? photoError.message : 'Unknown',
-        });
       }
     } catch (error) {
       logger.error('Error loading patient data', {
         error: error instanceof Error ? error.message : 'Unknown',
       });
-      // Production: no demo data; leave state as-is (empty or partial)
     }
   };
 

@@ -1,12 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import { useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
 import { usePatientPortalLanguage } from '@/lib/contexts/PatientPortalLanguageContext';
-import { portalFetch } from '@/lib/api/patient-portal-client';
-import { safeParseJson } from '@/lib/utils/safe-json';
-import { logger } from '@/lib/logger';
+import { usePortalSWR } from '@/hooks/usePortalSWR';
 import {
   Package,
   Truck,
@@ -56,71 +54,42 @@ function formatDate(dateStr: string | null | undefined): string {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
+interface TrackingResponse {
+  activeShipments?: Shipment[];
+  deliveredShipments?: Shipment[];
+  prescriptionJourney?: PrescriptionJourney | null;
+}
+
 export default function ShipmentsPage() {
   const { branding } = useClinicBranding();
   const { t } = usePatientPortalLanguage();
   const primaryColor = branding?.primaryColor || '#4fa77e';
 
-  const [allShipments, setAllShipments] = useState<Shipment[]>([]);
-  const [prescriptionJourney, setPrescriptionJourney] = useState<PrescriptionJourney | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { data, error: swrError, isLoading, isValidating, mutate } = usePortalSWR<TrackingResponse>(
+    '/api/patient-portal/tracking',
+  );
+
+  const allShipments = (() => {
+    if (!data) return [];
+    const active = Array.isArray(data.activeShipments) ? data.activeShipments : [];
+    const delivered = Array.isArray(data.deliveredShipments) ? data.deliveredShipments : [];
+    const merged = [...active, ...delivered];
+    merged.sort((a, b) => new Date(b.orderedAt).getTime() - new Date(a.orderedAt).getTime());
+    return merged;
+  })();
+
+  const prescriptionJourney = data?.prescriptionJourney ?? null;
+  const error = swrError ? (swrError instanceof Error ? swrError.message : 'Failed to load shipments') : null;
+
   const [refreshing, setRefreshing] = useState(false);
-
-  useEffect(() => {
-    loadShipments();
-  }, []);
-
-  const loadShipments = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      const response = await portalFetch('/api/patient-portal/tracking');
-
-      if (!response.ok) {
-        if (response.status === 401) {
-          setError('Please log in to view your shipments');
-          return;
-        }
-        throw new Error('Failed to load shipments');
-      }
-
-      const data = await safeParseJson(response);
-      const active =
-        data !== null && typeof data === 'object' && 'activeShipments' in data
-          ? ((data as { activeShipments?: Shipment[] }).activeShipments ?? [])
-          : [];
-      const delivered =
-        data !== null && typeof data === 'object' && 'deliveredShipments' in data
-          ? ((data as { deliveredShipments?: Shipment[] }).deliveredShipments ?? [])
-          : [];
-      const journey =
-        data !== null && typeof data === 'object' && 'prescriptionJourney' in data
-          ? (data as { prescriptionJourney?: PrescriptionJourney | null }).prescriptionJourney ?? null
-          : null;
-
-      const merged = [...(Array.isArray(active) ? active : []), ...(Array.isArray(delivered) ? delivered : [])];
-      merged.sort((a, b) => new Date(b.orderedAt).getTime() - new Date(a.orderedAt).getTime());
-      setAllShipments(merged);
-      setPrescriptionJourney(journey);
-    } catch (err) {
-      logger.error('Error loading shipments', {
-        error: err instanceof Error ? err.message : 'Unknown',
-      });
-      setError(err instanceof Error ? err.message : 'Failed to load shipments');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    await loadShipments();
+    await mutate();
     setRefreshing(false);
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <div className="relative">

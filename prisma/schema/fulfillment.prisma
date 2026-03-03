@@ -113,8 +113,9 @@ model ShipmentLabel {
   height    Float?
 
   // Label storage
-  labelS3Key  String? // S3 key for stored PDF
-  labelFormat String  @default("PDF") // PDF, PNG, ZPL
+  labelS3Key      String? // S3 key for stored PDF
+  labelPdfBase64  String? // Base64-encoded label PDF (fallback when S3 unavailable)
+  labelFormat     String  @default("PDF") // PDF, PNG, ZPL
 
   // Status
   status    String @default("CREATED") // CREATED, VOIDED

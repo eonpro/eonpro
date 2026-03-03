@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useCallback } from 'react';
-import { X, Loader2, Printer, Package, Truck, AlertCircle, Zap, DollarSign } from 'lucide-react';
+import { X, Loader2, Printer, Package, Truck, AlertCircle, Zap, DollarSign, Download } from 'lucide-react';
 import { AddressInput, type AddressData } from '@/components/AddressAutocomplete';
 import { apiFetch } from '@/lib/api/fetch';
 import { FEDEX_SERVICE_TYPES, FEDEX_PACKAGING_TYPES } from '@/lib/fedex-services';
@@ -89,8 +89,9 @@ export default function FedExLabelModal({
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<{ trackingNumber: string } | null>(null);
+  const [success, setSuccess] = useState<{ trackingNumber: string; labelId: number; popupBlocked: boolean } | null>(null);
   const [submitted, setSubmitted] = useState(false);
+  const [redownloading, setRedownloading] = useState(false);
 
   const availableServices = useMemo(
     () => (oneRate ? FEDEX_SERVICE_TYPES.filter((s) => s.oneRateEligible) : FEDEX_SERVICE_TYPES),
@@ -163,6 +164,43 @@ export default function FedExLabelModal({
     }
   };
 
+  const openLabelPdf = (base64: string): boolean => {
+    const pdfBytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+    const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+    const url = URL.createObjectURL(blob);
+    const win = window.open(url, '_blank');
+    return !!win;
+  };
+
+  const downloadLabelPdf = (base64: string, trackingNumber: string) => {
+    const pdfBytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+    const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `FedEx-Label-${trackingNumber}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleRedownload = async () => {
+    if (!success) return;
+    setRedownloading(true);
+    setError(null);
+    try {
+      const res = await apiFetch(`/api/shipping/fedex/label?id=${success.labelId}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to retrieve label');
+      downloadLabelPdf(data.labelPdf, success.trackingNumber);
+    } catch (err: any) {
+      setError(err.message || 'Failed to download label');
+    } finally {
+      setRedownloading(false);
+    }
+  };
+
   const handleSubmit = async () => {
     if (submitted) return;
     setSubmitted(true);
@@ -186,12 +224,8 @@ export default function FedExLabelModal({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to create label');
 
-      setSuccess({ trackingNumber: data.trackingNumber });
-
-      const pdfBytes = Uint8Array.from(atob(data.labelPdf), (c) => c.charCodeAt(0));
-      const blob = new Blob([pdfBytes], { type: 'application/pdf' });
-      const url = URL.createObjectURL(blob);
-      window.open(url, '_blank');
+      const opened = openLabelPdf(data.labelPdf);
+      setSuccess({ trackingNumber: data.trackingNumber, labelId: data.id, popupBlocked: !opened });
     } catch (err: any) {
       setError(err.message || 'An unexpected error occurred');
       setSubmitted(false);
@@ -243,15 +277,40 @@ export default function FedExLabelModal({
               <p className="mt-1 text-sm text-green-700">
                 Tracking: <span className="font-mono font-semibold">{success.trackingNumber}</span>
               </p>
-              <p className="mt-1 text-xs text-green-600">
-                The label PDF has been opened in a new tab for printing.
-              </p>
-              <button
-                onClick={onClose}
-                className="mt-3 rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
-              >
-                Done
-              </button>
+              {success.popupBlocked ? (
+                <div className="mt-2 rounded-md border border-amber-300 bg-amber-50 p-3">
+                  <p className="text-sm font-medium text-amber-800">
+                    Popup was blocked by your browser.
+                  </p>
+                  <p className="mt-0.5 text-xs text-amber-700">
+                    Click the button below to download your label PDF.
+                  </p>
+                </div>
+              ) : (
+                <p className="mt-1 text-xs text-green-600">
+                  The label PDF has been opened in a new tab for printing.
+                </p>
+              )}
+              <div className="mt-3 flex items-center gap-2">
+                <button
+                  onClick={handleRedownload}
+                  disabled={redownloading}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-[#4D148C] px-4 py-2 text-sm font-medium text-[#4D148C] transition hover:bg-purple-50 disabled:opacity-50"
+                >
+                  {redownloading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Download className="h-4 w-4" />
+                  )}
+                  {success.popupBlocked ? 'Download Label PDF' : 'Re-download Label'}
+                </button>
+                <button
+                  onClick={onClose}
+                  className="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
+                >
+                  Done
+                </button>
+              </div>
             </div>
           )}
 

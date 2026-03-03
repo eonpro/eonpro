@@ -109,6 +109,24 @@ export default function PatientPrescriptionSummary({ patientId }: PatientPrescri
     notes: '',
   });
 
+  // Edit/Delete modal state
+  const [actionModal, setActionModal] = useState<{
+    type: 'edit' | 'delete';
+    entry: TrackingEntry;
+  } | null>(null);
+  const [adminPassword, setAdminPassword] = useState('');
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [editFormData, setEditFormData] = useState({
+    trackingNumber: '',
+    carrier: 'UPS',
+    medicationName: '',
+    medicationStrength: '',
+    medicationQuantity: '',
+    notes: '',
+    status: 'SHIPPED',
+  });
+
   const fetchTrackingData = async () => {
     try {
       setLoading(true);
@@ -224,6 +242,106 @@ export default function PatientPrescriptionSummary({ patientId }: PatientPrescri
       alert(err instanceof Error ? err.message : 'Failed to add tracking');
     } finally {
       setAddingTracking(false);
+    }
+  };
+
+  const openEditModal = (entry: TrackingEntry) => {
+    setEditFormData({
+      trackingNumber: entry.trackingNumber,
+      carrier: entry.carrier,
+      medicationName: entry.medicationName || '',
+      medicationStrength: entry.medicationStrength || '',
+      medicationQuantity: entry.medicationQuantity || '',
+      notes: entry.statusNote || '',
+      status: entry.status,
+    });
+    setAdminPassword('');
+    setActionError(null);
+    setActionModal({ type: 'edit', entry });
+  };
+
+  const openDeleteModal = (entry: TrackingEntry) => {
+    setAdminPassword('');
+    setActionError(null);
+    setActionModal({ type: 'delete', entry });
+  };
+
+  const handleEditTracking = async () => {
+    if (!actionModal || actionModal.type !== 'edit') return;
+    if (!adminPassword.trim()) {
+      setActionError('Password is required');
+      return;
+    }
+
+    setActionLoading(true);
+    setActionError(null);
+
+    try {
+      const entryDbId = parseInt(actionModal.entry.id.replace('shipping-', ''), 10);
+      const response = await apiFetch(`/api/patients/${patientId}/tracking`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          trackingEntryId: entryDbId,
+          password: adminPassword,
+          trackingNumber: editFormData.trackingNumber.trim(),
+          carrier: editFormData.carrier,
+          status: editFormData.status,
+          medicationName: editFormData.medicationName.trim() || null,
+          medicationStrength: editFormData.medicationStrength.trim() || null,
+          medicationQuantity: editFormData.medicationQuantity.trim() || null,
+          notes: editFormData.notes.trim() || null,
+        }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to edit tracking entry');
+      }
+
+      setActionModal(null);
+      setAdminPassword('');
+      fetchTrackingData();
+    } catch (err) {
+      if ((err as { isAuthError?: boolean })?.isAuthError) return;
+      setActionError(err instanceof Error ? err.message : 'Failed to edit tracking entry');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleDeleteTracking = async () => {
+    if (!actionModal || actionModal.type !== 'delete') return;
+    if (!adminPassword.trim()) {
+      setActionError('Password is required');
+      return;
+    }
+
+    setActionLoading(true);
+    setActionError(null);
+
+    try {
+      const entryDbId = parseInt(actionModal.entry.id.replace('shipping-', ''), 10);
+      const response = await apiFetch(`/api/patients/${patientId}/tracking`, {
+        method: 'DELETE',
+        body: JSON.stringify({
+          trackingEntryId: entryDbId,
+          password: adminPassword,
+        }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to delete tracking entry');
+      }
+
+      setActionModal(null);
+      setAdminPassword('');
+      fetchTrackingData();
+    } catch (err) {
+      if ((err as { isAuthError?: boolean })?.isAuthError) return;
+      setActionError(err instanceof Error ? err.message : 'Failed to delete tracking entry');
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -740,12 +858,260 @@ export default function PatientPrescriptionSummary({ patientId }: PatientPrescri
                     )}
                   </div>
 
-                  {/* Source Badge */}
-                  <span className="text-xs capitalize text-gray-400">{entry.source}</span>
+                  {/* Source Badge + Actions */}
+                  <div className="flex flex-col items-end gap-1">
+                    <span className="text-xs capitalize text-gray-400">{entry.source}</span>
+                    {entry.source === 'manual' && entry.id.startsWith('shipping-') && (
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => openEditModal(entry)}
+                          className="rounded p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-blue-600"
+                          title="Edit tracking entry"
+                        >
+                          <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                          </svg>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => openDeleteModal(entry)}
+                          className="rounded p-1 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600"
+                          title="Delete tracking entry"
+                        >
+                          <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Edit/Delete Confirmation Modal */}
+      {actionModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="mx-4 w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+            {actionModal.type === 'delete' ? (
+              <>
+                <div className="mb-4 flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100">
+                    <svg className="h-5 w-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900">Delete Tracking Entry</h3>
+                    <p className="text-sm text-gray-500">This action cannot be undone.</p>
+                  </div>
+                </div>
+
+                <div className="mb-4 rounded-lg bg-gray-50 p-3">
+                  <p className="text-sm text-gray-700">
+                    <span className="font-medium">{actionModal.entry.carrier}:</span>{' '}
+                    <span className="font-mono">{actionModal.entry.trackingNumber}</span>
+                  </p>
+                  {actionModal.entry.medicationName && (
+                    <p className="mt-1 text-xs text-gray-500">{actionModal.entry.medicationName}</p>
+                  )}
+                </div>
+
+                <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3">
+                  <div className="mb-2 flex items-center gap-2">
+                    <svg className="h-4 w-4 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                    <span className="text-sm font-medium text-amber-800">Admin Verification Required</span>
+                  </div>
+                  <input
+                    type="password"
+                    value={adminPassword}
+                    onChange={(e) => {
+                      setAdminPassword(e.target.value);
+                      setActionError(null);
+                    }}
+                    placeholder="Enter your password to confirm"
+                    className="w-full rounded-lg border border-amber-300 bg-white px-3 py-2 text-sm focus:border-transparent focus:ring-2 focus:ring-amber-500"
+                    onKeyDown={(e) => e.key === 'Enter' && handleDeleteTracking()}
+                    autoFocus
+                  />
+                </div>
+
+                {actionError && (
+                  <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">{actionError}</div>
+                )}
+
+                <div className="flex justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setActionModal(null)}
+                    disabled={actionLoading}
+                    className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDeleteTracking}
+                    disabled={actionLoading || !adminPassword.trim()}
+                    className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+                  >
+                    {actionLoading ? 'Deleting...' : 'Delete Entry'}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="mb-4 flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100">
+                    <svg className="h-5 w-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                  </div>
+                  <h3 className="text-lg font-semibold text-gray-900">Edit Tracking Entry</h3>
+                </div>
+
+                <div className="mb-4 space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="mb-1 block text-xs font-medium text-gray-700">
+                        Tracking Number <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={editFormData.trackingNumber}
+                        onChange={(e) =>
+                          setEditFormData((prev) => ({ ...prev, trackingNumber: e.target.value }))
+                        }
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-transparent focus:ring-2 focus:ring-[#4fa77e]"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs font-medium text-gray-700">Carrier</label>
+                      <select
+                        value={editFormData.carrier}
+                        onChange={(e) =>
+                          setEditFormData((prev) => ({ ...prev, carrier: e.target.value }))
+                        }
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-transparent focus:ring-2 focus:ring-[#4fa77e]"
+                      >
+                        {CARRIERS.map((c) => (
+                          <option key={c.value} value={c.value}>
+                            {c.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-gray-700">Status</label>
+                    <select
+                      value={editFormData.status}
+                      onChange={(e) =>
+                        setEditFormData((prev) => ({ ...prev, status: e.target.value }))
+                      }
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-transparent focus:ring-2 focus:ring-[#4fa77e]"
+                    >
+                      {Object.entries(STATUS_CONFIG).map(([value, config]) => (
+                        <option key={value} value={value}>
+                          {config.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="mb-1 block text-xs font-medium text-gray-700">Medication</label>
+                      <input
+                        type="text"
+                        value={editFormData.medicationName}
+                        onChange={(e) =>
+                          setEditFormData((prev) => ({ ...prev, medicationName: e.target.value }))
+                        }
+                        placeholder="e.g. Semaglutide"
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-transparent focus:ring-2 focus:ring-[#4fa77e]"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs font-medium text-gray-700">Strength</label>
+                      <input
+                        type="text"
+                        value={editFormData.medicationStrength}
+                        onChange={(e) =>
+                          setEditFormData((prev) => ({ ...prev, medicationStrength: e.target.value }))
+                        }
+                        placeholder="e.g. 0.5mg"
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-transparent focus:ring-2 focus:ring-[#4fa77e]"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-gray-700">Notes</label>
+                    <input
+                      type="text"
+                      value={editFormData.notes}
+                      onChange={(e) =>
+                        setEditFormData((prev) => ({ ...prev, notes: e.target.value }))
+                      }
+                      placeholder="Optional notes..."
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-transparent focus:ring-2 focus:ring-[#4fa77e]"
+                    />
+                  </div>
+                </div>
+
+                <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3">
+                  <div className="mb-2 flex items-center gap-2">
+                    <svg className="h-4 w-4 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                    <span className="text-sm font-medium text-amber-800">Admin Verification Required</span>
+                  </div>
+                  <input
+                    type="password"
+                    value={adminPassword}
+                    onChange={(e) => {
+                      setAdminPassword(e.target.value);
+                      setActionError(null);
+                    }}
+                    placeholder="Enter your password to confirm"
+                    className="w-full rounded-lg border border-amber-300 bg-white px-3 py-2 text-sm focus:border-transparent focus:ring-2 focus:ring-amber-500"
+                    onKeyDown={(e) => e.key === 'Enter' && handleEditTracking()}
+                  />
+                </div>
+
+                {actionError && (
+                  <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">{actionError}</div>
+                )}
+
+                <div className="flex justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setActionModal(null)}
+                    disabled={actionLoading}
+                    className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleEditTracking}
+                    disabled={actionLoading || !adminPassword.trim() || !editFormData.trackingNumber.trim()}
+                    className="rounded-lg bg-[#4fa77e] px-4 py-2 text-sm font-medium text-white hover:bg-[#3f8660] disabled:opacity-50"
+                  >
+                    {actionLoading ? 'Saving...' : 'Save Changes'}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       )}
     </div>

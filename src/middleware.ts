@@ -42,16 +42,21 @@ const securityHeaders: Record<string, string> = {
   ].join(', '),
   'Strict-Transport-Security': 'max-age=31536000; includeSubDomains; preload',
   'X-DNS-Prefetch-Control': 'on',
-  'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
-  Pragma: 'no-cache',
-  Expires: '0',
 };
 
-function addSecurityHeaders(response: NextResponse): NextResponse {
+function addSecurityHeaders(response: NextResponse, pathname: string): NextResponse {
   for (const [k, v] of Object.entries(securityHeaders)) {
     response.headers.set(k, v);
   }
-  // Block all search engine indexing. Only www.eonpro.io (separate deployment) should be indexed.
+
+  if (isApiRoute(pathname)) {
+    response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    response.headers.set('Pragma', 'no-cache');
+    response.headers.set('Expires', '0');
+  } else {
+    response.headers.set('Cache-Control', 'private, no-cache');
+  }
+
   response.headers.set('X-Robots-Tag', 'noindex, nofollow');
   return response;
 }
@@ -206,6 +211,9 @@ export async function middleware(request: NextRequest) {
     const response = NextResponse.next();
     response.headers.set('X-Content-Type-Options', 'nosniff');
     response.headers.set('X-Frame-Options', 'SAMEORIGIN');
+    if (pathname.startsWith('/_next/static')) {
+      response.headers.set('Cache-Control', 'public, max-age=31536000, immutable');
+    }
     return response;
   }
 
@@ -216,7 +224,7 @@ export async function middleware(request: NextRequest) {
     response = NextResponse.next();
   }
 
-  response = addSecurityHeaders(response);
+  response = addSecurityHeaders(response, pathname);
   const requestId = request.headers.get('x-request-id') || crypto.randomUUID();
   response.headers.set('x-request-id', requestId);
 

@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Trash2, GitMerge, Link2, X, Check, Loader2, Unlink, Truck } from 'lucide-react';
+import { Trash2, GitMerge, Link2, X, Check, Loader2, Unlink, Truck, Download } from 'lucide-react';
 import EditPatientModal from './EditPatientModal';
 import DeletePatientModal from './DeletePatientModal';
 import MergePatientModal from './MergePatientModal';
@@ -466,6 +466,50 @@ export default function PatientSidebar({
   const [showMergeModal, setShowMergeModal] = useState(false);
   const [showFedExModal, setShowFedExModal] = useState(false);
 
+  type FedExLabelSummary = {
+    id: number;
+    trackingNumber: string;
+    serviceType: string;
+    status: string;
+    createdAt: string;
+    hasLabel: boolean;
+  };
+  const [pastLabels, setPastLabels] = useState<FedExLabelSummary[]>([]);
+  const [downloadingLabelId, setDownloadingLabelId] = useState<number | null>(null);
+
+  const isAdmin = userRole && ['super_admin', 'admin'].includes(userRole.toLowerCase());
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    apiFetch(`/api/patients/${patient.id}/shipping-labels`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => { if (data?.labels) setPastLabels(data.labels); })
+      .catch(() => {});
+  }, [patient.id, isAdmin]);
+
+  const handleDownloadLabel = async (label: FedExLabelSummary) => {
+    setDownloadingLabelId(label.id);
+    try {
+      const res = await apiFetch(`/api/shipping/fedex/label?id=${label.id}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to download');
+      const pdfBytes = Uint8Array.from(atob(data.labelPdf), (c) => c.charCodeAt(0));
+      const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `FedEx-Label-${label.trackingNumber}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch {
+      alert('Failed to download label. It may not be available.');
+    } finally {
+      setDownloadingLabelId(null);
+    }
+  };
+
   const formatDob = (dob: string | null) => {
     if (!dob) return '—';
     const clean = dob.trim();
@@ -747,8 +791,8 @@ export default function PatientSidebar({
         {/* Actions */}
         <div className="space-y-1 border-t pt-4">
           {/* FedEx Label — admin only */}
-          {userRole &&
-            ['super_admin', 'admin'].includes(userRole.toLowerCase()) && (
+          {isAdmin && (
+            <>
               <button
                 onClick={() => setShowFedExModal(true)}
                 disabled={!patient.address1 || !patient.city || !patient.state || !patient.zip}
@@ -766,7 +810,52 @@ export default function PatientSidebar({
                 <Truck className="h-4 w-4" />
                 Print FedEx Label
               </button>
-            )}
+
+              {/* Past FedEx Labels */}
+              {pastLabels.length > 0 && (
+                <div className="mt-1 space-y-1 rounded-lg border border-gray-100 bg-gray-50 p-2">
+                  <p className="px-1 text-xs font-medium text-gray-500">Recent Labels</p>
+                  {pastLabels.slice(0, 5).map((label) => (
+                    <div
+                      key={label.id}
+                      className="flex items-center justify-between rounded-md px-2 py-1.5 text-xs hover:bg-white"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <a
+                          href={`https://www.fedex.com/fedextrack/?trknbr=${label.trackingNumber}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-mono text-[#4D148C] hover:underline"
+                        >
+                          {label.trackingNumber}
+                        </a>
+                        <p className="text-gray-400">
+                          {new Date(label.createdAt).toLocaleDateString()}
+                          {label.status === 'VOIDED' && (
+                            <span className="ml-1 text-red-500">Voided</span>
+                          )}
+                        </p>
+                      </div>
+                      {label.hasLabel && label.status !== 'VOIDED' && (
+                        <button
+                          onClick={() => handleDownloadLabel(label)}
+                          disabled={downloadingLabelId === label.id}
+                          className="ml-2 flex-shrink-0 rounded p-1 text-gray-400 transition hover:bg-purple-100 hover:text-[#4D148C]"
+                          title="Download label PDF"
+                        >
+                          {downloadingLabelId === label.id ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Download className="h-3.5 w-3.5" />
+                          )}
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
           <button
             onClick={() => setShowMergeModal(true)}
             className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-gray-600 transition-colors hover:bg-gray-50"

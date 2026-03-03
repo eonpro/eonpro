@@ -6,6 +6,8 @@ import { handleApiError } from '@/domains/shared/errors';
 import { resolveCredentials, createShipment, cancelShipment } from '@/lib/fedex';
 import { FEDEX_SERVICE_TYPES } from '@/lib/fedex-services';
 import { encryptPHI, isEncrypted } from '@/lib/security/phi-encryption';
+import { uploadToS3 } from '@/lib/integrations/aws/s3Service';
+import { FileCategory } from '@/lib/integrations/aws/s3Config';
 import { logger } from '@/lib/logger';
 import { z } from 'zod';
 
@@ -118,6 +120,25 @@ async function handleCreateLabel(req: NextRequest, user: AuthUser) {
       return NextResponse.json({ error: msg }, { status: 502 });
     }
 
+    let s3Key: string | null = null;
+    try {
+      const pdfBuffer = Buffer.from(result.labelPdfBase64, 'base64');
+      const s3Result = await uploadToS3({
+        file: pdfBuffer,
+        fileName: `fedex-label-${result.trackingNumber}.pdf`,
+        category: FileCategory.PRESCRIPTIONS,
+        patientId,
+        contentType: 'application/pdf',
+        metadata: { trackingNumber: result.trackingNumber, carrier: 'FEDEX' },
+      });
+      s3Key = s3Result.key;
+    } catch (s3Err) {
+      logger.warn('S3 label upload failed, storing base64 in DB', {
+        trackingNumber: result.trackingNumber,
+        error: s3Err instanceof Error ? s3Err.message : 'Unknown',
+      });
+    }
+
     const label = await prisma.shipmentLabel.create({
       data: {
         clinicId,
@@ -132,6 +153,8 @@ async function handleCreateLabel(req: NextRequest, user: AuthUser) {
         length: length ?? null,
         width: width ?? null,
         height: height ?? null,
+        labelS3Key: s3Key,
+        labelPdfBase64: result.labelPdfBase64,
       },
     });
 
@@ -166,6 +189,95 @@ async function handleCreateLabel(req: NextRequest, user: AuthUser) {
 }
 
 export const POST = withAuth(handleCreateLabel, {
+  roles: ['super_admin', 'admin'],
+});
+
+// ---------------------------------------------------------------------------
+// GET — Retrieve a stored FedEx shipping label PDF
+// ---------------------------------------------------------------------------
+
+async function handleGetLabel(req: NextRequest, user: AuthUser) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const labelId = searchParams.get('id');
+
+    if (!labelId) {
+      return NextResponse.json({ error: 'Missing label id' }, { status: 400 });
+    }
+
+    const id = parseInt(labelId, 10);
+    if (isNaN(id)) {
+      return NextResponse.json({ error: 'Invalid label id' }, { status: 400 });
+    }
+
+    const label = await prisma.shipmentLabel.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        clinicId: true,
+        patientId: true,
+        trackingNumber: true,
+        serviceType: true,
+        status: true,
+        labelPdfBase64: true,
+        labelS3Key: true,
+        createdAt: true,
+      },
+    });
+
+    if (!label) {
+      return NextResponse.json({ error: 'Label not found' }, { status: 404 });
+    }
+
+    if (user.role !== 'super_admin' && label.clinicId !== user.clinicId) {
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+    }
+
+    if (label.status === 'VOIDED') {
+      return NextResponse.json({ error: 'Label has been voided' }, { status: 410 });
+    }
+
+    let labelPdf = label.labelPdfBase64;
+
+    if (!labelPdf && label.labelS3Key) {
+      try {
+        const { downloadFromS3 } = await import('@/lib/integrations/aws/s3Service');
+        const buffer = await downloadFromS3(label.labelS3Key);
+        labelPdf = buffer.toString('base64');
+      } catch (s3Err) {
+        logger.error('Failed to download label from S3', {
+          labelId: label.id,
+          s3Key: label.labelS3Key,
+          error: s3Err instanceof Error ? s3Err.message : 'Unknown',
+        });
+      }
+    }
+
+    if (!labelPdf) {
+      return NextResponse.json(
+        { error: 'Label PDF not available. It may not have been stored for this shipment.' },
+        { status: 404 },
+      );
+    }
+
+    await logPHIAccess(req, user, 'ShipmentLabel', label.id, label.patientId, {
+      action: 'fedex_label_downloaded',
+      trackingNumber: label.trackingNumber,
+    }).catch(() => {});
+
+    return NextResponse.json({
+      id: label.id,
+      trackingNumber: label.trackingNumber,
+      serviceType: label.serviceType,
+      labelPdf: labelPdf,
+      createdAt: label.createdAt,
+    });
+  } catch (error) {
+    return handleApiError(error, { route: 'GET /api/shipping/fedex/label' });
+  }
+}
+
+export const GET = withAuth(handleGetLabel, {
   roles: ['super_admin', 'admin'],
 });
 

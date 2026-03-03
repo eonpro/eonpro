@@ -6,6 +6,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import bcrypt from 'bcryptjs';
 import { prisma, runWithClinicContext } from '@/lib/db';
 import { withAuthParams, AuthUser } from '@/lib/auth/middleware-with-params';
 import { ensureTenantResource, tenantNotFoundResponse } from '@/lib/tenant-response';
@@ -511,6 +512,224 @@ export const POST = withAuthParams(
     } catch (error) {
       logger.error('Error adding tracking entry:', error);
       return NextResponse.json({ error: 'Failed to add tracking entry' }, { status: 500 });
+    }
+  }
+);
+
+// Schema for editing a manual tracking entry
+const editTrackingSchema = z.object({
+  trackingEntryId: z.number().positive('Tracking entry ID is required'),
+  password: z.string().min(1, 'Password is required'),
+  trackingNumber: z.string().min(1, 'Tracking number is required').optional(),
+  carrier: z.string().min(1).optional(),
+  trackingUrl: z.string().url().optional().nullable(),
+  status: z
+    .enum([
+      'PENDING',
+      'LABEL_CREATED',
+      'SHIPPED',
+      'IN_TRANSIT',
+      'OUT_FOR_DELIVERY',
+      'DELIVERED',
+      'RETURNED',
+      'EXCEPTION',
+      'CANCELLED',
+    ])
+    .optional(),
+  medicationName: z.string().optional().nullable(),
+  medicationStrength: z.string().optional().nullable(),
+  medicationQuantity: z.string().optional().nullable(),
+  notes: z.string().optional().nullable(),
+});
+
+// Schema for deleting a manual tracking entry
+const deleteTrackingSchema = z.object({
+  trackingEntryId: z.number().positive('Tracking entry ID is required'),
+  password: z.string().min(1, 'Password is required'),
+});
+
+async function verifyUserPassword(userId: number, password: string): Promise<boolean> {
+  const userData = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { passwordHash: true },
+  });
+  if (!userData?.passwordHash) return false;
+  return bcrypt.compare(password, userData.passwordHash);
+}
+
+// PUT - Edit a manual tracking entry (requires admin password)
+export const PUT = withAuthParams(
+  async (req: NextRequest, user: AuthUser, context: RouteContext) => {
+    try {
+      const resolvedParams = await context.params;
+      const patientId = parseInt(resolvedParams.id, 10);
+
+      if (isNaN(patientId)) {
+        return NextResponse.json({ error: 'Invalid patient ID' }, { status: 400 });
+      }
+
+      if (!['provider', 'admin', 'super_admin'].includes(user.role)) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+      }
+
+      const body = await req.json();
+      const parseResult = editTrackingSchema.safeParse(body);
+
+      if (!parseResult.success) {
+        return NextResponse.json(
+          { error: 'Invalid request', details: parseResult.error.issues },
+          { status: 400 }
+        );
+      }
+
+      const { trackingEntryId, password, ...updateFields } = parseResult.data;
+
+      const isValid = await verifyUserPassword(user.id, password);
+      if (!isValid) {
+        logger.warn('[TRACKING] Invalid password attempt for edit', { userId: user.id, trackingEntryId });
+        return NextResponse.json({ error: 'Invalid password' }, { status: 401 });
+      }
+
+      const existing = await prisma.patientShippingUpdate.findUnique({
+        where: { id: trackingEntryId },
+        select: { id: true, patientId: true, clinicId: true, source: true, trackingNumber: true },
+      });
+
+      if (!existing || existing.patientId !== patientId) {
+        return NextResponse.json({ error: 'Tracking entry not found' }, { status: 404 });
+      }
+
+      if (existing.source !== 'manual') {
+        return NextResponse.json(
+          { error: 'Only manually added tracking entries can be edited' },
+          { status: 403 }
+        );
+      }
+
+      const clinicId = user.role === 'super_admin' ? undefined : user.clinicId;
+      if (clinicId && existing.clinicId !== clinicId) {
+        return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+      }
+
+      const newTrackingNumber = updateFields.trackingNumber || existing.trackingNumber;
+      const newCarrier = updateFields.carrier || undefined;
+      const newTrackingUrl =
+        updateFields.trackingUrl !== undefined
+          ? updateFields.trackingUrl
+          : newCarrier || updateFields.trackingNumber
+            ? generateTrackingUrl(newCarrier || 'Other', newTrackingNumber)
+            : undefined;
+
+      const updated = await prisma.patientShippingUpdate.update({
+        where: { id: trackingEntryId },
+        data: {
+          ...(updateFields.trackingNumber && { trackingNumber: updateFields.trackingNumber }),
+          ...(updateFields.carrier && { carrier: updateFields.carrier }),
+          ...(newTrackingUrl !== undefined && { trackingUrl: newTrackingUrl }),
+          ...(updateFields.status && { status: updateFields.status as ShippingStatus }),
+          ...(updateFields.medicationName !== undefined && { medicationName: updateFields.medicationName }),
+          ...(updateFields.medicationStrength !== undefined && { medicationStrength: updateFields.medicationStrength }),
+          ...(updateFields.medicationQuantity !== undefined && { medicationQuantity: updateFields.medicationQuantity }),
+          ...(updateFields.notes !== undefined && { statusNote: updateFields.notes }),
+        },
+      });
+
+      logger.info('[TRACKING] Manual entry edited', {
+        trackingEntryId,
+        patientId,
+        userId: user.id,
+        changes: Object.keys(updateFields).filter((k) => k !== 'password'),
+      });
+
+      return NextResponse.json({
+        success: true,
+        message: 'Tracking entry updated successfully',
+        tracking: {
+          id: updated.id,
+          trackingNumber: updated.trackingNumber,
+          carrier: updated.carrier,
+          trackingUrl: updated.trackingUrl,
+          status: updated.status,
+          medicationName: updated.medicationName,
+        },
+      });
+    } catch (error) {
+      logger.error('Error editing tracking entry:', error);
+      return NextResponse.json({ error: 'Failed to edit tracking entry' }, { status: 500 });
+    }
+  }
+);
+
+// DELETE - Remove a manual tracking entry (requires admin password)
+export const DELETE = withAuthParams(
+  async (req: NextRequest, user: AuthUser, context: RouteContext) => {
+    try {
+      const resolvedParams = await context.params;
+      const patientId = parseInt(resolvedParams.id, 10);
+
+      if (isNaN(patientId)) {
+        return NextResponse.json({ error: 'Invalid patient ID' }, { status: 400 });
+      }
+
+      if (!['provider', 'admin', 'super_admin'].includes(user.role)) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+      }
+
+      const body = await req.json();
+      const parseResult = deleteTrackingSchema.safeParse(body);
+
+      if (!parseResult.success) {
+        return NextResponse.json(
+          { error: 'Invalid request', details: parseResult.error.issues },
+          { status: 400 }
+        );
+      }
+
+      const { trackingEntryId, password } = parseResult.data;
+
+      const isValid = await verifyUserPassword(user.id, password);
+      if (!isValid) {
+        logger.warn('[TRACKING] Invalid password attempt for delete', { userId: user.id, trackingEntryId });
+        return NextResponse.json({ error: 'Invalid password' }, { status: 401 });
+      }
+
+      const existing = await prisma.patientShippingUpdate.findUnique({
+        where: { id: trackingEntryId },
+        select: { id: true, patientId: true, clinicId: true, source: true, trackingNumber: true },
+      });
+
+      if (!existing || existing.patientId !== patientId) {
+        return NextResponse.json({ error: 'Tracking entry not found' }, { status: 404 });
+      }
+
+      if (existing.source !== 'manual') {
+        return NextResponse.json(
+          { error: 'Only manually added tracking entries can be deleted' },
+          { status: 403 }
+        );
+      }
+
+      const clinicId = user.role === 'super_admin' ? undefined : user.clinicId;
+      if (clinicId && existing.clinicId !== clinicId) {
+        return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+      }
+
+      await prisma.patientShippingUpdate.delete({ where: { id: trackingEntryId } });
+
+      logger.info('[TRACKING] Manual entry deleted', {
+        trackingEntryId,
+        trackingNumber: existing.trackingNumber,
+        patientId,
+        userId: user.id,
+      });
+
+      return NextResponse.json({
+        success: true,
+        message: 'Tracking entry deleted successfully',
+      });
+    } catch (error) {
+      logger.error('Error deleting tracking entry:', error);
+      return NextResponse.json({ error: 'Failed to delete tracking entry' }, { status: 500 });
     }
   }
 );
