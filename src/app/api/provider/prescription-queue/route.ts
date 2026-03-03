@@ -949,6 +949,41 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       }
     }
 
+    // ─── Phase 2c: Batch-load subscription start dates for renewal month computation ───
+    // Invoices auto-created from Stripe subscription events may show generic labels
+    // like "Subscription update". We compute the actual refill month from the subscription startDate.
+    const subscriptionStartMap = new Map<string, { startDate: Date; interval: string; intervalCount: number }>();
+    {
+      const stripeSubIds = new Set<string>();
+      for (const inv of invoices as any[]) {
+        const meta = inv.metadata as Record<string, unknown> | null;
+        if (meta?.stripeSubscriptionId && typeof meta.stripeSubscriptionId === 'string') {
+          stripeSubIds.add(meta.stripeSubscriptionId);
+        }
+      }
+      if (stripeSubIds.size > 0) {
+        try {
+          const subs = await prisma.subscription.findMany({
+            where: { stripeSubscriptionId: { in: [...stripeSubIds] } },
+            select: { stripeSubscriptionId: true, startDate: true, interval: true, intervalCount: true },
+          });
+          for (const s of subs) {
+            if (s.stripeSubscriptionId) {
+              subscriptionStartMap.set(s.stripeSubscriptionId, {
+                startDate: s.startDate,
+                interval: s.interval,
+                intervalCount: s.intervalCount,
+              });
+            }
+          }
+        } catch (subErr) {
+          logger.warn('[PRESCRIPTION-QUEUE] Failed to load subscription start dates for renewal month', {
+            error: subErr instanceof Error ? subErr.message : String(subErr),
+          });
+        }
+      }
+    }
+
     // Transform invoice data for frontend
     const invoiceItems = (invoices as any[]).map((invoice: any) => {
       // CRITICAL: Validate clinic consistency between invoice and patient
@@ -1019,6 +1054,32 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       // Capitalize first letter
       if (cleanTreatment) {
         cleanTreatment = cleanTreatment.charAt(0).toUpperCase() + cleanTreatment.slice(1);
+      }
+
+      // Replace generic Stripe subscription labels with refill month number
+      const isGenericSubLabel = /^Subscription (update|creation|renewal)/i.test(cleanTreatment);
+      if (isGenericSubLabel && metadata) {
+        const storedMonth = metadata.renewalMonth as number | undefined;
+        if (storedMonth) {
+          cleanTreatment = `Subscription billed refill month ${storedMonth}`;
+        } else {
+          const stripeSubId = metadata.stripeSubscriptionId as string | undefined;
+          const billingReason = metadata.billingReason as string | undefined;
+          if (stripeSubId && billingReason !== 'subscription_create') {
+            const subInfo = subscriptionStartMap.get(stripeSubId);
+            if (subInfo) {
+              const invPaidAt = invoice.paidAt ? new Date(invoice.paidAt) : new Date(invoice.createdAt);
+              const totalMonths = subInfo.interval === 'year'
+                ? subInfo.intervalCount * 12
+                : subInfo.intervalCount;
+              const monthsElapsed =
+                (invPaidAt.getFullYear() - subInfo.startDate.getFullYear()) * 12 +
+                (invPaidAt.getMonth() - subInfo.startDate.getMonth());
+              const renewalMonth = Math.max(2, Math.floor(monthsElapsed / totalMonths) + 1);
+              cleanTreatment = `Subscription billed refill month ${renewalMonth}`;
+            }
+          }
+        }
       }
 
       // Format medication type (capitalize)

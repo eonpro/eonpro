@@ -209,9 +209,16 @@ const TIRZEPATIDE_30MG_TEMPLATES: SigTemplate[] = [
   },
 ];
 
+const ENCLO_TEMPLATE_MWF: SigTemplate = {
+  label: 'MWF · 3 days/week',
+  sig: 'Take 1 capsule by mouth once daily on Monday, Wednesday, and Friday.',
+  quantity: '12',
+  refills: '0',
+};
+
 const ENCLO_TEMPLATE_DAILY: SigTemplate = {
-  label: 'Daily 25 mg',
-  sig: 'Take 1 capsule (25 mg) by mouth each morning with or without food.',
+  label: 'Daily',
+  sig: 'Take 1 capsule by mouth each morning with or without food.',
   quantity: '30',
   refills: '0',
 };
@@ -224,6 +231,13 @@ const ENCLO_TEMPLATE_PULSE: SigTemplate = {
 };
 
 const TESTOSTERONE_TEMPLATES: SigTemplate[] = [
+  {
+    label: 'Twice Weekly 0.5 mL SubQ',
+    sig: 'Inject 0.5 mL (50 units) subcutaneously twice weekly (e.g., Monday and Thursday).',
+    quantity: '1',
+    refills: '0',
+    daysSupply: 35,
+  },
   {
     label: 'Weekly 100 mg',
     sig: 'Inject 100 mg (50 units) intramuscularly or subcutaneously once weekly.',
@@ -247,32 +261,50 @@ const TESTOSTERONE_TEMPLATES: SigTemplate[] = [
   },
 ];
 
-const ANASTROZOLE_TEMPLATES: SigTemplate[] = [
+const ANASTROZOLE_0125_TEMPLATES: SigTemplate[] = [
+  {
+    label: '0.125 mg twice weekly',
+    sig: 'Take 0.125 mg by mouth twice weekly.',
+    quantity: '8',
+    refills: '0',
+  },
+];
+
+const ANASTROZOLE_025_TEMPLATES: SigTemplate[] = [
+  {
+    label: '0.25 mg twice weekly',
+    sig: 'Take 0.25 mg by mouth twice weekly.',
+    quantity: '8',
+    refills: '0',
+  },
+];
+
+const ANASTROZOLE_05_TEMPLATES: SigTemplate[] = [
   {
     label: '0.5 mg twice weekly',
     sig: 'Take 1 capsule (0.5 mg) by mouth every Monday and Thursday to manage estradiol.',
-    quantity: '24',
+    quantity: '8',
     refills: '0',
   },
   {
-    label: '0.25 mg M/W/F',
-    sig: 'Take 1 capsule by mouth every Monday, Wednesday, and Friday.',
-    quantity: '40',
+    label: '½ tablet (0.25 mg) twice weekly',
+    sig: 'Take ½ tablet (0.25 mg) by mouth twice weekly.',
+    quantity: '8',
     refills: '0',
   },
 ];
 
 const SERMORELIN_TEMPLATES: SigTemplate[] = [
   {
-    label: 'Nightly 0.3 mg',
-    sig: 'Inject 0.3 mg (15 units) subcutaneously nightly before bed on an empty stomach.',
+    label: 'M-F · 25 units at bedtime',
+    sig: 'Inject 25 units subcutaneously Monday through Friday at bedtime on an empty stomach.',
     quantity: '1',
     refills: '0',
     daysSupply: 30,
   },
   {
-    label: '5 nights/week',
-    sig: 'Inject 0.3 mg (15 units) subcutaneously nightly Monday through Friday.',
+    label: 'Nightly 0.3 mg',
+    sig: 'Inject 0.3 mg (15 units) subcutaneously nightly at bedtime on an empty stomach.',
     quantity: '1',
     refills: '0',
     daysSupply: 30,
@@ -298,19 +330,20 @@ const SPECIAL_CONFIGS: Record<number, Partial<MedicationConfig>> = {
   203449328: {
     name: 'Enclomiphene Citrate 12.5 mg',
     strength: '12.5 mg',
-    sigTemplates: [ENCLO_TEMPLATE_DAILY, ENCLO_TEMPLATE_PULSE],
+    sigTemplates: [ENCLO_TEMPLATE_MWF, ENCLO_TEMPLATE_DAILY, ENCLO_TEMPLATE_PULSE],
   },
   203449329: {
     name: 'Enclomiphene Citrate 25 mg',
     strength: '25 mg',
     defaultQuantity: '12',
     defaultRefills: '0',
-    sigTemplates: [ENCLO_TEMPLATE_DAILY, ENCLO_TEMPLATE_PULSE],
+    sigTemplates: [ENCLO_TEMPLATE_MWF, ENCLO_TEMPLATE_DAILY, ENCLO_TEMPLATE_PULSE],
   },
   203449330: {
     name: 'Enclomiphene Citrate 50 mg',
     strength: '50 mg',
     sigTemplates: [
+      ENCLO_TEMPLATE_MWF,
       {
         label: 'Titration · 50 mg qod',
         sig: 'Take 1 capsule by mouth every other day. Skip dose if labs show estradiol > 40 pg/mL.',
@@ -325,27 +358,27 @@ const SPECIAL_CONFIGS: Record<number, Partial<MedicationConfig>> = {
     strength: '0.125 mg',
     defaultQuantity: '8',
     defaultRefills: '0',
-    sigTemplates: ANASTROZOLE_TEMPLATES,
+    sigTemplates: ANASTROZOLE_0125_TEMPLATES,
   },
   203449460: {
     name: 'Anastrozole 0.25 mg',
     strength: '0.25 mg',
     defaultQuantity: '8',
     defaultRefills: '0',
-    sigTemplates: ANASTROZOLE_TEMPLATES,
+    sigTemplates: ANASTROZOLE_025_TEMPLATES,
   },
   203194021: {
     name: 'Anastrozole 0.5 mg',
     strength: '0.5 mg',
     defaultQuantity: '8',
     defaultRefills: '0',
-    sigTemplates: ANASTROZOLE_TEMPLATES,
+    sigTemplates: ANASTROZOLE_05_TEMPLATES,
   },
   203418766: {
     sigTemplates: [
       {
-        label: 'Weekly 200 mg',
-        sig: 'Inject 200 mg intravenously once weekly.',
+        label: 'MWF · 25 units SubQ',
+        sig: 'Inject 25 units subcutaneously on Monday, Wednesday, and Friday.',
         quantity: '1',
         refills: '0',
       },
@@ -394,7 +427,19 @@ const SPECIAL_CONFIGS: Record<number, Partial<MedicationConfig>> = {
       },
     ],
   },
-  203194055: { name: 'NAD+ 100 mg/mL (10 mL)', strength: '100 mg/mL' },
+  203194055: {
+    name: 'NAD+ 100 mg/mL (10 mL)',
+    strength: '100 mg/mL',
+    sigTemplates: [
+      {
+        label: 'M-F · 50 units SubQ',
+        sig: 'Inject 50 units (0.5 mL) subcutaneously Monday through Friday.',
+        quantity: '1',
+        refills: '0',
+        daysSupply: 30,
+      },
+    ],
+  },
   203448971: { sigTemplates: SEMAGLUTIDE_TEMPLATES },
   203448947: { sigTemplates: SEMAGLUTIDE_TEMPLATES },
   203449363: { sigTemplates: SEMAGLUTIDE_TEMPLATES },

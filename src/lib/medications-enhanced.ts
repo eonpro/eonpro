@@ -569,6 +569,24 @@ const SEMAGLUTIDE_5MG_ENHANCED_TEMPLATES: EnhancedSigTemplate[] = [
 
 export const TESTOSTERONE_ENHANCED_TEMPLATES: EnhancedSigTemplate[] = [
   {
+    label: 'Twice Weekly 0.5 mL SubQ',
+    phase: 'standard',
+    targetDose: '100 mg x 2',
+    sig: 'Inject 0.5 mL (50 units) subcutaneously twice weekly (e.g., Monday and Thursday).',
+    quantity: '1',
+    refills: '0',
+    daysSupply: 35,
+    storage: STORAGE_PRESETS.TESTOSTERONE,
+    administration: {
+      ...ADMINISTRATION_PRESETS.SUBCUTANEOUS_GLP1,
+      route: 'Subcutaneous injection',
+      timing: 'Twice weekly, 3-4 days apart (e.g., Monday and Thursday)',
+    },
+    warnings: WARNINGS_PRESETS.TESTOSTERONE,
+    missedDose:
+      'If a dose is missed, inject as soon as remembered. Maintain 3-4 day spacing between doses.',
+  },
+  {
     label: 'Standard - 100 mg Weekly',
     phase: 'standard',
     targetDose: '100 mg',
@@ -635,10 +653,40 @@ export const TESTOSTERONE_ENHANCED_TEMPLATES: EnhancedSigTemplate[] = [
 
 export const ENCLOMIPHENE_ENHANCED_TEMPLATES: EnhancedSigTemplate[] = [
   {
-    label: 'Standard - 25 mg Daily',
+    label: 'MWF · 3 days/week',
     phase: 'standard',
-    targetDose: '25 mg',
-    sig: 'Take 1 capsule (25 mg) by mouth each morning with or without food. Used for testosterone optimization.',
+    targetDose: 'MWF',
+    sig: 'Take 1 capsule by mouth once daily on Monday, Wednesday, and Friday.',
+    quantity: '12',
+    refills: '0',
+    daysSupply: 28,
+    storage: STORAGE_PRESETS.ROOM_TEMPERATURE,
+    administration: {
+      ...ADMINISTRATION_PRESETS.ORAL_DAILY,
+      timing: 'Monday, Wednesday, and Friday only',
+    },
+    warnings: {
+      commonSideEffects: [
+        'Headache',
+        'Hot flashes',
+        'Mood changes',
+        'Acne',
+        'Visual disturbances (rare)',
+      ],
+      monitoring: [
+        'Total testosterone - every 4-6 weeks initially',
+        'LH and FSH levels',
+        'Estradiol levels',
+      ],
+    },
+    missedDose:
+      'If a dose is missed, skip it and take the next scheduled dose. Do not double dose.',
+  },
+  {
+    label: 'Standard - Daily',
+    phase: 'standard',
+    targetDose: 'daily',
+    sig: 'Take 1 capsule by mouth each morning with or without food.',
     quantity: '30',
     refills: '0',
     daysSupply: 30,
@@ -664,8 +712,8 @@ export const ENCLOMIPHENE_ENHANCED_TEMPLATES: EnhancedSigTemplate[] = [
   {
     label: 'Pulse - 5 days on / 2 days off',
     phase: 'standard',
-    targetDose: '25 mg pulse',
-    sig: 'Take 1 capsule (25 mg) by mouth daily Monday through Friday, then hold on the weekend. Resume Monday.',
+    targetDose: 'pulse',
+    sig: 'Take 1 capsule by mouth daily Monday through Friday, then hold on the weekend. Resume Monday.',
     quantity: '20',
     refills: '0',
     daysSupply: 28,
@@ -681,33 +729,37 @@ export const ENCLOMIPHENE_ENHANCED_TEMPLATES: EnhancedSigTemplate[] = [
     missedDose:
       'If a weekday dose is missed, skip it and continue the next weekday. Keep weekend break.',
   },
+];
+
+export const ANASTROZOLE_025_ENHANCED_TEMPLATES: EnhancedSigTemplate[] = [
   {
-    label: 'Low Dose - 12.5 mg Daily',
+    label: '0.25 mg Twice Weekly',
     phase: 'standard',
-    targetDose: '12.5 mg',
-    sig: 'Take 1 capsule (12.5 mg) by mouth each morning. Lower dose for sensitive patients or maintenance.',
-    quantity: '30',
+    targetDose: '0.25 mg',
+    sig: 'Take 0.25 mg by mouth twice weekly.',
+    quantity: '8',
     refills: '0',
-    daysSupply: 30,
+    daysSupply: 28,
     storage: STORAGE_PRESETS.ROOM_TEMPERATURE,
-    administration: ADMINISTRATION_PRESETS.ORAL_DAILY,
-    warnings: {
-      commonSideEffects: ['Headache', 'Hot flashes'],
-      monitoring: ['Testosterone levels every 6-8 weeks'],
+    administration: {
+      ...ADMINISTRATION_PRESETS.ORAL_DAILY,
+      timing: 'Twice weekly at the same times',
     },
-    missedDose: 'If a dose is missed, take as soon as remembered. Do not double dose.',
+    warnings: WARNINGS_PRESETS.AROMATASE_INHIBITOR,
+    missedDose:
+      'If a dose is missed, take as soon as remembered unless next dose is within 2 days. Do not double dose.',
   },
 ];
 
-export const ANASTROZOLE_ENHANCED_TEMPLATES: EnhancedSigTemplate[] = [
+export const ANASTROZOLE_05_ENHANCED_TEMPLATES: EnhancedSigTemplate[] = [
   {
     label: '0.5 mg Twice Weekly',
     phase: 'standard',
     targetDose: '0.5 mg',
-    sig: 'Take 1 capsule (0.5 mg) by mouth every Monday and Thursday to manage estradiol levels. Take with or without food.',
-    quantity: '24',
+    sig: 'Take 1 capsule (0.5 mg) by mouth every Monday and Thursday to manage estradiol levels.',
+    quantity: '8',
     refills: '0',
-    daysSupply: 84,
+    daysSupply: 28,
     storage: STORAGE_PRESETS.ROOM_TEMPERATURE,
     administration: {
       ...ADMINISTRATION_PRESETS.ORAL_DAILY,
@@ -718,17 +770,17 @@ export const ANASTROZOLE_ENHANCED_TEMPLATES: EnhancedSigTemplate[] = [
       'If a dose is missed, take as soon as remembered unless next dose is within 2 days. Do not double dose.',
   },
   {
-    label: '0.25 mg Three Times Weekly',
+    label: '½ tablet (0.25 mg) Twice Weekly',
     phase: 'standard',
     targetDose: '0.25 mg',
-    sig: 'Take 1 capsule (0.25 mg) by mouth every Monday, Wednesday, and Friday. Lower dose for estradiol management.',
-    quantity: '40',
+    sig: 'Take ½ tablet (0.25 mg) by mouth twice weekly.',
+    quantity: '8',
     refills: '0',
-    daysSupply: 90,
+    daysSupply: 56,
     storage: STORAGE_PRESETS.ROOM_TEMPERATURE,
     administration: {
       ...ADMINISTRATION_PRESETS.ORAL_DAILY,
-      timing: 'Three times weekly (Monday, Wednesday, Friday)',
+      timing: 'Twice weekly at the same times',
     },
     warnings: WARNINGS_PRESETS.AROMATASE_INHIBITOR,
     missedDose: 'If a dose is missed, skip and take next scheduled dose. Do not double dose.',
@@ -737,10 +789,35 @@ export const ANASTROZOLE_ENHANCED_TEMPLATES: EnhancedSigTemplate[] = [
 
 export const SERMORELIN_ENHANCED_TEMPLATES: EnhancedSigTemplate[] = [
   {
+    label: 'M-F · 25 units at bedtime',
+    phase: 'standard',
+    targetDose: '25 units x 5',
+    sig: 'Inject 25 units subcutaneously Monday through Friday at bedtime on an empty stomach.',
+    quantity: '1',
+    refills: '0',
+    daysSupply: 30,
+    storage: STORAGE_PRESETS.REFRIGERATED_PEPTIDE,
+    administration: {
+      ...ADMINISTRATION_PRESETS.SUBCUTANEOUS_PEPTIDE,
+      timing: 'Monday through Friday at bedtime on an empty stomach. Take weekends off for receptor sensitivity.',
+    },
+    warnings: {
+      ...WARNINGS_PRESETS.PEPTIDE,
+      commonSideEffects: [
+        'Injection site reactions',
+        'Flushing',
+        'Headache',
+        'Vivid dreams',
+        'Increased hunger initially',
+      ],
+    },
+    missedDose: 'If a weeknight dose is missed, skip it. Do not make up missed doses.',
+  },
+  {
     label: 'Nightly - 0.3 mg',
     phase: 'standard',
     targetDose: '0.3 mg',
-    sig: 'Inject 0.3 mg (15 units) subcutaneously nightly before bed on an empty stomach.',
+    sig: 'Inject 0.3 mg (15 units) subcutaneously nightly at bedtime on an empty stomach.',
     quantity: '1',
     refills: '0',
     daysSupply: 30,
@@ -759,38 +836,6 @@ export const SERMORELIN_ENHANCED_TEMPLATES: EnhancedSigTemplate[] = [
         'Increased hunger initially',
       ],
     },
-    missedDose: 'If a dose is missed, skip it and resume the next evening. Do not double dose.',
-  },
-  {
-    label: '5 Nights Weekly',
-    phase: 'standard',
-    targetDose: '0.3 mg x 5',
-    sig: 'Inject 0.3 mg (15 units) subcutaneously nightly Monday through Friday before bed on an empty stomach.',
-    quantity: '1',
-    refills: '0',
-    daysSupply: 30,
-    storage: STORAGE_PRESETS.REFRIGERATED_PEPTIDE,
-    administration: {
-      ...ADMINISTRATION_PRESETS.SUBCUTANEOUS_PEPTIDE,
-      timing: 'Monday through Friday at bedtime. Take weekends off for receptor sensitivity.',
-    },
-    warnings: WARNINGS_PRESETS.PEPTIDE,
-    missedDose: 'If a weeknight dose is missed, skip it. Do not make up missed doses.',
-  },
-  {
-    label: 'Low Dose - 0.2 mg Nightly',
-    phase: 'standard',
-    targetDose: '0.2 mg',
-    sig: 'Inject 0.2 mg (10 units) subcutaneously nightly before bed on an empty stomach.',
-    quantity: '1',
-    refills: '0',
-    daysSupply: 45,
-    storage: STORAGE_PRESETS.REFRIGERATED_PEPTIDE,
-    administration: {
-      ...ADMINISTRATION_PRESETS.SUBCUTANEOUS_PEPTIDE,
-      timing: 'Nightly at bedtime, on an empty stomach',
-    },
-    warnings: WARNINGS_PRESETS.PEPTIDE,
     missedDose: 'If a dose is missed, skip it and resume the next evening. Do not double dose.',
   },
 ];
@@ -834,7 +879,8 @@ export function getEnhancedTemplates(medicationKey: string): EnhancedSigTemplate
     return ENCLOMIPHENE_ENHANCED_TEMPLATES;
   }
   if (name.includes('anastrozole')) {
-    return ANASTROZOLE_ENHANCED_TEMPLATES;
+    if (med.strength === '0.5 mg') return ANASTROZOLE_05_ENHANCED_TEMPLATES;
+    return ANASTROZOLE_025_ENHANCED_TEMPLATES;
   }
   if (name.includes('sermorelin')) {
     return SERMORELIN_ENHANCED_TEMPLATES;

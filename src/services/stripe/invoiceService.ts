@@ -490,18 +490,6 @@ export class StripeInvoiceService {
       return null;
     }
 
-    // Build description from Stripe line items
-    const lines = stripeInvoice.lines?.data || [];
-    const description = lines.length > 0
-      ? lines.map((l) => l.description || 'Subscription').join(', ')
-      : stripeInvoice.description || 'Subscription renewal';
-
-    const lineItemsJson = lines.map((l) => ({
-      description: l.description || 'Subscription',
-      amount: l.amount || 0,
-      quantity: l.quantity || 1,
-    }));
-
     const paidAt = stripeInvoice.status_transitions?.paid_at
       ? new Date(stripeInvoice.status_transitions.paid_at * 1000)
       : new Date();
@@ -515,6 +503,51 @@ export class StripeInvoiceService {
       typeof (stripeInvoice as any).subscription === 'string'
         ? (stripeInvoice as any).subscription
         : (stripeInvoice as any).subscription?.id;
+
+    // Compute refill month number for subscription renewals
+    let renewalMonth: number | null = null;
+    if (subscriptionId && stripeInvoice.billing_reason !== 'subscription_create') {
+      try {
+        const localSub = await prisma.subscription.findUnique({
+          where: { stripeSubscriptionId: subscriptionId },
+          select: { startDate: true, interval: true, intervalCount: true },
+        });
+        if (localSub) {
+          const start = new Date(localSub.startDate);
+          const totalMonths = localSub.interval === 'year'
+            ? localSub.intervalCount * 12
+            : localSub.intervalCount;
+          const monthsElapsed =
+            (paidAt.getFullYear() - start.getFullYear()) * 12 +
+            (paidAt.getMonth() - start.getMonth());
+          renewalMonth = Math.max(2, Math.floor(monthsElapsed / totalMonths) + 1);
+        }
+      } catch (err) {
+        logger.warn('[STRIPE] Could not compute renewal month for subscription invoice', {
+          stripeInvoiceId: stripeInvoice.id,
+          stripeSubscriptionId: subscriptionId,
+          error: err instanceof Error ? err.message : 'Unknown',
+        });
+      }
+    }
+
+    // Build description from Stripe line items, enriched with refill month
+    const lines = stripeInvoice.lines?.data || [];
+    const rawDescription = lines.length > 0
+      ? lines.map((l) => l.description || 'Subscription').join(', ')
+      : stripeInvoice.description || 'Subscription renewal';
+
+    const description = renewalMonth
+      ? `Subscription billed refill month ${renewalMonth}`
+      : rawDescription;
+
+    const lineItemsJson = lines.map((l) => ({
+      description: renewalMonth
+        ? `Subscription billed refill month ${renewalMonth}`
+        : (l.description || 'Subscription'),
+      amount: l.amount || 0,
+      quantity: l.quantity || 1,
+    }));
 
     try {
       const result = await prisma.$transaction(async (tx) => {
@@ -539,6 +572,7 @@ export class StripeInvoiceService {
               billingReason: stripeInvoice.billing_reason,
               stripeSubscriptionId: subscriptionId || undefined,
               paymentIntentId: paymentIntentId || undefined,
+              ...(renewalMonth ? { renewalMonth } : {}),
             } as any,
           },
         });
