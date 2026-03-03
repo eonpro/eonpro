@@ -611,7 +611,7 @@ export default function PatientSidebar({
 
   return (
     <>
-      <div className="sticky top-6 h-fit w-72 flex-shrink-0 rounded-2xl border border-gray-200 bg-white p-6">
+      <div className="sticky top-6 max-h-[calc(100vh-3rem)] w-72 flex-shrink-0 overflow-y-auto rounded-2xl border border-gray-200 bg-white p-6">
         {/* Avatar and Edit */}
         <div className="mb-4 flex items-start justify-between">
           <div
