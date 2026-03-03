@@ -3,6 +3,7 @@
   "crons": [
     {"path": "/api/ping", "schedule": "*/5 * * * *"},
     {"path": "/api/cron/health-monitor", "schedule": "*/5 * * * *"},
+    {"path": "/api/cron/portal-health", "schedule": "*/5 * * * *"},
     {"path": "/api/cron/process-message-queue", "schedule": "*/5 * * * *"},
     {"path": "/api/integrations/overtime/sync", "schedule": "*/15 * * * *"},
     {"path": "/api/cron/process-scheduled-emails", "schedule": "*/5 * * * *"},
