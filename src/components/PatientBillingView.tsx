@@ -79,6 +79,7 @@ export function PatientBillingView({ patientId, patientName, clinicSubdomain }: 
   const [error, setError] = useState<string | null>(null);
   const [showCreateInvoice, setShowCreateInvoice] = useState(false);
   const [showProcessPayment, setShowProcessPayment] = useState(false);
+  const [showPaymentLinkModal, setShowPaymentLinkModal] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [refundModal, setRefundModal] = useState<{
     invoiceId: number;
@@ -398,6 +399,12 @@ export function PatientBillingView({ patientId, patientName, clinicSubdomain }: 
             className="whitespace-nowrap rounded-lg bg-gray-100 px-4 py-2 text-sm text-gray-700 transition-colors hover:bg-gray-200"
           >
             Customer Portal
+          </button>
+          <button
+            onClick={() => setShowPaymentLinkModal(true)}
+            className="whitespace-nowrap rounded-lg border border-[#4fa77e] bg-white px-4 py-2 text-sm text-[#4fa77e] transition-colors hover:bg-green-50"
+          >
+            <span className="hidden sm:inline">Generate </span>Payment Link
           </button>
           <button
             onClick={() => setShowCreateInvoice(!showCreateInvoice)}
@@ -998,6 +1005,17 @@ export function PatientBillingView({ patientId, patientName, clinicSubdomain }: 
           onClose={() => setMarkPaidModal(null)}
         />
       )}
+
+      {/* Generate Payment Link Modal */}
+      {showPaymentLinkModal && (
+        <GeneratePaymentLinkModal
+          patientId={patientId}
+          patientName={patientName}
+          clinicSubdomain={clinicSubdomain}
+          onClose={() => setShowPaymentLinkModal(false)}
+          onInvoiceCreated={() => fetchBillingData()}
+        />
+      )}
     </div>
   );
 }
@@ -1594,6 +1612,471 @@ function CreateInvoiceForm({
           </button>
         </div>
       </form>
+    </div>
+  );
+}
+
+// Generate Payment Link Modal Component
+function GeneratePaymentLinkModal({
+  patientId,
+  patientName,
+  clinicSubdomain,
+  onClose,
+  onInvoiceCreated,
+}: {
+  patientId: number;
+  patientName: string;
+  clinicSubdomain?: string | null;
+  onClose: () => void;
+  onInvoiceCreated: () => void;
+}) {
+  const [mode, setMode] = useState<'plan' | 'custom'>('plan');
+  const [selectedPlan, setSelectedPlan] = useState<string>('');
+  const [customDescription, setCustomDescription] = useState('');
+  const [customAmount, setCustomAmount] = useState<number>(0);
+  const [generating, setGenerating] = useState(false);
+  const [generatedLink, setGeneratedLink] = useState<string | null>(null);
+  const [invoiceId, setInvoiceId] = useState<number | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [sendingMethod, setSendingMethod] = useState<string | null>(null);
+  const [sendResult, setSendResult] = useState<{ success: boolean; message: string } | null>(null);
+
+  const groupedPlans = getGroupedPlans(clinicSubdomain);
+
+  const getSelectedPlanDetails = () => {
+    if (!selectedPlan) return null;
+    return getPlanById(selectedPlan, clinicSubdomain);
+  };
+
+  const handleGenerate = async () => {
+    let description: string;
+    let amount: number;
+
+    if (mode === 'plan') {
+      const plan = getSelectedPlanDetails();
+      if (!plan) {
+        toast.error('Please select a billing plan');
+        return;
+      }
+      description = plan.description;
+      amount = plan.price;
+    } else {
+      if (!customDescription.trim()) {
+        toast.error('Please enter a description');
+        return;
+      }
+      if (customAmount <= 0) {
+        toast.error('Please enter a valid amount');
+        return;
+      }
+      description = customDescription.trim();
+      amount = Math.round(customAmount * 100);
+    }
+
+    setGenerating(true);
+    setSendResult(null);
+
+    try {
+      const res = await apiFetch('/api/stripe/invoices', {
+        method: 'POST',
+        body: JSON.stringify({
+          patientId,
+          lineItems: [{ description, amount }],
+          autoSend: false,
+          metadata: { source: 'payment_link_generator' },
+        }),
+      });
+
+      if (res.status === 503) {
+        const retryAfterSec = parseInt(res.headers.get('Retry-After') || '10', 10) || 10;
+        await new Promise((r) => setTimeout(r, Math.min(retryAfterSec, 15) * 1000));
+        const retryRes = await apiFetch('/api/stripe/invoices', {
+          method: 'POST',
+          body: JSON.stringify({
+            patientId,
+            lineItems: [{ description, amount }],
+            autoSend: false,
+            metadata: { source: 'payment_link_generator' },
+          }),
+        });
+        const retryData = await retryRes.json();
+        if (retryRes.ok) {
+          const link = retryData.stripeInvoiceUrl ||
+            `${window.location.origin}/pay/${retryData.invoice?.id}`;
+          setGeneratedLink(link);
+          setInvoiceId(retryData.invoice?.id);
+          onInvoiceCreated();
+          toast.success('Payment link generated');
+        } else {
+          toast.error(retryData.error || 'Failed to generate payment link');
+        }
+      } else {
+        const data = await res.json();
+        if (res.ok) {
+          const link = data.stripeInvoiceUrl ||
+            `${window.location.origin}/pay/${data.invoice?.id}`;
+          setGeneratedLink(link);
+          setInvoiceId(data.invoice?.id);
+          onInvoiceCreated();
+          toast.success('Payment link generated');
+        } else {
+          toast.error(data.error || 'Failed to generate payment link');
+        }
+      }
+    } catch (err: any) {
+      logger.error('Error generating payment link:', err);
+      toast.error('Failed to generate payment link');
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const handleCopy = async () => {
+    if (!generatedLink) return;
+    try {
+      await navigator.clipboard.writeText(generatedLink);
+      setCopied(true);
+      toast.success('Payment link copied to clipboard');
+      setTimeout(() => setCopied(false), 3000);
+    } catch {
+      const input = document.createElement('input');
+      input.value = generatedLink;
+      document.body.appendChild(input);
+      input.select();
+      document.execCommand('copy');
+      document.body.removeChild(input);
+      setCopied(true);
+      toast.success('Payment link copied to clipboard');
+      setTimeout(() => setCopied(false), 3000);
+    }
+  };
+
+  const handleSend = async (method: 'sms' | 'email' | 'both') => {
+    if (!invoiceId) return;
+    setSendingMethod(method);
+    setSendResult(null);
+
+    try {
+      const res = await apiFetch('/api/invoices/send-link', {
+        method: 'POST',
+        body: JSON.stringify({
+          invoiceId,
+          sendMethod: method,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (res.ok && data.success) {
+        setSendResult({
+          success: true,
+          message: data.message || `Payment link sent via ${method}`,
+        });
+        toast.success(data.message || `Payment link sent via ${method}`);
+      } else {
+        setSendResult({
+          success: false,
+          message: data.error || `Failed to send via ${method}`,
+        });
+        toast.error(data.error || `Failed to send via ${method}`);
+      }
+    } catch (err: any) {
+      logger.error('Error sending payment link:', err);
+      setSendResult({ success: false, message: 'Failed to send payment link' });
+      toast.error('Failed to send payment link');
+    } finally {
+      setSendingMethod(null);
+    }
+  };
+
+  const currentAmount = mode === 'plan'
+    ? (getSelectedPlanDetails()?.price || 0)
+    : Math.round(customAmount * 100);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+      <div className="w-full max-w-lg rounded-xl bg-white shadow-xl">
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900">Generate Payment Link</h3>
+            <p className="text-sm text-gray-500">for {patientName}</p>
+          </div>
+          <button
+            onClick={onClose}
+            className="rounded-lg p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+          >
+            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <div className="px-6 py-5">
+          {!generatedLink ? (
+            /* Generation Form */
+            <div className="space-y-5">
+              {/* Mode Toggle */}
+              <div className="flex rounded-lg border border-gray-200 p-1">
+                <button
+                  onClick={() => setMode('plan')}
+                  className={`flex-1 rounded-md px-4 py-2 text-sm font-medium transition-colors ${
+                    mode === 'plan'
+                      ? 'bg-[#4fa77e] text-white'
+                      : 'text-gray-600 hover:text-gray-800'
+                  }`}
+                >
+                  Select Plan
+                </button>
+                <button
+                  onClick={() => setMode('custom')}
+                  className={`flex-1 rounded-md px-4 py-2 text-sm font-medium transition-colors ${
+                    mode === 'custom'
+                      ? 'bg-[#4fa77e] text-white'
+                      : 'text-gray-600 hover:text-gray-800'
+                  }`}
+                >
+                  Custom Amount
+                </button>
+              </div>
+
+              {mode === 'plan' ? (
+                /* Plan Selection */
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-gray-700">
+                    Billing Plan
+                  </label>
+                  <select
+                    value={selectedPlan}
+                    onChange={(e) => setSelectedPlan(e.target.value)}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-[#4fa77e] focus:ring-2 focus:ring-[#4fa77e]"
+                  >
+                    <option value="">-- Select a plan --</option>
+                    {Object.entries(groupedPlans).map(([groupName, group]) => (
+                      <optgroup key={groupName} label={group.label}>
+                        {group.plans.map((plan: any) => (
+                          <option key={plan.id} value={plan.id}>
+                            {plan.name} — {formatPlanPrice(plan.price)}
+                            {plan.dose ? ` (${plan.dose})` : ''}
+                          </option>
+                        ))}
+                      </optgroup>
+                    ))}
+                  </select>
+
+                  {selectedPlan && getSelectedPlanDetails() && (
+                    <div className="mt-3 rounded-lg border border-green-200 bg-green-50 p-3">
+                      <p className="text-sm font-medium text-green-800">
+                        {getSelectedPlanDetails()!.description}
+                      </p>
+                      <p className="mt-1 text-lg font-bold text-green-700">
+                        {formatPlanPrice(getSelectedPlanDetails()!.price)}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                /* Custom Amount */
+                <div className="space-y-4">
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-gray-700">
+                      Description
+                    </label>
+                    <input
+                      type="text"
+                      value={customDescription}
+                      onChange={(e) => setCustomDescription(e.target.value)}
+                      placeholder="e.g., Medical Consultation, Lab Work, etc."
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-[#4fa77e] focus:ring-2 focus:ring-[#4fa77e]"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-gray-700">
+                      Amount ($)
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-2.5 text-sm text-gray-400">$</span>
+                      <input
+                        type="number"
+                        value={customAmount || ''}
+                        onChange={(e) => setCustomAmount(parseFloat(e.target.value) || 0)}
+                        placeholder="0.00"
+                        step="0.01"
+                        min="0.50"
+                        className="w-full rounded-lg border border-gray-300 py-2.5 pl-8 pr-3 text-sm focus:border-[#4fa77e] focus:ring-2 focus:ring-[#4fa77e]"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Generate Button */}
+              <button
+                onClick={handleGenerate}
+                disabled={generating || (mode === 'plan' && !selectedPlan) || (mode === 'custom' && (customAmount <= 0 || !customDescription.trim()))}
+                className="w-full rounded-lg bg-[#4fa77e] px-4 py-3 text-sm font-medium text-white transition-colors hover:bg-[#3f8660] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {generating ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                    Generating...
+                  </span>
+                ) : (
+                  `Generate Payment Link${currentAmount > 0 ? ` — ${formatCurrency(currentAmount)}` : ''}`
+                )}
+              </button>
+            </div>
+          ) : (
+            /* Link Generated - Show result */
+            <div className="space-y-5">
+              {/* Success Banner */}
+              <div className="rounded-lg border border-green-200 bg-green-50 p-4 text-center">
+                <svg className="mx-auto mb-2 h-10 w-10 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <p className="text-sm font-medium text-green-800">Payment link generated!</p>
+                <p className="mt-1 text-lg font-bold text-green-700">
+                  {formatCurrency(currentAmount)}
+                </p>
+              </div>
+
+              {/* Link Display + Copy */}
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Payment Link</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    readOnly
+                    value={generatedLink}
+                    className="flex-1 truncate rounded-lg border border-gray-300 bg-gray-50 px-3 py-2.5 text-sm text-gray-700"
+                  />
+                  <button
+                    onClick={handleCopy}
+                    className={`flex items-center gap-1.5 whitespace-nowrap rounded-lg px-4 py-2.5 text-sm font-medium transition-colors ${
+                      copied
+                        ? 'bg-green-100 text-green-700'
+                        : 'bg-[#4fa77e] text-white hover:bg-[#3f8660]'
+                    }`}
+                  >
+                    {copied ? (
+                      <>
+                        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        Copied
+                      </>
+                    ) : (
+                      <>
+                        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                        </svg>
+                        Copy
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* Send Options */}
+              <div>
+                <label className="mb-2 block text-sm font-medium text-gray-700">
+                  Send to patient
+                </label>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handleSend('sms')}
+                    disabled={sendingMethod !== null}
+                    className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-gray-300 px-3 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50"
+                  >
+                    {sendingMethod === 'sms' ? (
+                      <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                      </svg>
+                    ) : (
+                      <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                      </svg>
+                    )}
+                    SMS
+                  </button>
+                  <button
+                    onClick={() => handleSend('email')}
+                    disabled={sendingMethod !== null}
+                    className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-gray-300 px-3 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50"
+                  >
+                    {sendingMethod === 'email' ? (
+                      <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                      </svg>
+                    ) : (
+                      <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                      </svg>
+                    )}
+                    Email
+                  </button>
+                  <button
+                    onClick={() => handleSend('both')}
+                    disabled={sendingMethod !== null}
+                    className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-gray-300 px-3 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50"
+                  >
+                    {sendingMethod === 'both' ? (
+                      <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                      </svg>
+                    ) : (
+                      <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                      </svg>
+                    )}
+                    Both
+                  </button>
+                </div>
+
+                {sendResult && (
+                  <div className={`mt-2 rounded-lg px-3 py-2 text-sm ${
+                    sendResult.success
+                      ? 'border border-green-200 bg-green-50 text-green-700'
+                      : 'border border-red-200 bg-red-50 text-red-700'
+                  }`}>
+                    {sendResult.message}
+                  </div>
+                )}
+              </div>
+
+              {/* Generate Another */}
+              <div className="flex gap-2 border-t border-gray-200 pt-4">
+                <button
+                  onClick={() => {
+                    setGeneratedLink(null);
+                    setInvoiceId(null);
+                    setCopied(false);
+                    setSendResult(null);
+                    setSelectedPlan('');
+                    setCustomDescription('');
+                    setCustomAmount(0);
+                  }}
+                  className="flex-1 rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+                >
+                  Generate Another
+                </button>
+                <button
+                  onClick={onClose}
+                  className="flex-1 rounded-lg bg-[#4fa77e] px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-[#3f8660]"
+                >
+                  Done
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
