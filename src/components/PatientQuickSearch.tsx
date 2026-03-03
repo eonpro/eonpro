@@ -46,10 +46,13 @@ export default function PatientQuickSearch({
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
-  // Debounced search function
   const searchPatients = useCallback(
     async (searchQuery: string) => {
+      // Cancel any in-flight request so it releases its DB connection
+      abortRef.current?.abort();
+
       const trimmed = searchQuery.trim();
       if (trimmed.length < 2) {
         setResults([]);
@@ -58,11 +61,15 @@ export default function PatientQuickSearch({
         return;
       }
 
+      const controller = new AbortController();
+      abortRef.current = controller;
+
       setIsLoading(true);
       setSearchError(null);
       try {
         const response = await fetch(
-          `/api/patients?search=${encodeURIComponent(trimmed)}&limit=10&includeContact=true`
+          `/api/patients?search=${encodeURIComponent(trimmed)}&limit=10&includeContact=true`,
+          { signal: controller.signal }
         );
 
         if (!response.ok) {
@@ -79,7 +86,6 @@ export default function PatientQuickSearch({
 
         const data = await response.json();
 
-        // Filter out current patient and format results
         const filtered = (data.patients || [])
           .filter((p: PatientResult) => p.id !== currentPatientId)
           .slice(0, 8);
@@ -88,6 +94,7 @@ export default function PatientQuickSearch({
         setIsOpen(true);
         setSelectedIndex(-1);
       } catch (error) {
+        if ((error as Error).name === 'AbortError') return;
         console.error('Patient search failed:', error);
         setSearchError('Network error — check your connection');
         setResults([]);
@@ -99,17 +106,14 @@ export default function PatientQuickSearch({
     [currentPatientId]
   );
 
-  // Handle input change with debounce
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setQuery(value);
 
-    // Clear previous debounce
     if (debounceRef.current) {
       clearTimeout(debounceRef.current);
     }
 
-    // Debounce search by 300ms
     debounceRef.current = setTimeout(() => {
       searchPatients(value);
     }, 300);
@@ -170,12 +174,10 @@ export default function PatientQuickSearch({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Cleanup debounce on unmount
   useEffect(() => {
     return () => {
-      if (debounceRef.current) {
-        clearTimeout(debounceRef.current);
-      }
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      abortRef.current?.abort();
     };
   }, []);
 

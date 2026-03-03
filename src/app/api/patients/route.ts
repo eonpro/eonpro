@@ -92,16 +92,9 @@ const getPatientsHandler = withClinicalAuth(async (req: NextRequest, user) => {
     // Use patient service - handles clinic isolation, PHI decryption
     const result = await patientService.listPatients(userContext, options);
 
-    // When searching, also return the unfiltered total so the UI can
-    // display "X of Y patients" and keep stats cards accurate.
-    let totalInSystem: number | undefined;
-    if (options.search) {
-      const systemFilter: Parameters<typeof patientService.countPatients>[1] = {};
-      if (userContext.role !== 'super_admin' && userContext.clinicId) {
-        systemFilter.clinicId = userContext.clinicId;
-      }
-      totalInSystem = await patientService.countPatients(userContext, systemFilter);
-    }
+    // Skip the extra countPatients query during search to halve DB load.
+    // The UI can fall back to result.total when totalInSystem is absent.
+    const totalInSystem: number | undefined = undefined;
 
     // Transform to dashboard-friendly format
     // HIPAA: Minimize PHI in list responses
