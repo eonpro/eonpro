@@ -269,7 +269,7 @@ export default function PhotosHubPage() {
           <AlertCircle className="h-5 w-5 shrink-0 text-amber-600" />
           <p className="flex-1 text-sm font-medium text-amber-900">{loadError}</p>
           <Link
-            href={`/login?redirect=${encodeURIComponent(`${PATIENT_PORTAL_PATH}/photos`)}&reason=session_expired`}
+            href={`/patient-login?redirect=${encodeURIComponent(`${PATIENT_PORTAL_PATH}/photos`)}&reason=session_expired`}
             className="shrink-0 rounded-lg bg-amber-200 px-3 py-1.5 text-sm font-medium text-amber-900 hover:bg-amber-300"
           >
             Log in

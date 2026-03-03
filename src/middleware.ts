@@ -197,6 +197,7 @@ export async function middleware(request: NextRequest) {
     if (!token || !isValidJwtFormat(token)) {
       const loginUrl = new URL('/patient-login', request.url);
       loginUrl.searchParams.set('reason', 'no_session');
+      loginUrl.searchParams.set('redirect', pathname);
       return NextResponse.redirect(loginUrl);
     }
   }

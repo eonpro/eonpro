@@ -32,6 +32,7 @@ export const GET = withAuth<RouteParams>(async (request, user, { params } = {} a
         resolutionNotes: true,
         createdById: true,
         patientId: true,
+        clinicId: true,
         assignedTo: { select: { firstName: true, lastName: true } },
         _count: { select: { comments: true } },
       },
@@ -39,7 +40,8 @@ export const GET = withAuth<RouteParams>(async (request, user, { params } = {} a
 
     if (!ticket) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
-    if (user.role.toLowerCase() === 'patient') {
+    const role = user.role.toLowerCase();
+    if (role === 'patient') {
       let patientId = (user as any).patientId;
       if (!patientId) {
         const userRecord = await prisma.user.findUnique({ where: { id: user.id }, select: { patientId: true } });
@@ -47,6 +49,10 @@ export const GET = withAuth<RouteParams>(async (request, user, { params } = {} a
         patientId = patient?.id;
       }
       if (ticket.createdById !== user.id && ticket.patientId !== patientId) {
+        return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+      }
+    } else if (role !== 'super_admin') {
+      if (user.clinicId != null && ticket.clinicId !== user.clinicId) {
         return NextResponse.json({ error: 'Access denied' }, { status: 403 });
       }
     }

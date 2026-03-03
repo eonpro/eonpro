@@ -152,7 +152,7 @@ export default function SettingsPage() {
         if (!res.ok) {
           if (res.status === 401) {
             router.replace(
-              `/login?redirect=${encodeURIComponent(PATIENT_PORTAL_PATH)}&reason=no_session`
+              `/patient-login?redirect=${encodeURIComponent(PATIENT_PORTAL_PATH)}&reason=no_session`
             );
             return;
           }
@@ -172,7 +172,7 @@ export default function SettingsPage() {
           });
         } else {
           router.replace(
-            `/login?redirect=${encodeURIComponent(PATIENT_PORTAL_PATH)}&reason=no_session`
+            `/patient-login?redirect=${encodeURIComponent(PATIENT_PORTAL_PATH)}&reason=no_session`
           );
           return;
         }

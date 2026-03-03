@@ -118,7 +118,7 @@ export default function HealthScorePage() {
         <div className="rounded-2xl border border-amber-200 bg-amber-50 p-6 text-center">
           <p className="font-medium text-amber-900">{loadError}</p>
           <Link
-            href={`/login?redirect=${encodeURIComponent(`${PATIENT_PORTAL_PATH}/health-score`)}&reason=session_expired`}
+            href={`/patient-login?redirect=${encodeURIComponent(`${PATIENT_PORTAL_PATH}/health-score`)}&reason=session_expired`}
             className="mt-4 inline-block rounded-xl px-4 py-2 font-medium text-amber-900 ring-1 ring-amber-300 hover:bg-amber-100"
           >
             Log in

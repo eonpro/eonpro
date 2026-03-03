@@ -344,7 +344,7 @@ export default function BillingPage() {
           </p>
           {loadError === SESSION_EXPIRED_MESSAGE ? (
             <NextLink
-              href={`/login?redirect=${encodeURIComponent(`${PATIENT_PORTAL_PATH}/billing`)}&reason=session_expired`}
+              href={`/patient-login?redirect=${encodeURIComponent(`${PATIENT_PORTAL_PATH}/billing`)}&reason=session_expired`}
               className="shrink-0 rounded-lg bg-amber-200 px-3 py-1.5 text-sm font-medium text-amber-900 hover:bg-amber-300"
             >
               Log in

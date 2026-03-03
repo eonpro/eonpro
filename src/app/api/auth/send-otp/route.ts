@@ -10,6 +10,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { basePrisma as prisma } from '@/lib/db';
+import { standardRateLimit } from '@/lib/rateLimit';
 import { sendSMS, formatPhoneNumber } from '@/lib/integrations/twilio/smsService';
 import { isTwilioConfigured } from '@/lib/integrations/twilio/config';
 import { isFeatureEnabled } from '@/lib/features';
@@ -29,7 +30,7 @@ function generateOTP(): string {
 // OTP expiry time in minutes
 const OTP_EXPIRY_MINUTES = 5;
 
-export async function POST(req: NextRequest): Promise<Response> {
+export const POST = standardRateLimit(async (req: NextRequest) => {
   try {
     const body = await req.json();
     const validated = sendOtpSchema.safeParse(body);
@@ -223,4 +224,4 @@ export async function POST(req: NextRequest): Promise<Response> {
   } catch (error: any) {
     return handleApiError(error, { route: 'POST /api/auth/send-otp' });
   }
-}
+});

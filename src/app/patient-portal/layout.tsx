@@ -149,7 +149,7 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
 
     // Security: Redirect to login if no valid session
     if (!user || !token) {
-      router.push(`/login?redirect=${encodeURIComponent(PATIENT_PORTAL_PATH)}&reason=no_session`);
+      router.push(`/patient-login?redirect=${encodeURIComponent(PATIENT_PORTAL_PATH)}&reason=no_session`);
       return;
     }
 
@@ -159,7 +159,7 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
       localStorage.removeItem('auth-token');
       localStorage.removeItem('patient-token');
       router.push(
-        `/login?redirect=${encodeURIComponent(PATIENT_PORTAL_PATH)}&reason=invalid_session`
+        `/patient-login?redirect=${encodeURIComponent(PATIENT_PORTAL_PATH)}&reason=invalid_session`
       );
       return;
     }
@@ -168,7 +168,7 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
       // Verify user has patient role
       if (data.role?.toLowerCase() !== 'patient') {
         router.push(
-          `/login?redirect=${encodeURIComponent(PATIENT_PORTAL_PATH)}&reason=invalid_role`
+          `/patient-login?redirect=${encodeURIComponent(PATIENT_PORTAL_PATH)}&reason=invalid_role`
         );
         return;
       }
@@ -180,7 +180,7 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
       localStorage.removeItem('auth-token');
       localStorage.removeItem('patient-token');
       router.push(
-        `/login?redirect=${encodeURIComponent(PATIENT_PORTAL_PATH)}&reason=invalid_session`
+        `/patient-login?redirect=${encodeURIComponent(PATIENT_PORTAL_PATH)}&reason=invalid_session`
       );
       return;
     }

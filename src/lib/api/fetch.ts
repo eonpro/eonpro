@@ -34,9 +34,9 @@ export function dispatchSessionExpired(reason: string = 'session_expired') {
 function getAuthToken(): string | null {
   if (typeof window === 'undefined') return null;
 
-  // Check all possible token locations (include role-specific keys used by login)
   return (
     localStorage.getItem('auth-token') ||
+    localStorage.getItem('patient-token') ||
     localStorage.getItem('access_token') ||
     localStorage.getItem('super_admin-token') ||
     localStorage.getItem('admin-token') ||
@@ -224,16 +224,20 @@ export function clearAuthTokens() {
 }
 
 /**
- * Redirect to login page with reason.
- * Does not pass redirect param so that after login the user goes to role-based home,
- * not the page they were on when the system logged them out.
+ * Redirect to the appropriate login page with reason.
+ * Patients are sent to /patient-login; all other roles go to /login.
  */
 export function redirectToLogin(reason: string = 'session_expired') {
   if (typeof window === 'undefined') return;
 
-  const loginUrl = `/login?reason=${encodeURIComponent(reason)}`;
+  const isPatientContext =
+    window.location.pathname.startsWith('/portal') ||
+    window.location.pathname.startsWith('/patient-portal') ||
+    !!localStorage.getItem('patient-token');
 
-  // Use replace to prevent back navigation to expired page
+  const basePath = isPatientContext ? '/patient-login' : '/login';
+  const loginUrl = `${basePath}?reason=${encodeURIComponent(reason)}`;
+
   window.location.replace(loginUrl);
 }
 

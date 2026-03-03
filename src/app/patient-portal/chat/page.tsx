@@ -104,7 +104,7 @@ export default function PatientChatPage() {
       } else if (response.status === 401) {
         setError(t('chatSessionExpired'));
         setTimeout(() => {
-          router.push('/login');
+          router.push('/patient-login?reason=session_expired');
         }, 2000);
       } else if (response.status === 403) {
         setError(t('chatAccessDenied'));

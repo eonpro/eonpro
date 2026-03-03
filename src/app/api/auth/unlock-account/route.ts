@@ -16,10 +16,7 @@ import { prisma } from '@/lib/db';
 import { authRateLimiter, adminGetRateLimitStatus } from '@/lib/security/enterprise-rate-limiter';
 import { sendEmail } from '@/lib/email';
 import { logger } from '@/lib/logger';
-
-// ============================================================================
-// Schemas
-// ============================================================================
+import { generateOTP, storeVerificationCode, verifyOTPCode } from '@/lib/auth/verification';
 
 const requestUnlockSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -29,25 +26,6 @@ const verifyUnlockSchema = z.object({
   email: z.string().email('Invalid email address'),
   code: z.string().length(6, 'Code must be 6 digits'),
 });
-
-// ============================================================================
-// OTP Storage (in-memory for simplicity, use Redis in production)
-// ============================================================================
-
-const otpStore = new Map<string, { code: string; expires: number; attempts: number }>();
-
-function generateOTP(): string {
-  return Math.floor(100000 + Math.random() * 900000).toString();
-}
-
-function cleanExpiredOTPs(): void {
-  const now = Date.now();
-  for (const [key, value] of otpStore.entries()) {
-    if (value.expires < now) {
-      otpStore.delete(key);
-    }
-  }
-}
 
 // ============================================================================
 // POST - Request Unlock Code
@@ -111,34 +89,15 @@ async function requestUnlockCode(
     });
   }
 
-  // Rate limit unlock requests (prevent abuse)
-  const unlockRequestKey = `unlock:${email.toLowerCase()}`;
-  const existingOtp = otpStore.get(unlockRequestKey);
-
-  if (existingOtp && existingOtp.expires > Date.now()) {
-    const secondsRemaining = Math.ceil((existingOtp.expires - Date.now()) / 1000);
-    if (secondsRemaining > 240) {
-      // Only allow resend after 1 minute
-      return NextResponse.json(
-        {
-          error: 'Please wait before requesting another code',
-          retryAfter: secondsRemaining - 240,
-        },
-        { status: 429 }
-      );
-    }
-  }
-
-  // Generate and store OTP
+  // Generate and store OTP in the database (survives serverless cold starts)
   const otp = generateOTP();
-  otpStore.set(unlockRequestKey, {
-    code: otp,
-    expires: Date.now() + 5 * 60 * 1000, // 5 minutes
-    attempts: 0,
-  });
-
-  // Clean expired OTPs periodically
-  cleanExpiredOTPs();
+  const stored = await storeVerificationCode(email.toLowerCase(), otp, 'login_otp');
+  if (!stored) {
+    return NextResponse.json(
+      { error: 'Failed to generate unlock code. Please try again.' },
+      { status: 500 }
+    );
+  }
 
   // Send email
   try {
@@ -199,55 +158,19 @@ async function verifyUnlockCode(
   }
 
   const { email, code } = validation.data;
-  const unlockRequestKey = `unlock:${email.toLowerCase()}`;
 
-  // Get stored OTP
-  const storedOtp = otpStore.get(unlockRequestKey);
+  // Verify against the database-backed OTP store
+  const otpResult = await verifyOTPCode(email.toLowerCase(), code, 'login_otp');
 
-  if (!storedOtp) {
+  if (!otpResult.success) {
     return NextResponse.json(
-      { error: 'No unlock request found. Please request a new code.' },
+      { error: otpResult.message || 'Invalid or expired code. Please request a new one.' },
       { status: 400 }
     );
   }
 
-  // Check expiration
-  if (storedOtp.expires < Date.now()) {
-    otpStore.delete(unlockRequestKey);
-    return NextResponse.json(
-      { error: 'Code has expired. Please request a new code.' },
-      { status: 400 }
-    );
-  }
-
-  // Check attempts (prevent brute force on OTP)
-  if (storedOtp.attempts >= 5) {
-    otpStore.delete(unlockRequestKey);
-    return NextResponse.json(
-      { error: 'Too many attempts. Please request a new code.' },
-      { status: 429 }
-    );
-  }
-
-  // Verify code
-  if (storedOtp.code !== code) {
-    storedOtp.attempts++;
-    otpStore.set(unlockRequestKey, storedOtp);
-
-    return NextResponse.json(
-      {
-        error: 'Invalid code',
-        attemptsRemaining: 5 - storedOtp.attempts,
-      },
-      { status: 400 }
-    );
-  }
-
-  // Code is valid - clear rate limits
+  // Code is valid — clear rate limits
   await authRateLimiter.clearRateLimit(clientIp, email);
-
-  // Delete used OTP
-  otpStore.delete(unlockRequestKey);
 
   // Log the unlock
   logger.info('[UnlockAccount] Account unlocked via OTP', {

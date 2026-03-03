@@ -6,7 +6,7 @@ import { dispatchSessionExpired, clearAuthTokens, refreshAuthToken } from '@/lib
 import { isBrowser, safeWindow } from '@/lib/utils/ssr-safe';
 
 /** Public routes where fetch interception for session expiry should be skipped */
-const PUBLIC_ROUTE_PREFIXES = ['/affiliate/', '/login', '/register', '/reset-password', '/verify-email'];
+const PUBLIC_ROUTE_PREFIXES = ['/affiliate/', '/login', '/patient-login', '/register', '/reset-password', '/verify-email'];
 
 /** Auth cookie names that may have stale hostname-scoped duplicates */
 const AUTH_COOKIE_NAMES = [

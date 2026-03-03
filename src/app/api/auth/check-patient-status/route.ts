@@ -51,13 +51,12 @@ export const POST = standardRateLimit(async (req: NextRequest) => {
 
     const patient = await prisma.patient.findFirst({
       where: patientWhere,
-      select: { id: true, firstName: true },
+      select: { id: true },
     });
 
     if (patient) {
       return NextResponse.json({
         status: 'needs_setup',
-        firstName: patient.firstName,
       });
     }
 

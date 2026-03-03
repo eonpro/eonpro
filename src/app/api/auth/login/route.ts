@@ -834,10 +834,17 @@ async function loginHandler(req: NextRequest) {
 
     tokenPayload.sessionId = sessionId;
 
+    const tokenExpiry =
+      userRole === 'patient'
+        ? AUTH_CONFIG.tokenExpiry.patient
+        : userRole === 'provider'
+          ? AUTH_CONFIG.tokenExpiry.provider
+          : AUTH_CONFIG.tokenExpiry.access;
+
     const token = await new SignJWT(tokenPayload)
       .setProtectedHeader({ alg: 'HS256' })
       .setIssuedAt()
-      .setExpirationTime(AUTH_CONFIG.tokenExpiry.access)
+      .setExpirationTime(tokenExpiry)
       .sign(JWT_SECRET);
 
     // Create refresh token (signed with dedicated refresh secret)

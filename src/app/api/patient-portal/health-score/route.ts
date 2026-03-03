@@ -8,6 +8,7 @@ import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { handleApiError } from '@/domains/shared/errors';
 import { prisma } from '@/lib/db';
 import { logPHIAccess } from '@/lib/audit/hipaa-audit';
+import { logger } from '@/lib/logger';
 
 /**
  * GET /api/patient-portal/health-score
@@ -27,7 +28,10 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
     const twoWeeksAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
 
     const safeQuery = async <T>(fn: () => Promise<T>, fallback: T): Promise<T> => {
-      try { return await fn(); } catch { return fallback; }
+      try { return await fn(); } catch (err) {
+        logger.error('[HealthScore] DB query failed', { error: err instanceof Error ? err.message : String(err), patientId: user.patientId });
+        return fallback;
+      }
     };
     const pid = user.patientId;
     const empty: never[] = [];

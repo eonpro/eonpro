@@ -246,17 +246,15 @@ export const DELETE = withAuth(async (req: NextRequest, user) => {
       return NextResponse.json({ error: 'documentId is required' }, { status: 400 });
     }
 
-    // Get document
     const document = await prisma.patientDocument.findUnique({
       where: { id: parseInt(documentId) },
-      select: { id: true, patientId: true, source: true },
+      select: { id: true, patientId: true, clinicId: true, source: true },
     });
 
     if (!document) {
       return NextResponse.json({ error: 'Document not found' }, { status: 404 });
     }
 
-    // For patient role, only allow deletion of their own uploads
     if (user.role === 'patient') {
       if (document.patientId !== user.patientId) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
@@ -266,6 +264,10 @@ export const DELETE = withAuth(async (req: NextRequest, user) => {
           { error: 'You can only delete documents you uploaded' },
           { status: 403 }
         );
+      }
+    } else if (user.role !== 'super_admin') {
+      if (user.clinicId != null && document.clinicId !== user.clinicId) {
+        return NextResponse.json({ error: 'Access denied' }, { status: 403 });
       }
     }
 

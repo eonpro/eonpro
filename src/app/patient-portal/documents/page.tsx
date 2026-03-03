@@ -352,7 +352,7 @@ export default function PatientPortalDocuments() {
           <div className="mt-4 flex flex-wrap justify-center gap-2">
             {isSessionExpired ? (
               <Link
-                href={`/login?redirect=${encodeURIComponent(`${PATIENT_PORTAL_PATH}/documents`)}&reason=session_expired`}
+                href={`/patient-login?redirect=${encodeURIComponent(`${PATIENT_PORTAL_PATH}/documents`)}&reason=session_expired`}
                 className="rounded-lg bg-amber-200 px-4 py-2 text-sm font-medium text-amber-900 hover:bg-amber-300"
               >
                 Log in

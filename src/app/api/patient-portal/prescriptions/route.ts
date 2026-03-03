@@ -13,6 +13,7 @@ import { type NextRequest, NextResponse } from 'next/server';
 
 import { handleApiError } from '@/domains/shared/errors';
 import { logPHIAccess } from '@/lib/audit/hipaa-audit';
+import { logger } from '@/lib/logger';
 import { type AuthUser, withAuth } from '@/lib/auth/middleware';
 import { prisma } from '@/lib/db';
 
@@ -54,7 +55,10 @@ function derivePlanInterval(sub: {
 async function fetchPatientPrescriptions(req: NextRequest, user: AuthUser, patientId: number) {
 
   const safeQuery = async <T>(fn: () => Promise<T>, fallback: T): Promise<T> => {
-    try { return await fn(); } catch { return fallback; }
+    try { return await fn(); } catch (err) {
+      logger.error('[Prescriptions] DB query failed', { error: err instanceof Error ? err.message : String(err), patientId });
+      return fallback;
+    }
   };
 
   const [orders, subscription, invoices] = await Promise.all([

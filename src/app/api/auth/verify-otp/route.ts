@@ -10,10 +10,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { basePrisma as prisma } from '@/lib/db';
+import { standardRateLimit } from '@/lib/rateLimit';
 import { formatPhoneNumber } from '@/lib/integrations/twilio/smsService';
 import { logger } from '@/lib/logger';
 import { SignJWT } from 'jose';
 import { AUTH_CONFIG, JWT_SECRET } from '@/lib/auth/config';
+import { createSessionRecord } from '@/lib/auth/session-manager';
+import { authRateLimiter } from '@/lib/security/enterprise-rate-limiter';
 
 // Schema for OTP verification
 const verifyOtpSchema = z.object({
@@ -21,7 +24,7 @@ const verifyOtpSchema = z.object({
   code: z.string().length(6, 'OTP must be exactly 6 digits'),
 });
 
-export async function POST(req: NextRequest): Promise<Response> {
+export const POST = standardRateLimit(async (req: NextRequest) => {
   try {
     const body = await req.json();
     const validated = verifyOtpSchema.safeParse(body);
@@ -237,21 +240,68 @@ export async function POST(req: NextRequest): Promise<Response> {
       }
     }
 
+    // Create a session record so the auth middleware can validate this token.
+    const effectiveUserId = isPatientLogin && patient ? patient.id : user!.id;
+    const effectiveRole = (tokenPayload.role as string) || 'patient';
+    const effectiveClinicId = (tokenPayload.clinicId as number) || undefined;
+
+    const { sessionId } = await createSessionRecord(
+      String(effectiveUserId),
+      effectiveRole,
+      effectiveClinicId,
+      req
+    );
+    tokenPayload.sessionId = sessionId;
+
+    // Clear lockout state and rate limits on successful OTP login
+    const clientIp = authRateLimiter.getClientIp(req);
+    const userEmail = user?.email || patient?.email;
+    const clearPromises: Promise<unknown>[] = [];
+    if (userEmail) {
+      clearPromises.push(
+        authRateLimiter.clearRateLimit(clientIp, userEmail).catch((err: unknown) => {
+          logger.warn('[VERIFY-OTP] Rate limit clear failed', {
+            error: err instanceof Error ? err.message : 'Unknown error',
+          });
+        })
+      );
+    }
+    if (user) {
+      clearPromises.push(
+        prisma.user.update({
+          where: { id: user.id },
+          data: { failedLoginAttempts: 0, lockedUntil: null },
+        }).catch((err: unknown) => {
+          logger.warn('[VERIFY-OTP] Lockout clear failed', {
+            error: err instanceof Error ? err.message : 'Unknown error',
+          });
+        })
+      );
+    }
+    if (clearPromises.length > 0) {
+      await Promise.all(clearPromises);
+    }
+
+    const expiry =
+      effectiveRole === 'patient'
+        ? AUTH_CONFIG.tokenExpiry.patient
+        : effectiveRole === 'provider'
+          ? AUTH_CONFIG.tokenExpiry.provider
+          : AUTH_CONFIG.tokenExpiry.access;
+
     const token = await new SignJWT(tokenPayload)
       .setProtectedHeader({ alg: 'HS256' })
       .setIssuedAt()
-      .setExpirationTime(AUTH_CONFIG.tokenExpiry.access)
+      .setExpirationTime(expiry)
       .sign(JWT_SECRET);
 
-    // Log successful login
     logger.info('Successful OTP login', {
       userId: user?.id,
       patientId: patient?.id,
-      phone: formattedPhone,
       loginMethod: 'phone_otp',
+      sessionId,
     });
 
-    // Create audit log
     try {
       await prisma.auditLog.create({
         data: {
@@ -259,13 +309,12 @@ export async function POST(req: NextRequest): Promise<Response> {
           userId: user?.id || 0,
           details: {
             method: 'phone_otp',
-            phone: formattedPhone,
             isPatient: isPatientLogin,
+            sessionId,
           },
         },
       });
     } catch (error: unknown) {
-      // Audit log failure shouldn't block login
       logger.warn('[VERIFY-OTP] Audit log creation failed', {
         error: error instanceof Error ? error.message : 'Unknown error',
       });
@@ -317,8 +366,11 @@ export async function POST(req: NextRequest): Promise<Response> {
     });
 
     return response;
-  } catch (error: any) {
-    logger.error('Error in verify-otp endpoint', { error: error.message });
+  } catch (error: unknown) {
+    logger.error(
+      'Error in verify-otp endpoint',
+      error instanceof Error ? error : new Error(String(error))
+    );
     return NextResponse.json({ error: 'An error occurred. Please try again.' }, { status: 500 });
   }
-}
+});

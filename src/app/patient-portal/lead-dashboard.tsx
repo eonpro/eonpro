@@ -10,6 +10,7 @@ import {
   ArrowRight,
   CheckCircle2,
 } from 'lucide-react';
+import { portalFetch } from '@/lib/api/patient-portal-client';
 
 interface DraftInfo {
   sessionId: string;
@@ -35,7 +36,7 @@ export default function LeadDashboard({
   useEffect(() => {
     async function loadDraft() {
       try {
-        const res = await fetch('/api/patient-portal/intake/drafts');
+        const res = await portalFetch('/api/patient-portal/intake/drafts');
         if (res.ok) {
           const data = await res.json();
           if (data.drafts?.length > 0) {
