@@ -12,6 +12,7 @@ import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { z } from 'zod';
 import { generateSignedUrl } from '@/lib/integrations/aws/s3Service';
+import { decryptPHI } from '@/lib/security/phi-encryption';
 
 // Avoid Prisma enum import issues - define locally
 const VERIFICATION_STATUSES = [
@@ -116,12 +117,18 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       })
     );
 
-    // Group photos by patient for easier review
+    // Group photos by patient for easier review, decrypting PHI
     const grouped = photosWithUrls.reduce((acc: any, photo) => {
       const patientId = photo.patient.id;
       if (!acc[patientId]) {
         acc[patientId] = {
-          patient: photo.patient,
+          patient: {
+            id: photo.patient.id,
+            firstName: decryptPHI(photo.patient.firstName) || photo.patient.firstName,
+            lastName: decryptPHI(photo.patient.lastName) || photo.patient.lastName,
+            email: decryptPHI(photo.patient.email) || photo.patient.email,
+            patientId: photo.patient.patientId,
+          },
           clinic: photo.clinic,
           photos: [],
         };
