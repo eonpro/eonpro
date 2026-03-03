@@ -215,7 +215,7 @@ function PatientsLayoutInner({ children }: { children: React.ReactNode }) {
         </button>
 
         {/* Navigation Icons */}
-        <nav className="flex flex-1 flex-col space-y-1 px-3">
+        <nav className="flex min-h-0 flex-1 flex-col space-y-1 overflow-y-auto px-3">
           {navItems.map((item) => {
             const Icon = item.icon;
             const active = isActive(item.path);
