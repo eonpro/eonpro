@@ -17,6 +17,7 @@ import { z } from 'zod';
 import { prisma, runWithClinicContext } from '@/lib/db';
 import { withAuthParams, AuthUser } from '@/lib/auth/middleware-with-params';
 import { logger } from '@/lib/logger';
+import { sendTrackingNotificationSMS } from '@/lib/shipping/tracking-sms';
 
 const dispositionSchema = z
   .object({
@@ -162,6 +163,38 @@ async function handler(req: NextRequest, user: AuthUser, context: RouteContext) 
           },
         });
       });
+
+      // Send tracking SMS to patient (fire-and-forget, same as webhook flow)
+      const [patient, clinic] = await Promise.all([
+        prisma.patient.findUnique({
+          where: { id: order.patientId },
+          select: { id: true, phone: true, firstName: true, lastName: true },
+        }),
+        prisma.clinic.findUnique({
+          where: { id: order.clinicId },
+          select: { name: true },
+        }),
+      ]);
+
+      if (patient) {
+        sendTrackingNotificationSMS({
+          patientId: patient.id,
+          patientPhone: patient.phone,
+          patientFirstName: patient.firstName,
+          patientLastName: patient.lastName,
+          clinicId: order.clinicId,
+          clinicName: clinic?.name || 'Your Clinic',
+          trackingNumber: trackingNumber!,
+          carrier: carrier!,
+          orderId: order.id,
+        }).catch((err) => {
+          logger.warn('[DISPOSITION] Tracking SMS failed (non-blocking)', {
+            error: err instanceof Error ? err.message : String(err),
+            patientId: patient.id,
+            orderId,
+          });
+        });
+      }
 
       return NextResponse.json({
         success: true,

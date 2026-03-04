@@ -13,6 +13,7 @@ import { ensureTenantResource, tenantNotFoundResponse } from '@/lib/tenant-respo
 import { logger } from '@/lib/logger';
 import { z } from 'zod';
 import { ShippingStatus } from '@prisma/client';
+import { sendTrackingNotificationSMS } from '@/lib/shipping/tracking-sms';
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -361,7 +362,7 @@ export const POST = withAuthParams(
 
       const patientForPost = await prisma.patient.findUnique({
         where: { id: patientId },
-        select: { id: true, clinicId: true, firstName: true, lastName: true },
+        select: { id: true, clinicId: true, firstName: true, lastName: true, phone: true },
       });
       if (ensureTenantResource(patientForPost, clinicId ?? undefined)) return tenantNotFoundResponse();
       if (!patientForPost) return tenantNotFoundResponse();
@@ -485,6 +486,29 @@ export const POST = withAuthParams(
         carrier: effectiveCarrier,
         isRefill: data.isRefill,
         linkedOrders: resolvedOrderIds.length,
+      });
+
+      // Send tracking SMS to patient (fire-and-forget, same as webhook flow)
+      const clinic = await prisma.clinic.findUnique({
+        where: { id: effectiveClinicId },
+        select: { name: true },
+      });
+
+      sendTrackingNotificationSMS({
+        patientId: patient.id,
+        patientPhone: patient.phone,
+        patientFirstName: patient.firstName,
+        patientLastName: patient.lastName,
+        clinicId: effectiveClinicId,
+        clinicName: clinic?.name || 'Your Clinic',
+        trackingNumber: data.trackingNumber,
+        carrier: effectiveCarrier,
+        orderId: resolvedOrderIds[0] ?? undefined,
+      }).catch((err) => {
+        logger.warn('[TRACKING] Manual entry SMS failed (non-blocking)', {
+          error: err instanceof Error ? err.message : String(err),
+          patientId: patient.id,
+        });
       });
 
       return NextResponse.json({
