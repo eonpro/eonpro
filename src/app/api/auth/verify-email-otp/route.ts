@@ -14,9 +14,10 @@ import { standardRateLimit } from '@/lib/rateLimit';
 import { logger } from '@/lib/logger';
 import { verifyOTPCode } from '@/lib/auth/verification';
 import { SignJWT } from 'jose';
-import { AUTH_CONFIG, JWT_SECRET } from '@/lib/auth/config';
+import { AUTH_CONFIG, JWT_SECRET, JWT_REFRESH_SECRET } from '@/lib/auth/config';
 import { createSessionRecord } from '@/lib/auth/session-manager';
 import { authRateLimiter } from '@/lib/security/enterprise-rate-limiter';
+import { hashRefreshToken } from '@/lib/auth/refresh-token-rotation';
 
 const verifyEmailOtpSchema = z.object({
   email: z.string().email().transform((v) => v.toLowerCase().trim()),
@@ -207,6 +208,36 @@ export const POST = standardRateLimit(async (req: NextRequest) => {
       .setExpirationTime(expiry)
       .sign(JWT_SECRET);
 
+    // Create refresh token so patients can stay logged in beyond the access token TTL
+    const refreshToken = await new SignJWT({
+      id: effectiveUserId,
+      type: 'refresh',
+    })
+      .setProtectedHeader({ alg: 'HS256' })
+      .setIssuedAt()
+      .setExpirationTime(AUTH_CONFIG.tokenExpiry.refresh)
+      .sign(JWT_REFRESH_SECRET);
+
+    // Create UserSession for refresh-token rotation (non-blocking)
+    if (user) {
+      prisma.userSession.create({
+        data: {
+          userId: user.id,
+          token: token.substring(0, 64),
+          refreshToken: refreshToken.substring(0, 64),
+          refreshTokenHash: hashRefreshToken(refreshToken),
+          ipAddress: req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown',
+          userAgent: req.headers.get('user-agent') || 'unknown',
+          expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+          lastActivity: new Date(),
+        },
+      }).catch((err: unknown) => {
+        logger.warn('[VERIFY-EMAIL-OTP] UserSession creation failed', {
+          error: err instanceof Error ? err.message : 'Unknown',
+        });
+      });
+    }
+
     logger.info('Successful email OTP login', {
       userId: user?.id,
       patientId: patient?.id,
@@ -215,25 +246,22 @@ export const POST = standardRateLimit(async (req: NextRequest) => {
     });
 
     // Audit log (non-blocking)
-    try {
-      await prisma.auditLog.create({
-        data: {
-          action: 'LOGIN',
-          userId: user?.id || 0,
-          details: {
-            method: 'email_otp',
-            isPatient: isPatientLogin,
-            sessionId,
-          },
+    prisma.auditLog.create({
+      data: {
+        action: 'LOGIN',
+        userId: user?.id || 0,
+        details: {
+          method: 'email_otp',
+          isPatient: isPatientLogin,
+          sessionId,
         },
-      });
-    } catch (auditErr: unknown) {
+      },
+    }).catch((auditErr: unknown) => {
       logger.warn('[VERIFY-EMAIL-OTP] Audit log creation failed', {
         error: auditErr instanceof Error ? auditErr.message : 'Unknown error',
       });
-    }
+    });
 
-    // Build response user data
     const userData =
       isPatientLogin && patient
         ? {
@@ -257,6 +285,7 @@ export const POST = standardRateLimit(async (req: NextRequest) => {
     const response = NextResponse.json({
       success: true,
       token,
+      refreshToken,
       user: userData,
       message: 'Login successful',
     });

@@ -14,9 +14,10 @@ import { standardRateLimit } from '@/lib/rateLimit';
 import { formatPhoneNumber } from '@/lib/integrations/twilio/smsService';
 import { logger } from '@/lib/logger';
 import { SignJWT } from 'jose';
-import { AUTH_CONFIG, JWT_SECRET } from '@/lib/auth/config';
+import { AUTH_CONFIG, JWT_SECRET, JWT_REFRESH_SECRET } from '@/lib/auth/config';
 import { createSessionRecord } from '@/lib/auth/session-manager';
 import { authRateLimiter } from '@/lib/security/enterprise-rate-limiter';
+import { hashRefreshToken } from '@/lib/auth/refresh-token-rotation';
 
 // Schema for OTP verification
 const verifyOtpSchema = z.object({
@@ -255,17 +256,14 @@ export const POST = standardRateLimit(async (req: NextRequest) => {
 
     // Clear lockout state and rate limits on successful OTP login
     const clientIp = authRateLimiter.getClientIp(req);
-    const userEmail = user?.email || patient?.email;
-    const clearPromises: Promise<unknown>[] = [];
-    if (userEmail) {
-      clearPromises.push(
-        authRateLimiter.clearRateLimit(clientIp, userEmail).catch((err: unknown) => {
-          logger.warn('[VERIFY-OTP] Rate limit clear failed', {
-            error: err instanceof Error ? err.message : 'Unknown error',
-          });
-        })
-      );
-    }
+    const userEmail = user?.email || patient?.email || undefined;
+    const clearPromises: Promise<unknown>[] = [
+      authRateLimiter.clearRateLimit(clientIp, userEmail).catch((err: unknown) => {
+        logger.warn('[VERIFY-OTP] Rate limit clear failed', {
+          error: err instanceof Error ? err.message : 'Unknown error',
+        });
+      }),
+    ];
     if (user) {
       clearPromises.push(
         prisma.user.update({
@@ -295,6 +293,34 @@ export const POST = standardRateLimit(async (req: NextRequest) => {
       .setExpirationTime(expiry)
       .sign(JWT_SECRET);
 
+    const refreshToken = await new SignJWT({
+      id: effectiveUserId,
+      type: 'refresh',
+    })
+      .setProtectedHeader({ alg: 'HS256' })
+      .setIssuedAt()
+      .setExpirationTime(AUTH_CONFIG.tokenExpiry.refresh)
+      .sign(JWT_REFRESH_SECRET);
+
+    if (user) {
+      prisma.userSession.create({
+        data: {
+          userId: user.id,
+          token: token.substring(0, 64),
+          refreshToken: refreshToken.substring(0, 64),
+          refreshTokenHash: hashRefreshToken(refreshToken),
+          ipAddress: req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown',
+          userAgent: req.headers.get('user-agent') || 'unknown',
+          expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+          lastActivity: new Date(),
+        },
+      }).catch((err: unknown) => {
+        logger.warn('[VERIFY-OTP] UserSession creation failed', {
+          error: err instanceof Error ? err.message : 'Unknown',
+        });
+      });
+    }
+
     logger.info('Successful OTP login', {
       userId: user?.id,
       patientId: patient?.id,
@@ -302,25 +328,18 @@ export const POST = standardRateLimit(async (req: NextRequest) => {
       sessionId,
     });
 
-    try {
-      await prisma.auditLog.create({
-        data: {
-          action: 'LOGIN',
-          userId: user?.id || 0,
-          details: {
-            method: 'phone_otp',
-            isPatient: isPatientLogin,
-            sessionId,
-          },
-        },
-      });
-    } catch (error: unknown) {
+    prisma.auditLog.create({
+      data: {
+        action: 'LOGIN',
+        userId: user?.id || 0,
+        details: { method: 'phone_otp', isPatient: isPatientLogin, sessionId },
+      },
+    }).catch((err: unknown) => {
       logger.warn('[VERIFY-OTP] Audit log creation failed', {
-        error: error instanceof Error ? error.message : 'Unknown error',
+        error: err instanceof Error ? err.message : 'Unknown error',
       });
-    }
+    });
 
-    // Return token and user data
     const userData =
       isPatientLogin && patient
         ? {
@@ -330,7 +349,7 @@ export const POST = standardRateLimit(async (req: NextRequest) => {
             lastName: patient.lastName,
             role: 'patient',
             clinicId: patient.clinicId,
-            patientId: patient.id, // CRITICAL: Include patientId for patient portal
+            patientId: patient.id,
           }
         : {
             id: user!.id,
@@ -339,12 +358,13 @@ export const POST = standardRateLimit(async (req: NextRequest) => {
             lastName: user!.lastName,
             role: user!.role,
             clinicId: user!.clinicId,
-            patientId: 'patientId' in user! && user!.patientId ? user!.patientId : undefined,
+            patientId: 'patientId' in user! && (user as any).patientId ? (user as any).patientId : undefined,
           };
 
     const response = NextResponse.json({
       success: true,
       token,
+      refreshToken,
       user: userData,
       message: 'Login successful',
     });

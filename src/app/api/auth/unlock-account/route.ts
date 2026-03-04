@@ -169,22 +169,27 @@ async function verifyUnlockCode(
     );
   }
 
-  // Code is valid — clear rate limits
+  // Code is valid — clear rate limits AND durable lockout
   await authRateLimiter.clearRateLimit(clientIp, email);
 
-  // Log the unlock
-  logger.info('[UnlockAccount] Account unlocked via OTP', {
-    email: email.substring(0, 3) + '***',
-    ip: clientIp,
-  });
-
-  // Create audit log
   const user = await prisma.user.findUnique({
     where: { email: email.toLowerCase() },
     select: { id: true },
   });
 
   if (user) {
+    // Clear the durable lockout (User.lockedUntil + failedLoginAttempts)
+    // Without this, the login route's lockedUntil check still blocks the user
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { failedLoginAttempts: 0, lockedUntil: null },
+    }).catch((err) => {
+      logger.error('[UnlockAccount] Failed to clear durable lockout', {
+        error: err instanceof Error ? err.message : String(err),
+        userId: user.id,
+      });
+    });
+
     await prisma.userAuditLog
       .create({
         data: {
@@ -202,6 +207,12 @@ async function verifyUnlockCode(
         logger.warn('[UnlockAccount] Failed to create audit log', { error: err });
       });
   }
+
+  logger.info('[UnlockAccount] Account unlocked via OTP', {
+    email: email.substring(0, 3) + '***',
+    ip: clientIp,
+    userId: user?.id,
+  });
 
   return NextResponse.json({
     success: true,

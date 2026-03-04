@@ -308,7 +308,7 @@ export async function validateSession(
     const { payload } = await jwtVerify(token, JWT_SECRET);
 
     const sessionId = payload.sessionId as string;
-    const userId = payload.userId as string;
+    const userId = (payload.userId ?? payload.id) as string;
     const lastActivity = (payload.lastActivity as number) || 0;
 
     // Check if session exists (Redis or in-memory)
@@ -326,7 +326,7 @@ export async function validateSession(
     const idleTime = now - session.lastActivity;
     const absoluteTime = now - session.createdAt;
 
-    // Check idle timeout (15 minutes)
+    // Check idle timeout (4 hours)
     if (idleTime > AUTH_CONFIG.tokenExpiryMs.sessionTimeout) {
       // Remove expired session
       await deleteSession(sessionId);
