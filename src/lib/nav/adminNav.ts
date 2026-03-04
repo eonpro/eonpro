@@ -20,6 +20,7 @@ export const baseAdminNavConfig: AdminNavItemConfig[] = [
   { path: '/admin/subscription-renewals', label: 'Renewals', iconKey: 'CreditCard' },
   { path: '/admin/finance/pending-profiles', label: 'Pending Profiles', iconKey: 'ClipboardCheck' },
   { path: '/admin/orders', label: 'Orders', iconKey: 'ShoppingCart' },
+  { path: '/admin/shipping', label: 'Shipping', iconKey: 'Truck' },
   { path: '/tickets', label: 'Tickets', iconKey: 'Ticket' },
   { path: '/admin/products', label: 'Products', iconKey: 'Store' },
   { path: '/admin/analytics', label: 'Analytics', iconKey: 'TrendingUp' },
@@ -77,6 +78,7 @@ export const staffNavConfig: AdminNavItemConfig[] = [
   { path: '/admin/verification-queue', label: 'ID Verification', iconKey: 'Shield' },
   { path: '/admin/messages', label: 'Messages', iconKey: 'MessageSquare' },
   { path: '/admin/orders', label: 'Orders', iconKey: 'ShoppingCart' },
+  { path: '/admin/shipping', label: 'Shipping', iconKey: 'Truck' },
   { path: '/tickets', label: 'Tickets', iconKey: 'Ticket' },
   { path: '/admin/products', label: 'Products', iconKey: 'Store' },
 ];
@@ -106,6 +108,7 @@ export function getNonAdminNavConfig(userRole: string | null): AdminNavItemConfi
     { path: '/', label: 'Home', iconKey: 'Home' },
     { path: patientsPath, label: 'Patients', iconKey: 'Users' },
     { path: '/admin/orders', label: 'Orders', iconKey: 'ShoppingCart' },
+    { path: '/admin/shipping', label: 'Shipping', iconKey: 'Truck' },
     { path: '/admin/products', label: 'Products', iconKey: 'Store' },
     { path: '/intake-forms', label: 'Intake Forms', iconKey: 'ClipboardList' },
     { path: '/admin/analytics', label: 'Analytics', iconKey: 'TrendingUp' },
