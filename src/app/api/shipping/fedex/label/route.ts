@@ -35,6 +35,7 @@ const createLabelSchema = z.object({
   width: z.number().positive().optional(),
   height: z.number().positive().optional(),
   oneRate: z.boolean().default(false),
+  labelFormat: z.enum(['PDF', 'ZPLII', 'PNG']).default('PDF'),
 });
 
 function encryptAddressJson(addr: Record<string, unknown>): Record<string, unknown> {
@@ -63,7 +64,7 @@ async function handleCreateLabel(req: NextRequest, user: AuthUser) {
       );
     }
 
-    const { patientId, origin, destination, serviceType, packagingType, weightLbs, length, width, height, oneRate } = parsed.data;
+    const { patientId, origin, destination, serviceType, packagingType, weightLbs, length, width, height, oneRate, labelFormat } = parsed.data;
 
     const validService = FEDEX_SERVICE_TYPES.find((s) => s.code === serviceType);
     if (!validService) {
@@ -114,6 +115,7 @@ async function handleCreateLabel(req: NextRequest, user: AuthUser) {
         recipient: destination,
         packages: [{ weightLbs, length, width, height }],
         oneRate,
+        labelFormat,
       });
     } catch (fedexErr: any) {
       const msg = fedexErr?.message || 'FedEx shipment creation failed';
@@ -155,6 +157,7 @@ async function handleCreateLabel(req: NextRequest, user: AuthUser) {
         height: height ?? null,
         labelS3Key: s3Key,
         labelPdfBase64: result.labelPdfBase64,
+        labelFormat: result.labelFormat,
       },
     });
 
@@ -175,13 +178,15 @@ async function handleCreateLabel(req: NextRequest, user: AuthUser) {
       clinicId,
       trackingNumber: result.trackingNumber,
       serviceType,
+      labelFormat: result.labelFormat,
     });
 
     return NextResponse.json({
       id: label.id,
       trackingNumber: result.trackingNumber,
       serviceType: result.serviceType,
-      labelPdf: result.labelPdfBase64,
+      labelData: result.labelPdfBase64,
+      labelFormat: result.labelFormat,
     });
   } catch (error) {
     return handleApiError(error, { route: 'POST /api/shipping/fedex/label' });
@@ -221,6 +226,7 @@ async function handleGetLabel(req: NextRequest, user: AuthUser) {
         status: true,
         labelPdfBase64: true,
         labelS3Key: true,
+        labelFormat: true,
         createdAt: true,
       },
     });
@@ -269,7 +275,8 @@ async function handleGetLabel(req: NextRequest, user: AuthUser) {
       id: label.id,
       trackingNumber: label.trackingNumber,
       serviceType: label.serviceType,
-      labelPdf: labelPdf,
+      labelData: labelPdf,
+      labelFormat: label.labelFormat,
       createdAt: label.createdAt,
     });
   } catch (error) {

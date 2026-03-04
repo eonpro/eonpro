@@ -338,6 +338,8 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
                   : branding?.iconUrl || branding?.faviconUrl || branding?.logoUrl || EONPRO_LOGO
               }
               alt={branding?.clinicName || 'EONPRO'}
+              width={sidebarExpanded ? 140 : 40}
+              height={40}
               className={`${sidebarExpanded ? 'h-10 w-auto max-w-[140px]' : 'h-10 w-10 rounded-lg'} object-contain`}
             />
           </Link>
@@ -407,6 +409,8 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
             <img
               src={branding?.logoUrl || EONPRO_LOGO}
               alt={branding?.clinicName || 'EONPRO'}
+              width={120}
+              height={32}
               className="h-8 w-auto max-w-[120px] object-contain"
             />
           </Link>

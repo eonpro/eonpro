@@ -34,6 +34,8 @@ export type FedExPackageDetails = {
   height?: number;
 };
 
+export type LabelFormat = 'PDF' | 'ZPLII' | 'PNG';
+
 export type CreateShipmentInput = {
   serviceType: string;
   packagingType: string;
@@ -42,6 +44,7 @@ export type CreateShipmentInput = {
   packages: FedExPackageDetails[];
   shipDate?: string; // YYYY-MM-DD, defaults to today
   oneRate?: boolean;
+  labelFormat?: LabelFormat;
 };
 
 export type CreateShipmentResult = {
@@ -49,6 +52,7 @@ export type CreateShipmentResult = {
   shipmentId: string;
   serviceType: string;
   labelPdfBase64: string;
+  labelFormat: LabelFormat;
 };
 
 // ---------------------------------------------------------------------------
@@ -271,9 +275,13 @@ function buildShipmentPayload(
         },
       },
       labelSpecification: {
-        imageType: 'PDF',
-        labelStockType: 'PAPER_4X6',
+        imageType: input.labelFormat || 'PDF',
+        labelStockType: (input.labelFormat === 'ZPLII' || input.labelFormat === 'PNG')
+          ? 'STOCK_4X6'
+          : 'PAPER_4X6',
         labelFormatType: 'COMMON2D',
+        labelPrintingOrientation: 'TOP_EDGE_OF_TEXT_FIRST',
+        labelRotation: 'NONE',
       },
       requestedPackageLineItems: input.packages.map((pkg, i) => ({
         sequenceNumber: i + 1,
@@ -338,6 +346,7 @@ export async function createShipment(
     shipmentId: shipment.masterTrackingNumber || trackingNumber,
     serviceType: input.serviceType,
     labelPdfBase64: labelData,
+    labelFormat: input.labelFormat || 'PDF',
   };
 }
 

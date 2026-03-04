@@ -676,11 +676,35 @@ export default function IDVerificationPage() {
     fetchPhotos();
   };
 
-  // Loading
+  // Loading — skeleton matches final layout to prevent CLS
   if (loading) {
     return (
-      <div className="flex min-h-[50vh] items-center justify-center">
-        <Loader2 className="h-10 w-10 animate-spin" style={{ color: primaryColor }} />
+      <div className="min-h-[100dvh] animate-pulse px-4 py-6">
+        <div className="mb-6 flex items-center gap-3">
+          <div className="h-12 w-12 rounded-xl bg-gray-200" />
+          <div>
+            <div className="h-6 w-48 rounded bg-gray-200" />
+            <div className="mt-1 h-4 w-32 rounded bg-gray-100" />
+          </div>
+        </div>
+        <div className="mb-6 rounded-2xl bg-white p-5 shadow-sm">
+          <div className="mb-3 h-5 w-40 rounded bg-gray-200" />
+          <div className="h-4 w-full rounded bg-gray-100" />
+          <div className="mt-2 h-4 w-3/4 rounded bg-gray-100" />
+        </div>
+        <div className="space-y-4">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="flex items-center gap-4 rounded-2xl bg-white p-4 shadow-sm">
+              <div className="h-14 w-14 rounded-xl bg-gray-200" />
+              <div className="flex-1">
+                <div className="h-5 w-32 rounded bg-gray-200" />
+                <div className="mt-1 h-4 w-20 rounded bg-gray-100" />
+              </div>
+              <div className="h-6 w-20 rounded-full bg-gray-200" />
+            </div>
+          ))}
+        </div>
+        <div className="mt-6 h-12 w-full rounded-xl bg-gray-200" />
       </div>
     );
   }

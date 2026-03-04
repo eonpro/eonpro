@@ -493,12 +493,16 @@ export default function PatientSidebar({
       const res = await apiFetch(`/api/shipping/fedex/label?id=${label.id}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to download');
-      const pdfBytes = Uint8Array.from(atob(data.labelPdf), (c) => c.charCodeAt(0));
-      const blob = new Blob([pdfBytes], { type: 'application/pdf' });
-      const url = URL.createObjectURL(blob);
+      const format = data.labelFormat || 'PDF';
+      const ext = format === 'ZPLII' ? 'zpl' : format === 'PNG' ? 'png' : 'pdf';
+      const mimeType = format === 'ZPLII' ? 'application/octet-stream' : format === 'PNG' ? 'image/png' : 'application/pdf';
+      const raw = format === 'ZPLII'
+        ? new Blob([atob(data.labelData)], { type: mimeType })
+        : new Blob([Uint8Array.from(atob(data.labelData), (c) => c.charCodeAt(0))], { type: mimeType });
+      const url = URL.createObjectURL(raw);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `FedEx-Label-${label.trackingNumber}.pdf`;
+      a.download = `FedEx-Label-${label.trackingNumber}.${ext}`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);

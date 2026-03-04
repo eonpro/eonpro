@@ -164,21 +164,139 @@ export default function FedExLabelModal({
     }
   };
 
-  const openLabelPdf = (base64: string): boolean => {
+  const printLabel4x6 = (base64: string, format: string = 'PDF'): boolean => {
+    if (format === 'ZPLII') {
+      const blob = new Blob([atob(base64)], { type: 'application/octet-stream' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `FedEx-Label-ZPL.zpl`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      return true;
+    }
+
     const pdfBytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
     const blob = new Blob([pdfBytes], { type: 'application/pdf' });
-    const url = URL.createObjectURL(blob);
-    const win = window.open(url, '_blank');
-    return !!win;
+    const pdfUrl = URL.createObjectURL(blob);
+
+    const printWin = window.open('', '_blank');
+    if (!printWin) return false;
+
+    printWin.document.write(`<!DOCTYPE html>
+<html>
+<head>
+  <title>FedEx Shipping Label</title>
+  <style>
+    @page {
+      size: 4in 6in;
+      margin: 0;
+    }
+    * { margin: 0; padding: 0; }
+    html, body {
+      width: 4in;
+      height: 6in;
+      overflow: hidden;
+    }
+    iframe {
+      width: 4in;
+      height: 6in;
+      border: none;
+    }
+    @media print {
+      html, body { width: 4in; height: 6in; }
+      iframe { width: 4in; height: 6in; }
+    }
+    @media screen {
+      body {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        background: #f3f4f6;
+        width: auto;
+        height: auto;
+        padding: 20px;
+        overflow: auto;
+      }
+      .print-instructions {
+        max-width: 420px;
+        background: #fef3c7;
+        border: 1px solid #f59e0b;
+        border-radius: 8px;
+        padding: 12px 16px;
+        margin-bottom: 16px;
+        font-family: system-ui, sans-serif;
+        font-size: 13px;
+        color: #92400e;
+        line-height: 1.5;
+      }
+      .print-instructions strong { color: #78350f; }
+      .print-instructions ul { margin: 6px 0 0 16px; }
+      .label-container {
+        background: white;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        width: 4in;
+        height: 6in;
+      }
+      .print-btn {
+        margin-top: 16px;
+        background: #4D148C;
+        color: white;
+        border: none;
+        padding: 10px 32px;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        font-family: system-ui, sans-serif;
+      }
+      .print-btn:hover { background: #3a0f6a; }
+    }
+  </style>
+</head>
+<body>
+  <div class="print-instructions">
+    <strong>Print Settings for Scannable Label:</strong>
+    <ul>
+      <li>Paper size: <strong>4 x 6 in</strong> (or "4x6 Label")</li>
+      <li>Scale: <strong>100% (Actual Size)</strong> — do NOT "Fit to Page"</li>
+      <li>Margins: <strong>None</strong></li>
+      <li>Uncheck "Headers and Footers"</li>
+    </ul>
+  </div>
+  <div class="label-container">
+    <iframe src="${pdfUrl}#toolbar=0&navpanes=0&view=Fit"></iframe>
+  </div>
+  <button class="print-btn" onclick="window.print()">Print Label (4x6)</button>
+</body>
+</html>`);
+    printWin.document.close();
+    return true;
   };
 
-  const downloadLabelPdf = (base64: string, trackingNumber: string) => {
-    const pdfBytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
-    const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+  const downloadLabelFile = (base64: string, trackingNumber: string, format: string = 'PDF') => {
+    let blob: Blob;
+    let ext: string;
+
+    if (format === 'ZPLII') {
+      blob = new Blob([atob(base64)], { type: 'application/octet-stream' });
+      ext = 'zpl';
+    } else if (format === 'PNG') {
+      const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+      blob = new Blob([bytes], { type: 'image/png' });
+      ext = 'png';
+    } else {
+      const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+      blob = new Blob([bytes], { type: 'application/pdf' });
+      ext = 'pdf';
+    }
+
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `FedEx-Label-${trackingNumber}.pdf`;
+    a.download = `FedEx-Label-${trackingNumber}.${ext}`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -193,7 +311,7 @@ export default function FedExLabelModal({
       const res = await apiFetch(`/api/shipping/fedex/label?id=${success.labelId}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to retrieve label');
-      downloadLabelPdf(data.labelPdf, success.trackingNumber);
+      downloadLabelFile(data.labelData, success.trackingNumber, data.labelFormat || 'PDF');
     } catch (err: any) {
       setError(err.message || 'Failed to download label');
     } finally {
@@ -224,7 +342,7 @@ export default function FedExLabelModal({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to create label');
 
-      const opened = openLabelPdf(data.labelPdf);
+      const opened = printLabel4x6(data.labelData, data.labelFormat || 'PDF');
       setSuccess({ trackingNumber: data.trackingNumber, labelId: data.id, popupBlocked: !opened });
     } catch (err: any) {
       setError(err.message || 'An unexpected error occurred');

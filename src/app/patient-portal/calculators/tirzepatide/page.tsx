@@ -112,15 +112,13 @@ export default function TirzepatideDoseCalculatorPage() {
               ))}
             </div>
 
-            {/* mL to mg display */}
-            {selectedMl && (
-              <div className="mt-4 rounded-xl bg-blue-50 p-4 text-center">
-                <p className="text-sm text-blue-700">
-                  {selectedMl} mL × {concentration} mg/mL ={' '}
-                  <span className="font-bold">{selectedMl * concentration} mg</span>
-                </p>
-              </div>
-            )}
+            {/* mL to mg display — always rendered to prevent CLS */}
+            <div className={`mt-4 rounded-xl p-4 text-center ${selectedMl ? 'bg-blue-50' : 'bg-gray-50'}`}>
+              <p className={`text-sm ${selectedMl ? 'text-blue-700' : 'text-gray-400'}`}>
+                {selectedMl || '—'} mL × {concentration} mg/mL ={' '}
+                <span className="font-bold">{selectedMl ? selectedMl * concentration : '—'} mg</span>
+              </p>
+            </div>
 
             {/* Realistic Syringe Visualization - 100 Units */}
             <div className="mt-6 flex items-center justify-center">

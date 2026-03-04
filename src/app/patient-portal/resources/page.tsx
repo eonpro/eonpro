@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { useClinicBranding, usePortalFeatures } from '@/lib/contexts/ClinicBrandingContext';
 import { ringColorStyle } from '@/lib/utils/css-ring-color';
 import {
@@ -117,13 +117,12 @@ export default function ResourcesPage() {
   const features = usePortalFeatures();
   const primaryColor = branding?.primaryColor || '#4fa77e';
 
-  const [resources, setResources] = useState<Resource[]>(defaultResources);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [expandedFaq, setExpandedFaq] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'videos' | 'articles' | 'faq'>('videos');
 
-  useEffect(() => {
+  const resources = useMemo<Resource[]>(() => {
     const subdomain = branding?.subdomain?.toLowerCase() ?? '';
     const injectionVideo: Resource | null = INJECTION_VIDEO_CLINICS.includes(subdomain)
       ? {
@@ -152,11 +151,11 @@ export default function ResourcesPage() {
           }))
         : [];
 
-    setResources([
+    return [
       ...(injectionVideo ? [injectionVideo] : []),
       ...clinicResources,
       ...defaultResources,
-    ]);
+    ];
   }, [branding]);
 
   const filteredResources = resources.filter((resource) => {
@@ -324,6 +323,9 @@ export default function ResourcesPage() {
                           src={resource.thumbnail}
                           alt={resource.title}
                           className="h-full w-full object-cover"
+                          loading="lazy"
+                          width={320}
+                          height={180}
                         />
                       ) : (
                         <div
