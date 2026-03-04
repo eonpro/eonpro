@@ -89,7 +89,23 @@ export default function PatientSupportPage() {
       )}
 
       {loading ? (
-        <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-gray-400" /></div>
+        <div className="animate-pulse space-y-3">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="rounded-xl border border-gray-200 bg-white p-5">
+              <div className="flex items-start justify-between">
+                <div className="min-w-0 flex-1 space-y-2">
+                  <div className="h-4 w-3/5 rounded bg-gray-200" />
+                  <div className="flex items-center gap-2">
+                    <div className="h-3 w-16 rounded bg-gray-100" />
+                    <div className="h-3 w-20 rounded bg-gray-100" />
+                    <div className="h-3 w-24 rounded bg-gray-100" />
+                  </div>
+                </div>
+                <div className="h-6 w-24 rounded-full bg-gray-200" />
+              </div>
+            </div>
+          ))}
+        </div>
       ) : tickets.length === 0 ? (
         <div className="flex flex-col items-center rounded-xl border border-gray-200 bg-white py-16">
           <MessageSquare className="h-12 w-12 text-gray-300" />

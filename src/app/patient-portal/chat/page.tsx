@@ -104,7 +104,7 @@ export default function PatientChatPage() {
       } else if (response.status === 401) {
         setError(t('chatSessionExpired'));
         setTimeout(() => {
-          router.push('/patient-login?reason=session_expired');
+          router.push(`/patient-login?redirect=${encodeURIComponent(`${PATIENT_PORTAL_PATH}/chat`)}&reason=session_expired`);
         }, 2000);
       } else if (response.status === 403) {
         setError(t('chatAccessDenied'));
@@ -113,9 +113,7 @@ export default function PatientChatPage() {
       logger.error('Failed to fetch messages', {
         error: err instanceof Error ? err.message : 'Unknown',
       });
-      if (!hasMessagesRef.current) {
-        setError(t('chatConnectionError'));
-      }
+      setError(t('chatConnectionError'));
     } finally {
       setLoading(false);
     }

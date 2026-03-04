@@ -136,10 +136,13 @@ export default function SettingsPage() {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ preferences: notifications }),
+      }).then((res) => {
+        if (!res.ok) toast.error('Failed to save notification preferences');
       }).catch((err) => {
         logger.warn('Failed to save notification preferences', {
           error: err instanceof Error ? err.message : 'Unknown',
         });
+        toast.error('Failed to save notification preferences');
       });
     }, 1000);
     return () => {
@@ -182,8 +185,9 @@ export default function SettingsPage() {
           );
           return;
         }
-      } catch {
-        // Fallback gracefully
+      } catch (err) {
+        logger.error('[Settings] Profile load failed', { error: err instanceof Error ? err.message : String(err) });
+        toast.error('Unable to load your profile. Please try again.');
       } finally {
         if (!cancelled) setLoading(false);
       }

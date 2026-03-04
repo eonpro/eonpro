@@ -41,13 +41,13 @@ export default function PatientPortalDocuments() {
     const run = async () => {
       const userJson = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
       if (!userJson) {
-        router.push(PATIENT_PORTAL_PATH);
+        router.push(`/patient-login?redirect=${encodeURIComponent(`${PATIENT_PORTAL_PATH}/documents`)}&reason=no_session`);
         return;
       }
       try {
         const userData = safeParseJsonString<{ patientId?: number; role?: string }>(userJson);
         if (!userData) {
-          if (!cancelled) router.push(PATIENT_PORTAL_PATH);
+          if (!cancelled) router.push(`/patient-login?redirect=${encodeURIComponent(`${PATIENT_PORTAL_PATH}/documents`)}&reason=no_session`);
           return;
         }
         let pid: number | null = userData.patientId ?? null;
@@ -64,7 +64,7 @@ export default function PatientPortalDocuments() {
         }
         if (cancelled) return;
         if (pid == null) {
-          router.push(PATIENT_PORTAL_PATH);
+          router.push(`/patient-login?redirect=${encodeURIComponent(`${PATIENT_PORTAL_PATH}/documents`)}&reason=no_session`);
           return;
         }
         setPatientId(pid);

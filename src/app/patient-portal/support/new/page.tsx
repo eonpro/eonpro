@@ -37,6 +37,7 @@ export default function NewSupportRequestPage() {
     try {
       const res = await portalFetch('/api/patient-portal/tickets', {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title: title.trim(), description: description.trim(), category }),
       });
 

@@ -175,6 +175,7 @@ export default function BillingPage() {
         );
       }
     } catch (error) {
+      setLoadError('Unable to load billing data. Please check your connection and try again.');
       logger.error('Failed to fetch billing data', {
         error: error instanceof Error ? error.message : 'Unknown',
       });
@@ -194,6 +195,9 @@ export default function BillingPage() {
       logger.error('Failed to fetch subscription details', {
         error: error instanceof Error ? error.message : 'Unknown',
       });
+      if (!loadError) {
+        setLoadError('Unable to load subscription details. Please try again.');
+      }
     }
   };
 

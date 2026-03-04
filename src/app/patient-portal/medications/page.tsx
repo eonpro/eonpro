@@ -177,7 +177,10 @@ export default function MedicationsPage() {
             }
           }
         })
-        .catch(() => {})
+        .catch((err) => {
+          logger.error('[Medications] Prescriptions fetch failed', { error: err instanceof Error ? err.message : String(err) });
+          setLoadError('Unable to load prescriptions. Please try again.');
+        })
     );
 
     fetchPromises.push(
@@ -199,7 +202,9 @@ export default function MedicationsPage() {
             }
           }
         })
-        .catch(() => {})
+        .catch((err) => {
+          logger.error('[Medications] Tracking fetch failed', { error: err instanceof Error ? err.message : String(err) });
+        })
     );
 
     fetchPromises.push(
@@ -1020,7 +1025,7 @@ END:VCALENDAR`;
       {/* Quick Actions */}
       <div className="grid gap-4 sm:grid-cols-2">
         <Link
-          href="/patient-portal/calculators/semaglutide"
+          href={`${PATIENT_PORTAL_PATH}/calculators/semaglutide`}
           className="group overflow-hidden rounded-3xl bg-white p-6 shadow-xl shadow-gray-200/50 transition-all hover:shadow-2xl"
         >
           <div className="flex items-center justify-between">
@@ -1040,7 +1045,7 @@ END:VCALENDAR`;
           </div>
         </Link>
         <Link
-          href="/patient-portal/resources"
+          href={`${PATIENT_PORTAL_PATH}/resources`}
           className="group overflow-hidden rounded-3xl bg-white p-6 shadow-xl shadow-gray-200/50 transition-all hover:shadow-2xl"
         >
           <div className="flex items-center justify-between">
