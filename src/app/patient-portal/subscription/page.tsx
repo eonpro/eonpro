@@ -344,7 +344,7 @@ export default function SubscriptionPage() {
               <div className="flex items-center gap-4 rounded-xl bg-gray-50 p-4">
                 <div className="rounded-lg p-3" style={{ backgroundColor: `${primaryColor}15` }}>
                   {getCardNetworkLogo(subscription.paymentMethod.brand) ? (
-                    <img src={getCardNetworkLogo(subscription.paymentMethod.brand)!} alt={subscription.paymentMethod.brand} className="h-8 w-12 object-contain" />
+                    <img src={getCardNetworkLogo(subscription.paymentMethod.brand)!} alt={subscription.paymentMethod.brand} className="h-8 w-12 object-contain" width={48} height={32} loading="lazy" />
                   ) : (
                     <CreditCard className="h-6 w-6" style={{ color: primaryColor }} />
                   )}

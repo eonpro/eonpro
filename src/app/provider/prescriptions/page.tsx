@@ -287,8 +287,46 @@ export default function ProviderPrescriptionsPage() {
 
   if (loading && prescriptions.length === 0) {
     return (
-      <div className="flex min-h-[400px] items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-green-600" />
+      <div className="min-h-screen animate-pulse p-4 md:p-6">
+        <div className="mx-auto max-w-[1600px] space-y-4">
+          {/* Header + filters skeleton */}
+          <div className="rounded-lg bg-white p-4 shadow-sm">
+            <div className="mb-4 flex items-center justify-between">
+              <div className="h-6 w-36 rounded bg-gray-200" />
+              <div className="h-9 w-40 rounded-lg bg-gray-200" />
+            </div>
+            <div className="flex gap-3">
+              <div className="h-9 flex-1 rounded-lg bg-gray-100" />
+              <div className="h-9 w-40 rounded-lg bg-gray-100" />
+            </div>
+          </div>
+          {/* Stats skeleton */}
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="rounded-lg border-l-4 border-gray-200 bg-white p-3 shadow-sm">
+                <div className="h-6 w-12 rounded bg-gray-200" />
+                <div className="mt-1 h-3 w-24 rounded bg-gray-100" />
+              </div>
+            ))}
+          </div>
+          {/* Prescription list skeleton */}
+          <div className="space-y-3">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="rounded-lg bg-white p-4 shadow-sm">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-full bg-gray-200" />
+                    <div className="space-y-2">
+                      <div className="h-4 w-36 rounded bg-gray-200" />
+                      <div className="h-3 w-48 rounded bg-gray-100" />
+                    </div>
+                  </div>
+                  <div className="h-6 w-20 rounded-full bg-gray-100" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     );
   }

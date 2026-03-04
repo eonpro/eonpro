@@ -802,7 +802,7 @@ export default function BillingPage() {
                 <div className="flex items-center gap-3">
                   <div className="flex h-8 w-12 items-center justify-center rounded bg-gray-100">
                     {getCardNetworkLogo(method.brand) ? (
-                      <img src={getCardNetworkLogo(method.brand)!} alt={method.brand} className="h-6 w-10 object-contain" />
+                      <img src={getCardNetworkLogo(method.brand)!} alt={method.brand} className="h-6 w-10 object-contain" width={40} height={24} loading="lazy" />
                     ) : (
                       <CreditCard className="h-6 w-6 text-gray-500" />
                     )}

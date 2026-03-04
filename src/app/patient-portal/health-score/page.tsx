@@ -106,8 +106,43 @@ export default function HealthScorePage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-[60vh] items-center justify-center">
-        <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-gray-900"></div>
+      <div className="mx-auto max-w-4xl animate-pulse p-4 md:p-6">
+        {/* Header */}
+        <div className="mb-6 space-y-2">
+          <div className="h-7 w-40 rounded bg-gray-200" />
+          <div className="h-4 w-56 rounded bg-gray-100" />
+        </div>
+        {/* Score card */}
+        <div className="mb-6 rounded-3xl bg-gray-200 p-6">
+          <div className="flex items-center justify-between">
+            <div className="space-y-3">
+              <div className="h-3 w-32 rounded bg-gray-300" />
+              <div className="h-14 w-28 rounded bg-gray-300" />
+              <div className="h-4 w-36 rounded bg-gray-300" />
+            </div>
+            <div className="h-32 w-32 rounded-full bg-gray-300" />
+          </div>
+        </div>
+        {/* Metrics grid */}
+        <div className="mb-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="rounded-xl bg-white p-4 shadow-sm space-y-3">
+              <div className="flex items-center gap-2">
+                <div className="h-8 w-8 rounded-lg bg-gray-200" />
+                <div className="h-3 w-20 rounded bg-gray-100" />
+              </div>
+              <div className="h-6 w-16 rounded bg-gray-200" />
+              <div className="h-1.5 w-full rounded-full bg-gray-100" />
+            </div>
+          ))}
+        </div>
+        {/* Insights */}
+        <div className="mb-6 rounded-xl bg-gray-100 p-4 space-y-2">
+          <div className="h-5 w-28 rounded bg-gray-200" />
+          <div className="h-3 w-full rounded bg-gray-200" />
+          <div className="h-3 w-4/5 rounded bg-gray-200" />
+          <div className="h-3 w-3/5 rounded bg-gray-200" />
+        </div>
       </div>
     );
   }

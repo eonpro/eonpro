@@ -638,6 +638,8 @@ export default function PatientLoginPage() {
                   src={branding.logoUrl}
                   alt={branding.name}
                   className="h-12 max-w-[200px] object-contain"
+                  width={200}
+                  height={48}
                 />
               ) : (
                 <h1 className="text-3xl font-bold" style={{ color: primaryColor }}>
@@ -646,11 +648,11 @@ export default function PatientLoginPage() {
               )}
               <p className="mt-2 flex items-center justify-center gap-1.5 text-xs text-gray-500">
                 Powered by{' '}
-                <img src="/api/assets/eonpro-logo" alt="EONPRO" className="h-[21px] w-auto" />
+                <img src="/api/assets/eonpro-logo" alt="EONPRO" className="h-[21px] w-auto" width={84} height={21} />
               </p>
             </>
           ) : (
-            <img src="/api/assets/eonpro-logo" alt="EONPRO" className="h-10 w-auto" />
+            <img src="/api/assets/eonpro-logo" alt="EONPRO" className="h-10 w-auto" width={160} height={40} />
           )}
         </div>
 

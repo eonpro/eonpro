@@ -59,7 +59,9 @@ const nextConfig = {
       'date-fns',
       'chart.js',
       'react-chartjs-2',
+      'recharts',
       'zustand',
+      'framer-motion',
     ],
   },
 

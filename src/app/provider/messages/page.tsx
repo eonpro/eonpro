@@ -182,9 +182,19 @@ export default function ProviderMessagesPage() {
           </div>
           <div className="flex-1 overflow-y-auto">
             {loading ? (
-              <div className="py-8 text-center text-gray-500">
-                <div className="mx-auto mb-2 h-6 w-6 animate-spin rounded-full border-4 border-[var(--brand-primary)] border-t-transparent"></div>
-                Loading messages...
+              <div className="animate-pulse space-y-1 p-2">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <div key={i} className="flex items-center gap-3 rounded-lg p-3">
+                    <div className="h-10 w-10 flex-shrink-0 rounded-full bg-gray-200" />
+                    <div className="flex-1 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div className="h-4 w-28 rounded bg-gray-200" />
+                        <div className="h-3 w-12 rounded bg-gray-100" />
+                      </div>
+                      <div className="h-3 w-3/4 rounded bg-gray-100" />
+                    </div>
+                  </div>
+                ))}
               </div>
             ) : error ? (
               <div className="m-4 rounded-lg border border-red-200 bg-red-50 p-4 text-red-700">

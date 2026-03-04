@@ -372,6 +372,8 @@ export default function RegisterPage() {
                       src={clinic.logoUrl}
                       alt={clinic.name}
                       className="mx-auto mt-2 h-14 max-w-[200px] object-contain object-center"
+                      width={200}
+                      height={56}
                     />
                   ) : (
                     <p className="mt-2 font-semibold text-gray-900">{clinic.name}</p>
@@ -539,6 +541,8 @@ export default function RegisterPage() {
                             src={clinic.logoUrl}
                             alt={clinic.name}
                             className="h-10 w-10 rounded-lg object-cover"
+                            width={40}
+                            height={40}
                           />
                         ) : (
                           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-100">

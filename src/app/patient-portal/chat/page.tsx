@@ -296,11 +296,36 @@ export default function PatientChatPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-[60vh] items-center justify-center">
-        <div
-          className="h-10 w-10 animate-spin rounded-full border-[3px] border-t-transparent"
-          style={{ borderColor: `${primaryColor} transparent ${primaryColor} ${primaryColor}` }}
-        />
+      <div className="flex h-[calc(100dvh-80px)] flex-col bg-gray-50 lg:h-[100dvh] animate-pulse">
+        {/* Header */}
+        <div className="flex items-center gap-4 border-b border-gray-200 bg-white px-4 py-3">
+          <div className="h-12 w-12 rounded-full bg-gray-200" />
+          <div className="flex flex-1 items-center gap-3">
+            <div className="h-10 w-10 rounded-full bg-gray-200" />
+            <div className="space-y-1.5">
+              <div className="h-4 w-28 rounded bg-gray-200" />
+              <div className="h-3 w-36 rounded bg-gray-100" />
+            </div>
+          </div>
+          <div className="h-10 w-10 rounded-full bg-gray-100" />
+        </div>
+        {/* Message area */}
+        <div className="flex-1 space-y-4 overflow-hidden px-4 py-4">
+          <div className="flex justify-center"><div className="h-5 w-20 rounded-full bg-gray-200" /></div>
+          <div className="flex justify-start"><div className="h-16 w-3/5 rounded-2xl rounded-bl-md bg-white shadow-sm" /></div>
+          <div className="flex justify-end"><div className="h-12 w-2/5 rounded-2xl rounded-br-md bg-gray-200" /></div>
+          <div className="flex justify-start"><div className="h-20 w-1/2 rounded-2xl rounded-bl-md bg-white shadow-sm" /></div>
+          <div className="flex justify-end"><div className="h-10 w-1/3 rounded-2xl rounded-br-md bg-gray-200" /></div>
+          <div className="flex justify-start"><div className="h-14 w-3/5 rounded-2xl rounded-bl-md bg-white shadow-sm" /></div>
+        </div>
+        {/* Input bar */}
+        <div className="border-t border-gray-200 bg-white p-4">
+          <div className="flex items-end gap-3">
+            <div className="h-10 w-10 rounded-full bg-gray-100" />
+            <div className="h-12 flex-1 rounded-2xl bg-gray-100" />
+            <div className="h-10 w-10 rounded-full bg-gray-200" />
+          </div>
+        </div>
       </div>
     );
   }

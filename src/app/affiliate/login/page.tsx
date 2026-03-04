@@ -290,6 +290,8 @@ export default function AffiliateLoginPage() {
                   src={branding.logoUrl}
                   alt={branding.name}
                   className="h-12 max-w-[200px] object-contain"
+                  width={200}
+                  height={48}
                 />
               ) : (
                 <h1 className="text-3xl font-bold" style={{ color: primaryColor }}>
@@ -302,6 +304,8 @@ export default function AffiliateLoginPage() {
                   src={EONPRO_LOGO}
                   alt="EONPRO"
                   className="h-[21px] w-auto"
+                  width={84}
+                  height={21}
                 />
               </p>
             </>
@@ -310,6 +314,8 @@ export default function AffiliateLoginPage() {
               src={EONPRO_LOGO}
               alt="EONPRO"
               className="h-10 w-auto"
+              width={160}
+              height={40}
             />
           )}
         </div>

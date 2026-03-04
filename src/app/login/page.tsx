@@ -103,7 +103,7 @@ function LoginFallback() {
       className="flex min-h-[100dvh] flex-col items-center justify-center p-6"
       style={{ backgroundColor: '#e8eeff' }}
     >
-      <img src={EONPRO_LOGO} alt="EONPRO" className="mb-8 h-10 w-auto opacity-90" />
+      <img src={EONPRO_LOGO} alt="EONPRO" className="mb-8 h-10 w-auto opacity-90" width={160} height={40} />
       <div className="h-8 w-8 animate-spin rounded-full border-2 border-gray-300 border-t-gray-600" />
       <p className="mt-4 text-sm text-gray-500">Loading...</p>
     </div>
@@ -1121,6 +1121,8 @@ function LoginContent() {
                   src={branding.logoUrl}
                   alt={branding.name}
                   className="h-12 max-w-[200px] object-contain"
+                  width={200}
+                  height={48}
                 />
               ) : (
                 <h1 className="text-3xl font-bold" style={{ color: primaryColor }}>
@@ -1133,6 +1135,8 @@ function LoginContent() {
                   src="/api/assets/eonpro-logo"
                   alt="EONPRO"
                   className="h-[21px] w-auto"
+                  width={84}
+                  height={21}
                 />
               </p>
             </>
@@ -1142,6 +1146,8 @@ function LoginContent() {
               src="/api/assets/eonpro-logo"
               alt="EONPRO"
               className="h-10 w-auto"
+              width={160}
+              height={40}
             />
           )}
         </div>
@@ -1934,6 +1940,9 @@ function LoginContent() {
                               src={clinic.iconUrl || clinic.faviconUrl || clinic.logoUrl || ''}
                               alt={clinic.name}
                               className="h-10 w-10 rounded-lg object-contain"
+                              width={40}
+                              height={40}
+                              loading="lazy"
                             />
                           ) : (
                             <div

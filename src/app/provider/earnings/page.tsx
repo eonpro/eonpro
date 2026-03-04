@@ -100,10 +100,47 @@ export default function ProviderEarningsPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50">
-        <div className="flex items-center gap-3 text-gray-600">
-          <RefreshCw className="h-6 w-6 animate-spin" />
-          <span>Loading earnings...</span>
+      <div className="min-h-screen animate-pulse bg-gray-50 p-4 md:p-6">
+        {/* Header skeleton */}
+        <div className="border-b border-gray-200 bg-white">
+          <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
+            <div className="flex items-center justify-between">
+              <div className="space-y-2">
+                <div className="h-7 w-40 rounded bg-gray-200" />
+                <div className="h-4 w-56 rounded bg-gray-100" />
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-32 rounded-lg bg-gray-200" />
+                <div className="h-10 w-10 rounded-lg bg-gray-200" />
+              </div>
+            </div>
+          </div>
+        </div>
+        {/* Stats cards skeleton */}
+        <div className="mx-auto mt-8 max-w-6xl space-y-6 px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="rounded-lg bg-white p-6 shadow-sm">
+                <div className="h-4 w-24 rounded bg-gray-100" />
+                <div className="mt-3 h-8 w-28 rounded bg-gray-200" />
+              </div>
+            ))}
+          </div>
+          {/* Transaction table skeleton */}
+          <div className="overflow-hidden rounded-lg bg-white shadow-sm">
+            <div className="border-b px-6 py-4">
+              <div className="h-5 w-40 rounded bg-gray-200" />
+            </div>
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="flex items-center justify-between border-b px-6 py-4">
+                <div className="space-y-2">
+                  <div className="h-4 w-40 rounded bg-gray-200" />
+                  <div className="h-3 w-28 rounded bg-gray-100" />
+                </div>
+                <div className="h-5 w-20 rounded bg-gray-200" />
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     );

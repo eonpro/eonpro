@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { formatPatientDisplayId } from '@/lib/utils/formatPatientDisplayId';
 import { normalizedIncludes } from '@/lib/utils/search';
@@ -18,7 +19,13 @@ import {
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api/fetch';
 import { AdminDashboardSkeleton } from '@/components/dashboards/AdminDashboardSkeleton';
-import { USMapChart } from '@/components/dashboards/USMapChart';
+const USMapChart = dynamic(
+  () => import('@/components/dashboards/USMapChart').then((mod) => mod.USMapChart),
+  {
+    ssr: false,
+    loading: () => <div className="h-64 animate-pulse rounded-xl bg-gray-100" />,
+  },
+);
 import { safeParseJsonString } from '@/lib/utils/safe-json';
 
 // Helper to detect if data looks like encrypted PHI (base64:base64:base64 format)

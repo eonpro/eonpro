@@ -205,6 +205,8 @@ function OTLogo({ logoUrl, clinicName, size = 'default' }: { logoUrl?: string | 
       src={src}
       alt={clinicName || "OT Men's Health"}
       className={`${height} w-auto object-contain`}
+      width={160}
+      height={size === 'small' ? 28 : 56}
     />
   );
 }
@@ -220,6 +222,8 @@ function GoogleStarRating() {
       src={ASSETS.googleStars}
       alt="Rated 4.9/5 on Google - based on 434 verified reviews"
       className="h-14 w-auto object-contain md:h-16"
+      width={200}
+      height={56}
     />
   );
 }
@@ -306,6 +310,9 @@ function PressMarquee() {
             alt={logo.alt}
             className="w-auto flex-shrink-0 object-contain opacity-40 grayscale"
             style={{ minWidth: '80px', height: `${logo.height}px` }}
+            width={80}
+            height={logo.height}
+            loading="lazy"
           />
         ))}
         {/* eslint-enable @next/next/no-img-element */}
@@ -794,6 +801,9 @@ function TreatmentCard({
             transform: hovered ? 'scale(1.15)' : 'scale(1)',
             transition: 'transform 0.35s ease-in-out',
           }}
+          width={56}
+          height={56}
+          loading="lazy"
         />
         <div
           style={{

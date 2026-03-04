@@ -157,6 +157,63 @@ function ProviderCalendarContent() {
     setPreSelectedPatient(null);
   };
 
+  if (isLoading && appointments.length === 0) {
+    return (
+      <div className="min-h-screen animate-pulse bg-gray-50 p-4 md:p-6">
+        {/* Header skeleton */}
+        <div className="border-b bg-white px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="h-7 w-52 rounded bg-gray-200" />
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-32 rounded-lg bg-gray-200" />
+              <div className="h-10 w-40 rounded-lg bg-gray-200" />
+            </div>
+          </div>
+        </div>
+        {/* Calendar grid skeleton */}
+        <div className="flex gap-6 p-6">
+          <div className="w-80 flex-shrink-0">
+            <div className="rounded-xl bg-white p-4 shadow-sm">
+              <div className="mb-4 h-5 w-32 rounded bg-gray-200" />
+              <div className="space-y-3">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="flex items-center gap-3 rounded-lg border p-3">
+                    <div className="h-10 w-1 rounded bg-gray-200" />
+                    <div className="flex-1 space-y-2">
+                      <div className="h-4 w-24 rounded bg-gray-200" />
+                      <div className="h-3 w-32 rounded bg-gray-100" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+          <div className="flex-1 rounded-xl bg-white p-4 shadow-sm">
+            <div className="mb-4 flex items-center justify-between">
+              <div className="h-6 w-36 rounded bg-gray-200" />
+              <div className="flex gap-2">
+                <div className="h-8 w-8 rounded bg-gray-100" />
+                <div className="h-8 w-8 rounded bg-gray-100" />
+              </div>
+            </div>
+            <div className="grid grid-cols-7 gap-1">
+              {Array.from({ length: 7 }).map((_, i) => (
+                <div key={`h-${i}`} className="py-2 text-center">
+                  <div className="mx-auto h-4 w-8 rounded bg-gray-100" />
+                </div>
+              ))}
+              {Array.from({ length: 35 }).map((_, i) => (
+                <div key={i} className="h-20 rounded border border-gray-100 bg-gray-50 p-1">
+                  <div className="h-4 w-5 rounded bg-gray-200" />
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}

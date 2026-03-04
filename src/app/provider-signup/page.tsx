@@ -1,8 +1,13 @@
 'use client';
 
-import SignaturePadCanvas from '@/components/SignaturePadCanvas';
+import dynamic from 'next/dynamic';
 import { US_STATE_OPTIONS } from '@/lib/usStates';
 import { useState } from 'react';
+
+const SignaturePadCanvas = dynamic(() => import('@/components/SignaturePadCanvas'), {
+  ssr: false,
+  loading: () => <div className="h-32 animate-pulse rounded-lg bg-gray-100" />,
+});
 import { Patient, Provider, Order } from '@/types/models';
 
 const initialForm = {

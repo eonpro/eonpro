@@ -2,13 +2,18 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import dynamic from 'next/dynamic';
 import { AddressInput, AddressData } from '@/components/AddressAutocomplete';
 import { MEDS, MedicationConfig, SigTemplate, GLP1_PRODUCT_IDS } from '@/lib/medications';
 import { SHIPPING_METHODS } from '@/lib/shipping';
-import SignaturePadCanvas from './SignaturePadCanvas';
 import SigBuilder from './SigBuilder';
 import MedicationSelector from './MedicationSelector';
 import OrderSetSelector, { AppliedMedication } from './OrderSetSelector';
+
+const SignaturePadCanvas = dynamic(() => import('./SignaturePadCanvas'), {
+  ssr: false,
+  loading: () => <div className="h-32 animate-pulse rounded-lg bg-gray-100" />,
+});
 import { US_STATE_OPTIONS } from '@/lib/usStates';
 import { formatDobInput } from '@/lib/format';
 import { logger } from '@/lib/logger';

@@ -187,8 +187,19 @@ export default function PatientPortalBloodworkPage() {
         {/* Report list */}
         <h2 className="mt-8 text-lg font-semibold text-gray-900">{t('bloodworkYourReports')}</h2>
         {isLoading ? (
-          <div className="mt-4 flex items-center justify-center py-12">
-            <div className="h-8 w-8 animate-spin rounded-full border-2 border-gray-300 border-t-gray-600" />
+          <div className="mt-4 animate-pulse space-y-3">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="flex items-center justify-between rounded-xl border border-gray-200 bg-white p-4">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-lg bg-gray-200" />
+                  <div className="space-y-1.5">
+                    <div className="h-4 w-32 rounded bg-gray-200" />
+                    <div className="h-3 w-48 rounded bg-gray-100" />
+                  </div>
+                </div>
+                <div className="h-5 w-5 rounded bg-gray-100" />
+              </div>
+            ))}
           </div>
         ) : reports.length === 0 ? (
           <div className="mt-4 rounded-xl border border-gray-200 bg-white p-8 text-center">
