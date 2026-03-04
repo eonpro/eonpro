@@ -385,7 +385,7 @@ export default function SalesRepCommissionPlansPage() {
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Sales Rep Commission Plans</h1>
             <p className="text-gray-500">
-              Create and manage commission structures for sales rep employees
+              Create and manage rep-specific commission structures
             </p>
           </div>
           <button
@@ -535,7 +535,7 @@ export default function SalesRepCommissionPlansPage() {
 
             <div className="flex items-center justify-between border-t border-gray-100 pt-3">
               <span className="text-xs text-gray-400">
-                {plan.assignmentCount} rep{plan.assignmentCount !== 1 ? 's' : ''} assigned
+                {plan.assignmentCount} rep{plan.assignmentCount === 1 ? '' : 's'} assigned
               </span>
               <div className="flex gap-2">
                 <Link
@@ -1142,7 +1142,7 @@ export default function SalesRepCommissionPlansPage() {
           <div className="w-full max-w-sm rounded-2xl bg-white p-6">
             <h2 className="mb-2 text-xl font-bold text-gray-900">Delete plan?</h2>
             <p className="mb-4 text-sm text-gray-600">
-              This will remove or deactivate this commission plan. Sales reps currently assigned to
+              This will remove or deactivate this commission plan. The sales rep currently assigned to
               it will need to be reassigned to another plan.
             </p>
             <div className="flex gap-3">

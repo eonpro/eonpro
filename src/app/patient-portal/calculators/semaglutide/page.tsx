@@ -1,10 +1,29 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
 import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
-import { ArrowLeft, AlertTriangle, Syringe, Droplets, Check, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Syringe, Droplets, Check, ChevronRight } from 'lucide-react';
+
+const SemaglutideSupportPanels = dynamic(
+  () => import('@/components/patient-portal/calculators/SemaglutideSupportPanels'),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="space-y-6">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="rounded-3xl bg-white p-6 shadow-xl shadow-gray-200/50">
+            <div className="h-5 w-40 animate-pulse rounded bg-gray-100" />
+            <div className="mt-4 h-4 w-full animate-pulse rounded bg-gray-100" />
+            <div className="mt-2 h-4 w-3/4 animate-pulse rounded bg-gray-100" />
+          </div>
+        ))}
+      </div>
+    ),
+  },
+);
 
 const concentrations = [
   { value: 2.5, label: '2.5 mg/mL', color: '#3B82F6' },
@@ -37,15 +56,7 @@ export default function SemaglutideDoseCalculatorPage() {
     return { mg: mg.toFixed(3), mL: mL.toFixed(3) };
   }, [units, concentration]);
 
-  const calculatedUnits = useMemo(() => {
-    if (!selectedWeek) return null;
-    const mL = selectedWeek.dose / concentration;
-    const units = mL * 100;
-    return { units: Math.round(units * 10) / 10, mL: mL.toFixed(3) };
-  }, [selectedWeek, concentration]);
-
   const fillPercentage = Math.min(100, (parseFloat(units || '0') / 100) * 100);
-  const currentConc = concentrations.find((c) => c.value === concentration);
 
   return (
     <div className="min-h-[100dvh] px-4 py-6">
@@ -286,147 +297,12 @@ export default function SemaglutideDoseCalculatorPage() {
             </div>
           </div>
 
-          {/* Formula Card */}
-          <div className="overflow-hidden rounded-3xl bg-white shadow-xl shadow-gray-200/50">
-            <div className="border-b border-gray-100 p-6">
-              <h3 className="text-lg font-semibold text-gray-900">How It Works</h3>
-            </div>
-
-            <div className="space-y-4 p-6">
-              <div className="rounded-2xl bg-gray-50 p-4">
-                <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-400">
-                  Step 1: Units to mL
-                </div>
-                <div className="font-mono text-lg font-semibold text-gray-900">
-                  {units || '0'} units ÷ 100 = {result?.mL || '0'} mL
-                </div>
-              </div>
-
-              <div className="rounded-2xl bg-gray-50 p-4">
-                <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-400">
-                  Step 2: mL to mg
-                </div>
-                <div className="font-mono text-lg font-semibold text-gray-900">
-                  {result?.mL || '0'} mL × {concentration} mg/mL = {result?.mg || '0'} mg
-                </div>
-              </div>
-
-              <div className="rounded-2xl p-4" style={{ backgroundColor: `${primaryColor}10` }}>
-                <div
-                  className="mb-2 text-xs font-semibold uppercase tracking-wider"
-                  style={{ color: primaryColor }}
-                >
-                  Quick Reference
-                </div>
-                <div className="font-mono text-lg font-semibold" style={{ color: primaryColor }}>
-                  100 units = 1 mL = {concentration} mg
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Titration Schedule */}
-          <div className="overflow-hidden rounded-3xl bg-white shadow-xl shadow-gray-200/50">
-            <div className="border-b border-gray-100 p-6">
-              <h3 className="text-lg font-semibold text-gray-900">Standard Titration</h3>
-              <p className="mt-1 text-sm text-gray-500">Typical dosing schedule</p>
-            </div>
-
-            <div className="p-6">
-              <div className="relative">
-                {/* Timeline line */}
-                <div className="absolute bottom-0 left-5 top-0 w-0.5 bg-gray-100" />
-
-                <div className="space-y-4">
-                  {dosingSchedule.map((s, i) => (
-                    <div key={s.week} className="relative flex items-center gap-4 pl-12">
-                      <div
-                        className={`absolute left-0 flex h-10 w-10 items-center justify-center rounded-full border-4 border-white text-sm font-semibold shadow ${
-                          i === dosingSchedule.length - 1
-                            ? 'bg-gray-900 text-white'
-                            : 'bg-gray-100 text-gray-600'
-                        }`}
-                      >
-                        {i + 1}
-                      </div>
-                      <div className="flex flex-1 items-center justify-between rounded-2xl bg-gray-50 p-4">
-                        <div>
-                          <p className="font-semibold text-gray-900">{s.label}</p>
-                          <p className="text-sm text-gray-500">{s.desc}</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-xl font-semibold text-gray-900">{s.dose} mg</p>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Warning */}
-          <div className="rounded-3xl border-2 border-amber-200 bg-gradient-to-br from-amber-50 to-orange-50 p-6">
-            <div className="flex items-start gap-4">
-              <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-amber-100">
-                <AlertTriangle className="h-6 w-6 text-amber-600" />
-              </div>
-              <div>
-                <h3 className="mb-2 font-semibold text-amber-900">Important Safety Information</h3>
-                <p className="text-sm leading-relaxed text-amber-800">
-                  This calculator is for reference only. Always follow your provider's specific
-                  dosing instructions. Contact your healthcare provider if you have any questions
-                  about your dose or experience side effects.
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Injection Tracker Link */}
-          <Link
-            href={`${PATIENT_PORTAL_PATH}/tools/injection-tracker`}
-            className="block overflow-hidden rounded-3xl bg-white shadow-xl shadow-gray-200/50 transition-shadow hover:shadow-2xl"
-          >
-            <div className="flex items-center gap-4 p-6">
-              <div
-                className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl"
-                style={{ backgroundColor: `${primaryColor}15` }}
-              >
-                <Syringe className="h-6 w-6" style={{ color: primaryColor }} />
-              </div>
-              <div className="flex-1">
-                <h3 className="font-semibold text-gray-900">Injection Site Tracker</h3>
-                <p className="text-sm text-gray-500">Track and rotate your injection sites</p>
-              </div>
-              <ChevronRight className="h-5 w-5 text-gray-400" />
-            </div>
-          </Link>
-
-          {/* Storage Tips */}
-          <div
-            className="overflow-hidden rounded-3xl p-6"
-            style={{ backgroundColor: `${primaryColor}08`, borderColor: `${primaryColor}30` }}
-          >
-            <h3 className="mb-3 font-semibold text-gray-900">Storage Instructions</h3>
-            <ul className="space-y-2 text-sm text-gray-700">
-              <li className="flex items-start gap-2">
-                <Check className="mt-0.5 h-4 w-4 flex-shrink-0" style={{ color: primaryColor }} />
-                Store in refrigerator at 36°F to 46°F (2°C to 8°C)
-              </li>
-              <li className="flex items-start gap-2">
-                <Check className="mt-0.5 h-4 w-4 flex-shrink-0" style={{ color: primaryColor }} />
-                After first use, can be stored at room temp up to 77°F for 28 days
-              </li>
-              <li className="flex items-start gap-2">
-                <Check className="mt-0.5 h-4 w-4 flex-shrink-0" style={{ color: primaryColor }} />
-                Do not freeze and keep away from direct light
-              </li>
-              <li className="flex items-start gap-2">
-                <Check className="mt-0.5 h-4 w-4 flex-shrink-0" style={{ color: primaryColor }} />
-                Let medication reach room temperature (~30 min) before injecting
-              </li>
-            </ul>
-          </div>
+          <SemaglutideSupportPanels
+            units={units}
+            concentration={concentration}
+            result={result}
+            primaryColor={primaryColor}
+          />
         </div>
       </div>
     </div>

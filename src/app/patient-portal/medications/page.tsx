@@ -22,7 +22,6 @@ import {
   Check,
   AlertCircle,
   X,
-  Sparkles,
   Syringe,
   CreditCard,
   Package,
@@ -78,17 +77,6 @@ interface InvoiceRecord {
   description: string;
 }
 
-interface Medication {
-  id: number;
-  name: string;
-  dosage: string;
-  frequency: string;
-  instructions: string;
-  status: 'active' | 'completed' | 'paused';
-  startDate: string;
-  refillDate?: string;
-}
-
 interface Reminder {
   id: number;
   patientId: number;
@@ -96,6 +84,61 @@ interface Reminder {
   dayOfWeek: number;
   timeOfDay: string;
   isActive: boolean;
+}
+
+function toTitleCase(value: string): string {
+  return value
+    .toLowerCase()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+}
+
+function isSupplyMedication(name: string): boolean {
+  const normalized = (name || '').toLowerCase();
+  return (
+    normalized.includes('syringe') ||
+    normalized.includes('alcohol pad') ||
+    normalized.includes('needle') ||
+    normalized.includes('kit')
+  );
+}
+
+function extractMlValue(...inputs: Array<string | null | undefined>): string | null {
+  for (const input of inputs) {
+    if (!input) continue;
+    const match = input.match(/(\d+(?:\.\d+)?)\s*ml/i);
+    if (match?.[1]) return match[1];
+  }
+  return null;
+}
+
+function extractMgValue(...inputs: Array<string | null | undefined>): string | null {
+  for (const input of inputs) {
+    if (!input) continue;
+    const match = input.match(/(\d+(?:\.\d+)?)\s*mg/i);
+    if (match?.[1]) return match[1];
+  }
+  return null;
+}
+
+function getMedicationDisplayName(med: RxMedication): string {
+  const medName = med.name || 'Medication';
+  if (medName.toLowerCase().includes('semaglutide')) {
+    const mg = extractMgValue(med.strength, med.name);
+    const vialMl = extractMlValue(med.quantity, med.name, med.form);
+    if (mg && vialMl) {
+      return `Semaglutide ${mg}mg/1ml (${vialMl}ml)`;
+    }
+    if (mg) return `Semaglutide ${mg}mg/1ml`;
+    if (vialMl) return `Semaglutide (${vialMl}ml)`;
+    return 'Semaglutide';
+  }
+
+  const normalizedName = toTitleCase(medName.replace(/\s+/g, ' ').trim());
+  const normalizedStrength = med.strength ? med.strength.toLowerCase() : '';
+  return normalizedStrength ? `${normalizedName} ${normalizedStrength}` : normalizedName;
 }
 
 const daysOfWeek = [
@@ -114,7 +157,6 @@ export default function MedicationsPage() {
   const primaryColor = branding?.primaryColor || '#4fa77e';
   const accentColor = branding?.accentColor || '#d3f931';
   const accentIconColor = getContrastTextColor(accentColor) === 'light' ? '#ffffff' : '#1f2937';
-  const primaryIconColor = getContrastTextColor(primaryColor) === 'light' ? '#ffffff' : '#1f2937';
 
   interface TrackingShipment {
     id: string;
@@ -127,7 +169,6 @@ export default function MedicationsPage() {
   }
 
   const { patientId } = usePatientId();
-  const [medications, setMedications] = useState<Medication[]>([]);
   const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
   const [billingPlan, setBillingPlan] = useState<BillingPlan | null>(null);
   const [invoiceHistory, setInvoiceHistory] = useState<InvoiceRecord[]>([]);
@@ -135,7 +176,6 @@ export default function MedicationsPage() {
   const [trackingShipments, setTrackingShipments] = useState<TrackingShipment[]>([]);
   const [loading, setLoading] = useState(true);
   const [showReminderModal, setShowReminderModal] = useState(false);
-  const [selectedMed, setSelectedMed] = useState<Medication | null>(null);
   const [customMedicationName, setCustomMedicationName] = useState('');
   const [newReminder, setNewReminder] = useState({ dayOfWeek: 3, time: '08:00' });
   const [showSuccess, setShowSuccess] = useState('');
@@ -151,100 +191,89 @@ export default function MedicationsPage() {
 
   const loadData = async () => {
     setLoadError(null);
-    setMedications([]);
 
     if (!patientId) {
       setLoading(false);
       return;
     }
 
-    const fetchPromises: Promise<void>[] = [];
-
-    fetchPromises.push(
-      portalFetch('/api/patient-portal/prescriptions')
-        .then(async (res) => {
-          if (res.ok) {
-            const data = await safeParseJson(res);
-            if (data && typeof data === 'object') {
-              const d = data as {
-                prescriptions?: Prescription[];
-                plan?: BillingPlan | null;
-                invoiceHistory?: InvoiceRecord[];
-              };
-              setPrescriptions(d.prescriptions || []);
-              setBillingPlan(d.plan || null);
-              setInvoiceHistory(d.invoiceHistory || []);
-            }
+    const prescriptionsPromise = portalFetch('/api/patient-portal/prescriptions')
+      .then(async (res) => {
+        if (res.ok) {
+          const data = await safeParseJson(res);
+          if (data && typeof data === 'object') {
+            const d = data as {
+              prescriptions?: Prescription[];
+              plan?: BillingPlan | null;
+              invoiceHistory?: InvoiceRecord[];
+            };
+            setPrescriptions(d.prescriptions || []);
+            setBillingPlan(d.plan || null);
+            setInvoiceHistory(d.invoiceHistory || []);
           }
-        })
-        .catch((err) => {
-          logger.error('[Medications] Prescriptions fetch failed', { error: err instanceof Error ? err.message : String(err) });
-          setLoadError('Unable to load prescriptions. Please try again.');
-        })
-    );
+        }
+      })
+      .catch((err) => {
+        logger.error('[Medications] Prescriptions fetch failed', { error: err instanceof Error ? err.message : String(err) });
+        setLoadError('Unable to load prescriptions. Please try again.');
+      });
 
-    fetchPromises.push(
-      portalFetch('/api/patient-portal/tracking')
-        .then(async (res) => {
-          if (res.ok) {
-            const data = await safeParseJson(res);
-            if (data && typeof data === 'object') {
-              const d = data as {
-                activeShipments?: TrackingShipment[];
-                deliveredShipments?: TrackingShipment[];
-              };
-              const all = [
-                ...(d.activeShipments || []),
-                ...(d.deliveredShipments || []),
-              ];
-              all.sort((a, b) => new Date(b.orderedAt).getTime() - new Date(a.orderedAt).getTime());
-              setTrackingShipments(all);
-            }
+    const trackingPromise = portalFetch('/api/patient-portal/tracking')
+      .then(async (res) => {
+        if (res.ok) {
+          const data = await safeParseJson(res);
+          if (data && typeof data === 'object') {
+            const d = data as {
+              activeShipments?: TrackingShipment[];
+              deliveredShipments?: TrackingShipment[];
+            };
+            const all = [
+              ...(d.activeShipments || []),
+              ...(d.deliveredShipments || []),
+            ];
+            all.sort((a, b) => new Date(b.orderedAt).getTime() - new Date(a.orderedAt).getTime());
+            setTrackingShipments(all);
           }
-        })
-        .catch((err) => {
-          logger.error('[Medications] Tracking fetch failed', { error: err instanceof Error ? err.message : String(err) });
-        })
-    );
+        }
+      })
+      .catch((err) => {
+        logger.error('[Medications] Tracking fetch failed', { error: err instanceof Error ? err.message : String(err) });
+      });
 
-    fetchPromises.push(
-      portalFetch(`/api/patient-progress/medication-reminders?patientId=${patientId}`)
-        .then(async (res) => {
-          const err = getPortalResponseError(res);
-          if (err) {
-            setLoadError(err);
-            return;
-          }
-          if (res.ok) {
-            const result = await safeParseJson(res);
-            const data =
-              result !== null
-                ? Array.isArray(result)
-                  ? result
-                  : (result as { data?: unknown[] })?.data ?? []
-                : [];
-            setReminders(data);
-          }
-        })
-        .catch((error) => {
-          logger.error('Failed to fetch reminders', {
-            error: error instanceof Error ? error.message : 'Unknown',
-          });
-          setLoadError('Failed to load reminders. Please try again.');
-        })
-    );
+    const remindersPromise = portalFetch(`/api/patient-progress/medication-reminders?patientId=${patientId}`)
+      .then(async (res) => {
+        const err = getPortalResponseError(res);
+        if (err) {
+          setLoadError(err);
+          return;
+        }
+        if (res.ok) {
+          const result = await safeParseJson(res);
+          const data =
+            result !== null
+              ? Array.isArray(result)
+                ? result
+                : (result as { data?: unknown[] })?.data ?? []
+              : [];
+          setReminders(data);
+        }
+      })
+      .catch((error) => {
+        logger.error('Failed to fetch reminders', {
+          error: error instanceof Error ? error.message : 'Unknown',
+        });
+      });
 
-    await Promise.all(fetchPromises);
+    await Promise.all([prescriptionsPromise, trackingPromise]);
     setLoading(false);
+    void remindersPromise;
   };
 
   const [reminderError, setReminderError] = useState<string | null>(null);
 
   const addReminder = async () => {
     setReminderError(null);
-    const medicationName = selectedMed
-      ? `${selectedMed.name} ${selectedMed.dosage}`
-      : customMedicationName?.trim() || '';
+    const medicationName = customMedicationName?.trim() || '';
 
     if (!medicationName) {
       setReminderError('Please select or enter a medication name');
@@ -280,7 +309,6 @@ export default function MedicationsPage() {
           setReminders((prev) => [...prev, savedReminder as Reminder]);
         }
         setShowReminderModal(false);
-        setSelectedMed(null);
         setCustomMedicationName('');
         setShowSuccess(t('medsReminderSaved'));
         setTimeout(() => setShowSuccess(''), 3000);
@@ -407,7 +435,9 @@ END:VCALENDAR`;
   );
 
   const allActiveMeds = activePrescriptions.flatMap((p) =>
-    (p.medications ?? []).map((m) => ({ ...m, prescription: p }))
+    (p.medications ?? [])
+      .filter((m) => !isSupplyMedication(m.name))
+      .map((m) => ({ ...m, prescription: p }))
   );
 
   if (loading) {
@@ -531,7 +561,7 @@ END:VCALENDAR`;
                     <div className="min-w-0 flex-1">
                       <div className="flex items-start justify-between gap-2">
                         <h3 className="break-words text-base font-semibold leading-tight text-gray-900 sm:text-lg">
-                          {med.name}
+                          {getMedicationDisplayName(med)}
                         </h3>
                         <span
                           className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase sm:px-3 sm:py-1 sm:text-xs ${statusColor(med.prescription.status)}`}
@@ -539,11 +569,6 @@ END:VCALENDAR`;
                           {med.prescription.status}
                         </span>
                       </div>
-                      {med.strength && (
-                        <p className="mt-0.5 text-xs text-gray-500 sm:text-sm">
-                          {med.strength} &middot; {med.form}
-                        </p>
-                      )}
                     </div>
                   </div>
 
@@ -567,11 +592,6 @@ END:VCALENDAR`;
                     {med.daysSupply > 0 && (
                       <span className="flex items-center gap-1">
                         <Calendar className="h-3 w-3 sm:h-3.5 sm:w-3.5" /> {med.daysSupply}d supply
-                      </span>
-                    )}
-                    {med.prescription.provider && (
-                      <span className="flex items-center gap-1">
-                        <FileText className="h-3 w-3 sm:h-3.5 sm:w-3.5" /> Dr. {med.prescription.provider.name}
                       </span>
                     )}
                     <span className="flex items-center gap-1">
@@ -625,29 +645,28 @@ END:VCALENDAR`;
                   className="overflow-hidden rounded-2xl border border-gray-100 bg-white p-3 shadow-sm sm:p-4"
                 >
                   <div className="mb-2 flex items-center justify-between gap-2">
-                    <p className="text-xs text-gray-500">
-                      {formatDate(rx.prescribedDate)}
-                      {rx.provider && <> &middot; Dr. {rx.provider.name}</>}
-                    </p>
+                    <p className="text-xs text-gray-500">{formatDate(rx.prescribedDate)}</p>
                     <span
                       className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase sm:text-xs ${statusColor(rx.status)}`}
                     >
                       {rx.status}
                     </span>
                   </div>
-                  {(rx.medications?.length ?? 0) > 0 && (
+                  {((rx.medications ?? []).filter((m) => !isSupplyMedication(m.name)).length ?? 0) > 0 && (
                     <div className="flex flex-wrap gap-1.5">
-                      {rx.medications?.map((m) => (
+                      {rx.medications
+                        ?.filter((m) => !isSupplyMedication(m.name))
+                        .map((m) => (
                         <span
                           key={m.id}
                           className="break-words rounded-lg bg-gray-50 px-2 py-1 text-xs leading-tight text-gray-700"
                         >
-                          {m.name} {m.strength}
+                          {getMedicationDisplayName(m)}
                         </span>
                       ))}
                     </div>
                   )}
-                  {(rx.medications?.length ?? 0) === 0 && (
+                  {((rx.medications ?? []).filter((m) => !isSupplyMedication(m.name)).length ?? 0) === 0 && (
                     <p className="text-sm font-medium text-gray-900">Prescription</p>
                   )}
                 </div>
@@ -754,7 +773,6 @@ END:VCALENDAR`;
               </div>
               <button
                 onClick={() => {
-                  setSelectedMed(null);
                   setCustomMedicationName('');
                   setShowReminderModal(true);
                 }}
@@ -827,201 +845,6 @@ END:VCALENDAR`;
         </div>
 
       {/* Medications (when we have a list from API in the future) */}
-      <div className="mb-10 space-y-6">
-        {medications
-          .filter((m) => m.status === 'active')
-          .map((med) => {
-            const medReminders = reminders.filter((r) => r.medicationName.includes(med.name));
-            const nextReminder = medReminders[0];
-            const nextDay = nextReminder
-              ? daysOfWeek.find((d) => d.value === nextReminder.dayOfWeek)?.full
-              : null;
-
-            return (
-              <div
-                key={med.id}
-                className="overflow-hidden rounded-3xl bg-white shadow-xl shadow-gray-200/50"
-              >
-                {/* Header */}
-                <div
-                  className="relative overflow-hidden p-6"
-                  style={{
-                    background: `linear-gradient(135deg, ${primaryColor} 0%, ${primaryColor}dd 100%)`,
-                  }}
-                >
-                  <div className="absolute -right-8 -top-8 h-32 w-32 rounded-full bg-white/10" />
-                  <div className="relative flex items-start justify-between">
-                    <div className="flex items-center gap-4">
-                      <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/20 backdrop-blur-sm">
-                        <Syringe className="h-7 w-7 text-white" />
-                      </div>
-                      <div>
-                        <h3 className="text-2xl font-semibold text-white">{med.name}</h3>
-                        <p className="text-lg font-medium text-white/80">{med.dosage}</p>
-                      </div>
-                    </div>
-                    <span className="rounded-full bg-white/20 px-4 py-2 text-sm font-semibold uppercase tracking-wider text-white backdrop-blur-sm">
-                      Active
-                    </span>
-                  </div>
-                </div>
-
-                {/* Content */}
-                <div className="p-6">
-                  {/* Info Grid */}
-                  <div className="mb-6 grid grid-cols-2 gap-4">
-                    <div className="rounded-2xl bg-gray-50 p-4">
-                      <div className="mb-1 flex items-center gap-2">
-                        <Clock className="h-4 w-4 text-gray-400" />
-                        <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">
-                          {t('medsFrequency')}
-                        </p>
-                      </div>
-                      <p className="text-lg font-semibold text-gray-900">{med.frequency}</p>
-                    </div>
-                    <div className="rounded-2xl bg-gray-50 p-4">
-                      <div className="mb-1 flex items-center gap-2">
-                        <Calendar className="h-4 w-4 text-gray-400" />
-                        <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">
-                          {t('medsStarted')}
-                        </p>
-                      </div>
-                      <p className="text-lg font-semibold text-gray-900">
-                        {med.startDate
-                          ? (() => {
-                              const date = new Date(med.startDate);
-                              return isNaN(date.getTime())
-                                ? '—'
-                                : date.toLocaleDateString('en-US', {
-                                    month: 'short',
-                                    day: 'numeric',
-                                  });
-                            })()
-                          : '—'}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Instructions */}
-                  <div className="mb-6 rounded-2xl border-2 border-gray-100 bg-gray-50 p-4">
-                    <div className="mb-2 flex items-center gap-2">
-                      <Sparkles className="h-4 w-4 text-gray-400" />
-                      <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">
-                        {t('medsInstructions')}
-                      </p>
-                    </div>
-                    <p className="font-medium text-gray-700">{med.instructions}</p>
-                  </div>
-
-                  {/* Reminders Section */}
-                  <div className="mb-6">
-                    <div className="mb-4 flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Bell className="h-5 w-5 text-gray-400" />
-                        <span className="font-semibold text-gray-900">Reminders</span>
-                        {medReminders.length > 0 && (
-                          <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-semibold text-gray-600">
-                            {medReminders.length}
-                          </span>
-                        )}
-                      </div>
-                      <button
-                        onClick={() => {
-                          setSelectedMed(med);
-                          setShowReminderModal(true);
-                        }}
-                        className="flex items-center gap-2 rounded-xl px-4 py-2 font-semibold text-white transition-all hover:scale-105"
-                        style={{ backgroundColor: primaryColor }}
-                      >
-                        <Plus className="h-4 w-4" />
-                        Add
-                      </button>
-                    </div>
-
-                    {medReminders.length === 0 ? (
-                      <div className="rounded-2xl border-2 border-dashed border-gray-200 bg-gray-50/50 p-6 text-center">
-                        <Bell className="mx-auto mb-2 h-8 w-8 text-gray-300" />
-                        <p className="font-medium text-gray-400">{t('medsNoRemindersSet')}</p>
-                        <p className="mt-1 text-sm text-gray-400">
-                          {t('medsNoRemindersDesc')}
-                        </p>
-                      </div>
-                    ) : (
-                      <div className="space-y-3">
-                        {medReminders.map((reminder) => (
-                          <div
-                            key={reminder.id}
-                            className="group flex items-center justify-between rounded-2xl bg-gray-50 p-4 transition-all hover:bg-gray-100"
-                          >
-                            <div className="flex items-center gap-4">
-                              <div
-                                className="flex h-12 w-12 items-center justify-center rounded-xl"
-                                style={{ backgroundColor: accentColor }}
-                              >
-                                <Bell className="h-5 w-5" style={{ color: accentIconColor }} />
-                              </div>
-                              <div>
-                                <p className="font-semibold text-gray-900">
-                                  {daysOfWeek.find((d) => d.value === reminder.dayOfWeek)?.full}
-                                </p>
-                                <p className="text-sm text-gray-500">at {reminder.timeOfDay}</p>
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <button
-                                onClick={() => generateICS(med, reminder)}
-                                className="rounded-xl p-3 text-gray-400 transition-all hover:bg-blue-50 hover:text-blue-600"
-                                title="Download to calendar"
-                                aria-label="Download to calendar"
-                              >
-                                <Download className="h-5 w-5" />
-                              </button>
-                              <button
-                                onClick={() => removeReminder(reminder.id)}
-                                className="rounded-xl p-3 text-gray-400 transition-all hover:bg-red-50 hover:text-red-600"
-                                aria-label="Remove reminder"
-                              >
-                                <Trash2 className="h-5 w-5" />
-                              </button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Refill Notice */}
-                  {med.refillDate &&
-                    new Date(med.refillDate) <= new Date(Date.now() + 14 * 24 * 60 * 60 * 1000) && (
-                      <div className="flex items-center gap-4 rounded-2xl bg-amber-50 p-4">
-                        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-100">
-                          <AlertCircle className="h-6 w-6 text-amber-600" />
-                        </div>
-                        <div>
-                          <p className="font-semibold text-amber-900">{t('medsRefillNeeded')}</p>
-                          <p className="text-sm text-amber-700">
-                            {t('medsDueBy')}{' '}
-                            {med.refillDate
-                              ? (() => {
-                                  const date = new Date(med.refillDate);
-                                  return isNaN(date.getTime())
-                                    ? '—'
-                                    : date.toLocaleDateString('en-US', {
-                                        month: 'short',
-                                        day: 'numeric',
-                                      });
-                                })()
-                              : '—'}
-                          </p>
-                        </div>
-                      </div>
-                    )}
-                </div>
-              </div>
-            );
-          })}
-      </div>
-
       {/* Quick Actions */}
       <div className="grid gap-4 sm:grid-cols-2">
         <Link
@@ -1073,7 +896,6 @@ END:VCALENDAR`;
             className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm"
             onClick={() => {
               setShowReminderModal(false);
-              setSelectedMed(null);
               setCustomMedicationName('');
             }}
           />
@@ -1089,18 +911,11 @@ END:VCALENDAR`;
                 <div className="flex items-start justify-between">
                   <div>
                     <h2 className="text-2xl font-semibold" style={{ color: accentIconColor }}>{t('medsAddReminderTitle')}</h2>
-                    {selectedMed ? (
-                      <p className="mt-1" style={{ color: accentIconColor, opacity: 0.8 }}>
-                        {selectedMed.name} ({selectedMed.dosage})
-                      </p>
-                    ) : (
-                      <p className="mt-1 text-sm" style={{ color: accentIconColor, opacity: 0.7 }}>{t('medsEnterNameBelow')}</p>
-                    )}
+                    <p className="mt-1 text-sm" style={{ color: accentIconColor, opacity: 0.7 }}>{t('medsEnterNameBelow')}</p>
                   </div>
                   <button
                     onClick={() => {
                       setShowReminderModal(false);
-                      setSelectedMed(null);
                       setCustomMedicationName('');
                     }}
                     className="rounded-xl p-2 transition-colors hover:bg-black/10"
@@ -1112,21 +927,18 @@ END:VCALENDAR`;
               </div>
 
               <div className="p-6">
-                {/* Medication name (when no prescription selected) */}
-                {!selectedMed && (
-                  <div className="mb-6">
-                    <label className="mb-3 block text-sm font-semibold uppercase tracking-wider text-gray-500">
-                      {t('medsMedicationName')}
-                    </label>
-                    <input
-                      type="text"
-                      value={customMedicationName}
-                      onChange={(e) => setCustomMedicationName(e.target.value)}
-                      placeholder={t('medsMedicationPlaceholder')}
-                      className="w-full rounded-2xl border-2 border-gray-100 bg-gray-50 px-4 py-3 text-gray-900 outline-none transition-all focus:border-gray-900 focus:bg-white"
-                    />
-                  </div>
-                )}
+                <div className="mb-6">
+                  <label className="mb-3 block text-sm font-semibold uppercase tracking-wider text-gray-500">
+                    {t('medsMedicationName')}
+                  </label>
+                  <input
+                    type="text"
+                    value={customMedicationName}
+                    onChange={(e) => setCustomMedicationName(e.target.value)}
+                    placeholder={t('medsMedicationPlaceholder')}
+                    className="w-full rounded-2xl border-2 border-gray-100 bg-gray-50 px-4 py-3 text-gray-900 outline-none transition-all focus:border-gray-900 focus:bg-white"
+                  />
+                </div>
 
                 {/* Day Selection */}
                 <div className="mb-6">

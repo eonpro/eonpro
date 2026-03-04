@@ -487,16 +487,19 @@ export default function PatientSidebar({
   };
   const [pastLabels, setPastLabels] = useState<FedExLabelSummary[]>([]);
   const [downloadingLabelId, setDownloadingLabelId] = useState<number | null>(null);
+  const [labelDownloadError, setLabelDownloadError] = useState<string | null>(null);
 
   const isAdmin = userRole && ['super_admin', 'admin'].includes(userRole.toLowerCase());
 
-  useEffect(() => {
+  const fetchLabels = useCallback(() => {
     if (!isAdmin) return;
     apiFetch(`/api/patients/${patient.id}/shipping-labels`)
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => { if (data?.labels) setPastLabels(data.labels); })
       .catch(() => {});
   }, [patient.id, isAdmin]);
+
+  useEffect(() => { fetchLabels(); }, [fetchLabels]);
 
   const handleDownloadLabel = async (label: FedExLabelSummary) => {
     setDownloadingLabelId(label.id);
@@ -519,7 +522,8 @@ export default function PatientSidebar({
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     } catch {
-      alert('Failed to download label. It may not be available.');
+      setLabelDownloadError('Failed to download label. It may not be available.');
+      setTimeout(() => setLabelDownloadError(null), 5000);
     } finally {
       setDownloadingLabelId(null);
     }
@@ -830,6 +834,9 @@ export default function PatientSidebar({
               {pastLabels.length > 0 && (
                 <div className="mt-1 space-y-1 rounded-lg border border-gray-100 bg-gray-50 p-2">
                   <p className="px-1 text-xs font-medium text-gray-500">Recent Labels</p>
+                  {labelDownloadError && (
+                    <p className="px-1 text-xs text-red-600">{labelDownloadError}</p>
+                  )}
                   {pastLabels.slice(0, 5).map((label) => (
                     <div
                       key={label.id}
@@ -957,7 +964,7 @@ export default function PatientSidebar({
             ...o,
             createdAt: typeof o.createdAt === 'string' ? o.createdAt : o.createdAt.toISOString(),
           }))}
-          onClose={() => setShowFedExModal(false)}
+          onClose={() => { setShowFedExModal(false); fetchLabels(); }}
         />
       )}
     </>

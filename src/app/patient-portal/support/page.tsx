@@ -7,11 +7,12 @@
  * Shows patient's own tickets with status badges and a "New Request" button.
  */
 
-import { useState, useEffect } from 'react';
+import { useMemo } from 'react';
 import Link from 'next/link';
-import { Plus, MessageSquare, Loader2, CheckCircle, Clock, AlertTriangle } from 'lucide-react';
-import { portalFetch, getPortalResponseError, SESSION_EXPIRED_MESSAGE } from '@/lib/api/patient-portal-client';
+import { Plus, MessageSquare, CheckCircle, Clock, AlertTriangle } from 'lucide-react';
+import { SESSION_EXPIRED_MESSAGE } from '@/lib/api/patient-portal-client';
 import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
+import { usePortalSWR } from '@/hooks/usePortalSWR';
 
 interface Ticket {
   id: number;
@@ -42,21 +43,9 @@ function formatDate(dateString: string) {
 }
 
 export default function PatientSupportPage() {
-  const [tickets, setTickets] = useState<Ticket[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    portalFetch('/api/patient-portal/tickets')
-      .then((res) => {
-        const err = getPortalResponseError(res);
-        if (err) { setError(err); return null; }
-        return res.json();
-      })
-      .then((data) => { if (data) setTickets(data.tickets || []); })
-      .catch(() => setError('Failed to load tickets'))
-      .finally(() => setLoading(false));
-  }, []);
+  const { data, error, isLoading } = usePortalSWR<{ tickets?: Ticket[] }>('/api/patient-portal/tickets');
+  const tickets = useMemo(() => data?.tickets ?? [], [data]);
+  const resolvedError = error?.message || null;
 
   return (
     <div className="space-y-6">
@@ -74,10 +63,10 @@ export default function PatientSupportPage() {
         </Link>
       </div>
 
-      {error && (
+      {resolvedError && (
         <div className="flex items-center gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-          <span className="flex-1">{error}</span>
-          {error === SESSION_EXPIRED_MESSAGE && (
+          <span className="flex-1">{resolvedError}</span>
+          {resolvedError === SESSION_EXPIRED_MESSAGE && (
             <Link
               href={`/patient-login?redirect=${encodeURIComponent(`${PATIENT_PORTAL_PATH}/support`)}&reason=session_expired`}
               className="shrink-0 rounded-lg bg-red-200 px-3 py-1.5 text-sm font-medium text-red-900 hover:bg-red-300"
@@ -88,7 +77,7 @@ export default function PatientSupportPage() {
         </div>
       )}
 
-      {loading ? (
+      {isLoading ? (
         <div className="animate-pulse space-y-3">
           {[1, 2, 3, 4].map((i) => (
             <div key={i} className="rounded-xl border border-gray-200 bg-white p-5">

@@ -5,6 +5,8 @@
  */
 
 import { useState } from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { ArrowLeft, Send, Loader2, AlertTriangle } from 'lucide-react';
 import { portalFetch } from '@/lib/api/patient-portal-client';
 
@@ -18,6 +20,7 @@ const CATEGORIES = [
 ];
 
 export default function NewSupportRequestPage() {
+  const router = useRouter();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState('GENERAL');
@@ -47,7 +50,7 @@ export default function NewSupportRequestPage() {
       }
 
       const data = await res.json();
-      window.location.href = `/patient-portal/support/${data.ticket.id}`;
+      router.push(`/patient-portal/support/${data.ticket.id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong');
     } finally {
@@ -58,9 +61,9 @@ export default function NewSupportRequestPage() {
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <div className="flex items-center gap-3">
-        <a href="/patient-portal/support" className="rounded-lg p-1 hover:bg-gray-100">
+        <Link href="/patient-portal/support" className="rounded-lg p-1 hover:bg-gray-100">
           <ArrowLeft className="h-5 w-5 text-gray-500" />
-        </a>
+        </Link>
         <div>
           <h1 className="text-2xl font-bold text-gray-900">New Support Request</h1>
           <p className="text-sm text-gray-500">Describe your issue and we will get back to you</p>
@@ -116,12 +119,12 @@ export default function NewSupportRequestPage() {
         </div>
 
         <div className="flex justify-end gap-3">
-          <a
+          <Link
             href="/patient-portal/support"
             className="rounded-xl border border-gray-300 px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
           >
             Cancel
-          </a>
+          </Link>
           <button
             type="submit"
             disabled={submitting}

@@ -107,10 +107,12 @@ export default function SettingsPage() {
     appointmentReminders: true,
   });
   const [notifLoading, setNotifLoading] = useState(true);
+  const [notifLoaded, setNotifLoaded] = useState(false);
   const notifSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Load notification preferences from server
+  // Load notification preferences lazily when notifications tab is opened
   useEffect(() => {
+    if (activeSection !== 'notifications' || notifLoaded) return;
     let cancelled = false;
     portalFetch('/api/patient-portal/notification-preferences')
       .then(res => res.ok ? res.json() : null)
@@ -123,13 +125,18 @@ export default function SettingsPage() {
           error: err instanceof Error ? err.message : 'Unknown',
         });
       })
-      .finally(() => { if (!cancelled) setNotifLoading(false); });
+      .finally(() => {
+        if (!cancelled) {
+          setNotifLoading(false);
+          setNotifLoaded(true);
+        }
+      });
     return () => { cancelled = true; };
-  }, []);
+  }, [activeSection, notifLoaded]);
 
   // Debounced save when notifications change (skip while loading)
   useEffect(() => {
-    if (notifLoading) return;
+    if (activeSection !== 'notifications' || notifLoading || !notifLoaded) return;
     if (notifSaveTimerRef.current) clearTimeout(notifSaveTimerRef.current);
     notifSaveTimerRef.current = setTimeout(() => {
       portalFetch('/api/patient-portal/notification-preferences', {
@@ -148,7 +155,7 @@ export default function SettingsPage() {
     return () => {
       if (notifSaveTimerRef.current) clearTimeout(notifSaveTimerRef.current);
     };
-  }, [notifications, notifLoading]);
+  }, [notifications, notifLoading, notifLoaded, activeSection]);
 
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 

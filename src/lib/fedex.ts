@@ -207,11 +207,20 @@ export function resolveCredentials(clinic?: {
 // Ship API — Create Shipment
 // ---------------------------------------------------------------------------
 
+function getTodayInTimezone(tz: string = 'America/New_York'): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: tz,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date());
+}
+
 function buildShipmentPayload(
   credentials: FedExCredentials,
   input: CreateShipmentInput
 ) {
-  const shipDate = input.shipDate || new Date().toISOString().split('T')[0];
+  const shipDate = input.shipDate || getTodayInTimezone();
 
   return {
     labelResponseOptions: 'LABEL',
@@ -399,7 +408,7 @@ function buildRatePayload(
   credentials: FedExCredentials,
   input: RateQuoteInput
 ) {
-  const shipDate = new Date().toISOString().split('T')[0];
+  const shipDate = getTodayInTimezone();
 
   return {
     accountNumber: { value: credentials.accountNumber },

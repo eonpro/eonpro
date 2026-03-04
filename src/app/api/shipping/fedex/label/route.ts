@@ -8,6 +8,7 @@ import { FEDEX_SERVICE_TYPES } from '@/lib/fedex-services';
 import { encryptPHI, isEncrypted } from '@/lib/security/phi-encryption';
 import { uploadToS3 } from '@/lib/integrations/aws/s3Service';
 import { FileCategory } from '@/lib/integrations/aws/s3Config';
+import { sendTrackingNotificationSMS } from '@/lib/shipping/tracking-sms';
 import { logger } from '@/lib/logger';
 import { z } from 'zod';
 
@@ -166,6 +167,9 @@ async function handleCreateLabel(req: NextRequest, user: AuthUser) {
         },
       });
 
+      let medName: string | undefined;
+      let medStrength: string | undefined;
+
       if (orderId) {
         const order = await tx.order.findUnique({
           where: { id: orderId },
@@ -182,33 +186,36 @@ async function handleCreateLabel(req: NextRequest, user: AuthUser) {
               lastWebhookAt: new Date(),
             },
           });
-
-          await tx.patientShippingUpdate.create({
-            data: {
-              clinicId,
-              patientId,
-              orderId,
-              trackingNumber: result.trackingNumber,
-              carrier: 'FedEx',
-              trackingUrl,
-              status: 'LABEL_CREATED',
-              statusNote: `FedEx ${validService.label} label created`,
-              shippedAt: new Date(),
-              medicationName: order.primaryMedName || undefined,
-              medicationStrength: order.primaryMedStrength || undefined,
-              source: 'fedex_label',
-              matchedAt: new Date(),
-              matchStrategy: 'fedex_label_creation',
-              processedAt: new Date(),
-              rawPayload: {
-                labelId: shipmentLabel.id,
-                serviceType,
-                createdBy: user.id,
-              } as any,
-            },
-          });
+          medName = order.primaryMedName || undefined;
+          medStrength = order.primaryMedStrength || undefined;
         }
       }
+
+      await tx.patientShippingUpdate.create({
+        data: {
+          clinicId,
+          patientId,
+          orderId: orderId ?? null,
+          trackingNumber: result.trackingNumber,
+          carrier: 'FedEx',
+          trackingUrl,
+          status: 'LABEL_CREATED',
+          statusNote: `FedEx ${validService.label} label created`,
+          shippedAt: new Date(),
+          medicationName: medName,
+          medicationStrength: medStrength,
+          source: 'fedex_label',
+          matchedAt: orderId ? new Date() : null,
+          matchStrategy: orderId ? 'fedex_label_creation' : null,
+          processedAt: new Date(),
+          rawPayload: {
+            labelId: shipmentLabel.id,
+            serviceType,
+            createdBy: user.id,
+            linkedToOrder: !!orderId,
+          } as any,
+        },
+      });
 
       return shipmentLabel;
     }, { timeout: 15000 });
@@ -234,6 +241,35 @@ async function handleCreateLabel(req: NextRequest, user: AuthUser) {
       labelFormat: result.labelFormat,
       orderId: orderId ?? null,
     });
+
+    if (orderId) {
+      const patientForSms = await prisma.patient.findUnique({
+        where: { id: patientId },
+        select: { phone: true, firstName: true, lastName: true },
+      });
+      const clinicForSms = await prisma.clinic.findUnique({
+        where: { id: clinicId },
+        select: { name: true },
+      });
+      if (patientForSms && clinicForSms) {
+        sendTrackingNotificationSMS({
+          patientId,
+          patientPhone: patientForSms.phone,
+          patientFirstName: patientForSms.firstName,
+          patientLastName: patientForSms.lastName,
+          clinicId,
+          clinicName: clinicForSms.name,
+          trackingNumber: result.trackingNumber,
+          carrier: 'FedEx',
+          orderId,
+        }).catch((err) => {
+          logger.warn('FedEx tracking SMS failed (non-blocking)', {
+            patientId,
+            error: err instanceof Error ? err.message : 'Unknown',
+          });
+        });
+      }
+    }
 
     return NextResponse.json({
       id: label.id,
@@ -399,19 +435,42 @@ async function handleVoidLabel(req: NextRequest, user: AuthUser) {
 
     await cancelShipment(credentials, label.trackingNumber);
 
-    await prisma.shipmentLabel.update({
-      where: { id: label.id },
-      data: {
-        status: 'VOIDED',
-        voidedAt: new Date(),
-        voidedBy: user.id,
-      },
-    });
+    await prisma.$transaction(async (tx) => {
+      await tx.shipmentLabel.update({
+        where: { id: label.id },
+        data: {
+          status: 'VOIDED',
+          voidedAt: new Date(),
+          voidedBy: user.id,
+        },
+      });
+
+      if (label.orderId) {
+        await tx.order.update({
+          where: { id: label.orderId },
+          data: {
+            trackingNumber: null,
+            trackingUrl: null,
+            shippingStatus: null,
+          },
+        });
+
+        await tx.patientShippingUpdate.updateMany({
+          where: {
+            orderId: label.orderId,
+            trackingNumber: label.trackingNumber,
+            source: 'fedex_label',
+          },
+          data: { status: 'CANCELLED' },
+        });
+      }
+    }, { timeout: 10000 });
 
     logger.info('FedEx label voided', {
       labelId: label.id,
       clinicId: label.clinicId,
       trackingNumber: label.trackingNumber,
+      orderId: label.orderId,
     });
 
     return NextResponse.json({ success: true });

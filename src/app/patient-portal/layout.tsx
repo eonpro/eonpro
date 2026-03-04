@@ -5,6 +5,7 @@ export const dynamic = 'force-dynamic';
 import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
+import nextDynamic from 'next/dynamic';
 import {
   Home,
   Scale,
@@ -39,7 +40,6 @@ import {
   PatientPortalLanguageProvider,
   usePatientPortalLanguage,
 } from '@/lib/contexts/PatientPortalLanguageContext';
-import { PWAUpdateBanner, OfflineBanner, InstallPrompt } from '@/components/PWAUpdateBanner';
 import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
 import { safeParseJsonString } from '@/lib/utils/safe-json';
 import { safeParseJson } from '@/lib/utils/safe-json';
@@ -57,6 +57,21 @@ import {
 } from '@/lib/patient-portal';
 import type { PortalMode } from '@/lib/patient-portal';
 import type { LucideIcon } from 'lucide-react';
+
+const OfflineBanner = nextDynamic(
+  () => import('@/components/PWAUpdateBanner').then((mod) => mod.OfflineBanner),
+  { ssr: false },
+);
+
+const PWAUpdateBanner = nextDynamic(
+  () => import('@/components/PWAUpdateBanner').then((mod) => mod.PWAUpdateBanner),
+  { ssr: false },
+);
+
+const InstallPrompt = nextDynamic(
+  () => import('@/components/PWAUpdateBanner').then((mod) => mod.InstallPrompt),
+  { ssr: false },
+);
 
 // Icon mapping for nav (registry holds data; icons stay here for tree-shaking)
 const NAV_ICON_MAP: Record<string, LucideIcon> = {

@@ -347,11 +347,11 @@ export default function SalesRepCommissionPlanDetailPage() {
         <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</div>
       )}
 
-      {/* Assigned reps + hourly rate */}
+      {/* Assigned rep + hourly rate */}
       <section className="mb-8 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
         <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-gray-900">
           <Users className="h-5 w-5" />
-          Assigned reps & hourly rate
+          Assigned rep & hourly rate
         </h2>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">

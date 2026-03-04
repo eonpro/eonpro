@@ -7,10 +7,13 @@
  * Shows ticket description, status, non-internal comments, and reply form.
  */
 
-import { useState, useEffect, useCallback } from 'react';
-import { ArrowLeft, Send, Loader2, CheckCircle, Clock, MessageSquare } from 'lucide-react';
+import { useState } from 'react';
+import { ArrowLeft, Send, Loader2, CheckCircle, MessageSquare } from 'lucide-react';
 import { useParams } from 'next/navigation';
-import { portalFetch, getPortalResponseError } from '@/lib/api/patient-portal-client';
+import Link from 'next/link';
+import { portalFetch } from '@/lib/api/patient-portal-client';
+import { usePortalSWR } from '@/hooks/usePortalSWR';
+import { safeParseJson } from '@/lib/utils/safe-json';
 
 interface TicketDetail {
   id: number;
@@ -72,32 +75,34 @@ export default function PatientTicketDetailPage() {
   const params = useParams();
   const ticketId = params.id as string;
 
-  const [ticket, setTicket] = useState<TicketDetail | null>(null);
-  const [comments, setComments] = useState<Comment[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [reply, setReply] = useState('');
   const [sending, setSending] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
 
-  const fetchData = useCallback(async () => {
-    try {
-      const [tRes, cRes] = await Promise.all([
-        portalFetch(`/api/patient-portal/tickets/${ticketId}`),
-        portalFetch(`/api/patient-portal/tickets/${ticketId}/comments`),
-      ]);
-      const tErr = getPortalResponseError(tRes);
-      if (tErr) { setError(tErr); return; }
-      if (tRes.ok) { const d = await tRes.json(); setTicket(d.ticket); }
-      if (cRes.ok) { const d = await cRes.json(); setComments(d.comments || []); }
-    } catch { setError('Failed to load ticket'); }
-    finally { setLoading(false); }
-  }, [ticketId]);
+  const {
+    data: ticketData,
+    error: ticketError,
+    isLoading: isTicketLoading,
+  } = usePortalSWR<{ ticket: TicketDetail }>(ticketId ? `/api/patient-portal/tickets/${ticketId}` : null);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  const {
+    data: commentsData,
+    error: commentsError,
+    isLoading: isCommentsLoading,
+    mutate: mutateComments,
+  } = usePortalSWR<{ comments: Comment[] }>(
+    ticketId ? `/api/patient-portal/tickets/${ticketId}/comments` : null,
+  );
+
+  const ticket = ticketData?.ticket ?? null;
+  const comments = commentsData?.comments ?? [];
+  const loading = isTicketLoading || isCommentsLoading;
+  const error = actionError || ticketError?.message || commentsError?.message || null;
 
   const handleReply = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!reply.trim()) return;
+    setActionError(null);
     setSending(true);
     try {
       const res = await portalFetch(`/api/patient-portal/tickets/${ticketId}/comments`, {
@@ -105,10 +110,27 @@ export default function PatientTicketDetailPage() {
         body: JSON.stringify({ content: reply.trim() }),
       });
       if (!res.ok) throw new Error('Failed to send reply');
+      const result = await safeParseJson(res);
+      const createdComment = (
+        result && typeof result === 'object' && 'comment' in result
+          ? (result as { comment?: Comment }).comment
+          : null
+      ) ?? null;
+
+      if (createdComment) {
+        await mutateComments(
+          (current) => ({
+            comments: [...(current?.comments ?? []), createdComment],
+          }),
+          { revalidate: false },
+        );
+      } else {
+        await mutateComments();
+      }
+
       setReply('');
-      await fetchData();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed');
+      setActionError(err instanceof Error ? err.message : 'Failed');
     } finally { setSending(false); }
   };
 
@@ -169,7 +191,7 @@ export default function PatientTicketDetailPage() {
     return (
       <div className="flex flex-col items-center py-16">
         <p className="text-gray-500">{error || 'Ticket not found'}</p>
-        <a href="/patient-portal/support" className="mt-4 text-blue-600 hover:underline">Back to Support</a>
+        <Link href="/patient-portal/support" className="mt-4 text-blue-600 hover:underline">Back to Support</Link>
       </div>
     );
   }
@@ -179,9 +201,9 @@ export default function PatientTicketDetailPage() {
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <div className="flex items-center gap-3">
-        <a href="/patient-portal/support" className="rounded-lg p-1 hover:bg-gray-100">
+        <Link href="/patient-portal/support" className="rounded-lg p-1 hover:bg-gray-100">
           <ArrowLeft className="h-5 w-5 text-gray-500" />
-        </a>
+        </Link>
         <div className="flex-1">
           <div className="flex items-center gap-2">
             <span className="text-sm text-gray-500">{ticket.ticketNumber}</span>
