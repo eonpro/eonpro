@@ -854,6 +854,15 @@ export default async function PatientDetailPage({
                 ? { planName: (patientWithDecryptedPHI.subscriptions as { id: number; planName: string }[])[0].planName }
                 : null
             }
+            orders={(patientWithDecryptedPHI.orders ?? []).map((o: any) => ({
+              id: o.id,
+              createdAt: o.createdAt,
+              primaryMedName: o.primaryMedName,
+              primaryMedStrength: o.primaryMedStrength,
+              trackingNumber: o.trackingNumber,
+              status: o.status,
+              rxs: o.rxs?.map((rx: any) => ({ medName: rx.medName, strength: rx.strength })),
+            }))}
           />
 
           {/* Main Content Area */}

@@ -57,6 +57,16 @@ interface PatientSidebarProps {
   patientDetailBasePath?: string;
   /** When set, show an "Active membership" badge (e.g. from active subscription). */
   activeMembership?: { planName?: string } | null;
+  /** Patient orders for FedEx label linking */
+  orders?: Array<{
+    id: number;
+    createdAt: Date;
+    primaryMedName?: string | null;
+    primaryMedStrength?: string | null;
+    trackingNumber?: string | null;
+    status?: string | null;
+    rxs?: Array<{ medName?: string; strength?: string }>;
+  }>;
 }
 
 const navItems = [
@@ -459,6 +469,7 @@ export default function PatientSidebar({
   showLabsTab = true,
   patientDetailBasePath = '/patients',
   activeMembership = null,
+  orders = [],
 }: PatientSidebarProps) {
   const router = useRouter();
   const [showEditModal, setShowEditModal] = useState(false);
@@ -942,6 +953,10 @@ export default function PatientSidebar({
             state: patient.state,
             zip: patient.zip,
           }}
+          orders={orders.map((o) => ({
+            ...o,
+            createdAt: typeof o.createdAt === 'string' ? o.createdAt : o.createdAt.toISOString(),
+          }))}
           onClose={() => setShowFedExModal(false)}
         />
       )}

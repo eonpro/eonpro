@@ -66,6 +66,7 @@ model Order {
   rxs               Rx[]
   tickets           Ticket[]
   shippingUpdates   PatientShippingUpdate[]
+  shipmentLabels    ShipmentLabel[]
   refillAsLastOrder RefillQueue[]           @relation("RefillLastOrder")
   refillAsNewOrder  RefillQueue?            @relation("RefillNewOrder")
 

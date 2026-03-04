@@ -26,6 +26,18 @@ type RateQuote = {
   transitDays: string | null;
 };
 
+type OrderForLabel = {
+  id: number;
+  createdAt: string | Date;
+  primaryMedName?: string | null;
+  primaryMedStrength?: string | null;
+  trackingNumber?: string | null;
+  status?: string | null;
+  rxs?: Array<{ medName?: string; strength?: string }>;
+};
+
+type LabelFormat = 'PDF' | 'ZPLII' | 'PNG';
+
 type Props = {
   patientId: number;
   clinicAddress?: {
@@ -46,6 +58,7 @@ type Props = {
     state: string;
     zip: string;
   };
+  orders?: OrderForLabel[];
   onClose: () => void;
 };
 
@@ -57,8 +70,17 @@ export default function FedExLabelModal({
   patientName,
   patientPhone,
   patientAddress,
+  orders = [],
   onClose,
 }: Props) {
+  const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
+  const [labelFormat, setLabelFormat] = useState<LabelFormat>('ZPLII');
+
+  const untrackedOrders = useMemo(
+    () => orders.filter((o) => !o.trackingNumber && o.status !== 'cancelled'),
+    [orders],
+  );
+
   const [origin, setOrigin] = useState<Address>({
     personName: clinicName || '',
     phoneNumber: clinicPhone || '',
@@ -336,13 +358,16 @@ export default function FedExLabelModal({
           packagingType,
           weightLbs,
           oneRate,
+          labelFormat,
+          ...(selectedOrderId ? { orderId: selectedOrderId } : {}),
         }),
       });
 
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to create label');
 
-      const opened = printLabel4x6(data.labelData, data.labelFormat || 'PDF');
+      const fmt = data.labelFormat || labelFormat;
+      const opened = printLabel4x6(data.labelData, fmt);
       setSuccess({ trackingNumber: data.trackingNumber, labelId: data.id, popupBlocked: !opened });
     } catch (err: any) {
       setError(err.message || 'An unexpected error occurred');
@@ -389,48 +414,66 @@ export default function FedExLabelModal({
 
         <div className="space-y-6 p-6">
           {/* Success state */}
-          {success && (
-            <div className="rounded-lg border border-green-200 bg-green-50 p-4">
-              <p className="font-medium text-green-800">Label created successfully!</p>
-              <p className="mt-1 text-sm text-green-700">
-                Tracking: <span className="font-mono font-semibold">{success.trackingNumber}</span>
-              </p>
-              {success.popupBlocked ? (
-                <div className="mt-2 rounded-md border border-amber-300 bg-amber-50 p-3">
-                  <p className="text-sm font-medium text-amber-800">
-                    Popup was blocked by your browser.
-                  </p>
-                  <p className="mt-0.5 text-xs text-amber-700">
-                    Click the button below to download your label PDF.
-                  </p>
-                </div>
-              ) : (
-                <p className="mt-1 text-xs text-green-600">
-                  The label PDF has been opened in a new tab for printing.
+          {success && (() => {
+            const linkedOrder = selectedOrderId ? orders.find((o) => o.id === selectedOrderId) : null;
+            const isZpl = labelFormat === 'ZPLII';
+            return (
+              <div className="rounded-lg border border-green-200 bg-green-50 p-4">
+                <p className="font-medium text-green-800">Label created successfully!</p>
+                <p className="mt-1 text-sm text-green-700">
+                  Tracking: <span className="font-mono font-semibold">{success.trackingNumber}</span>
                 </p>
-              )}
-              <div className="mt-3 flex items-center gap-2">
-                <button
-                  onClick={handleRedownload}
-                  disabled={redownloading}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-[#4D148C] px-4 py-2 text-sm font-medium text-[#4D148C] transition hover:bg-purple-50 disabled:opacity-50"
-                >
-                  {redownloading ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Download className="h-4 w-4" />
-                  )}
-                  {success.popupBlocked ? 'Download Label PDF' : 'Re-download Label'}
-                </button>
-                <button
-                  onClick={onClose}
-                  className="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
-                >
-                  Done
-                </button>
+                {linkedOrder && (
+                  <p className="mt-1 text-sm text-green-700">
+                    Linked to prescription:{' '}
+                    <span className="font-semibold">
+                      {linkedOrder.primaryMedName || linkedOrder.rxs?.[0]?.medName || 'Order'}
+                      {(linkedOrder.primaryMedStrength || linkedOrder.rxs?.[0]?.strength) &&
+                        ` ${linkedOrder.primaryMedStrength || linkedOrder.rxs?.[0]?.strength}`}
+                    </span>
+                  </p>
+                )}
+                {isZpl ? (
+                  <p className="mt-1 text-xs text-green-600">
+                    ZPL label file downloaded — send to your Zebra printer.
+                  </p>
+                ) : success.popupBlocked ? (
+                  <div className="mt-2 rounded-md border border-amber-300 bg-amber-50 p-3">
+                    <p className="text-sm font-medium text-amber-800">
+                      Popup was blocked by your browser.
+                    </p>
+                    <p className="mt-0.5 text-xs text-amber-700">
+                      Click the button below to download your label.
+                    </p>
+                  </div>
+                ) : (
+                  <p className="mt-1 text-xs text-green-600">
+                    The label has been opened in a new tab for printing.
+                  </p>
+                )}
+                <div className="mt-3 flex items-center gap-2">
+                  <button
+                    onClick={handleRedownload}
+                    disabled={redownloading}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-[#4D148C] px-4 py-2 text-sm font-medium text-[#4D148C] transition hover:bg-purple-50 disabled:opacity-50"
+                  >
+                    {redownloading ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Download className="h-4 w-4" />
+                    )}
+                    Re-download Label
+                  </button>
+                  <button
+                    onClick={onClose}
+                    className="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
+                  >
+                    Done
+                  </button>
+                </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           {/* Error */}
           {error && (
@@ -442,6 +485,68 @@ export default function FedExLabelModal({
 
           {!success && (
             <>
+              {/* Link to Prescription */}
+              {untrackedOrders.length > 0 && (
+                <fieldset className="space-y-2">
+                  <legend className="flex items-center gap-1.5 text-sm font-semibold text-gray-700">
+                    <Package className="h-4 w-4" />
+                    Link to Prescription (optional)
+                  </legend>
+                  <select
+                    value={selectedOrderId ?? ''}
+                    onChange={(e) => setSelectedOrderId(e.target.value ? parseInt(e.target.value, 10) : null)}
+                    className={`w-full ${inputCls}`}
+                  >
+                    <option value="">No prescription — ship without linking</option>
+                    {untrackedOrders.map((o) => {
+                      const med = o.primaryMedName || o.rxs?.[0]?.medName || 'Unknown';
+                      const str = o.primaryMedStrength || o.rxs?.[0]?.strength || '';
+                      const date = new Date(o.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                      return (
+                        <option key={o.id} value={o.id}>
+                          {med}{str ? ` ${str}` : ''} — {date}
+                          {o.status ? ` (${o.status})` : ''}
+                        </option>
+                      );
+                    })}
+                  </select>
+                  <p className="text-xs text-gray-500">
+                    Selecting a prescription will automatically attach the tracking number to it.
+                  </p>
+                </fieldset>
+              )}
+
+              {/* Label Format */}
+              <fieldset className="space-y-2">
+                <legend className="flex items-center gap-1.5 text-sm font-semibold text-gray-700">
+                  <Printer className="h-4 w-4" />
+                  Label Format
+                </legend>
+                <div className="flex gap-2">
+                  {([
+                    { value: 'ZPLII' as LabelFormat, label: 'ZPL (Zebra Thermal)', desc: 'Direct to thermal printer' },
+                    { value: 'PDF' as LabelFormat, label: 'PDF', desc: 'For regular printers' },
+                    { value: 'PNG' as LabelFormat, label: 'PNG Image', desc: 'Image file' },
+                  ]).map((opt) => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => setLabelFormat(opt.value)}
+                      className={`flex-1 rounded-lg border p-2.5 text-left transition-colors ${
+                        labelFormat === opt.value
+                          ? 'border-[#4D148C] bg-purple-50 ring-1 ring-[#4D148C]'
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                    >
+                      <p className={`text-sm font-medium ${labelFormat === opt.value ? 'text-[#4D148C]' : 'text-gray-700'}`}>
+                        {opt.label}
+                      </p>
+                      <p className="text-xs text-gray-500">{opt.desc}</p>
+                    </button>
+                  ))}
+                </div>
+              </fieldset>
+
               {/* Origin Address */}
               <fieldset className="space-y-3">
                 <legend className="flex items-center gap-1.5 text-sm font-semibold text-gray-700">

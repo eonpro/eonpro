@@ -36,6 +36,7 @@ const createLabelSchema = z.object({
   height: z.number().positive().optional(),
   oneRate: z.boolean().default(false),
   labelFormat: z.enum(['PDF', 'ZPLII', 'PNG']).default('PDF'),
+  orderId: z.number().int().positive().optional(),
 });
 
 function encryptAddressJson(addr: Record<string, unknown>): Record<string, unknown> {
@@ -64,7 +65,7 @@ async function handleCreateLabel(req: NextRequest, user: AuthUser) {
       );
     }
 
-    const { patientId, origin, destination, serviceType, packagingType, weightLbs, length, width, height, oneRate, labelFormat } = parsed.data;
+    const { patientId, origin, destination, serviceType, packagingType, weightLbs, length, width, height, oneRate, labelFormat, orderId } = parsed.data;
 
     const validService = FEDEX_SERVICE_TYPES.find((s) => s.code === serviceType);
     if (!validService) {
@@ -141,30 +142,82 @@ async function handleCreateLabel(req: NextRequest, user: AuthUser) {
       });
     }
 
-    const label = await prisma.shipmentLabel.create({
-      data: {
-        clinicId,
-        patientId,
-        userId: user.id,
-        trackingNumber: result.trackingNumber,
-        shipmentId: result.shipmentId,
-        serviceType: result.serviceType,
-        originAddress: encryptAddressJson(origin as Record<string, unknown>) as any,
-        destinationAddress: encryptAddressJson(destination as Record<string, unknown>) as any,
-        weightLbs,
-        length: length ?? null,
-        width: width ?? null,
-        height: height ?? null,
-        labelS3Key: s3Key,
-        labelPdfBase64: result.labelPdfBase64,
-        labelFormat: result.labelFormat,
-      },
-    });
+    const trackingUrl = `https://www.fedex.com/fedextrack/?trknbr=${result.trackingNumber}`;
+
+    const label = await prisma.$transaction(async (tx) => {
+      const shipmentLabel = await tx.shipmentLabel.create({
+        data: {
+          clinicId,
+          patientId,
+          userId: user.id,
+          trackingNumber: result.trackingNumber,
+          shipmentId: result.shipmentId,
+          serviceType: result.serviceType,
+          originAddress: encryptAddressJson(origin as Record<string, unknown>) as any,
+          destinationAddress: encryptAddressJson(destination as Record<string, unknown>) as any,
+          weightLbs,
+          length: length ?? null,
+          width: width ?? null,
+          height: height ?? null,
+          labelS3Key: s3Key,
+          labelPdfBase64: result.labelPdfBase64,
+          labelFormat: result.labelFormat,
+          orderId: orderId ?? null,
+        },
+      });
+
+      if (orderId) {
+        const order = await tx.order.findUnique({
+          where: { id: orderId },
+          select: { id: true, patientId: true, primaryMedName: true, primaryMedStrength: true },
+        });
+
+        if (order && order.patientId === patientId) {
+          await tx.order.update({
+            where: { id: orderId },
+            data: {
+              trackingNumber: result.trackingNumber,
+              trackingUrl,
+              shippingStatus: 'LABEL_CREATED',
+              lastWebhookAt: new Date(),
+            },
+          });
+
+          await tx.patientShippingUpdate.create({
+            data: {
+              clinicId,
+              patientId,
+              orderId,
+              trackingNumber: result.trackingNumber,
+              carrier: 'FedEx',
+              trackingUrl,
+              status: 'LABEL_CREATED',
+              statusNote: `FedEx ${validService.label} label created`,
+              shippedAt: new Date(),
+              medicationName: order.primaryMedName || undefined,
+              medicationStrength: order.primaryMedStrength || undefined,
+              source: 'fedex_label',
+              matchedAt: new Date(),
+              matchStrategy: 'fedex_label_creation',
+              processedAt: new Date(),
+              rawPayload: {
+                labelId: shipmentLabel.id,
+                serviceType,
+                createdBy: user.id,
+              } as any,
+            },
+          });
+        }
+      }
+
+      return shipmentLabel;
+    }, { timeout: 15000 });
 
     await logPHIAccess(req, user, 'ShipmentLabel', label.id, patientId, {
       action: 'fedex_label_created',
       trackingNumber: result.trackingNumber,
       serviceType,
+      orderId: orderId ?? undefined,
     }).catch((err: unknown) => {
       logger.error('HIPAA audit log failed', {
         error: err instanceof Error ? err.message : 'Unknown',
@@ -179,6 +232,7 @@ async function handleCreateLabel(req: NextRequest, user: AuthUser) {
       trackingNumber: result.trackingNumber,
       serviceType,
       labelFormat: result.labelFormat,
+      orderId: orderId ?? null,
     });
 
     return NextResponse.json({
@@ -187,6 +241,7 @@ async function handleCreateLabel(req: NextRequest, user: AuthUser) {
       serviceType: result.serviceType,
       labelData: result.labelPdfBase64,
       labelFormat: result.labelFormat,
+      orderId: orderId ?? null,
     });
   } catch (error) {
     return handleApiError(error, { route: 'POST /api/shipping/fedex/label' });

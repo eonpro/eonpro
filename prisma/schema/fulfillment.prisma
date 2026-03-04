@@ -95,6 +95,10 @@ model ShipmentLabel {
   userId Int
   user   User @relation(fields: [userId], references: [id])
 
+  // Optional link to prescription order
+  orderId Int?
+  order   Order? @relation(fields: [orderId], references: [id])
+
   // FedEx shipment details
   trackingNumber String
   shipmentId     String? // FedEx master tracking ID

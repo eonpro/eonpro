@@ -8,8 +8,10 @@
  */
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { Plus, MessageSquare, Loader2, CheckCircle, Clock, AlertTriangle } from 'lucide-react';
-import { portalFetch, getPortalResponseError } from '@/lib/api/patient-portal-client';
+import { portalFetch, getPortalResponseError, SESSION_EXPIRED_MESSAGE } from '@/lib/api/patient-portal-client';
+import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
 
 interface Ticket {
   id: number;
@@ -63,17 +65,27 @@ export default function PatientSupportPage() {
           <h1 className="text-2xl font-bold text-gray-900">Support</h1>
           <p className="text-sm text-gray-500">Submit and track your support requests</p>
         </div>
-        <a
-          href="/patient-portal/support/new"
+        <Link
+          href={`${PATIENT_PORTAL_PATH}/support/new`}
           className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-blue-700"
         >
           <Plus className="h-4 w-4" />
           New Request
-        </a>
+        </Link>
       </div>
 
       {error && (
-        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</div>
+        <div className="flex items-center gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+          <span className="flex-1">{error}</span>
+          {error === SESSION_EXPIRED_MESSAGE && (
+            <Link
+              href={`/patient-login?redirect=${encodeURIComponent(`${PATIENT_PORTAL_PATH}/support`)}&reason=session_expired`}
+              className="shrink-0 rounded-lg bg-red-200 px-3 py-1.5 text-sm font-medium text-red-900 hover:bg-red-300"
+            >
+              Log in
+            </Link>
+          )}
+        </div>
       )}
 
       {loading ? (
@@ -82,13 +94,13 @@ export default function PatientSupportPage() {
         <div className="flex flex-col items-center rounded-xl border border-gray-200 bg-white py-16">
           <MessageSquare className="h-12 w-12 text-gray-300" />
           <p className="mt-3 text-gray-500">No support requests yet</p>
-          <a
-            href="/patient-portal/support/new"
+          <Link
+            href={`${PATIENT_PORTAL_PATH}/support/new`}
             className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-700"
           >
             <Plus className="h-4 w-4" />
             Submit your first request
-          </a>
+          </Link>
         </div>
       ) : (
         <div className="space-y-3">
@@ -96,9 +108,9 @@ export default function PatientSupportPage() {
             const config = STATUS_CONFIG[ticket.status] || STATUS_CONFIG.NEW;
             const Icon = config.icon;
             return (
-              <a
+              <Link
                 key={ticket.id}
-                href={`/patient-portal/support/${ticket.id}`}
+                href={`${PATIENT_PORTAL_PATH}/support/${ticket.id}`}
                 className="block rounded-xl border border-gray-200 bg-white p-5 transition-shadow hover:shadow-md"
               >
                 <div className="flex items-start justify-between">
@@ -123,7 +135,7 @@ export default function PatientSupportPage() {
                     {ticket._count?.comments} {ticket._count?.comments === 1 ? 'reply' : 'replies'}
                   </div>
                 )}
-              </a>
+              </Link>
             );
           })}
         </div>

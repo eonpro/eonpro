@@ -574,22 +574,33 @@ export default function ProgressPage() {
   }
 
   if (error) {
+    const isSessionError = error.toLowerCase().includes('session') || error.toLowerCase().includes('log in');
     return (
       <div className="safe-left safe-right flex min-h-[50vh] items-center justify-center p-4">
         <div className="max-w-md rounded-2xl border border-red-200 bg-red-50 p-4 text-center text-red-700">
           <Activity className="mx-auto mb-3 h-12 w-12 text-red-300" />
           <p className="mb-2 font-medium">{t('progressErrorLoading')}</p>
           <p className="text-sm">{error}</p>
-          <button
-            onClick={() => {
-              setError(null);
-              setLoading(true);
-              if (patientId) fetchData();
-            }}
-            className="mt-4 min-h-[44px] rounded-xl bg-red-100 px-4 py-2 text-sm font-medium transition-colors hover:bg-red-200 active:scale-[0.98]"
-          >
-            {t('progressTryAgain')}
-          </button>
+          <div className="mt-4 flex flex-col items-center gap-2">
+            {isSessionError && (
+              <a
+                href={`/patient-login?redirect=${encodeURIComponent(`${PATIENT_PORTAL_PATH}/progress`)}&reason=session_expired`}
+                className="min-h-[44px] rounded-xl bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700"
+              >
+                Log in
+              </a>
+            )}
+            <button
+              onClick={() => {
+                setError(null);
+                setLoading(true);
+                if (patientId) fetchData();
+              }}
+              className="min-h-[44px] rounded-xl bg-red-100 px-4 py-2 text-sm font-medium transition-colors hover:bg-red-200 active:scale-[0.98]"
+            >
+              {t('progressTryAgain')}
+            </button>
+          </div>
         </div>
       </div>
     );

@@ -148,7 +148,7 @@ export default function SubscriptionPage() {
   const handleManageBilling = async () => {
     setManagingBilling(true);
     try {
-      const response = await portalFetch('/api/stripe/customer-portal', {
+      const response = await portalFetch('/api/patient-portal/billing/portal', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ returnUrl: window.location.href }),
@@ -185,18 +185,29 @@ export default function SubscriptionPage() {
   }
 
   if (billingError) {
+    const isSessionError = billingError.toLowerCase().includes('session') || billingError.toLowerCase().includes('log in');
     return (
       <div className="min-h-screen p-4 md:p-6 lg:p-8">
         <div className="mx-auto max-w-md rounded-2xl border border-amber-200 bg-amber-50 p-6 text-center">
           <AlertCircle className="mx-auto h-10 w-10 text-amber-600" />
           <h2 className="mt-3 font-semibold text-amber-900">Unable to load billing</h2>
           <p className="mt-1 text-sm text-amber-800">{billingError}</p>
-          <button
-            onClick={loadSubscriptionData}
-            className="mt-4 rounded-xl px-4 py-2 font-medium text-amber-900 ring-1 ring-amber-300 hover:bg-amber-100"
-          >
-            Try again
-          </button>
+          <div className="mt-4 flex flex-col items-center gap-2">
+            {isSessionError && (
+              <a
+                href={`/patient-login?redirect=${encodeURIComponent(`${PATIENT_PORTAL_PATH}/subscription`)}&reason=session_expired`}
+                className="rounded-xl bg-emerald-600 px-4 py-2 font-medium text-white hover:bg-emerald-700"
+              >
+                Log in
+              </a>
+            )}
+            <button
+              onClick={loadSubscriptionData}
+              className="rounded-xl px-4 py-2 font-medium text-amber-900 ring-1 ring-amber-300 hover:bg-amber-100"
+            >
+              Try again
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -444,9 +455,12 @@ export default function SubscriptionPage() {
             <p className="mb-4 text-sm text-blue-800">
               {t('subscriptionSupportDesc')}
             </p>
-            <button className="w-full rounded-xl bg-blue-600 py-2.5 text-center font-medium text-white transition-colors hover:bg-blue-700">
+            <a
+              href={`${PATIENT_PORTAL_PATH}/support/new`}
+              className="block w-full rounded-xl bg-blue-600 py-2.5 text-center font-medium text-white transition-colors hover:bg-blue-700"
+            >
               {t('subscriptionContactSupport')}
-            </button>
+            </a>
           </div>
 
           {/* Cancellation Notice */}

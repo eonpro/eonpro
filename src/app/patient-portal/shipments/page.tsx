@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
+import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
 import { usePatientPortalLanguage } from '@/lib/contexts/PatientPortalLanguageContext';
 import { usePortalSWR } from '@/hooks/usePortalSWR';
 import {
@@ -130,8 +131,16 @@ export default function ShipmentsPage() {
       </div>
 
       {error && (
-        <div className="mb-6 rounded-2xl border border-red-100 bg-red-50 p-4 text-red-700">
-          {error}
+        <div className="mb-6 flex items-center gap-3 rounded-2xl border border-red-100 bg-red-50 p-4 text-red-700">
+          <span className="flex-1">{error}</span>
+          {(error.toLowerCase().includes('session') || error.toLowerCase().includes('log in')) && (
+            <a
+              href={`/patient-login?redirect=${encodeURIComponent(`${PATIENT_PORTAL_PATH}/shipments`)}&reason=session_expired`}
+              className="shrink-0 rounded-lg bg-red-200 px-3 py-1.5 text-sm font-medium text-red-900 hover:bg-red-300"
+            >
+              Log in
+            </a>
+          )}
         </div>
       )}
 

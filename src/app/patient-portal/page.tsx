@@ -329,6 +329,9 @@ export default function PatientPortalDashboard() {
       logger.error('Error loading patient data', {
         error: error instanceof Error ? error.message : 'Unknown',
       });
+      if (!dataError) {
+        setDataError('Unable to load your health data. Please check your connection and try again.');
+      }
     }
   };
 
