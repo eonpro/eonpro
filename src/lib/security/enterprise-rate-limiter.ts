@@ -724,23 +724,23 @@ export class EnterpriseRateLimiter {
 // Pre-configured Instances
 // ============================================================================
 
-/** Lockout after N failed attempts (enterprise: 5). Override via AUTH_LOCKOUT_AFTER_ATTEMPTS */
+/** Lockout after N failed attempts. Override via AUTH_LOCKOUT_AFTER_ATTEMPTS env var. */
 const AUTH_LOCKOUT_ATTEMPTS = parseInt(
-  process.env.AUTH_LOCKOUT_AFTER_ATTEMPTS || '5',
+  process.env.AUTH_LOCKOUT_AFTER_ATTEMPTS || '10',
   10
 );
 
 /**
  * Authentication rate limiter (login, password reset, etc.)
- * Enterprise: Lockout after 5 failed attempts (30 min block)
+ * 10 attempts before lockout, 10-minute block, 30 email attempts/hr.
  */
 export const authRateLimiter = new EnterpriseRateLimiter(
   {
-    ipLimitPerHour: 50,
-    emailLimitPerHour: 15,
+    ipLimitPerHour: 60,
+    emailLimitPerHour: 30,
     maxAttempts: AUTH_LOCKOUT_ATTEMPTS,
     enableProgressiveSecurity: true,
-    blockDurationSeconds: 30 * 60, // 30 minutes
+    blockDurationSeconds: 10 * 60, // 10 minutes (down from 30)
   },
   'auth'
 );

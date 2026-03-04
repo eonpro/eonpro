@@ -26,8 +26,8 @@ import { getRequestHost, getRequestHostWithUrlFallback, shouldUseEonproCookieDom
 import { hashRefreshToken } from '@/lib/auth/refresh-token-rotation';
 import { withApiHandler } from '@/domains/shared/errors';
 
-const AUTH_LOCKOUT_AFTER_ATTEMPTS = parseInt(process.env.AUTH_LOCKOUT_AFTER_ATTEMPTS || '5', 10);
-const LOCKOUT_DURATION_MS = 30 * 60 * 1000; // 30 minutes
+const AUTH_LOCKOUT_AFTER_ATTEMPTS = parseInt(process.env.AUTH_LOCKOUT_AFTER_ATTEMPTS || '10', 10);
+const LOCKOUT_DURATION_MS = 10 * 60 * 1000; // 10 minutes
 // The Prisma client provides type-safe queries for these entities
 
 // Zod schema for login request validation

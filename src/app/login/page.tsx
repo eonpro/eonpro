@@ -825,6 +825,15 @@ function LoginContent() {
           setLoading(false);
           return;
         }
+        // 429 Rate limited / locked out
+        if (response.status === 429 || data.code === 'RATE_LIMIT_EXCEEDED') {
+          const minutes = data.retryAfter ? Math.ceil(data.retryAfter / 60) : 10;
+          setError(
+            `Account temporarily locked. Please try again in ${minutes} minutes or use email verification to unlock.`
+          );
+          setLoading(false);
+          return;
+        }
         // 503 Service Unavailable (e.g. DB pool exhausted): show message and retry countdown
         if (response.status === 503) {
           setError(data.error || 'Service is busy. Please try again in a moment.');
@@ -1334,7 +1343,18 @@ function LoginContent() {
                 {error && (
                   <div className="rounded-2xl border border-red-200 bg-red-50 p-4 space-y-3">
                     <p className="text-center text-sm text-red-600">{error}</p>
-                    {/* Resend verification email button for unverified accounts */}
+                    {error.includes('temporarily locked') && (
+                      <div className="flex justify-center">
+                        <button
+                          type="button"
+                          onClick={sendEmailOtp}
+                          disabled={loading}
+                          className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition-all hover:bg-emerald-700 disabled:opacity-50"
+                        >
+                          Unlock via email code
+                        </button>
+                      </div>
+                    )}
                     {error.includes('verify your email') && (
                       <div className="flex justify-center">
                         <button
