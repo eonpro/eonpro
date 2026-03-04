@@ -19,20 +19,21 @@ export default function ConditionalLayout({ children }: ConditionalLayoutProps) 
   // Pages that need full-width/custom layouts (no container/padding)
   const fullWidthPages = [
     '/login',
+    '/patient-login',
     '/register',
     '/email-verified',
     '/forgot-password',
     '/reset-password',
     '/verify-email',
     '/pay/',
-    '/patients/', // Patient detail pages have their own layout
-    '/affiliate/', // Affiliate landing pages have their own branded layout
-    '/provider', // Provider app has its own layout with <main>; avoid nesting <main>
-    '/admin', // Admin app has its own layout with <main>
-    '/tickets', // Tickets app has its own layout with <main>
-    '/orders', // Orders app has its own layout with <main>
-    '/intake-forms', // Intake forms app has its own layout with <main>
-    '/patient-portal', // Patient portal has its own layout with <main>
+    '/patients/',
+    '/affiliate/',
+    '/provider',
+    '/admin',
+    '/tickets',
+    '/orders',
+    '/intake-forms',
+    '/patient-portal',
   ];
 
   const isFullWidthPage = fullWidthPages.some((page) => pathname?.startsWith(page));

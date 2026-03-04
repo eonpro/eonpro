@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { Suspense, useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Eye, EyeOff, X, Mail, ArrowRight, RefreshCw, CheckCircle2, Smartphone } from 'lucide-react';
 import { isBrowser } from '@/lib/utils/ssr-safe';
@@ -65,7 +65,15 @@ async function parseJsonResponse(response: Response): Promise<LoginResponseData>
   }
 }
 
-export default function PatientLoginPage() {
+export default function PatientLoginPageWrapper() {
+  return (
+    <Suspense fallback={<div className="flex min-h-screen items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-emerald-600" /></div>}>
+      <PatientLoginPage />
+    </Suspense>
+  );
+}
+
+function PatientLoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
 

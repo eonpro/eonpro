@@ -93,6 +93,7 @@ export default function ConditionalHeader() {
   const noHeaderPages = [
     '/',
     '/login',
+    '/patient-login',
     '/register',
     '/forgot-password',
     '/reset-password',
