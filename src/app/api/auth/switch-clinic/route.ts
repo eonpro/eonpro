@@ -5,7 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { SignJWT } from 'jose';
-import { prisma } from '@/lib/db';
+import { prisma, withoutClinicFilter } from '@/lib/db';
 import { JWT_SECRET, JWT_REFRESH_SECRET, AUTH_CONFIG } from '@/lib/auth/config';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { createSessionRecord } from '@/lib/auth/session-manager';
@@ -17,6 +17,7 @@ import { logger } from '@/lib/logger';
  * Switch to a different clinic and get a new JWT
  */
 async function switchClinicHandler(req: NextRequest, user: AuthUser) {
+  return withoutClinicFilter(async () => {
   try {
     const body = await req.json();
     const { clinicId } = body;
@@ -85,9 +86,11 @@ async function switchClinicHandler(req: NextRequest, user: AuthUser) {
     logger.error('Error switching clinic:', error);
     return NextResponse.json({ error: 'Failed to switch clinic' }, { status: 500 });
   }
+  }); // end withoutClinicFilter
 }
 
 async function getUserClinics(userId: number, primaryClinicId?: number | null) {
+  return withoutClinicFilter(async () => {
   const clinics: Array<{
     id: number;
     name: string;
@@ -144,9 +147,11 @@ async function getUserClinics(userId: number, primaryClinicId?: number | null) {
   }
 
   return clinics;
+  }); // end withoutClinicFilter
 }
 
 async function issueNewToken(req: NextRequest, user: AuthUser, clinicId: number | undefined, clinics: any[]) {
+  return withoutClinicFilter(async () => {
   const tokenPayload: Record<string, unknown> = {
     id: user.id,
     email: user.email,
@@ -279,6 +284,7 @@ async function issueNewToken(req: NextRequest, user: AuthUser, clinicId: number 
   });
 
   return response;
+  }); // end withoutClinicFilter
 }
 
 export const POST = standardRateLimit(withAuth(switchClinicHandler));

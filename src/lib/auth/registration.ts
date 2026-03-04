@@ -8,7 +8,7 @@
 import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import { Prisma } from '@prisma/client';
-import { prisma } from '@/lib/db';
+import { prisma, withoutClinicFilter } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { sendTemplatedEmail, EmailTemplate } from '@/lib/email';
 import { buildPatientSearchIndex } from '@/lib/utils/search';
@@ -201,6 +201,7 @@ export async function registerPatient(
   input: RegistrationInput,
   ipAddress?: string
 ): Promise<RegistrationResult> {
+  return withoutClinicFilter(async () => {
   const { email, password, firstName, lastName, phone, dob, clinicCode } = input;
 
   try {
@@ -504,6 +505,7 @@ export async function registerPatient(
       error: 'Registration failed. Please try again.',
     };
   }
+  }); // end withoutClinicFilter
 }
 
 /**
@@ -514,6 +516,7 @@ export async function registerWithInviteToken(
   input: RegisterWithInviteInput,
   ipAddress?: string
 ): Promise<RegistrationResult> {
+  return withoutClinicFilter(async () => {
   const { validateInviteToken, markInviteTokenUsed } = await import('@/lib/portal-invite/service');
   const { email, password, firstName, lastName, phone, dob, inviteToken } = input;
 
@@ -660,12 +663,14 @@ export async function registerWithInviteToken(
     logger.error('Register with invite failed', { error: error.message });
     return { success: false, error: 'Registration failed. Please try again.' };
   }
+  }); // end withoutClinicFilter
 }
 
 /**
  * Verify email with token
  */
 export async function verifyEmail(token: string): Promise<RegistrationResult> {
+  return withoutClinicFilter(async () => {
   try {
     const hashedToken = hashToken(token);
 
@@ -730,12 +735,14 @@ export async function verifyEmail(token: string): Promise<RegistrationResult> {
     logger.error('Email verification failed', { error: error.message });
     return { success: false, error: 'Verification failed. Please try again.' };
   }
+  }); // end withoutClinicFilter
 }
 
 /**
  * Resend verification email
  */
 export async function resendVerificationEmail(email: string): Promise<RegistrationResult> {
+  return withoutClinicFilter(async () => {
   try {
     const normalizedEmail = email.toLowerCase().trim();
 
@@ -801,4 +808,5 @@ export async function resendVerificationEmail(email: string): Promise<Registrati
     logger.error('Failed to resend verification email', { error: error.message, email });
     return { success: false, error: 'Failed to send email. Please try again.' };
   }
+  }); // end withoutClinicFilter
 }

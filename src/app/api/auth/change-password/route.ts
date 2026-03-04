@@ -8,7 +8,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { standardRateLimit } from '@/lib/rateLimit';
-import { prisma } from '@/lib/db';
+import { prisma, withoutClinicFilter } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { auditLog, AuditEventType } from '@/lib/audit/hipaa-audit';
 import bcrypt from 'bcryptjs';
@@ -31,6 +31,7 @@ const changePasswordSchema = z.object({
  * Change the authenticated user's password
  */
 async function handlePost(req: NextRequest, user: AuthUser): Promise<Response> {
+  return withoutClinicFilter(async () => {
   try {
     const body = await req.json();
 
@@ -134,6 +135,7 @@ async function handlePost(req: NextRequest, user: AuthUser): Promise<Response> {
       { status: 500 }
     );
   }
+  }); // end withoutClinicFilter
 }
 
 export const POST = standardRateLimit(withAuth(handlePost));

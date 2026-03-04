@@ -9,7 +9,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { prisma } from '@/lib/db';
+import { prisma, withoutClinicFilter } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { strictRateLimit } from '@/lib/rateLimit';
 
@@ -19,6 +19,7 @@ const validateCodeSchema = z.object({
 });
 
 async function handler(req: NextRequest): Promise<Response> {
+  return withoutClinicFilter(async () => {
   try {
     const body = await req.json();
     const validated = validateCodeSchema.safeParse(body);
@@ -115,6 +116,7 @@ async function handler(req: NextRequest): Promise<Response> {
     logger.error('Error validating clinic code', { error: error.message });
     return NextResponse.json({ error: 'An error occurred. Please try again.' }, { status: 500 });
   }
+  }); // end withoutClinicFilter
 }
 
 // Apply rate limiting (10 requests per minute per IP)

@@ -6,7 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
-import { prisma } from '@/lib/db';
+import { prisma, withoutClinicFilter } from '@/lib/db';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { strictRateLimit } from '@/lib/rateLimit';
 import { logger } from '@/lib/logger';
@@ -20,6 +20,7 @@ const verifyPasswordSchema = z.object({
  * Verify the current user's password for sensitive operations
  */
 async function verifyPasswordHandler(req: NextRequest, user: AuthUser) {
+  return withoutClinicFilter(async () => {
   try {
     const body = await req.json();
 
@@ -60,6 +61,7 @@ async function verifyPasswordHandler(req: NextRequest, user: AuthUser) {
     logger.error('[Verify Password] Error:', error);
     return NextResponse.json({ error: 'Failed to verify password' }, { status: 500 });
   }
+  }); // end withoutClinicFilter
 }
 
 // Apply rate limiting and authentication
