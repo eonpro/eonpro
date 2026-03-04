@@ -322,6 +322,15 @@ export default function PatientLoginPage() {
           return;
         }
 
+        if (response.status === 429 || data.code === 'RATE_LIMIT_EXCEEDED') {
+          const minutes = data.retryAfter ? Math.ceil(data.retryAfter / 60) : 30;
+          setError(
+            `Account temporarily locked. Please try again in ${minutes} minutes or use email verification to unlock.`
+          );
+          setLoading(false);
+          return;
+        }
+
         if (response.status === 503) {
           setError(data.error || 'Service is busy. Please try again in a moment.');
           setLoading(false);
@@ -794,7 +803,20 @@ export default function PatientLoginPage() {
                 {error && (
                   <div className="space-y-3 rounded-2xl border border-red-200 bg-red-50 p-4">
                     <p className="text-center text-sm text-red-600">{error}</p>
-                    {/* Resend verification email */}
+                    {error.includes('temporarily locked') && (
+                      <div className="flex justify-center">
+                        <button
+                          type="button"
+                          onClick={sendEmailOtp}
+                          disabled={loading}
+                          className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white transition-all hover:opacity-90 disabled:opacity-50"
+                          style={{ backgroundColor: primaryColor }}
+                        >
+                          <Mail className="h-4 w-4" />
+                          Unlock via email code
+                        </button>
+                      </div>
+                    )}
                     {error.includes('verify your email') && (
                       <div className="flex justify-center">
                         <button
