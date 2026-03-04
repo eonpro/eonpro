@@ -113,7 +113,12 @@ function isAffiliatePortalRoute(pathname: string): boolean {
 function isPatientPortalRoute(pathname: string): boolean {
   const portalBase = getPatientPortalBasePath();
   if (isAffiliatePortalRoute(pathname)) return false;
-  return pathname === portalBase || pathname.startsWith(portalBase + '/');
+  return (
+    pathname === portalBase ||
+    pathname.startsWith(portalBase + '/') ||
+    pathname === '/patient-portal' ||
+    pathname.startsWith('/patient-portal/')
+  );
 }
 
 /**

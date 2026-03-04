@@ -8,6 +8,8 @@ import { SignJWT } from 'jose';
 import { prisma } from '@/lib/db';
 import { JWT_SECRET, JWT_REFRESH_SECRET, AUTH_CONFIG } from '@/lib/auth/config';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
+import { createSessionRecord } from '@/lib/auth/session-manager';
+import { standardRateLimit } from '@/lib/rateLimit';
 import { logger } from '@/lib/logger';
 
 /**
@@ -36,7 +38,7 @@ async function switchClinicHandler(req: NextRequest, user: AuthUser) {
       }
 
       // Issue new token without clinicId (super admin can access all)
-      return await issueNewToken(user, undefined, [clinic]);
+      return await issueNewToken(req, user, undefined, [clinic]);
     }
 
     // For other users, verify they have access to this clinic
@@ -78,7 +80,7 @@ async function switchClinicHandler(req: NextRequest, user: AuthUser) {
     const userClinics = await getUserClinics(user.id, userData?.clinicId);
 
     // Issue new token with the new clinicId
-    return await issueNewToken(user, clinicId, userClinics);
+    return await issueNewToken(req, user, clinicId, userClinics);
   } catch (error: any) {
     logger.error('Error switching clinic:', error);
     return NextResponse.json({ error: 'Failed to switch clinic' }, { status: 500 });
@@ -144,17 +146,15 @@ async function getUserClinics(userId: number, primaryClinicId?: number | null) {
   return clinics;
 }
 
-async function issueNewToken(user: AuthUser, clinicId: number | undefined, clinics: any[]) {
-  // Create new JWT with updated clinicId
-  const tokenPayload: any = {
+async function issueNewToken(req: NextRequest, user: AuthUser, clinicId: number | undefined, clinics: any[]) {
+  const tokenPayload: Record<string, unknown> = {
     id: user.id,
     email: user.email,
-    name: user.email, // Will be overridden if we have full name
+    name: user.email,
     role: user.role,
     clinicId: clinicId,
   };
 
-  // Get user's full name and provider relation
   const userData = await prisma.user.findUnique({
     where: { id: user.id },
     select: {
@@ -168,21 +168,34 @@ async function issueNewToken(user: AuthUser, clinicId: number | undefined, clini
     tokenPayload.name =
       `${userData.firstName || ''} ${userData.lastName || ''}`.trim() || user.email;
 
-    // CRITICAL: Preserve providerId for multi-clinic providers
-    // Priority: existing token > user.providerId > user.provider.id
     const providerId = user.providerId || userData.providerId || userData.provider?.id;
     if (providerId) {
       tokenPayload.providerId = providerId;
     }
   } else if (user.providerId) {
-    // Fallback: preserve providerId from original token even if user lookup fails
     tokenPayload.providerId = user.providerId;
   }
+
+  // Create a session record so the auth middleware can validate this token
+  const { sessionId } = await createSessionRecord(
+    String(user.id),
+    user.role,
+    clinicId,
+    req
+  );
+  tokenPayload.sessionId = sessionId;
+
+  const tokenExpiry =
+    user.role === 'patient'
+      ? AUTH_CONFIG.tokenExpiry.patient
+      : user.role === 'provider'
+        ? AUTH_CONFIG.tokenExpiry.provider
+        : AUTH_CONFIG.tokenExpiry.access;
 
   const token = await new SignJWT(tokenPayload)
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
-    .setExpirationTime(AUTH_CONFIG.tokenExpiry.access)
+    .setExpirationTime(tokenExpiry)
     .sign(JWT_SECRET);
 
   // Create refresh token (signed with dedicated refresh secret)
@@ -268,4 +281,4 @@ async function issueNewToken(user: AuthUser, clinicId: number | undefined, clini
   return response;
 }
 
-export const POST = withAuth(switchClinicHandler);
+export const POST = standardRateLimit(withAuth(switchClinicHandler));

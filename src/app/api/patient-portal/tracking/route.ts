@@ -120,7 +120,10 @@ async function getHandler(req: NextRequest, user: AuthUser) {
         where: { id: patientId },
         select: { id: true, clinicId: true },
       });
-    }).catch(() => null);
+    }).catch((err) => {
+      logger.error('[Tracking] Patient lookup failed', { error: err instanceof Error ? err.message : String(err), patientId });
+      return null;
+    });
 
     // If the scoped query fails (wrong clinic), try basePrisma lookup
     if (!patientRecord) {

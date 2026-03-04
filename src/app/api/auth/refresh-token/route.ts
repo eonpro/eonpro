@@ -16,6 +16,7 @@ import {
 } from '@/lib/auth/refresh-token-rotation';
 import { createSessionRecord } from '@/lib/auth/session-manager';
 import { withApiHandler } from '@/domains/shared/errors';
+import { standardRateLimit } from '@/lib/rateLimit';
 import {
   getRequestHostWithUrlFallback,
   shouldUseEonproCookieDomain,
@@ -381,4 +382,4 @@ async function refreshTokenHandler(req: NextRequest) {
   }
 }
 
-export const POST = withApiHandler(refreshTokenHandler);
+export const POST = standardRateLimit(withApiHandler(refreshTokenHandler));

@@ -7,6 +7,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
+import { standardRateLimit } from '@/lib/rateLimit';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { auditLog, AuditEventType } from '@/lib/audit/hipaa-audit';
@@ -135,4 +136,4 @@ async function handlePost(req: NextRequest, user: AuthUser): Promise<Response> {
   }
 }
 
-export const POST = withAuth(handlePost);
+export const POST = standardRateLimit(withAuth(handlePost));

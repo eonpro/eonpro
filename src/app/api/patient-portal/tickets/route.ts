@@ -8,7 +8,7 @@
 
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { withAuth } from '@/lib/auth';
+import { withAuth } from '@/lib/auth/middleware';
 import { handleApiError } from '@/domains/shared/errors';
 import { logger } from '@/lib/logger';
 
