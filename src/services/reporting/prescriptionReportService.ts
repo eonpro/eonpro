@@ -10,7 +10,7 @@
  * @module services/reporting/prescriptionReportService
  */
 
-import { basePrisma as prisma } from '@/lib/db';
+import { prisma, withoutClinicFilter } from '@/lib/db';
 import { decryptPHI } from '@/lib/security/phi-encryption';
 import { logger } from '@/lib/logger';
 
@@ -176,158 +176,147 @@ export const prescriptionReportService = {
     if (clinicId) where.clinicId = clinicId;
     if (providerId) where.providerId = providerId;
 
-    const [orders, totalCount] = await Promise.all([
-      prisma.order.findMany({
-        where,
-        include: {
-          rxs: {
-            select: {
-              medName: true,
-              strength: true,
-              form: true,
-              quantity: true,
+    return withoutClinicFilter(async () => {
+      const [orders, totalCount] = await Promise.all([
+        prisma.order.findMany({
+          where,
+          include: {
+            rxs: {
+              select: {
+                medName: true,
+                strength: true,
+                form: true,
+                quantity: true,
+              },
+            },
+            patient: {
+              select: { id: true, firstName: true, lastName: true },
+            },
+            provider: {
+              select: { id: true, firstName: true, lastName: true },
+            },
+            clinic: {
+              select: { id: true, name: true },
             },
           },
-          patient: {
-            select: { id: true, firstName: true, lastName: true },
-          },
-          provider: {
-            select: { id: true, firstName: true, lastName: true },
-          },
-          clinic: {
-            select: { id: true, name: true },
-          },
-        },
-        orderBy: { createdAt: 'desc' },
-        take: limit,
-        skip: offset,
-      }),
-      prisma.order.count({ where }),
-    ]);
+          orderBy: { createdAt: 'desc' },
+          take: limit,
+          skip: offset,
+        }),
+        prisma.order.count({ where }),
+      ]);
 
-    // Build detail rows with PHI decryption
-    const details: PrescriptionDetailRow[] = orders.map((order) => {
-      const patFirstName = safeDecrypt(order.patient?.firstName);
-      const patLastName = safeDecrypt(order.patient?.lastName);
-      const medications = order.rxs
-        .map((rx) => `${rx.medName} ${rx.strength} ${rx.form}`)
-        .join('; ');
+      // Build detail rows with PHI decryption
+      const details: PrescriptionDetailRow[] = orders.map((order) => {
+        const patFirstName = safeDecrypt(order.patient?.firstName);
+        const patLastName = safeDecrypt(order.patient?.lastName);
+        const medications = order.rxs
+          .map((rx) => `${rx.medName} ${rx.strength} ${rx.form}`)
+          .join('; ');
 
-      return {
-        orderId: order.id,
-        date: order.createdAt.toISOString(),
-        patientId: order.patient?.id ?? order.patientId,
-        patientName: `${patFirstName} ${patLastName}`.trim() || 'Unknown',
-        providerId: order.provider?.id ?? order.providerId,
-        providerName: `${order.provider?.firstName ?? ''} ${order.provider?.lastName ?? ''}`.trim() || 'Unknown',
-        clinicId: order.clinic?.id ?? order.clinicId ?? 0,
-        clinicName: order.clinic?.name ?? 'Unknown',
-        medications: medications || 'N/A',
-        status: order.status,
-      };
-    });
+        return {
+          orderId: order.id,
+          date: order.createdAt.toISOString(),
+          patientId: order.patient?.id ?? order.patientId,
+          patientName: `${patFirstName} ${patLastName}`.trim() || 'Unknown',
+          providerId: order.provider?.id ?? order.providerId,
+          providerName: `${order.provider?.firstName ?? ''} ${order.provider?.lastName ?? ''}`.trim() || 'Unknown',
+          clinicId: order.clinic?.id ?? order.clinicId ?? 0,
+          clinicName: order.clinic?.name ?? 'Unknown',
+          medications: medications || 'N/A',
+          status: order.status,
+        };
+      });
 
-    // Build summary via aggregate queries (across ALL orders in range, not just this page)
-    const summaryAgg = await prisma.order.groupBy({
-      by: ['providerId', 'clinicId'],
-      where,
-      _count: { id: true },
-    });
-
-    const uniquePatientResult = await prisma.order.findMany({
-      where,
-      select: { patientId: true },
-      distinct: ['patientId'],
-    });
-
-    // Fetch provider + clinic names for summary rows
-    const providerIds = [...new Set(summaryAgg.map((r) => r.providerId))];
-    const clinicIds = [...new Set(summaryAgg.map((r) => r.clinicId).filter(Boolean))] as number[];
-
-    const [providers, clinics, uniquePatientsByProvider] = await Promise.all([
-      prisma.provider.findMany({
-        where: { id: { in: providerIds } },
-        select: { id: true, firstName: true, lastName: true },
-      }),
-      prisma.clinic.findMany({
-        where: { id: { in: clinicIds } },
-        select: { id: true, name: true },
-      }),
-      prisma.order.groupBy({
+      // Build summary via aggregate queries (across ALL orders in range, not just this page)
+      const summaryAgg = await prisma.order.groupBy({
         by: ['providerId', 'clinicId'],
         where,
-        _count: { patientId: true },
-      }),
-    ]);
+        _count: { id: true },
+      });
 
-    // Distinct patient counts per provider+clinic
-    const uniquePatientsMap = new Map<string, number>();
-    for (const row of uniquePatientsByProvider) {
-      uniquePatientsMap.set(`${row.providerId}-${row.clinicId}`, row._count.patientId);
-    }
+      const uniquePatientResult = await prisma.order.findMany({
+        where,
+        select: { patientId: true },
+        distinct: ['patientId'],
+      });
 
-    // For truly unique patient counts, we need distinct queries per provider+clinic
-    // The groupBy _count gives us total orders, not distinct patients.
-    // We'll use a raw approach for accuracy.
-    const distinctPatientCounts = await prisma.$queryRawUnsafe<
-      { providerId: number; clinicId: number; uniquePatients: bigint }[]
-    >(
-      `SELECT "providerId", "clinicId", COUNT(DISTINCT "patientId") as "uniquePatients"
-       FROM "Order"
-       WHERE "createdAt" >= $1 AND "createdAt" <= $2
-       ${clinicId ? `AND "clinicId" = ${clinicId}` : ''}
-       ${providerId ? `AND "providerId" = ${providerId}` : ''}
-       GROUP BY "providerId", "clinicId"`,
-      startDate,
-      endDate
-    );
+      // Fetch provider + clinic names for summary rows
+      const providerIds = [...new Set(summaryAgg.map((r) => r.providerId))];
+      const clinicIds = [...new Set(summaryAgg.map((r) => r.clinicId).filter(Boolean))] as number[];
 
-    const distinctMap = new Map<string, number>();
-    for (const row of distinctPatientCounts) {
-      distinctMap.set(`${row.providerId}-${row.clinicId}`, Number(row.uniquePatients));
-    }
+      const [providers, clinicsList] = await Promise.all([
+        prisma.provider.findMany({
+          where: { id: { in: providerIds } },
+          select: { id: true, firstName: true, lastName: true },
+        }),
+        prisma.clinic.findMany({
+          where: { id: { in: clinicIds } },
+          select: { id: true, name: true },
+        }),
+      ]);
 
-    const providerMap = new Map(providers.map((p) => [p.id, p]));
-    const clinicMap = new Map(clinics.map((c) => [c.id, c]));
+      // Distinct patient counts per provider+clinic via raw SQL
+      const distinctPatientCounts = await prisma.$queryRawUnsafe<
+        { providerId: number; clinicId: number; uniquePatients: bigint }[]
+      >(
+        `SELECT "providerId", "clinicId", COUNT(DISTINCT "patientId") as "uniquePatients"
+         FROM "Order"
+         WHERE "createdAt" >= $1 AND "createdAt" <= $2
+         ${clinicId ? `AND "clinicId" = ${Number(clinicId)}` : ''}
+         ${providerId ? `AND "providerId" = ${Number(providerId)}` : ''}
+         GROUP BY "providerId", "clinicId"`,
+        startDate,
+        endDate
+      );
 
-    const byProvider: ProviderRxSummary[] = summaryAgg
-      .map((agg) => {
-        const provider = providerMap.get(agg.providerId);
-        const clinic = clinicMap.get(agg.clinicId as number);
-        const key = `${agg.providerId}-${agg.clinicId}`;
-        return {
-          providerId: agg.providerId,
-          providerName: provider
-            ? `${provider.firstName} ${provider.lastName}`.trim()
-            : 'Unknown',
-          clinicId: (agg.clinicId as number) ?? 0,
-          clinicName: clinic?.name ?? 'Unknown',
-          prescriptionCount: agg._count.id,
-          uniquePatients: distinctMap.get(key) ?? 0,
-        };
-      })
-      .sort((a, b) => b.prescriptionCount - a.prescriptionCount);
+      const distinctMap = new Map<string, number>();
+      for (const row of distinctPatientCounts) {
+        distinctMap.set(`${row.providerId}-${row.clinicId}`, Number(row.uniquePatients));
+      }
 
-    return {
-      summary: {
-        totalPrescriptions: totalCount,
-        uniquePatients: uniquePatientResult.length,
-        activeProviders: providerIds.length,
-        clinicCount: clinicIds.length,
-        byProvider,
-      },
-      details,
-      pagination: {
-        page,
-        limit,
-        total: totalCount,
-        hasMore: offset + details.length < totalCount,
-      },
-      dateRange: {
-        startDate: startDate.toISOString(),
-        endDate: endDate.toISOString(),
-      },
-    };
+      const providerMap = new Map(providers.map((p) => [p.id, p]));
+      const clinicMap = new Map(clinicsList.map((c) => [c.id, c]));
+
+      const byProvider: ProviderRxSummary[] = summaryAgg
+        .map((agg) => {
+          const provider = providerMap.get(agg.providerId);
+          const clinic = clinicMap.get(agg.clinicId as number);
+          const key = `${agg.providerId}-${agg.clinicId}`;
+          return {
+            providerId: agg.providerId,
+            providerName: provider
+              ? `${provider.firstName} ${provider.lastName}`.trim()
+              : 'Unknown',
+            clinicId: (agg.clinicId as number) ?? 0,
+            clinicName: clinic?.name ?? 'Unknown',
+            prescriptionCount: agg._count.id,
+            uniquePatients: distinctMap.get(key) ?? 0,
+          };
+        })
+        .sort((a, b) => b.prescriptionCount - a.prescriptionCount);
+
+      return {
+        summary: {
+          totalPrescriptions: totalCount,
+          uniquePatients: uniquePatientResult.length,
+          activeProviders: providerIds.length,
+          clinicCount: clinicIds.length,
+          byProvider,
+        },
+        details,
+        pagination: {
+          page,
+          limit,
+          total: totalCount,
+          hasMore: offset + details.length < totalCount,
+        },
+        dateRange: {
+          startDate: startDate.toISOString(),
+          endDate: endDate.toISOString(),
+        },
+      };
+    });
   },
 
   /**
@@ -354,99 +343,100 @@ export const prescriptionReportService = {
     if (clinicId) where.clinicId = clinicId;
     if (providerId) where.providerId = providerId;
 
-    const orders = await prisma.order.findMany({
-      where,
-      include: {
-        rxs: {
-          select: {
-            medName: true,
-            strength: true,
-            form: true,
-            quantity: true,
+    return withoutClinicFilter(async () => {
+      const orders = await prisma.order.findMany({
+        where,
+        include: {
+          rxs: {
+            select: {
+              medName: true,
+              strength: true,
+              form: true,
+              quantity: true,
+            },
+          },
+          patient: {
+            select: { id: true, firstName: true, lastName: true },
+          },
+          provider: {
+            select: { id: true, firstName: true, lastName: true },
+          },
+          clinic: {
+            select: { id: true, name: true },
           },
         },
-        patient: {
-          select: { id: true, firstName: true, lastName: true },
-        },
-        provider: {
-          select: { id: true, firstName: true, lastName: true },
-        },
-        clinic: {
-          select: { id: true, name: true },
-        },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
+        orderBy: { createdAt: 'desc' },
+      });
 
-    const details: PrescriptionDetailRow[] = orders.map((order) => {
-      const patFirstName = safeDecrypt(order.patient?.firstName);
-      const patLastName = safeDecrypt(order.patient?.lastName);
-      const medications = order.rxs
-        .map((rx) => `${rx.medName} ${rx.strength} ${rx.form}`)
-        .join('; ');
+      const details: PrescriptionDetailRow[] = orders.map((order) => {
+        const patFirstName = safeDecrypt(order.patient?.firstName);
+        const patLastName = safeDecrypt(order.patient?.lastName);
+        const medications = order.rxs
+          .map((rx) => `${rx.medName} ${rx.strength} ${rx.form}`)
+          .join('; ');
+
+        return {
+          orderId: order.id,
+          date: order.createdAt.toISOString(),
+          patientId: order.patient?.id ?? order.patientId,
+          patientName: `${patFirstName} ${patLastName}`.trim() || 'Unknown',
+          providerId: order.provider?.id ?? order.providerId,
+          providerName: `${order.provider?.firstName ?? ''} ${order.provider?.lastName ?? ''}`.trim() || 'Unknown',
+          clinicId: order.clinic?.id ?? order.clinicId ?? 0,
+          clinicName: order.clinic?.name ?? 'Unknown',
+          medications: medications || 'N/A',
+          status: order.status,
+        };
+      });
+
+      // Summary aggregation
+      const uniquePatients = new Set(details.map((d) => d.patientId));
+      const providerSet = new Map<string, ProviderRxSummary>();
+
+      for (const row of details) {
+        const key = `${row.providerId}-${row.clinicId}`;
+        const existing = providerSet.get(key);
+        if (existing) {
+          existing.prescriptionCount++;
+          const patKey = `${key}-${row.patientId}`;
+          if (!providerSet.has(patKey + '_pat')) {
+            providerSet.set(patKey + '_pat', {} as ProviderRxSummary);
+            existing.uniquePatients++;
+          }
+        } else {
+          providerSet.set(key, {
+            providerId: row.providerId,
+            providerName: row.providerName,
+            clinicId: row.clinicId,
+            clinicName: row.clinicName,
+            prescriptionCount: 1,
+            uniquePatients: 1,
+          });
+          providerSet.set(`${key}-${row.patientId}_pat`, {} as ProviderRxSummary);
+        }
+      }
+
+      const byProvider = [...providerSet.entries()]
+        .filter(([key]) => !key.endsWith('_pat'))
+        .map(([, v]) => v)
+        .sort((a, b) => b.prescriptionCount - a.prescriptionCount);
+
+      const clinicIdSet = new Set(details.map((d) => d.clinicId));
 
       return {
-        orderId: order.id,
-        date: order.createdAt.toISOString(),
-        patientId: order.patient?.id ?? order.patientId,
-        patientName: `${patFirstName} ${patLastName}`.trim() || 'Unknown',
-        providerId: order.provider?.id ?? order.providerId,
-        providerName: `${order.provider?.firstName ?? ''} ${order.provider?.lastName ?? ''}`.trim() || 'Unknown',
-        clinicId: order.clinic?.id ?? order.clinicId ?? 0,
-        clinicName: order.clinic?.name ?? 'Unknown',
-        medications: medications || 'N/A',
-        status: order.status,
+        details,
+        summary: {
+          totalPrescriptions: details.length,
+          uniquePatients: uniquePatients.size,
+          activeProviders: new Set(details.map((d) => d.providerId)).size,
+          clinicCount: clinicIdSet.size,
+          byProvider,
+        },
+        dateRange: {
+          startDate: startDate.toISOString(),
+          endDate: endDate.toISOString(),
+        },
       };
     });
-
-    // Summary aggregation
-    const uniquePatients = new Set(details.map((d) => d.patientId));
-    const providerSet = new Map<string, ProviderRxSummary>();
-
-    for (const row of details) {
-      const key = `${row.providerId}-${row.clinicId}`;
-      const existing = providerSet.get(key);
-      if (existing) {
-        existing.prescriptionCount++;
-        // Track unique patients per provider+clinic
-        const patKey = `${key}-${row.patientId}`;
-        if (!providerSet.has(patKey + '_pat')) {
-          providerSet.set(patKey + '_pat', {} as ProviderRxSummary);
-          existing.uniquePatients++;
-        }
-      } else {
-        providerSet.set(key, {
-          providerId: row.providerId,
-          providerName: row.providerName,
-          clinicId: row.clinicId,
-          clinicName: row.clinicName,
-          prescriptionCount: 1,
-          uniquePatients: 1,
-        });
-        providerSet.set(`${key}-${row.patientId}_pat`, {} as ProviderRxSummary);
-      }
-    }
-
-    const byProvider = [...providerSet.entries()]
-      .filter(([key]) => !key.endsWith('_pat'))
-      .map(([, v]) => v)
-      .sort((a, b) => b.prescriptionCount - a.prescriptionCount);
-
-    const clinicIds = new Set(details.map((d) => d.clinicId));
-
-    return {
-      details,
-      summary: {
-        totalPrescriptions: details.length,
-        uniquePatients: uniquePatients.size,
-        activeProviders: new Set(details.map((d) => d.providerId)).size,
-        clinicCount: clinicIds.size,
-        byProvider,
-      },
-      dateRange: {
-        startDate: startDate.toISOString(),
-        endDate: endDate.toISOString(),
-      },
-    };
   },
 };
