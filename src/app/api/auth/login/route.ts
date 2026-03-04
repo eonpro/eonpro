@@ -17,7 +17,7 @@ import bcrypt from 'bcryptjs';
 import { SignJWT } from 'jose';
 import { z } from 'zod';
 import * as Sentry from '@sentry/nextjs';
-import { prisma, basePrisma } from '@/lib/db';
+import { prisma, basePrisma, withoutClinicFilter } from '@/lib/db';
 import { JWT_SECRET, JWT_REFRESH_SECRET, AUTH_CONFIG } from '@/lib/auth/config';
 import { createSessionRecord } from '@/lib/auth/session-manager';
 import { authRateLimiter } from '@/lib/security/enterprise-rate-limiter';
@@ -91,6 +91,10 @@ function createLoginAuditData(
 }
 
 async function loginHandler(req: NextRequest) {
+  // Login is inherently pre-tenant-context: the user's clinic is unknown until
+  // after authentication. Bypass the automatic clinic filter for all queries
+  // in this handler; clinic isolation is enforced manually via activeClinicId.
+  return withoutClinicFilter(async () => {
   const startTime = Date.now();
   let debugInfo: Record<string, unknown> = { step: 'start' };
   const clientIp = authRateLimiter.getClientIp(req);
@@ -1138,6 +1142,7 @@ async function loginHandler(req: NextRequest) {
       { status: 500 }
     );
   }
+  }); // end withoutClinicFilter
 }
 
 /**

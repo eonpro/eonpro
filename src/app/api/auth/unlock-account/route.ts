@@ -12,7 +12,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { prisma } from '@/lib/db';
+import { prisma, withoutClinicFilter } from '@/lib/db';
 import { authRateLimiter, adminGetRateLimitStatus } from '@/lib/security/enterprise-rate-limiter';
 import { sendEmail } from '@/lib/email';
 import { logger } from '@/lib/logger';
@@ -34,19 +34,21 @@ const verifyUnlockSchema = z.object({
 export async function POST(req: NextRequest): Promise<NextResponse> {
   const clientIp = authRateLimiter.getClientIp(req);
 
-  try {
-    const body = await req.json();
+  // Account unlock is pre-tenant-context: the user's clinic is unknown.
+  return withoutClinicFilter(async () => {
+    try {
+      const body = await req.json();
 
-    // Determine action based on body
-    if ('code' in body) {
-      return verifyUnlockCode(req, body, clientIp);
-    } else {
-      return requestUnlockCode(req, body, clientIp);
+      if ('code' in body) {
+        return verifyUnlockCode(req, body, clientIp);
+      } else {
+        return requestUnlockCode(req, body, clientIp);
+      }
+    } catch (error) {
+      logger.error('[UnlockAccount] Error', { error, ip: clientIp });
+      return NextResponse.json({ error: 'An error occurred' }, { status: 500 });
     }
-  } catch (error) {
-    logger.error('[UnlockAccount] Error', { error, ip: clientIp });
-    return NextResponse.json({ error: 'An error occurred' }, { status: 500 });
-  }
+  });
 }
 
 async function requestUnlockCode(
