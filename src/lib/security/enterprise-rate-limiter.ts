@@ -352,7 +352,7 @@ export class EnterpriseRateLimiter {
     let emailEntry = emailKey ? await getEntry(emailKey) : null;
     let comboEntry = comboKey ? await getEntry(comboKey) : null;
 
-    // Reset expired entries
+    // Reset expired entries (1-hour sliding window)
     if (ipEntry && ipEntry.firstAttempt < hourAgo) {
       ipEntry = null;
     }
@@ -360,6 +360,21 @@ export class EnterpriseRateLimiter {
       emailEntry = null;
     }
     if (comboEntry && comboEntry.firstAttempt < hourAgo) {
+      comboEntry = null;
+    }
+
+    // Reset entries whose block has expired — prevents infinite re-lock loop
+    // where high attempt counts from the block period immediately re-trigger a new block
+    if (ipEntry?.blocked && ipEntry.blockedUntil && ipEntry.blockedUntil <= now) {
+      await deleteEntry(ipKey);
+      ipEntry = null;
+    }
+    if (emailEntry?.blocked && emailEntry.blockedUntil && emailEntry.blockedUntil <= now) {
+      if (emailKey) await deleteEntry(emailKey);
+      emailEntry = null;
+    }
+    if (comboEntry?.blocked && comboEntry.blockedUntil && comboEntry.blockedUntil <= now) {
+      if (comboKey) await deleteEntry(comboKey);
       comboEntry = null;
     }
 
@@ -790,6 +805,57 @@ export const otpRateLimiter = new EnterpriseRateLimiter(
 // ============================================================================
 // Utility Functions
 // ============================================================================
+
+/**
+ * Emergency: flush ALL auth rate-limit keys from Redis and in-memory cache.
+ * Use when a systemic issue (e.g. a backend bug) caused mass account lockouts.
+ */
+export async function emergencyFlushAllAuthRateLimits(): Promise<{ cleared: number }> {
+  let cleared = 0;
+
+  // Clear in-memory LRU
+  const memSize = memoryCache.size;
+  memoryCache.clear();
+  cleared += memSize;
+
+  // Clear Redis keys matching auth:*
+  const redis = await getRedisClient();
+  if (redis && redisAvailable) {
+    try {
+      const isUpstash = !!process.env.UPSTASH_REDIS_REST_URL;
+      if (isUpstash) {
+        // Upstash: use SCAN to find and delete keys
+        let cursor = 0;
+        do {
+          const result = await redis.scan(cursor, { match: 'auth:*', count: 200 });
+          cursor = result[0];
+          const keys = result[1] as string[];
+          if (keys.length > 0) {
+            await Promise.all(keys.map((k: string) => redis.del(k)));
+            cleared += keys.length;
+          }
+        } while (cursor !== 0);
+      } else {
+        // Standard Redis
+        let cursor = '0';
+        do {
+          const result = await redis.scan(cursor, { MATCH: 'auth:*', COUNT: 200 });
+          cursor = result.cursor?.toString() ?? '0';
+          const keys = result.keys || [];
+          if (keys.length > 0) {
+            await Promise.all(keys.map((k: string) => redis.del(k)));
+            cleared += keys.length;
+          }
+        } while (cursor !== '0');
+      }
+    } catch (err) {
+      logger.error('[EnterpriseRateLimit] Emergency flush Redis failed', { error: err });
+    }
+  }
+
+  logger.security('[EnterpriseRateLimit] Emergency flush completed', { cleared });
+  return { cleared };
+}
 
 /**
  * Clear all rate limits for an IP and/or email (admin function)
