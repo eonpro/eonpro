@@ -82,13 +82,13 @@ export default function FedExLabelModal({
   );
 
   const [origin, setOrigin] = useState<Address>({
-    personName: clinicName || '',
-    phoneNumber: clinicPhone || '',
-    address1: clinicAddress?.address1 || '',
+    personName: clinicName || 'Logos RX',
+    phoneNumber: clinicPhone || '8138862800',
+    address1: clinicAddress?.address1 || '7543 West Waters Avenue',
     address2: clinicAddress?.address2 || '',
-    city: clinicAddress?.city || '',
-    state: clinicAddress?.state || '',
-    zip: clinicAddress?.zip || '',
+    city: clinicAddress?.city || 'Tampa',
+    state: clinicAddress?.state || 'FL',
+    zip: clinicAddress?.zip || '33615',
   });
 
   const [destination, setDestination] = useState<Address>({
