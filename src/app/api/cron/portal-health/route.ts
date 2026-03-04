@@ -9,7 +9,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma, checkDatabaseHealth } from '@/lib/db';
+import { prisma, checkDatabaseHealth, withoutClinicFilter } from '@/lib/db';
 import { SignJWT, jwtVerify } from 'jose';
 import { JWT_SECRET } from '@/lib/auth/config';
 import cache from '@/lib/cache/redis';
@@ -54,7 +54,11 @@ async function probeDatabase(): Promise<ProbeResult> {
 async function probePatientTable(): Promise<ProbeResult> {
   const start = Date.now();
   try {
-    await withTimeout(prisma.patient.findFirst({ select: { id: true }, take: 1 }), PROBE_TIMEOUT_MS, 'Patient');
+    await withTimeout(
+      withoutClinicFilter(() => prisma.patient.findFirst({ select: { id: true }, take: 1 })),
+      PROBE_TIMEOUT_MS,
+      'Patient'
+    );
     return { name: 'PatientTable', status: 'healthy', latencyMs: Date.now() - start };
   } catch (err) {
     return { name: 'PatientTable', status: 'unhealthy', latencyMs: Date.now() - start, message: err instanceof Error ? err.message : 'Failed' };

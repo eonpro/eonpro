@@ -11,7 +11,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma, checkDatabaseHealth } from '@/lib/db';
+import { prisma, checkDatabaseHealth, withoutClinicFilter } from '@/lib/db';
 import { SignJWT, jwtVerify } from 'jose';
 import { JWT_SECRET, AUTH_CONFIG } from '@/lib/auth/config';
 import cache from '@/lib/cache/redis';
@@ -76,7 +76,7 @@ async function probePatientTable(): Promise<ProbeResult> {
   const start = Date.now();
   try {
     await withTimeout(
-      prisma.patient.findFirst({ select: { id: true }, take: 1 }),
+      withoutClinicFilter(() => prisma.patient.findFirst({ select: { id: true }, take: 1 })),
       PROBE_TIMEOUT_MS,
       'Patient table probe'
     );
