@@ -10,12 +10,15 @@ WORKDIR /app
 FROM base AS deps
 COPY package.json package-lock.json ./
 COPY prisma ./prisma/
+COPY scripts ./scripts/
 RUN npm ci --only=production --legacy-peer-deps
 RUN npm install @prisma/client
 
 # Development dependencies stage
 FROM base AS dev-deps
 COPY package.json package-lock.json ./
+COPY prisma ./prisma/
+COPY scripts ./scripts/
 RUN npm ci --legacy-peer-deps
 
 # Builder stage
@@ -27,8 +30,8 @@ COPY . .
 RUN npx prisma generate
 
 # Set environment variables for build
-ENV NEXT_TELEMETRY_DISABLED 1
-ENV NODE_ENV production
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV NODE_ENV=production
 
 # Build the application
 RUN npm run build
@@ -57,9 +60,9 @@ USER nextjs
 # Expose port
 EXPOSE 3000
 
-ENV PORT 3000
-ENV HOSTNAME "0.0.0.0"
-ENV NODE_ENV production
+ENV PORT=3000
+ENV HOSTNAME=0.0.0.0
+ENV NODE_ENV=production
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
