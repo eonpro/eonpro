@@ -25,6 +25,31 @@ interface SubscriptionInfo {
 
 import type Stripe from 'stripe';
 
+function computeNextBillingUnix(interval: string, intervalCount: number): number {
+  const now = new Date();
+  const next = new Date(now);
+  const safeCount = Math.max(1, intervalCount || 1);
+
+  switch (interval) {
+    case 'year':
+      next.setFullYear(next.getFullYear() + safeCount);
+      break;
+    case 'week':
+      next.setDate(next.getDate() + safeCount * 7);
+      break;
+    case 'day':
+      next.setDate(next.getDate() + safeCount);
+      break;
+    case 'month':
+    default:
+      next.setMonth(next.getMonth() + safeCount);
+      break;
+  }
+
+  // Stripe expects seconds.
+  return Math.floor(next.getTime() / 1000);
+}
+
 /**
  * Finds an existing Stripe Price that matches the plan, or creates a new
  * Product + Price pair. Uses plan ID as lookup key for idempotency.
@@ -381,6 +406,8 @@ async function handlePost(request: NextRequest, _user: AuthUser) {
             customer: stripeCustomerId,
             items: [{ price: stripePrice.id }],
             default_payment_method: stripePaymentMethodId,
+            // Initial payment is already captured above; start recurring billing at next cycle.
+            trial_end: computeNextBillingUnix(subscriptionInfo.interval, subscriptionInfo.intervalCount),
             metadata: {
               patientId: patient.id.toString(),
               planId: subscriptionInfo.planId,

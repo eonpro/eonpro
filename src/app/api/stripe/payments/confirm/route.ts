@@ -15,6 +15,30 @@ interface SubscriptionInfo {
   intervalCount: number;
 }
 
+function computeNextBillingUnix(interval: string, intervalCount: number): number {
+  const now = new Date();
+  const next = new Date(now);
+  const safeCount = Math.max(1, intervalCount || 1);
+
+  switch (interval) {
+    case 'year':
+      next.setFullYear(next.getFullYear() + safeCount);
+      break;
+    case 'week':
+      next.setDate(next.getDate() + safeCount * 7);
+      break;
+    case 'day':
+      next.setDate(next.getDate() + safeCount);
+      break;
+    case 'month':
+    default:
+      next.setMonth(next.getMonth() + safeCount);
+      break;
+  }
+
+  return Math.floor(next.getTime() / 1000);
+}
+
 async function getOrCreateStripePrice(
   stripe: Stripe,
   sub: SubscriptionInfo,
@@ -258,6 +282,8 @@ async function handlePost(request: NextRequest, _user: AuthUser) {
           customer: patient.stripeCustomerId,
           items: [{ price: stripePrice.id }],
           default_payment_method: stripePaymentMethodId,
+          // Initial charge was already collected by PaymentIntent; defer recurring charge to next cycle.
+          trial_end: computeNextBillingUnix(subscription.interval, subscription.intervalCount),
           metadata: {
             patientId: patient.id.toString(),
             planId: subscription.planId,
