@@ -235,7 +235,15 @@ export default async function PatientDetailPage({
                 primaryMedName: true,
                 primaryMedStrength: true,
                 trackingNumber: true,
+                trackingUrl: true,
                 status: true,
+                lifefileOrderId: true,
+                shippingMethod: true,
+                shippingStatus: true,
+                lastWebhookAt: true,
+                cancelledAt: true,
+                fulfillmentChannel: true,
+                externalPharmacyName: true,
                 ...(needsDetailedOrders
                   ? {
                       rxs: {
