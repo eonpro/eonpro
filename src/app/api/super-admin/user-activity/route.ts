@@ -14,6 +14,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import { getRecentlyActiveUserIds } from '@/lib/auth/middleware-cache';
 
 interface UserActivityStats {
   totalUsers: number;
@@ -78,7 +79,7 @@ export const GET = withAuth(
         whereClause.lastLogin = null;
       }
 
-      // Get active sessions for online filtering (bounded to prevent runaway queries)
+      // Get active sessions from DB (login/token-refresh based)
       const activeSessions = await prisma.userSession.findMany({
         where: {
           lastActivity: { gte: fifteenMinutesAgo },
@@ -87,7 +88,13 @@ export const GET = withAuth(
         select: { userId: true },
         take: 1000,
       });
-      const onlineUserIds = new Set(activeSessions.map((s: { userId: number }) => s.userId));
+      const dbOnlineIds = new Set(activeSessions.map((s: { userId: number }) => s.userId));
+
+      // Get recently active users from Redis (request-level activity, updated every minute)
+      const redisActivityMap = await getRecentlyActiveUserIds(15);
+
+      // Merge both sources: user is online if detected by EITHER DB sessions or Redis activity
+      const onlineUserIds = new Set([...dbOnlineIds, ...redisActivityMap.keys()]);
 
       if (filter === 'online') {
         whereClause.id = { in: Array.from(onlineUserIds) };
@@ -155,17 +162,41 @@ export const GET = withAuth(
         take: limit,
       });
 
-      // Enrich users with online status and session duration
+      // Enrich users with online status from both DB sessions and Redis activity
       const enrichedUsers = users.map((user: (typeof users)[number]) => {
         const isOnline = onlineUserIds.has(user.id);
         const currentSession = user.sessions[0];
+        const redisActivity = redisActivityMap.get(user.id);
         let sessionDuration = null;
 
         if (currentSession && isOnline) {
           sessionDuration = Math.floor(
             (now.getTime() - new Date(currentSession.createdAt).getTime()) / 1000 / 60
-          ); // Duration in minutes
+          );
         }
+
+        // Use Redis activity data to supplement DB session info when available
+        const lastActivity = redisActivity?.lastActivity
+          ? new Date(redisActivity.lastActivity)
+          : currentSession?.lastActivity ?? null;
+
+        const sessionInfo = currentSession
+          ? {
+              ipAddress: redisActivity?.ipAddress || currentSession.ipAddress,
+              userAgent: currentSession.userAgent,
+              startedAt: currentSession.createdAt,
+              lastActivity: lastActivity,
+              durationMinutes: sessionDuration,
+            }
+          : isOnline && redisActivity
+            ? {
+                ipAddress: redisActivity.ipAddress,
+                userAgent: null,
+                startedAt: null,
+                lastActivity: new Date(redisActivity.lastActivity),
+                durationMinutes: null,
+              }
+            : null;
 
         return {
           id: user.id,
@@ -182,15 +213,7 @@ export const GET = withAuth(
           providerId: user.providerId,
           provider: user.provider,
           isOnline,
-          currentSession: currentSession
-            ? {
-                ipAddress: currentSession.ipAddress,
-                userAgent: currentSession.userAgent,
-                startedAt: currentSession.createdAt,
-                lastActivity: currentSession.lastActivity,
-                durationMinutes: sessionDuration,
-              }
-            : null,
+          currentSession: sessionInfo,
           totalSessions: user._count.sessions,
           totalActions: user._count.auditLogs,
         };

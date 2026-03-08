@@ -212,6 +212,21 @@ class RedisCache {
     }
   }
 
+  async mget<T = unknown>(keys: string[], options?: CacheOptions): Promise<(T | null)[]> {
+    if (!this.ready || !this.client || keys.length === 0) return keys.map(() => null);
+
+    try {
+      const fullKeys = keys.map((k) => this.getKey(k, options?.namespace));
+      const values = await this.client.mget<(T | null)[]>(...fullKeys);
+      return values ?? keys.map(() => null);
+    } catch (error) {
+      logger.error('[RedisCache] mget error', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return keys.map(() => null);
+    }
+  }
+
   async exists(key: string, options?: CacheOptions): Promise<boolean> {
     if (!this.ready || !this.client) return false;
 

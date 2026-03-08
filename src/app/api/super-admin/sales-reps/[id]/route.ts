@@ -1,15 +1,14 @@
 /**
  * Super Admin Sales Rep Detail API
  *
- * Returns detailed performance data for a single affiliate/sales rep
- * with daily breakdown for the selected period.
+ * Returns detailed performance data for a single sales rep (User with SALES_REP role)
+ * with daily breakdown and per-ref-code performance.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
-import { ACTIVE_COMMISSION_STATUSES, CLICK_FILTER } from '@/services/affiliate/reportingConstants';
 import { serverError } from '@/lib/api/error-response';
 
 function withSalesRepAuth(
@@ -58,10 +57,10 @@ function parseDateRange(req: NextRequest): { startDate: Date; endDate: Date } {
       startDate.setHours(0, 0, 0, 0);
       break;
     case 'last-week': {
-      const dayOfWeek = now.getDay();
-      startDate.setDate(now.getDate() - dayOfWeek - 7);
+      const dow = now.getDay();
+      startDate.setDate(now.getDate() - dow - 7);
       startDate.setHours(0, 0, 0, 0);
-      endDate.setDate(now.getDate() - dayOfWeek - 1);
+      endDate.setDate(now.getDate() - dow - 1);
       endDate.setHours(23, 59, 59, 999);
       break;
     }
@@ -130,85 +129,82 @@ async function handler(
   _user: AuthUser,
   params: { id: string }
 ): Promise<Response> {
-  const affiliateId = parseInt(params.id, 10);
-
-  if (isNaN(affiliateId)) {
-    return NextResponse.json({ error: 'Invalid affiliate ID' }, { status: 400 });
+  const userId = parseInt(params.id, 10);
+  if (isNaN(userId)) {
+    return NextResponse.json({ error: 'Invalid sales rep ID' }, { status: 400 });
   }
 
   const { startDate, endDate } = parseDateRange(req);
 
   logger.security('[SalesReps] Super admin viewed sales rep detail', {
     action: 'SALES_REP_DETAIL_VIEWED',
-    affiliateId,
+    salesRepId: userId,
     startDate: startDate.toISOString(),
     endDate: endDate.toISOString(),
   });
 
   try {
-    // Round 1: affiliate lookup + all aggregate stats + daily breakdown in parallel.
-    // Only the per-ref-code breakdown needs affiliate.refCodes from the lookup,
-    // so everything else can fire concurrently.
     const days = Math.min(
       Math.ceil((endDate.getTime() - startDate.getTime()) / 86400000),
       90
     );
 
+    // Round 1: all independent queries in parallel
     const [
-      affiliate,
+      rep,
       totalClicks,
       totalConversions,
-      commissionAgg,
+      totalPatientsAssigned,
       dailyClicks,
       dailyConversions,
-      dailyCommissions,
     ] = await Promise.all([
-      prisma.affiliate.findUnique({
-        where: { id: affiliateId },
+      prisma.user.findFirst({
+        where: { id: userId, role: 'SALES_REP' },
         select: {
           id: true,
-          displayName: true,
+          firstName: true,
+          lastName: true,
+          email: true,
           status: true,
-          createdAt: true,
           clinicId: true,
+          createdAt: true,
+          lastLogin: true,
           clinic: { select: { id: true, name: true } },
-          user: { select: { email: true, firstName: true, lastName: true, lastLogin: true } },
-          refCodes: {
+          salesRepRefCodes: {
             select: { id: true, refCode: true, isActive: true, createdAt: true },
           },
-          planAssignments: {
-            where: { isActive: true },
-            include: { plan: { select: { name: true, planType: true } } },
+          salesRepPlanAssignments: {
+            where: { effectiveTo: null },
+            include: { commissionPlan: { select: { name: true, planType: true } } },
             take: 1,
+            orderBy: { effectiveFrom: 'desc' },
           },
         },
       }),
-      prisma.affiliateTouch.count({
+      prisma.salesRepTouch.count({
         where: {
-          affiliateId,
-          ...CLICK_FILTER,
+          salesRepId: userId,
+          touchType: 'CLICK',
           createdAt: { gte: startDate, lte: endDate },
         },
       }),
-      prisma.affiliateTouch.count({
+      prisma.salesRepTouch.count({
         where: {
-          affiliateId,
-          convertedAt: { gte: startDate, lte: endDate },
+          salesRepId: userId,
+          convertedAt: { not: null, gte: startDate, lte: endDate },
         },
       }),
-      prisma.affiliateCommissionEvent.aggregate({
+      prisma.patientSalesRepAssignment.count({
         where: {
-          affiliateId,
-          occurredAt: { gte: startDate, lte: endDate },
-          status: { in: ACTIVE_COMMISSION_STATUSES as any },
+          salesRepId: userId,
+          isActive: true,
+          assignedAt: { gte: startDate, lte: endDate },
         },
-        _sum: { eventAmountCents: true, commissionAmountCents: true },
-        _count: true,
       }),
       prisma.$queryRaw<Array<{ date: Date; count: number }>>`
         SELECT DATE("createdAt") as date, COUNT(*)::int as count
-        FROM "AffiliateTouch"
-        WHERE "affiliateId" = ${affiliateId}
+        FROM "SalesRepTouch"
+        WHERE "salesRepId" = ${userId}
           AND "touchType" = 'CLICK'
           AND "createdAt" >= ${startDate}
           AND "createdAt" <= ${endDate}
@@ -217,94 +213,67 @@ async function handler(
       `.catch(() => [] as Array<{ date: Date; count: number }>),
       prisma.$queryRaw<Array<{ date: Date; count: number }>>`
         SELECT DATE("convertedAt") as date, COUNT(*)::int as count
-        FROM "AffiliateTouch"
-        WHERE "affiliateId" = ${affiliateId}
+        FROM "SalesRepTouch"
+        WHERE "salesRepId" = ${userId}
           AND "convertedAt" IS NOT NULL
           AND "convertedAt" >= ${startDate}
           AND "convertedAt" <= ${endDate}
         GROUP BY DATE("convertedAt")
         ORDER BY date
       `.catch(() => [] as Array<{ date: Date; count: number }>),
-      prisma.$queryRaw<Array<{ date: Date; revenue: number; commission: number }>>`
-        SELECT
-          DATE("occurredAt") as date,
-          COALESCE(SUM("eventAmountCents"), 0)::int as revenue,
-          COALESCE(SUM("commissionAmountCents"), 0)::int as commission
-        FROM "AffiliateCommissionEvent"
-        WHERE "affiliateId" = ${affiliateId}
-          AND "occurredAt" >= ${startDate}
-          AND "occurredAt" <= ${endDate}
-          AND status IN ('PENDING', 'APPROVED', 'PAID')
-        GROUP BY DATE("occurredAt")
-        ORDER BY date
-      `.catch(() => [] as Array<{ date: Date; revenue: number; commission: number }>),
     ]);
 
-    if (!affiliate) {
+    if (!rep) {
       return NextResponse.json({ error: 'Sales rep not found' }, { status: 404 });
     }
 
+    // Round 2: per-ref-code breakdown (needs rep.salesRepRefCodes)
+    const refCodeStrings = rep.salesRepRefCodes.map((r) => r.refCode);
+    const [clicksByCode, conversionsByCode] = await Promise.all([
+      prisma.salesRepTouch.groupBy({
+        by: ['refCode'],
+        where: {
+          refCode: { in: refCodeStrings },
+          touchType: 'CLICK',
+          createdAt: { gte: startDate, lte: endDate },
+        },
+        _count: true,
+      }),
+      prisma.salesRepTouch.groupBy({
+        by: ['refCode'],
+        where: {
+          refCode: { in: refCodeStrings },
+          convertedAt: { not: null, gte: startDate, lte: endDate },
+        },
+        _count: true,
+      }),
+    ]);
+
+    // Build daily breakdown
     const clickMap = new Map(
       dailyClicks.map((r) => [new Date(r.date).toISOString().slice(0, 10), r.count])
     );
     const convMap = new Map(
       dailyConversions.map((r) => [new Date(r.date).toISOString().slice(0, 10), r.count])
     );
-    const commMap = new Map(
-      dailyCommissions.map((r) => [
-        new Date(r.date).toISOString().slice(0, 10),
-        { revenue: r.revenue, commission: r.commission },
-      ])
-    );
 
-    const dailyBreakdown: Array<{
-      date: string;
-      clicks: number;
-      conversions: number;
-      revenueCents: number;
-      commissionCents: number;
-    }> = [];
-
+    const dailyBreakdown: Array<{ date: string; clicks: number; conversions: number }> = [];
     for (let i = 0; i < days; i++) {
       const d = new Date(startDate);
       d.setDate(d.getDate() + i);
       const key = d.toISOString().slice(0, 10);
-      const cm = commMap.get(key);
       dailyBreakdown.push({
         date: d.toISOString(),
         clicks: clickMap.get(key) || 0,
         conversions: convMap.get(key) || 0,
-        revenueCents: cm?.revenue || 0,
-        commissionCents: cm?.commission || 0,
       });
     }
 
-    // Round 2: per-ref-code breakdown (needs affiliate.refCodes from round 1)
-    const refCodeStrings = affiliate.refCodes.map((r) => r.refCode);
-    const [clicksByCode, conversionsByCode] = await Promise.all([
-      prisma.affiliateTouch.groupBy({
-        by: ['refCode'],
-        where: {
-          refCode: { in: refCodeStrings },
-          ...CLICK_FILTER,
-          createdAt: { gte: startDate, lte: endDate },
-        },
-        _count: true,
-      }),
-      prisma.affiliateTouch.groupBy({
-        by: ['refCode'],
-        where: {
-          refCode: { in: refCodeStrings },
-          convertedAt: { gte: startDate, lte: endDate },
-        },
-        _count: true,
-      }),
-    ]);
-
+    // Build code performance
     const codeClickMap = new Map(clicksByCode.map((r) => [r.refCode, r._count]));
     const codeConvMap = new Map(conversionsByCode.map((r) => [r.refCode, r._count]));
 
-    const codePerformance = affiliate.refCodes.map((rc) => {
+    const codePerformance = rep.salesRepRefCodes.map((rc) => {
       const clicks = codeClickMap.get(rc.refCode) || 0;
       const conversions = codeConvMap.get(rc.refCode) || 0;
       return {
@@ -318,24 +287,23 @@ async function handler(
     });
 
     return NextResponse.json({
-      affiliate: {
-        id: affiliate.id,
-        displayName: affiliate.displayName,
-        status: affiliate.status,
-        createdAt: affiliate.createdAt,
-        clinicId: affiliate.clinicId,
-        clinicName: affiliate.clinic.name,
-        email: affiliate.user.email,
-        firstName: affiliate.user.firstName,
-        lastName: affiliate.user.lastName,
-        lastLogin: affiliate.user.lastLogin,
-        currentPlan: affiliate.planAssignments[0]?.plan?.name || null,
+      rep: {
+        id: rep.id,
+        name: `${rep.firstName || ''} ${rep.lastName || ''}`.trim() || rep.email,
+        firstName: rep.firstName,
+        lastName: rep.lastName,
+        email: rep.email,
+        status: rep.status,
+        clinicId: rep.clinicId,
+        clinicName: rep.clinic?.name || null,
+        createdAt: rep.createdAt,
+        lastLogin: rep.lastLogin,
+        currentPlan: rep.salesRepPlanAssignments[0]?.commissionPlan?.name || null,
       },
       stats: {
         totalClicks,
         totalConversions,
-        totalRevenueCents: commissionAgg._sum.eventAmountCents || 0,
-        totalCommissionCents: commissionAgg._sum.commissionAmountCents || 0,
+        patientsAssigned: totalPatientsAssigned,
         conversionRate: totalClicks > 0 ? (totalConversions / totalClicks) * 100 : 0,
       },
       dailyBreakdown,
@@ -344,7 +312,7 @@ async function handler(
     });
   } catch (error) {
     logger.error('[SalesReps] Failed to fetch sales rep detail', {
-      affiliateId,
+      salesRepId: userId,
       error: error instanceof Error ? error.message : 'Unknown error',
     });
     return serverError('Failed to fetch sales rep detail');

@@ -192,6 +192,67 @@ export async function trackSessionActivity(
 }
 
 // ============================================================================
+// Batch Session Activity Lookup (for User Activity Monitor)
+// ============================================================================
+
+interface SessionActivityData {
+  lastActivity: string;
+  ipAddress: string;
+}
+
+/**
+ * Get all user IDs with recent session activity from Redis.
+ * Used by the User Activity Monitor to supplement DB-based online detection.
+ *
+ * Scans `mw:session-activity:*` keys, batch-fetches values, and returns only
+ * those with activity within the given threshold.
+ *
+ * @param thresholdMinutes - Consider active if lastActivity is within this many minutes (default 15)
+ * @returns Map of userId → { lastActivity, ipAddress } for recently active users
+ */
+export async function getRecentlyActiveUserIds(
+  thresholdMinutes: number = 15,
+): Promise<Map<number, SessionActivityData>> {
+  const result = new Map<number, SessionActivityData>();
+  const threshold = new Date(Date.now() - thresholdMinutes * 60 * 1000);
+
+  try {
+    const keys = await cache.keys('mw:session-activity:*');
+    if (keys.length === 0) return result;
+
+    const userEntries: { userId: number; cacheKey: string }[] = [];
+    for (const key of keys) {
+      const match = key.match(/^mw:session-activity:(\d+)$/);
+      if (match) {
+        userEntries.push({
+          userId: parseInt(match[1], 10),
+          cacheKey: `session-activity:${match[1]}`,
+        });
+      }
+    }
+
+    if (userEntries.length === 0) return result;
+
+    const cacheKeys = userEntries.map((e) => e.cacheKey);
+    const values = await cache.mget<SessionActivityData>(cacheKeys, { namespace: CACHE_NAMESPACE });
+
+    for (let i = 0; i < userEntries.length; i++) {
+      const value = values[i];
+      if (value && value.lastActivity) {
+        const activityTime = new Date(value.lastActivity);
+        if (activityTime >= threshold) {
+          result.set(userEntries[i].userId, value);
+        }
+      }
+    }
+  } catch {
+    // Redis unavailable — return empty (DB-based status will still work)
+  }
+
+  return result;
+}
+
+// ============================================================================
 // Cache Invalidation Helpers
 // ============================================================================
 

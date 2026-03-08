@@ -1,41 +1,17 @@
 /**
  * Super Admin Sales Reps API
  *
- * Cross-clinic sales rep (affiliate) performance with flexible date ranges.
- * Supports: day, week, month, quarter, semester, year, custom date ranges.
+ * Cross-clinic sales rep performance with flexible date ranges.
+ * Sales reps are Users with role SALES_REP, tracked via SalesRepTouch,
+ * PatientSalesRepAssignment, and SalesRepCommissionPlan.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { withSuperAdminAuth } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
-import { ACTIVE_COMMISSION_STATUSES, CLICK_FILTER } from '@/services/affiliate/reportingConstants';
 import { serverError } from '@/lib/api/error-response';
 import { superAdminRateLimit } from '@/lib/rateLimit';
-
-interface SalesRepRow {
-  id: number;
-  displayName: string;
-  status: string;
-  clinicId: number;
-  clinicName: string;
-  totalClicks: number;
-  totalConversions: number;
-  totalRevenueCents: number;
-  totalCommissionCents: number;
-  conversionRate: number;
-  refCodes: string[];
-}
-
-interface SalesRepSummary {
-  totalReps: number;
-  activeReps: number;
-  totalSales: number;
-  totalRevenueCents: number;
-  totalEarningsCents: number;
-  totalClicks: number;
-  avgConversionRate: number;
-}
 
 function parseDateRange(req: NextRequest): { startDate: Date; endDate: Date } {
   const params = req.nextUrl.searchParams;
@@ -69,10 +45,10 @@ function parseDateRange(req: NextRequest): { startDate: Date; endDate: Date } {
       startDate.setHours(0, 0, 0, 0);
       break;
     case 'last-week': {
-      const dayOfWeek = now.getDay();
-      startDate.setDate(now.getDate() - dayOfWeek - 7);
+      const dow = now.getDay();
+      startDate.setDate(now.getDate() - dow - 7);
       startDate.setHours(0, 0, 0, 0);
-      endDate.setDate(now.getDate() - dayOfWeek - 1);
+      endDate.setDate(now.getDate() - dow - 1);
       endDate.setHours(23, 59, 59, 999);
       break;
     }
@@ -139,8 +115,6 @@ function parseDateRange(req: NextRequest): { startDate: Date; endDate: Date } {
 async function handler(req: NextRequest): Promise<Response> {
   const params = req.nextUrl.searchParams;
   const clinicIdParam = params.get('clinicId');
-  const sortBy = params.get('sortBy') || 'conversions';
-  const sortDir = params.get('sortDir') || 'desc';
 
   const { startDate, endDate } = parseDateRange(req);
 
@@ -154,121 +128,111 @@ async function handler(req: NextRequest): Promise<Response> {
   try {
     const clinicFilter = clinicIdParam ? { clinicId: parseInt(clinicIdParam, 10) } : {};
 
-    const affiliates = await prisma.affiliate.findMany({
-      where: clinicFilter,
+    // Sales reps are Users with role SALES_REP
+    const salesReps = await prisma.user.findMany({
+      where: {
+        role: 'SALES_REP',
+        ...clinicFilter,
+      },
       select: {
         id: true,
-        displayName: true,
+        firstName: true,
+        lastName: true,
+        email: true,
         status: true,
         clinicId: true,
+        lastLogin: true,
         clinic: { select: { name: true } },
-        refCodes: {
+        salesRepRefCodes: {
           where: { isActive: true },
           select: { refCode: true },
         },
       },
     });
 
-    if (affiliates.length === 0) {
+    if (salesReps.length === 0) {
       return NextResponse.json({
         summary: {
-          totalReps: 0,
-          activeReps: 0,
-          totalSales: 0,
-          totalRevenueCents: 0,
-          totalEarningsCents: 0,
-          totalClicks: 0,
-          avgConversionRate: 0,
+          totalReps: 0, activeReps: 0, totalPatients: 0,
+          totalClicks: 0, totalConversions: 0, avgConversionRate: 0,
         },
         reps: [],
         dateRange: { startDate: startDate.toISOString(), endDate: endDate.toISOString() },
       });
     }
 
-    const affiliateIds = affiliates.map((a) => a.id);
+    const repIds = salesReps.map((r) => r.id);
 
-    const [clicksByAffiliate, conversionsByAffiliate, commissionsByAffiliate] = await Promise.all([
-      prisma.affiliateTouch.groupBy({
-        by: ['affiliateId'],
+    // Parallel: clicks, conversions, patient assignments in the period
+    const [clicksByRep, conversionsByRep, patientsByRep] = await Promise.all([
+      prisma.salesRepTouch.groupBy({
+        by: ['salesRepId'],
         where: {
-          affiliateId: { in: affiliateIds },
-          ...CLICK_FILTER,
+          salesRepId: { in: repIds },
+          touchType: 'CLICK',
           createdAt: { gte: startDate, lte: endDate },
         },
         _count: true,
       }),
-      prisma.affiliateTouch.groupBy({
-        by: ['affiliateId'],
+      prisma.salesRepTouch.groupBy({
+        by: ['salesRepId'],
         where: {
-          affiliateId: { in: affiliateIds },
-          convertedAt: { gte: startDate, lte: endDate },
+          salesRepId: { in: repIds },
+          convertedAt: { not: null, gte: startDate, lte: endDate },
         },
         _count: true,
       }),
-      prisma.affiliateCommissionEvent.groupBy({
-        by: ['affiliateId'],
+      prisma.patientSalesRepAssignment.groupBy({
+        by: ['salesRepId'],
         where: {
-          affiliateId: { in: affiliateIds },
-          occurredAt: { gte: startDate, lte: endDate },
-          status: { in: ACTIVE_COMMISSION_STATUSES as any },
+          salesRepId: { in: repIds },
+          isActive: true,
+          assignedAt: { gte: startDate, lte: endDate },
         },
-        _sum: { eventAmountCents: true, commissionAmountCents: true },
+        _count: true,
       }),
     ]);
 
-    const clicksMap = new Map(clicksByAffiliate.map((r) => [r.affiliateId, r._count]));
-    const conversionsMap = new Map(conversionsByAffiliate.map((r) => [r.affiliateId, r._count]));
-    const revenueMap = new Map(
-      commissionsByAffiliate.map((r) => [r.affiliateId, r._sum?.eventAmountCents || 0])
-    );
-    const commissionMap = new Map(
-      commissionsByAffiliate.map((r) => [r.affiliateId, r._sum?.commissionAmountCents || 0])
-    );
+    const clicksMap = new Map(clicksByRep.map((r) => [r.salesRepId, r._count]));
+    const conversionsMap = new Map(conversionsByRep.map((r) => [r.salesRepId, r._count]));
+    const patientsMap = new Map(patientsByRep.map((r) => [r.salesRepId, r._count]));
 
-    type AffiliateRow = (typeof affiliates)[number];
+    type RepRow = (typeof salesReps)[number];
 
-    const reps: SalesRepRow[] = affiliates.map((a: AffiliateRow) => {
-      const clicks = clicksMap.get(a.id) || 0;
-      const conversions = conversionsMap.get(a.id) || 0;
+    const reps = salesReps.map((r: RepRow) => {
+      const clicks = clicksMap.get(r.id) || 0;
+      const conversions = conversionsMap.get(r.id) || 0;
       return {
-        id: a.id,
-        displayName: a.displayName,
-        status: a.status,
-        clinicId: a.clinicId,
-        clinicName: a.clinic.name,
+        id: r.id,
+        name: `${r.firstName || ''} ${r.lastName || ''}`.trim() || r.email,
+        email: r.email,
+        status: r.status,
+        clinicId: r.clinicId,
+        clinicName: r.clinic?.name || null,
+        lastLogin: r.lastLogin,
         totalClicks: clicks,
         totalConversions: conversions,
-        totalRevenueCents: revenueMap.get(a.id) || 0,
-        totalCommissionCents: commissionMap.get(a.id) || 0,
+        patientsAssigned: patientsMap.get(r.id) || 0,
         conversionRate: clicks > 0 ? (conversions / clicks) * 100 : 0,
-        refCodes: a.refCodes.map((r) => r.refCode),
+        refCodes: r.salesRepRefCodes.map((c) => c.refCode),
       };
     });
 
-    const sortFn = (a: SalesRepRow, b: SalesRepRow) => {
-      const key = sortBy as keyof SalesRepRow;
-      const valA = typeof a[key] === 'number' ? (a[key] as number) : 0;
-      const valB = typeof b[key] === 'number' ? (b[key] as number) : 0;
-      return sortDir === 'asc' ? valA - valB : valB - valA;
-    };
-    reps.sort(sortFn);
+    reps.sort((a, b) => b.totalConversions - a.totalConversions);
 
     const activeReps = reps.filter((r) => r.status === 'ACTIVE').length;
     const totalClicks = reps.reduce((s, r) => s + r.totalClicks, 0);
     const totalConversions = reps.reduce((s, r) => s + r.totalConversions, 0);
 
-    const summary: SalesRepSummary = {
-      totalReps: reps.length,
-      activeReps,
-      totalSales: totalConversions,
-      totalRevenueCents: reps.reduce((s, r) => s + r.totalRevenueCents, 0),
-      totalEarningsCents: reps.reduce((s, r) => s + r.totalCommissionCents, 0),
-      totalClicks,
-      avgConversionRate: totalClicks > 0 ? (totalConversions / totalClicks) * 100 : 0,
-    };
-
     return NextResponse.json({
-      summary,
+      summary: {
+        totalReps: reps.length,
+        activeReps,
+        totalPatients: reps.reduce((s, r) => s + r.patientsAssigned, 0),
+        totalClicks,
+        totalConversions,
+        avgConversionRate: totalClicks > 0 ? (totalConversions / totalClicks) * 100 : 0,
+      },
       reps,
       dateRange: { startDate: startDate.toISOString(), endDate: endDate.toISOString() },
     });
