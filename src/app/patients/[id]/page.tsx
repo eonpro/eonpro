@@ -204,7 +204,7 @@ export default async function PatientDetailPage({
                 template: {
                   select: { id: true, name: true, treatmentType: true, version: true },
                 },
-                responses: { include: { question: { select: { id: true, text: true, label: true, questionText: true } } } },
+                responses: { include: { question: true } },
               },
             },
           }
