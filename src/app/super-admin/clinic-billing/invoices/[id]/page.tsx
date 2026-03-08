@@ -59,6 +59,7 @@ interface Invoice {
   paidAmountCents: number | null;
   paymentMethod: string | null;
   paymentRef: string | null;
+  paymentHistory: { amountCents: number; method: string; reference?: string; date: string }[] | null;
   stripeInvoiceId: string | null;
   stripeInvoiceUrl: string | null;
   stripePdfUrl: string | null;
@@ -214,6 +215,7 @@ export default function InvoiceDetailPage() {
       PENDING: { bg: 'bg-yellow-100', text: 'text-yellow-700', icon: AlertCircle },
       SENT: { bg: 'bg-blue-100', text: 'text-blue-700', icon: Send },
       PAID: { bg: 'bg-green-100', text: 'text-green-700', icon: CheckCircle },
+      PARTIALLY_PAID: { bg: 'bg-emerald-100', text: 'text-emerald-700', icon: DollarSign },
       OVERDUE: { bg: 'bg-red-100', text: 'text-red-700', icon: AlertCircle },
       CANCELLED: { bg: 'bg-gray-100', text: 'text-gray-500', icon: XCircle },
     };
@@ -282,7 +284,7 @@ export default function InvoiceDetailPage() {
   const canFinalize = invoice.status === 'DRAFT';
   const canCreateStripe = invoice.status === 'PENDING' && !invoice.stripeInvoiceId;
   const canSend = ['PENDING', 'SENT'].includes(invoice.status) && invoice.stripeInvoiceId;
-  const canMarkPaid = ['PENDING', 'SENT', 'OVERDUE'].includes(invoice.status);
+  const canMarkPaid = ['PENDING', 'SENT', 'OVERDUE', 'PARTIALLY_PAID'].includes(invoice.status);
   const canCancel = ['DRAFT', 'PENDING', 'SENT', 'OVERDUE'].includes(invoice.status);
   const canDelete = invoice.status === 'DRAFT';
 
@@ -365,6 +367,53 @@ export default function InvoiceDetailPage() {
               </div>
             </div>
           </div>
+
+          {/* Payment Progress (for partial payments) */}
+          {(invoice.paidAmountCents ?? 0) > 0 && invoice.status !== 'CANCELLED' && (
+            <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+              <h2 className="mb-3 text-lg font-semibold text-gray-900">Payment Progress</h2>
+              <div className="mb-2 flex justify-between text-sm">
+                <span className="text-gray-600">
+                  {formatCurrency(invoice.paidAmountCents ?? 0)} of {formatCurrency(invoice.totalAmountCents)} paid
+                </span>
+                <span className="font-medium text-gray-900">
+                  {Math.round(((invoice.paidAmountCents ?? 0) / invoice.totalAmountCents) * 100)}%
+                </span>
+              </div>
+              <div className="h-3 overflow-hidden rounded-full bg-gray-200">
+                <div
+                  className="h-full rounded-full bg-[#4fa77e] transition-all"
+                  style={{ width: `${Math.min(100, ((invoice.paidAmountCents ?? 0) / invoice.totalAmountCents) * 100)}%` }}
+                />
+              </div>
+              {invoice.totalAmountCents - (invoice.paidAmountCents ?? 0) > 0 && (
+                <p className="mt-2 text-sm text-gray-500">
+                  Remaining: {formatCurrency(invoice.totalAmountCents - (invoice.paidAmountCents ?? 0))}
+                </p>
+              )}
+
+              {/* Payment History */}
+              {invoice.paymentHistory && invoice.paymentHistory.length > 0 && (
+                <div className="mt-4 border-t border-gray-100 pt-3">
+                  <p className="mb-2 text-sm font-medium text-gray-700">Payment History</p>
+                  <div className="space-y-2">
+                    {invoice.paymentHistory.map((p, i) => (
+                      <div key={i} className="flex items-center justify-between text-sm">
+                        <div>
+                          <span className="capitalize text-gray-600">{p.method.replace(/_/g, ' ')}</span>
+                          {p.reference && <span className="ml-2 text-xs text-gray-400">Ref: {p.reference}</span>}
+                        </div>
+                        <div className="text-right">
+                          <span className="font-medium text-gray-900">{formatCurrency(p.amountCents)}</span>
+                          <span className="ml-2 text-xs text-gray-400">{formatDate(p.date)}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Fee Events Table */}
           <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">

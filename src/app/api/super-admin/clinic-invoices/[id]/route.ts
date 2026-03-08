@@ -50,15 +50,9 @@ export const GET = withSuperAdminAuth(
 
 // Validation schema for invoice actions
 const invoiceActionSchema = z.discriminatedUnion('action', [
-  z.object({
-    action: z.literal('finalize'),
-  }),
-  z.object({
-    action: z.literal('createStripeInvoice'),
-  }),
-  z.object({
-    action: z.literal('send'),
-  }),
+  z.object({ action: z.literal('finalize') }),
+  z.object({ action: z.literal('createStripeInvoice') }),
+  z.object({ action: z.literal('send') }),
   z.object({
     action: z.literal('markPaid'),
     amountCents: z.number().int().positive(),
@@ -68,6 +62,16 @@ const invoiceActionSchema = z.discriminatedUnion('action', [
   z.object({
     action: z.literal('cancel'),
     reason: z.string().min(1).max(500),
+  }),
+  z.object({
+    action: z.literal('createCreditNote'),
+    amountCents: z.number().int().positive(),
+    reason: z.string().min(1).max(500),
+    lineItems: z.array(z.object({ description: z.string(), amountCents: z.number() })).optional(),
+  }),
+  z.object({
+    action: z.literal('applyCreditNote'),
+    creditNoteId: z.number().int().positive(),
   }),
 ]);
 
@@ -124,6 +128,20 @@ export const PATCH = withSuperAdminAuth(
 
         case 'cancel':
           invoice = await clinicInvoiceService.cancelInvoice(invoiceId, action.reason, user.id);
+          break;
+
+        case 'createCreditNote': {
+          const cn = await clinicInvoiceService.createCreditNote(
+            invoiceId,
+            { amountCents: action.amountCents, reason: action.reason, lineItems: action.lineItems },
+            user.id
+          );
+          return NextResponse.json({ success: true, creditNote: cn });
+        }
+
+        case 'applyCreditNote':
+          await clinicInvoiceService.applyCreditNote(action.creditNoteId, user.id);
+          invoice = await clinicInvoiceService.getInvoiceById(invoiceId);
           break;
 
         default:

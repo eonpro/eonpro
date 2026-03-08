@@ -696,7 +696,7 @@ export async function handleParticipantWaiting(payload: WebhookPayload): Promise
         priority: 'HIGH',
         title: 'Patient in Waiting Room',
         message: `${participant.user_name ?? 'A patient'} is waiting to join your telehealth session.`,
-        actionUrl: '/telehealth',
+        actionUrl: '/provider/telehealth',
         sourceType: 'telehealth_waiting',
         sourceId: `session-${session.id}-waiting`,
         metadata: {

@@ -46,7 +46,7 @@ export default function ProviderConsultationsPage() {
   };
 
   const handleStartVideoCall = () => {
-    window.location.href = '/telehealth';
+    window.location.href = '/provider/telehealth';
   };
 
   const handleViewTemplates = () => {
@@ -56,7 +56,7 @@ export default function ProviderConsultationsPage() {
   const handleJoinConsultation = (consultation: Consultation) => {
     // Navigate to telehealth with consultation context
     if (consultation.type === 'VIDEO') {
-      window.location.href = `/telehealth?consultationId=${consultation.id}`;
+      window.location.href = `/provider/telehealth?consultationId=${consultation.id}`;
     } else {
       // For non-video consultations, go to patient record
       window.location.href = `/provider/patients?patientId=${consultation.patientId}`;

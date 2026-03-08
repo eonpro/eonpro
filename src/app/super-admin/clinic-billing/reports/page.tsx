@@ -3,513 +3,449 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  FileText,
-  Download,
-  Calendar,
-  Building2,
-  DollarSign,
   ChevronLeft,
+  FileText,
+  DollarSign,
+  Clock,
+  TrendingUp,
+  Download,
+  Loader2,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api/fetch';
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
+  LineChart, Line, PieChart, Pie, Cell,
+} from 'recharts';
 
-type PeriodType = 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'QUARTERLY' | 'YEARLY' | 'CUSTOM';
+type TabId = 'fees' | 'revenue' | 'aging' | 'collection';
 
-interface FeeEvent {
-  id: number;
-  feeType: string;
-  amountCents: number;
-  status: string;
-  createdAt: string;
-  clinic?: { id: number; name: string };
-  order?: {
-    id: number;
-    patientId: number;
-    patient?: { id: number; firstName: string; lastName: string };
-  } | null;
-  provider?: { id: number; firstName: string; lastName: string; isEonproProvider: boolean } | null;
-  invoice?: { id: number; invoiceNumber: string; status: string } | null;
-}
+const TABS: { id: TabId; label: string; icon: typeof FileText }[] = [
+  { id: 'fees', label: 'Fee Activity', icon: FileText },
+  { id: 'revenue', label: 'Revenue', icon: DollarSign },
+  { id: 'aging', label: 'AR Aging', icon: Clock },
+  { id: 'collection', label: 'Collection', icon: TrendingUp },
+];
 
-interface ReportResponse {
-  events: FeeEvent[];
-  total: number;
-  summary: {
-    totalPrescriptionFees: number;
-    totalTransmissionFees: number;
-    totalAdminFees: number;
-    totalFees: number;
-    prescriptionCount: number;
-    transmissionCount: number;
-    adminCount: number;
-  };
-  pagination: { limit: number; offset: number; total: number; hasMore: boolean };
-  dateRange: { startDate: string; endDate: string };
-}
+const formatCurrency = (cents: number) =>
+  new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(cents / 100);
 
-interface ClinicOption {
-  id: number;
-  name: string;
-}
+const formatCurrencyFull = (cents: number) =>
+  new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(cents / 100);
 
-function getPresetRange(preset: string): { start: Date; end: Date } {
-  const end = new Date();
-  const start = new Date();
-  switch (preset) {
-    case 'today':
-      start.setHours(0, 0, 0, 0);
-      return { start, end };
-    case 'yesterday': {
-      start.setDate(start.getDate() - 1);
-      start.setHours(0, 0, 0, 0);
-      end.setDate(end.getDate() - 1);
-      end.setHours(23, 59, 59, 999);
-      return { start, end };
-    }
-    case 'last7':
-      start.setDate(start.getDate() - 7);
-      return { start, end };
-    case 'this-week':
-      start.setDate(start.getDate() - start.getDay());
-      start.setHours(0, 0, 0, 0);
-      return { start, end };
-    case 'last30':
-      start.setDate(start.getDate() - 30);
-      return { start, end };
-    case 'this-month':
-      start.setDate(1);
-      start.setHours(0, 0, 0, 0);
-      return { start, end };
-    case 'last-month': {
-      start.setMonth(start.getMonth() - 1);
-      start.setDate(1);
-      start.setHours(0, 0, 0, 0);
-      end.setDate(0); // last day of previous month
-      end.setHours(23, 59, 59, 999);
-      return { start, end };
-    }
-    case 'this-quarter': {
-      const q = Math.floor(start.getMonth() / 3) + 1;
-      start.setMonth((q - 1) * 3);
-      start.setDate(1);
-      start.setHours(0, 0, 0, 0);
-      return { start, end };
-    }
-    case 'last-quarter': {
-      const q = Math.floor(start.getMonth() / 3) + 1;
-      start.setMonth((q - 2) * 3);
-      start.setDate(1);
-      start.setHours(0, 0, 0, 0);
-      end.setMonth((q - 1) * 3);
-      end.setDate(0);
-      end.setHours(23, 59, 59, 999);
-      return { start, end };
-    }
-    default:
-      start.setDate(start.getDate() - 30);
-      return { start, end };
-  }
-}
+const COLORS = ['#4fa77e', '#3b82f6', '#f59e0b', '#f97316', '#ef4444', '#8b5cf6', '#06b6d4'];
 
-function formatDate(d: string | Date) {
-  return new Date(d).toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
-
-function formatCurrency(cents: number) {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-  }).format(cents / 100);
-}
-
-export default function ClinicBillingReportsPage() {
+export default function BillingReportsPage() {
   const router = useRouter();
-  const [clinics, setClinics] = useState<ClinicOption[]>([]);
-  const [periodType, setPeriodType] = useState<PeriodType>('MONTHLY');
-  const [preset, setPreset] = useState('last30');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
-  const [clinicId, setClinicId] = useState<string>('');
-  const [statusFilter, setStatusFilter] = useState<string>('');
-  const [data, setData] = useState<ReportResponse | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [exporting, setExporting] = useState(false);
+  const [activeTab, setActiveTab] = useState<TabId>('fees');
+  const [loading, setLoading] = useState(true);
 
-  const loadClinics = useCallback(async () => {
-    try {
-      const res = await apiFetch('/api/super-admin/clinic-fees');
-      if (res.ok) {
-        const json = await res.json();
-        const list = (json.clinics ?? []).map((c: { clinic: ClinicOption }) => c.clinic);
-        setClinics(list);
-      }
-    } catch {
-      // ignore
-    }
-  }, []);
+  // Shared filters
+  const [startDate, setStartDate] = useState(() => {
+    const d = new Date();
+    d.setMonth(d.getMonth() - 3);
+    return d.toISOString().split('T')[0];
+  });
+  const [endDate, setEndDate] = useState(() => new Date().toISOString().split('T')[0]);
 
-  useEffect(() => {
-    loadClinics();
-  }, [loadClinics]);
+  // Fee Activity state
+  const [feeData, setFeeData] = useState<{ summary: Record<string, number>; events: Record<string, unknown>[] } | null>(null);
 
-  // Initialize dates from preset
-  useEffect(() => {
-    const { start, end } = getPresetRange(preset);
-    setStartDate(start.toISOString().slice(0, 10));
-    setEndDate(end.toISOString().slice(0, 10));
-  }, [preset]);
+  // Revenue state
+  const [revenueData, setRevenueData] = useState<{ trend: Record<string, number>[]; topClinics: Record<string, unknown>[] } | null>(null);
 
-  const fetchReport = useCallback(async () => {
-    const start = startDate ? new Date(startDate) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-    const end = endDate ? new Date(endDate) : new Date();
+  // AR Aging state
+  const [agingData, setAgingData] = useState<Record<string, unknown>[] | null>(null);
+
+  // Collection state
+  const [collectionData, setCollectionData] = useState<{
+    collectionRate: number;
+    avgDaysToPayment: number;
+    totalPaidCents: number;
+    totalOutstandingCents: number;
+    totalOverdueCents: number;
+    paymentMethodBreakdown: { method: string; count: number; amountCents: number }[];
+  } | null>(null);
+
+  const fetchFeeData = useCallback(async () => {
     setLoading(true);
     try {
-      const params = new URLSearchParams();
-      params.set('periodType', periodType);
-      params.set('startDate', start.toISOString());
-      params.set('endDate', end.toISOString());
-      if (clinicId) params.set('clinicId', clinicId);
-      if (statusFilter) params.set('status', statusFilter);
-      params.set('limit', '200');
+      const params = new URLSearchParams({ startDate, endDate, limit: '100' });
       const res = await apiFetch(`/api/super-admin/clinic-fees/reports?${params}`);
-      if (res.ok) {
-        const json = await res.json();
-        setData(json);
-      } else {
-        const err = await res.json().catch(() => ({}));
-        alert(err.error || 'Failed to load report');
-      }
-    } catch (e) {
-      process.env.NODE_ENV === 'development' && console.error(e);
-      alert('Failed to load report');
-    } finally {
-      setLoading(false);
-    }
-  }, [startDate, endDate, periodType, clinicId, statusFilter]);
+      if (res.ok) setFeeData(await res.json());
+    } catch { /* silent */ } finally { setLoading(false); }
+  }, [startDate, endDate]);
 
-  const exportCsv = async () => {
-    const start = startDate ? new Date(startDate) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-    const end = endDate ? new Date(endDate) : new Date();
-    setExporting(true);
+  const fetchRevenueData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [trendRes, clinicsRes] = await Promise.all([
+        apiFetch('/api/super-admin/billing-analytics?type=revenue-trend&months=12'),
+        apiFetch(`/api/super-admin/billing-analytics?type=top-clinics&limit=10&startDate=${startDate}&endDate=${endDate}`),
+      ]);
+      const trend = trendRes.ok ? (await trendRes.json()).data : [];
+      const topClinics = clinicsRes.ok ? (await clinicsRes.json()).data : [];
+      setRevenueData({ trend, topClinics });
+    } catch { /* silent */ } finally { setLoading(false); }
+  }, [startDate, endDate]);
+
+  const fetchAgingData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await apiFetch('/api/super-admin/billing-analytics?type=ar-aging');
+      if (res.ok) setAgingData((await res.json()).data);
+    } catch { /* silent */ } finally { setLoading(false); }
+  }, []);
+
+  const fetchCollectionData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await apiFetch(`/api/super-admin/billing-analytics?type=collection&startDate=${startDate}&endDate=${endDate}`);
+      if (res.ok) setCollectionData((await res.json()).data);
+    } catch { /* silent */ } finally { setLoading(false); }
+  }, [startDate, endDate]);
+
+  useEffect(() => {
+    switch (activeTab) {
+      case 'fees': fetchFeeData(); break;
+      case 'revenue': fetchRevenueData(); break;
+      case 'aging': fetchAgingData(); break;
+      case 'collection': fetchCollectionData(); break;
+    }
+  }, [activeTab, fetchFeeData, fetchRevenueData, fetchAgingData, fetchCollectionData]);
+
+  const exportCSV = async () => {
     try {
       const res = await apiFetch('/api/super-admin/clinic-fees/reports', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          periodType,
-          startDate: start.toISOString(),
-          endDate: end.toISOString(),
-          ...(clinicId ? { clinicId: parseInt(clinicId, 10) } : {}),
-          format: 'csv',
-        }),
+        body: JSON.stringify({ periodType: 'CUSTOM', startDate, endDate, format: 'csv' }),
       });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        alert(err.error || 'Export failed');
-        return;
+      if (res.ok) {
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `billing-report-${startDate}-to-${endDate}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
       }
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `billing-report-${start.toISOString().slice(0, 10)}-${end.toISOString().slice(0, 10)}.csv`;
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch (e) {
-      process.env.NODE_ENV === 'development' && console.error(e);
-      alert('Export failed');
-    } finally {
-      setExporting(false);
-    }
+    } catch { alert('Export failed'); }
   };
 
   return (
     <div className="min-h-screen p-6 lg:p-8">
+      {/* Header */}
       <div className="mb-6 flex items-center gap-4">
-        <button
-          type="button"
-          onClick={() => router.push('/super-admin/clinic-billing')}
-          className="flex items-center gap-1 text-gray-600 hover:text-gray-900"
-        >
-          <ChevronLeft className="h-5 w-5" />
-          Back
+        <button onClick={() => router.push('/super-admin/clinic-billing')} className="rounded-lg p-2 hover:bg-gray-100">
+          <ChevronLeft className="h-5 w-5 text-gray-500" />
         </button>
-      </div>
-
-      <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
-        <div>
+        <div className="flex-1">
           <h1 className="text-2xl font-bold text-gray-900">Billing Reports</h1>
-          <p className="mt-1 text-gray-500">
-            Fee visibility by period, linked to each patient prescription
-          </p>
+          <p className="mt-1 text-gray-500">Detailed financial reports and analytics</p>
         </div>
-        <button
-          type="button"
-          onClick={() => router.push('/super-admin/clinic-billing/invoices')}
-          className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2 text-gray-700 transition-colors hover:bg-gray-50"
-        >
-          <FileText className="h-5 w-5" />
-          View Invoices
+        <button onClick={exportCSV} className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2 text-gray-700 shadow-sm hover:bg-gray-50">
+          <Download className="h-5 w-5" /> Export CSV
         </button>
       </div>
 
-      {/* Filters */}
-      <div className="mb-6 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
-        <div className="mb-4 flex items-center gap-2 text-sm font-medium text-gray-700">
-          <Calendar className="h-4 w-4" />
-          Period &amp; filters
+      {/* Date Filters */}
+      <div className="mb-6 flex flex-wrap items-center gap-4 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+        <div className="flex items-center gap-2">
+          <label className="text-sm font-medium text-gray-700">From</label>
+          <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-[#4fa77e] focus:outline-none focus:ring-2 focus:ring-[#4fa77e]/20" />
         </div>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <div>
-            <label className="mb-1 block text-xs font-medium text-gray-500">Period type</label>
-            <select
-              value={periodType}
-              onChange={(e) => setPeriodType(e.target.value as PeriodType)}
-              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-[#4fa77e] focus:outline-none focus:ring-2 focus:ring-[#4fa77e]/20"
-            >
-              <option value="DAILY">Daily</option>
-              <option value="WEEKLY">Weekly</option>
-              <option value="MONTHLY">Monthly</option>
-              <option value="QUARTERLY">Quarterly</option>
-              <option value="YEARLY">Yearly</option>
-              <option value="CUSTOM">Custom dates</option>
-            </select>
-          </div>
-          <div>
-            <label className="mb-1 block text-xs font-medium text-gray-500">Quick range</label>
-            <select
-              value={preset}
-              onChange={(e) => setPreset(e.target.value)}
-              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-[#4fa77e] focus:outline-none focus:ring-2 focus:ring-[#4fa77e]/20"
-            >
-              <option value="today">Today</option>
-              <option value="yesterday">Yesterday</option>
-              <option value="last7">Last 7 days</option>
-              <option value="this-week">This week</option>
-              <option value="last30">Last 30 days</option>
-              <option value="this-month">This month</option>
-              <option value="last-month">Last month</option>
-              <option value="this-quarter">This quarter</option>
-              <option value="last-quarter">Last quarter</option>
-            </select>
-          </div>
-          <div>
-            <label className="mb-1 block text-xs font-medium text-gray-500">Start date</label>
-            <input
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-[#4fa77e] focus:outline-none focus:ring-2 focus:ring-[#4fa77e]/20"
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-xs font-medium text-gray-500">End date</label>
-            <input
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-[#4fa77e] focus:outline-none focus:ring-2 focus:ring-[#4fa77e]/20"
-            />
-          </div>
+        <div className="flex items-center gap-2">
+          <label className="text-sm font-medium text-gray-700">To</label>
+          <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-[#4fa77e] focus:outline-none focus:ring-2 focus:ring-[#4fa77e]/20" />
         </div>
-        <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div>
-            <label className="mb-1 block text-xs font-medium text-gray-500">Clinic</label>
-            <select
-              value={clinicId}
-              onChange={(e) => setClinicId(e.target.value)}
-              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-[#4fa77e] focus:outline-none focus:ring-2 focus:ring-[#4fa77e]/20"
-            >
-              <option value="">All clinics</option>
-              {clinics.map((c) => (
-                <option key={c.id} value={String(c.id)}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="mb-1 block text-xs font-medium text-gray-500">Status</label>
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-[#4fa77e] focus:outline-none focus:ring-2 focus:ring-[#4fa77e]/20"
-            >
-              <option value="">All</option>
-              <option value="PENDING">Pending</option>
-              <option value="INVOICED">Invoiced</option>
-              <option value="PAID">Paid</option>
-              <option value="WAIVED">Waived</option>
-              <option value="VOIDED">Voided</option>
-            </select>
-          </div>
-        </div>
-        <div className="mt-4 flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={fetchReport}
-            disabled={loading}
-            className="flex items-center gap-2 rounded-xl bg-[#4fa77e] px-4 py-2 text-white shadow-sm transition-colors hover:bg-[#3d9268] disabled:opacity-50"
-          >
-            {loading ? (
-              <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-            ) : (
-              <FileText className="h-4 w-4" />
-            )}
-            Run report
-          </button>
-          <button
-            type="button"
-            onClick={exportCsv}
-            disabled={exporting || !data}
-            className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2 text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50"
-          >
-            <Download className="h-4 w-4" />
-            Export CSV
-          </button>
+        <div className="flex gap-1">
+          {[
+            { label: 'This Month', fn: () => { const n = new Date(); setStartDate(new Date(n.getFullYear(), n.getMonth(), 1).toISOString().split('T')[0]); setEndDate(n.toISOString().split('T')[0]); } },
+            { label: 'Last 3M', fn: () => { const n = new Date(); const s = new Date(n); s.setMonth(s.getMonth() - 3); setStartDate(s.toISOString().split('T')[0]); setEndDate(n.toISOString().split('T')[0]); } },
+            { label: 'This Year', fn: () => { const n = new Date(); setStartDate(new Date(n.getFullYear(), 0, 1).toISOString().split('T')[0]); setEndDate(n.toISOString().split('T')[0]); } },
+          ].map((p) => (
+            <button key={p.label} onClick={p.fn} className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50">
+              {p.label}
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* Summary cards */}
-      {data?.summary && (
-        <div className="mb-6 grid grid-cols-2 gap-4 md:grid-cols-4">
-          <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
-            <div className="flex items-center gap-2 text-gray-500">
-              <DollarSign className="h-4 w-4" />
-              <span className="text-sm">Prescription fees</span>
-            </div>
-            <p className="mt-1 text-lg font-bold text-gray-900">
-              {formatCurrency(data.summary.totalPrescriptionFees)}
-            </p>
-            <p className="text-xs text-gray-500">{data.summary.prescriptionCount} events</p>
-          </div>
-          <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
-            <div className="flex items-center gap-2 text-gray-500">
-              <DollarSign className="h-4 w-4" />
-              <span className="text-sm">Transmission fees</span>
-            </div>
-            <p className="mt-1 text-lg font-bold text-gray-900">
-              {formatCurrency(data.summary.totalTransmissionFees)}
-            </p>
-            <p className="text-xs text-gray-500">{data.summary.transmissionCount} events</p>
-          </div>
-          <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
-            <div className="flex items-center gap-2 text-gray-500">
-              <DollarSign className="h-4 w-4" />
-              <span className="text-sm">Admin fees</span>
-            </div>
-            <p className="mt-1 text-lg font-bold text-gray-900">
-              {formatCurrency(data.summary.totalAdminFees)}
-            </p>
-            <p className="text-xs text-gray-500">{data.summary.adminCount} events</p>
-          </div>
-          <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
-            <div className="flex items-center gap-2 text-gray-500">
-              <Building2 className="h-4 w-4" />
-              <span className="text-sm">Total</span>
-            </div>
-            <p className="mt-1 text-lg font-bold text-[#4fa77e]">
-              {formatCurrency(data.summary.totalFees)}
-            </p>
-            <p className="text-xs text-gray-500">{data.pagination.total} rows</p>
-          </div>
+      {/* Tabs */}
+      <div className="mb-6 flex gap-1 rounded-xl bg-gray-100 p-1">
+        {TABS.map((tab) => {
+          const Icon = tab.icon;
+          const active = activeTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex flex-1 items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-medium transition-all ${active ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+            >
+              <Icon className="h-4 w-4" /> {tab.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Tab Content */}
+      {loading ? (
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="h-8 w-8 animate-spin text-[#4fa77e]" />
         </div>
+      ) : (
+        <>
+          {activeTab === 'fees' && feeData && <FeeActivityTab data={feeData} />}
+          {activeTab === 'revenue' && revenueData && <RevenueTab data={revenueData} />}
+          {activeTab === 'aging' && agingData && <ARAgingTab data={agingData} />}
+          {activeTab === 'collection' && collectionData && <CollectionTab data={collectionData} />}
+        </>
       )}
+    </div>
+  );
+}
 
-      {/* Events table – linked to each patient prescription */}
-      <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
-        {loading && !data ? (
-          <div className="flex justify-center py-12">
-            <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#4fa77e] border-t-transparent" />
+function FeeActivityTab({ data }: { data: { summary: Record<string, number>; events: Record<string, unknown>[] } }) {
+  const { summary, events } = data;
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+        {[
+          { label: 'Prescription Fees', value: summary.totalPrescriptionFees, count: summary.prescriptionCount, color: 'text-[#4fa77e]' },
+          { label: 'Transmission Fees', value: summary.totalTransmissionFees, count: summary.transmissionCount, color: 'text-blue-600' },
+          { label: 'Admin Fees', value: summary.totalAdminFees, count: summary.adminCount, color: 'text-yellow-600' },
+          { label: 'Total Fees', value: summary.totalFees, count: (summary.prescriptionCount ?? 0) + (summary.transmissionCount ?? 0) + (summary.adminCount ?? 0), color: 'text-gray-900' },
+        ].map((c) => (
+          <div key={c.label} className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+            <p className="text-sm text-gray-500">{c.label}</p>
+            <p className={`text-xl font-bold ${c.color}`}>{formatCurrency(c.value ?? 0)}</p>
+            <p className="text-xs text-gray-400">{c.count ?? 0} events</p>
           </div>
-        ) : data?.events?.length ? (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                    Date
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                    Clinic
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                    Patient
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                    Order / Prescription
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                    Fee type
-                  </th>
-                  <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">
-                    Amount
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                    Status
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {data.events.map((ev) => (
-                  <tr key={ev.id} className="hover:bg-gray-50">
-                    <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-900">
-                      {formatDate(ev.createdAt)}
-                    </td>
-                    <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-900">
-                      {ev.clinic?.name ?? '-'}
-                    </td>
-                    <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-900">
-                      {ev.order?.patient
-                        ? `${ev.order.patient.firstName} ${ev.order.patient.lastName}`.trim() || '—'
-                        : '—'}
-                    </td>
-                    <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-600">
-                      Order #{ev.order?.id ?? '—'}
-                    </td>
-                    <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-900">
-                      {ev.feeType}
-                    </td>
-                    <td className="whitespace-nowrap px-4 py-3 text-right text-sm font-medium text-gray-900">
-                      {formatCurrency(ev.amountCents)}
-                    </td>
-                    <td className="whitespace-nowrap px-4 py-3">
-                      <span
-                        className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${
-                          ev.status === 'PAID'
-                            ? 'bg-green-100 text-green-700'
-                            : ev.status === 'PENDING'
-                              ? 'bg-yellow-100 text-yellow-700'
-                              : ev.status === 'INVOICED'
-                                ? 'bg-blue-100 text-blue-700'
-                                : 'bg-gray-100 text-gray-700'
-                        }`}
-                      >
-                        {ev.status}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : data ? (
-          <div className="py-12 text-center text-gray-500">
-            No fee events in this range. Adjust dates or filters and run report again.
-          </div>
-        ) : null}
+        ))}
       </div>
 
-      {data?.pagination?.hasMore && (
-        <p className="mt-2 text-center text-sm text-gray-500">
-          Showing first {data.events?.length ?? 0} of {data.pagination.total}. Narrow date range or
-          use CSV export for full data.
-        </p>
+      <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
+        <table className="w-full">
+          <thead className="bg-gray-50">
+            <tr>
+              {['Date', 'Clinic', 'Type', 'Provider', 'Status', 'Amount'].map((h) => (
+                <th key={h} className={`px-4 py-3 text-xs font-medium uppercase text-gray-500 ${h === 'Amount' ? 'text-right' : 'text-left'}`}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {(events as Record<string, unknown>[]).slice(0, 50).map((e: Record<string, unknown>, i: number) => (
+              <tr key={i} className="hover:bg-gray-50">
+                <td className="px-4 py-3 text-sm text-gray-600">{new Date(e.createdAt as string).toLocaleDateString()}</td>
+                <td className="px-4 py-3 text-sm text-gray-900">{(e.clinic as Record<string, string>)?.name}</td>
+                <td className="px-4 py-3">
+                  <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${e.feeType === 'PRESCRIPTION' ? 'bg-green-100 text-green-700' : e.feeType === 'TRANSMISSION' ? 'bg-blue-100 text-blue-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                    {e.feeType as string}
+                  </span>
+                </td>
+                <td className="px-4 py-3 text-sm text-gray-600">
+                  {(e.provider as Record<string, string>)?.firstName ? `${(e.provider as Record<string, string>).firstName} ${(e.provider as Record<string, string>).lastName}` : '-'}
+                </td>
+                <td className="px-4 py-3 text-xs text-gray-500">{e.status as string}</td>
+                <td className="px-4 py-3 text-right text-sm font-medium text-gray-900">{formatCurrencyFull(e.amountCents as number)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function RevenueTab({ data }: { data: { trend: Record<string, number>[]; topClinics: Record<string, unknown>[] } }) {
+  return (
+    <div className="space-y-6">
+      <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+        <h3 className="mb-4 text-lg font-semibold text-gray-900">Monthly Revenue Trend</h3>
+        <ResponsiveContainer width="100%" height={320}>
+          <BarChart data={data.trend}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+            <XAxis dataKey="label" tick={{ fontSize: 12 }} stroke="#9ca3af" />
+            <YAxis tickFormatter={(v: number) => formatCurrency(v)} tick={{ fontSize: 12 }} stroke="#9ca3af" width={80} />
+            <Tooltip formatter={(v: number, name: string) => [formatCurrency(v), name]} contentStyle={{ borderRadius: 12, border: '1px solid #e5e7eb' }} />
+            <Legend />
+            <Bar dataKey="prescriptionFees" name="Prescription" stackId="a" fill="#4fa77e" radius={[0, 0, 0, 0]} />
+            <Bar dataKey="transmissionFees" name="Transmission" stackId="a" fill="#3b82f6" />
+            <Bar dataKey="adminFees" name="Admin" stackId="a" fill="#f59e0b" radius={[4, 4, 0, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+
+      <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+        <h3 className="mb-4 text-lg font-semibold text-gray-900">Top Clinics by Revenue</h3>
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-gray-50">
+              <tr>
+                {['Rank', 'Clinic', 'Invoiced', 'Paid', 'Outstanding', 'Collection Rate'].map((h) => (
+                  <th key={h} className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {(data.topClinics as Record<string, unknown>[]).map((c, i) => (
+                <tr key={i} className="hover:bg-gray-50">
+                  <td className="px-4 py-3 text-sm font-medium text-gray-600">#{i + 1}</td>
+                  <td className="px-4 py-3 text-sm font-medium text-gray-900">{c.clinicName as string}</td>
+                  <td className="px-4 py-3 text-sm text-gray-900">{formatCurrency(c.totalInvoicedCents as number)}</td>
+                  <td className="px-4 py-3 text-sm text-green-600">{formatCurrency(c.totalPaidCents as number)}</td>
+                  <td className="px-4 py-3 text-sm text-yellow-600">{formatCurrency(c.outstandingCents as number)}</td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      <div className="h-2 flex-1 overflow-hidden rounded-full bg-gray-200">
+                        <div className="h-full rounded-full bg-[#4fa77e]" style={{ width: `${c.collectionRate as number}%` }} />
+                      </div>
+                      <span className="text-xs font-medium text-gray-600">{c.collectionRate as number}%</span>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ARAgingTab({ data }: { data: Record<string, unknown>[] }) {
+  const totalOutstanding = (data as { amountCents: number }[]).reduce((s, b) => s + b.amountCents, 0);
+  const totalInvoices = (data as { invoiceCount: number }[]).reduce((s, b) => s + b.invoiceCount, 0);
+
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-2 gap-4">
+        <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+          <p className="text-sm text-gray-500">Total Outstanding</p>
+          <p className="text-2xl font-bold text-gray-900">{formatCurrency(totalOutstanding)}</p>
+        </div>
+        <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+          <p className="text-sm text-gray-500">Outstanding Invoices</p>
+          <p className="text-2xl font-bold text-gray-900">{totalInvoices}</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+          <h3 className="mb-4 text-lg font-semibold text-gray-900">Aging Distribution</h3>
+          <ResponsiveContainer width="100%" height={280}>
+            <BarChart data={data} layout="vertical">
+              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" horizontal={false} />
+              <XAxis type="number" tickFormatter={(v: number) => formatCurrency(v)} tick={{ fontSize: 12 }} stroke="#9ca3af" />
+              <YAxis type="category" dataKey="label" tick={{ fontSize: 12 }} stroke="#9ca3af" width={60} />
+              <Tooltip formatter={(v: number) => [formatCurrency(v), 'Amount']} contentStyle={{ borderRadius: 12, border: '1px solid #e5e7eb' }} />
+              <Bar dataKey="amountCents" radius={[0, 6, 6, 0]} barSize={28}>
+                {data.map((_e, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+
+        <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+          <h3 className="mb-4 text-lg font-semibold text-gray-900">Aging Breakdown</h3>
+          <ResponsiveContainer width="100%" height={280}>
+            <PieChart>
+              <Pie data={data.filter((d: Record<string, unknown>) => (d.amountCents as number) > 0)} cx="50%" cy="50%" innerRadius={50} outerRadius={90} paddingAngle={3} dataKey="amountCents" nameKey="label" stroke="none">
+                {data.map((_e, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+              </Pie>
+              <Tooltip formatter={(v: number) => [formatCurrency(v)]} contentStyle={{ borderRadius: 12 }} />
+              <Legend />
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
+        <table className="w-full">
+          <thead className="bg-gray-50">
+            <tr>
+              {['Aging Bucket', 'Description', 'Invoices', 'Amount', '% of Total'].map((h) => (
+                <th key={h} className="px-6 py-3 text-left text-xs font-medium uppercase text-gray-500">{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {(data as { label: string; range: string; invoiceCount: number; amountCents: number }[]).map((b, i) => (
+              <tr key={i} className="hover:bg-gray-50">
+                <td className="px-6 py-3">
+                  <span className="inline-flex items-center gap-2 text-sm font-medium text-gray-900">
+                    <span className="h-3 w-3 rounded-full" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
+                    {b.label}
+                  </span>
+                </td>
+                <td className="px-6 py-3 text-sm text-gray-500">{b.range}</td>
+                <td className="px-6 py-3 text-sm text-gray-900">{b.invoiceCount}</td>
+                <td className="px-6 py-3 text-sm font-medium text-gray-900">{formatCurrency(b.amountCents)}</td>
+                <td className="px-6 py-3 text-sm text-gray-600">
+                  {totalOutstanding > 0 ? `${Math.round((b.amountCents / totalOutstanding) * 100)}%` : '0%'}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function CollectionTab({ data }: { data: { collectionRate: number; avgDaysToPayment: number; totalPaidCents: number; totalOutstandingCents: number; totalOverdueCents: number; paymentMethodBreakdown: { method: string; count: number; amountCents: number }[] } }) {
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
+        {[
+          { label: 'Collection Rate', value: `${data.collectionRate}%`, color: data.collectionRate >= 80 ? 'text-green-600' : 'text-yellow-600' },
+          { label: 'Avg Days to Pay', value: `${data.avgDaysToPayment}`, color: 'text-blue-600' },
+          { label: 'Collected', value: formatCurrency(data.totalPaidCents), color: 'text-green-600' },
+          { label: 'Outstanding', value: formatCurrency(data.totalOutstandingCents), color: 'text-yellow-600' },
+          { label: 'Overdue', value: formatCurrency(data.totalOverdueCents), color: 'text-red-600' },
+        ].map((c) => (
+          <div key={c.label} className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+            <p className="text-sm text-gray-500">{c.label}</p>
+            <p className={`text-xl font-bold ${c.color}`}>{c.value}</p>
+          </div>
+        ))}
+      </div>
+
+      {data.paymentMethodBreakdown.length > 0 && (
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+            <h3 className="mb-4 text-lg font-semibold text-gray-900">Payment Method Distribution</h3>
+            <ResponsiveContainer width="100%" height={280}>
+              <PieChart>
+                <Pie data={data.paymentMethodBreakdown} cx="50%" cy="50%" innerRadius={50} outerRadius={90} paddingAngle={3} dataKey="amountCents" nameKey="method" stroke="none">
+                  {data.paymentMethodBreakdown.map((_e, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                </Pie>
+                <Tooltip formatter={(v: number) => [formatCurrency(v)]} contentStyle={{ borderRadius: 12 }} />
+                <Legend formatter={(v: string) => v.replace(/_/g, ' ')} />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+
+          <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+            <h3 className="mb-4 text-lg font-semibold text-gray-900">Payment Methods</h3>
+            <div className="space-y-3">
+              {data.paymentMethodBreakdown.map((pm) => {
+                const pct = data.totalPaidCents > 0 ? Math.round((pm.amountCents / data.totalPaidCents) * 100) : 0;
+                return (
+                  <div key={pm.method}>
+                    <div className="mb-1 flex justify-between text-sm">
+                      <span className="capitalize text-gray-700">{pm.method.replace(/_/g, ' ')}</span>
+                      <span className="text-gray-500">{pm.count} payments - {formatCurrency(pm.amountCents)}</span>
+                    </div>
+                    <div className="h-2 overflow-hidden rounded-full bg-gray-200">
+                      <div className="h-full rounded-full bg-[#4fa77e]" style={{ width: `${pct}%` }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

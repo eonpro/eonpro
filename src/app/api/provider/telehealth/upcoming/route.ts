@@ -26,15 +26,18 @@ type TelehealthSessionStatus =
  */
 export const GET = withProviderAuth(async (req: NextRequest, user: AuthUser) => {
   try {
-    // Get provider from user
-    const provider = await prisma.provider.findFirst({
-      where: {
-        OR: [{ email: user.email }, { user: { id: user.id } }],
-      },
-    });
+    // Resolve provider: prefer providerId from JWT, fallback to email/user lookup
+    const provider = user.providerId
+      ? await prisma.provider.findUnique({ where: { id: user.providerId } })
+      : await prisma.provider.findFirst({
+          where: { OR: [{ email: user.email }, { user: { id: user.id } }] },
+        });
 
     if (!provider) {
-      return NextResponse.json({ error: 'Provider not found' }, { status: 404 });
+      return NextResponse.json(
+        { sessions: [], totalCount: 0, zoomEnabled: false },
+        { status: 200 }
+      );
     }
 
     // Get upcoming sessions (next 7 days)
@@ -99,8 +102,21 @@ export const GET = withProviderAuth(async (req: NextRequest, user: AuthUser) => 
       zoomEnabled: isZoomEnabled(),
     });
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    // Gracefully handle missing table (migration not yet applied)
+    if (errorMessage.includes('does not exist') || errorMessage.includes('relation')) {
+      logger.warn('TelehealthSession table not found — migration may be pending', {
+        error: errorMessage,
+      });
+      return NextResponse.json({
+        sessions: [],
+        totalCount: 0,
+        zoomEnabled: false,
+        migrationPending: true,
+      });
+    }
     logger.error('Failed to fetch upcoming telehealth sessions', {
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: errorMessage,
     });
     return NextResponse.json({ error: 'Failed to fetch sessions' }, { status: 500 });
   }

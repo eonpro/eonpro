@@ -76,7 +76,7 @@ export default function ActiveCallView({
   };
 
   return (
-    <div className="flex h-[100dvh] flex-col bg-gray-950">
+    <div className="fixed inset-0 z-[200] flex flex-col bg-gray-950">
       {/* Top Bar */}
       <div className="flex items-center justify-between border-b border-gray-800 bg-gray-900 px-3 py-2 sm:px-4">
         <div className="flex min-w-0 items-center gap-2 sm:gap-4">

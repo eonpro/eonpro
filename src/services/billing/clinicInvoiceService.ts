@@ -507,7 +507,9 @@ export const clinicInvoiceService = {
   },
 
   /**
-   * Mark invoice as paid
+   * Record a payment (supports partial payments).
+   * When total paid >= invoice total, status becomes PAID.
+   * Otherwise status becomes PARTIALLY_PAID.
    */
   async markAsPaid(
     invoiceId: number,
@@ -520,58 +522,135 @@ export const clinicInvoiceService = {
   ): Promise<ClinicPlatformInvoice> {
     const invoice = await prisma.clinicPlatformInvoice.findUnique({
       where: { id: invoiceId },
-      include: {
-        feeEvents: true,
-      },
+      include: { feeEvents: true },
     });
 
-    if (!invoice) {
-      throw new Error('Invoice not found');
-    }
+    if (!invoice) throw new Error('Invoice not found');
+    if (invoice.status === 'PAID') throw new Error('Invoice is already fully paid');
+    if (invoice.status === 'CANCELLED') throw new Error('Cannot pay a cancelled invoice');
 
-    if (invoice.status === 'PAID') {
-      throw new Error('Invoice is already paid');
-    }
+    const existingHistory = Array.isArray(invoice.paymentHistory) ? invoice.paymentHistory as Record<string, unknown>[] : [];
+    const previouslyPaid = invoice.paidAmountCents ?? 0;
+    const newTotalPaid = previouslyPaid + paymentDetails.amountCents;
+    const fullyPaid = newTotalPaid >= invoice.totalAmountCents;
 
-    if (invoice.status === 'CANCELLED') {
-      throw new Error('Cannot pay a cancelled invoice');
-    }
+    const newEntry = {
+      amountCents: paymentDetails.amountCents,
+      method: paymentDetails.method,
+      reference: paymentDetails.reference,
+      date: new Date().toISOString(),
+      recordedBy: actorId,
+    };
 
-    // Update invoice and fee events in transaction
     const updated = await prisma.$transaction(async (tx) => {
-      // Update invoice
       const updatedInvoice = await tx.clinicPlatformInvoice.update({
         where: { id: invoiceId },
         data: {
-          status: 'PAID',
-          paidAt: new Date(),
-          paidAmountCents: paymentDetails.amountCents,
+          status: fullyPaid ? 'PAID' : 'PARTIALLY_PAID',
+          paidAt: fullyPaid ? new Date() : invoice.paidAt,
+          paidAmountCents: newTotalPaid,
           paymentMethod: paymentDetails.method,
           paymentRef: paymentDetails.reference,
+          paymentHistory: [...existingHistory, newEntry],
         },
       });
 
-      // Update all fee events to PAID
-      await tx.platformFeeEvent.updateMany({
-        where: {
-          invoiceId,
-        },
-        data: {
-          status: 'PAID',
-        },
-      });
+      if (fullyPaid) {
+        await tx.platformFeeEvent.updateMany({
+          where: { invoiceId },
+          data: { status: 'PAID' },
+        });
+      }
 
       return updatedInvoice;
     }, { timeout: 15000 });
 
-    logger.info('[ClinicInvoiceService] Invoice marked as paid', {
+    logger.info('[ClinicInvoiceService] Payment recorded', {
       invoiceId,
       amountCents: paymentDetails.amountCents,
-      method: paymentDetails.method,
+      newTotalPaid,
+      fullyPaid,
       actorId,
     });
 
     return updated;
+  },
+
+  /**
+   * Create a credit note against an invoice.
+   */
+  async createCreditNote(
+    invoiceId: number,
+    data: { amountCents: number; reason: string; lineItems?: { description: string; amountCents: number }[] },
+    actorId?: number
+  ) {
+    const invoice = await prisma.clinicPlatformInvoice.findUnique({ where: { id: invoiceId } });
+    if (!invoice) throw new Error('Invoice not found');
+    if (invoice.status === 'CANCELLED') throw new Error('Cannot credit a cancelled invoice');
+
+    const creditNote = await prisma.clinicCreditNote.create({
+      data: {
+        invoiceId,
+        amountCents: data.amountCents,
+        reason: data.reason,
+        lineItems: data.lineItems ?? undefined,
+        status: 'DRAFT',
+        createdBy: actorId,
+      },
+    });
+
+    logger.info('[ClinicInvoiceService] Credit note created', {
+      creditNoteId: creditNote.id,
+      invoiceId,
+      amountCents: data.amountCents,
+      actorId,
+    });
+
+    return creditNote;
+  },
+
+  /**
+   * Apply a draft credit note to reduce the invoice balance.
+   */
+  async applyCreditNote(creditNoteId: number, actorId?: number) {
+    const cn = await prisma.clinicCreditNote.findUnique({
+      where: { id: creditNoteId },
+      include: { invoice: true },
+    });
+    if (!cn) throw new Error('Credit note not found');
+    if (cn.status !== 'DRAFT') throw new Error('Credit note is not in draft status');
+
+    const previouslyPaid = cn.invoice.paidAmountCents ?? 0;
+    const newTotalPaid = previouslyPaid + cn.amountCents;
+    const fullyPaid = newTotalPaid >= cn.invoice.totalAmountCents;
+
+    await prisma.$transaction(async (tx) => {
+      await tx.clinicCreditNote.update({
+        where: { id: creditNoteId },
+        data: { status: 'APPLIED', appliedAt: new Date() },
+      });
+
+      await tx.clinicPlatformInvoice.update({
+        where: { id: cn.invoiceId },
+        data: {
+          paidAmountCents: newTotalPaid,
+          status: fullyPaid ? 'PAID' : cn.invoice.status === 'DRAFT' ? 'DRAFT' : 'PARTIALLY_PAID',
+          paidAt: fullyPaid ? new Date() : cn.invoice.paidAt,
+          paymentHistory: [
+            ...(Array.isArray(cn.invoice.paymentHistory) ? cn.invoice.paymentHistory as Record<string, unknown>[] : []),
+            {
+              amountCents: cn.amountCents,
+              method: 'credit_note',
+              reference: `CN-${creditNoteId}`,
+              date: new Date().toISOString(),
+              recordedBy: actorId,
+            },
+          ],
+        },
+      });
+    }, { timeout: 15000 });
+
+    logger.info('[ClinicInvoiceService] Credit note applied', { creditNoteId, invoiceId: cn.invoiceId, actorId });
   },
 
   /**

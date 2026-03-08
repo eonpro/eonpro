@@ -32,3 +32,5 @@ export type {
   MonthComparison,
   FullDashboard,
 } from './billingAnalyticsService';
+
+export { billingExportService } from './billingExportService';

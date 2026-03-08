@@ -39,12 +39,19 @@ enum ClinicInvoicePeriodType {
 }
 
 enum ClinicInvoiceStatus {
-  DRAFT      // Being prepared, not yet finalized
-  PENDING    // Finalized, awaiting payment
-  SENT       // Invoice sent to clinic
-  PAID       // Payment received
-  OVERDUE    // Past due date, unpaid
-  CANCELLED  // Invoice cancelled/voided
+  DRAFT          // Being prepared, not yet finalized
+  PENDING        // Finalized, awaiting payment
+  SENT           // Invoice sent to clinic
+  PAID           // Payment received
+  PARTIALLY_PAID // Partial payment received
+  OVERDUE        // Past due date, unpaid
+  CANCELLED      // Invoice cancelled/voided
+}
+
+enum CreditNoteStatus {
+  DRAFT
+  APPLIED
+  VOIDED
 }
 
 // Per-clinic fee configuration - set by super admin
@@ -209,6 +216,7 @@ model ClinicPlatformInvoice {
   paidAmountCents Int?
   paymentMethod   String? // stripe, check, wire, etc.
   paymentRef      String? // Payment reference (check #, wire ref, etc.)
+  paymentHistory  Json?   // Array of {amountCents, method, reference, date} for partial payments
 
   // Audit
   generatedBy Int?
@@ -217,15 +225,44 @@ model ClinicPlatformInvoice {
   sentAt      DateTime?
   sentBy      Int?
 
+  // Payment reminders
+  remindersSent  Int       @default(0)
+  lastReminderAt DateTime?
+
   // Notes
   notes         String? // Internal notes
   externalNotes String? // Notes visible to clinic
 
   // Relations
-  feeEvents PlatformFeeEvent[]
+  feeEvents   PlatformFeeEvent[]
+  creditNotes ClinicCreditNote[]
 
   @@index([clinicId])
   @@index([status])
   @@index([periodStart, periodEnd])
   @@index([dueDate])
+}
+
+// Credit notes / adjustments against invoices
+model ClinicCreditNote {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  invoiceId Int
+  invoice   ClinicPlatformInvoice @relation(fields: [invoiceId], references: [id])
+
+  amountCents Int
+  reason      String
+  lineItems   Json?  // Optional breakdown [{description, amountCents}]
+
+  status    CreditNoteStatus @default(DRAFT)
+  appliedAt DateTime?
+
+  createdBy Int?
+  voidedAt  DateTime?
+  voidedBy  Int?
+
+  @@index([invoiceId])
+  @@index([status])
 }

@@ -42,7 +42,7 @@ const mainNavItems = [
   { icon: Users, path: '/provider/patients', label: 'My Patients' },
   { icon: ClipboardList, path: '/provider/prescription-queue', label: 'Rx Queue', hasBadge: true },
   { icon: Calendar, path: '/provider/calendar', label: 'Calendar' },
-  { icon: Video, path: '/telehealth', label: 'Telehealth' },
+  { icon: Video, path: '/provider/telehealth', label: 'Telehealth' },
   { icon: Stethoscope, path: '/provider/consultations', label: 'Consultations' },
   { icon: Pill, path: '/provider/prescriptions', label: 'Prescriptions' },
   { icon: CreditCard, path: '/provider/subscription-renewals', label: 'Renewals' },

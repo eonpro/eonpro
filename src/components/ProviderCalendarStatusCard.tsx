@@ -143,7 +143,7 @@ export default function ProviderCalendarStatusCard({ providerId, compact = false
         <div className="mb-3 flex items-center justify-between">
           <h3 className="text-sm font-medium text-gray-900">Calendar & Video</h3>
           <Link
-            href="/provider/settings/calendar"
+            href="/provider/settings"
             className="text-xs text-[var(--brand-primary,#4fa77e)] hover:underline"
           >
             Settings
@@ -205,7 +205,7 @@ export default function ProviderCalendarStatusCard({ providerId, compact = false
             Calendar & Telehealth
           </h3>
           <Link
-            href="/provider/settings/calendar"
+            href="/provider/settings"
             className="flex items-center text-sm text-[var(--brand-primary,#4fa77e)] hover:underline"
           >
             <Settings className="mr-1 h-4 w-4" />
@@ -336,7 +336,7 @@ export default function ProviderCalendarStatusCard({ providerId, compact = false
 
               {upcomingSessions.length > 3 && (
                 <Link
-                  href="/telehealth"
+                  href="/provider/telehealth"
                   className="block py-2 text-center text-sm text-[var(--brand-primary,#4fa77e)] hover:underline"
                 >
                   View all {upcomingSessions.length} sessions

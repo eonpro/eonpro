@@ -18,17 +18,17 @@ function EndedRedirect() {
   }, [router, appointmentId]);
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#efece7]">
+    <div className="flex min-h-[60vh] items-center justify-center">
       <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
     </div>
   );
 }
 
-export default function TelehealthEndedRedirect() {
+export default function TelehealthEndedPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex min-h-screen items-center justify-center bg-[#efece7]">
+        <div className="flex min-h-[60vh] items-center justify-center">
           <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
         </div>
       }

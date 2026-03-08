@@ -18,6 +18,8 @@ import { logger } from '@/lib/logger';
 import { decryptPatientPHI, DEFAULT_PHI_FIELDS } from '@/lib/security/phi-encryption';
 import { getUserFromCookies } from '@/lib/auth/session';
 import { auditLog, AuditEventType } from '@/lib/audit/hipaa-audit';
+import { generateSignedUrl } from '@/lib/integrations/aws/s3Service';
+import { isS3Enabled } from '@/lib/integrations/aws/s3Config';
 
 // Force dynamic rendering to ensure fresh data after intake edits
 export const dynamic = 'force-dynamic';
@@ -157,7 +159,7 @@ export default async function PatientDetailPage({
       patient = await basePrisma.patient.findFirst({
         where: coreWhere,
         include: {
-          user: { select: { id: true } },
+          user: { select: { id: true, avatarUrl: true } },
           clinic: {
             select: { id: true, subdomain: true, name: true, features: true, address: true, phone: true },
           },
@@ -897,12 +899,28 @@ export default async function PatientDetailPage({
       ...patientCore
     } = patientWithDecryptedPHI;
 
+    // Resolve patient avatar URL from their linked User record
+    let patientAvatarUrl: string | null = null;
+    const rawAvatarKey = patientWithDecryptedPHI.user?.avatarUrl;
+    if (rawAvatarKey) {
+      try {
+        if (rawAvatarKey.startsWith('http')) {
+          patientAvatarUrl = rawAvatarKey;
+        } else if (isS3Enabled()) {
+          patientAvatarUrl = await generateSignedUrl(rawAvatarKey, 'GET', 3600);
+        }
+      } catch {
+        patientAvatarUrl = null;
+      }
+    }
+
     return (
       <div className="min-h-screen bg-[#efece7] p-6">
         <div className="flex gap-6">
           {/* Left Sidebar - Patient Info & Navigation */}
           <PatientSidebar
             patient={patientCore}
+            avatarUrl={patientAvatarUrl}
             currentTab={currentTab}
             affiliateCode={affiliateCode}
             affiliateAttribution={
