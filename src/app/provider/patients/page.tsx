@@ -94,10 +94,8 @@ export default function ProviderPatientsPage() {
   }, [searchParams, router]);
 
   const fetchPatients = useCallback(
-    async (currentOffset: number, isNewSearch: boolean, q: string, retryAttempt = 0) => {
+    async (currentOffset: number, isNewSearch: boolean, q: string) => {
       if (abortRef.current) abortRef.current.abort();
-      abortRef.current = new AbortController();
-      const { signal } = abortRef.current;
 
       try {
         if (isNewSearch && isInitialLoadRef.current) setLoading(true);
@@ -112,14 +110,30 @@ export default function ProviderPatientsPage() {
         });
         if (q.trim()) params.set('search', q.trim());
 
-        const timeoutId = setTimeout(() => abortRef.current?.abort(), 15_000);
-        const response = await apiFetch(`/api/patients?${params.toString()}`, { signal });
-        clearTimeout(timeoutId);
+        const url = `/api/patients?${params.toString()}`;
 
-        if (!response.ok) {
-          if (retryAttempt < 1) {
-            return fetchPatients(currentOffset, isNewSearch, q, retryAttempt + 1);
+        // Try up to 2 attempts (initial + 1 retry to warm cold serverless functions)
+        let response: Response | null = null;
+        for (let attempt = 0; attempt < 2; attempt++) {
+          abortRef.current = new AbortController();
+          const { signal } = abortRef.current;
+          const timeoutId = setTimeout(() => abortRef.current?.abort(), 15_000);
+
+          try {
+            response = await apiFetch(url, { signal });
+            clearTimeout(timeoutId);
+            if (response.ok) break;
+          } catch (err) {
+            clearTimeout(timeoutId);
+            if ((err as Error).name !== 'AbortError') throw err;
+            if (attempt === 1) {
+              setError('Request timed out. Please try again.');
+              return;
+            }
           }
+        }
+
+        if (!response || !response.ok) {
           setError('Failed to load patients. Please try again.');
           return;
         }
@@ -155,13 +169,7 @@ export default function ProviderPatientsPage() {
         });
         setOffset(currentOffset + mapped.length);
       } catch (err) {
-        if ((err as Error).name === 'AbortError') {
-          if (retryAttempt < 1) {
-            return fetchPatients(currentOffset, isNewSearch, q, retryAttempt + 1);
-          }
-          setError('Request timed out. Please try again.');
-          return;
-        }
+        if ((err as Error).name === 'AbortError') return;
       } finally {
         setLoading(false);
         setSearching(false);
