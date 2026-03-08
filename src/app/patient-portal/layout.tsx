@@ -2,7 +2,7 @@
 
 export const dynamic = 'force-dynamic';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import nextDynamic from 'next/dynamic';
@@ -125,7 +125,7 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
   const activeModules = portalMode === 'lead' ? LEAD_NAV_MODULES : NAV_MODULES;
   const activeLabelOverrides = portalMode === 'lead' ? LEAD_MOBILE_LABEL_OVERRIDE : MOBILE_LABEL_OVERRIDE;
 
-  const mainNavItems = (portalMode === 'lead'
+  const mainNavItems = useMemo(() => (portalMode === 'lead'
     ? [...activeModules]
     : activeModules.filter(
         (m) => (m.navSlot === 'main' || m.navSlot === 'both') && enabledNavIds.includes(m.id)
@@ -137,9 +137,9 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
       path: `${PATIENT_PORTAL_PATH}${m.pathSuffix}`,
       labelKey: m.labelKey,
       exact: m.exact ?? false,
-    }));
+    })), [portalMode, activeModules, enabledNavIds]);
 
-  const mobileNavItems = (portalMode === 'lead'
+  const mobileNavItems = useMemo(() => (portalMode === 'lead'
     ? [...activeModules]
     : activeModules.filter(
         (m) => m.navSlot === 'both' && enabledNavIds.includes(m.id)
@@ -151,7 +151,7 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
       path: `${PATIENT_PORTAL_PATH}${m.pathSuffix}`,
       labelKey: activeLabelOverrides[m.id] ?? m.labelKey,
       exact: m.exact ?? false,
-    }));
+    })), [portalMode, activeModules, activeLabelOverrides, enabledNavIds]);
 
   // Check if chat should be shown
   const showChat = features.showChat !== false;
@@ -352,11 +352,61 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
 
   if (loading || brandingLoading) {
     return (
-      <div className="flex min-h-[100dvh] items-center justify-center bg-white lg:bg-[#efece7]">
-        <div
-          className="h-10 w-10 animate-spin rounded-full border-[3px] border-t-transparent"
-          style={{ borderColor: `${primaryColor} transparent ${primaryColor} ${primaryColor}` }}
-        />
+      <div className="flex min-h-[100dvh] overflow-x-hidden bg-white lg:bg-[#efece7]">
+        {/* Desktop sidebar skeleton */}
+        <aside className="fixed bottom-0 left-0 top-0 z-50 hidden w-20 flex-col border-r border-gray-200 bg-white py-4 lg:flex">
+          <div className="mb-6 flex items-center justify-center px-4">
+            <div className="h-10 w-10 animate-pulse rounded-lg bg-gray-200" />
+          </div>
+          <nav className="flex flex-1 flex-col space-y-2 px-3">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="flex items-center justify-center rounded-xl px-3 py-2.5">
+                <div className="h-5 w-5 animate-pulse rounded bg-gray-200" />
+              </div>
+            ))}
+          </nav>
+        </aside>
+
+        {/* Mobile header skeleton */}
+        <header className="portal-header fixed left-0 right-0 top-0 z-50 bg-white lg:hidden">
+          <div className="safe-top" />
+          <div className="flex h-14 items-center justify-between px-4">
+            <div className="h-8 w-[120px] animate-pulse rounded bg-gray-200" />
+            <div className="flex items-center gap-1">
+              <div className="h-11 w-11 animate-pulse rounded-xl bg-gray-100" />
+              <div className="h-11 w-11 animate-pulse rounded-xl bg-gray-100" />
+            </div>
+          </div>
+        </header>
+
+        {/* Content skeleton */}
+        <main className="min-w-0 flex-1 lg:ml-20">
+          <div className="min-h-[100dvh] w-full pb-24 pt-[calc(56px+env(safe-area-inset-top,0px))] lg:pb-0 lg:pt-0">
+            <div className="space-y-4 p-4 lg:p-6">
+              <div className="h-8 w-48 animate-pulse rounded-lg bg-gray-200" />
+              <div className="grid gap-4 sm:grid-cols-2">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="h-32 animate-pulse rounded-2xl bg-gray-100" />
+                ))}
+              </div>
+            </div>
+          </div>
+        </main>
+
+        {/* Mobile bottom nav skeleton */}
+        <nav className="portal-bottom-nav fixed bottom-0 left-0 right-0 z-40 bg-white lg:hidden">
+          <div className="border-t border-gray-200">
+            <div className="mx-auto flex max-w-md justify-around gap-1 px-1">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="flex flex-1 flex-col items-center py-2">
+                  <div className="h-11 w-11 animate-pulse rounded-2xl bg-gray-100" />
+                  <div className="mt-0.5 h-2.5 w-8 animate-pulse rounded bg-gray-100" />
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="safe-bottom bg-white" />
+        </nav>
       </div>
     );
   }
@@ -465,6 +515,7 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
               alt={branding?.clinicName || 'EONPRO'}
               width={120}
               height={32}
+              fetchPriority="high"
               className="h-8 w-auto max-w-[120px] object-contain"
             />
           </Link>

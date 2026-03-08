@@ -22,7 +22,14 @@ import { PatientPhotoType, PatientPhotoVerificationStatus } from '@/types/prisma
 import { format, parseISO } from 'date-fns';
 const VerificationCaptureOverlay = dynamic(
   () => import('@/components/patient-portal/photos/VerificationCaptureOverlay'),
-  { ssr: false },
+  {
+    ssr: false,
+    loading: () => (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90">
+        <div className="h-10 w-10 animate-spin rounded-full border-4 border-white/20 border-t-white" />
+      </div>
+    ),
+  },
 );
 
 // =============================================================================

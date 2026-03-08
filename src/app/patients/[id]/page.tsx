@@ -1127,10 +1127,10 @@ export default async function PatientDetailPage({
                   </div>
 
                   {/* Weight Progress Summary - Shows patient's journey entries */}
-                  <WeightProgressSummary patientId={patientWithDecryptedPHI.id} />
+                  <WeightProgressSummary patientId={patientWithDecryptedPHI.id} basePath={PATIENTS_LIST_PATH} />
 
                   {/* Activity Summary - Water, Exercise, Sleep, Nutrition */}
-                  <PatientProgressSummary patientId={patientWithDecryptedPHI.id} />
+                  <PatientProgressSummary patientId={patientWithDecryptedPHI.id} basePath={PATIENTS_LIST_PATH} />
                 </div>
 
                 {/* Audit Log for admins */}

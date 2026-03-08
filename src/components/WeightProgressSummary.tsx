@@ -7,6 +7,7 @@ import { TrendingDown, TrendingUp, Scale, BarChart3 } from 'lucide-react';
 
 interface WeightProgressSummaryProps {
   patientId: number;
+  basePath?: string;
 }
 
 interface WeightEntry {
@@ -23,7 +24,7 @@ interface WeightEntry {
  * Displays: Starting weight, Current weight, Change, Check-ins count
  * This mirrors the summary shown on the patient portal progress page.
  */
-export default function WeightProgressSummary({ patientId }: WeightProgressSummaryProps) {
+export default function WeightProgressSummary({ patientId, basePath = '/patients' }: WeightProgressSummaryProps) {
   const [weightData, setWeightData] = useState<WeightEntry[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -74,7 +75,7 @@ export default function WeightProgressSummary({ patientId }: WeightProgressSumma
     return (
       <div className="mt-6 flex h-48 items-center justify-center rounded-xl bg-[#efece7] p-4">
         <Link
-          href={`/patients/${patientId}?tab=progress`}
+          href={`${basePath}/${patientId}?tab=progress`}
           className="group text-center text-gray-500 transition-colors"
         >
           <BarChart3 className="mx-auto mb-2 h-8 w-8 opacity-50 transition-opacity group-hover:opacity-80" />
@@ -113,7 +114,7 @@ export default function WeightProgressSummary({ patientId }: WeightProgressSumma
           <h3 className="text-sm font-semibold text-gray-700">Weight Progress</h3>
         </div>
         <Link
-          href={`/patients/${patientId}?tab=progress`}
+          href={`${basePath}/${patientId}?tab=progress`}
           className="text-xs text-gray-500 transition-colors hover:text-gray-700"
         >
           View full chart →

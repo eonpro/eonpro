@@ -478,6 +478,8 @@ export default function PhotosHubPage() {
                 <img
                   src={deleteConfirm.thumbnailUrl}
                   alt="Photo to delete"
+                  width={320}
+                  height={160}
                   className="h-40 w-full object-cover"
                 />
               </div>

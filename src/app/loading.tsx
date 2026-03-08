@@ -12,6 +12,8 @@ export default function Loading() {
               <img
                 src={EONPRO_ICON}
                 alt="Loading"
+                width={40}
+                height={40}
                 className="h-10 w-10 animate-pulse rounded object-contain"
               />
             </div>

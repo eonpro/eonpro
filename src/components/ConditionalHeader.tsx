@@ -136,6 +136,8 @@ export default function ConditionalHeader() {
               <img
                 src={EONPRO_LOGO}
                 alt="EONPRO logo"
+                width={160}
+                height={40}
                 className="h-8 w-auto sm:h-10"
               />
             </Link>

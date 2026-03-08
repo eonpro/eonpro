@@ -33,13 +33,39 @@ import dynamic from 'next/dynamic';
 
 const ActiveShipmentTracker = dynamic(
   () => import('@/components/patient-portal/ActiveShipmentTracker'),
-  { ssr: false },
+  {
+    ssr: false,
+    loading: () => (
+      <div className="animate-pulse rounded-2xl bg-white p-5 shadow-sm">
+        <div className="flex items-center gap-3">
+          <div className="h-10 w-10 rounded-xl bg-gray-200" />
+          <div className="flex-1 space-y-2">
+            <div className="h-4 w-32 rounded bg-gray-200" />
+            <div className="h-3 w-48 rounded bg-gray-100" />
+          </div>
+        </div>
+        <div className="mt-3 h-2 w-full rounded-full bg-gray-100" />
+      </div>
+    ),
+  },
 );
 import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
 import { getPortalMode } from '@/lib/patient-portal/portal-mode';
 import type { PortalMode } from '@/lib/patient-portal/types';
 
-const LeadDashboard = dynamic(() => import('./lead-dashboard'), { ssr: false });
+const LeadDashboard = dynamic(() => import('./lead-dashboard'), {
+  ssr: false,
+  loading: () => (
+    <div className="min-h-[60dvh] animate-pulse space-y-4 p-4">
+      <div className="h-8 w-48 rounded-lg bg-gray-200" />
+      <div className="grid gap-4 sm:grid-cols-2">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="h-32 rounded-2xl bg-gray-100" />
+        ))}
+      </div>
+    </div>
+  ),
+});
 
 interface WeightEntry {
   dateInput: string;
@@ -95,6 +121,7 @@ export default function PatientPortalDashboard() {
   } | null>(null);
   const [dataError, setDataError] = useState<string | null>(null);
   const [portalMode, setPortalMode] = useState<PortalMode | null>(null);
+  const [dashboardLoading, setDashboardLoading] = useState(true);
 
   const primaryColor = branding?.primaryColor || '#4fa77e';
   const accentColor = branding?.accentColor || '#d3f931';
@@ -155,8 +182,9 @@ export default function PatientPortalDashboard() {
         if (cancelled) return;
         if (patientId != null && patientId > 0) {
           loadPatientData(patientId);
+        } else {
+          setDashboardLoading(false);
         }
-        // No demo: if no valid patientId, leave state empty (user may see empty dashboard or redirect handled by layout)
       } catch (error) {
         logger.error('PatientPortal: failed to load user data', {
           error: error instanceof Error ? error.message : 'Unknown',
@@ -332,6 +360,8 @@ export default function PatientPortalDashboard() {
       if (!dataError) {
         setDataError('Unable to load your health data. Please check your connection and try again.');
       }
+    } finally {
+      setDashboardLoading(false);
     }
   };
 
@@ -389,6 +419,46 @@ export default function PatientPortalDashboard() {
         clinicName={branding?.clinicName ?? ''}
         clinicSlug={branding?.subdomain ?? ''}
       />
+    );
+  }
+
+  if (dashboardLoading) {
+    return (
+      <div className="min-h-screen animate-pulse p-4 md:p-6 lg:p-8">
+        {/* Welcome header skeleton */}
+        <div className="mb-6">
+          <div className="h-4 w-28 rounded bg-gray-200" />
+          <div className="mt-2 h-8 w-56 rounded bg-gray-200" />
+        </div>
+        {/* Vitals row skeleton */}
+        <div className="mb-6 grid grid-cols-3 gap-3">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="rounded-2xl bg-white p-4 shadow-sm">
+              <div className="mb-2 h-3 w-14 rounded bg-gray-200" />
+              <div className="h-7 w-16 rounded bg-gray-200" />
+              <div className="mt-2 h-2 w-full rounded-full bg-gray-100" />
+            </div>
+          ))}
+        </div>
+        {/* Weight card skeleton */}
+        <div className="mb-6 h-40 rounded-2xl bg-gray-200" />
+        {/* Quick stats skeleton */}
+        <div className="mb-6 grid grid-cols-2 gap-3">
+          <div className="h-24 rounded-2xl bg-white shadow-sm" />
+          <div className="h-24 rounded-2xl bg-white shadow-sm" />
+        </div>
+        {/* Photos widget skeleton */}
+        <div className="mb-6 h-28 rounded-2xl bg-white shadow-sm" />
+        {/* Quick actions skeleton */}
+        <div className="mb-6">
+          <div className="mb-3 h-5 w-28 rounded bg-gray-200" />
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="h-20 rounded-xl bg-white shadow-sm" />
+            ))}
+          </div>
+        </div>
+      </div>
     );
   }
 
@@ -677,6 +747,9 @@ export default function PatientPortalDashboard() {
                   <img
                     src={photoStats.recentPhoto}
                     alt="Recent progress"
+                    width={64}
+                    height={64}
+                    loading="lazy"
                     className="h-full w-full object-cover"
                   />
                 </div>

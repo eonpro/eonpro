@@ -20,7 +20,22 @@ import { PhotoUploader, PhotoGallery } from '@/components/patient-portal/photos'
 
 const PhotoComparison = dynamic(
   () => import('@/components/patient-portal/photos').then((mod) => mod.PhotoComparison),
-  { ssr: false },
+  {
+    ssr: false,
+    loading: () => (
+      <div className="animate-pulse space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="h-6 w-44 rounded bg-gray-200" />
+          <div className="flex gap-1"><div className="h-8 w-8 rounded bg-gray-100" /><div className="h-8 w-8 rounded bg-gray-100" /><div className="h-8 w-8 rounded bg-gray-100" /></div>
+        </div>
+        <div className="aspect-[3/4] w-full rounded-xl bg-gray-200 sm:aspect-square" />
+        <div className="grid grid-cols-2 gap-4">
+          <div className="h-20 rounded-lg bg-gray-100" />
+          <div className="h-20 rounded-lg bg-gray-100" />
+        </div>
+      </div>
+    ),
+  },
 );
 import {
   Camera,

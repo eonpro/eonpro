@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
 import { X, User, Loader2, UserPlus } from 'lucide-react';
 import VerifiedBadge from './VerifiedBadge';
 import { formatPatientDisplayId } from '@/lib/utils/formatPatientDisplayId';
@@ -36,7 +35,6 @@ export default function PatientQuickSearch({
   patientDetailBasePath = '/patients',
   createPatientPath,
 }: PatientQuickSearchProps) {
-  const router = useRouter();
   const effectiveCreatePath =
     createPatientPath ?? (patientDetailBasePath.includes('provider') ? '/provider/patients?create=1' : '/admin/patients/new');
   const [query, setQuery] = useState('');
@@ -159,7 +157,7 @@ export default function PatientQuickSearch({
     setQuery('');
     setResults([]);
     setIsOpen(false);
-    router.push(`${patientDetailBasePath}/${patientId}`);
+    window.location.href = `${patientDetailBasePath}/${patientId}`;
   };
 
   // Close dropdown when clicking outside

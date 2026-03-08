@@ -330,6 +330,8 @@ function Lightbox({ photos, currentIndex, onClose, onNavigate, onDelete }: Light
           <img
             src={photo.s3Url}
             alt={photo.title || 'Photo'}
+            width={photo.width || 800}
+            height={photo.height || 800}
             className="max-h-full max-w-full select-none object-contain"
             style={{
               transform: `scale(${zoom}) translate(${position.x / zoom}px, ${position.y / zoom}px)`,
@@ -420,6 +422,10 @@ function PhotoCard({ photo, onClick, showWeight }: PhotoCardProps) {
         <img
           src={imageUrl}
           alt={photo.title || 'Photo'}
+          width={200}
+          height={200}
+          loading="lazy"
+          decoding="async"
           className={`h-full w-full object-cover transition-opacity ${loaded ? 'opacity-100' : 'opacity-0'}`}
           onLoad={() => setLoaded(true)}
           onError={() => setError(true)}

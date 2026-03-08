@@ -8,6 +8,7 @@ import { logger } from '@/lib/logger';
 
 interface PatientProgressSummaryProps {
   patientId: number;
+  basePath?: string;
 }
 
 interface ProgressSnapshot {
@@ -17,7 +18,7 @@ interface ProgressSnapshot {
   nutrition: { todayCalories: number; entries: number } | null;
 }
 
-export default function PatientProgressSummary({ patientId }: PatientProgressSummaryProps) {
+export default function PatientProgressSummary({ patientId, basePath = '/patients' }: PatientProgressSummaryProps) {
   const [data, setData] = useState<ProgressSnapshot>({
     water: null,
     exercise: null,
@@ -115,7 +116,7 @@ export default function PatientProgressSummary({ patientId }: PatientProgressSum
       <div className="mb-3 flex items-center justify-between">
         <h3 className="text-sm font-semibold text-gray-700">Activity Summary</h3>
         <Link
-          href={`/patients/${patientId}?tab=progress`}
+          href={`${basePath}/${patientId}?tab=progress`}
           className="text-xs text-gray-500 transition-colors hover:text-gray-700"
         >
           View all →
