@@ -342,27 +342,37 @@ async function triggerSecurityAlert(data: any): Promise<void> {
 }
 
 /**
- * Fallback audit logging to file system
+ * Fallback audit logging.
+ * Uses /tmp on serverless (Vercel) since process.cwd() is read-only,
+ * then always emits via logger.security so Sentry/CloudWatch capture the entry
+ * even when the filesystem is unavailable.
  */
 async function fallbackAuditLog(context: AuditContext): Promise<void> {
-  const fs = await import('fs/promises');
-  const path = await import('path');
-
-  const logDir = path.join(process.cwd(), 'audit-logs');
-  await fs.mkdir(logDir, { recursive: true });
-
   const date = new Date();
-  const filename = `audit-${date.toISOString().split('T')[0]}.jsonl`;
-  const filepath = path.join(logDir, filename);
+  const logEntry = {
+    ...(context ?? {}),
+    timestamp: date.toISOString(),
+    fallback: true,
+  };
 
-  const logEntry =
-    JSON.stringify({
-      ...context,
-      timestamp: date.toISOString(),
-      fallback: true,
-    }) + '\n';
+  logger.security('FALLBACK_AUDIT', logEntry);
 
-  await fs.appendFile(filepath, logEntry);
+  try {
+    const fs = await import('fs/promises');
+    const path = await import('path');
+
+    const logDir = process.env.VERCEL
+      ? path.join('/tmp', 'audit-logs')
+      : path.join(process.cwd(), 'audit-logs');
+    await fs.mkdir(logDir, { recursive: true });
+
+    const filename = `audit-${date.toISOString().split('T')[0]}.jsonl`;
+    const filepath = path.join(logDir, filename);
+    await fs.appendFile(filepath, JSON.stringify(logEntry) + '\n');
+  } catch {
+    // Filesystem write is best-effort; the logger.security call above
+    // already captured the entry for external observability.
+  }
 }
 
 /**

@@ -44,10 +44,27 @@ export const POST = withAuth(async (req: NextRequest, user: AuthUser) => {
     }
 
     // Create portal session
-    const session = await stripe.billingPortal.sessions.create({
-      customer: patient.stripeCustomerId,
-      return_url: `${process.env.NEXT_PUBLIC_APP_URL}/portal/billing`,
-    });
+    let session: Stripe.BillingPortal.Session;
+    try {
+      session = await stripe.billingPortal.sessions.create({
+        customer: patient.stripeCustomerId,
+        return_url: `${process.env.NEXT_PUBLIC_APP_URL}/portal/billing`,
+      });
+    } catch (stripeError) {
+      const isStripeError =
+        stripeError instanceof Stripe.errors.StripeError ||
+        (stripeError instanceof Error && 'type' in stripeError);
+      if (isStripeError && stripeError instanceof Error) {
+        const stripeType = (stripeError as Stripe.errors.StripeError).type;
+        if (stripeType === 'StripeInvalidRequestError') {
+          return NextResponse.json(
+            { error: 'Billing account is not properly configured. Please contact support.', code: 'STRIPE_CONFIG_ERROR' },
+            { status: 400 }
+          );
+        }
+      }
+      throw stripeError;
+    }
 
     await logPHIAccess(req, user, 'BillingPortalSession', String(user.patientId), user.patientId, {
       stripeCustomerId: patient.stripeCustomerId,

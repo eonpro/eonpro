@@ -91,13 +91,18 @@ const postHandler = withAuthParams(
         resetBy: user.id,
       });
 
-      await auditLog({
+      await auditLog(request, {
         eventType: AuditEventType.PHI_UPDATE,
         userId: user.id,
+        userEmail: user.email,
+        userRole: user.role,
         patientId: id,
         clinicId: user.clinicId ?? patient.clinicId,
+        resourceType: 'Patient',
+        resourceId: id,
         action: 'PORTAL_ACCESS_RESET',
-        details: {
+        outcome: 'SUCCESS',
+        metadata: {
           deactivatedUserId: portalUserId,
           archivedEmail: '[REDACTED]',
           reason: 'Admin-initiated portal access reset',

@@ -460,9 +460,9 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
             className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm lg:hidden"
             onClick={() => setMobileMenuOpen(false)}
           />
-          <div className="fixed bottom-0 right-0 top-0 z-50 w-72 bg-white shadow-2xl lg:hidden">
+          <div className="fixed bottom-0 right-0 top-0 z-50 flex w-72 flex-col bg-white shadow-2xl lg:hidden">
             <div className="safe-top" />
-            <div className="flex h-14 items-center justify-between border-b border-gray-100 px-4">
+            <div className="flex h-14 shrink-0 items-center justify-between border-b border-gray-100 px-4">
               <span className="text-lg font-semibold text-gray-900">Menu</span>
               <button
                 onClick={() => setMobileMenuOpen(false)}
@@ -471,7 +471,7 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
                 <X className="h-6 w-6" />
               </button>
             </div>
-            <nav className="space-y-1 p-3">
+            <nav className="flex-1 space-y-1 overflow-y-auto overscroll-contain p-3">
               {mainNavItems.map((item) => {
                 const Icon = item.icon;
                 const active = isActive(item.path, item.exact);
@@ -491,7 +491,7 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
                 );
               })}
             </nav>
-            <div className="absolute bottom-0 left-0 right-0 border-t border-gray-100 bg-gray-50 p-3">
+            <div className="shrink-0 border-t border-gray-100 bg-gray-50 p-3">
               <div className="safe-bottom">
                 <button
                   type="button"

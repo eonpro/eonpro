@@ -84,10 +84,14 @@ const postHandler = withAuthParams(
         const isSecuritySensitive =
           result.error &&
           /decryption|encryption|ENCRYPTION_KEY|key must be|key not/i.test(result.error);
+        const isDeliveryFailure =
+          result.error &&
+          /send|deliver|SES|smtp|twilio|sms|blocked|bounced|rejected/i.test(result.error);
         const safeMessage = isSecuritySensitive
           ? 'Unable to load patient contact details. Please try again or contact support.'
           : (result.error ?? 'Failed to send invite. Please try again.');
-        return NextResponse.json({ error: safeMessage }, { status: 500 });
+        const statusCode = isSecuritySensitive ? 500 : isDeliveryFailure ? 502 : 500;
+        return NextResponse.json({ error: safeMessage }, { status: statusCode });
       }
 
       const message =

@@ -440,6 +440,29 @@ END:VCALENDAR`;
       .map((m) => ({ ...m, prescription: p }))
   );
 
+  const isMultiMonthPlan =
+    billingPlan &&
+    (billingPlan.interval === '6-month' || billingPlan.interval === 'annual');
+
+  const shipmentSchedule = (() => {
+    if (!isMultiMonthPlan || !billingPlan?.startDate) return null;
+    const start = new Date(billingPlan.startDate);
+    const isAnnual = billingPlan.interval === 'annual';
+    const offsetMonths = isAnnual ? [3, 6, 9] : [3];
+    const totalMonths = isAnnual ? 12 : 6;
+
+    const upcoming = offsetMonths.map((m) => {
+      const d = new Date(start);
+      d.setMonth(d.getMonth() + m);
+      return d;
+    });
+
+    const now = new Date();
+    const remaining = upcoming.filter((d) => d > now);
+
+    return { totalMonths, upcoming, remaining };
+  })();
+
   if (loading) {
     return <MedicationsPageSkeleton />;
   }
@@ -530,6 +553,90 @@ END:VCALENDAR`;
                 <p className="mt-0.5 text-xs font-bold text-gray-900 sm:mt-1 sm:text-sm">{formatDate(billingPlan.startDate)}</p>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Multi-Month Shipping Schedule Notice ── */}
+      {isMultiMonthPlan && shipmentSchedule && (
+        <div className="mb-8 overflow-hidden rounded-2xl border border-blue-100 bg-blue-50/70">
+          <div className="flex gap-3 p-4 sm:p-5">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-100">
+              <Package className="h-5 w-5 text-blue-600" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <h3 className="text-sm font-semibold text-blue-900">
+                {shipmentSchedule.totalMonths}-Month Plan &mdash; Shipping Schedule
+              </h3>
+              <p className="mt-1.5 text-sm leading-relaxed text-blue-800">
+                Compounded medication vials have a <span className="font-semibold">90-day best use date</span>.
+                To ensure freshness and potency, your treatment is shipped in 90-day intervals rather than
+                all at once.
+              </p>
+              <div className="mt-3 rounded-xl bg-white/60 p-3">
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-blue-600">
+                  Your Shipments
+                </p>
+                <div className="space-y-2">
+                  {billingPlan?.startDate && (
+                    <div className="flex items-center gap-2 text-sm text-blue-900">
+                      <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-100">
+                        <Check className="h-3 w-3 text-emerald-600" />
+                      </div>
+                      <span>
+                        <span className="font-medium">Shipment 1</span>
+                        <span className="mx-1.5 text-blue-400">&middot;</span>
+                        {formatDate(billingPlan.startDate)}
+                        <span className="ml-1.5 text-xs text-blue-500">(initial)</span>
+                      </span>
+                    </div>
+                  )}
+                  {shipmentSchedule.upcoming.map((date, idx) => {
+                    const isPast = date <= new Date();
+                    return (
+                      <div key={idx} className="flex items-center gap-2 text-sm text-blue-900">
+                        <div
+                          className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${
+                            isPast ? 'bg-emerald-100' : 'bg-blue-100'
+                          }`}
+                        >
+                          {isPast ? (
+                            <Check className="h-3 w-3 text-emerald-600" />
+                          ) : (
+                            <Truck className="h-3 w-3 text-blue-500" />
+                          )}
+                        </div>
+                        <span>
+                          <span className="font-medium">Shipment {idx + 2}</span>
+                          <span className="mx-1.5 text-blue-400">&middot;</span>
+                          {date.toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric',
+                          })}
+                          <span className="ml-1.5 text-xs text-blue-500">
+                            (month {(idx + 1) * 3})
+                          </span>
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+              {shipmentSchedule.remaining.length > 0 && (
+                <p className="mt-2.5 text-xs text-blue-600">
+                  {shipmentSchedule.remaining.length}{' '}
+                  {shipmentSchedule.remaining.length === 1 ? 'shipment' : 'shipments'} remaining
+                  &mdash; next ships around{' '}
+                  <span className="font-semibold">
+                    {shipmentSchedule.remaining[0].toLocaleDateString('en-US', {
+                      month: 'long',
+                      day: 'numeric',
+                    })}
+                  </span>
+                </p>
+              )}
+            </div>
           </div>
         </div>
       )}
