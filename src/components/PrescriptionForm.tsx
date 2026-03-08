@@ -188,7 +188,7 @@ export default function PrescriptionForm({
         daysSupply: '30',
       } as RxForm,
     ],
-    shippingMethod: 8115,
+    shippingMethod: 8097,
     signatureDataUrl: null,
     providerId: null,
     clinicId: null, // Will be set from localStorage on mount

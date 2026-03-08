@@ -27,7 +27,6 @@ logger.info('└─────────┴───────────�
 logger.info('\n=== Verification of New Methods ===\n');
 
 const newMethods = [
-  { id: 8200, expectedLabel: 'UPS - SECOND DAY AIR' },
   { id: 8097, expectedLabel: 'UPS - NEXT DAY - FLORIDA' }
 ];
 

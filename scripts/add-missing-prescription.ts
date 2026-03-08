@@ -164,7 +164,7 @@ async function addMissingPrescription() {
       patientId: PATIENT_ID,
       providerId: provider.id,
       clinicId: patient.clinicId, // Use patient's clinic
-      shippingMethod: 8115, // Standard shipping
+      shippingMethod: 8097, // UPS Next Day Florida
       primaryMedName: MEDICATION.name,
       primaryMedStrength: MEDICATION.strength,
       primaryMedForm: MEDICATION.form,

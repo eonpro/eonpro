@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Trash2, GitMerge, Link2, X, Check, Loader2, Unlink, Truck, Download } from 'lucide-react';
 import EditPatientModal from './EditPatientModal';
@@ -112,6 +112,7 @@ function AffiliateAttributionSection({
   isAdmin: boolean;
 }) {
   const router = useRouter();
+  const [, startAttrTransition] = useTransition();
   const [showForm, setShowForm] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [options, setOptions] = useState<RefCodeOption[]>([]);
@@ -209,8 +210,7 @@ function AffiliateAttributionSection({
         setSuccess(true);
         setShowPasswordConfirm(null);
         setTimeout(() => {
-          router.refresh();
-          window.location.reload();
+          startAttrTransition(() => { router.refresh(); });
         }, 600);
       } else {
         setError(data.message || data.error || 'Attribution failed');
@@ -238,8 +238,7 @@ function AffiliateAttributionSection({
       const data = await res.json();
       if (res.ok && data.success) {
         setShowPasswordConfirm(null);
-        router.refresh();
-        window.location.reload();
+        startAttrTransition(() => { router.refresh(); });
       } else {
         setError(data.message || data.error || 'Failed to remove');
       }
@@ -476,6 +475,7 @@ export default function PatientSidebar({
   orders = [],
 }: PatientSidebarProps) {
   const router = useRouter();
+  const [, startTransition] = useTransition();
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showMergeModal, setShowMergeModal] = useState(false);
@@ -666,8 +666,7 @@ export default function PatientSidebar({
       throw new Error(err.error || err.message || 'Failed to update patient');
     }
 
-    // Refresh the page to show updated data
-    router.refresh();
+    startTransition(() => { router.refresh(); });
   };
 
   const handleDeletePatient = async () => {
@@ -700,8 +699,7 @@ export default function PatientSidebar({
         throw new Error(data.error || 'Failed to submit sales request');
       }
       setSalesRequestSuccess('Sales request submitted');
-      router.refresh();
-      setTimeout(() => window.location.reload(), 500);
+      startTransition(() => { router.refresh(); });
     } catch (error) {
       setSalesRequestError(error instanceof Error ? error.message : 'Failed to submit sales request');
     } finally {
@@ -724,8 +722,7 @@ export default function PatientSidebar({
         throw new Error(data.error || 'Failed to remove sales request');
       }
       setSalesRequestSuccess('Sales request removed');
-      router.refresh();
-      setTimeout(() => window.location.reload(), 500);
+      startTransition(() => { router.refresh(); });
     } catch (error) {
       setSalesRequestError(error instanceof Error ? error.message : 'Failed to remove sales request');
     } finally {

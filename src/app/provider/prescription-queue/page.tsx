@@ -394,7 +394,7 @@ export default function PrescriptionQueuePage() {
   } | null>(null);
   const [prescriptionForm, setPrescriptionForm] = useState<PrescriptionFormState>({
     medications: [createEmptyMedication()],
-    shippingMethod: '8115', // Default UPS Overnight; Wellmedr → FedEx 2 Day (8234) set in useEffect
+    shippingMethod: '8097', // Default UPS Next Day Florida; Wellmedr → FedEx 2 Day (8234) set in useEffect
     pharmacyGender: '',
     address1: '',
     address2: '',
@@ -749,7 +749,7 @@ export default function PrescriptionQueuePage() {
 
       setPrescriptionForm({
         medications: [createEmptyMedication()],
-        shippingMethod: isWellmedr ? WELLMEDR_DEFAULT_SHIPPING_ID : '8115',
+        shippingMethod: isWellmedr ? WELLMEDR_DEFAULT_SHIPPING_ID : '8097',
         pharmacyGender,
         address1: parsedAddress.address1,
         address2: parsedAddress.address2,

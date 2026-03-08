@@ -96,7 +96,7 @@ describe.skip("POST /api/prescriptions", () => {
           refills: "1",
         },
       ],
-      shippingMethod: 8115,
+      shippingMethod: 8097,
       signatureDataUrl: null,
     };
 
@@ -138,7 +138,7 @@ describe.skip("POST /api/prescriptions", () => {
           refills: "1",
         },
       ],
-      shippingMethod: 8115,
+      shippingMethod: 8097,
       signatureDataUrl: null,
     };
 
