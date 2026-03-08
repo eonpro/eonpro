@@ -102,6 +102,20 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    // Also trigger AI Scribe session management from Zoom events (non-blocking).
+    // This auto-starts/stops the scribe based on meeting lifecycle events.
+    try {
+      const { handleZoomWebhook: handleScribeWebhook } = await import(
+        '@/lib/ai-scribe/telehealth-integration'
+      );
+      await handleScribeWebhook(payload.event, payload.payload);
+    } catch (error) {
+      logger.debug('AI Scribe webhook handler skipped', {
+        event: payload.event,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+
     return NextResponse.json({ received: true });
   } catch (error) {
     logger.error('Zoom webhook handler error', {

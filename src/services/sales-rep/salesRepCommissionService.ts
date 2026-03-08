@@ -165,6 +165,7 @@ async function resolveVolumeTier(
 
 async function resolveProductBonus(
   planId: number,
+  eventAmountCents: number,
   productId?: number,
   productBundleId?: number
 ): Promise<number> {
@@ -175,15 +176,18 @@ async function resolveProductBonus(
   });
 
   for (const rule of rules) {
-    if (productId && rule.productId === productId) {
-      return rule.bonusType === 'FLAT'
-        ? (rule.flatAmountCents || 0)
-        : 0;
-    }
-    if (productBundleId && rule.productBundleId === productBundleId) {
-      return rule.bonusType === 'FLAT'
-        ? (rule.flatAmountCents || 0)
-        : 0;
+    const matches =
+      (productId && rule.productId === productId) ||
+      (productBundleId && rule.productBundleId === productBundleId);
+
+    if (matches) {
+      if (rule.bonusType === 'FLAT') {
+        return rule.flatAmountCents || 0;
+      }
+      if (rule.bonusType === 'PERCENT' && rule.percentBps) {
+        return Math.round((eventAmountCents * rule.percentBps) / 10000);
+      }
+      return 0;
     }
   }
 
@@ -292,6 +296,7 @@ async function calculateFullCommission(
   // 4. Product/bundle bonus
   const productBonusCents = await resolveProductBonus(
     plan.id,
+    eventAmountCents,
     options.productId,
     options.productBundleId
   );

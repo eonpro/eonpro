@@ -336,7 +336,7 @@ export default function ProviderCalendarStatusCard({ providerId, compact = false
 
               {upcomingSessions.length > 3 && (
                 <Link
-                  href="/provider/telehealth"
+                  href="/telehealth"
                   className="block py-2 text-center text-sm text-[var(--brand-primary,#4fa77e)] hover:underline"
                 >
                   View all {upcomingSessions.length} sessions

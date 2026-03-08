@@ -159,6 +159,7 @@ async function handler(
       commissionAgg,
       dailyClicks,
       dailyConversions,
+      dailyCommissions,
     ] = await Promise.all([
       prisma.user.findFirst({
         where: { id: userId, role: 'SALES_REP' },
@@ -232,6 +233,16 @@ async function handler(
         GROUP BY DATE("convertedAt")
         ORDER BY date
       `.catch(() => [] as Array<{ date: Date; count: number }>),
+      prisma.$queryRaw<Array<{ date: Date; commission: number }>>`
+        SELECT DATE("occurredAt") as date, COALESCE(SUM("commissionAmountCents"), 0)::int as commission
+        FROM "SalesRepCommissionEvent"
+        WHERE "salesRepId" = ${userId}
+          AND "occurredAt" >= ${startDate}
+          AND "occurredAt" <= ${endDate}
+          AND status IN ('PENDING', 'APPROVED', 'PAID')
+        GROUP BY DATE("occurredAt")
+        ORDER BY date
+      `.catch(() => [] as Array<{ date: Date; commission: number }>),
     ]);
 
     if (!rep) {
@@ -267,8 +278,11 @@ async function handler(
     const convMap = new Map(
       dailyConversions.map((r) => [new Date(r.date).toISOString().slice(0, 10), r.count])
     );
+    const commDailyMap = new Map(
+      dailyCommissions.map((r) => [new Date(r.date).toISOString().slice(0, 10), r.commission])
+    );
 
-    const dailyBreakdown: Array<{ date: string; clicks: number; conversions: number }> = [];
+    const dailyBreakdown: Array<{ date: string; clicks: number; conversions: number; commissionCents: number }> = [];
     for (let i = 0; i < days; i++) {
       const d = new Date(startDate);
       d.setDate(d.getDate() + i);
@@ -277,6 +291,7 @@ async function handler(
         date: d.toISOString(),
         clicks: clickMap.get(key) || 0,
         conversions: convMap.get(key) || 0,
+        commissionCents: commDailyMap.get(key) || 0,
       });
     }
 

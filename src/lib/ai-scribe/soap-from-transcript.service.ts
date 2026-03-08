@@ -243,9 +243,20 @@ export async function saveScribeSOAPNote(
   sessionId?: string
 ): Promise<any> {
   try {
+    // Resolve clinicId from the patient record for multi-tenant isolation
+    let clinicId: number | undefined;
+    if (patientId) {
+      const patient = await prisma.patient.findUnique({
+        where: { id: patientId },
+        select: { clinicId: true },
+      });
+      clinicId = patient?.clinicId ?? undefined;
+    }
+
     const createdNote = await prisma.sOAPNote.create({
       data: {
         patientId,
+        ...(clinicId ? { clinicId } : {}),
         subjective: soapNote.subjective,
         objective: soapNote.objective,
         assessment: soapNote.assessment,
