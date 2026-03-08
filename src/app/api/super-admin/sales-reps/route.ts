@@ -201,7 +201,7 @@ async function handler(req: NextRequest): Promise<Response> {
           status: { in: ['PENDING', 'APPROVED', 'PAID'] },
         },
         _sum: { commissionAmountCents: true, eventAmountCents: true },
-      }),
+      }).catch(() => [] as any[]),
     ]);
 
     const clicksMap = new Map(clicksByRep.map((r) => [r.salesRepId, r._count]));

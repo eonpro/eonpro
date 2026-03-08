@@ -212,7 +212,7 @@ async function handler(
         },
         _sum: { commissionAmountCents: true, eventAmountCents: true },
         _count: true,
-      }),
+      }).catch(() => ({ _sum: { commissionAmountCents: null, eventAmountCents: null }, _count: 0 })),
       prisma.$queryRaw<Array<{ date: Date; count: number }>>`
         SELECT DATE("createdAt") as date, COUNT(*)::int as count
         FROM "SalesRepTouch"

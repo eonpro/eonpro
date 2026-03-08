@@ -37,7 +37,7 @@ export const GET = withAuth(
               status: { in: ['PENDING', 'APPROVED', 'PAID'] },
             },
             _sum: { commissionAmountCents: true },
-          }),
+          }).catch(() => ({ _sum: { commissionAmountCents: null } })),
         ]);
 
         return {

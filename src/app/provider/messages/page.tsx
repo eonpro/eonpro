@@ -276,7 +276,7 @@ export default function ProviderMessagesPage() {
               </div>
 
               {/* Messages */}
-              <div className="flex-1 overflow-y-auto p-4">
+              <div className="min-w-0 flex-1 overflow-y-auto overflow-x-hidden p-4">
                 {chatMessages.length === 0 ? (
                   <div className="py-12 text-center text-gray-500">
                     <MessageSquare className="mx-auto mb-2 h-8 w-8 text-gray-300" />
@@ -291,7 +291,7 @@ export default function ProviderMessagesPage() {
                       }`}
                     >
                       <div
-                        className={`max-w-[70%] rounded-lg p-3 ${
+                        className={`max-w-[70%] break-words rounded-lg p-3 ${
                           msg.sender === 'provider'
                             ? 'bg-[var(--brand-primary)] text-white'
                             : 'bg-gray-100 text-gray-900'
