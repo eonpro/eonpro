@@ -18,7 +18,6 @@ import {
   ChevronUp,
   User,
 } from 'lucide-react';
-import Link from 'next/link';
 import { apiFetch } from '@/lib/api/fetch';
 
 interface Order {
@@ -541,13 +540,16 @@ function PatientRow({
 
         {/* Patient Name */}
         <div className="min-w-0 flex-1">
-          <Link
-            href={`/provider/patients/${group.patientId}`}
-            onClick={(e) => e.stopPropagation()}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              window.location.href = `/provider/patients/${group.patientId}`;
+            }}
             className="font-medium text-gray-900 hover:text-[var(--brand-primary)] hover:underline"
           >
             {group.patientName}
-          </Link>
+          </button>
           <div className="text-xs text-gray-500">
             {group.prescriptions.length} prescription{group.prescriptions.length !== 1 ? 's' : ''}
           </div>
@@ -575,13 +577,16 @@ function PatientRow({
         </div>
 
         {/* View Patient Button */}
-        <Link
-          href={`/provider/patients/${group.patientId}?tab=prescriptions`}
-          onClick={(e) => e.stopPropagation()}
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            window.location.href = `/provider/patients/${group.patientId}?tab=prescriptions`;
+          }}
           className="rounded bg-gray-100 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-200"
         >
           View Patient
-        </Link>
+        </button>
       </div>
 
       {/* Expanded Prescriptions */}
