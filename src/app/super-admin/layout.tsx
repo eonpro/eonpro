@@ -16,6 +16,7 @@ import {
   Ticket,
   Receipt,
   Pill,
+  BadgeDollarSign,
 } from 'lucide-react';
 import { isBrowser, safeLocalStorage } from '@/lib/utils/ssr-safe';
 import InternalChat from '@/components/InternalChat';
@@ -33,6 +34,7 @@ const navItems = [
   { icon: Building2, path: '/super-admin/clinics', label: 'Clinics' },
   { icon: UserCog, path: '/super-admin/providers', label: 'Providers' },
   { icon: Users, path: '/super-admin/affiliates', label: 'Affiliates' },
+  { icon: BadgeDollarSign, path: '/super-admin/sales-reps', label: 'Sales Reps' },
   { icon: Ticket, path: '/tickets', label: 'Tickets' },
   { icon: Activity, path: '/super-admin/user-activity', label: 'User Activity' },
   { icon: DollarSign, path: '/super-admin/commission-plans', label: 'Commission Plans' },
