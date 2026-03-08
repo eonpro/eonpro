@@ -315,7 +315,7 @@ export default function MealPlannerPage() {
                 <button
                   key={cat.id}
                   onClick={() => setSelectedMealType(cat.id)}
-                  className={`flex items-center gap-2 whitespace-nowrap rounded-xl px-4 py-3 font-medium transition-all ${
+                  className={`flex items-center gap-2 whitespace-nowrap rounded-xl px-4 py-3 font-medium transition-colors ${
                     isSelected
                       ? 'text-white shadow-lg'
                       : 'bg-white text-gray-600 shadow-sm hover:bg-gray-50'
@@ -347,7 +347,7 @@ export default function MealPlannerPage() {
                 <button
                   key={meal.name}
                   onClick={() => selectMeal(meal)}
-                  className={`w-full rounded-2xl p-5 text-left transition-all ${
+                  className={`w-full rounded-2xl p-5 text-left transition-[border-color,box-shadow] ${
                     isSelected
                       ? 'border-2 bg-white shadow-lg'
                       : 'border-2 border-transparent bg-white shadow-sm hover:shadow-md'

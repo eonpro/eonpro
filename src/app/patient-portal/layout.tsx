@@ -1,7 +1,5 @@
 'use client';
 
-export const dynamic = 'force-dynamic';
-
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
@@ -45,6 +43,7 @@ import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
 import { safeParseJsonString } from '@/lib/utils/safe-json';
 import { safeParseJson } from '@/lib/utils/safe-json';
 import { portalFetch } from '@/lib/api/patient-portal-client';
+import { isBrowser } from '@/lib/utils/ssr-safe';
 import { EONPRO_LOGO } from '@/lib/constants/brand-assets';
 import {
   NAV_MODULES,
@@ -111,17 +110,46 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
 
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [userData, setUserData] = useState<{ id?: number; role?: string; patientId?: number; firstName?: string; lastName?: string } | null>(null);
+
+  // Synchronous auth initialization from localStorage to eliminate CLS.
+  // Previously, loading=true → useEffect reads localStorage → loading=false
+  // caused a guaranteed skeleton→content shift on every page load (CLS ~0.4).
+  const [userData, setUserData] = useState<{ id?: number; role?: string; patientId?: number; firstName?: string; lastName?: string } | null>(() => {
+    if (!isBrowser) return null;
+    try {
+      const user = localStorage.getItem('user');
+      if (!user) return null;
+      const data = safeParseJsonString<{ role?: string }>(user);
+      if (!data || data.role?.toLowerCase() !== 'patient') return null;
+      return data;
+    } catch {
+      return null;
+    }
+  });
   const [displayName, setDisplayName] = useState<{ firstName: string; lastName: string } | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => {
+    if (!isBrowser) return true;
+    try {
+      const user = localStorage.getItem('user');
+      const token = localStorage.getItem('auth-token') || localStorage.getItem('patient-token');
+      if (!user || !token) return true;
+      const data = safeParseJsonString<{ role?: string }>(user);
+      return !data || data.role?.toLowerCase() !== 'patient';
+    } catch {
+      return true;
+    }
+  });
   const [notifications, setNotifications] = useState(0);
   const [portalMode, setPortalMode] = useState<PortalMode>('patient');
   const [profileCompletionBanner, setProfileCompletionBanner] = useState<{ show: boolean; missingFields: string[] }>({ show: false, missingFields: [] });
   const [bannerDismissed, setBannerDismissed] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
-  // Build nav from registry (single source of truth; clinic features + treatment gate visibility)
-  const enabledNavIds = getEnabledNavModuleIds(features, branding?.primaryTreatment);
+  // Memoize nav computation to prevent unnecessary re-renders (INP fix)
+  const enabledNavIds = useMemo(
+    () => getEnabledNavModuleIds(features, branding?.primaryTreatment),
+    [features, branding?.primaryTreatment]
+  );
   const activeModules = portalMode === 'lead' ? LEAD_NAV_MODULES : NAV_MODULES;
   const activeLabelOverrides = portalMode === 'lead' ? LEAD_MOBILE_LABEL_OVERRIDE : MOBILE_LABEL_OVERRIDE;
 
@@ -506,7 +534,7 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
       </aside>
 
       {/* Mobile Header - Optimized for iPhone notch (hidden on chat page) */}
-      <header className={`portal-header fixed left-0 right-0 top-0 z-50 bg-white/95 backdrop-blur-lg lg:hidden ${isChatPage ? 'hidden' : ''}`}>
+      <header className={`portal-header fixed left-0 right-0 top-0 z-50 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.05)] lg:hidden ${isChatPage ? 'hidden' : ''}`}>
         <div className="safe-top" />
         <div className="flex h-14 items-center justify-between px-4">
           <Link href={PATIENT_PORTAL_PATH} className="flex items-center gap-3">
@@ -581,7 +609,7 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
                     key={item.path}
                     href={item.path}
                     onClick={() => setMobileMenuOpen(false)}
-                    className={`flex items-center gap-4 rounded-2xl px-4 py-4 transition-all active:scale-[0.98] ${
+                    className={`flex items-center gap-4 rounded-2xl px-4 py-4 transition-colors active:scale-[0.98] ${
                       active ? 'text-white' : 'text-gray-700 active:bg-gray-100'
                     }`}
                     style={active ? { backgroundColor: primaryColor } : {}}
@@ -613,43 +641,12 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
         className={`min-w-0 flex-1 overflow-x-hidden transition-all duration-300 lg:ml-20 ${sidebarExpanded ? 'lg:ml-56' : ''}`}
       >
         <div className={`min-h-[100dvh] w-full max-w-[100vw] min-w-0 overflow-x-hidden lg:max-w-none ${isChatPage ? 'pb-0 pt-0 lg:pb-0 lg:pt-0' : 'pb-24 pt-[calc(56px+env(safe-area-inset-top,0px))] lg:pb-0 lg:pt-0'}`}>
-          {profileCompletionBanner.show && !bannerDismissed && !isChatPage && (
-            <div className="mx-4 mt-4 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 lg:mx-6">
-              <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-amber-600" />
-              <div className="flex-1">
-                <p className="text-sm font-medium text-amber-900">
-                  Please complete your profile
-                </p>
-                <p className="mt-0.5 text-sm text-amber-700">
-                  Your {profileCompletionBanner.missingFields.map(f =>
-                    f === 'dateOfBirth' ? 'date of birth' : f
-                  ).join(' and ')} {profileCompletionBanner.missingFields.length === 1 ? 'is' : 'are'} missing.
-                  Update your profile so your care team has your complete information.
-                </p>
-                <Link
-                  href={`${PATIENT_PORTAL_PATH}/settings`}
-                  className="mt-2 inline-flex items-center gap-1 text-sm font-semibold hover:underline"
-                  style={{ color: primaryColor }}
-                >
-                  Go to Settings
-                  <ChevronRight className="h-4 w-4" />
-                </Link>
-              </div>
-              <button
-                type="button"
-                onClick={() => setBannerDismissed(true)}
-                className="flex-shrink-0 text-amber-400 hover:text-amber-600"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-          )}
           {children}
         </div>
       </main>
 
       {/* Mobile Bottom Navigation - iPhone optimized */}
-      <nav className={`portal-bottom-nav fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-lg lg:hidden`}>
+      <nav className={`portal-bottom-nav fixed bottom-0 left-0 right-0 z-40 bg-white lg:hidden`}>
         <div className="border-t border-gray-200">
           <div className="mx-auto flex max-w-md justify-around gap-1 px-1">
             {mobileNavItems.map((item) => {
@@ -670,7 +667,7 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
                   )}
                   {/* Icon container - 44x44 touch target */}
                   <div
-                    className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl transition-all ${
+                    className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl transition-colors ${
                       active ? '' : 'group-active:bg-gray-100'
                     }`}
                     style={active ? { backgroundColor: `${primaryColor}15` } : {}}
@@ -683,7 +680,7 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
                   </div>
                   {/* Label - truncate so long text (e.g. Medicamentos) fits */}
                   <span
-                    className={`mt-0.5 min-w-0 max-w-full truncate px-0.5 text-center text-[10px] transition-all sm:text-[11px] ${active ? 'font-semibold' : 'font-medium'}`}
+                    className={`mt-0.5 min-w-0 max-w-full truncate px-0.5 text-center text-[10px] sm:text-[11px] ${active ? 'font-semibold' : 'font-medium'}`}
                     style={{ color: active ? primaryColor : '#9ca3af' }}
                   >
                     {t(item.labelKey)}
@@ -694,14 +691,48 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
           </div>
         </div>
         {/* Safe area for home indicator */}
-        <div className="safe-bottom bg-white/95" />
+        <div className="safe-bottom bg-white" />
       </nav>
+
+      {/* Profile completion banner — fixed toast to avoid CLS from content push-down */}
+      {profileCompletionBanner.show && !bannerDismissed && !isChatPage && (
+        <div className="fixed left-4 right-4 top-[calc(56px+env(safe-area-inset-top,0px)+8px)] z-40 lg:left-24 lg:right-6 lg:top-4">
+          <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 shadow-lg">
+            <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-amber-600" />
+            <div className="flex-1">
+              <p className="text-sm font-medium text-amber-900">
+                Please complete your profile
+              </p>
+              <p className="mt-0.5 text-sm text-amber-700">
+                Your {profileCompletionBanner.missingFields.map(f =>
+                  f === 'dateOfBirth' ? 'date of birth' : f
+                ).join(' and ')} {profileCompletionBanner.missingFields.length === 1 ? 'is' : 'are'} missing.
+              </p>
+              <Link
+                href={`${PATIENT_PORTAL_PATH}/settings`}
+                className="mt-1 inline-flex items-center gap-1 text-sm font-semibold hover:underline"
+                style={{ color: primaryColor }}
+              >
+                Go to Settings
+                <ChevronRight className="h-4 w-4" />
+              </Link>
+            </div>
+            <button
+              type="button"
+              onClick={() => setBannerDismissed(true)}
+              className="flex-shrink-0 text-amber-400 hover:text-amber-600"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Floating Chat Button - Above bottom nav on mobile (hidden when already on chat) */}
       {showChat && !isChatPage && (
         <Link
           href={`${PATIENT_PORTAL_PATH}/chat`}
-          className="portal-chat-fab fixed z-30 flex h-14 w-14 items-center justify-center rounded-full text-white shadow-xl transition-all active:scale-95 lg:bottom-6 lg:right-6"
+          className="portal-chat-fab fixed z-30 flex h-14 w-14 items-center justify-center rounded-full text-white shadow-xl transition-transform active:scale-95 lg:bottom-6 lg:right-6"
           style={{
             backgroundColor: primaryColor,
             bottom: 'calc(80px + env(safe-area-inset-bottom, 0px))',

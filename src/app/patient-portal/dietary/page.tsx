@@ -1,7 +1,5 @@
 'use client';
 
-export const dynamic = 'force-dynamic';
-
 import { useState } from 'react';
 import Link from 'next/link';
 import {
@@ -83,16 +81,14 @@ export default function DietaryPlansPage() {
   ];
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-[100dvh]">
       {/* Header */}
-      <div className="sticky top-0 z-10">
-        <div className="mx-auto max-w-2xl px-4 py-3">
-          <div className="flex items-center gap-3">
-            <Link href="/patient-portal" className="rounded-lg p-2 hover:bg-gray-100">
-              <ChevronLeft className="h-5 w-5" />
-            </Link>
-            <h1 className="text-lg font-semibold">Dietary Plans</h1>
-          </div>
+      <div className="mx-auto max-w-2xl px-4 py-3">
+        <div className="flex items-center gap-3">
+          <Link href="/patient-portal" className="rounded-lg p-2 hover:bg-gray-100">
+            <ChevronLeft className="h-5 w-5" />
+          </Link>
+          <h1 className="text-lg font-semibold">Dietary Plans</h1>
         </div>
       </div>
 
@@ -108,7 +104,7 @@ export default function DietaryPlansPage() {
             <TrendingDown className="h-8 w-8 text-green-200" />
           </div>
 
-          <div className="mb-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="mb-4 grid grid-cols-3 gap-3">
             <div className="rounded-lg bg-white/20 p-3 text-center backdrop-blur">
               <p className="text-2xl font-semibold">107g</p>
               <p className="text-xs text-green-100">Protein</p>
@@ -197,9 +193,9 @@ export default function DietaryPlansPage() {
             </div>
 
             {/* Dinner */}
-            <div className="rounded-xl border border-[var(--brand-primary-medium)] bg-[var(--brand-primary-light)] p-4">
+            <div className="rounded-xl border border-[var(--brand-primary-medium,#4fa77e30)] bg-[var(--brand-primary-light,#4fa77e15)] p-4">
               <div className="mb-2 flex items-center gap-3">
-                <Moon className="h-5 w-5 text-[var(--brand-primary)]" />
+                <Moon className="h-5 w-5 text-[var(--brand-primary,#4fa77e)]" />
                 <div className="flex-1">
                   <p className="text-sm font-semibold">{todaysMeals.dinner.name}</p>
                   <p className="text-xs text-gray-600">{todaysMeals.dinner.time}</p>
@@ -259,7 +255,7 @@ export default function DietaryPlansPage() {
         </div>
 
         {/* Tips */}
-        <div className="rounded-xl border border-blue-200 bg-[var(--brand-primary-light)] p-6">
+        <div className="rounded-xl border border-blue-200 bg-[var(--brand-primary-light,#4fa77e15)] p-6">
           <h3 className="mb-3 font-semibold">Daily Tips</h3>
           <div className="space-y-2">
             {tips.map((tip, idx) => (

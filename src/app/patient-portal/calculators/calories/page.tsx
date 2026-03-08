@@ -106,7 +106,7 @@ export default function CalorieCalculatorPage() {
               <div className="grid grid-cols-2 gap-3">
                 <button
                   onClick={() => setGender('female')}
-                  className={`rounded-xl px-4 py-3 font-medium transition-all ${
+                  className={`rounded-xl px-4 py-3 font-medium transition-colors ${
                     gender === 'female'
                       ? 'text-white'
                       : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
@@ -117,7 +117,7 @@ export default function CalorieCalculatorPage() {
                 </button>
                 <button
                   onClick={() => setGender('male')}
-                  className={`rounded-xl px-4 py-3 font-medium transition-all ${
+                  className={`rounded-xl px-4 py-3 font-medium transition-colors ${
                     gender === 'male' ? 'text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                   }`}
                   style={gender === 'male' ? { backgroundColor: primaryColor } : {}}
@@ -231,7 +231,7 @@ export default function CalorieCalculatorPage() {
                 <button
                   key={level.value}
                   onClick={() => setActivity(level.value)}
-                  className={`flex w-full items-center justify-between rounded-xl border-2 p-4 transition-all ${
+                  className={`flex w-full items-center justify-between rounded-xl border-2 p-4 transition-colors ${
                     activity === level.value
                       ? 'border-opacity-100'
                       : 'border-gray-200 hover:border-gray-300'
@@ -272,7 +272,7 @@ export default function CalorieCalculatorPage() {
                 <button
                   key={rate.value}
                   onClick={() => setLossRate(rate.value)}
-                  className={`rounded-xl border-2 p-4 transition-all ${
+                  className={`rounded-xl border-2 p-4 transition-colors ${
                     lossRate === rate.value ? '' : 'border-gray-200 hover:border-gray-300'
                   }`}
                   style={

@@ -94,7 +94,7 @@ export default function SemaglutideDoseCalculatorPage() {
                   <button
                     key={c.value}
                     onClick={() => setConcentration(c.value)}
-                    className={`group relative overflow-hidden rounded-2xl border-2 p-5 text-center transition-all duration-300 ${
+                    className={`group relative overflow-hidden rounded-2xl border-2 p-5 text-center transition-colors duration-200 ${
                       concentration === c.value
                         ? 'border-gray-900 bg-gray-900 shadow-xl'
                         : 'border-gray-100 bg-gray-50 hover:border-gray-200 hover:bg-white'
@@ -160,10 +160,11 @@ export default function SemaglutideDoseCalculatorPage() {
                   <div className="relative h-64 w-16 overflow-hidden rounded-xl border-4 border-gray-200 bg-gradient-to-b from-gray-50 to-gray-100 shadow-inner">
                     {/* Fill */}
                     <div
-                      className="absolute bottom-0 left-0 right-0 transition-all duration-700 ease-out"
+                      className="absolute bottom-0 left-0 right-0 duration-700 ease-out"
                       style={{
                         height: `${fillPercentage}%`,
                         background: `linear-gradient(to top, ${accentColor}, ${accentColor}99)`,
+                        transition: 'height 700ms ease-out',
                       }}
                     />
                     {/* Measurement lines */}
@@ -184,10 +185,11 @@ export default function SemaglutideDoseCalculatorPage() {
                   </div>
                   {/* Plunger */}
                   <div
-                    className="absolute left-1/2 w-10 -translate-x-1/2 rounded-t-lg bg-gradient-to-b from-gray-300 to-gray-400 shadow transition-all duration-700"
+                    className="absolute left-1/2 w-10 -translate-x-1/2 rounded-t-lg bg-gradient-to-b from-gray-300 to-gray-400 shadow"
                     style={{
                       top: `calc(${100 - fillPercentage}% - 40px)`,
                       height: '60px',
+                      transition: 'top 700ms ease-out',
                     }}
                   >
                     <div className="absolute -top-4 left-1/2 h-6 w-6 -translate-x-1/2 rounded-full bg-gray-400 shadow" />
@@ -217,7 +219,7 @@ export default function SemaglutideDoseCalculatorPage() {
                       setSelectedWeek(schedule);
                       setUnits(scheduleUnits.toString());
                     }}
-                    className={`group flex w-full items-center justify-between p-5 text-left transition-all ${
+                    className={`group flex w-full items-center justify-between p-5 text-left transition-colors duration-150 ${
                       isSelected ? 'bg-gray-50' : 'hover:bg-gray-50'
                     }`}
                   >
