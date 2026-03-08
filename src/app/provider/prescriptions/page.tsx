@@ -29,6 +29,7 @@ interface Order {
   primaryMedStrength: string;
   primaryMedForm: string;
   shippingMethod: string;
+  lifefileOrderId?: string | null;
   createdAt: string;
   updatedAt: string;
   patient?: {
@@ -58,6 +59,7 @@ interface Prescription {
   frequency: string;
   duration: string;
   prescribedDate: string;
+  lifefileOrderId?: string | null;
   status: 'active' | 'refill-requested' | 'expired' | 'discontinued';
   refillsRemaining: number;
   lastFilled?: string;
@@ -143,6 +145,7 @@ export default function ProviderPrescriptionsPage() {
               frequency: rx.sig,
               duration: '30 days',
               prescribedDate: order.createdAt,
+              lifefileOrderId: order.lifefileOrderId,
               status: mapOrderStatus(order.status),
               refillsRemaining: rx.refills,
               lastFilled: order.updatedAt,
@@ -163,6 +166,7 @@ export default function ProviderPrescriptionsPage() {
               frequency: '-',
               duration: '30 days',
               prescribedDate: order.createdAt,
+              lifefileOrderId: order.lifefileOrderId,
               status: mapOrderStatus(order.status),
               refillsRemaining: 0,
               lastFilled: order.updatedAt,
@@ -566,8 +570,8 @@ function PatientRow({
         </div>
 
         {/* Latest Date */}
-        <div className="w-24 text-right text-sm text-gray-500">
-          {new Date(group.latestDate).toLocaleDateString()}
+        <div className="w-36 text-right text-sm text-gray-500">
+          {new Date(group.latestDate).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
         </div>
 
         {/* View Patient Button */}
@@ -597,8 +601,9 @@ function PatientRow({
                   Instructions
                 </th>
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Status</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Lifefile Order</th>
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Refills</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Date</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Date &amp; Time</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -627,9 +632,18 @@ function PatientRow({
                       {rx.status.replace('-', ' ')}
                     </span>
                   </td>
+                  <td className="px-4 py-2.5">
+                    {rx.lifefileOrderId ? (
+                      <span className="inline-flex items-center rounded-md bg-blue-50 px-2 py-0.5 text-xs font-semibold text-blue-700">
+                        #{rx.lifefileOrderId}
+                      </span>
+                    ) : (
+                      <span className="text-xs text-gray-400">—</span>
+                    )}
+                  </td>
                   <td className="px-4 py-2.5 text-gray-700">{rx.refillsRemaining} remaining</td>
                   <td className="px-4 py-2.5 text-gray-500">
-                    {new Date(rx.prescribedDate).toLocaleDateString()}
+                    {new Date(rx.prescribedDate).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
                   </td>
                 </tr>
               ))}
