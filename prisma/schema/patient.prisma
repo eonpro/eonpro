@@ -150,6 +150,10 @@ model PatientDocument {
   // intakeData         Json?                   // Structured intake form answers
   // pdfGeneratedAt     DateTime?               // When the PDF was generated
   // intakeVersion      String?                 // Track intake form version
+
+  @@index([patientId])
+  @@index([clinicId, patientId])
+  @@index([patientId, category])
 }
 
 model PatientCounter {

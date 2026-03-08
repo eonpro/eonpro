@@ -11,7 +11,7 @@ import PatientProgressView from '@/components/PatientProgressView';
 import PatientSidebar from '@/components/PatientSidebar';
 import PatientTags from '@/components/PatientTags';
 import PatientPortalAccessBlock from '@/components/PatientPortalAccessBlock';
-import { prisma, basePrisma, runWithClinicContext } from '@/lib/db';
+import { prisma, basePrisma, runWithClinicContext, withoutClinicFilter } from '@/lib/db';
 import { getClinicFeatureBoolean } from '@/lib/clinic/utils';
 import { SHIPPING_METHODS } from '@/lib/shipping';
 import { logger } from '@/lib/logger';
@@ -146,6 +146,8 @@ export default async function PatientDetailPage({
     // ─── PHASE 1: Lightweight core patient query ───────────────────────
     // Uses basePrisma directly (bypasses PrismaWithClinicFilter proxy overhead).
     // We enforce clinic isolation manually below.
+    // NO heavy includes here — just scalar relations. Phase 2 loads the rest in parallel.
+    const t0 = Date.now();
     let patient: any;
     try {
       const coreWhere: any = { id };
@@ -172,30 +174,15 @@ export default async function PatientDetailPage({
             take: 1,
             select: { id: true, planName: true },
           },
-          // IntakeSubmissions loaded here (nested include) because the model
-          // doesn't have a clinicId column -- direct queries via prisma would
-          // inject a clinicId filter that fails. Nested includes bypass the filter.
-          ...(needsIntakeData
-            ? {
-                intakeSubmissions: {
-                  orderBy: { createdAt: 'desc' } as const,
-                  take: 10,
-                  include: {
-                    template: {
-                      select: { id: true, name: true, treatmentType: true, version: true },
-                    },
-                    responses: { include: { question: true } },
-                  },
-                },
-              }
-            : {}),
         },
       });
+      logger.info('[PATIENT-DETAIL] Phase 1 (core):', { patientId: id, durationMs: Date.now() - t0 });
     } catch (dbError) {
       logger.error('Database error fetching patient core:', {
         patientId: id,
         clinicId,
         userId: user.id,
+        durationMs: Date.now() - t0,
         error: dbError instanceof Error ? dbError.message : String(dbError),
       });
       return (
@@ -222,12 +209,14 @@ export default async function PatientDetailPage({
     // total wait time and reduce connection pool pressure.
     let orders: any[] = [];
     let documents: any[] = [];
+    let intakeSubmissions: any[] = [];
     let auditEntries: any[] = [];
     let salesRepAssignments: any[] = [];
 
     if (patient) {
       const effectiveClinicId = isSuperAdmin ? (patient.clinicId ?? undefined) : clinicId;
 
+      const t1 = Date.now();
       try {
         // All Phase 2 queries run inside clinic context so the PrismaWithClinicFilter
         // proxy automatically enforces tenant isolation (required in production).
@@ -278,6 +267,27 @@ export default async function PatientDetailPage({
                   externalUrl: true, category: true, sourceSubmissionId: true,
                 },
               }).then((r) => { documents = r; })
+            );
+          }
+
+          // Intake submissions — uses withoutClinicFilter because IntakeFormSubmission
+          // is listed as clinic-isolated but has no clinicId column. The clinic filter
+          // proxy would inject a failing clinicId WHERE clause without bypass.
+          if (needsIntakeData) {
+            parallelQueries.push(
+              withoutClinicFilter(() =>
+                prisma.intakeFormSubmission.findMany({
+                  where: { patientId: id },
+                  orderBy: { createdAt: 'desc' },
+                  take: 10,
+                  include: {
+                    template: {
+                      select: { id: true, name: true, treatmentType: true, version: true },
+                    },
+                    responses: { include: { question: true } },
+                  },
+                })
+              ).then((r) => { intakeSubmissions = r; })
             );
           }
 
@@ -356,9 +366,12 @@ export default async function PatientDetailPage({
         // Continue with whatever data we have — partial render is better than error
       }
 
+      logger.info('[PATIENT-DETAIL] Phase 2 (parallel):', { patientId: id, durationMs: Date.now() - t1 });
+
       // Attach fetched data to the patient object for downstream components
       (patient as any).orders = orders;
       (patient as any).documents = documents;
+      (patient as any).intakeSubmissions = intakeSubmissions;
       (patient as any).auditEntries = auditEntries;
     }
 

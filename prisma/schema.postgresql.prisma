@@ -141,6 +141,10 @@ model PatientDocument {
   category           PatientDocumentCategory @default(OTHER)
   patient            Patient                 @relation(fields: [patientId], references: [id])
   soapNotes          SOAPNote[]
+
+  @@index([patientId])
+  @@index([clinicId, patientId])
+  @@index([patientId, category])
 }
 
 model PatientCounter {
