@@ -94,14 +94,16 @@ export default function ProviderPatientsPage() {
   }, [searchParams, router]);
 
   const fetchPatients = useCallback(
-    async (currentOffset: number, isNewSearch: boolean, q: string) => {
+    async (currentOffset: number, isNewSearch: boolean, q: string, retryAttempt = 0) => {
       if (abortRef.current) abortRef.current.abort();
       abortRef.current = new AbortController();
+      const { signal } = abortRef.current;
 
       try {
         if (isNewSearch && isInitialLoadRef.current) setLoading(true);
         else if (isNewSearch) setSearching(true);
         else setLoadingMore(true);
+        setError('');
 
         const params = new URLSearchParams({
           includeContact: 'true',
@@ -110,11 +112,17 @@ export default function ProviderPatientsPage() {
         });
         if (q.trim()) params.set('search', q.trim());
 
-        const response = await apiFetch(`/api/patients?${params.toString()}`, {
-          signal: abortRef.current.signal,
-        });
+        const timeoutId = setTimeout(() => abortRef.current?.abort(), 15_000);
+        const response = await apiFetch(`/api/patients?${params.toString()}`, { signal });
+        clearTimeout(timeoutId);
 
-        if (!response.ok) return;
+        if (!response.ok) {
+          if (retryAttempt < 1) {
+            return fetchPatients(currentOffset, isNewSearch, q, retryAttempt + 1);
+          }
+          setError('Failed to load patients. Please try again.');
+          return;
+        }
 
         const data = await response.json();
         const mapped = (data.patients || []).map((p: Record<string, unknown>) => ({
@@ -128,6 +136,7 @@ export default function ProviderPatientsPage() {
           status: (p.status as string) || 'active',
           patientId: p.patientId as string | null,
           createdAt: (p.createdAt as string) || '',
+          identityVerified: p.identityVerified as boolean | undefined,
         }));
 
         if (isNewSearch) {
@@ -146,7 +155,13 @@ export default function ProviderPatientsPage() {
         });
         setOffset(currentOffset + mapped.length);
       } catch (err) {
-        if ((err as Error).name === 'AbortError') return;
+        if ((err as Error).name === 'AbortError') {
+          if (retryAttempt < 1) {
+            return fetchPatients(currentOffset, isNewSearch, q, retryAttempt + 1);
+          }
+          setError('Request timed out. Please try again.');
+          return;
+        }
       } finally {
         setLoading(false);
         setSearching(false);
@@ -329,40 +344,52 @@ export default function ProviderPatientsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen animate-pulse space-y-6 p-4 md:p-6">
-        {/* Header skeleton */}
-        <div className="rounded-lg bg-white p-6 shadow">
-          <div className="mb-6 flex items-center justify-between">
-            <div className="h-7 w-40 rounded bg-gray-200" />
-            <div className="h-10 w-32 rounded-lg bg-gray-200" />
+      <div className="min-h-screen space-y-6 p-4 md:p-6">
+        {error ? (
+          <div className="flex flex-col items-center justify-center gap-4 rounded-lg bg-white p-12 shadow">
+            <p className="text-gray-600">{error}</p>
+            <button
+              onClick={() => fetchPatients(0, true, searchQuery)}
+              className="rounded-lg bg-green-600 px-6 py-2 text-white hover:bg-green-700"
+            >
+              Retry
+            </button>
           </div>
-          <div className="flex gap-4">
-            <div className="h-10 flex-1 rounded-lg bg-gray-100" />
-            <div className="h-10 w-36 rounded-lg bg-gray-100" />
-          </div>
-        </div>
-        {/* Table skeleton */}
-        <div className="overflow-hidden rounded-lg bg-white shadow">
-          <div className="border-b bg-gray-50 px-6 py-3">
-            <div className="flex gap-8">
-              <div className="h-4 w-24 rounded bg-gray-200" />
-              <div className="h-4 w-20 rounded bg-gray-200" />
-              <div className="h-4 w-16 rounded bg-gray-200" />
-              <div className="h-4 w-20 rounded bg-gray-200" />
-            </div>
-          </div>
-          {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="flex items-center gap-4 border-b px-6 py-4">
-              <div className="h-10 w-10 rounded-full bg-gray-200" />
-              <div className="flex-1 space-y-2">
-                <div className="h-4 w-36 rounded bg-gray-200" />
-                <div className="h-3 w-48 rounded bg-gray-100" />
+        ) : (
+          <div className="animate-pulse">
+            <div className="rounded-lg bg-white p-6 shadow">
+              <div className="mb-6 flex items-center justify-between">
+                <div className="h-7 w-40 rounded bg-gray-200" />
+                <div className="h-10 w-32 rounded-lg bg-gray-200" />
               </div>
-              <div className="h-6 w-16 rounded-full bg-gray-100" />
-              <div className="h-4 w-24 rounded bg-gray-100" />
+              <div className="flex gap-4">
+                <div className="h-10 flex-1 rounded-lg bg-gray-100" />
+                <div className="h-10 w-36 rounded-lg bg-gray-100" />
+              </div>
             </div>
-          ))}
-        </div>
+            <div className="mt-6 overflow-hidden rounded-lg bg-white shadow">
+              <div className="border-b bg-gray-50 px-6 py-3">
+                <div className="flex gap-8">
+                  <div className="h-4 w-24 rounded bg-gray-200" />
+                  <div className="h-4 w-20 rounded bg-gray-200" />
+                  <div className="h-4 w-16 rounded bg-gray-200" />
+                  <div className="h-4 w-20 rounded bg-gray-200" />
+                </div>
+              </div>
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="flex items-center gap-4 border-b px-6 py-4">
+                  <div className="h-10 w-10 rounded-full bg-gray-200" />
+                  <div className="flex-1 space-y-2">
+                    <div className="h-4 w-36 rounded bg-gray-200" />
+                    <div className="h-3 w-48 rounded bg-gray-100" />
+                  </div>
+                  <div className="h-6 w-16 rounded-full bg-gray-100" />
+                  <div className="h-4 w-24 rounded bg-gray-100" />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     );
   }
