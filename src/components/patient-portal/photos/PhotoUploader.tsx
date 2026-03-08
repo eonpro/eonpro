@@ -225,11 +225,25 @@ export function PhotoUploader({
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
+  const [formatError, setFormatError] = useState<string | null>(null);
+  const formatErrorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const maxSizeBytes = maxSizeMB * 1024 * 1024;
+
+  const showFormatError = useCallback((msg: string) => {
+    setFormatError(msg);
+    if (formatErrorTimerRef.current) clearTimeout(formatErrorTimerRef.current);
+    formatErrorTimerRef.current = setTimeout(() => setFormatError(null), 8000);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (formatErrorTimerRef.current) clearTimeout(formatErrorTimerRef.current);
+    };
+  }, []);
 
   // Cleanup camera stream and fullscreen class on unmount
   useEffect(() => {
@@ -395,14 +409,15 @@ export function PhotoUploader({
       const newPhotos: UploadingPhoto[] = filesToProcess
         .filter((file) => {
           if (!acceptedTypes.includes(file.type)) {
-            onUploadError?.(
-              `"${file.name}" is not an accepted format. Please upload ${ACCEPTED_IMAGE_LABEL} images only.`,
-            );
+            const msg = `"${file.name}" is not a supported format. Please use ${ACCEPTED_IMAGE_LABEL} images only.`;
+            showFormatError(msg);
+            onUploadError?.(msg);
             return false;
           }
-          // Validate file size
           if (file.size > maxSizeBytes) {
-            onUploadError?.(`File too large: ${formatFileSize(file.size)} (max ${maxSizeMB}MB)`);
+            const msg = `File too large: ${formatFileSize(file.size)} (max ${maxSizeMB}MB)`;
+            showFormatError(msg);
+            onUploadError?.(msg);
             return false;
           }
           return true;
@@ -424,7 +439,7 @@ export function PhotoUploader({
         await uploadPhoto(photo);
       }
     },
-    [photos.length, maxPhotos, acceptedTypes, maxSizeBytes, maxSizeMB, onUploadError, uploadPhoto]
+    [photos.length, maxPhotos, acceptedTypes, maxSizeBytes, maxSizeMB, onUploadError, uploadPhoto, showFormatError]
   );
 
   // Dropzone configuration
@@ -532,6 +547,26 @@ export function PhotoUploader({
               </li>
             ))}
           </ul>
+        </div>
+      )}
+
+      {/* Format Error Banner */}
+      {formatError && (
+        <div className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4 animate-in fade-in slide-in-from-top-1">
+          <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-red-500" />
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-red-800">Unsupported file type</p>
+            <p className="mt-0.5 text-sm text-red-700">{formatError}</p>
+            <p className="mt-2 text-xs text-red-600">
+              Accepted formats: <span className="font-medium">{ACCEPTED_IMAGE_LABEL}</span>
+            </p>
+          </div>
+          <button
+            onClick={() => setFormatError(null)}
+            className="rounded-full p-1 text-red-400 hover:bg-red-100 hover:text-red-600"
+          >
+            <X className="h-4 w-4" />
+          </button>
         </div>
       )}
 

@@ -6,7 +6,7 @@ import { portalFetch, getPortalResponseError, SESSION_EXPIRED_MESSAGE } from '@/
 import { safeParseJson, safeParseJsonString } from '@/lib/utils/safe-json';
 import { getMinimalPortalUserPayload, setPortalUserStorage } from '@/lib/utils/portal-user-storage';
 
-import { Upload, FileText, Trash2, Download, Eye, ArrowLeft, Shield, Lock } from 'lucide-react';
+import { Upload, FileText, Trash2, Download, Eye, ArrowLeft, Shield, Lock, AlertCircle, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
@@ -39,6 +39,7 @@ export default function PatientPortalDocuments() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [patientId, setPatientId] = useState<number | null>(null);
+  const [uploadFormatError, setUploadFormatError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -165,20 +166,23 @@ export default function PatientPortalDocuments() {
   const handleFiles = async (files: FileList) => {
     if (!patientId) return;
 
+    setUploadFormatError(null);
+
     const allowedMimes: readonly string[] = ACCEPTED_DOCUMENT_UPLOAD_MIME_TYPES;
     const invalidType = Array.from(files).find(
       (f) => !allowedMimes.includes(f.type.toLowerCase()),
     );
     if (invalidType) {
-      toast.error(
-        `"${invalidType.name}" is not an accepted format. Please upload ${ACCEPTED_DOCUMENT_UPLOAD_LABEL} files only.`,
+      const ext = invalidType.name.split('.').pop()?.toUpperCase() || 'unknown';
+      setUploadFormatError(
+        `"${invalidType.name}" (.${ext}) is not a supported file type. Please use an approved format: ${ACCEPTED_DOCUMENT_UPLOAD_LABEL}.`,
       );
       return;
     }
 
     const oversized = Array.from(files).filter((f) => f.size > MAX_FILE_SIZE);
     if (oversized.length > 0) {
-      toast.error(`File "${oversized[0].name}" exceeds the 10MB limit.`);
+      setUploadFormatError(`File "${oversized[0].name}" exceeds the 10MB size limit.`);
       return;
     }
 
@@ -440,9 +444,29 @@ export default function PatientPortalDocuments() {
             </select>
           </div>
 
+          {/* Format Error Banner */}
+          {uploadFormatError && (
+            <div className="mb-4 flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-4">
+              <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-red-500" />
+              <div className="flex-1">
+                <p className="text-sm font-semibold text-red-800">Unsupported file type</p>
+                <p className="mt-0.5 text-sm text-red-700">{uploadFormatError}</p>
+                <p className="mt-2 text-xs text-red-600">
+                  Accepted formats: <span className="font-medium">{ACCEPTED_DOCUMENT_UPLOAD_LABEL}</span>
+                </p>
+              </div>
+              <button
+                onClick={() => setUploadFormatError(null)}
+                className="rounded-full p-1 text-red-400 hover:bg-red-100 hover:text-red-600"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          )}
+
           <div
             className={`relative rounded-lg border-2 border-dashed p-8 text-center transition-colors ${
-              dragActive && !isUploading ? 'border-[#4fa77e] bg-green-50' : 'border-gray-300 hover:border-gray-400'
+              dragActive && !isUploading ? 'border-[#4fa77e] bg-green-50' : uploadFormatError ? 'border-red-300 bg-red-50/30' : 'border-gray-300 hover:border-gray-400'
             } ${isUploading ? 'pointer-events-none opacity-90' : ''}`}
             onDragEnter={handleDrag}
             onDragLeave={handleDrag}
