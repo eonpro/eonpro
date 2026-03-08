@@ -1,11 +1,14 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+
 import { useRouter } from 'next/navigation';
+
+import { Video, Loader2 } from 'lucide-react';
+
 import { Feature } from '@/components/Feature';
 import TelehealthDashboard from '@/components/telehealth/TelehealthDashboard';
-import { TelehealthPhase } from '@/components/telehealth/types';
-import { Video, Loader2 } from 'lucide-react';
+import { type TelehealthPhase } from '@/components/telehealth/types';
 import { safeParseJsonString } from '@/lib/utils/safe-json';
 
 export default function TelehealthPage() {
@@ -13,7 +16,6 @@ export default function TelehealthPage() {
   const [userName, setUserName] = useState('');
   const [userEmail, setUserEmail] = useState('');
   const [loading, setLoading] = useState(true);
-  const [isFullScreen, setIsFullScreen] = useState(false);
 
   useEffect(() => {
     const user = localStorage.getItem('user');
@@ -32,18 +34,19 @@ export default function TelehealthPage() {
       const displayName =
         parsed.firstName && parsed.lastName
           ? `Dr. ${parsed.firstName} ${parsed.lastName}`
-          : parsed.name || parsed.email?.split('@')[0] || 'Provider';
+          : parsed.name ?? parsed.email?.split('@')[0] ?? 'Provider';
 
       setUserName(displayName.trim());
-      setUserEmail(parsed.email || '');
+      setUserEmail(parsed.email ?? '');
       setLoading(false);
     } catch {
       router.push('/login');
     }
   }, [router]);
 
-  const handlePhaseChange = (phase: TelehealthPhase) => {
-    setIsFullScreen(phase === 'call');
+  // eslint-disable-next-line no-unused-vars -- reserved for future layout toggling
+  const handlePhaseChange = (_phase: TelehealthPhase) => {
+    // Future: could toggle layout based on phase
   };
 
   if (loading) {

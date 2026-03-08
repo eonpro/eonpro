@@ -7,6 +7,7 @@
 
 import { logger } from '@/lib/logger';
 import { prisma } from '@/lib/db';
+import cache from '@/lib/cache/redis';
 import { createTranscriptionSession, completeSession } from './transcription.service';
 import { generateSOAPFromTranscript, saveScribeSOAPNote } from './soap-from-transcript.service';
 
@@ -18,12 +19,29 @@ export interface TelehealthSession {
   meetingId?: string;
   scribeSessionId?: string;
   status: 'waiting' | 'in_progress' | 'completed' | 'failed';
-  startedAt?: Date;
-  endedAt?: Date;
+  startedAt?: string;
+  endedAt?: string;
 }
 
-// In-memory store for active telehealth sessions (use Redis in production)
-const activeSessions = new Map<number, TelehealthSession>();
+const SCRIBE_SESSION_TTL = 60 * 60 * 4; // 4 hours — max telehealth session length
+const SCRIBE_KEY_PREFIX = 'scribe-session';
+
+async function getSession(appointmentId: number): Promise<TelehealthSession | null> {
+  const key = `${SCRIBE_KEY_PREFIX}:${appointmentId}`;
+  const cached = await cache.get<TelehealthSession>(key, { namespace: 'telehealth' });
+  if (cached) return cached;
+  return null;
+}
+
+async function setSession(appointmentId: number, session: TelehealthSession): Promise<void> {
+  const key = `${SCRIBE_KEY_PREFIX}:${appointmentId}`;
+  await cache.set(key, session, { namespace: 'telehealth', ttl: SCRIBE_SESSION_TTL });
+}
+
+async function deleteSession(appointmentId: number): Promise<void> {
+  const key = `${SCRIBE_KEY_PREFIX}:${appointmentId}`;
+  await cache.delete(key, { namespace: 'telehealth' });
+}
 
 /**
  * Initialize AI Scribe for a telehealth appointment
@@ -75,12 +93,12 @@ export async function initializeScribeForAppointment(
       patientId: appointment.patientId,
       providerId: appointment.providerId,
       platform: appointment.zoomMeetingId ? 'zoom' : 'in_browser',
-      meetingId: appointment.zoomMeetingId || undefined,
+      meetingId: appointment.zoomMeetingId ?? undefined,
       scribeSessionId: scribeSession.id,
       status: 'waiting',
     };
 
-    activeSessions.set(appointmentId, telehealthSession);
+    await setSession(appointmentId, telehealthSession);
 
     logger.info('Scribe initialized for telehealth appointment', {
       appointmentId,
@@ -102,7 +120,7 @@ export async function initializeScribeForAppointment(
  * Start scribe recording when call begins
  */
 export async function startScribeRecording(appointmentId: number): Promise<boolean> {
-  const session = activeSessions.get(appointmentId);
+  const session = await getSession(appointmentId);
 
   if (!session) {
     logger.warn('No active session found for appointment', { appointmentId });
@@ -115,8 +133,8 @@ export async function startScribeRecording(appointmentId: number): Promise<boole
   }
 
   session.status = 'in_progress';
-  session.startedAt = new Date();
-  activeSessions.set(appointmentId, session);
+  session.startedAt = new Date().toISOString();
+  await setSession(appointmentId, session);
 
   // Update appointment status
   await prisma.appointment.update({
@@ -145,7 +163,7 @@ export async function completeScribeSession(
   error?: string;
 }> {
   try {
-    const session = activeSessions.get(appointmentId);
+    const session = await getSession(appointmentId);
 
     if (!session || !session.scribeSessionId) {
       return {
@@ -158,8 +176,8 @@ export async function completeScribeSession(
     const { transcript, segments, duration } = await completeSession(session.scribeSessionId);
 
     session.status = 'completed';
-    session.endedAt = new Date();
-    activeSessions.set(appointmentId, session);
+    session.endedAt = new Date().toISOString();
+    await setSession(appointmentId, session);
 
     // Update appointment
     await prisma.appointment.update({
@@ -220,7 +238,7 @@ export async function completeScribeSession(
     }
 
     // Clean up session
-    activeSessions.delete(appointmentId);
+    await deleteSession(appointmentId);
 
     return {
       success: true,
@@ -244,25 +262,24 @@ export async function completeScribeSession(
 /**
  * Get active scribe session for an appointment
  */
-export function getActiveScribeSession(appointmentId: number): TelehealthSession | null {
-  return activeSessions.get(appointmentId) || null;
+export async function getActiveScribeSession(appointmentId: number): Promise<TelehealthSession | null> {
+  return getSession(appointmentId);
 }
 
 /**
  * Cancel scribe session (e.g., if call is cancelled)
  */
 export async function cancelScribeSession(appointmentId: number): Promise<void> {
-  const session = activeSessions.get(appointmentId);
+  const session = await getSession(appointmentId);
 
   if (session && session.scribeSessionId) {
-    // Mark conversation as inactive
     await prisma.aIConversation.updateMany({
       where: { sessionId: session.scribeSessionId },
       data: { isActive: false },
     });
   }
 
-  activeSessions.delete(appointmentId);
+  await deleteSession(appointmentId);
 
   logger.info('Scribe session cancelled', { appointmentId });
 }
@@ -297,13 +314,13 @@ export async function handleZoomWebhook(event: string, payload: any): Promise<vo
       await completeScribeSession(appointment.id, true);
       break;
 
-    case 'meeting.participant_joined':
-      // Could start recording when both parties have joined
-      const session = getActiveScribeSession(appointment.id);
+    case 'meeting.participant_joined': {
+      const session = await getActiveScribeSession(appointment.id);
       if (session && session.status === 'waiting') {
         await startScribeRecording(appointment.id);
       }
       break;
+    }
 
     default:
       logger.debug('Unhandled Zoom event', { event, meetingId });

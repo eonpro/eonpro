@@ -11,6 +11,11 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
 import { toast } from '@/components/Toast';
+import {
+  ACCEPTED_DOCUMENT_UPLOAD_MIME_TYPES,
+  ACCEPTED_DOCUMENT_UPLOAD_EXTENSIONS,
+  ACCEPTED_DOCUMENT_UPLOAD_LABEL,
+} from '@/lib/config/upload-formats';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
@@ -159,6 +164,17 @@ export default function PatientPortalDocuments() {
 
   const handleFiles = async (files: FileList) => {
     if (!patientId) return;
+
+    const allowedMimes: readonly string[] = ACCEPTED_DOCUMENT_UPLOAD_MIME_TYPES;
+    const invalidType = Array.from(files).find(
+      (f) => !allowedMimes.includes(f.type.toLowerCase()),
+    );
+    if (invalidType) {
+      toast.error(
+        `"${invalidType.name}" is not an accepted format. Please upload ${ACCEPTED_DOCUMENT_UPLOAD_LABEL} files only.`,
+      );
+      return;
+    }
 
     const oversized = Array.from(files).filter((f) => f.size > MAX_FILE_SIZE);
     if (oversized.length > 0) {
@@ -440,7 +456,7 @@ export default function PatientPortalDocuments() {
               disabled={isUploading}
               onChange={handleChange}
               className="hidden"
-              accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png,.gif"
+              accept={ACCEPTED_DOCUMENT_UPLOAD_EXTENSIONS.join(',')}
             />
 
             {isUploading ? (
@@ -469,7 +485,7 @@ export default function PatientPortalDocuments() {
                   or drag and drop
                 </p>
                 <p className="mt-1 text-xs text-gray-500">
-                  PDF, DOC, DOCX, TXT, JPG, PNG, GIF up to 10MB
+                  {ACCEPTED_DOCUMENT_UPLOAD_LABEL} — up to 10MB
                 </p>
               </>
             )}
@@ -550,7 +566,7 @@ export default function PatientPortalDocuments() {
             <li>• Make sure documents are clear and legible</li>
             <li>• Remove any sensitive information you don't want to share</li>
             <li>• Label documents with descriptive names for easy identification</li>
-            <li>• Supported formats: PDF, Word documents, text files, and images</li>
+            <li>• Supported formats: {ACCEPTED_DOCUMENT_UPLOAD_LABEL}</li>
           </ul>
         </div>
       </div>

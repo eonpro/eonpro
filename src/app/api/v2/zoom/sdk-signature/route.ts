@@ -3,14 +3,21 @@
  *
  * Generates JWT signatures for the Zoom Meeting SDK Component View.
  * Required for providers to join embedded Zoom meetings in-browser.
+ *
+ * Security: Requires provider auth, validates meeting ownership,
+ * generates short-lived signatures, and logs HIPAA audit trail.
  */
 
-import { NextRequest, NextResponse } from 'next/server';
-import { withProviderAuth, AuthUser } from '@/lib/auth/middleware';
+import { type NextRequest, NextResponse } from 'next/server';
+
 import { SignJWT } from 'jose';
 import { z } from 'zod';
+
+import { withProviderAuth, type AuthUser } from '@/lib/auth/middleware';
 import { zoomConfig, isZoomEnabled } from '@/lib/integrations/zoom/config';
 import { logger } from '@/lib/logger';
+import { auditLog, AuditEventType } from '@/lib/audit/hipaa-audit';
+import { prisma } from '@/lib/db';
 
 const signatureSchema = z.object({
   meetingNumber: z.union([z.string(), z.number()]).transform(String),
@@ -45,8 +52,28 @@ export const POST = withProviderAuth(async (req: NextRequest, user: AuthUser) =>
 
     const { meetingNumber, role } = parsed.data;
 
+    // Validate that this provider is associated with this meeting
+    const session = await prisma.telehealthSession.findFirst({
+      where: {
+        meetingId: meetingNumber,
+        providerId: user.providerId ?? user.id,
+      },
+      select: { id: true, patientId: true, appointmentId: true },
+    });
+
+    if (!session && role === 1) {
+      logger.warn('[ZOOM_SDK] Provider not associated with meeting', {
+        userId: user.id,
+        meetingNumber,
+      });
+      return NextResponse.json(
+        { error: 'You are not the host of this meeting' },
+        { status: 403 }
+      );
+    }
+
     const iat = Math.floor(Date.now() / 1000) - 30;
-    const exp = iat + 60 * 60 * 2; // 2 hours
+    const exp = iat + 60 * 30; // 30 minutes — short-lived for security
 
     const secret = new TextEncoder().encode(sdkSecret);
     const signature = await new SignJWT({
@@ -67,6 +94,24 @@ export const POST = withProviderAuth(async (req: NextRequest, user: AuthUser) =>
       clinicId: user.clinicId,
       meetingNumber,
       role,
+    });
+
+    // HIPAA audit: provider joining telehealth session (non-blocking)
+    auditLog(req, {
+      userId: user.id,
+      userRole: user.role,
+      clinicId: user.clinicId,
+      eventType: AuditEventType.SYSTEM_ACCESS,
+      resourceType: 'TelehealthSession',
+      resourceId: session?.id ?? meetingNumber,
+      patientId: session?.patientId,
+      action: 'TELEHEALTH_JOIN',
+      outcome: 'SUCCESS',
+      metadata: { meetingNumber, role },
+    }).catch((err: unknown) => {
+      logger.debug('Audit log failed (non-blocking)', {
+        error: err instanceof Error ? err.message : 'Unknown',
+      });
     });
 
     return NextResponse.json({ signature, sdkKey });

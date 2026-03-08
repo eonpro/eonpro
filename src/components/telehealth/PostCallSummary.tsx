@@ -1,19 +1,21 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+
 import {
   CheckCircle,
   Clock,
   Users,
   FileText,
   ArrowLeft,
-  Loader2,
   Sparkles,
   Download,
 } from 'lucide-react';
+
 import { apiFetch } from '@/lib/api/fetch';
+
 import SOAPNoteEditor from './SOAPNoteEditor';
-import { PostCallData } from './types';
+import { type PostCallData } from './types';
 
 interface PostCallSummaryProps {
   data: PostCallData;
@@ -32,7 +34,7 @@ interface SOAPNoteData {
 
 export default function PostCallSummary({ data, onBackToQueue }: PostCallSummaryProps) {
   const [soapNote, setSoapNote] = useState<SOAPNoteData>(
-    data.soapNote || {
+    data.soapNote ?? {
       subjective: '',
       objective: '',
       assessment: '',
@@ -46,7 +48,7 @@ export default function PostCallSummary({ data, onBackToQueue }: PostCallSummary
 
   useEffect(() => {
     if (!data.soapNote && data.transcript && data.session.appointment?.id) {
-      generateSOAP();
+      void generateSOAP();
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -70,12 +72,12 @@ export default function PostCallSummary({ data, onBackToQueue }: PostCallSummary
         if (result.soapNote) {
           setSoapNote({
             id: result.soapNote.id,
-            subjective: result.soapNote.subjective || '',
-            objective: result.soapNote.objective || '',
-            assessment: result.soapNote.assessment || '',
-            plan: result.soapNote.plan || '',
-            medicalNecessity: result.soapNote.medicalNecessity || '',
-            status: result.soapNote.status || 'DRAFT',
+            subjective: result.soapNote.subjective ?? '',
+            objective: result.soapNote.objective ?? '',
+            assessment: result.soapNote.assessment ?? '',
+            plan: result.soapNote.plan ?? '',
+            medicalNecessity: result.soapNote.medicalNecessity ?? '',
+            status: result.soapNote.status ?? 'DRAFT',
           });
         }
       }
@@ -145,18 +147,24 @@ export default function PostCallSummary({ data, onBackToQueue }: PostCallSummary
               SOAP Note
             </div>
             <p className="mt-1 text-lg font-bold text-gray-900">
-              {soapNote.id ? (
-                <span className={soapNote.status === 'APPROVED' ? 'text-emerald-600' : 'text-blue-600'}>
-                  {soapNote.status === 'APPROVED' ? 'Signed' : 'Draft'}
-                </span>
-              ) : isGenerating ? (
-                <span className="flex items-center gap-1 text-purple-600">
-                  <Sparkles className="h-4 w-4 animate-pulse" />
-                  Generating
-                </span>
-              ) : (
-                <span className="text-gray-400">Pending</span>
-              )}
+              {(() => {
+                if (soapNote.id) {
+                  return (
+                    <span className={soapNote.status === 'APPROVED' ? 'text-emerald-600' : 'text-blue-600'}>
+                      {soapNote.status === 'APPROVED' ? 'Signed' : 'Draft'}
+                    </span>
+                  );
+                }
+                if (isGenerating) {
+                  return (
+                    <span className="flex items-center gap-1 text-purple-600">
+                      <Sparkles className="h-4 w-4 animate-pulse" />
+                      Generating
+                    </span>
+                  );
+                }
+                return <span className="text-gray-400">Pending</span>;
+              })()}
             </p>
           </div>
         </div>
@@ -177,7 +185,7 @@ export default function PostCallSummary({ data, onBackToQueue }: PostCallSummary
         {!isGenerating && data.session.appointment?.id && (
           <div className="mt-4 flex items-center justify-between border-t border-gray-100 pt-4">
             <button
-              onClick={generateSOAP}
+              onClick={() => void generateSOAP()}
               className="flex items-center gap-1.5 rounded-lg border border-purple-200 bg-purple-50 px-3 py-1.5 text-xs font-medium text-purple-700 transition-colors hover:bg-purple-100"
             >
               <Sparkles className="h-3.5 w-3.5" />

@@ -19,20 +19,14 @@ import { STORAGE_CONFIG, isS3Enabled, isS3Configured, s3Config } from '@/lib/int
 import { isFeatureEnabled } from '@/lib/features';
 import { PatientPhotoType } from '@prisma/client';
 import { logPHICreate } from '@/lib/audit/hipaa-audit';
+import { ACCEPTED_IMAGE_MIME_TYPES, ACCEPTED_IMAGE_LABEL } from '@/lib/config/upload-formats';
 
 // =============================================================================
 // Constants
 // =============================================================================
 
 const MAX_PHOTO_SIZE = 15 * 1024 * 1024; // 15MB for photos
-const ALLOWED_MIME_TYPES = [
-  'image/jpeg',
-  'image/jpg',
-  'image/png',
-  'image/webp',
-  'image/heic',
-  'image/heif',
-];
+const ALLOWED_MIME_TYPES: readonly string[] = ACCEPTED_IMAGE_MIME_TYPES;
 const PRESIGNED_URL_EXPIRY = 300; // 5 minutes
 
 // =============================================================================
@@ -42,7 +36,7 @@ const PRESIGNED_URL_EXPIRY = 300; // 5 minutes
 const uploadRequestSchema = z.object({
   type: z.nativeEnum(PatientPhotoType),
   contentType: z.string().refine((type) => ALLOWED_MIME_TYPES.includes(type.toLowerCase()), {
-    message: `Invalid file type. Allowed: ${ALLOWED_MIME_TYPES.join(', ')}`,
+    message: `Invalid file type. Accepted formats: ${ACCEPTED_IMAGE_LABEL}`,
   }),
   fileSize: z.number().max(MAX_PHOTO_SIZE, {
     message: `File size exceeds maximum of ${MAX_PHOTO_SIZE / 1024 / 1024}MB`,

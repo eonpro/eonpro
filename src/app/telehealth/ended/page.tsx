@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect , Suspense } from 'react';
+
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Suspense } from 'react';
+
 import { Loader2 } from 'lucide-react';
 
 function EndedRedirect() {

@@ -575,11 +575,9 @@ export default function AppointmentsPage() {
                 </div>
 
                 {/* Video Link for Telehealth */}
-                {appointment.type?.toUpperCase() === 'VIDEO' && appointment.videoLink && (
+                {appointment.type?.toUpperCase() === 'VIDEO' && (appointment.videoLink || appointment.zoomJoinUrl) && (
                   <a
-                    href={appointment.videoLink}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                    href={`/patient-portal/telehealth?appointmentId=${appointment.id}`}
                     className="mb-4 flex items-center justify-center gap-2 rounded-xl bg-blue-50 p-4 font-semibold text-blue-600 transition-all hover:bg-blue-100"
                   >
                     <Video className="h-5 w-5" />

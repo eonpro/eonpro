@@ -7,6 +7,7 @@ import path from 'path';
 import fs from 'fs/promises';
 import crypto from 'crypto';
 import { logger } from '@/lib/logger';
+import { ACCEPTED_DOCUMENT_UPLOAD_MIME_TYPES } from '@/lib/config/upload-formats';
 
 // Private storage directory (outside public)
 const PRIVATE_STORAGE_BASE =
@@ -33,18 +34,9 @@ function generateSecureFilename(originalName: string): string {
  * Validate file type for medical documents
  */
 export function isAllowedFileType(mimeType: string): boolean {
-  const allowedTypes = [
-    'application/pdf',
-    'image/jpeg',
-    'image/jpg',
-    'image/png',
-    'image/gif',
-    'text/plain',
-    'application/msword',
-    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  ];
-
-  return allowedTypes.includes(mimeType.toLowerCase());
+  return (ACCEPTED_DOCUMENT_UPLOAD_MIME_TYPES as readonly string[]).includes(
+    mimeType.toLowerCase(),
+  );
 }
 
 /**

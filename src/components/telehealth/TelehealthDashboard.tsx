@@ -1,13 +1,15 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
+
 import { AnimatePresence, motion } from 'framer-motion';
-import SessionQueue from './SessionQueue';
-import SessionLobby from './SessionLobby';
+
 import ActiveCallView from './ActiveCallView';
 import PostCallSummary from './PostCallSummary';
 import ScheduleSessionModal from './ScheduleSessionModal';
-import { TelehealthSessionData, TelehealthPhase, PostCallData } from './types';
+import SessionLobby from './SessionLobby';
+import SessionQueue from './SessionQueue';
+import { type TelehealthSessionData, type TelehealthPhase, type PostCallData } from './types';
 
 interface TelehealthDashboardProps {
   userName: string;
@@ -31,6 +33,7 @@ export default function TelehealthDashboard({
   const [postCallData, setPostCallData] = useState<PostCallData | null>(null);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [scribeEnabled, setScribeEnabled] = useState(true);
 
   const changePhase = useCallback(
     (newPhase: TelehealthPhase) => {
@@ -48,7 +51,8 @@ export default function TelehealthDashboard({
     [changePhase]
   );
 
-  const handleJoinCall = useCallback(() => {
+  const handleJoinCall = useCallback((enableScribe: boolean) => {
+    setScribeEnabled(enableScribe);
     changePhase('call');
   }, [changePhase]);
 
@@ -78,6 +82,7 @@ export default function TelehealthDashboard({
         session={selectedSession}
         userName={userName}
         userEmail={userEmail}
+        scribeEnabled={scribeEnabled}
         onCallEnd={handleCallEnd}
       />
     );

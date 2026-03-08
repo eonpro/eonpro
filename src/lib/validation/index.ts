@@ -6,6 +6,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z, ZodError, ZodSchema } from 'zod';
 import { logger } from '@/lib/logger';
+import {
+  ACCEPTED_DOCUMENT_UPLOAD_MIME_TYPES,
+  ACCEPTED_DOCUMENT_UPLOAD_LABEL,
+} from '@/lib/config/upload-formats';
 
 // Re-export all schemas
 export * from './schemas';
@@ -211,16 +215,8 @@ export const fileUploadSchema = z.object({
     .string()
     .refine(
       (type) =>
-        [
-          'application/pdf',
-          'image/jpeg',
-          'image/png',
-          'image/gif',
-          'image/webp',
-          'application/msword',
-          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        ].includes(type),
-      'Unsupported file type'
+        (ACCEPTED_DOCUMENT_UPLOAD_MIME_TYPES as readonly string[]).includes(type.toLowerCase()),
+      `Unsupported file type. Accepted: ${ACCEPTED_DOCUMENT_UPLOAD_LABEL}`,
     ),
   size: z.number().max(10 * 1024 * 1024, 'File size must be less than 10MB'),
 });

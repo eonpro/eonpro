@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+
 import {
   Video,
   VideoOff,
@@ -15,12 +16,14 @@ import {
   Calendar,
   Loader2,
 } from 'lucide-react';
-import { TelehealthSessionData, DeviceStatus } from './types';
+
+import { type TelehealthSessionData, type DeviceStatus } from './types';
+import RecordingConsentModal from './RecordingConsentModal';
 
 interface SessionLobbyProps {
   session: TelehealthSessionData;
   userName: string;
-  onJoinCall: () => void;
+  onJoinCall: (enableScribe: boolean) => void;
   onBack: () => void;
 }
 
@@ -33,6 +36,7 @@ export default function SessionLobby({ session, userName, onJoinCall, onBack }: 
   const [cameraOn, setCameraOn] = useState(true);
   const [micOn, setMicOn] = useState(true);
   const [checking, setChecking] = useState(true);
+  const [showConsentModal, setShowConsentModal] = useState(false);
 
   const checkDevices = useCallback(async () => {
     setChecking(true);
@@ -63,7 +67,7 @@ export default function SessionLobby({ session, userName, onJoinCall, onBack }: 
   }, []);
 
   useEffect(() => {
-    checkDevices();
+    void checkDevices();
 
     return () => {
       if (devices.cameraStream) {
@@ -90,11 +94,24 @@ export default function SessionLobby({ session, userName, onJoinCall, onBack }: 
     }
   };
 
-  const handleJoin = () => {
+  const handleJoinClick = () => {
+    setShowConsentModal(true);
+  };
+
+  const handleConsentGiven = () => {
+    setShowConsentModal(false);
     if (devices.cameraStream) {
       devices.cameraStream.getTracks().forEach((track) => track.stop());
     }
-    onJoinCall();
+    onJoinCall(true);
+  };
+
+  const handleConsentDeclined = () => {
+    setShowConsentModal(false);
+    if (devices.cameraStream) {
+      devices.cameraStream.getTracks().forEach((track) => track.stop());
+    }
+    onJoinCall(false);
   };
 
   const formatDateTime = (dateStr: string) =>
@@ -105,6 +122,40 @@ export default function SessionLobby({ session, userName, onJoinCall, onBack }: 
       hour: '2-digit',
       minute: '2-digit',
     }).format(new Date(dateStr));
+
+  const getCameraOffMessage = (cameraStatus: DeviceStatus['camera']): string => {
+    if (cameraStatus === 'denied') return 'Camera access denied';
+    if (cameraStatus === 'unavailable') return 'No camera detected';
+    return 'Camera off';
+  };
+
+  const renderCameraPreview = () => {
+    if (checking) {
+      return (
+        <div className="flex h-full items-center justify-center">
+          <Loader2 className="h-10 w-10 animate-spin text-gray-400" />
+        </div>
+      );
+    }
+    if (devices.camera === 'granted' && cameraOn) {
+      return (
+        <video
+          ref={videoRef}
+          autoPlay
+          playsInline
+          muted
+          className="h-full w-full object-cover"
+          style={{ transform: 'scaleX(-1)' }}
+        />
+      );
+    }
+    return (
+      <div className="flex h-full flex-col items-center justify-center text-gray-400">
+        <VideoOff className="mb-2 h-12 w-12" />
+        <p className="text-sm">{getCameraOffMessage(devices.camera)}</p>
+      </div>
+    );
+  };
 
   const devicesReady = devices.camera === 'granted' && devices.microphone === 'granted';
 
@@ -124,31 +175,7 @@ export default function SessionLobby({ session, userName, onJoinCall, onBack }: 
         <div className="lg:col-span-3">
           <div className="overflow-hidden rounded-2xl border border-gray-200 bg-gray-900">
             <div className="relative aspect-video w-full">
-              {checking ? (
-                <div className="flex h-full items-center justify-center">
-                  <Loader2 className="h-10 w-10 animate-spin text-gray-400" />
-                </div>
-              ) : devices.camera === 'granted' && cameraOn ? (
-                <video
-                  ref={videoRef}
-                  autoPlay
-                  playsInline
-                  muted
-                  className="h-full w-full object-cover"
-                  style={{ transform: 'scaleX(-1)' }}
-                />
-              ) : (
-                <div className="flex h-full flex-col items-center justify-center text-gray-400">
-                  <VideoOff className="mb-2 h-12 w-12" />
-                  <p className="text-sm">
-                    {devices.camera === 'denied'
-                      ? 'Camera access denied'
-                      : devices.camera === 'unavailable'
-                        ? 'No camera detected'
-                        : 'Camera off'}
-                  </p>
-                </div>
-              )}
+              {renderCameraPreview()}
 
               {/* Name Overlay */}
               <div className="absolute bottom-3 left-3 rounded-lg bg-black/60 px-3 py-1.5 backdrop-blur-sm">
@@ -277,7 +304,7 @@ export default function SessionLobby({ session, userName, onJoinCall, onBack }: 
 
           {/* Join Button */}
           <button
-            onClick={handleJoin}
+            onClick={handleJoinClick}
             className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-6 py-4 text-base font-semibold text-white shadow-lg transition-all hover:bg-blue-700 hover:shadow-xl active:scale-[0.98]"
           >
             <Video className="h-5 w-5" />
@@ -285,6 +312,15 @@ export default function SessionLobby({ session, userName, onJoinCall, onBack }: 
           </button>
         </div>
       </div>
+
+      {/* Recording Consent Modal */}
+      {showConsentModal && (
+        <RecordingConsentModal
+          patientName={`${session.patient.firstName} ${session.patient.lastName}`}
+          onConsent={handleConsentGiven}
+          onDecline={handleConsentDeclined}
+        />
+      )}
     </div>
   );
 }
@@ -298,26 +334,37 @@ function DeviceRow({
   status: DeviceStatus['camera'];
   checking: boolean;
 }) {
-  return (
-    <div className="flex items-center justify-between">
-      <span className="text-xs text-gray-600">{label}</span>
-      {checking ? (
-        <Loader2 className="h-3.5 w-3.5 animate-spin text-gray-400" />
-      ) : status === 'granted' ? (
+  const renderStatus = () => {
+    if (checking) {
+      return <Loader2 className="h-3.5 w-3.5 animate-spin text-gray-400" />;
+    }
+    if (status === 'granted') {
+      return (
         <span className="flex items-center gap-1 text-xs text-emerald-600">
           <CheckCircle className="h-3.5 w-3.5" />
           Ready
         </span>
-      ) : status === 'denied' ? (
+      );
+    }
+    if (status === 'denied') {
+      return (
         <span className="flex items-center gap-1 text-xs text-red-600">
           <AlertTriangle className="h-3.5 w-3.5" />
           Blocked
         </span>
-      ) : (
-        <span className="flex items-center gap-1 text-xs text-gray-400">
-          Not found
-        </span>
-      )}
+      );
+    }
+    return (
+      <span className="flex items-center gap-1 text-xs text-gray-400">
+        Not found
+      </span>
+    );
+  };
+
+  return (
+    <div className="flex items-center justify-between">
+      <span className="text-xs text-gray-600">{label}</span>
+      {renderStatus()}
     </div>
   );
 }

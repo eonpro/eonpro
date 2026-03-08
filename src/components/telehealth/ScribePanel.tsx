@@ -1,16 +1,17 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+
 import {
   Mic,
   MicOff,
-  FileText,
   AlertTriangle,
   Loader2,
   ChevronRight,
   ChevronLeft,
   Sparkles,
 } from 'lucide-react';
+
 import { apiFetch } from '@/lib/api/fetch';
 
 interface ScribePanelProps {
@@ -29,6 +30,18 @@ interface TranscriptSegment {
   timestamp: number;
 }
 
+function getSpeakerStyle(speaker: TranscriptSegment['speaker']): string {
+  if (speaker === 'provider') return 'text-blue-600';
+  if (speaker === 'patient') return 'text-emerald-600';
+  return 'text-gray-400';
+}
+
+function getSpeakerLabel(speaker: TranscriptSegment['speaker']): string {
+  if (speaker === 'provider') return 'Provider';
+  if (speaker === 'patient') return 'Patient';
+  return 'Speaker';
+}
+
 export default function ScribePanel({
   appointmentId,
   patientId,
@@ -40,7 +53,7 @@ export default function ScribePanel({
 }: ScribePanelProps) {
   const [recording, setRecording] = useState(false);
   const [segments, setSegments] = useState<TranscriptSegment[]>([]);
-  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [, setSessionId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [initializing, setInitializing] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -85,7 +98,7 @@ export default function ScribePanel({
       setRecording(true);
 
       // Send chunks periodically
-      const sendInterval = setInterval(async () => {
+      const sendInterval = setInterval(() => {
         if (chunksRef.current.length === 0) return;
 
         const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
@@ -98,31 +111,29 @@ export default function ScribePanel({
         formData.append('providerId', providerId.toString());
         formData.append('isChunk', 'true');
 
-        try {
-          const res = await apiFetch('/api/ai-scribe/transcribe', {
-            method: 'POST',
-            body: formData,
-          });
-
-          if (res.ok) {
-            const data = await res.json();
-            if (data.text) {
-              const newSegment: TranscriptSegment = {
-                speaker: data.speaker || 'unknown',
-                text: data.text,
-                timestamp: Date.now(),
-              };
-              setSegments((prev) => {
-                const next = [...prev, newSegment];
-                const fullTranscript = next.map((s) => s.text).join(' ');
-                onTranscriptUpdate?.(fullTranscript);
-                return next;
-              });
-            }
+        void apiFetch('/api/ai-scribe/transcribe', {
+          method: 'POST',
+          body: formData,
+        }).then(async (res) => {
+          if (!res.ok) return;
+          return res.json();
+        }).then((data) => {
+          if (data?.text) {
+            const newSegment: TranscriptSegment = {
+              speaker: data.speaker ?? 'unknown',
+              text: data.text,
+              timestamp: Date.now(),
+            };
+            setSegments((prev) => {
+              const next = [...prev, newSegment];
+              const fullTranscript = next.map((s) => s.text).join(' ');
+              onTranscriptUpdate?.(fullTranscript);
+              return next;
+            });
           }
-        } catch {
+        }).catch(() => {
           // Non-blocking — scribe failure shouldn't interrupt the call
-        }
+        });
       }, 12000);
 
       return () => clearInterval(sendInterval);
@@ -144,7 +155,7 @@ export default function ScribePanel({
 
   useEffect(() => {
     if (isCallActive && !recording && !initializing && appointmentId) {
-      startRecording();
+      void startRecording();
     }
 
     if (!isCallActive && recording) {
@@ -186,7 +197,7 @@ export default function ScribePanel({
   }
 
   return (
-    <div className="flex h-full w-80 flex-col border-l border-gray-200 bg-white">
+    <div className="flex h-full w-72 flex-col border-l border-gray-200 bg-white lg:w-80">
       {/* Header */}
       <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
         <div className="flex items-center gap-2">
@@ -241,11 +252,9 @@ export default function ScribePanel({
             <div key={i} className="group">
               <div className="mb-0.5 flex items-center gap-2">
                 <span
-                  className={`text-[10px] font-semibold uppercase tracking-wide ${
-                    seg.speaker === 'provider' ? 'text-blue-600' : seg.speaker === 'patient' ? 'text-emerald-600' : 'text-gray-400'
-                  }`}
+                  className={`text-[10px] font-semibold uppercase tracking-wide ${getSpeakerStyle(seg.speaker)}`}
                 >
-                  {seg.speaker === 'provider' ? 'Provider' : seg.speaker === 'patient' ? 'Patient' : 'Speaker'}
+                  {getSpeakerLabel(seg.speaker)}
                 </span>
                 <span className="text-[10px] text-gray-300">
                   {new Date(seg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -271,7 +280,7 @@ export default function ScribePanel({
               </button>
             ) : (
               <button
-                onClick={startRecording}
+                onClick={() => void startRecording()}
                 disabled={initializing}
                 className="flex items-center gap-1.5 rounded-lg bg-blue-100 px-3 py-1.5 text-xs font-medium text-blue-700 transition-colors hover:bg-blue-200 disabled:opacity-50"
               >

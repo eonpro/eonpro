@@ -1,14 +1,15 @@
 'use client';
 
 import { useState } from 'react';
+
 import {
   FileText,
   Save,
   CheckCircle,
   Loader2,
-  RefreshCw,
   Sparkles,
 } from 'lucide-react';
+
 import { apiFetch } from '@/lib/api/fetch';
 
 interface SOAPNoteData {
@@ -152,7 +153,7 @@ export default function SOAPNoteEditor({
           )}
 
           <button
-            onClick={handleSave}
+            onClick={() => void handleSave()}
             disabled={saving || isSigned}
             className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50"
           >
@@ -162,7 +163,7 @@ export default function SOAPNoteEditor({
 
           {!isSigned && (
             <button
-              onClick={handleSign}
+              onClick={() => void handleSign()}
               disabled={signing || !soapNote.subjective || !soapNote.assessment}
               className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-emerald-700 disabled:bg-gray-300"
             >
@@ -195,7 +196,7 @@ export default function SOAPNoteEditor({
               {label}
             </label>
             <textarea
-              value={soapNote[key] || ''}
+              value={soapNote[key] ?? ''}
               onChange={(e) => handleFieldChange(key, e.target.value)}
               placeholder={placeholder}
               disabled={isSigned || isGenerating}

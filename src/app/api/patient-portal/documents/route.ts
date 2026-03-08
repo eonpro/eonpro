@@ -13,11 +13,18 @@ import { z } from 'zod';
 import { PatientDocumentCategory } from '@prisma/client';
 import { auditLog, AuditEventType, logPHICreate, logPHIDelete } from '@/lib/audit/hipaa-audit';
 import { handleApiError } from '@/domains/shared/errors';
+import {
+  ACCEPTED_DOCUMENT_UPLOAD_MIME_TYPES,
+  ACCEPTED_DOCUMENT_UPLOAD_LABEL,
+} from '@/lib/config/upload-formats';
 
 const uploadDocumentSchema = z.object({
   patientId: z.number(),
   filename: z.string().min(1),
-  mimeType: z.string(),
+  mimeType: z.string().refine(
+    (type) => (ACCEPTED_DOCUMENT_UPLOAD_MIME_TYPES as readonly string[]).includes(type.toLowerCase()),
+    { message: `Unsupported file type. Accepted formats: ${ACCEPTED_DOCUMENT_UPLOAD_LABEL}` },
+  ),
   category: z.enum([
     'MEDICAL_INTAKE_FORM',
     'MEDICAL_RECORDS',

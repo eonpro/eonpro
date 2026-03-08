@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { apiFetch } from '@/lib/api/fetch';
+
 import {
   Video,
   AlertCircle,
@@ -9,6 +9,8 @@ import {
   ExternalLink,
   RefreshCw,
 } from 'lucide-react';
+
+import { apiFetch } from '@/lib/api/fetch';
 
 export interface ZoomEmbeddedMeetingProps {
   meetingNumber: string;
@@ -104,8 +106,8 @@ export default function ZoomEmbeddedMeeting({
       });
 
       if (!sigRes.ok) {
-        const sigErr = await sigRes.json().catch(() => ({ error: 'Failed to get signature' }));
-        throw new Error(sigErr.error || 'Failed to generate meeting signature');
+        const sigErr = await sigRes.json().catch(() => ({ error: 'Failed to get signature' })) as { error?: string };
+        throw new Error(sigErr.error ?? 'Failed to generate meeting signature');
       }
 
       const { signature, sdkKey } = await sigRes.json();
@@ -151,7 +153,7 @@ export default function ZoomEmbeddedMeeting({
 
   useEffect(() => {
     mountedRef.current = true;
-    initAndJoin();
+    void initAndJoin();
 
     return () => {
       mountedRef.current = false;
@@ -189,7 +191,7 @@ export default function ZoomEmbeddedMeeting({
           <button
             onClick={() => {
               setError(null);
-              initAndJoin();
+              void initAndJoin();
             }}
             className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-700"
           >

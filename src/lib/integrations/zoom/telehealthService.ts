@@ -679,6 +679,38 @@ export async function handleParticipantWaiting(payload: WebhookPayload): Promise
     sessionId: session.id,
     participantName: participant.user_name,
   });
+
+  // Notify the provider that a patient is in the waiting room
+  try {
+    const provider = await prisma.provider.findUnique({
+      where: { id: session.providerId },
+      select: { userId: true, clinicId: true },
+    });
+
+    if (provider?.userId) {
+      const { notificationService } = await import('@/services/notification');
+      await notificationService.createNotification({
+        userId: provider.userId,
+        clinicId: provider.clinicId ?? undefined,
+        category: 'CLINICAL',
+        priority: 'HIGH',
+        title: 'Patient in Waiting Room',
+        message: `${participant.user_name ?? 'A patient'} is waiting to join your telehealth session.`,
+        actionUrl: '/telehealth',
+        sourceType: 'telehealth_waiting',
+        sourceId: `session-${session.id}-waiting`,
+        metadata: {
+          sessionId: session.id,
+          meetingId,
+          participantName: participant.user_name,
+        },
+      });
+    }
+  } catch (notifError) {
+    logger.debug('Failed to send waiting room notification (non-blocking)', {
+      error: notifError instanceof Error ? notifError.message : 'Unknown',
+    });
+  }
 }
 
 /**

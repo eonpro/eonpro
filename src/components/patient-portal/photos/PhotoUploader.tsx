@@ -31,6 +31,7 @@ import { useDropzone } from 'react-dropzone';
 import { PatientPhotoType } from '@/types/prisma-enums';
 import { getAuthHeaders } from '@/lib/utils/auth-token';
 import { apiFetch } from '@/lib/api/fetch';
+import { ACCEPTED_IMAGE_MIME_TYPES, ACCEPTED_IMAGE_LABEL } from '@/lib/config/upload-formats';
 
 // =============================================================================
 // Types
@@ -76,14 +77,7 @@ interface PhotoUploaderProps {
 
 const DEFAULT_MAX_SIZE_MB = 15;
 const DEFAULT_MAX_PHOTOS = 5;
-const DEFAULT_ACCEPTED_TYPES = [
-  'image/jpeg',
-  'image/jpg',
-  'image/png',
-  'image/webp',
-  'image/heic',
-  'image/heif',
-];
+const DEFAULT_ACCEPTED_TYPES: string[] = [...ACCEPTED_IMAGE_MIME_TYPES];
 const COMPRESSION_QUALITY = 0.85;
 const MAX_DIMENSION = 2048; // Max width/height after compression
 
@@ -400,9 +394,10 @@ export function PhotoUploader({
 
       const newPhotos: UploadingPhoto[] = filesToProcess
         .filter((file) => {
-          // Validate file type
           if (!acceptedTypes.includes(file.type)) {
-            onUploadError?.(`Invalid file type: ${file.type}`);
+            onUploadError?.(
+              `"${file.name}" is not an accepted format. Please upload ${ACCEPTED_IMAGE_LABEL} images only.`,
+            );
             return false;
           }
           // Validate file size
@@ -556,8 +551,8 @@ export function PhotoUploader({
               <>
                 <p className="font-medium text-gray-600">Drag & drop or tap to browse</p>
                 <p className="mt-1 text-sm text-gray-500">
-                  {maxPhotos - photos.length} photo{maxPhotos - photos.length !== 1 ? 's' : ''}{' '}
-                  remaining • Max {maxSizeMB}MB
+                  {ACCEPTED_IMAGE_LABEL} — {maxPhotos - photos.length} photo
+                  {maxPhotos - photos.length !== 1 ? 's' : ''} remaining • Max {maxSizeMB}MB
                 </p>
               </>
             )}

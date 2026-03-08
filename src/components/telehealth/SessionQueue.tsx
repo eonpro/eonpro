@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+
 import {
   Video,
   Calendar,
@@ -14,9 +15,12 @@ import {
   Loader2,
   ChevronRight,
   RefreshCw,
+  Trash2,
 } from 'lucide-react';
+
 import { apiFetch } from '@/lib/api/fetch';
-import { TelehealthSessionData } from './types';
+
+import { type TelehealthSessionData } from './types';
 
 interface SessionQueueProps {
   onSelectSession: (session: TelehealthSessionData) => void;
@@ -42,7 +46,7 @@ export default function SessionQueue({ onSelectSession, onScheduleNew }: Session
       const res = await apiFetch('/api/provider/telehealth/upcoming');
       if (res.ok) {
         const data = await res.json();
-        setSessions(data.sessions || []);
+        setSessions(data.sessions ?? []);
       }
     } catch {
       // silently fail; sessions remain empty
@@ -52,35 +56,33 @@ export default function SessionQueue({ onSelectSession, onScheduleNew }: Session
   }, []);
 
   useEffect(() => {
-    fetchSessions();
-    const interval = setInterval(fetchSessions, 15000);
+    void fetchSessions();
+    const interval = setInterval(() => void fetchSessions(), 15000);
     return () => clearInterval(interval);
   }, [fetchSessions]);
 
   const copyLink = (session: TelehealthSessionData) => {
     if (!session.joinUrl) return;
-    navigator.clipboard.writeText(session.joinUrl);
+    void navigator.clipboard.writeText(session.joinUrl);
     setCopiedId(session.id);
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-  const formatTime = (dateStr: string) =>
-    new Intl.DateTimeFormat('en-US', {
-      hour: '2-digit',
-      minute: '2-digit',
-    }).format(new Date(dateStr));
+  const cancelSession = async (session: TelehealthSessionData) => {
+    if (!session.appointment?.id) return;
+    if (!window.confirm(`Cancel the telehealth session with ${session.patient.firstName} ${session.patient.lastName}?`)) return;
 
-  const formatDate = (dateStr: string) =>
-    new Intl.DateTimeFormat('en-US', {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
-    }).format(new Date(dateStr));
-
-  const isToday = (dateStr: string) => {
-    const d = new Date(dateStr);
-    const now = new Date();
-    return d.toDateString() === now.toDateString();
+    try {
+      const res = await apiFetch(
+        `/api/scheduling/appointments?appointmentId=${session.appointment.id}&reason=Provider+cancelled+telehealth+session`,
+        { method: 'DELETE' }
+      );
+      if (res.ok) {
+        void fetchSessions();
+      }
+    } catch {
+      // silently fail
+    }
   };
 
   const waitingSessions = sessions.filter((s) => s.status === 'WAITING');
@@ -112,7 +114,7 @@ export default function SessionQueue({ onSelectSession, onScheduleNew }: Session
         </div>
         <div className="flex items-center gap-2">
           <button
-            onClick={fetchSessions}
+            onClick={() => void fetchSessions()}
             className="rounded-lg border border-gray-200 bg-white p-2.5 text-gray-500 transition-colors hover:bg-gray-50 hover:text-gray-700"
             title="Refresh"
           >
@@ -149,6 +151,7 @@ export default function SessionQueue({ onSelectSession, onScheduleNew }: Session
                 session={session}
                 onSelect={onSelectSession}
                 onCopy={copyLink}
+                onCancel={cancelSession}
                 copiedId={copiedId}
                 highlight
               />
@@ -170,6 +173,7 @@ export default function SessionQueue({ onSelectSession, onScheduleNew }: Session
                 session={session}
                 onSelect={onSelectSession}
                 onCopy={copyLink}
+                onCancel={cancelSession}
                 copiedId={copiedId}
               />
             ))}
@@ -205,6 +209,7 @@ export default function SessionQueue({ onSelectSession, onScheduleNew }: Session
                 session={session}
                 onSelect={onSelectSession}
                 onCopy={copyLink}
+                onCancel={cancelSession}
                 copiedId={copiedId}
               />
             ))}
@@ -241,16 +246,18 @@ function SessionCard({
   session,
   onSelect,
   onCopy,
+  onCancel,
   copiedId,
   highlight = false,
 }: {
   session: TelehealthSessionData;
   onSelect: (s: TelehealthSessionData) => void;
   onCopy: (s: TelehealthSessionData) => void;
+  onCancel: (s: TelehealthSessionData) => void;
   copiedId: number | null;
   highlight?: boolean;
 }) {
-  const badge = STATUS_CONFIG[session.status] || STATUS_CONFIG.SCHEDULED;
+  const badge = STATUS_CONFIG[session.status] ?? STATUS_CONFIG.SCHEDULED;
   const Icon = badge.icon;
 
   const formatTime = (dateStr: string) =>
@@ -258,17 +265,19 @@ function SessionCard({
 
   const isToday = (dateStr: string) => new Date(dateStr).toDateString() === new Date().toDateString();
 
-  const actionLabel = session.status === 'WAITING'
-    ? 'Join Now'
-    : session.status === 'IN_PROGRESS'
-      ? 'Rejoin'
-      : 'Start';
+  const getActionLabel = () => {
+    if (session.status === 'WAITING') return 'Join Now';
+    if (session.status === 'IN_PROGRESS') return 'Rejoin';
+    return 'Start';
+  };
+  const actionLabel = getActionLabel();
 
-  const actionColor = session.status === 'WAITING'
-    ? 'bg-amber-600 hover:bg-amber-700'
-    : session.status === 'IN_PROGRESS'
-      ? 'bg-emerald-600 hover:bg-emerald-700'
-      : 'bg-blue-600 hover:bg-blue-700';
+  const getActionColor = () => {
+    if (session.status === 'WAITING') return 'bg-amber-600 hover:bg-amber-700';
+    if (session.status === 'IN_PROGRESS') return 'bg-emerald-600 hover:bg-emerald-700';
+    return 'bg-blue-600 hover:bg-blue-700';
+  };
+  const actionColor = getActionColor();
 
   return (
     <div
@@ -305,6 +314,15 @@ function SessionCard({
         <div className="flex shrink-0 items-center gap-2">
           {(session.status === 'SCHEDULED' || session.status === 'WAITING' || session.status === 'IN_PROGRESS') && (
             <>
+              {session.status === 'SCHEDULED' && session.appointment && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); void onCancel(session); }}
+                  className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-500"
+                  title="Cancel session"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              )}
               <button
                 onClick={(e) => { e.stopPropagation(); onCopy(session); }}
                 className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+
 import {
   X,
   Calendar,
@@ -11,6 +12,7 @@ import {
   CheckCircle,
   Video,
 } from 'lucide-react';
+
 import { apiFetch } from '@/lib/api/fetch';
 import { CONSULTATION_DURATIONS } from '@/lib/integrations/zoom/config';
 
@@ -49,10 +51,10 @@ export default function ScheduleSessionModal({ onClose, onCreated }: ScheduleSes
       if (res.ok) {
         const data = await res.json();
         setPatients(
-          (data.patients || []).map((p: any) => ({
+          ((data.patients as Array<{ id: number; firstName?: string; lastName?: string }>) ?? []).map((p) => ({
             id: p.id,
-            firstName: p.firstName || '',
-            lastName: p.lastName || '',
+            firstName: p.firstName ?? '',
+            lastName: p.lastName ?? '',
           }))
         );
       }
@@ -64,7 +66,7 @@ export default function ScheduleSessionModal({ onClose, onCreated }: ScheduleSes
   }, []);
 
   useEffect(() => {
-    const timer = setTimeout(() => searchPatients(patientSearch), 300);
+    const timer = setTimeout(() => void searchPatients(patientSearch), 300);
     return () => clearTimeout(timer);
   }, [patientSearch, searchPatients]);
 
@@ -100,7 +102,7 @@ export default function ScheduleSessionModal({ onClose, onCreated }: ScheduleSes
         }, 1500);
       } else {
         const data = await res.json();
-        setError(data.error || 'Failed to schedule session');
+        setError(data.error ?? 'Failed to schedule session');
       }
     } catch {
       setError('Failed to schedule telehealth session');
@@ -283,7 +285,7 @@ export default function ScheduleSessionModal({ onClose, onCreated }: ScheduleSes
               Cancel
             </button>
             <button
-              onClick={handleSubmit}
+              onClick={() => void handleSubmit()}
               disabled={isCreating || !selectedPatient || !topic || !date || !time}
               className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:bg-gray-300"
             >

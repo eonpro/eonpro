@@ -348,6 +348,8 @@ function isSameOriginApiRequest(url: string): boolean {
   }
 }
 
+const DEFAULT_TIMEOUT_MS = 20_000;
+
 export async function apiFetch(
   url: string,
   options: RequestInit = {},
@@ -372,23 +374,30 @@ export async function apiFetch(
   // Signal to GlobalFetchInterceptor to skip 401 handling - apiFetch will retry with refreshed token
   (headers as Record<string, string>)['X-Eonpro-Auth-Retry'] = '1';
 
+  // Apply a default timeout unless the caller already provided an AbortSignal
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  let signal = options.signal;
+  if (!signal) {
+    const controller = new AbortController();
+    signal = controller.signal;
+    timeoutId = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS);
+  }
+
   try {
     const response = await fetch(url, {
       ...options,
       headers,
-      credentials: 'include', // Include cookies
+      signal,
+      credentials: 'include',
     });
+
+    if (timeoutId) clearTimeout(timeoutId);
 
     // If we get a 401 and haven't retried yet, try refreshing the token
     if (response.status === 401 && retryCount === 0) {
       logger.info('[Auth] Got 401, attempting token refresh');
       const refreshed = await refreshAuthToken();
       if (refreshed) {
-        // Retry the request with fresh credentials.
-        // IMPORTANT: Strip any explicit Authorization header from the original options
-        // so the retry uses the fresh httpOnly cookie (set by the refresh endpoint's
-        // Set-Cookie header) instead of a potentially stale localStorage token.
-        // Without this, the retry sends the same expired token that caused the 401.
         const retryOptions = { ...options };
         if (retryOptions.headers) {
           const h = retryOptions.headers;
@@ -408,16 +417,34 @@ export async function apiFetch(
       }
     }
 
+    // Auto-retry once on 5xx (cold start recovery)
+    if (response.status >= 500 && retryCount === 0) {
+      logger.warn('[apiFetch] 5xx response, retrying once', { url, status: response.status });
+      return apiFetch(url, options, retryCount + 1);
+    }
+
     // Check for auth errors
     return await handleResponseError(response);
   } catch (error: unknown) {
+    if (timeoutId) clearTimeout(timeoutId);
+
     // Re-throw auth errors
-    if (error.isAuthError) {
+    if ((error as any)?.isAuthError) {
       throw error;
     }
 
-    // Handle network errors
-    if (error.name === 'TypeError' && error.message.includes('fetch')) {
+    // Auto-retry once on timeout or network error (warms cold serverless functions)
+    const isAbort = (error as any)?.name === 'AbortError';
+    const isNetworkError = (error as any)?.name === 'TypeError';
+    if ((isAbort || isNetworkError) && retryCount === 0) {
+      logger.warn('[apiFetch] Request failed, retrying once', {
+        url,
+        reason: isAbort ? 'timeout' : 'network_error',
+      });
+      return apiFetch(url, options, retryCount + 1);
+    }
+
+    if (isNetworkError) {
       logger.error('Network error', { error: error instanceof Error ? error.message : String(error) });
     }
 
