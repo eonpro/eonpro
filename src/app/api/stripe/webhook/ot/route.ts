@@ -658,7 +658,7 @@ async function processOTWebhookEvent(
           }
         }
 
-        // Reverse commission if applicable
+        // Reverse affiliate commission if applicable
         if (reverseCommissionForRefund) {
           try {
             const amountCents = 'amount' in eventObject ? eventObject.amount : 0;
@@ -672,7 +672,28 @@ async function processOTWebhookEvent(
               reason: event.type === 'charge.dispute.created' ? 'chargeback' : 'refund',
             });
           } catch (e) {
-            logger.warn('[OT STRIPE WEBHOOK] Failed to reverse commission', {
+            logger.warn('[OT STRIPE WEBHOOK] Failed to reverse affiliate commission', {
+              error: e instanceof Error ? e.message : 'Unknown error',
+              chargeId,
+            });
+          }
+        }
+
+        // Reverse sales rep commission if applicable
+        if (reverseSalesRepCommission) {
+          try {
+            const amountCents = 'amount' in eventObject ? eventObject.amount : 0;
+            await reverseSalesRepCommission({
+              clinicId,
+              stripeEventId: event.id,
+              stripeObjectId: chargeId,
+              stripeEventType: event.type,
+              amountCents,
+              occurredAt: new Date(),
+              reason: event.type === 'charge.dispute.created' ? 'chargeback' : 'refund',
+            });
+          } catch (e) {
+            logger.warn('[OT STRIPE WEBHOOK] Failed to reverse sales rep commission', {
               error: e instanceof Error ? e.message : 'Unknown error',
               chargeId,
             });

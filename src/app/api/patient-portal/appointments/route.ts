@@ -163,6 +163,51 @@ export const GET = withAuth(async (req: NextRequest, user) => {
       }
     }
 
+    // Fetch a single appointment by ID (used by patient telehealth join page)
+    const appointmentIdParam = searchParams.get('appointmentId');
+    if (appointmentIdParam) {
+      const apptId = parseInt(appointmentIdParam, 10);
+      if (isNaN(apptId)) {
+        return NextResponse.json({ error: 'Invalid appointmentId' }, { status: 400 });
+      }
+
+      const appointment = await prisma.appointment.findFirst({
+        where: {
+          id: apptId,
+          ...(patientId ? { patientId } : {}),
+        },
+        include: {
+          provider: {
+            select: { id: true, firstName: true, lastName: true, titleLine: true },
+          },
+        },
+      });
+
+      if (!appointment) {
+        return NextResponse.json({ error: 'Appointment not found' }, { status: 404 });
+      }
+
+      // Verify ownership for patient role
+      if (user.role === 'patient' && appointment.patientId !== patientId) {
+        return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+      }
+
+      const providerName = appointment.provider
+        ? `${appointment.provider.titleLine ?? ''} ${appointment.provider.firstName} ${appointment.provider.lastName}`.trim()
+        : undefined;
+
+      await logPHIAccess(req, user, 'PatientAppointment', String(apptId), appointment.patientId, {
+        action: 'telehealth_join_view',
+      });
+
+      return NextResponse.json({
+        appointment: {
+          ...appointment,
+          providerName,
+        },
+      });
+    }
+
     // Default: Get patient's appointments
     if (!patientId) {
       return NextResponse.json({ error: 'patientId is required' }, { status: 400 });

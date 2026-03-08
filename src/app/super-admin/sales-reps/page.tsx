@@ -177,6 +177,39 @@ export default function SalesRepsPage() {
     window.URL.revokeObjectURL(url);
   };
 
+  const [downloadingPayroll, setDownloadingPayroll] = useState(false);
+
+  const handleDownloadPayrollReport = async () => {
+    if (!data?.dateRange) return;
+    setDownloadingPayroll(true);
+    try {
+      const p = new URLSearchParams();
+      p.set('startDate', data.dateRange.startDate.split('T')[0]);
+      p.set('endDate', data.dateRange.endDate.split('T')[0]);
+      if (clinicId) p.set('clinicId', clinicId);
+      p.set('format', 'csv');
+
+      const res = await apiFetch(`/api/super-admin/sales-reps/payroll-report?${p}`);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        alert(err.error || 'Failed to download payroll report');
+        return;
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `sales-rep-payroll-detail-${data.dateRange.startDate.split('T')[0]}-to-${data.dateRange.endDate.split('T')[0]}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      process.env.NODE_ENV === 'development' && console.error('Payroll download failed:', e);
+      alert('Failed to download payroll report');
+    } finally {
+      setDownloadingPayroll(false);
+    }
+  };
+
   const SortIcon = ({ column }: { column: SortKey }) => {
     if (sortKey !== column) return <ArrowUpDown className="ml-1 inline h-3 w-3 opacity-40" />;
     return sortDir === 'asc' ? <ChevronUp className="ml-1 inline h-3 w-3" /> : <ChevronDown className="ml-1 inline h-3 w-3" />;
@@ -200,8 +233,11 @@ export default function SalesRepsPage() {
           <button onClick={fetchData} disabled={loading} className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50">
             <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /> Refresh
           </button>
-          <button onClick={handleExportCsv} disabled={!data || filteredReps.length === 0} className="flex items-center gap-2 rounded-lg bg-[var(--brand-primary)] px-4 py-2 text-sm font-medium text-white hover:bg-[#3d8a66] disabled:opacity-50">
-            <Download className="h-4 w-4" /> Export Payroll CSV
+          <button onClick={handleExportCsv} disabled={!data || filteredReps.length === 0} className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50">
+            <Download className="h-4 w-4" /> Summary CSV
+          </button>
+          <button onClick={handleDownloadPayrollReport} disabled={!data || downloadingPayroll} className="flex items-center gap-2 rounded-lg bg-[var(--brand-primary)] px-4 py-2 text-sm font-medium text-white hover:bg-[#3d8a66] disabled:opacity-50">
+            <Download className={`h-4 w-4 ${downloadingPayroll ? 'animate-spin' : ''}`} /> {downloadingPayroll ? 'Downloading...' : 'Detailed Payroll Report'}
           </button>
         </div>
       </div>

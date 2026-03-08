@@ -27,16 +27,19 @@ function safeDecrypt(value: string | null | undefined): string {
 }
 
 // Validation schema for query params
+// URLSearchParams.get() returns null (not undefined) for missing params,
+// so .nullable() is required alongside .optional().
 const querySchema = z.object({
   limit: z
     .string()
+    .nullable()
     .optional()
     .transform((val) => {
       if (!val) return 50;
       const num = parseInt(val, 10);
       return isNaN(num) || num <= 0 ? 50 : Math.min(num, 100);
     }),
-  before: z.string().optional(), // ISO datetime for pagination
+  before: z.string().nullable().optional(),
 });
 
 /**

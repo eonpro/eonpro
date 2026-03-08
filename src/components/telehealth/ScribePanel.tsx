@@ -57,6 +57,7 @@ export default function ScribePanel({
   const [error, setError] = useState<string | null>(null);
   const [initializing, setInitializing] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const sendIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const chunksRef = useRef<Blob[]>([]);
 
@@ -136,7 +137,7 @@ export default function ScribePanel({
         });
       }, 12000);
 
-      return () => clearInterval(sendInterval);
+      sendIntervalRef.current = sendInterval;
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed to start recording';
       setError(msg);
@@ -146,6 +147,10 @@ export default function ScribePanel({
   }, [appointmentId, patientId, providerId, onTranscriptUpdate]);
 
   const stopRecording = useCallback(() => {
+    if (sendIntervalRef.current) {
+      clearInterval(sendIntervalRef.current);
+      sendIntervalRef.current = null;
+    }
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
       mediaRecorderRef.current.stop();
     }

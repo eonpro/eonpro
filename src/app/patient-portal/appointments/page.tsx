@@ -56,6 +56,7 @@ interface Appointment {
   reason?: string;
   notes?: string;
   videoLink?: string;
+  zoomJoinUrl?: string;
   location?: string;
   provider?: {
     id: number;

@@ -771,10 +771,9 @@ async function processWebhookEvent(
           chargeId,
         });
 
-        // Reverse commission if applicable
+        // Reverse affiliate commission if applicable
         if (reverseCommissionForRefund) {
           try {
-            // Get clinic ID from metadata or lookup
             const { prisma } = await import('@/lib/db');
             const payment = await prisma.payment.findFirst({
               where: { stripeChargeId: chargeId },
@@ -792,6 +791,19 @@ async function processWebhookEvent(
                 occurredAt: new Date(),
                 reason: event.type === 'charge.dispute.created' ? 'chargeback' : 'refund',
               });
+
+              // Reverse sales rep commission too
+              if (reverseSalesRepCommission) {
+                await reverseSalesRepCommission({
+                  clinicId: payment.clinicId,
+                  stripeEventId: event.id,
+                  stripeObjectId: chargeId,
+                  stripeEventType: event.type,
+                  amountCents,
+                  occurredAt: new Date(),
+                  reason: event.type === 'charge.dispute.created' ? 'chargeback' : 'refund',
+                });
+              }
             }
           } catch (e) {
             logger.warn('[STRIPE WEBHOOK] Failed to reverse commission', {

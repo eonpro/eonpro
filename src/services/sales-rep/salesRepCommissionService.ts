@@ -62,6 +62,7 @@ interface CommissionBreakdown {
   productBonusCents: number;
   multiItemBonusCents: number;
   totalCommissionCents: number;
+  volumeTierResult: VolumeTierResult | null;
 }
 
 // ============================================================================
@@ -103,12 +104,21 @@ function getWeekBounds(): { weekStart: Date; weekEnd: Date } {
   return { weekStart, weekEnd };
 }
 
+interface VolumeTierResult {
+  amountCents: number;
+  salesCount: number;
+  windowStart: Date;
+  windowEnd: Date;
+  crossedNewTier: boolean;
+  previousTierAmount: number;
+}
+
 async function resolveVolumeTier(
   salesRepId: number,
   clinicId: number,
   planId: number,
   volumeTierWindow: string | null
-): Promise<{ amountCents: number; salesCount: number } | null> {
+): Promise<VolumeTierResult | null> {
   const tiers = await prisma.salesRepVolumeCommissionTier.findMany({
     where: { planId },
     orderBy: { minSales: 'asc' },
@@ -116,18 +126,9 @@ async function resolveVolumeTier(
 
   if (tiers.length === 0) return null;
 
-  let windowStart: Date;
-  let windowEnd: Date;
-
-  if (volumeTierWindow === 'CALENDAR_WEEK_MON_SUN') {
-    const bounds = getWeekBounds();
-    windowStart = bounds.weekStart;
-    windowEnd = bounds.weekEnd;
-  } else {
-    const bounds = getWeekBounds();
-    windowStart = bounds.weekStart;
-    windowEnd = bounds.weekEnd;
-  }
+  const bounds = getWeekBounds();
+  const windowStart = bounds.weekStart;
+  const windowEnd = bounds.weekEnd;
 
   const salesCount = await prisma.salesRepCommissionEvent.count({
     where: {
@@ -138,25 +139,82 @@ async function resolveVolumeTier(
     },
   });
 
+  const previousCount = salesCount;
   const currentCount = salesCount + 1;
 
-  let matchedTier: (typeof tiers)[number] | null = null;
-  for (const tier of tiers) {
-    if (currentCount >= tier.minSales && (tier.maxSales === null || currentCount <= tier.maxSales)) {
-      matchedTier = tier;
+  const findTier = (count: number) => {
+    let matched: (typeof tiers)[number] | null = null;
+    for (const tier of tiers) {
+      if (count >= tier.minSales && (tier.maxSales === null || count <= tier.maxSales)) {
+        matched = tier;
+      }
     }
+    if (!matched && count > (tiers[tiers.length - 1]?.minSales ?? 0)) {
+      matched = tiers.find((t) => t.maxSales === null) || null;
+    }
+    return matched;
+  };
+
+  const currentTier = findTier(currentCount);
+  if (!currentTier) return null;
+
+  const previousTier = previousCount > 0 ? findTier(previousCount) : null;
+  const crossedNewTier = !previousTier || currentTier.amountCents > previousTier.amountCents;
+
+  return {
+    amountCents: currentTier.amountCents,
+    salesCount: currentCount,
+    windowStart,
+    windowEnd,
+    crossedNewTier,
+    previousTierAmount: previousTier?.amountCents || 0,
+  };
+}
+
+/**
+ * When volumeTierRetroactive=true and a new sale pushes the rep into a higher tier,
+ * update all earlier events in the same window to the higher tier amount.
+ */
+async function applyRetroactiveTierUpdate(
+  tx: any,
+  salesRepId: number,
+  clinicId: number,
+  tierResult: VolumeTierResult,
+  newEventId: number
+): Promise<number> {
+  if (!tierResult.crossedNewTier || tierResult.previousTierAmount >= tierResult.amountCents) {
+    return 0;
   }
 
-  if (!matchedTier) {
-    if (currentCount > (tiers[tiers.length - 1]?.minSales ?? 0)) {
-      const openEndedTier = tiers.find((t) => t.maxSales === null);
-      if (openEndedTier) matchedTier = openEndedTier;
-    }
+  const diff = tierResult.amountCents - tierResult.previousTierAmount;
+
+  const updated = await tx.salesRepCommissionEvent.updateMany({
+    where: {
+      salesRepId,
+      clinicId,
+      occurredAt: { gte: tierResult.windowStart, lte: tierResult.windowEnd },
+      status: { in: ['PENDING', 'APPROVED', 'PAID'] },
+      id: { not: newEventId },
+      volumeTierBonusCents: { lt: tierResult.amountCents },
+    },
+    data: {
+      volumeTierBonusCents: tierResult.amountCents,
+      commissionAmountCents: { increment: diff },
+    },
+  });
+
+  if (updated.count > 0) {
+    logger.info('[SalesRepCommission] Retroactive tier update applied', {
+      salesRepId,
+      clinicId,
+      eventsUpdated: updated.count,
+      newTierAmountCents: tierResult.amountCents,
+      previousTierAmountCents: tierResult.previousTierAmount,
+      diffPerEvent: diff,
+    });
   }
 
-  if (!matchedTier) return null;
-
-  return { amountCents: matchedTier.amountCents, salesCount: currentCount };
+  return updated.count;
 }
 
 // ============================================================================
@@ -281,15 +339,16 @@ async function calculateFullCommission(
 
   // 3. Volume tier bonus
   let volumeTierBonusCents = 0;
+  let volumeTierResult: VolumeTierResult | null = null;
   if (plan.volumeTierEnabled) {
-    const tierResult = await resolveVolumeTier(
+    volumeTierResult = await resolveVolumeTier(
       salesRepId,
       clinicId,
       plan.id,
       plan.volumeTierWindow
     );
-    if (tierResult) {
-      volumeTierBonusCents = tierResult.amountCents;
+    if (volumeTierResult) {
+      volumeTierBonusCents = volumeTierResult.amountCents;
     }
   }
 
@@ -317,6 +376,7 @@ async function calculateFullCommission(
     productBonusCents,
     multiItemBonusCents,
     totalCommissionCents,
+    volumeTierResult,
   };
 }
 
@@ -489,11 +549,10 @@ export async function processPaymentForSalesRepCommission(
         ? new Date(occurredAt.getTime() + plan.holdDays * 86400000)
         : null;
 
-    // Create the commission event (unique constraint on clinicId+stripeEventId is the idempotency guard)
     let commissionEvent;
     try {
       commissionEvent = await prisma.$transaction(async (tx) => {
-        return tx.salesRepCommissionEvent.create({
+        const event = await tx.salesRepCommissionEvent.create({
           data: {
             clinicId,
             salesRepId,
@@ -519,6 +578,20 @@ export async function processPaymentForSalesRepCommission(
             },
           },
         });
+
+        // Retroactive tier: if this sale crossed into a higher tier and the plan
+        // has retroactive enabled, bump all earlier events in the window to the new tier.
+        if (
+          plan.volumeTierEnabled &&
+          plan.volumeTierRetroactive &&
+          breakdown.volumeTierResult?.crossedNewTier
+        ) {
+          await applyRetroactiveTierUpdate(
+            tx, salesRepId, clinicId, breakdown.volumeTierResult, event.id
+          );
+        }
+
+        return event;
       }, { timeout: 15000 });
     } catch (txError: unknown) {
       if (

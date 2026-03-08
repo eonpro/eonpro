@@ -75,15 +75,16 @@ export default function ProviderMessagesPage() {
   }, []);
 
   // Fetch chat thread when conversation selected
+  const selectedPatientId = selectedMessage?.patientId;
   useEffect(() => {
-    if (!selectedMessage) {
+    if (!selectedPatientId) {
       setChatMessages([]);
       return;
     }
 
     async function fetchThread() {
       try {
-        const response = await apiFetch(`/api/messages/conversations/${selectedMessage?.patientId}`);
+        const response = await apiFetch(`/api/messages/conversations/${selectedPatientId}`);
 
         if (response.ok) {
           const data = await response.json();
@@ -98,7 +99,7 @@ export default function ProviderMessagesPage() {
     }
 
     fetchThread();
-  }, [selectedMessage]);
+  }, [selectedPatientId]);
 
   const filteredMessages = messages.filter((msg) => {
     const matchesSearch = normalizedIncludes(msg.patientName, searchTerm);
