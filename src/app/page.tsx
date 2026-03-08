@@ -1043,6 +1043,7 @@ function HomePageInner() {
               )}
             </div>
           </div>
+          </ErrorBoundary>
         </div>
       </main>
     </div>
