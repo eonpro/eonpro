@@ -247,6 +247,16 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
     return () => { cancelled = true; };
   }, [userData?.id]);
 
+  // Listen for avatar changes from settings page (or any child component)
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<{ avatarUrl: string | null }>).detail;
+      setAvatarUrl(detail.avatarUrl);
+    };
+    window.addEventListener('avatar-updated', handler);
+    return () => window.removeEventListener('avatar-updated', handler);
+  }, []);
+
   // Detect portal mode (lead vs patient) based on profile status
   useEffect(() => {
     if (!userData?.patientId) return;

@@ -234,7 +234,9 @@ export default function SettingsPage() {
         );
       }
       const data = await res.json();
-      setAvatarUrl(data.avatarUrl || null);
+      const newUrl = data.avatarUrl || null;
+      setAvatarUrl(newUrl);
+      window.dispatchEvent(new CustomEvent('avatar-updated', { detail: { avatarUrl: newUrl } }));
       toast.success('Profile picture updated');
     } catch (err) {
       setAvatarError(err instanceof Error ? err.message : 'Upload failed');
@@ -250,6 +252,7 @@ export default function SettingsPage() {
       const res = await portalFetch('/api/user/profile-picture', { method: 'DELETE' });
       if (!res.ok) throw new Error('Failed to remove picture');
       setAvatarUrl(null);
+      window.dispatchEvent(new CustomEvent('avatar-updated', { detail: { avatarUrl: null } }));
       toast.success('Profile picture removed');
     } catch (err) {
       setAvatarError(err instanceof Error ? err.message : 'Delete failed');
