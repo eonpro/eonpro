@@ -6,7 +6,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/db';
+import { prisma, withoutClinicFilter } from '@/lib/db';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
 import { serverError } from '@/lib/api/error-response';
@@ -144,6 +144,7 @@ async function handler(
   });
 
   try {
+    return await withoutClinicFilter(async () => {
     const days = Math.min(
       Math.ceil((endDate.getTime() - startDate.getTime()) / 86400000),
       90
@@ -310,6 +311,7 @@ async function handler(
       codePerformance,
       dateRange: { startDate: startDate.toISOString(), endDate: endDate.toISOString() },
     });
+    }); // end withoutClinicFilter
   } catch (error) {
     logger.error('[SalesReps] Failed to fetch sales rep detail', {
       salesRepId: userId,

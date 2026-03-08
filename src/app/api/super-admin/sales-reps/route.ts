@@ -7,7 +7,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/db';
+import { prisma, withoutClinicFilter } from '@/lib/db';
 import { withSuperAdminAuth } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
 import { serverError } from '@/lib/api/error-response';
@@ -126,6 +126,7 @@ async function handler(req: NextRequest): Promise<Response> {
   });
 
   try {
+    return await withoutClinicFilter(async () => {
     const clinicFilter = clinicIdParam ? { clinicId: parseInt(clinicIdParam, 10) } : {};
 
     // Sales reps are Users with role SALES_REP
@@ -236,6 +237,7 @@ async function handler(req: NextRequest): Promise<Response> {
       reps,
       dateRange: { startDate: startDate.toISOString(), endDate: endDate.toISOString() },
     });
+    }); // end withoutClinicFilter
   } catch (error) {
     logger.error('[SalesReps] Failed to fetch sales rep data', {
       error: error instanceof Error ? error.message : 'Unknown error',

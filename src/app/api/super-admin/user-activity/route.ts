@@ -94,7 +94,10 @@ export const GET = withAuth(
       const redisActivityMap = await getRecentlyActiveUserIds(15);
 
       // Merge both sources: user is online if detected by EITHER DB sessions or Redis activity
-      const onlineUserIds = new Set([...dbOnlineIds, ...redisActivityMap.keys()]);
+      const onlineUserIds = new Set<number>([
+        ...Array.from(dbOnlineIds),
+        ...Array.from(redisActivityMap.keys()),
+      ]);
 
       if (filter === 'online') {
         whereClause.id = { in: Array.from(onlineUserIds) };
