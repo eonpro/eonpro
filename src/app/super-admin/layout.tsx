@@ -133,19 +133,16 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
             {/* Logo */}
             <div className="mb-6 flex items-center justify-center px-4">
               <Link href="/super-admin">
-                {sidebarExpanded ? (
-                  <img
-                    src={EONPRO_LOGO}
-                    alt="EONPRO"
-                    className="h-10 w-auto"
-                  />
-                ) : (
-                  <img
-                    src={EONPRO_ICON}
-                    alt="EONPRO"
-                    className="h-10 w-10 object-contain"
-                  />
-                )}
+                <img
+                  src={EONPRO_LOGO}
+                  alt="EONPRO"
+                  className={`h-10 w-auto ${sidebarExpanded ? 'block' : 'hidden'}`}
+                />
+                <img
+                  src={EONPRO_ICON}
+                  alt="EONPRO"
+                  className={`h-10 w-10 object-contain ${sidebarExpanded ? 'hidden' : 'block'}`}
+                />
               </Link>
             </div>
 

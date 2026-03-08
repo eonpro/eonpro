@@ -141,7 +141,7 @@ export default function InvoiceDetailPage() {
 
       if (response.ok) {
         fetchInvoice();
-        if (action === 'mark_paid') {
+        if (action === 'markPaid') {
           setPaymentModalOpen(false);
         }
       } else {
@@ -451,12 +451,12 @@ export default function InvoiceDetailPage() {
 
               {canCreateStripe && (
                 <button
-                  onClick={() => performAction('create_stripe')}
-                  disabled={actionLoading === 'create_stripe'}
+                  onClick={() => performAction('createStripeInvoice')}
+                  disabled={actionLoading === 'createStripeInvoice'}
                   className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#635bff] px-4 py-2.5 text-white transition-colors hover:bg-[#5851e0] disabled:opacity-50"
                 >
                   <CreditCard className="h-5 w-5" />
-                  {actionLoading === 'create_stripe' ? 'Creating...' : 'Create Stripe Invoice'}
+                  {actionLoading === 'createStripeInvoice' ? 'Creating...' : 'Create Stripe Invoice'}
                 </button>
               )}
 
@@ -667,16 +667,16 @@ export default function InvoiceDetailPage() {
               </button>
               <button
                 onClick={() =>
-                  performAction('mark_paid', {
-                    paidAmountCents: paymentForm.amountCents,
-                    paymentMethod: paymentForm.paymentMethod,
-                    paymentRef: paymentForm.paymentRef || undefined,
+                  performAction('markPaid', {
+                    amountCents: paymentForm.amountCents,
+                    method: paymentForm.paymentMethod,
+                    reference: paymentForm.paymentRef || undefined,
                   })
                 }
-                disabled={actionLoading === 'mark_paid'}
+                disabled={actionLoading === 'markPaid'}
                 className="rounded-lg bg-green-600 px-4 py-2 text-white transition-colors hover:bg-green-700 disabled:opacity-50"
               >
-                {actionLoading === 'mark_paid' ? 'Processing...' : 'Confirm Payment'}
+                {actionLoading === 'markPaid' ? 'Processing...' : 'Confirm Payment'}
               </button>
             </div>
           </div>

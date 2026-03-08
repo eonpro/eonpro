@@ -21,3 +21,14 @@ export type {
   InvoiceListFilters,
   InvoiceSummary,
 } from './clinicInvoiceService';
+
+export { billingAnalyticsService } from './billingAnalyticsService';
+export type {
+  MonthlyRevenue,
+  AgingBucket,
+  FeeBreakdown,
+  CollectionMetrics,
+  ClinicRevenue,
+  MonthComparison,
+  FullDashboard,
+} from './billingAnalyticsService';
