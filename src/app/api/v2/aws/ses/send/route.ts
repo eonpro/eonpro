@@ -161,8 +161,7 @@ export async function POST(request: NextRequest) {
       },
       { status: 400 }
     );
-  } catch (error: any) {
-    // @ts-ignore
+  } catch (error: unknown) {
 
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('[SES Send] Error:', error);

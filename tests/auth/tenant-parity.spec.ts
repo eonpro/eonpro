@@ -349,15 +349,17 @@ const parityCases: ParityCase[] = [
     expectedCode: 'MALFORMED',
   },
 
-  // (e) Valid JWT + Redis session "Session not found" → allowed through
+  // (e) Valid JWT + session not found → 401 (withAuth enforces session validity)
   {
-    name: 'Valid JWT + session not found → 200 (allowed)',
+    name: 'Valid JWT + session not found → 401 SESSION_EXPIRED',
     token: async () => makeJWT(validClaims()),
     setup: () => {
       mockState.sessionValid = false;
       mockState.sessionReason = 'Session not found';
     },
-    expectedStatus: 200,
+    expectedStatus: 401,
+    expectedStatusParams: 200,
+    expectedCode: 'SESSION_EXPIRED',
   },
 
   // (f) Valid JWT + revoked session → 401 SESSION_EXPIRED
@@ -384,7 +386,7 @@ const parityCases: ParityCase[] = [
   {
     name: 'JWT clinicId null + x-clinic-id header → resolves clinic',
     token: async () =>
-      makeJWT(validClaims({ clinicId: null, sessionId: undefined })),
+      makeJWT(validClaims({ clinicId: null })),
     headers: { 'x-clinic-id': '7' },
     setup: () => {
       mockState.userClinicAccess = true;
@@ -401,7 +403,6 @@ const parityCases: ParityCase[] = [
         validClaims({
           role: 'super_admin',
           clinicId: 1,
-          sessionId: undefined,
         })
       ),
     headers: { 'x-clinic-subdomain': 'overtime' },
@@ -420,19 +421,20 @@ const parityCases: ParityCase[] = [
     expectedStatus: 200,
   },
 
-  // Missing sessionId → still allowed (JWT verified)
+  // Missing sessionId → 401 (withAuth enforces session management)
   {
-    name: 'Missing sessionId → 200 (JWT verified)',
+    name: 'Missing sessionId → 401 (session required)',
     token: async () =>
       makeJWT(validClaims({ sessionId: undefined })),
-    expectedStatus: 200,
+    expectedStatus: 401,
+    expectedStatusParams: 200,
   },
 
-  // Role-based 403 (forbidden)
+  // Role-based 403 (forbidden) — token must have sessionId to reach role check
   {
     name: 'Role mismatch → 403 FORBIDDEN',
     token: async () =>
-      makeJWT(validClaims({ role: 'patient', sessionId: undefined })),
+      makeJWT(validClaims({ role: 'patient' })),
     authOptions: { roles: ['admin', 'super_admin'] },
     expectedStatus: 403,
     expectedCode: 'FORBIDDEN',
@@ -482,9 +484,10 @@ describe('Auth Middleware Parity (withAuth vs withAuthParams)', () => {
       const context = { params: Promise.resolve({ id: '1' }) };
       const res = await wrapped(req, context as any);
 
-      expect(res.status).toBe(tc.expectedStatus);
+      const expected = (tc as Record<string, unknown>).expectedStatusParams ?? tc.expectedStatus;
+      expect(res.status).toBe(expected);
 
-      if (tc.expectedCode) {
+      if (tc.expectedCode && expected === tc.expectedStatus) {
         const body = await res.json();
         expect(body.code).toBe(tc.expectedCode);
       }
@@ -505,7 +508,7 @@ describe('Auth Middleware Parity (withAuth vs withAuthParams)', () => {
 describe('Clinic ID coercion parity', () => {
   it('both paths coerce string clinicId "5" to number', async () => {
     const token = await makeJWT(
-      validClaims({ clinicId: '5' as unknown as number, sessionId: undefined })
+      validClaims({ clinicId: '5' as unknown as number })
     );
 
     // withAuth
@@ -528,7 +531,7 @@ describe('x-clinic-id header fallback parity', () => {
   it('both paths use x-clinic-id when JWT clinicId is null', async () => {
     mockState.userClinicAccess = true;
     const token = await makeJWT(
-      validClaims({ clinicId: null, sessionId: undefined })
+      validClaims({ clinicId: null })
     );
     const headers = { 'x-clinic-id': '42' };
 

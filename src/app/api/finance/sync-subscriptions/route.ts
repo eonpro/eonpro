@@ -8,10 +8,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getClinicContext } from '@/lib/db';
-import { getAuthUser } from '@/lib/auth';
+import { withAdminAuth } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
-import { verifyClinicAccess } from '@/lib/auth/clinic-access';
 import { getStripeForClinic, withConnectedAccount } from '@/lib/stripe/connect';
 import {
   syncSubscriptionFromStripe,
@@ -75,22 +73,12 @@ async function syncOneSub(
   return r;
 }
 
-export async function POST(request: NextRequest) {
+export const POST = withAdminAuth(async (request: NextRequest, user) => {
   try {
-    const user = await getAuthUser(request);
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const contextClinicId = getClinicContext();
-    const clinicId = contextClinicId || user.clinicId;
+    const clinicId = user.clinicId;
 
     if (!clinicId) {
       return NextResponse.json({ error: 'Clinic context required' }, { status: 400 });
-    }
-
-    if (!verifyClinicAccess(user, clinicId)) {
-      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 
     let stripeContext: Awaited<ReturnType<typeof getStripeForClinic>>;
@@ -189,4 +177,4 @@ export async function POST(request: NextRequest) {
       { status: 500 },
     );
   }
-}
+});

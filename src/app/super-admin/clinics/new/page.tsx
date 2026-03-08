@@ -904,7 +904,7 @@ function ClinicAddressSection({
 
         return true;
       } catch (error) {
-        console.error('Error initializing Google Maps Autocomplete:', error);
+        process.env.NODE_ENV === 'development' && console.error('Error initializing Google Maps Autocomplete:', error);
         return false;
       }
     };

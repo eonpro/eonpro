@@ -168,7 +168,7 @@ async function handler(req: NextRequest, user: AuthUser, context: RouteContext) 
       const [patient, clinic] = await Promise.all([
         prisma.patient.findUnique({
           where: { id: order.patientId },
-          select: { id: true, phone: true, firstName: true, lastName: true },
+          select: { id: true, phone: true, email: true, firstName: true, lastName: true },
         }),
         prisma.clinic.findUnique({
           where: { id: order.clinicId },
@@ -180,6 +180,7 @@ async function handler(req: NextRequest, user: AuthUser, context: RouteContext) 
         sendTrackingNotificationSMS({
           patientId: patient.id,
           patientPhone: patient.phone,
+          patientEmail: patient.email,
           patientFirstName: patient.firstName,
           patientLastName: patient.lastName,
           clinicId: order.clinicId,
@@ -276,7 +277,7 @@ async function handler(req: NextRequest, user: AuthUser, context: RouteContext) 
     }
 
     return NextResponse.json({ error: 'Unknown action' }, { status: 400 });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('[DISPOSITION] Error:', { error: error.message, stack: error.stack });
     return NextResponse.json(
       { error: 'Failed to disposition order' },

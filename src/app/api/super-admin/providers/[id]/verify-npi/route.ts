@@ -139,7 +139,7 @@ export const POST = withSuperAdminAuth(
           addresses: npiResult.addresses,
         },
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error('[SUPER-ADMIN/PROVIDERS/VERIFY-NPI] Error:', error);
       return NextResponse.json({ error: error.message || 'Failed to verify NPI' }, { status: 500 });
     }

@@ -77,7 +77,7 @@ export async function storeVerificationCode(
         expiresAt,
       },
     });
-    logger.info(`Verification code stored for ${email} (${type})`);
+    logger.info(`Verification code stored (${type})`);
     return true;
   } catch (error) {
     logger.error('Failed to store verification code:', error);
@@ -124,7 +124,7 @@ export async function verifyOTPCode(
     }
 
     if (verificationRecord.code !== code) {
-      logger.warn(`Invalid verification code attempt for ${email}`);
+      logger.warn('Invalid verification code attempt');
       return {
         success: false,
         message: 'Invalid verification code',
@@ -139,7 +139,7 @@ export async function verifyOTPCode(
       },
     });
 
-    logger.info(`Email verified successfully for ${email}`);
+    logger.info('Email verified successfully');
 
     return {
       success: true,
@@ -184,10 +184,10 @@ export async function sendVerificationEmail(
     });
 
     if (result.success) {
-      logger.info(`Verification email sent to ${email}`, { type, messageId: result.messageId });
+      logger.info('Verification email sent', { type, messageId: result.messageId });
       return true;
     } else {
-      logger.error(`Failed to send verification email to ${email}`, { type, error: result.error });
+      logger.error('Failed to send verification email', { type, error: result.error });
       return false;
     }
   } catch (error: unknown) {

@@ -109,7 +109,7 @@ export default function AffiliateLoginPage() {
         }
       } catch (err) {
         // Silently fail - use default branding
-        console.log('Using default branding');
+        process.env.NODE_ENV === 'development' && console.log('Using default branding');
       } finally {
         setBrandingLoaded(true);
       }

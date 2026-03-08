@@ -190,7 +190,7 @@ export default function AffiliateDashboardLayout({ children }: { children: React
           }
         }
       } catch (err) {
-        console.warn('[Affiliate Layout] clinic/resolve fallback failed:', err);
+        process.env.NODE_ENV === 'development' && console.warn('[Affiliate Layout] clinic/resolve fallback failed:', err);
       }
 
       // Strategy B: authenticated affiliate branding endpoint (richer data)
@@ -200,10 +200,10 @@ export default function AffiliateDashboardLayout({ children }: { children: React
           const data = await brandingRes.json();
           brandingData = data;
         } else {
-          console.warn('[Affiliate Layout] /api/affiliate/branding returned', brandingRes.status);
+          process.env.NODE_ENV === 'development' && console.warn('[Affiliate Layout] /api/affiliate/branding returned', brandingRes.status);
         }
       } catch (err) {
-        console.warn('[Affiliate Layout] /api/affiliate/branding error:', err);
+        process.env.NODE_ENV === 'development' && console.warn('[Affiliate Layout] /api/affiliate/branding error:', err);
       }
 
       // 3. Fetch default ref code for quick-copy link in sidebar

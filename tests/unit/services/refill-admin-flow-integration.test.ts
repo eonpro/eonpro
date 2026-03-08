@@ -28,9 +28,9 @@ describe('Refill Trigger Flow', () => {
 
     const createdRefill = {
       id: 100,
-      status: 'PENDING_ADMIN',
+      status: 'APPROVED',
       paymentVerified: true,
-      adminApproved: false,
+      adminApproved: true,
     };
 
     const createMock = vi.fn().mockResolvedValue(createdRefill);
@@ -60,20 +60,14 @@ describe('Refill Trigger Flow', () => {
     const result = await triggerRefillForSubscriptionPayment(1);
 
     expect(result).toBeTruthy();
-    expect(result!.status).toBe('PENDING_ADMIN');
+    expect(result!.status).toBe('APPROVED');
 
     const createData = createMock.mock.calls[0][0].data;
 
-    expect(createData.status).toBe('PENDING_ADMIN');
+    // STRIPE_AUTO payments are now auto-approved
+    expect(createData.status).toBe('APPROVED');
     expect(createData.paymentVerified).toBe(true);
     expect(createData.paymentMethod).toBe('STRIPE_AUTO');
-    expect(createData.adminApproved).toBe(false);
-
-    // These should NOT exist (they were in the old auto-approve flow)
-    expect(createData).not.toHaveProperty('adminApprovedAt');
-    expect(createData).not.toHaveProperty('adminApprovedBy');
-    expect(createData).not.toHaveProperty('adminNotes');
-    expect(createData).not.toHaveProperty('providerQueuedAt');
   });
 
   it('should skip duplicate refills if one already exists', async () => {

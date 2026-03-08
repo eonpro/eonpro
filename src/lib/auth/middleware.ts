@@ -63,7 +63,8 @@ export type UserRole =
   | 'patient'
   | 'staff'
   | 'support'
-  | 'sales_rep';
+  | 'sales_rep'
+  | 'pharmacy_rep';
 
 export interface AuthOptions {
   /** Allowed roles for this endpoint */
@@ -215,6 +216,7 @@ export function validateTokenClaims(payload: JWTPayload): string | null {
     'staff',
     'support',
     'sales_rep',
+    'pharmacy_rep',
   ];
 
   if (!validRoles.includes(payload.role as UserRole)) {
@@ -275,6 +277,7 @@ function extractToken(req: NextRequest): ExtractedToken {
         'staff-token',
         'support-token',
         'sales_rep-token',
+        'pharmacy_rep-token',
       ]
     : [
         // All other routes: prefer general auth / role-specific cookies
@@ -286,6 +289,7 @@ function extractToken(req: NextRequest): ExtractedToken {
         'staff-token',
         'support-token',
         'sales_rep-token',
+        'pharmacy_rep-token',
         // Affiliate cookies last — only used as fallback for non-affiliate routes
         'affiliate_session',
         'affiliate-token',
@@ -380,23 +384,24 @@ export function withAuth<T = unknown>(
     try {
       const clientIP = getClientIP(req);
 
-      // Check if IP is blocked from repeated auth failures (brute force protection)
-      const blocked = await isAuthBlocked(clientIP);
-      if (blocked && !options.optional) {
-        return NextResponse.json(
-          {
-            error: 'Too many authentication failures. Please try again later.',
-            code: 'AUTH_RATE_LIMITED',
-            requestId,
-          },
-          { status: 429, headers: { 'Retry-After': '300' } }
-        );
-      }
-
-      // Extract token (with source tracking for stale session detection)
+      // Extract token FIRST — rate limiting only applies when no valid token is present.
+      // This prevents the death spiral where a rate-limited IP blocks valid authenticated users.
       const { token, source: tokenSource } = extractToken(req);
 
       if (!token) {
+        // Only check rate limit for unauthenticated requests (no token)
+        const blocked = await isAuthBlocked(clientIP);
+        if (blocked && !options.optional) {
+          return NextResponse.json(
+            {
+              error: 'Too many authentication failures. Please try again later.',
+              code: 'AUTH_RATE_LIMITED',
+              requestId,
+            },
+            { status: 429, headers: { 'Retry-After': '300' } }
+          );
+        }
+
         if (options.optional) {
           return handler(req, null as unknown as AuthUser, context);
         }
@@ -422,6 +427,19 @@ export function withAuth<T = unknown>(
           return handler(req, null as unknown as AuthUser, context);
         }
 
+        // Check rate limit only for invalid token attempts
+        const blocked = await isAuthBlocked(clientIP);
+        if (blocked) {
+          return NextResponse.json(
+            {
+              error: 'Too many authentication failures. Please try again later.',
+              code: 'AUTH_RATE_LIMITED',
+              requestId,
+            },
+            { status: 429, headers: { 'Retry-After': '300' } }
+          );
+        }
+
         await logAuthFailure(
           req,
           requestId,
@@ -431,14 +449,13 @@ export function withAuth<T = unknown>(
         await recordAuthFailure(clientIP);
 
         // Return specific error for expired tokens (client can refresh)
-        const status = 401;
         return NextResponse.json(
           {
             error: tokenResult.error || 'Invalid or expired token',
             code: tokenResult.errorCode || 'AUTH_FAILED',
             requestId,
           },
-          { status }
+          { status: 401 }
         );
       }
 
@@ -584,26 +601,51 @@ export function withAuth<T = unknown>(
       let effectiveClinicId =
         user.clinicId && user.role !== 'super_admin' ? user.clinicId : undefined;
 
-      // Fallback: if JWT has no clinicId, use the x-clinic-id header set by the edge
-      // clinic middleware — but ONLY after verifying the user actually has access.
-      // This prevents tenant isolation bypass if the header is spoofed or stale.
-      if (effectiveClinicId == null && user.role !== 'super_admin') {
+      // Allow explicit clinic override from x-clinic-id (set by edge middleware from selected-clinic cookie)
+      // after verifying clinic membership. This enables secure multi-clinic switching without re-login.
+      if (user.role !== 'super_admin') {
         const headerClinicId = req.headers.get('x-clinic-id');
         if (headerClinicId) {
           const parsed = parseInt(headerClinicId, 10);
-          if (!isNaN(parsed) && parsed > 0) {
+          if (!isNaN(parsed) && parsed > 0 && parsed !== effectiveClinicId) {
             const accessGranted = await hasClinicAccess(user.id, parsed, user.providerId);
             if (accessGranted) {
               effectiveClinicId = parsed;
-              logger.info('[Auth] Using x-clinic-id header as clinicId fallback (access verified)', {
+              logger.info('[Auth] Using x-clinic-id override (access verified)', {
                 userId: user.id,
                 clinicId: parsed,
                 jwtClinicId: user.clinicId ?? null,
               });
             } else {
-              logger.security('[Auth] BLOCKED: x-clinic-id header fallback denied — user lacks access', {
+              logger.security('[Auth] BLOCKED: x-clinic-id override denied — user lacks access', {
                 userId: user.id,
                 headerClinicId: parsed,
+                jwtClinicId: user.clinicId ?? null,
+              });
+            }
+          }
+        }
+      }
+
+      // Fallback override for environments where edge clinic middleware is disabled:
+      // honor selected-clinic cookie after validating user access.
+      if (user.role !== 'super_admin' && req.headers.get('x-clinic-id') == null) {
+        const selectedClinicCookie = req.cookies.get('selected-clinic')?.value;
+        if (selectedClinicCookie) {
+          const parsed = parseInt(selectedClinicCookie, 10);
+          if (!isNaN(parsed) && parsed > 0 && parsed !== effectiveClinicId) {
+            const accessGranted = await hasClinicAccess(user.id, parsed, user.providerId);
+            if (accessGranted) {
+              effectiveClinicId = parsed;
+              logger.info('[Auth] Using selected-clinic cookie override (access verified)', {
+                userId: user.id,
+                clinicId: parsed,
+                jwtClinicId: user.clinicId ?? null,
+              });
+            } else {
+              logger.security('[Auth] BLOCKED: selected-clinic cookie override denied', {
+                userId: user.id,
+                selectedClinicId: parsed,
                 jwtClinicId: user.clinicId ?? null,
               });
             }
@@ -989,6 +1031,17 @@ export function withSupportAuth(
 ): (req: NextRequest) => Promise<Response> {
   return withAuth(handler, {
     roles: ['super_admin', 'admin', 'support', 'staff'],
+  });
+}
+
+/**
+ * Middleware for pharmacy access routes (shipping + patient read workflows)
+ */
+export function withPharmacyAccessAuth(
+  handler: (req: NextRequest, user: AuthUser, context?: unknown) => Promise<Response>
+): (req: NextRequest, context?: unknown) => Promise<Response> {
+  return withAuth<unknown>(handler, {
+    roles: ['super_admin', 'admin', 'staff', 'pharmacy_rep'],
   });
 }
 

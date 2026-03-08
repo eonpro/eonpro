@@ -85,8 +85,7 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
-  } catch (error: any) {
-    // @ts-ignore
+  } catch (error: unknown) {
 
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('[STRIPE_TEST] Error:', error);

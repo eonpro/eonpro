@@ -233,7 +233,7 @@ export const PUT = withSuperAdminAuth(
         clinic: updatedClinic,
         message: 'Clinic updated successfully',
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error('Error updating clinic', error instanceof Error ? error : undefined, {
         route: 'PATCH /api/super-admin/clinics/[id]',
         clinicId: params.id,

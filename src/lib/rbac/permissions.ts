@@ -89,6 +89,13 @@ const ROLE_PERMISSIONS: Record<string, Permission[]> = {
     'message:view',
     'message:send',
   ],
+  pharmacy_rep: [
+    'patient:view',
+    'order:view',
+    'order:create',
+    'message:view',
+    'message:send',
+  ],
   sales_rep: ['patient:view', 'report:run'], // no order:view — reps see only assigned patients, not orders list
   patient: ['patient:view', 'patient:edit'], // only own
   affiliate: ['affiliate:view'],
@@ -153,7 +160,7 @@ export function toPermissionContext(user: {
  * Permission matrix (role x permission). Export for docs.
  */
 export const PERMISSION_MATRIX: Record<string, Record<Permission, boolean>> = (
-  ['super_admin', 'admin', 'provider', 'staff', 'sales_rep', 'patient', 'affiliate'] as const
+  ['super_admin', 'admin', 'provider', 'staff', 'pharmacy_rep', 'sales_rep', 'patient', 'affiliate'] as const
 ).reduce((acc, role) => {
   const perms = ROLE_PERMISSIONS[role] ?? [];
   acc[role] = {

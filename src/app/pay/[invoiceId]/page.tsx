@@ -57,7 +57,7 @@ export default function PaymentPage() {
         if (data.invoice.stripeInvoiceUrl && data.invoice.status === 'OPEN') {
           window.location.href = data.invoice.stripeInvoiceUrl;
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         setError(err.message || 'Failed to load invoice');
       } finally {
         setLoading(false);

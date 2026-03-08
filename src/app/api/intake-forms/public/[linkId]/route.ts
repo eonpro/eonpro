@@ -78,8 +78,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     return NextResponse.json({
       form: formData,
     });
-  } catch (error: any) {
-    // @ts-ignore
+  } catch (error: unknown) {
 
     logger.error('Failed to get public form', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -187,8 +186,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       message: 'Thank you! Your form has been submitted successfully.',
       submissionId: result.submission.id,
     });
-  } catch (error: any) {
-    // @ts-ignore
+  } catch (error: unknown) {
 
     logger.error('Failed to submit public form', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';

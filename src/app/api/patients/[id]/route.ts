@@ -20,6 +20,7 @@ import { tenantNotFoundResponse } from '@/lib/tenant-response';
 
 const SALES_REP_VIEW_ALL = PERMISSIONS.SALES_REP_VIEW_ALL_PATIENTS;
 const ROLE_SALES_REP = 'sales_rep' as const;
+const ROLE_PHARMACY_REP = 'pharmacy_rep' as const;
 
 interface Params {
   params: Promise<{ id: string }>;
@@ -90,7 +91,7 @@ const getPatientHandler = withAuthParams(
       });
     }
   },
-  { roles: ['super_admin', 'admin', 'provider', 'patient', 'staff', ROLE_SALES_REP] }
+  { roles: ['super_admin', 'admin', 'provider', 'patient', 'staff', ROLE_SALES_REP, ROLE_PHARMACY_REP] }
 );
 
 // Export directly - rate limiting breaks context passing for dynamic routes

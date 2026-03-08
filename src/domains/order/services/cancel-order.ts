@@ -104,14 +104,14 @@ export async function cancelOrder(input: CancelOrderInput): Promise<CancelOrderR
           reason,
           notes
         );
-      } catch (cancelErr: any) {
+      } catch (cancelErr: unknown) {
         logger.warn('[CANCEL ORDER] Primary cancel failed, trying alternatives...');
         try {
           lifefileCancelResponse = await lifefileClient.voidOrder(order.lifefileOrderId, reason);
-        } catch (voidErr: any) {
+        } catch (voidErr: unknown) {
           try {
             lifefileCancelResponse = await lifefileClient.deleteOrder(order.lifefileOrderId);
-          } catch (deleteErr: any) {
+          } catch (deleteErr: unknown) {
             lifefileError = cancelErr.message || 'Lifefile cancellation failed';
             logger.error('[CANCEL ORDER] All Lifefile cancel attempts failed', {
               orderId,
@@ -122,7 +122,7 @@ export async function cancelOrder(input: CancelOrderInput): Promise<CancelOrderR
           }
         }
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       lifefileError = err.message || 'Failed to connect to Lifefile';
       logger.error('[CANCEL ORDER] Lifefile client error', { orderId, error: err.message });
     }

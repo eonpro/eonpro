@@ -96,7 +96,7 @@ function getOpenAIClient(): OpenAI {
         maxRetries: 3,
         timeout: 60000, // 60 seconds
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error('[OpenAI] Failed to initialize client', { error: error.message });
       throw new Error(`OpenAI configuration error: ${error.message}`);
     }
@@ -150,7 +150,7 @@ async function withRetry<T>(
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
       return await fn();
-    } catch (error: any) {
+    } catch (error: unknown) {
       lastError = error;
 
       // Only retry on rate limits (429) or server errors (5xx)
@@ -940,7 +940,7 @@ Please provide a clear, accurate answer based on the available information. If a
       confidence: 0.95, // Can be calculated based on response
       usage: usageMetrics,
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('[OpenAI] Error processing query:', {
       error: errorMessage,

@@ -28,6 +28,12 @@ const sendEmailOtpSchema = z.object({
 
 const OTP_EXPIRY_MINUTES = 15;
 
+function maskEmail(email: string): string {
+  const [local, domain] = email.toLowerCase().split('@');
+  if (!local || !domain) return '***';
+  return `${local.slice(0, 2)}***@${domain}`;
+}
+
 export const POST = standardRateLimit(async (req: NextRequest) => {
   try {
     const body = await req.json();
@@ -35,7 +41,7 @@ export const POST = standardRateLimit(async (req: NextRequest) => {
 
     if (!validated.success) {
       return NextResponse.json(
-        { error: 'Invalid email address', details: validated.error.issues },
+        { error: 'Invalid email address' },
         { status: 400 }
       );
     }
@@ -84,7 +90,9 @@ export const POST = standardRateLimit(async (req: NextRequest) => {
 
     if (!accountExists) {
       // Don't reveal if account exists (prevent email enumeration)
-      logger.warn('Email OTP requested for unregistered email');
+      logger.warn('Email OTP requested for unregistered email', {
+        email: maskEmail(email),
+      });
       return NextResponse.json({
         success: true,
         message: 'If this email is registered, you will receive a login code.',
@@ -99,8 +107,8 @@ export const POST = standardRateLimit(async (req: NextRequest) => {
     if (!stored) {
       logger.error('Failed to store login OTP');
       return NextResponse.json(
-        { error: 'Failed to generate login code. Please try again.' },
-        { status: 500 }
+        { error: 'Login code service is temporarily unavailable. Please try again.' },
+        { status: 503 }
       );
     }
 
@@ -110,8 +118,8 @@ export const POST = standardRateLimit(async (req: NextRequest) => {
     if (!sent) {
       logger.error('Failed to send login OTP email');
       return NextResponse.json(
-        { error: 'Failed to send login code. Please try again.' },
-        { status: 500 }
+        { error: 'Email delivery is temporarily unavailable. Please try again.' },
+        { status: 503 }
       );
     }
 

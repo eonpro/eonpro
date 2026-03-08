@@ -46,6 +46,9 @@ vi.mock('@prisma/client', async (importOriginal) => {
           this.clientVersion = clientVersion;
         }
       },
+      PrismaClientRustPanicError: class PrismaClientRustPanicError extends Error {
+        constructor(message: string) { super(message); this.name = 'PrismaClientRustPanicError'; }
+      },
     },
   };
 });
@@ -130,6 +133,12 @@ vi.mock('@/lib/cache/request-scoped', () => ({
 
 vi.mock('@/lib/observability/request-context', () => ({
   runWithRequestContext: vi.fn((_ctx: unknown, fn: () => unknown) => fn()),
+}));
+
+vi.mock('@/lib/auth/middleware-cache', () => ({
+  resolveSubdomainClinicId: vi.fn(async () => mockState.subdomainClinic?.id ?? null),
+  hasClinicAccess: vi.fn(async () => mockState.userClinicAccess || mockState.providerClinicAccess),
+  trackSessionActivity: vi.fn(async () => {}),
 }));
 
 vi.mock('@/domains/shared/errors', () => ({
@@ -281,16 +290,16 @@ describe('Failure Mode: Redis Down', () => {
     expect(body.code).toBe('SERVICE_UNAVAILABLE');
   });
 
-  it('withAuth: Redis down but no sessionId in JWT → handler still executes (no session check)', async () => {
+  it('withAuth: Redis down but no sessionId in JWT → 401 (session management required)', async () => {
     mockState.sessionThrows = true;
     const token = await makeJWT({ sessionId: undefined });
     const handler = successHandler();
     const wrapped = withAuth(handler);
     const res = await wrapped(buildRequest({ token }));
 
-    // No sessionId means session validation is skipped → handler runs
-    expect(res.status).toBe(200);
-    expect(handler).toHaveBeenCalled();
+    // withAuth now enforces sessionId — tokens without it are rejected
+    expect(res.status).toBe(401);
+    expect(handler).not.toHaveBeenCalled();
   });
 
   it('withAuthParams: Redis down but no sessionId → handler still executes', async () => {
@@ -312,7 +321,7 @@ describe('Failure Mode: Redis Down', () => {
 describe('Failure Mode: DB Down (subdomain lookup)', () => {
   it('withAuth: DB error during subdomain lookup → middleware continues with JWT clinicId', async () => {
     mockState.dbThrowsOnSubdomain = true;
-    const token = await makeJWT({ sessionId: undefined });
+    const token = await makeJWT();
     const handler = successHandler();
     const wrapped = withAuth(handler);
     const res = await wrapped(
@@ -346,7 +355,7 @@ describe('Failure Mode: DB Down (subdomain lookup)', () => {
 
 describe('Failure Mode: Missing Edge Headers', () => {
   it('withAuth: no x-clinic-id, no x-clinic-subdomain → uses JWT clinicId', async () => {
-    const token = await makeJWT({ clinicId: 5, sessionId: undefined });
+    const token = await makeJWT({ clinicId: 5 });
     const handler = successHandler();
     const wrapped = withAuth(handler);
     const res = await wrapped(buildRequest({ token }));
@@ -371,7 +380,7 @@ describe('Failure Mode: Missing Edge Headers', () => {
   });
 
   it('withAuth: no edge headers + JWT clinicId null → clinicId remains undefined', async () => {
-    const token = await makeJWT({ clinicId: null, sessionId: undefined });
+    const token = await makeJWT({ clinicId: null });
     const handler = successHandler();
     const wrapped = withAuth(handler);
     const res = await wrapped(buildRequest({ token }));
@@ -389,17 +398,16 @@ describe('Failure Mode: Missing Edge Headers', () => {
 // ===========================================================================
 
 describe('Failure Mode: Auth Rate Limiting', () => {
-  it('withAuth: blocked IP returns 429', async () => {
+  it('withAuth: blocked IP with valid token still passes (rate limit only blocks unauthenticated)', async () => {
     mockState.isAuthBlocked = true;
     const token = await makeJWT();
     const handler = successHandler();
     const wrapped = withAuth(handler);
     const res = await wrapped(buildRequest({ token }));
 
-    expect(res.status).toBe(429);
-    const body = await res.json();
-    expect(body.code).toBe('AUTH_RATE_LIMITED');
-    expect(handler).not.toHaveBeenCalled();
+    // Valid tokens bypass rate limiting to prevent death-spiral lockouts
+    expect(res.status).toBe(200);
+    expect(handler).toHaveBeenCalled();
   });
 
   it('withAuthParams: blocked IP returns 429 (parity with withAuth)', async () => {

@@ -230,9 +230,8 @@ export async function sendEmail(params: SendEmailParams): Promise<EmailResponse>
       to: recipients,
       sentAt: new Date(),
     };
-  } catch (error: any) {
-    // @ts-ignore
-
+  } catch (error: unknown) {
+    
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('[SES] Send email failed:', error);
 
@@ -921,9 +920,8 @@ export async function verifyEmailAddress(email: string): Promise<boolean> {
     const client = getSESClient();
     await client.send(new VerifyEmailIdentityCommand({ EmailAddress: email }));
     return true;
-  } catch (error: any) {
-    // @ts-ignore
-
+  } catch (error: unknown) {
+    
     logger.error('[SES] Failed to verify email:', error);
     return false;
   }
@@ -952,9 +950,8 @@ export async function getSendQuota(): Promise<{
       maxSendRate: response.MaxSendRate || 0,
       sentLast24Hours: response.SentLast24Hours || 0,
     };
-  } catch (error: any) {
-    // @ts-ignore
-
+  } catch (error: unknown) {
+    
     logger.error('[SES] Failed to get quota:', error);
     return {
       max24HourSend: 0,

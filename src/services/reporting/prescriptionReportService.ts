@@ -12,7 +12,6 @@
 
 import { prisma, withoutClinicFilter } from '@/lib/db';
 import { decryptPHI } from '@/lib/security/phi-encryption';
-import { logger } from '@/lib/logger';
 
 // ============================================================================
 // Types
@@ -48,6 +47,7 @@ export interface ProviderRxSummary {
 
 export interface PrescriptionDetailRow {
   orderId: number;
+  lifefileOrderId: string | null;
   date: string;
   patientId: number;
   patientName: string;
@@ -56,6 +56,7 @@ export interface PrescriptionDetailRow {
   clinicId: number;
   clinicName: string;
   medications: string;
+  vialBreakdown: string[];
   status: string | null;
 }
 
@@ -87,10 +88,84 @@ export interface PrescriptionReportResult {
 function safeDecrypt(value: string | null | undefined): string {
   if (!value) return '';
   try {
-    return decryptPHI(value) || value;
+    return decryptPHI(value) ?? value;
   } catch {
     return value;
   }
+}
+
+function formatRxBreakdown(
+  rxs: Array<{
+    medName: string | null;
+    strength: string | null;
+    form: string | null;
+    quantity: string | number | null;
+  }>
+): string[] {
+  return rxs
+    .map((rx, index) => {
+      const medication = [rx.medName, rx.strength, rx.form].filter(Boolean).join(' ').trim() || 'Unknown medication';
+      const quantityRaw = String(rx.quantity ?? '').trim();
+      const quantity = quantityRaw ? ` - Qty ${quantityRaw}` : '';
+      return `Vial ${index + 1}: ${medication}${quantity}`;
+    })
+    .filter(Boolean);
+}
+
+function toMedicationSummary(vialBreakdown: string[]): string {
+  const summary = vialBreakdown.map((line) => line.replace(/^Vial \d+:\s*/, '')).join('; ');
+  return summary || 'N/A';
+}
+
+interface ReportOrder {
+  id: number;
+  lifefileOrderId: string | null;
+  createdAt: Date;
+  patientId: number;
+  providerId: number;
+  clinicId: number | null;
+  status: string | null;
+  rxs: Array<{
+    medName: string | null;
+    strength: string | null;
+    form: string | null;
+    quantity: string | number | null;
+  }>;
+  patient: {
+    id: number;
+    firstName: string | null;
+    lastName: string | null;
+  };
+  provider: {
+    id: number;
+    firstName: string | null;
+    lastName: string | null;
+  };
+  clinic: {
+    id: number;
+    name: string;
+  };
+}
+
+function mapOrderToDetail(order: ReportOrder): PrescriptionDetailRow {
+  const patientName = `${safeDecrypt(order.patient.firstName)} ${safeDecrypt(order.patient.lastName)}`.trim();
+  const providerName = `${order.provider.firstName ?? ''} ${order.provider.lastName ?? ''}`.trim();
+  const vialBreakdown = formatRxBreakdown(order.rxs);
+
+  return {
+    orderId: order.id,
+    lifefileOrderId: order.lifefileOrderId,
+    date: order.createdAt.toISOString(),
+    patientId: order.patient.id,
+    patientName: patientName || 'Unknown',
+    providerId: order.provider.id,
+    providerName: providerName || 'Unknown',
+    clinicId: order.clinic.id,
+    clinicName: order.clinic.name,
+    medications: toMedicationSummary(vialBreakdown),
+    vialBreakdown,
+    status: order.status,
+  };
 }
 
 export function computeDateRange(
@@ -180,7 +255,14 @@ export const prescriptionReportService = {
       const [orders, totalCount] = await Promise.all([
         prisma.order.findMany({
           where,
-          include: {
+          select: {
+            id: true,
+            lifefileOrderId: true,
+            createdAt: true,
+            patientId: true,
+            providerId: true,
+            clinicId: true,
+            status: true,
             rxs: {
               select: {
                 medName: true,
@@ -207,26 +289,9 @@ export const prescriptionReportService = {
       ]);
 
       // Build detail rows with PHI decryption
-      const details: PrescriptionDetailRow[] = orders.map((order) => {
-        const patFirstName = safeDecrypt(order.patient?.firstName);
-        const patLastName = safeDecrypt(order.patient?.lastName);
-        const medications = order.rxs
-          .map((rx) => `${rx.medName} ${rx.strength} ${rx.form}`)
-          .join('; ');
-
-        return {
-          orderId: order.id,
-          date: order.createdAt.toISOString(),
-          patientId: order.patient?.id ?? order.patientId,
-          patientName: `${patFirstName} ${patLastName}`.trim() || 'Unknown',
-          providerId: order.provider?.id ?? order.providerId,
-          providerName: `${order.provider?.firstName ?? ''} ${order.provider?.lastName ?? ''}`.trim() || 'Unknown',
-          clinicId: order.clinic?.id ?? order.clinicId ?? 0,
-          clinicName: order.clinic?.name ?? 'Unknown',
-          medications: medications || 'N/A',
-          status: order.status,
-        };
-      });
+      const details: PrescriptionDetailRow[] = orders.map((order) =>
+        mapOrderToDetail(order as unknown as ReportOrder)
+      );
 
       // Build summary via aggregate queries (across ALL orders in range, not just this page)
       const summaryAgg = await prisma.order.groupBy({
@@ -256,18 +321,30 @@ export const prescriptionReportService = {
         }),
       ]);
 
-      // Distinct patient counts per provider+clinic via raw SQL
+      // Distinct patient counts per provider+clinic via parameterized SQL
+      const conditions = [`"createdAt" >= $1`, `"createdAt" <= $2`];
+      const params: (Date | number)[] = [startDate, endDate];
+      let paramIdx = 3;
+
+      if (clinicId) {
+        conditions.push(`"clinicId" = $${paramIdx}`);
+        params.push(Number(clinicId));
+        paramIdx++;
+      }
+      if (providerId) {
+        conditions.push(`"providerId" = $${paramIdx}`);
+        params.push(Number(providerId));
+        paramIdx++;
+      }
+
       const distinctPatientCounts = await prisma.$queryRawUnsafe<
         { providerId: number; clinicId: number; uniquePatients: bigint }[]
       >(
         `SELECT "providerId", "clinicId", COUNT(DISTINCT "patientId") as "uniquePatients"
          FROM "Order"
-         WHERE "createdAt" >= $1 AND "createdAt" <= $2
-         ${clinicId ? `AND "clinicId" = ${Number(clinicId)}` : ''}
-         ${providerId ? `AND "providerId" = ${Number(providerId)}` : ''}
+         WHERE ${conditions.join(' AND ')}
          GROUP BY "providerId", "clinicId"`,
-        startDate,
-        endDate
+        ...params
       );
 
       const distinctMap = new Map<string, number>();
@@ -346,7 +423,14 @@ export const prescriptionReportService = {
     return withoutClinicFilter(async () => {
       const orders = await prisma.order.findMany({
         where,
-        include: {
+        select: {
+          id: true,
+          lifefileOrderId: true,
+          createdAt: true,
+          patientId: true,
+          providerId: true,
+          clinicId: true,
+          status: true,
           rxs: {
             select: {
               medName: true,
@@ -368,26 +452,9 @@ export const prescriptionReportService = {
         orderBy: { createdAt: 'desc' },
       });
 
-      const details: PrescriptionDetailRow[] = orders.map((order) => {
-        const patFirstName = safeDecrypt(order.patient?.firstName);
-        const patLastName = safeDecrypt(order.patient?.lastName);
-        const medications = order.rxs
-          .map((rx) => `${rx.medName} ${rx.strength} ${rx.form}`)
-          .join('; ');
-
-        return {
-          orderId: order.id,
-          date: order.createdAt.toISOString(),
-          patientId: order.patient?.id ?? order.patientId,
-          patientName: `${patFirstName} ${patLastName}`.trim() || 'Unknown',
-          providerId: order.provider?.id ?? order.providerId,
-          providerName: `${order.provider?.firstName ?? ''} ${order.provider?.lastName ?? ''}`.trim() || 'Unknown',
-          clinicId: order.clinic?.id ?? order.clinicId ?? 0,
-          clinicName: order.clinic?.name ?? 'Unknown',
-          medications: medications || 'N/A',
-          status: order.status,
-        };
-      });
+      const details: PrescriptionDetailRow[] = orders.map((order) =>
+        mapOrderToDetail(order as unknown as ReportOrder)
+      );
 
       // Summary aggregation
       const uniquePatients = new Set(details.map((d) => d.patientId));

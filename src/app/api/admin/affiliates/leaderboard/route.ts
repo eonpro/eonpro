@@ -138,7 +138,7 @@ async function handler(req: NextRequest, user: any): Promise<Response> {
         WHERE "affiliateId" = ANY(${affiliateIds})
           AND "occurredAt" >= ${dateFrom}
           AND "status" IN ('PENDING', 'APPROVED', 'PAID')
-          ${clinicFilter.clinicId ? prisma.$queryRaw`AND "clinicId" = ${clinicFilter.clinicId}` : prisma.$queryRaw``}
+          ${clinicFilter.clinicId ? prisma.$queryRaw`AND "clinicId" = ${clinicFilter.clinicId}` : (user.role === 'super_admin' ? prisma.$queryRaw`` : prisma.$queryRaw`AND "clinicId" = ${user.clinicId!}`)}
         GROUP BY "affiliateId"
       `,
     ]);

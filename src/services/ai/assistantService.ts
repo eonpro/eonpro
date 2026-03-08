@@ -784,7 +784,7 @@ async function searchPatientData(
             day: 'numeric',
           });
         }
-      } catch (e: any) {
+      } catch (e: unknown) {
         // If parsing fails, just use the original string
       }
     }
@@ -1387,7 +1387,7 @@ export async function processAssistantQuery(
       messageId: assistantMessage.id,
       citations: aiResponse.citations,
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);
 
     logger.error('[Assistant] Error processing query:', {
@@ -1410,7 +1410,7 @@ export async function processAssistantQuery(
           queryType: 'error',
         },
       });
-    } catch (dbError: any) {
+    } catch (dbError: unknown) {
       logger.error('[Assistant] Failed to store error message:', dbError);
     }
 

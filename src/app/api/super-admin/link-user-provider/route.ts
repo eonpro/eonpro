@@ -158,8 +158,8 @@ export const POST = withAuth(
           email: matchedProvider.email,
         },
       });
-    } catch (error: any) {
-      logger.error('[Admin] Error linking user to provider:', { error: error.message });
+    } catch (error: unknown) {
+      logger.error('[Admin] Error linking user to provider:', { error: error instanceof Error ? error.message : String(error) });
       return NextResponse.json({ error: 'Failed to link user to provider' }, { status: 500 });
     }
   },
@@ -209,8 +209,8 @@ export const GET = withAuth(
           : null,
         isLinked: !!targetUser.provider,
       });
-    } catch (error: any) {
-      logger.error('[Admin] Error checking user-provider link:', { error: error.message });
+    } catch (error: unknown) {
+      logger.error('[Admin] Error checking user-provider link:', { error: error instanceof Error ? error.message : String(error) });
       return NextResponse.json({ error: 'Failed to check user-provider link' }, { status: 500 });
     }
   },

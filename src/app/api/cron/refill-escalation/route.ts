@@ -15,7 +15,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { logger } from '@/lib/logger';
 import { prisma } from '@/lib/db';
-import { verifyCronAuth } from '@/lib/cron/tenant-isolation';
+import { verifyCronAuth, runCronPerTenant } from '@/lib/cron/tenant-isolation';
 import { handleApiError } from '@/domains/shared/errors';
 import { notificationEvents } from '@/services/notification/notificationEvents';
 import type { RefillQueue, Patient } from '@prisma/client';
@@ -33,132 +33,128 @@ export async function POST(req: NextRequest) {
   return runEscalation(req);
 }
 
-async function runEscalation(req: NextRequest) {
-  const startTime = Date.now();
+async function escalateForClinic(clinicId: number): Promise<{ escalated: number; stalePendingAdmin: number; staleApproved: number }> {
+  const now = new Date();
+  let escalated = 0;
 
-  if (!verifyCronAuth(req)) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
-  logger.info('[CRON refill-escalation] Starting escalation check');
-
-  try {
-    const now = new Date();
-    let escalated = 0;
-
-    // 1. PENDING_ADMIN refills that are stale
-    const stalePendingAdmin = await prisma.refillQueue.findMany({
-      where: {
-        status: 'PENDING_ADMIN',
-        createdAt: {
-          lt: new Date(now.getTime() - PENDING_ADMIN_WARN_HOURS * 60 * 60 * 1000),
-        },
+  const stalePendingAdmin = await prisma.refillQueue.findMany({
+    where: {
+      status: 'PENDING_ADMIN',
+      createdAt: {
+        lt: new Date(now.getTime() - PENDING_ADMIN_WARN_HOURS * 60 * 60 * 1000),
       },
-      include: { patient: true },
+    },
+    include: { patient: true },
+  });
+
+  for (const refill of stalePendingAdmin) {
+    const hoursStale = (now.getTime() - refill.createdAt.getTime()) / (1000 * 60 * 60);
+    const patientName = safePatientName(refill.patient);
+    const medName = refill.medicationName || refill.planName || 'Prescription';
+    const isUrgent = hoursStale >= PENDING_ADMIN_URGENT_HOURS;
+
+    await notificationEvents.refillDue({
+      clinicId: refill.clinicId,
+      patientId: refill.patientId,
+      patientName,
+      medicationName: `${medName} — waiting ${Math.round(hoursStale)}h for admin approval`,
+      daysUntilDue: 0,
     });
 
-    for (const refill of stalePendingAdmin) {
-      const hoursStale = (now.getTime() - refill.createdAt.getTime()) / (1000 * 60 * 60);
-      const patientName = safePatientName(refill.patient);
-      const medName = refill.medicationName || refill.planName || 'Prescription';
-      const isUrgent = hoursStale >= PENDING_ADMIN_URGENT_HOURS;
-
-      await notificationEvents.refillDue({
-        clinicId: refill.clinicId,
-        patientId: refill.patientId,
-        patientName,
-        medicationName: `${medName} — waiting ${Math.round(hoursStale)}h for admin approval`,
-        daysUntilDue: 0,
-      });
-
-      if (isUrgent) {
-        await notificationEvents.newRxQueue({
-          clinicId: refill.clinicId,
-          patientId: refill.patientId,
-          patientName,
-          treatmentType: medName,
-          isRefill: true,
-          priority: 'urgent',
-        });
-      }
-
-      escalated++;
-      logger.warn('[CRON refill-escalation] Stale PENDING_ADMIN refill', {
-        refillId: refill.id,
-        hoursStale: Math.round(hoursStale),
-        isUrgent,
-        patientId: refill.patientId,
-      });
-    }
-
-    // 2. APPROVED refills waiting too long for provider to prescribe
-    const staleApproved = await prisma.refillQueue.findMany({
-      where: {
-        status: { in: ['APPROVED', 'PENDING_PROVIDER'] },
-        providerQueuedAt: {
-          lt: new Date(now.getTime() - APPROVED_WARN_HOURS * 60 * 60 * 1000),
-        },
-      },
-      include: { patient: true },
-    });
-
-    for (const refill of staleApproved) {
-      const queuedAt = refill.providerQueuedAt || refill.adminApprovedAt || refill.createdAt;
-      const hoursWaiting = (now.getTime() - queuedAt.getTime()) / (1000 * 60 * 60);
-      const patientName = safePatientName(refill.patient);
-      const medName = refill.medicationName || refill.planName || 'Prescription';
-      const isUrgent = hoursWaiting >= APPROVED_URGENT_HOURS;
-
+    if (isUrgent) {
       await notificationEvents.newRxQueue({
         clinicId: refill.clinicId,
         patientId: refill.patientId,
         patientName,
-        treatmentType: `${medName} — waiting ${Math.round(hoursWaiting)}h for prescription`,
+        treatmentType: medName,
         isRefill: true,
-        priority: isUrgent ? 'urgent' : 'high',
-      });
-
-      if (isUrgent) {
-        await notificationEvents.systemAlert({
-          clinicId: refill.clinicId,
-          title: 'Overdue Prescription',
-          message: `${patientName}'s ${medName} refill has been approved for ${Math.round(hoursWaiting)} hours without a prescription being written.`,
-          priority: 'URGENT',
-          actionUrl: `/provider/prescription-queue?patientId=${refill.patientId}`,
-        });
-      }
-
-      escalated++;
-      logger.warn('[CRON refill-escalation] Stale APPROVED refill', {
-        refillId: refill.id,
-        hoursWaiting: Math.round(hoursWaiting),
-        isUrgent,
-        patientId: refill.patientId,
+        priority: 'urgent',
       });
     }
 
-    const duration = Date.now() - startTime;
+    escalated++;
+    logger.warn('[CRON refill-escalation] Stale PENDING_ADMIN refill', {
+      refillId: refill.id,
+      clinicId,
+      hoursStale: Math.round(hoursStale),
+      isUrgent,
+      patientId: refill.patientId,
+    });
+  }
 
-    const result = {
-      success: true,
-      duration,
-      stalePendingAdmin: stalePendingAdmin.length,
-      staleApproved: staleApproved.length,
-      totalEscalated: escalated,
-    };
+  const staleApproved = await prisma.refillQueue.findMany({
+    where: {
+      status: { in: ['APPROVED', 'PENDING_PROVIDER'] },
+      providerQueuedAt: {
+        lt: new Date(now.getTime() - APPROVED_WARN_HOURS * 60 * 60 * 1000),
+      },
+    },
+    include: { patient: true },
+  });
 
-    logger.info('[CRON refill-escalation] Completed', result);
+  for (const refill of staleApproved) {
+    const queuedAt = refill.providerQueuedAt || refill.adminApprovedAt || refill.createdAt;
+    const hoursWaiting = (now.getTime() - queuedAt.getTime()) / (1000 * 60 * 60);
+    const patientName = safePatientName(refill.patient);
+    const medName = refill.medicationName || refill.planName || 'Prescription';
+    const isUrgent = hoursWaiting >= APPROVED_URGENT_HOURS;
 
-    return NextResponse.json(result);
-  } catch (error) {
-    const duration = Date.now() - startTime;
-    const message = error instanceof Error ? error.message : 'Unknown error';
-
-    logger.error('[CRON refill-escalation] Fatal error', {
-      error: message,
-      duration,
+    await notificationEvents.newRxQueue({
+      clinicId: refill.clinicId,
+      patientId: refill.patientId,
+      patientName,
+      treatmentType: `${medName} — waiting ${Math.round(hoursWaiting)}h for prescription`,
+      isRefill: true,
+      priority: isUrgent ? 'urgent' : 'high',
     });
 
+    if (isUrgent) {
+      await notificationEvents.systemAlert({
+        clinicId: refill.clinicId,
+        title: 'Overdue Prescription',
+        message: `${patientName}'s ${medName} refill has been approved for ${Math.round(hoursWaiting)} hours without a prescription being written.`,
+        priority: 'URGENT',
+        actionUrl: `/provider/prescription-queue?patientId=${refill.patientId}`,
+      });
+    }
+
+    escalated++;
+    logger.warn('[CRON refill-escalation] Stale APPROVED refill', {
+      refillId: refill.id,
+      clinicId,
+      hoursWaiting: Math.round(hoursWaiting),
+      isUrgent,
+      patientId: refill.patientId,
+    });
+  }
+
+  return { escalated, stalePendingAdmin: stalePendingAdmin.length, staleApproved: staleApproved.length };
+}
+
+async function runEscalation(req: NextRequest) {
+  if (!verifyCronAuth(req)) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  try {
+    const { results, totalDurationMs } = await runCronPerTenant({
+      jobName: 'refill-escalation',
+      perClinic: escalateForClinic,
+    });
+
+    const totalEscalated = results.reduce((sum, r) => sum + (r.data?.escalated ?? 0), 0);
+    const totalPending = results.reduce((sum, r) => sum + (r.data?.stalePendingAdmin ?? 0), 0);
+    const totalApproved = results.reduce((sum, r) => sum + (r.data?.staleApproved ?? 0), 0);
+
+    return NextResponse.json({
+      success: true,
+      duration: totalDurationMs,
+      clinicsProcessed: results.length,
+      stalePendingAdmin: totalPending,
+      staleApproved: totalApproved,
+      totalEscalated,
+    });
+  } catch (error) {
     return handleApiError(error, { route: 'GET /api/cron/refill-escalation' });
   }
 }

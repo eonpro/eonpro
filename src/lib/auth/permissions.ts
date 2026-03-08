@@ -575,6 +575,13 @@ export const ROLE_PERMISSIONS = {
     // Basic Reports (own performance)
     PERMISSIONS.REPORT_GENERATE,
   ],
+
+  PHARMACY_REP: [
+    // Mostly-read-only patient + medication visibility
+    PERMISSIONS.PATIENT_READ,
+    PERMISSIONS.PATIENT_VIEW_PHI,
+    PERMISSIONS.ORDER_READ,
+  ],
   // Lowercase aliases for compatibility
   super_admin: [...Object.values(PERMISSIONS)],
   admin: [
@@ -667,8 +674,6 @@ export const ROLE_PERMISSIONS = {
   ],
   affiliate: [
     PERMISSIONS.AFFILIATE_READ,
-    PERMISSIONS.PATIENT_READ,
-    PERMISSIONS.ORDER_READ,
     PERMISSIONS.BILLING_VIEW,
     PERMISSIONS.REPORT_GENERATE,
   ],
@@ -678,6 +683,11 @@ export const ROLE_PERMISSIONS = {
     PERMISSIONS.PATIENT_UPDATE,
     PERMISSIONS.BILLING_VIEW,
     PERMISSIONS.REPORT_GENERATE,
+  ],
+  pharmacy_rep: [
+    PERMISSIONS.PATIENT_READ,
+    PERMISSIONS.PATIENT_VIEW_PHI,
+    PERMISSIONS.ORDER_READ,
   ],
 } as const;
 
@@ -780,6 +790,12 @@ export const ROLE_FEATURES = {
     // Communication
     'secure_messaging',
   ],
+
+  PHARMACY_REP: [
+    'dashboard_operations',
+    'secure_messaging',
+    'lifefile_integration',
+  ],
 } as const;
 
 // Type for role keys as stored in database/auth (lowercase)
@@ -791,7 +807,8 @@ export type UserRole =
   | 'patient'
   | 'support'
   | 'affiliate'
-  | 'sales_rep';
+  | 'sales_rep'
+  | 'pharmacy_rep';
 
 // Type for role keys in ROLE_PERMISSIONS (uppercase)
 type RoleKey = keyof typeof ROLE_PERMISSIONS;
@@ -806,6 +823,7 @@ const ROLE_KEY_MAP: Record<UserRole, RoleKey> = {
   affiliate: 'AFFILIATE',
   support: 'SUPPORT',
   sales_rep: 'SALES_REP',
+  pharmacy_rep: 'PHARMACY_REP',
 };
 
 /**

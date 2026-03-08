@@ -80,7 +80,7 @@ async function processCommissionHandler(req: NextRequest) {
         message: `Invoice is not paid (status: ${invoice.status})`,
       });
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('[Commission API] Error processing commission:', error);
     return NextResponse.json(

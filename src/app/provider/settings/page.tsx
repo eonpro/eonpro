@@ -138,7 +138,7 @@ export default function ProviderSettingsPage() {
         setFirstName(data.user.firstName || '');
         setLastName(data.user.lastName || '');
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(err.message || 'Failed to load settings');
     } finally {
       setLoading(false);
@@ -303,7 +303,7 @@ export default function ProviderSettingsPage() {
 
       setSuccess('Profile updated successfully');
       setTimeout(() => setSuccess(''), 3000);
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(err.message);
     } finally {
       setSaving(false);
@@ -333,7 +333,7 @@ export default function ProviderSettingsPage() {
       setSignatureData(signatureDataUrl);
       setSuccess('Signature saved successfully');
       setTimeout(() => setSuccess(''), 3000);
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(err.message);
     } finally {
       setSaving(false);
@@ -374,7 +374,7 @@ export default function ProviderSettingsPage() {
       setNewPassword('');
       setConfirmPassword('');
       setTimeout(() => setSuccess(''), 3000);
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(err.message);
     } finally {
       setSaving(false);
@@ -462,7 +462,7 @@ export default function ProviderSettingsPage() {
       setNpiVerified(true);
       setSuccess('NPI verified successfully');
       setTimeout(() => setSuccess(''), 3000);
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(err.message || 'Failed to verify NPI');
     } finally {
       setVerifyingNpi(false);
@@ -502,7 +502,7 @@ export default function ProviderSettingsPage() {
       setSuccess('Provider credentials registered successfully!');
       fetchSettings(); // Refresh data
       setTimeout(() => setSuccess(''), 3000);
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(err.message);
     } finally {
       setSaving(false);

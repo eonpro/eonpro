@@ -241,9 +241,8 @@ export async function generatePrescriptionPDF(data: PrescriptionPdfData) {
           width: 150,
           height: 50,
         });
-      } catch (err: any) {
-        // @ts-ignore
-
+      } catch (err: unknown) {
+        
         logger.error('Failed to embed signature image:', err);
       }
     }

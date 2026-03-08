@@ -71,8 +71,7 @@ export const GET = withAuth(
           userRole: user.role,
         },
       });
-    } catch (error: any) {
-      // @ts-ignore
+    } catch (error: unknown) {
 
       logger.error('Error fetching settings:', error);
       return NextResponse.json({ error: 'Failed to fetch settings' }, { status: 500 });
@@ -183,7 +182,7 @@ export const PUT = withAuth(
           } as any,
         })
         .catch((error: Error) => {
-          logger.warn('Failed to create audit log:', { error: error.message });
+          logger.warn('Failed to create audit log:', { error: error instanceof Error ? error.message : String(error) });
         });
 
       logger.info('Setting updated', { settingId, userId: user.id });
@@ -211,8 +210,7 @@ export const PUT = withAuth(
           value: settingDef.sensitive ? '••••••••' : value,
         },
       });
-    } catch (error: any) {
-      // @ts-ignore
+    } catch (error: unknown) {
 
       logger.error('Error updating setting:', error);
       return NextResponse.json({ error: 'Failed to update setting' }, { status: 500 });
@@ -286,10 +284,10 @@ export const POST = withAuth(
                 ? 'Connection successful'
                 : `Connection failed: ${response.status}`,
             };
-          } catch (error: any) {
+          } catch (error: unknown) {
             testResult = {
               success: false,
-              message: `Connection failed: ${error.message}`,
+              message: `Connection failed: ${error instanceof Error ? error.message : String(error)}`,
             };
           }
           break;
@@ -305,10 +303,10 @@ export const POST = withAuth(
               success: true,
               message: 'Stripe connection successful',
             };
-          } catch (error: any) {
+          } catch (error: unknown) {
             testResult = {
               success: false,
-              message: `Stripe connection failed: ${error.message}`,
+              message: `Stripe connection failed: ${error instanceof Error ? error.message : String(error)}`,
             };
           }
           break;
@@ -328,10 +326,10 @@ export const POST = withAuth(
                 ? 'SendGrid connection successful'
                 : `Connection failed: ${response.status}`,
             };
-          } catch (error: any) {
+          } catch (error: unknown) {
             testResult = {
               success: false,
-              message: `SendGrid connection failed: ${error.message}`,
+              message: `SendGrid connection failed: ${error instanceof Error ? error.message : String(error)}`,
             };
           }
           break;
@@ -351,10 +349,10 @@ export const POST = withAuth(
                 ? 'OpenAI connection successful'
                 : `Connection failed: ${response.status}`,
             };
-          } catch (error: any) {
+          } catch (error: unknown) {
             testResult = {
               success: false,
-              message: `OpenAI connection failed: ${error.message}`,
+              message: `OpenAI connection failed: ${error instanceof Error ? error.message : String(error)}`,
             };
           }
           break;
@@ -368,8 +366,7 @@ export const POST = withAuth(
     });
 
       return NextResponse.json(testResult);
-    } catch (error: any) {
-      // @ts-ignore
+    } catch (error: unknown) {
 
       logger.error('Error testing integration:', error);
       return NextResponse.json({ error: 'Failed to test integration' }, { status: 500 });

@@ -75,7 +75,7 @@ export const POST = withAuth(async (request: NextRequest, user: AuthUser) => {
       ok: true,
       data: response,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);
 
     logger.error('[API] Error processing chat query:', {
@@ -189,7 +189,7 @@ export const GET = withAuth(async (request: NextRequest, user: AuthUser) => {
         { status: 400 }
       );
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('[API] Error fetching conversation:', error);
     return NextResponse.json(
@@ -233,7 +233,7 @@ export const DELETE = withAuth(async (request: NextRequest, user: AuthUser) => {
       ok: true,
       message: 'Conversation ended',
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('[API] Error ending conversation:', error);
     return NextResponse.json(

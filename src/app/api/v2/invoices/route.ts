@@ -143,7 +143,7 @@ async function getInvoicesHandler(req: NextRequest, user: AuthUser): Promise<Res
     });
 
     return NextResponse.json({ ...result, invoices });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('Failed to get invoices', error);
     return NextResponse.json({ error: error.message || 'Failed to get invoices' }, { status: 500 });
   }
@@ -233,7 +233,7 @@ async function createInvoiceHandler(req: NextRequest, user: AuthUser): Promise<R
         summary: result.summary,
       });
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
         { error: 'Invalid request', details: error.errors },

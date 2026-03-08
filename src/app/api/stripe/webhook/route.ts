@@ -316,16 +316,24 @@ export async function POST(request: NextRequest) {
 // ============================================================================
 
 interface ProcessingServices {
-  StripeInvoiceService: any;
-  StripePaymentService: any;
-  processStripePayment: any;
-  extractPaymentDataFromCharge: any;
-  extractPaymentDataFromPaymentIntent: any;
-  extractPaymentDataFromCheckoutSession: any;
-  processPaymentForCommission?: any;
-  reverseCommissionForRefund?: any;
-  checkIfFirstPayment?: any;
-  autoMatchPendingRefillsForPatient?: any;
+  StripeInvoiceService: {
+    updateFromWebhook(stripeInvoice: Stripe.Invoice): Promise<void>;
+  };
+  StripePaymentService: {
+    updatePaymentFromIntent(paymentIntent: Stripe.PaymentIntent): Promise<void>;
+  };
+  processStripePayment: (
+    paymentData: import('@/services/stripe/paymentMatchingService').StripePaymentData,
+    stripeEventId?: string,
+    stripeEventType?: string,
+  ) => Promise<import('@/services/stripe/paymentMatchingService').PaymentProcessingResult>;
+  extractPaymentDataFromCharge: (charge: Stripe.Charge) => import('@/services/stripe/paymentMatchingService').StripePaymentData;
+  extractPaymentDataFromPaymentIntent: (paymentIntent: Stripe.PaymentIntent) => Promise<import('@/services/stripe/paymentMatchingService').StripePaymentData>;
+  extractPaymentDataFromCheckoutSession: (session: Stripe.Checkout.Session) => import('@/services/stripe/paymentMatchingService').StripePaymentData;
+  processPaymentForCommission?: (data: import('@/services/affiliate/affiliateCommissionService').PaymentEventData) => Promise<import('@/services/affiliate/affiliateCommissionService').CommissionResult>;
+  reverseCommissionForRefund?: (data: import('@/services/affiliate/affiliateCommissionService').RefundEventData) => Promise<import('@/services/affiliate/affiliateCommissionService').CommissionResult>;
+  checkIfFirstPayment?: (patientId: number, currentPaymentId?: string) => Promise<boolean>;
+  autoMatchPendingRefillsForPatient?: (patientId: number, clinicId: number, stripePaymentId?: string, invoiceId?: number) => Promise<number[]>;
   isConnectEvent?: boolean;
 }
 
@@ -517,7 +525,15 @@ async function processWebhookEvent(
             paymentIntentId: paymentIntent.id,
             clinicId: resolvedClinicId,
           });
-          try { await StripePaymentService.updatePaymentFromIntent(paymentIntent); } catch {}
+          try {
+            await StripePaymentService.updatePaymentFromIntent(paymentIntent);
+          } catch (updateErr) {
+            logger.error('[STRIPE WEBHOOK] Failed to update payment from intent', {
+              eventId: event.id,
+              paymentIntentId: paymentIntent.id,
+              error: updateErr instanceof Error ? updateErr.message : 'Unknown error',
+            });
+          }
           return {
             success: true,
             details: { skipped: true, reason: 'Connect event — invoice created by external automation' },

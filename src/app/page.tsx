@@ -35,6 +35,7 @@ import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
 import { USMapChart } from '@/components/dashboards/USMapChart';
 import { EONPRO_LOGO, EONPRO_ICON } from '@/lib/constants/brand-assets';
 import { safeParseJsonString } from '@/lib/utils/safe-json';
+import ErrorBoundary from '@/components/ErrorBoundary';
 
 interface PatientIntake {
   id: number;
@@ -334,7 +335,7 @@ function HomePageInner() {
             const patients = patientsData.patients || [];
             setRecentIntakes(patients);
           }
-        } catch (e: any) {
+        } catch (e: unknown) {
           if (e.isAuthError) throw e;
           console.warn('[Dashboard] Sales rep stats fetch failed:', e.message);
         } finally {
@@ -359,7 +360,7 @@ function HomePageInner() {
             newIntakes: intakesData.total ?? patients.length,
           }));
         }
-      } catch (e: any) {
+      } catch (e: unknown) {
         if (e.isAuthError) throw e;
         console.warn('[Dashboard] Patients fetch failed:', e.message);
       }
@@ -373,7 +374,7 @@ function HomePageInner() {
           const recurringRevenue = (metricsData.mrr || 0) / 100;
           setStats((prev) => ({ ...prev, newRevenue, recurringRevenue }));
         }
-      } catch (e: any) {
+      } catch (e: unknown) {
         if (e.isAuthError) throw e;
         console.warn('[Dashboard] Finance metrics fetch failed:', e.message);
       }
@@ -385,7 +386,7 @@ function HomePageInner() {
           const ordersData = await ordersResponse.json();
           setStats((prev) => ({ ...prev, newPrescriptions: ordersData.total ?? 0 }));
         }
-      } catch (e: any) {
+      } catch (e: unknown) {
         if (e.isAuthError) throw e;
         console.warn('[Dashboard] Orders fetch failed:', e.message);
       }
@@ -398,7 +399,7 @@ function HomePageInner() {
           const dailyData = await dailyResponse.json();
           setScriptsBreakdown(dailyData);
         }
-      } catch (e: any) {
+      } catch (e: unknown) {
         if (e.isAuthError) throw e;
         console.warn('[Dashboard] Daily scripts fetch failed:', e.message);
       } finally {
@@ -412,7 +413,7 @@ function HomePageInner() {
           const geoPayload = await geoResponse.json();
           setGeoData(geoPayload);
         }
-      } catch (e: any) {
+      } catch (e: unknown) {
         if (e.isAuthError) throw e;
         console.warn('[Dashboard] Geo data fetch failed:', e.message);
       } finally {
@@ -420,7 +421,7 @@ function HomePageInner() {
       }
 
       setIntakesLoading(false);
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (error.isAuthError) return;
       console.error('Failed to load dashboard data:', error);
       setIntakesLoading(false);
@@ -889,16 +890,19 @@ function HomePageInner() {
 
           {/* US Map - Client Distribution (hidden for sales rep; they see assigned-only stats) */}
           {userData?.role?.toLowerCase() !== 'sales_rep' && (
-            <div className="mb-8">
-              <USMapChart
-                stateData={geoData?.stateData ?? {}}
-                clinics={geoData?.clinics ?? []}
-                isLoading={geoLoading}
-              />
-            </div>
+            <ErrorBoundary fallback={<div className="mb-8 rounded-2xl border border-gray-200 bg-white p-8 text-center text-sm text-gray-400">Map temporarily unavailable</div>}>
+              <div className="mb-8">
+                <USMapChart
+                  stateData={geoData?.stateData ?? {}}
+                  clinics={geoData?.clinics ?? []}
+                  isLoading={geoLoading}
+                />
+              </div>
+            </ErrorBoundary>
           )}
 
           {/* Patient Intakes Card */}
+          <ErrorBoundary fallback={<div className="rounded-2xl border border-gray-200 bg-white p-8 text-center text-sm text-gray-400">Patient data temporarily unavailable</div>}>
           <div className="rounded-2xl border border-gray-200 bg-white">
             {/* Header */}
             <div className="flex items-center justify-between px-6 py-5">

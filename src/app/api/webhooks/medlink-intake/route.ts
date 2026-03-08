@@ -82,8 +82,12 @@ export async function POST(req: NextRequest) {
       receivedAt: new Date().toISOString(),
     };
 
-    // Upsert patient
-    const patient = await upsertPatientFromIntake(normalized);
+    // Resolve clinic from configured mapping or environment
+    const medlinkClinicId = process.env.MEDLINK_DEFAULT_CLINIC_ID
+      ? parseInt(process.env.MEDLINK_DEFAULT_CLINIC_ID, 10)
+      : 1;
+
+    const patient = await upsertPatientFromIntake(normalized, { clinicId: medlinkClinicId });
 
     // Process referral tracking for affiliate promo codes
     const promoCodeEntry = normalized.answers?.find(
@@ -184,8 +188,7 @@ export async function POST(req: NextRequest) {
       const soapNote = await generateSOAPFromIntake(patient.id, patientDocument.id);
       soapNoteId = soapNote.id;
       logger.debug('[MEDLINK WEBHOOK] SOAP note generated successfully:', { value: soapNoteId });
-    } catch (error: any) {
-      // @ts-ignore
+    } catch (error: unknown) {
 
       logger.error('[MEDLINK WEBHOOK] Failed to generate SOAP note:', { error });
       // Don't fail the webhook if SOAP generation fails
@@ -201,8 +204,7 @@ export async function POST(req: NextRequest) {
       },
       { status: 200 }
     );
-  } catch (err: any) {
-    // @ts-ignore
+  } catch (err: unknown) {
 
     logger.error('Failed to process MedLink webhook', { error: err });
     return Response.json({ error: 'Failed to process intake' }, { status: 500 });

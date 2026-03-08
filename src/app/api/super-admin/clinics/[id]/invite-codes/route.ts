@@ -83,10 +83,10 @@ export const GET = withSuperAdminAuth(
         clinic: { id: clinic.id, name: clinic.name },
         inviteCodes,
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error('[SUPER-ADMIN/INVITE-CODES] Error listing invite codes:', error);
       return NextResponse.json(
-        { error: 'Failed to list invite codes', details: error.message },
+        { error: 'Failed to list invite codes', details: error instanceof Error ? error.message : String(error) },
         { status: 500 }
       );
     }
@@ -179,10 +179,10 @@ export const POST = withSuperAdminAuth(
           createdAt: inviteCode.createdAt,
         },
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error('[SUPER-ADMIN/INVITE-CODES] Error creating invite code:', error);
       return NextResponse.json(
-        { error: 'Failed to create invite code', details: error.message },
+        { error: 'Failed to create invite code', details: error instanceof Error ? error.message : String(error) },
         { status: 500 }
       );
     }

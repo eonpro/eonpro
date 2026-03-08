@@ -7,6 +7,7 @@ import PrescriptionModal from './PrescriptionModal';
 import PatientShippingHistory from './PatientShippingHistory';
 import OrderManagementModal from './OrderManagementModal';
 import DoseSpotPrescriber from './dosespot/DoseSpotPrescriber';
+import PatientPrescriptionSummary from './PatientPrescriptionSummary';
 
 type Order = {
   id: number;
@@ -67,6 +68,7 @@ type PatientPrescriptionsTabProps = {
   shippingLabelMap: Map<string | number, string>;
   doseSpotEnabled?: boolean;
   providerId?: number;
+  showTrackingManager?: boolean;
 };
 
 export default function PatientPrescriptionsTab({
@@ -75,6 +77,7 @@ export default function PatientPrescriptionsTab({
   shippingLabelMap,
   doseSpotEnabled = false,
   providerId,
+  showTrackingManager = false,
 }: PatientPrescriptionsTabProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
@@ -370,6 +373,7 @@ export default function PatientPrescriptionsTab({
       )}
 
       {/* Shipping History - Patient Level Tracking */}
+      {showTrackingManager && <PatientPrescriptionSummary patientId={patient.id} />}
       <PatientShippingHistory patientId={patient.id} />
 
       {/* Prescription Modal */}

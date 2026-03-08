@@ -177,8 +177,8 @@ export async function POST(req: NextRequest) {
         phone: phone || 'Not set',
       },
     });
-  } catch (error: any) {
-    logger.error('Error creating test user', { error: error.message });
+  } catch (error: unknown) {
+    logger.error('Error creating test user', { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json({ error: 'Failed to create user' }, { status: 500 });
   }
 }

@@ -36,7 +36,7 @@ import {
   scheduleFutureRefillsFromInvoice,
   parsePackageMonthsFromPlan,
 } from '@/lib/shipment-schedule';
-import { decryptPHI } from '@/lib/security/phi-encryption';
+import { decryptPHI, encryptPatientPHI } from '@/lib/security/phi-encryption';
 import { PHISearchService } from '@/lib/security/phi-search';
 import { isDLQConfigured, queueFailedSubmission } from '@/lib/queue/deadLetterQueue';
 import { readIntakeData } from '@/lib/storage/document-data-store';
@@ -619,15 +619,18 @@ export async function POST(req: NextRequest) {
         patientId: stubPatientId,
       });
 
+      const encryptedStubPHI = encryptPatientPHI({
+        firstName: stubFirstName,
+        lastName: stubLastName,
+        email: email,
+        phone: '0000000000',
+        dob: '1900-01-01',
+      });
       const stubPatient = await prisma.patient.create({
         data: {
           patientId: stubPatientId,
           clinicId,
-          firstName: stubFirstName,
-          lastName: stubLastName,
-          email: email,
-          phone: '0000000000',
-          dob: '1900-01-01',
+          ...encryptedStubPHI,
           gender: 'm',
           address1: stubAddress1,
           city: stubCity,
@@ -1438,7 +1441,7 @@ export async function POST(req: NextRequest) {
         soapNoteId: soapResult.soapNoteId,
         soapSuccess: soapResult.success,
       });
-    } catch (soapError: any) {
+    } catch (soapError: unknown) {
       // Log but don't fail - SOAP note can be generated manually if needed
       logger.warn(`[WELLMEDR-INVOICE ${requestId}] SOAP note generation failed (non-fatal)`, {
         patientId: verifiedPatient.id,

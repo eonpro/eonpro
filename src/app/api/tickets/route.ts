@@ -385,8 +385,10 @@ export const POST = withAuth(async (request, user) => {
 
     const body = await request.json();
 
-    // Use user's clinic if not specified
-    const clinicId = body.clinicId || user.clinicId;
+    // Only super_admin may specify a different clinic
+    const clinicId = user.role === 'super_admin'
+      ? (body.clinicId || user.clinicId)
+      : user.clinicId;
 
     if (!clinicId) {
       return NextResponse.json({ error: 'Clinic ID is required' }, { status: 400 });

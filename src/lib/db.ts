@@ -112,6 +112,9 @@ export const CLINIC_ISOLATED_MODELS: readonly string[] = [
   'financialmetrics',
   'hipaaauditentry',
   'influencer',
+  'intakeformlink',
+  'intakeformresponse',
+  'intakeformsubmission',
   'intakeformtemplate',
   'integration',
   'internalmessage',
@@ -123,6 +126,7 @@ export const CLINIC_ISOLATED_MODELS: readonly string[] = [
   'patient',
   'patientchatmessage',
   'patientcounter',
+  'patientmedicationreminder',
   'patientdeviceconnection',
   'patientdocument',
   'patientexerciselog',
@@ -133,6 +137,7 @@ export const CLINIC_ISOLATED_MODELS: readonly string[] = [
   'salesrepcommissionplan',
   'salesrepplanassignment',
   'patientshippingupdate',
+  'patientweightlog',
   'patientsleeplog',
   'patientwaterlog',
   'payment',
@@ -249,151 +254,80 @@ function createPrismaClient() {
   // Register with drain manager for serverless cleanup
   drainManager.register(client);
 
-  // Add query timing middleware for monitoring + query budget tracking + Sentry metrics
-  // Also runs circuit-breaker guardrails (include depth, blob prevention, unbounded queries)
-  if (isProd || process.env.ENABLE_QUERY_LOGGING === 'true') {
-    // @ts-ignore - Prisma v5 middleware
-    client.$use?.(async (params, next) => {
-      // ── Guardrails (log-only, never blocks unless env flag is set) ─────
+  // ── Lightweight query instrumentation ────────────────────────────────
+  // Only slow-query logging (>200ms). Full instrumentation (guardrails,
+  // metrics, query-budget) is opt-in via ENABLE_QUERY_INSTRUMENTATION=true
+  // to avoid per-query overhead from dynamic require() calls in production.
+  const enableFullInstrumentation = process.env.ENABLE_QUERY_INSTRUMENTATION === 'true';
+
+  // @ts-expect-error — Prisma v5 middleware API not in current type definitions
+  client.$use?.(async (params: any, next: any) => {
+    // Full instrumentation: guardrails + metrics + query budget (opt-in only)
+    if (enableFullInstrumentation) {
       try {
         const { runGuardrails } = require('@/lib/database/circuit-breaker/guardrails');
         runGuardrails(params.model, params.action, params.args);
-      } catch {
-        // Guardrail module not available — continue without blocking
+      } catch { /* module not available */ }
+    }
+
+    const start = Date.now();
+    try {
+      const result = await next(params);
+      const duration = Date.now() - start;
+
+      if (duration > 200) {
+        logger.warn('[Prisma] Slow query', {
+          model: params.model,
+          action: params.action,
+          duration,
+        });
       }
 
-      const start = Date.now();
-      try {
-        const result = await next(params);
-        const duration = Date.now() - start;
-
-        // Log slow queries (> 100ms)
-        if (duration > 100) {
-          logger.warn('[Prisma] Slow query', {
-            model: params.model,
-            action: params.action,
-            duration,
-            args: isProd ? '[redacted]' : params.args,
-          });
-        }
-
-        // Warn on large result sets from findMany (> 500 rows)
-        if (params.action === 'findMany' && Array.isArray(result) && result.length > 500) {
-          logger.warn('[Prisma] Large result set — consider adding pagination or reducing take', {
-            model: params.model,
-            rowCount: result.length,
-            duration,
-          });
-        }
-
-        // Record metrics for connection pool monitoring
+      if (enableFullInstrumentation) {
         connectionPool.recordQuery(duration, true);
-
-        // Emit structured Sentry metrics for dashboards
         try {
           const { emitQueryMetric } = require('@/lib/observability/metrics');
-          emitQueryMetric({
-            operation: params.action || 'unknown',
-            table: params.model || 'unknown',
-            durationMs: duration,
-          });
-        } catch {
-          // Metrics module not available
-        }
-
-        // Track per-request query budget (N+1 and fan-out detection)
+          emitQueryMetric({ operation: params.action || 'unknown', table: params.model || 'unknown', durationMs: duration });
+        } catch { /* module not available */ }
         try {
           const { recordQuery } = require('@/lib/database/query-budget');
           recordQuery(params.model, params.action, duration);
-        } catch {
-          // query-budget module not available (e.g., during migrations)
-        }
+        } catch { /* module not available */ }
+      }
 
-        return result;
-      } catch (error) {
-        const duration = Date.now() - start;
+      // SearchIndex safety net — only for Patient writes, inline here to avoid a second $use layer
+      if (
+        params.model === 'Patient' &&
+        (params.action === 'create' || params.action === 'update' || params.action === 'upsert')
+      ) {
+        try {
+          const data = params.args?.data;
+          if (data && typeof data === 'object') {
+            const keys = Object.keys(data);
+            const _PHI = ['firstName', 'lastName', 'email', 'phone'];
+            const hasPHI = keys.some((k) => _PHI.includes(k));
+            const hasSearchIndex = 'searchIndex' in data && data.searchIndex;
+            if ((hasPHI || params.action === 'create') && !hasSearchIndex && result?.id) {
+              import(/* webpackIgnore: true */ '@/lib/utils/search-index-heal').then(({ healPatientSearchIndex }) => {
+                healPatientSearchIndex(client, result.id).catch(() => {});
+              }).catch(() => {});
+            }
+          }
+        } catch { /* safety net must never break the write path */ }
+      }
+
+      return result;
+    } catch (error) {
+      const duration = Date.now() - start;
+      if (enableFullInstrumentation) {
         connectionPool.recordQuery(duration, false);
-
-        // Feed error to circuit breaker (async, fire-and-forget)
         try {
           const { circuitBreaker } = require('@/lib/database/circuit-breaker');
           circuitBreaker.recordFailure(error).catch(() => {});
-        } catch {
-          // Circuit breaker module not available
-        }
-
-        // Emit error metrics
-        try {
-          const { emitQueryMetric } = require('@/lib/observability/metrics');
-          emitQueryMetric({
-            operation: params.action || 'unknown',
-            table: params.model || 'unknown',
-            durationMs: duration,
-          });
-        } catch {
-          // Metrics module not available
-        }
-
-        try {
-          const { recordQuery } = require('@/lib/database/query-budget');
-          recordQuery(params.model, params.action, duration);
-        } catch {
-          // query-budget module not available
-        }
-
-        throw error;
+        } catch { /* module not available */ }
       }
-    });
-  }
-
-  // ── SearchIndex safety net ────────────────────────────────────────────
-  // Intercepts Patient create/update/upsert. When PHI fields are present
-  // in the write data but searchIndex is NOT, fire-and-forget a self-heal
-  // that reads, decrypts, and rebuilds the index. Logs a warning so we
-  // can find and fix the leaking code path.
-  const _PHI_KEYS = new Set(['firstName', 'lastName', 'email', 'phone']);
-
-  // @ts-ignore - Prisma v5 middleware
-  client.$use?.(async (params: any, next: any) => {
-    const result = await next(params);
-
-    if (
-      params.model === 'Patient' &&
-      (params.action === 'create' || params.action === 'update' || params.action === 'upsert')
-    ) {
-      try {
-        const data = params.args?.data;
-        if (data && typeof data === 'object') {
-          const keys = Object.keys(data);
-          const hasPHI = keys.some((k) => _PHI_KEYS.has(k));
-          const hasSearchIndex = 'searchIndex' in data && data.searchIndex;
-
-          if ((hasPHI || params.action === 'create') && !hasSearchIndex) {
-            const patientId = result?.id;
-            if (patientId) {
-              import(/* webpackIgnore: true */ '@/lib/utils/search-index-heal').then(({ healPatientSearchIndex }) => {
-                healPatientSearchIndex(client, patientId).catch((err: any) => {
-                  logger.warn('[SearchIndex Safety Net] Heal failed', {
-                    patientId,
-                    error: err?.message,
-                  });
-                });
-              }).catch(() => {});
-
-              logger.warn('[SearchIndex Safety Net] Patient write missing searchIndex — auto-healing', {
-                patientId,
-                action: params.action,
-                phiFields: keys.filter((k) => _PHI_KEYS.has(k)),
-              });
-            }
-          }
-        }
-      } catch {
-        // Safety net must never break the write path
-      }
+      throw error;
     }
-
-    return result;
   });
 
   return client;

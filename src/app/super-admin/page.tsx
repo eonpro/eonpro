@@ -63,7 +63,7 @@ export default function SuperAdminDashboard() {
         });
       }
     } catch (error) {
-      console.error('Failed to fetch clinics:', error);
+      process.env.NODE_ENV === 'development' && console.error('Failed to fetch clinics:', error);
     } finally {
       setLoading(false);
     }

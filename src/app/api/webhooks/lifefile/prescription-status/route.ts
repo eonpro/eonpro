@@ -19,6 +19,7 @@ import {
   sanitizeEventType,
   MAX_WEBHOOK_BODY_BYTES,
 } from '@/lib/webhooks/lifefile-payload';
+import { notifyPatientOnOrderTrackingUpdate } from '@/lib/shipping/tracking-sms';
 
 /**
  * Safely decrypt a credential field
@@ -96,7 +97,7 @@ async function findClinicByCredentials(authHeader: string | null): Promise<{
         logger.info(
           `[LIFEFILE PRESCRIPTION] Decrypted password for ${clinic.name}: length=${decryptedPassword?.length}`
         );
-      } catch (e: any) {
+      } catch (e: unknown) {
         logger.error(`[LIFEFILE PRESCRIPTION] Decryption failed for ${clinic.name}:`, e.message);
         // Continue to try other clinics
         continue;
@@ -296,6 +297,17 @@ export async function POST(req: NextRequest) {
     await prisma.order.update({
       where: { id: order.id },
       data: updateData,
+    });
+
+    await notifyPatientOnOrderTrackingUpdate({
+      orderId: order.id,
+      previousTrackingNumber: order.trackingNumber,
+      trackingNumber,
+      carrier:
+        (payload.deliveryService as string | undefined) ||
+        (payload.carrier as string | undefined) ||
+        null,
+      source: 'lifefile-prescription-status',
     });
 
     // Create order event for audit trail (sanitized eventType to prevent injection)

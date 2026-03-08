@@ -147,9 +147,8 @@ export function FileUploader({
               key: data.key,
             });
           }
-        } catch (error: any) {
-          // @ts-ignore
-
+        } catch (error: unknown) {
+          
           const errorMessage = error instanceof Error ? error.message : 'Unknown error';
           logger.error('Upload error:', error);
 
@@ -230,9 +229,8 @@ export function FileUploader({
       if (response.ok) {
         removeFile(file.id);
       }
-    } catch (error: any) {
-      // @ts-ignore
-
+    } catch (error: unknown) {
+      
       logger.error('Delete error:', error);
     }
   };

@@ -118,7 +118,7 @@ export default function InvoicesPage() {
         setSummary(data.summary || null);
       }
     } catch (error) {
-      console.error('Failed to fetch invoices:', error);
+      process.env.NODE_ENV === 'development' && console.error('Failed to fetch invoices:', error);
     } finally {
       setLoading(false);
     }
@@ -133,7 +133,7 @@ export default function InvoicesPage() {
         setClinics(data.clinics?.map((c: { clinic: Clinic }) => c.clinic) || []);
       }
     } catch (error) {
-      console.error('Failed to fetch clinics:', error);
+      process.env.NODE_ENV === 'development' && console.error('Failed to fetch clinics:', error);
     }
   };
 
@@ -198,7 +198,7 @@ export default function InvoicesPage() {
         alert(error.error || 'Failed to create invoice');
       }
     } catch (error) {
-      console.error('Failed to create invoice:', error);
+      process.env.NODE_ENV === 'development' && console.error('Failed to create invoice:', error);
       alert('Failed to create invoice');
     } finally {
       setCreating(false);

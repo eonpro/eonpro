@@ -315,7 +315,7 @@ export default function SuperAdminProviderDetailPage() {
         }
       }
     } catch (err) {
-      console.error('Failed to fetch clinic assignments:', err);
+      process.env.NODE_ENV === 'development' && console.error('Failed to fetch clinic assignments:', err);
     }
   };
 

@@ -702,7 +702,7 @@ export async function POST(req: NextRequest) {
           logger.info(
             `[WELLMEDR-INTAKE ${requestId}] ✓ Created patient: ${patient.id} (${patient.patientId}) → WELLMEDR CLINIC ONLY (clinicId=${clinicId})`
           );
-        } catch (createErr: any) {
+        } catch (createErr: unknown) {
           if (createErr?.code === 'P2002' && createErr?.meta?.target?.includes('patientId')) {
             retryCount++;
             logger.warn(

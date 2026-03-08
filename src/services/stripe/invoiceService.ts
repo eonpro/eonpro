@@ -366,7 +366,7 @@ export class StripeInvoiceService {
           soapAction: soapResult.action,
           soapNoteId: soapResult.soapNoteId,
         });
-      } catch (soapError: any) {
+      } catch (soapError: unknown) {
         logger.warn(`[STRIPE] SOAP note generation failed for paid invoice`, {
           invoiceId: invoice.id,
           patientId: invoice.patientId,
@@ -613,7 +613,7 @@ export class StripeInvoiceService {
       });
 
       return fullInvoice;
-    } catch (createErr: any) {
+    } catch (createErr: unknown) {
       // P2002 = unique constraint violation — another process already created this invoice
       if (createErr.code === 'P2002') {
         logger.info('[STRIPE] Invoice auto-create race: already exists (idempotent)', {
@@ -776,7 +776,7 @@ export class StripeInvoiceService {
           logger.info(
             `[STRIPE] Created Stripe subscription ${subscription.id} for patient ${patient.id}, product ${product.name}`
           );
-        } catch (subError: any) {
+        } catch (subError: unknown) {
           logger.error(
             `[STRIPE] Failed to create Stripe subscription for product ${product.id}:`,
             subError.message
@@ -838,7 +838,7 @@ export class StripeInvoiceService {
           data: { subscriptionCreated: true },
         });
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error(`[STRIPE] Error creating subscriptions from invoice:`, error.message);
     }
   }

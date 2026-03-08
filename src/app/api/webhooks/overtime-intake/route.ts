@@ -24,7 +24,7 @@ import { isDLQConfigured, queueFailedSubmission } from '@/lib/queue/deadLetterQu
 import { uploadToS3 } from '@/lib/integrations/aws/s3Service';
 import { isS3Enabled, FileCategory } from '@/lib/integrations/aws/s3Config';
 import { generatePatientId } from '@/lib/patients';
-import { decryptPHI } from '@/lib/security/phi-encryption';
+import { decryptPHI, encryptPatientPHI } from '@/lib/security/phi-encryption';
 import { buildPatientSearchIndex } from '@/lib/utils/search';
 import { storeIntakeData } from '@/lib/storage/document-data-store';
 
@@ -437,9 +437,10 @@ export async function POST(req: NextRequest) {
             ...patientData,
             patientId: patientNumber,
           });
+          const encryptedPHI = encryptPatientPHI(patientData);
           patient = await prisma.patient.create({
             data: {
-              ...patientData,
+              ...encryptedPHI,
               patientId: patientNumber,
               clinicId: clinicId,
               tags: submissionTags,
@@ -463,7 +464,7 @@ export async function POST(req: NextRequest) {
           logger.info(
             `[OVERTIME-INTAKE ${requestId}] ✓ Created patient: ${patient.id} (${patient.patientId}) → OVERTIME CLINIC ONLY (clinicId=${clinicId})`
           );
-        } catch (createErr: any) {
+        } catch (createErr: unknown) {
           if (createErr?.code === 'P2002' && createErr?.meta?.target?.includes('patientId')) {
             retryCount++;
             logger.warn(

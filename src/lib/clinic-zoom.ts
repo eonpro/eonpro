@@ -14,6 +14,8 @@ import { decrypt, encrypt } from '@/lib/security/encryption';
 import { zoomConfig, isZoomConfigured } from './integrations/zoom/config';
 import { circuitBreakers } from '@/lib/resilience/circuitBreaker';
 
+const ZOOM_API_TIMEOUT_MS = 15_000;
+
 // ============================================================================
 // Types
 // ============================================================================
@@ -249,6 +251,7 @@ export async function exchangeZoomCode(
           code,
           redirect_uri: redirectUri,
         }),
+        signal: AbortSignal.timeout(ZOOM_API_TIMEOUT_MS),
       });
 
       if (!response.ok) {
@@ -295,6 +298,7 @@ export async function refreshZoomToken(
           grant_type: 'refresh_token',
           refresh_token: refreshToken,
         }),
+        signal: AbortSignal.timeout(ZOOM_API_TIMEOUT_MS),
       });
 
       if (!response.ok) {
@@ -490,6 +494,7 @@ export async function getClinicZoomUser(clinicId: number): Promise<any | null> {
           Authorization: `Bearer ${accessToken}`,
           'Content-Type': 'application/json',
         },
+        signal: AbortSignal.timeout(ZOOM_API_TIMEOUT_MS),
       });
 
       if (!response.ok) {
@@ -532,6 +537,7 @@ export async function createClinicZoomMeeting(
           Authorization: `Bearer ${accessToken}`,
           'Content-Type': 'application/json',
         },
+        signal: AbortSignal.timeout(ZOOM_API_TIMEOUT_MS),
         body: JSON.stringify({
           topic: options.topic,
           type: options.startTime ? 2 : 1,
@@ -590,6 +596,7 @@ export async function cancelClinicZoomMeeting(
         headers: {
           Authorization: `Bearer ${accessToken}`,
         },
+        signal: AbortSignal.timeout(ZOOM_API_TIMEOUT_MS),
       });
 
       if (!response.ok && response.status !== 204) {

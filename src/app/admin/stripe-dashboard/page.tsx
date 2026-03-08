@@ -1450,7 +1450,7 @@ function ConnectTab({
       // Redirect to onboarding
       window.open(data.onboardingUrl, '_blank');
       onRefresh();
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(err.message);
     } finally {
       setLoading(false);
@@ -1465,7 +1465,7 @@ function ConnectTab({
       if (data.onboardingUrl) {
         window.open(data.onboardingUrl, '_blank');
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(err.message);
     } finally {
       setLoading(false);
@@ -1482,7 +1482,7 @@ function ConnectTab({
       } else if (data.error) {
         setError(data.error);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(err.message);
     } finally {
       setLoading(false);
@@ -1494,7 +1494,7 @@ function ConnectTab({
     try {
       await apiFetch(`/api/stripe/connect?clinicId=${clinicId}&action=sync`);
       onRefresh();
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(err.message);
     } finally {
       setLoading(false);

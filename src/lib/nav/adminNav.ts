@@ -69,7 +69,8 @@ export const salesRepNavConfig: AdminNavItemConfig[] = [
 
 /**
  * Staff nav: operational subset of admin nav.
- * No analytics, finance, stripe, registration codes, affiliates, sales rep commissions.
+ * No form templates, pending profiles, products, analytics, finance, stripe,
+ * registration codes, affiliates, or sales rep commissions.
  */
 export const staffNavConfig: AdminNavItemConfig[] = [
   { path: '/staff', label: 'Home', iconKey: 'Home' },
@@ -80,12 +81,25 @@ export const staffNavConfig: AdminNavItemConfig[] = [
   { path: '/admin/orders', label: 'Orders', iconKey: 'ShoppingCart' },
   { path: '/admin/shipping', label: 'Shipping', iconKey: 'Truck' },
   { path: '/tickets', label: 'Tickets', iconKey: 'Ticket' },
-  { path: '/admin/products', label: 'Products', iconKey: 'Store' },
+  { path: '/admin/settings', label: 'Settings', iconKey: 'Settings' },
+];
+
+/**
+ * Pharmacy rep nav: global patient visibility + shipping workflows.
+ */
+export const pharmacyRepNavConfig: AdminNavItemConfig[] = [
+  { path: '/admin', label: 'Home', iconKey: 'Home' },
+  { path: '/admin/patients', label: 'Patients', iconKey: 'Users' },
+  { path: '/admin/shipping', label: 'Shipping', iconKey: 'Truck' },
+  { path: '/admin/clinics', label: 'Switch Clinic', iconKey: 'Building2' },
 ];
 
 export function getAdminNavConfig(role: string | null): AdminNavItemConfig[] {
   if (role === 'sales_rep') {
     return [...salesRepNavConfig];
+  }
+  if (role === 'pharmacy_rep') {
+    return [...pharmacyRepNavConfig];
   }
   if (role === 'staff') {
     return [...staffNavConfig];
@@ -103,6 +117,21 @@ export function getAdminNavConfig(role: string | null): AdminNavItemConfig[] {
  * Used so sidebar is consistent when same role visits /patients, /orders, or /intake-forms.
  */
 export function getNonAdminNavConfig(userRole: string | null): AdminNavItemConfig[] {
+  if (userRole === 'pharmacy_rep') {
+    return [...pharmacyRepNavConfig];
+  }
+  if (userRole === 'staff') {
+    return [
+      { path: '/staff', label: 'Home', iconKey: 'Home' },
+      { path: '/admin/patients', label: 'Patients', iconKey: 'Users' },
+      { path: '/admin/messages', label: 'Messages', iconKey: 'MessageSquare' },
+      { path: '/admin/orders', label: 'Orders', iconKey: 'ShoppingCart' },
+      { path: '/admin/shipping', label: 'Shipping', iconKey: 'Truck' },
+      { path: '/tickets', label: 'Tickets', iconKey: 'Ticket' },
+      { path: '/admin/settings', label: 'Settings', iconKey: 'Settings' },
+    ];
+  }
+
   const patientsPath = userRole === 'provider' ? '/provider/patients' : '/admin/patients';
   return [
     { path: '/', label: 'Home', iconKey: 'Home' },

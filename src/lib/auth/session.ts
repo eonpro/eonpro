@@ -11,13 +11,14 @@ import { jwtVerify } from 'jose';
 import { JWT_SECRET } from './config';
 import { logger } from '@/lib/logger';
 import cache from '@/lib/cache/redis';
+import { basePrisma } from '@/lib/db';
 
 // User session type
 export interface UserSession {
   id: number;
   email: string;
   name: string;
-  role: 'admin' | 'provider' | 'patient' | 'affiliate' | 'super_admin' | 'staff' | 'support';
+  role: 'admin' | 'provider' | 'patient' | 'affiliate' | 'super_admin' | 'staff' | 'support' | 'sales_rep' | 'pharmacy_rep';
   providerId?: number;
   patientId?: number;
   clinicId?: number;
@@ -83,6 +84,8 @@ export async function verifyToken(token: string): Promise<UserSession | null> {
 export async function getUserFromCookies(): Promise<UserSession | null> {
   try {
     const cookieStore = await cookies();
+    const selectedClinicCookie = cookieStore.get('selected-clinic')?.value;
+    const selectedClinicId = selectedClinicCookie ? parseInt(selectedClinicCookie, 10) : NaN;
 
     // Check various token cookies
     const tokenNames = [
@@ -101,6 +104,33 @@ export async function getUserFromCookies(): Promise<UserSession | null> {
       if (token) {
         const user = await verifyToken(token.value);
         if (user) {
+          // Align server-component user context with selected clinic cookie
+          // so pages using getUserFromCookies() respect clinic switching.
+          if (
+            user.role !== 'super_admin' &&
+            Number.isFinite(selectedClinicId) &&
+            selectedClinicId > 0 &&
+            user.clinicId !== selectedClinicId
+          ) {
+            const hasPrimaryAccess = user.clinicId === selectedClinicId;
+            let hasAssignedAccess = false;
+
+            if (!hasPrimaryAccess) {
+              const userClinic = await basePrisma.userClinic.findFirst({
+                where: {
+                  userId: user.id,
+                  clinicId: selectedClinicId,
+                  isActive: true,
+                },
+                select: { id: true },
+              });
+              hasAssignedAccess = Boolean(userClinic);
+            }
+
+            if (hasPrimaryAccess || hasAssignedAccess) {
+              user.clinicId = selectedClinicId;
+            }
+          }
           return user;
         }
       }

@@ -14,6 +14,7 @@ import { uploadToS3 } from '@/lib/integrations/aws/s3Service';
 import { isS3Enabled, FileCategory } from '@/lib/integrations/aws/s3Config';
 import { generatePatientId } from '@/lib/patients';
 import { buildPatientSearchIndex } from '@/lib/utils/search';
+import { encryptPatientPHI } from '@/lib/security/phi-encryption';
 import { storeIntakeData } from '@/lib/storage/document-data-store';
 
 /**
@@ -321,10 +322,11 @@ export async function POST(req: NextRequest) {
       ...patientData,
       patientId: patientNumber,
     });
+    const encryptedPHI = encryptPatientPHI(patientData);
     patient = await withRetry(() =>
       prisma.patient.create({
         data: {
-          ...patientData,
+          ...encryptedPHI,
           patientId: patientNumber,
           clinicId: clinicId,
           tags: submissionTags,

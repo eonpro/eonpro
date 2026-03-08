@@ -160,7 +160,7 @@ export function PatientBillingView({ patientId, patientName, clinicSubdomain }: 
         const data = await paymentsRes.json();
         setPayments(data.payments || []);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       logger.error('Error fetching billing data:', err);
       setError('Failed to load billing information');
     } finally {
@@ -181,7 +181,7 @@ export function PatientBillingView({ patientId, patientName, clinicSubdomain }: 
       } else {
         toast.error('Failed to send invoice');
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       logger.error('Error sending invoice:', err);
       toast.error('Failed to send invoice');
     }
@@ -202,7 +202,7 @@ export function PatientBillingView({ patientId, patientName, clinicSubdomain }: 
       } else {
         toast.error('Failed to void invoice');
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       logger.error('Error voiding invoice:', err);
       toast.error('Failed to void invoice');
     }
@@ -229,7 +229,7 @@ export function PatientBillingView({ patientId, patientName, clinicSubdomain }: 
         const data = await res.json();
         toast.error(data.error || 'Failed to delete invoice');
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       logger.error('Error deleting invoice:', err);
       toast.error('Failed to delete invoice');
     }
@@ -252,7 +252,7 @@ export function PatientBillingView({ patientId, patientName, clinicSubdomain }: 
         const data = await res.json();
         toast.error(data.error || 'Failed to cancel invoice');
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       logger.error('Error cancelling invoice:', err);
       toast.error('Failed to cancel invoice');
     }
@@ -284,7 +284,7 @@ export function PatientBillingView({ patientId, patientName, clinicSubdomain }: 
       } else {
         toast.error(data.error || 'Failed to process refund');
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       logger.error('Error processing refund:', err);
       toast.error('Failed to process refund');
     }
@@ -328,7 +328,7 @@ export function PatientBillingView({ patientId, patientName, clinicSubdomain }: 
       } else {
         toast.error(data.error || 'Failed to mark invoice as paid');
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       logger.error('Error marking invoice as paid:', err);
       toast.error('Failed to mark invoice as paid');
     }
@@ -350,7 +350,7 @@ export function PatientBillingView({ patientId, patientName, clinicSubdomain }: 
       } else {
         toast.error('Failed to open customer portal');
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       logger.error('Error opening customer portal:', err);
       toast.error('Failed to open customer portal');
     }
@@ -1429,7 +1429,7 @@ function CreateInvoiceForm({
           : data.error || 'Failed to create invoice';
         toast.error(errorMsg);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       logger.error('Error creating invoice:', err);
       toast.error('Failed to create invoice');
     } finally {
@@ -1723,7 +1723,7 @@ function GeneratePaymentLinkModal({
           toast.error(data.error || 'Failed to generate payment link');
         }
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       logger.error('Error generating payment link:', err);
       toast.error('Failed to generate payment link');
     } finally {
@@ -1780,7 +1780,7 @@ function GeneratePaymentLinkModal({
         });
         toast.error(data.error || `Failed to send via ${method}`);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       logger.error('Error sending payment link:', err);
       setSendResult({ success: false, message: 'Failed to send payment link' });
       toast.error('Failed to send payment link');

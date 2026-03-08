@@ -6,21 +6,13 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getClinicContext, withClinicContext } from '@/lib/db';
-import { getAuthUser } from '@/lib/auth';
+import { withAdminAuth } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
 import { PatientAnalyticsService } from '@/services/analytics/patientAnalytics';
 
-export async function GET(request: NextRequest) {
+export const GET = withAdminAuth(async (request: NextRequest, user) => {
   try {
-    const user = await getAuthUser(request);
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // Get clinic ID from context or fall back to user's clinic
-    const contextClinicId = getClinicContext();
-    const clinicId = contextClinicId || user.clinicId;
+    const clinicId = user.clinicId;
 
     if (!clinicId) {
       return NextResponse.json({ error: 'Clinic context required' }, { status: 400 });
@@ -49,4 +41,4 @@ export async function GET(request: NextRequest) {
     logger.error('Failed to fetch patient analytics', { error });
     return NextResponse.json({ error: 'Failed to fetch patient analytics' }, { status: 500 });
   }
-}
+});

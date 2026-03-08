@@ -69,13 +69,13 @@ async function getDiagnosticsHandler(request: NextRequest, user: AuthUser) {
       ...basicStatus,
       diagnostics,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('[STRIPE DIAGNOSTICS] Error:', error);
 
     return NextResponse.json(
       {
         success: false,
-        error: error.message,
+        error: error instanceof Error ? error.message : String(error),
         timestamp: new Date().toISOString(),
         hasSecretKey: !!process.env.STRIPE_SECRET_KEY,
       },
@@ -108,14 +108,14 @@ async function validateDiagnosticsHandler(request: NextRequest, user: AuthUser) 
       error: config.error,
       timestamp: new Date().toISOString(),
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('[STRIPE DIAGNOSTICS] Validation error:', error);
 
     return NextResponse.json(
       {
         success: false,
         isConfigured: false,
-        error: error.message,
+        error: error instanceof Error ? error.message : String(error),
         timestamp: new Date().toISOString(),
       },
       { status: 500 }

@@ -82,7 +82,7 @@ async function switchClinicHandler(req: NextRequest, user: AuthUser) {
 
     // Issue new token with the new clinicId
     return await issueNewToken(req, user, clinicId, userClinics);
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('Error switching clinic:', error);
     return NextResponse.json({ error: 'Failed to switch clinic' }, { status: 500 });
   }

@@ -61,8 +61,7 @@ export const GET = withProviderAuth(async (req: NextRequest, user) => {
         role: user.role,
       },
     });
-  } catch (error: any) {
-    // @ts-ignore
+  } catch (error: unknown) {
 
     logger.error('Failed to get form templates', error);
     return NextResponse.json({ error: 'Failed to get form templates' }, { status: 500 });
@@ -98,8 +97,7 @@ export const POST = withProviderAuth(async (req: NextRequest, user) => {
       template,
       message: 'Form template created successfully',
     });
-  } catch (error: any) {
-    // @ts-ignore
+  } catch (error: unknown) {
 
     logger.error('Failed to create form template', error);
     return NextResponse.json({ error: 'Failed to create form template' }, { status: 500 });

@@ -233,7 +233,7 @@ export async function validateStripeConfig(forceRefresh = false): Promise<Stripe
       accountId: account.id,
       isTestMode: config.isTestMode,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     // Check for specific error types
     if (error.type === 'StripeAuthenticationError') {
       config.error = 'Invalid Stripe API key';
@@ -242,7 +242,7 @@ export async function validateStripeConfig(forceRefresh = false): Promise<Stripe
       config.isConfigured = true;
       config.error = 'API key has restricted permissions';
     } else {
-      config.error = error.message || 'Failed to connect to Stripe';
+      config.error = error instanceof Error ? error.message : String(error) || 'Failed to connect to Stripe';
     }
 
     logger.error('[STRIPE] Configuration validation failed', {
@@ -400,8 +400,8 @@ export async function getStripeDiagnostics(): Promise<{
       await stripe.balance.retrieve();
       connectivity.canConnect = true;
       connectivity.latencyMs = Date.now() - start;
-    } catch (error: any) {
-      connectivity.error = error.message;
+    } catch (error: unknown) {
+      connectivity.error = error instanceof Error ? error.message : String(error);
       connectivity.latencyMs = Date.now() - start;
     }
   }

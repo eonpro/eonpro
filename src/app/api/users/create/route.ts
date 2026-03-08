@@ -18,6 +18,17 @@ import {
 import { z } from 'zod';
 
 // User creation schema
+const creatableRoles = [
+  'super_admin',
+  'admin',
+  'provider',
+  'influencer',
+  'patient',
+  'staff',
+  'support',
+  'sales_rep',
+] as const;
+
 const createUserSchema = z.object({
   email: z.string().email(),
   password: z
@@ -29,7 +40,12 @@ const createUserSchema = z.object({
     ),
   firstName: z.string().min(1),
   lastName: z.string().min(1),
-  role: z.enum(['super_admin', 'admin', 'provider', 'influencer', 'patient', 'staff', 'support']),
+  role: z
+    .string()
+    .transform((value) => value.toLowerCase())
+    .refine((value): value is (typeof creatableRoles)[number] => {
+      return (creatableRoles as readonly string[]).includes(value);
+    }, 'Invalid role'),
   permissions: z.array(z.string()).optional(),
   features: z.array(z.string()).optional(),
   metadata: z.object({}).passthrough().optional(),
@@ -68,6 +84,7 @@ export const POST = withAuth(
         admin: 6,
         provider: 5,
         staff: 4,
+        sales_rep: 4,
         influencer: 3,
         support: 2,
         patient: 1,
@@ -218,7 +235,7 @@ export const POST = withAuth(
         message: 'User created successfully',
         user: userWithoutPassword,
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error('User creation error:', error);
 
       if (error.name === 'ZodError') {

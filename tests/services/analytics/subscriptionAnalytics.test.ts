@@ -15,8 +15,12 @@ vi.mock('@/lib/db', () => ({
     subscriptionAction: {
       findMany: vi.fn(),
     },
+    payment: {
+      count: vi.fn().mockResolvedValue(0),
+      aggregate: vi.fn().mockResolvedValue({ _sum: { amount: 0 } }),
+    },
   },
-  withClinicContext: vi.fn((clinicId, callback) => callback()),
+  withClinicContext: vi.fn((clinicId: number, callback: () => unknown) => callback()),
   getClinicContext: vi.fn(() => 1),
 }));
 
@@ -103,7 +107,7 @@ describe('SubscriptionAnalyticsService', () => {
           interval: 'MONTHLY',
           createdAt: new Date('2024-01-01'),
           canceledAt: new Date(),
-          cancelReason: 'Too expensive'
+          metadata: { cancelReason: 'Too expensive' },
         },
         { 
           id: 2, 
@@ -112,7 +116,7 @@ describe('SubscriptionAnalyticsService', () => {
           interval: 'MONTHLY',
           createdAt: new Date('2024-01-01'),
           canceledAt: new Date(),
-          cancelReason: 'Too expensive'
+          metadata: { cancelReason: 'Too expensive' },
         },
         { 
           id: 3, 
@@ -121,7 +125,7 @@ describe('SubscriptionAnalyticsService', () => {
           interval: 'MONTHLY',
           createdAt: new Date('2024-01-01'),
           canceledAt: new Date(),
-          cancelReason: 'Not needed'
+          metadata: { cancelReason: 'Not needed' },
         },
       ]);
 
@@ -179,6 +183,8 @@ describe('SubscriptionAnalyticsService', () => {
       ]);
 
       (prisma.subscription.count as any).mockResolvedValue(1);
+      (prisma.payment.count as any).mockResolvedValue(3);
+      (prisma.payment.aggregate as any).mockResolvedValue({ _sum: { amount: 8970 } });
 
       const result = await SubscriptionAnalyticsService.getSubscriptionDetails(1, {
         page: 1,

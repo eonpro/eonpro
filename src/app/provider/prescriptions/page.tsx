@@ -172,7 +172,7 @@ export default function ProviderPrescriptionsPage() {
         setPrescriptions(rxList);
       }
     } catch (err) {
-      console.error('Error fetching prescriptions:', err);
+      process.env.NODE_ENV === 'development' && console.error('Error fetching prescriptions:', err);
     } finally {
       setLoading(false);
     }

@@ -145,8 +145,7 @@ export const GET = withAuth(
           active: webhooks.filter((w: any) => w.enabled).length,
         },
       });
-    } catch (error: any) {
-      // @ts-ignore
+    } catch (error: unknown) {
 
       logger.error('Error fetching webhooks:', error);
       return NextResponse.json({ error: 'Failed to fetch webhooks' }, { status: 500 });
@@ -217,10 +216,10 @@ export const POST = withAuth(
             ? 'Webhook URL is reachable'
             : `Webhook returned status ${response.status}`,
         };
-      } catch (error: any) {
+      } catch (error: unknown) {
         testResult = {
           success: false,
-          message: `Failed to reach webhook: ${error.message}`,
+          message: `Failed to reach webhook: ${error instanceof Error ? error.message : String(error)}`,
         };
       }
 
@@ -257,7 +256,7 @@ export const POST = withAuth(
           },
         })
         .catch((error: Error) => {
-          logger.warn('Failed to create audit log:', { error: error.message });
+          logger.warn('Failed to create audit log:', { error: error instanceof Error ? error.message : String(error) });
         });
 
       logger.info('Webhook created', { webhookName: validated.name, userId: user.id });
@@ -268,7 +267,7 @@ export const POST = withAuth(
         webhook: newWebhook,
         testResult,
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error('Error creating webhook:', error);
 
       if (error.name === 'ZodError') {
@@ -346,7 +345,7 @@ export const POST = withAuth(
         },
         body: JSON.stringify(testPayload),
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
       error = err;
     }
     
@@ -385,10 +384,8 @@ export const POST = withAuth(
     
     return NextResponse.json(result);
     
-  } catch (error: any) {
-    // @ts-ignore
-   
-    logger.error('Error testing webhook:', error);
+  } catch (error: unknown) {
+    logger.error('Error testing webhook:', error instanceof Error ? error : undefined);
     return NextResponse.json(
       { error: 'Failed to test webhook' },
       { status: 500 }

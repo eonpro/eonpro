@@ -152,6 +152,26 @@ describe('PatientAnalyticsService', () => {
 
   describe('getRetentionMatrix', () => {
     it('should generate retention matrix', async () => {
+      const { prisma } = await import('@/lib/db');
+
+      (prisma.patient.findMany as any).mockResolvedValue([
+        {
+          id: 1,
+          createdAt: new Date('2024-06-01'),
+          payments: [
+            { amount: 5000, createdAt: new Date('2024-06-15') },
+            { amount: 5000, createdAt: new Date('2024-07-15') },
+          ],
+        },
+        {
+          id: 2,
+          createdAt: new Date('2024-07-01'),
+          payments: [
+            { amount: 3000, createdAt: new Date('2024-07-10') },
+          ],
+        },
+      ]);
+
       const result = await PatientAnalyticsService.getRetentionMatrix(1, 6);
 
       expect(result).toHaveProperty('months');

@@ -57,7 +57,7 @@ async function verifyPasswordHandler(req: NextRequest, user: AuthUser) {
       success: true,
       verified: true,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('[Verify Password] Error:', error);
     return NextResponse.json({ error: 'Failed to verify password' }, { status: 500 });
   }

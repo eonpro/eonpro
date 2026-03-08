@@ -63,7 +63,7 @@ export default function ProviderMessagesPage() {
           }
         }
       } catch (err) {
-        console.error('Failed to fetch messages:', err);
+        process.env.NODE_ENV === 'development' && console.error('Failed to fetch messages:', err);
         setMessages([]);
         setError('Failed to load messages. Please check your connection.');
       } finally {
@@ -92,7 +92,7 @@ export default function ProviderMessagesPage() {
           setChatMessages([]);
         }
       } catch (err) {
-        console.error('Failed to fetch thread:', err);
+        process.env.NODE_ENV === 'development' && console.error('Failed to fetch thread:', err);
         setChatMessages([]);
       }
     }
@@ -130,7 +130,7 @@ export default function ProviderMessagesPage() {
       // Refresh thread
       // ... would refetch here
     } catch (err) {
-      console.error('Failed to send message:', err);
+      process.env.NODE_ENV === 'development' && console.error('Failed to send message:', err);
       alert(err instanceof Error ? err.message : 'Failed to send message. Please try again.');
     }
   };

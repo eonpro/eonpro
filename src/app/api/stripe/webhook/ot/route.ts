@@ -106,9 +106,9 @@ export async function POST(request: NextRequest) {
 
     try {
       event = stripeClient.webhooks.constructEvent(body, signature, webhookSecret);
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error('[OT STRIPE WEBHOOK] Signature verification failed:', {
-        error: error.message,
+        error: error instanceof Error ? error.message : String(error),
       });
       return NextResponse.json({ error: 'Invalid signature' }, { status: 400 });
     }
@@ -191,7 +191,7 @@ export async function POST(request: NextRequest) {
       duration,
     });
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errorMessage = error instanceof Error ? error instanceof Error ? error.message : String(error) : 'Unknown error';
     const duration = Date.now() - startTime;
 
     logger.error('[OT STRIPE WEBHOOK] Catastrophic error', {
@@ -764,7 +764,7 @@ async function processOTWebhookEvent(
         };
     }
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errorMessage = error instanceof Error ? error instanceof Error ? error.message : String(error) : 'Unknown error';
     return {
       success: false,
       error: errorMessage,

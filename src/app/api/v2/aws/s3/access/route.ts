@@ -45,8 +45,7 @@ export async function POST(request: NextRequest) {
       accessLevel,
       message: 'Access control updated successfully',
     });
-  } catch (error: any) {
-    // @ts-ignore
+  } catch (error: unknown) {
 
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('[S3 Access Control] Error:', error);

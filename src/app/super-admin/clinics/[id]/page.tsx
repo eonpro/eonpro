@@ -127,6 +127,18 @@ interface ClinicUser {
   lastLogin?: string;
 }
 
+interface SalesRepCommissionPlanSummary {
+  id: number;
+  name: string;
+  isActive: boolean;
+  assignmentCount: number;
+}
+
+interface SalesRepPlanAssignmentRef {
+  planId: number;
+  assignmentId: number;
+}
+
 function PatientPortalPresetBlock({ clinicId }: { clinicId: number }) {
   const [presetSelection, setPresetSelection] = useState<PortalTreatmentType>('weight_loss');
   const [applying, setApplying] = useState(false);
@@ -327,6 +339,13 @@ export default function ClinicDetailPage() {
     licenseState: '',
     specialty: '',
   });
+  const [salesRepCommissionPlans, setSalesRepCommissionPlans] = useState<
+    SalesRepCommissionPlanSummary[]
+  >([]);
+  const [loadingSalesRepPlans, setLoadingSalesRepPlans] = useState(false);
+  const [currentSalesRepAssignment, setCurrentSalesRepAssignment] =
+    useState<SalesRepPlanAssignmentRef | null>(null);
+  const [selectedSalesRepPlanId, setSelectedSalesRepPlanId] = useState<number | ''>('');
 
   // Invite Codes state
   interface InviteCode {
@@ -487,10 +506,10 @@ export default function ClinicDetailPage() {
           features: fetchedClinic.features,
         });
       } else {
-        console.error('Failed to fetch clinic');
+        process.env.NODE_ENV === 'development' && console.error('Failed to fetch clinic');
       }
     } catch (error) {
-      console.error('Error fetching clinic:', error);
+      process.env.NODE_ENV === 'development' && console.error('Error fetching clinic:', error);
     } finally {
       setLoading(false);
     }
@@ -507,7 +526,7 @@ export default function ClinicDetailPage() {
         setClinicUsers(data.users || []);
       }
     } catch (error) {
-      console.error('Failed to fetch clinic users:', error);
+      process.env.NODE_ENV === 'development' && console.error('Failed to fetch clinic users:', error);
     } finally {
       setLoadingUsers(false);
     }
@@ -545,7 +564,7 @@ export default function ClinicDetailPage() {
 
       setNpiError('');
     } catch (error) {
-      console.error('NPI lookup failed:', error);
+      process.env.NODE_ENV === 'development' && console.error('NPI lookup failed:', error);
       setNpiError('Failed to lookup NPI. Please enter information manually.');
     } finally {
       setLookingUpNpi(false);
@@ -598,7 +617,7 @@ export default function ClinicDetailPage() {
         alert(data.error || 'Failed to create user');
       }
     } catch (error) {
-      console.error('Error creating user:', error);
+      process.env.NODE_ENV === 'development' && console.error('Error creating user:', error);
       alert('Failed to create user');
     } finally {
       setAddingUser(false);
@@ -623,12 +642,98 @@ export default function ClinicDetailPage() {
         alert(data.error || 'Failed to remove user');
       }
     } catch (error) {
-      console.error('Error removing user:', error);
+      process.env.NODE_ENV === 'development' && console.error('Error removing user:', error);
       alert('Failed to remove user');
     }
   };
 
-  const openEditUserModal = (user: ClinicUser) => {
+  const loadSalesRepCommissionContext = async (salesRepUserId: number) => {
+    setLoadingSalesRepPlans(true);
+    try {
+      const plansResponse = await apiFetch(
+        `/api/admin/sales-rep/commission-plans?clinicId=${clinicId}`
+      );
+      if (!plansResponse.ok) {
+        setSalesRepCommissionPlans([]);
+        setCurrentSalesRepAssignment(null);
+        setSelectedSalesRepPlanId('');
+        return;
+      }
+
+      const plansData = await plansResponse.json();
+      const plans = (plansData.plans ?? []) as SalesRepCommissionPlanSummary[];
+      setSalesRepCommissionPlans(plans);
+
+      // Find the active assignment for this sales rep by checking assigned plans.
+      const plansWithAssignments = plans.filter((plan) => (plan.assignmentCount ?? 0) > 0);
+      const assignmentChecks = await Promise.all(
+        plansWithAssignments.map(async (plan) => {
+          const assignmentsResponse = await apiFetch(
+            `/api/admin/sales-rep/commission-plans/${plan.id}/assignments`
+          );
+          if (!assignmentsResponse.ok) return null;
+          const assignmentsData = await assignmentsResponse.json();
+          const match = (assignmentsData.assignments ?? []).find(
+            (assignment: { id: number; salesRepId: number }) =>
+              assignment.salesRepId === salesRepUserId
+          );
+          if (!match) return null;
+          return { planId: plan.id, assignmentId: match.id } as SalesRepPlanAssignmentRef;
+        })
+      );
+
+      const activeAssignment = assignmentChecks.find(
+        (assignment): assignment is SalesRepPlanAssignmentRef => Boolean(assignment)
+      );
+      setCurrentSalesRepAssignment(activeAssignment || null);
+      setSelectedSalesRepPlanId(activeAssignment?.planId ?? '');
+    } catch (error) {
+      process.env.NODE_ENV === 'development' && console.error('Failed to load sales rep commission context:', error);
+      setSalesRepCommissionPlans([]);
+      setCurrentSalesRepAssignment(null);
+      setSelectedSalesRepPlanId('');
+    } finally {
+      setLoadingSalesRepPlans(false);
+    }
+  };
+
+  const syncSalesRepCommissionPlanAssignment = async (salesRepUserId: number) => {
+    const selectedPlanId = selectedSalesRepPlanId === '' ? null : Number(selectedSalesRepPlanId);
+    const currentPlanId = currentSalesRepAssignment?.planId ?? null;
+
+    if (selectedPlanId === currentPlanId) {
+      return;
+    }
+
+    // If there's an existing assignment, end it first.
+    if (currentSalesRepAssignment) {
+      const removeResponse = await apiFetch(
+        `/api/admin/sales-rep/commission-plans/${currentSalesRepAssignment.planId}/assignments/${currentSalesRepAssignment.assignmentId}`,
+        { method: 'DELETE' }
+      );
+      if (!removeResponse.ok) {
+        const errorData = await removeResponse.json().catch(() => ({}) as { error?: string });
+        throw new Error(errorData.error || 'Failed to remove existing commission plan assignment');
+      }
+    }
+
+    // If a new plan is selected, create the new assignment.
+    if (selectedPlanId) {
+      const assignResponse = await apiFetch(
+        `/api/admin/sales-rep/commission-plans/${selectedPlanId}/assignments`,
+        {
+          method: 'POST',
+          body: JSON.stringify({ salesRepId: salesRepUserId }),
+        }
+      );
+      if (!assignResponse.ok) {
+        const errorData = await assignResponse.json().catch(() => ({}) as { error?: string });
+        throw new Error(errorData.error || 'Failed to assign commission plan');
+      }
+    }
+  };
+
+  const openEditUserModal = async (user: ClinicUser) => {
     setEditUserData({
       firstName: user.firstName || '',
       lastName: user.lastName || '',
@@ -641,6 +746,13 @@ export default function ClinicDetailPage() {
       licenseState: '',
       specialty: '',
     });
+    if (user.role?.toUpperCase() === 'SALES_REP') {
+      await loadSalesRepCommissionContext(user.id);
+    } else {
+      setSalesRepCommissionPlans([]);
+      setCurrentSalesRepAssignment(null);
+      setSelectedSalesRepPlanId('');
+    }
     setEditUserModal({ show: true, user });
   };
 
@@ -661,14 +773,31 @@ export default function ClinicDetailPage() {
       const data = await response.json();
 
       if (response.ok) {
+        if (editUserData.role === 'SALES_REP') {
+          await syncSalesRepCommissionPlanAssignment(editUserModal.user.id);
+        } else if (currentSalesRepAssignment) {
+          // If role changed away from sales rep, clear active assignment.
+          const removeResponse = await apiFetch(
+            `/api/admin/sales-rep/commission-plans/${currentSalesRepAssignment.planId}/assignments/${currentSalesRepAssignment.assignmentId}`,
+            { method: 'DELETE' }
+          );
+          if (!removeResponse.ok) {
+            const removeData = await removeResponse
+              .json()
+              .catch(() => ({}) as { error?: string });
+            throw new Error(removeData.error || 'Failed to clear sales rep commission assignment');
+          }
+        }
         setEditUserModal({ show: false, user: null });
+        setCurrentSalesRepAssignment(null);
+        setSelectedSalesRepPlanId('');
         fetchClinicUsers();
         alert('User updated successfully');
       } else {
         alert(data.error || 'Failed to update user');
       }
     } catch (error) {
-      console.error('Error updating user:', error);
+      process.env.NODE_ENV === 'development' && console.error('Error updating user:', error);
       alert('Failed to update user');
     } finally {
       setEditingUser(false);
@@ -705,7 +834,7 @@ export default function ClinicDetailPage() {
         alert(data.error || 'Failed to reset password');
       }
     } catch (error) {
-      console.error('Error resetting password:', error);
+      process.env.NODE_ENV === 'development' && console.error('Error resetting password:', error);
       alert('Failed to reset password');
     } finally {
       setResettingPassword(false);
@@ -737,7 +866,7 @@ export default function ClinicDetailPage() {
         setInviteCodes(data.inviteCodes || []);
       }
     } catch (error) {
-      console.error('Failed to fetch invite codes:', error);
+      process.env.NODE_ENV === 'development' && console.error('Failed to fetch invite codes:', error);
     } finally {
       setLoadingInviteCodes(false);
     }
@@ -772,7 +901,7 @@ export default function ClinicDetailPage() {
         alert(data.error || 'Failed to create invite code');
       }
     } catch (error) {
-      console.error('Error creating invite code:', error);
+      process.env.NODE_ENV === 'development' && console.error('Error creating invite code:', error);
       alert('Failed to create invite code');
     } finally {
       setAddingInviteCode(false);
@@ -797,7 +926,7 @@ export default function ClinicDetailPage() {
         alert(data.error || 'Failed to update invite code');
       }
     } catch (error) {
-      console.error('Error updating invite code:', error);
+      process.env.NODE_ENV === 'development' && console.error('Error updating invite code:', error);
     }
   };
 
@@ -819,7 +948,7 @@ export default function ClinicDetailPage() {
         alert(data.error || 'Failed to delete invite code');
       }
     } catch (error) {
-      console.error('Error deleting invite code:', error);
+      process.env.NODE_ENV === 'development' && console.error('Error deleting invite code:', error);
     }
   };
 
@@ -829,72 +958,42 @@ export default function ClinicDetailPage() {
       setCopiedCode(code);
       setTimeout(() => setCopiedCode(null), 2000);
     } catch (error) {
-      console.error('Failed to copy:', error);
+      process.env.NODE_ENV === 'development' && console.error('Failed to copy:', error);
     }
   };
 
   // Track if lifefile settings have been fetched to prevent duplicate calls
   const lifefileSettingsFetchedRef = useRef(false);
 
-  // UNCONDITIONAL fetch on mount - simplest possible approach
   useEffect(() => {
-    console.log('=== COMPONENT MOUNTED ===');
-    console.log('URL:', window.location.href);
-    console.log('activeTab:', activeTab);
-
-    // Check if we should fetch lifefile settings
     const urlTab = new URL(window.location.href).searchParams.get('tab');
     const shouldFetch = activeTab === 'pharmacy' || urlTab === 'pharmacy';
 
-    console.log('urlTab:', urlTab, 'shouldFetch:', shouldFetch);
-
     if (shouldFetch && !lifefileSettingsFetchedRef.current) {
-      console.log('>>> TRIGGERING FETCH <<<');
       lifefileSettingsFetchedRef.current = true;
-
-      // Sync tab if needed
       if (urlTab === 'pharmacy' && activeTab !== 'pharmacy') {
         setActiveTab('pharmacy');
       }
-
       fetchLifefileSettings();
     }
   }, []);
 
-  // Also trigger when activeTab changes (for tab clicks)
   useEffect(() => {
     if (activeTab === 'pharmacy' && !lifefileSettingsFetchedRef.current) {
-      console.log('>>> TAB CHANGE FETCH <<<');
       lifefileSettingsFetchedRef.current = true;
       fetchLifefileSettings();
     }
   }, [activeTab]);
 
   const fetchLifefileSettings = async () => {
-    console.log('[LIFEFILE FETCH] Starting fetch for clinic:', clinicId);
     setLoadingLifefile(true);
     try {
       const token = localStorage.getItem('auth-token');
-      console.log('[LIFEFILE FETCH] Token exists:', !!token);
       const response = await apiFetch(`/api/super-admin/clinics/${clinicId}/lifefile`);
-      console.log('[LIFEFILE FETCH] Response status:', response.status);
 
       if (response.ok) {
         const data = await response.json();
         const s = data.settings;
-
-        // Debug: Log what we received from API - USE ALERT TO MAKE IT UNMISSABLE
-        const debugInfo = {
-          inboundEnabled: s?.lifefileInboundEnabled,
-          inboundPath: s?.lifefileInboundPath,
-          inboundUsername: s?.lifefileInboundUsername,
-          inboundPassword: s?.lifefileInboundPassword,
-          inboundEvents: s?.lifefileInboundEvents,
-        };
-        console.log('[LIFEFILE] API Response:', JSON.stringify(debugInfo, null, 2));
-
-        // Log API response for debugging (check browser console)
-        console.log('[DEBUG] API Response:', debugInfo);
 
         // Only update if we got valid settings back
         if (s) {
@@ -930,37 +1029,17 @@ export default function ClinicDetailPage() {
             slug: s.slug || null,
           };
 
-          console.log(
-            '[LIFEFILE] Setting state with:',
-            JSON.stringify(
-              {
-                inboundEnabled: newState.lifefileInboundEnabled,
-                inboundPath: newState.lifefileInboundPath,
-                inboundUsername: newState.lifefileInboundUsername,
-              },
-              null,
-              2
-            )
-          );
-
           setLifefileSettings(newState);
-
-          // Log state update for debugging (check browser console)
-          console.log('[DEBUG] State set to:', {
-            inboundEnabled: newState.lifefileInboundEnabled,
-            inboundPath: newState.lifefileInboundPath,
-            inboundUsername: newState.lifefileInboundUsername,
-          });
         }
       } else {
-        console.error('Failed to fetch Lifefile settings:', response.status);
+        process.env.NODE_ENV === 'development' && console.error('Failed to fetch Lifefile settings:', response.status);
         setLifefileMessage({
           type: 'error',
           text: 'Failed to load settings. Please refresh the page.',
         });
       }
     } catch (error) {
-      console.error('Error fetching Lifefile settings:', error);
+      process.env.NODE_ENV === 'development' && console.error('Error fetching Lifefile settings:', error);
       setLifefileMessage({
         type: 'error',
         text: 'Failed to load settings. Please refresh the page.',
@@ -999,22 +1078,6 @@ export default function ClinicDetailPage() {
       lifefileInboundEvents: lifefileSettings.lifefileInboundEvents || [],
     };
 
-    // Debug: Log what we're about to save
-    console.log(
-      '[LIFEFILE SAVE] Sending to API:',
-      JSON.stringify(
-        {
-          inboundEnabled: savePayload.lifefileInboundEnabled,
-          inboundPath: savePayload.lifefileInboundPath,
-          inboundUsername: savePayload.lifefileInboundUsername,
-          inboundPassword: savePayload.lifefileInboundPassword ? '[SET]' : '[EMPTY]',
-          inboundEvents: savePayload.lifefileInboundEvents,
-        },
-        null,
-        2
-      )
-    );
-
     try {
       const token = localStorage.getItem('auth-token');
       const response = await apiFetch(`/api/super-admin/clinics/${clinicId}/lifefile`, {
@@ -1027,11 +1090,6 @@ export default function ClinicDetailPage() {
 
       if (response.ok) {
         const savedData = await response.json();
-        console.log('[LIFEFILE SAVE] Save successful:', JSON.stringify(savedData, null, 2));
-
-        // Log save response for debugging (check browser console)
-        console.log('[DEBUG] Save response:', savedData.clinic);
-
         setLifefileMessage({ type: 'success', text: 'Pharmacy settings saved successfully!' });
         // Re-fetch to get the latest data from server
         await fetchLifefileSettings();
@@ -1145,7 +1203,7 @@ export default function ClinicDetailPage() {
         alert(data.error || 'Failed to save clinic settings');
       }
     } catch (error) {
-      console.error('Error saving clinic:', error);
+      process.env.NODE_ENV === 'development' && console.error('Error saving clinic:', error);
       alert('Failed to save clinic settings');
     } finally {
       setSaving(false);
@@ -1205,7 +1263,7 @@ export default function ClinicDetailPage() {
         }));
       }
     } catch (error) {
-      console.error('Error deleting clinic:', error);
+      process.env.NODE_ENV === 'development' && console.error('Error deleting clinic:', error);
       setDeleteModal((prev) => ({
         ...prev,
         deleting: false,
@@ -2772,6 +2830,16 @@ export default function ClinicDetailPage() {
                         borderColor: 'border-cyan-200',
                       },
                       {
+                        key: 'PHARMACY_REP',
+                        label: 'Pharmacy Representatives',
+                        description: 'Cross-clinic patient read + shipping/tracking',
+                        badgeBg: 'bg-violet-100',
+                        badgeText: 'text-violet-700',
+                        avatarBg: 'bg-violet-100',
+                        avatarText: 'text-violet-700',
+                        borderColor: 'border-violet-200',
+                      },
+                      {
                         key: 'PATIENT',
                         label: 'Patients',
                         description: 'Patient portal access only',
@@ -3155,6 +3223,7 @@ export default function ClinicDetailPage() {
                   <option value="STAFF">Staff - Limited administrative access</option>
                   <option value="SUPPORT">Support - Customer service access</option>
                   <option value="SALES_REP">Sales Rep - Patient assignment & tracking</option>
+                  <option value="PHARMACY_REP">Pharmacy Rep - Patient read + shipping/tracking</option>
                 </select>
               </div>
 
@@ -3681,7 +3750,17 @@ export default function ClinicDetailPage() {
                 <label className="mb-1 block text-sm font-medium text-gray-700">Role</label>
                 <select
                   value={editUserData.role}
-                  onChange={(e) => setEditUserData({ ...editUserData, role: e.target.value })}
+                  onChange={(e) => {
+                    const nextRole = e.target.value;
+                    setEditUserData({ ...editUserData, role: nextRole });
+                    if (nextRole === 'SALES_REP' && editUserModal.user) {
+                      loadSalesRepCommissionContext(editUserModal.user.id);
+                    } else if (nextRole !== 'SALES_REP') {
+                      setSalesRepCommissionPlans([]);
+                      setCurrentSalesRepAssignment(null);
+                      setSelectedSalesRepPlanId('');
+                    }
+                  }}
                   className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-teal-500 focus:ring-2 focus:ring-teal-500"
                 >
                   <option value="ADMIN">Admin - Full clinic access</option>
@@ -3689,8 +3768,41 @@ export default function ClinicDetailPage() {
                   <option value="STAFF">Staff - Limited administrative access</option>
                   <option value="SUPPORT">Support - Customer service access</option>
                   <option value="SALES_REP">Sales Rep - Patient assignment & tracking</option>
+                  <option value="PHARMACY_REP">Pharmacy Rep - Patient read + shipping/tracking</option>
                 </select>
               </div>
+
+              {editUserData.role === 'SALES_REP' && (
+                <div className="space-y-2 rounded-lg border border-emerald-200 bg-emerald-50 p-4">
+                  <label className="block text-sm font-medium text-emerald-900">
+                    Commission Plan
+                  </label>
+                  <select
+                    value={selectedSalesRepPlanId === '' ? '' : String(selectedSalesRepPlanId)}
+                    onChange={(e) =>
+                      setSelectedSalesRepPlanId(
+                        e.target.value === '' ? '' : Number(e.target.value)
+                      )
+                    }
+                    className="w-full rounded-lg border border-emerald-300 bg-white px-4 py-2 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500"
+                    disabled={loadingSalesRepPlans}
+                  >
+                    <option value="">
+                      {loadingSalesRepPlans ? 'Loading plans...' : 'No commission plan (unassigned)'}
+                    </option>
+                    {salesRepCommissionPlans.map((plan) => (
+                      <option key={plan.id} value={plan.id}>
+                        {plan.name}
+                        {plan.isActive ? '' : ' (Inactive)'}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-emerald-800">
+                    Select the commission plan for this sales rep. Saving will update the active
+                    assignment.
+                  </p>
+                </div>
+              )}
 
               {/* Provider credentials when role is PROVIDER */}
               {editUserData.role === 'PROVIDER' && (

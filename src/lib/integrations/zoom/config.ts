@@ -125,23 +125,6 @@ export const CONSULTATION_DURATIONS = {
   COMPREHENSIVE: 60,
 };
 
-// Zoom SDK Configuration
-export const ZOOM_SDK_CONFIG = {
-  leaveUrl: '/telehealth/ended',
-  isSupportAV: true,
-  isSupportChat: true,
-  isSupportQA: false,
-  isSupportCC: false,
-  isSupportPolling: false,
-  isSupportBreakout: false,
-  screenShare: true,
-  videoHeader: true,
-  isLockBottom: false,
-  isSupportNonverbal: true,
-  disableRecord: false, // Allow recording with consent
-  disableJoinAudio: false,
-};
-
 // Webhook Event Types
 export const ZOOM_WEBHOOK_EVENTS = {
   MEETING_STARTED: 'meeting.started',

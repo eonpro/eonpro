@@ -43,7 +43,7 @@ export default function EditProfilePage() {
           });
         }
       } catch (error) {
-        console.error('Failed to fetch profile:', error);
+        process.env.NODE_ENV === 'development' && console.error('Failed to fetch profile:', error);
       } finally {
         setIsLoading(false);
       }

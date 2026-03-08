@@ -76,7 +76,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
     });
 
     return NextResponse.json({ bundles });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('[Bundles API] Error:', error);
     return NextResponse.json({ error: 'Failed to fetch bundles' }, { status: 500 });
   }
@@ -169,7 +169,7 @@ async function handlePost(req: NextRequest, user: AuthUser) {
 
         const stripePrice = await stripe.prices.create(priceData);
         stripePriceId = stripePrice.id;
-      } catch (stripeError: any) {
+      } catch (stripeError: unknown) {
         logger.warn('[Bundles API] Stripe creation failed:', stripeError.message);
       }
     }
@@ -214,7 +214,7 @@ async function handlePost(req: NextRequest, user: AuthUser) {
     logger.info('[Bundles API] Created bundle', { name: validated.name, clinicId });
 
     return NextResponse.json({ bundle });
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
         { error: 'Validation error', details: error.errors },

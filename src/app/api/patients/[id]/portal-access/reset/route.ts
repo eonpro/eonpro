@@ -7,6 +7,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 import { withAuthParams, type AuthUser } from '@/lib/auth/middleware-with-params';
 import { patientService, type UserContext } from '@/domains/patient';
 import { handleApiError, BadRequestError, NotFoundError } from '@/domains/shared/errors';
@@ -54,18 +56,38 @@ const postHandler = withAuthParams(
       }
 
       const portalUserId = patient.user.id;
-      const portalUserEmail = patient.user.email;
+      const archivedEmail = `reset+${portalUserId}+${Date.now()}@portal-reset.invalid`;
+      const disabledPasswordHash = await bcrypt.hash(crypto.randomUUID(), 12);
 
       await prisma.$transaction(async (tx) => {
         await tx.userSession.deleteMany({ where: { userId: portalUserId } });
         await tx.userAuditLog.deleteMany({ where: { userId: portalUserId } });
         await tx.apiKey.deleteMany({ where: { userId: portalUserId } });
-        await tx.user.delete({ where: { id: portalUserId } });
+        await tx.passwordResetToken.deleteMany({ where: { userId: portalUserId } });
+        await tx.emailVerificationToken.deleteMany({ where: { userId: portalUserId } });
+
+        // Do not hard-delete user: many relational references can block delete and
+        // surface as intermittent 5xx. Instead, tombstone + unlink from patient.
+        await tx.user.update({
+          where: { id: portalUserId },
+          data: {
+            status: 'INACTIVE',
+            email: archivedEmail,
+            phone: null,
+            passwordHash: disabledPasswordHash,
+            patientId: null,
+            lastPasswordChange: new Date(),
+            metadata: {
+              portalAccessResetAt: new Date().toISOString(),
+              portalAccessResetBy: user.id,
+            },
+          },
+        });
       }, { timeout: 15000 });
 
       logger.info('[PortalAccess] Portal access reset', {
         patientId: id,
-        deletedUserId: portalUserId,
+        deactivatedUserId: portalUserId,
         resetBy: user.id,
       });
 
@@ -76,8 +98,8 @@ const postHandler = withAuthParams(
         clinicId: user.clinicId ?? patient.clinicId,
         action: 'PORTAL_ACCESS_RESET',
         details: {
-          deletedUserId: portalUserId,
-          deletedUserEmail: '[REDACTED]',
+          deactivatedUserId: portalUserId,
+          archivedEmail: '[REDACTED]',
           reason: 'Admin-initiated portal access reset',
         },
       });

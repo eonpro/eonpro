@@ -101,8 +101,14 @@ model SalesRepCommissionPlan {
   multiItemBonusFlatCents  Int?
   multiItemMinQuantity     Int?    // apply when item count >= this (default 2)
 
+  // Volume-based weekly tiers (e.g. 1-8 sales $5 each, 9-20 sales $10 each, 21+ sales $15 each)
+  volumeTierEnabled    Boolean @default(false)
+  volumeTierWindow     String? // 'CALENDAR_WEEK_MON_SUN' | 'REPORT_PERIOD'
+  volumeTierRetroactive Boolean @default(true) // when true, highest reached tier applies to all sales in period
+
   assignments       SalesRepPlanAssignment[]
   productCommissions SalesRepProductCommission[]
+  volumeTiers        SalesRepVolumeCommissionTier[]
 
   @@index([clinicId])
   @@index([isActive])
@@ -145,4 +151,20 @@ model SalesRepProductCommission {
   @@index([planId])
   @@index([productId])
   @@index([productBundleId])
+}
+
+// Per-plan, volume-based commission tiers for a weekly/reporting period.
+// If retroactive is enabled on the plan, once a rep reaches a tier, that tier amount applies to all sales in that period.
+model SalesRepVolumeCommissionTier {
+  id               Int                    @id @default(autoincrement())
+  createdAt        DateTime               @default(now())
+  planId           Int
+  plan             SalesRepCommissionPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  minSales         Int
+  maxSales         Int?                   // null means open-ended (e.g. 21+)
+  amountCents      Int                    // flat dollar amount per sale in this tier
+  sortOrder        Int                    @default(0)
+
+  @@index([planId])
+  @@index([planId, minSales])
 }

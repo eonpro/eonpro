@@ -1,15 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { withAuth, type AuthUser } from '@/lib/auth/middleware';
+import { withAuthParams, type AuthUser } from '@/lib/auth/middleware-with-params';
 import { prisma } from '@/lib/db';
 import { handleApiError } from '@/domains/shared/errors';
+
+type RouteContext = {
+  params: Promise<{ id: string }>;
+};
 
 async function handleGetLabels(
   req: NextRequest,
   user: AuthUser,
-  { params }: { params: { id: string } },
+  context: RouteContext,
 ) {
   try {
-    const patientId = parseInt(params.id, 10);
+    const { id } = await context.params;
+    const patientId = parseInt(id, 10);
     if (isNaN(patientId)) {
       return NextResponse.json({ error: 'Invalid patient id' }, { status: 400 });
     }
@@ -63,6 +68,6 @@ async function handleGetLabels(
   }
 }
 
-export const GET = withAuth(handleGetLabels, {
-  roles: ['super_admin', 'admin'],
+export const GET = withAuthParams(handleGetLabels, {
+  roles: ['super_admin', 'admin', 'pharmacy_rep'],
 });

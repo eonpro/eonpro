@@ -40,8 +40,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       ok: true,
       data: soapNote,
     });
-  } catch (error: any) {
-    // @ts-ignore
+  } catch (error: unknown) {
 
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('[API] Error fetching SOAP note:', error);
@@ -111,9 +110,8 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         { status: 400 }
       );
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    // @ts-ignore
 
     logger.error('[API] Error updating SOAP note:', error);
 

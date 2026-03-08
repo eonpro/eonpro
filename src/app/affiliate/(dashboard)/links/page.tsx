@@ -56,7 +56,7 @@ export default function LinksPage() {
           setData(linksData);
         }
       } catch (error) {
-        console.error('Failed to fetch links:', error);
+        process.env.NODE_ENV === 'development' && console.error('Failed to fetch links:', error);
       } finally {
         setIsLoading(false);
       }

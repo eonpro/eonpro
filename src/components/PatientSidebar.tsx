@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Trash2, GitMerge, Link2, X, Check, Loader2, Unlink, Truck, Download } from 'lucide-react';
 import EditPatientModal from './EditPatientModal';
@@ -34,6 +34,7 @@ interface PatientSidebarProps {
     state: string;
     zip: string;
     identityVerified?: boolean;
+    tags?: string[] | null;
   };
   currentTab: string;
   affiliateCode?: string | null;
@@ -45,6 +46,7 @@ interface PatientSidebarProps {
     lastName: string;
   } | null;
   userRole?: string;
+  currentUserId?: number;
   /** Clinic info for FedEx label origin address */
   clinicInfo?: {
     name?: string;
@@ -149,13 +151,14 @@ function AffiliateAttributionSection({
   }, [fetchOptions]);
 
   // Debounced search
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const handleSearch = useCallback((value: string) => {
     setSearchQuery(value);
     setSelectedCode(null);
     setShowDropdown(true);
     setError(null);
-    const timer = setTimeout(() => fetchOptions(value), 200);
-    return () => clearTimeout(timer);
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    searchTimerRef.current = setTimeout(() => fetchOptions(value), 200);
   }, [fetchOptions]);
 
   const handleSelect = useCallback((option: RefCodeOption) => {
@@ -465,6 +468,7 @@ export default function PatientSidebar({
   affiliateAttribution,
   currentSalesRep,
   userRole,
+  currentUserId,
   clinicInfo,
   showLabsTab = true,
   patientDetailBasePath = '/patients',
@@ -489,15 +493,34 @@ export default function PatientSidebar({
   const [downloadingLabelId, setDownloadingLabelId] = useState<number | null>(null);
   const [labelDownloadError, setLabelDownloadError] = useState<string | null>(null);
 
-  const isAdmin = userRole && ['super_admin', 'admin'].includes(userRole.toLowerCase());
+  const normalizedRole = (userRole || '').toLowerCase();
+  const isAdmin = ['super_admin', 'admin'].includes(normalizedRole);
+  const isSalesRep = normalizedRole === 'sales_rep';
+  const isPharmacyRep = normalizedRole === 'pharmacy_rep';
+  const canManageShipping = isAdmin || isPharmacyRep;
+  const patientTags = Array.isArray(patient.tags) ? patient.tags : [];
+  const pendingSalesRequestTag = patientTags.find((tag) =>
+    tag.startsWith('sales-request:pending:')
+  );
+  const pendingSalesRequestRepId = pendingSalesRequestTag
+    ? Number(pendingSalesRequestTag.split(':').pop())
+    : null;
+  const hasPendingSalesRequest = Boolean(
+    pendingSalesRequestTag && Number.isInteger(pendingSalesRequestRepId)
+  );
+  const pendingSalesRequestIsMine =
+    hasPendingSalesRequest && currentUserId != null && pendingSalesRequestRepId === currentUserId;
+  const [salesRequestLoading, setSalesRequestLoading] = useState(false);
+  const [salesRequestError, setSalesRequestError] = useState<string | null>(null);
+  const [salesRequestSuccess, setSalesRequestSuccess] = useState<string | null>(null);
 
   const fetchLabels = useCallback(() => {
-    if (!isAdmin) return;
+    if (!canManageShipping) return;
     apiFetch(`/api/patients/${patient.id}/shipping-labels`)
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => { if (data?.labels) setPastLabels(data.labels); })
       .catch(() => {});
-  }, [patient.id, isAdmin]);
+  }, [patient.id, canManageShipping]);
 
   useEffect(() => { fetchLabels(); }, [fetchLabels]);
 
@@ -662,8 +685,59 @@ export default function PatientSidebar({
     router.push(listPath);
   };
 
+  const submitSalesRequest = async () => {
+    setSalesRequestLoading(true);
+    setSalesRequestError(null);
+    setSalesRequestSuccess(null);
+    try {
+      const response = await apiFetch('/api/sales-rep/sales-requests', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ patientId: patient.id }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to submit sales request');
+      }
+      setSalesRequestSuccess('Sales request submitted');
+      router.refresh();
+      setTimeout(() => window.location.reload(), 500);
+    } catch (error) {
+      setSalesRequestError(error instanceof Error ? error.message : 'Failed to submit sales request');
+    } finally {
+      setSalesRequestLoading(false);
+    }
+  };
+
+  const retractSalesRequest = async () => {
+    setSalesRequestLoading(true);
+    setSalesRequestError(null);
+    setSalesRequestSuccess(null);
+    try {
+      const response = await apiFetch('/api/sales-rep/sales-requests', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ patientId: patient.id }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to remove sales request');
+      }
+      setSalesRequestSuccess('Sales request removed');
+      router.refresh();
+      setTimeout(() => window.location.reload(), 500);
+    } catch (error) {
+      setSalesRequestError(error instanceof Error ? error.message : 'Failed to remove sales request');
+    } finally {
+      setSalesRequestLoading(false);
+    }
+  };
+
   const age = calculateAge(patient.dob);
   const genderLabel = formatGender(patient.gender);
+  const hasPatientAddress = Boolean(
+    patient.address1?.trim() && patient.city?.trim() && patient.state?.trim() && patient.zip?.trim()
+  );
   const formattedAddress1 = toTitleCase(patient.address1);
   const formattedAddress2 = toTitleCase(patient.address2);
   const cityStateZip = formatCityStateZip(patient.city, patient.state, patient.zip);
@@ -696,13 +770,15 @@ export default function PatientSidebar({
               />
             </svg>
           </div>
-          <button
-            onClick={() => setShowEditModal(true)}
-            className="text-sm font-medium hover:underline"
-            style={{ color: 'var(--brand-primary, #4fa77e)' }}
-          >
-            Edit
-          </button>
+          {!isPharmacyRep && (
+            <button
+              onClick={() => setShowEditModal(true)}
+              className="text-sm font-medium hover:underline"
+              style={{ color: 'var(--brand-primary, #4fa77e)' }}
+            >
+              Edit
+            </button>
+          )}
         </div>
 
         {/* Name and basic info */}
@@ -772,12 +848,62 @@ export default function PatientSidebar({
               currentSalesRep={currentSalesRep}
               userRole={userRole}
             />
+            {isSalesRep && (
+              <div className="mt-2 rounded-lg border border-emerald-200 bg-emerald-50 p-2.5">
+                <p className="text-xs font-semibold uppercase tracking-wider text-emerald-700">
+                  New Sale Request
+                </p>
+                {hasPendingSalesRequest ? (
+                  <div className="mt-1">
+                    <p className="text-xs text-emerald-800">
+                      Pending request
+                      {pendingSalesRequestIsMine ? ' submitted by you.' : '.'}
+                    </p>
+                    {pendingSalesRequestIsMine && (
+                      <button
+                        onClick={retractSalesRequest}
+                        disabled={salesRequestLoading}
+                        className="mt-1.5 inline-flex items-center gap-1 rounded-md bg-white px-2 py-1 text-xs text-emerald-700 ring-1 ring-emerald-300 hover:bg-emerald-100 disabled:opacity-50"
+                      >
+                        {salesRequestLoading ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                          <X className="h-3 w-3" />
+                        )}
+                        Retract request
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <button
+                    onClick={submitSalesRequest}
+                    disabled={salesRequestLoading}
+                    className="mt-1.5 inline-flex items-center gap-1 rounded-md bg-emerald-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+                  >
+                    {salesRequestLoading ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <Link2 className="h-3 w-3" />
+                    )}
+                    Tag as new sale
+                  </button>
+                )}
+                {salesRequestError && (
+                  <p className="mt-1 text-xs text-red-600">{salesRequestError}</p>
+                )}
+                {salesRequestSuccess && (
+                  <p className="mt-1 text-xs text-emerald-700">{salesRequestSuccess}</p>
+                )}
+              </div>
+            )}
           </div>
         )}
 
         {/* Navigation - use native <a> tags for reliability (router.push/Link had issues with searchParams) */}
         <nav className="mb-6 space-y-1">
-          {(showLabsTab === false ? navItems.filter((i) => i.id !== 'lab') : navItems).map((item) => {
+          {(showLabsTab === false ? navItems.filter((i) => i.id !== 'lab') : navItems)
+            .filter((item) => !isPharmacyRep || ['profile', 'prescriptions'].includes(item.id))
+            .map((item) => {
             const isActive = currentTab === item.id;
             const href = `${patientDetailBasePath}/${patient.id}?tab=${item.id}`;
             return (
@@ -810,25 +936,25 @@ export default function PatientSidebar({
         {/* Actions */}
         <div className="space-y-1 border-t pt-4">
           {/* FedEx Label — admin only */}
-          {isAdmin && (
+          {canManageShipping && (
             <>
               <button
                 onClick={() => setShowFedExModal(true)}
-                disabled={!patient.address1 || !patient.city || !patient.state || !patient.zip}
                 title={
-                  !patient.address1 || !patient.city || !patient.state || !patient.zip
-                    ? 'Patient address is required to print a FedEx label'
-                    : 'Print a FedEx shipping label for this patient'
+                  hasPatientAddress
+                    ? 'Print a FedEx shipping label for this patient'
+                    : 'Patient address is incomplete. Open to complete destination details before printing.'
                 }
-                className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors ${
-                  !patient.address1 || !patient.city || !patient.state || !patient.zip
-                    ? 'cursor-not-allowed text-gray-400'
-                    : 'text-[#4D148C] hover:bg-purple-50'
-                }`}
+                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-[#4D148C] transition-colors hover:bg-purple-50"
               >
                 <Truck className="h-4 w-4" />
                 Print FedEx Label
               </button>
+              {!hasPatientAddress && (
+                <p className="px-3 text-xs text-amber-600">
+                  Patient address is incomplete. Enter destination details in the label modal.
+                </p>
+              )}
 
               {/* Past FedEx Labels */}
               {pastLabels.length > 0 && (
@@ -878,20 +1004,24 @@ export default function PatientSidebar({
               )}
             </>
           )}
-          <button
-            onClick={() => setShowMergeModal(true)}
-            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-gray-600 transition-colors hover:bg-gray-50"
-          >
-            <GitMerge className="h-4 w-4" />
-            Merge with another patient
-          </button>
-          <button
-            onClick={() => setShowDeleteModal(true)}
-            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-red-600 transition-colors hover:bg-red-50"
-          >
-            <Trash2 className="h-4 w-4" />
-            Delete Patient
-          </button>
+          {!isPharmacyRep && (
+            <>
+              <button
+                onClick={() => setShowMergeModal(true)}
+                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-gray-600 transition-colors hover:bg-gray-50"
+              >
+                <GitMerge className="h-4 w-4" />
+                Merge with another patient
+              </button>
+              <button
+                onClick={() => setShowDeleteModal(true)}
+                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-red-600 transition-colors hover:bg-red-50"
+              >
+                <Trash2 className="h-4 w-4" />
+                Delete Patient
+              </button>
+            </>
+          )}
         </div>
       </div>
 

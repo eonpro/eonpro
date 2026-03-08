@@ -96,7 +96,7 @@ export const GET = withAuth(
             lifefileInboundEvents: true,
           },
         });
-      } catch (dbError: any) {
+      } catch (dbError: unknown) {
         logger.error(`[LIFEFILE GET] Database query failed for clinic ${clinicId}:`, dbError);
         return Response.json(
           { error: 'Database query failed', detail: dbError.message },
@@ -242,10 +242,10 @@ export const GET = withAuth(
       }
 
       return Response.json({ settings: maskedSettings });
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error(`[LIFEFILE GET] Unexpected error:`, error);
       return Response.json(
-        { error: 'Internal server error', detail: error.message },
+        { error: 'Internal server error', detail: error instanceof Error ? error.message : String(error) },
         { status: 500 }
       );
     }
@@ -659,13 +659,13 @@ async function testOutboundConnection(clinicId: number, user: AuthUser) {
       success: true,
       message: 'Lifefile connection configured successfully',
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error(`[SUPER-ADMIN] Lifefile outbound test failed for clinic ${clinicId}:`, error);
     return Response.json(
       {
         success: false,
         error: 'Failed to connect to Lifefile',
-        detail: error.message,
+        detail: error instanceof Error ? error.message : String(error),
       },
       { status: 400 }
     );
@@ -833,14 +833,14 @@ async function testInboundWebhook(clinicId: number, user: AuthUser) {
         { status: 400 }
       );
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error(`[SUPER-ADMIN] Inbound webhook test error for clinic ${clinicId}:`, error);
 
     // Check for specific error types
     let errorMessage = 'Failed to test inbound webhook';
-    if (error.message?.includes('fetch')) {
+    if (error instanceof Error ? error.message : String(error)?.includes('fetch')) {
       errorMessage = 'Could not reach webhook endpoint. Server may be busy.';
-    } else if (error.message?.includes('connection')) {
+    } else if (error instanceof Error ? error.message : String(error)?.includes('connection')) {
       errorMessage = 'Database connection issue. Please try again.';
     }
 
@@ -848,7 +848,7 @@ async function testInboundWebhook(clinicId: number, user: AuthUser) {
       {
         success: false,
         error: errorMessage,
-        detail: error.message,
+        detail: error instanceof Error ? error.message : String(error),
       },
       { status: 500 }
     );

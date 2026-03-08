@@ -112,7 +112,7 @@ export default function ProviderConsultationsPage() {
           setConsultations([]);
         }
       } catch (err) {
-        console.error('Failed to fetch consultations:', err);
+        process.env.NODE_ENV === 'development' && console.error('Failed to fetch consultations:', err);
         setConsultations([]);
         setError('Failed to load consultations. Please check your connection and try again.');
       } finally {

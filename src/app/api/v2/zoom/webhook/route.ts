@@ -77,7 +77,11 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
       }
     } else {
-      logger.warn('Zoom webhook: No webhook secret configured, skipping signature verification');
+      logger.error('Zoom webhook: No webhook secret configured — rejecting request');
+      return NextResponse.json(
+        { error: 'Webhook secret not configured' },
+        { status: 500 }
+      );
     }
 
     // Log the event
@@ -87,20 +91,17 @@ export async function POST(req: NextRequest) {
       meetingId: payload.payload?.object?.id,
     });
 
-    // Process the webhook asynchronously (don't block response)
-    // In production, you might want to use a job queue here
-    setImmediate(async () => {
-      try {
-        await handleZoomWebhook(payload as WebhookPayload);
-      } catch (error) {
-        logger.error('Zoom webhook processing error', {
-          event: payload.event,
-          error: error instanceof Error ? error.message : 'Unknown error',
-        });
-      }
-    });
+    // Process synchronously — Zoom allows up to 5 seconds for webhook response.
+    // If processing becomes too slow, migrate to a job queue with retry.
+    try {
+      await handleZoomWebhook(payload as WebhookPayload);
+    } catch (error) {
+      logger.error('Zoom webhook processing error', {
+        event: payload.event,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
 
-    // Return success immediately (Zoom expects quick response)
     return NextResponse.json({ received: true });
   } catch (error) {
     logger.error('Zoom webhook handler error', {

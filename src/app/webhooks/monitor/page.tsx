@@ -103,7 +103,7 @@ export default function WebhookMonitorPage() {
           recentLogs: [],
         });
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error('Failed to fetch webhook stats:', error);
     } finally {
       setLoading(false);
@@ -149,9 +149,8 @@ export default function WebhookMonitorPage() {
         data,
         headers: Object.fromEntries(res.headers.entries()),
       });
-    } catch (error: any) {
-      // @ts-ignore
-
+    } catch (error: unknown) {
+      
       setTestResult({
         error: String(error),
         message: 'Failed to send test webhook',

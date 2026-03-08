@@ -55,7 +55,7 @@ type VerificationStatus = (typeof VERIFICATION_STATUSES)[number];
 // =============================================================================
 
 const listPhotosSchema = z.object({
-  type: z.enum(PHOTO_TYPES).optional(),
+  types: z.array(z.enum(PHOTO_TYPES)).optional(),
   category: z.string().optional(),
   includeDeleted: z.boolean().optional().default(false),
   page: z.number().optional().default(1),
@@ -105,11 +105,13 @@ async function refreshPhotoUrls(
         ]);
         return { ...photo, s3Url, thumbnailUrl };
       } catch (error) {
-        logger.warn('[Photos API] Failed to generate signed URL', {
-          s3Key: photo.s3Key,
-          error: error instanceof Error ? error.message : 'Unknown error',
+        const errMsg = error instanceof Error ? error.message : 'Unknown error';
+        logger.error('[Photos API] Failed to generate signed URL for photo', {
+          photoId: photo.id,
+          s3Key: photo.s3Key?.substring(0, 40),
+          error: errMsg,
         });
-        return { ...photo, s3Url: null, thumbnailUrl: null };
+        return { ...photo, s3Url: null, thumbnailUrl: null, urlError: errMsg };
       }
     })
   );
@@ -122,9 +124,10 @@ async function refreshPhotoUrls(
 async function handleGet(req: NextRequest, user: AuthUser) {
   const searchParams = req.nextUrl.searchParams;
 
-  // Parse query params
+  // Parse query params — support multiple `type` values (e.g. ?type=A&type=B)
+  const typeValues = searchParams.getAll('type').filter(Boolean);
   const params = listPhotosSchema.safeParse({
-    type: searchParams.get('type') || undefined,
+    types: typeValues.length > 0 ? typeValues : undefined,
     category: searchParams.get('category') || undefined,
     includeDeleted: searchParams.get('includeDeleted') === 'true',
     page: searchParams.get('page') ? parseInt(searchParams.get('page')!) : 1,
@@ -198,9 +201,9 @@ async function handleGet(req: NextRequest, user: AuthUser) {
     clinicId,
   };
 
-  // Filter by type if provided
-  if (params.data.type) {
-    where.type = params.data.type;
+  // Filter by type(s) if provided
+  if (params.data.types && params.data.types.length > 0) {
+    where.type = params.data.types.length === 1 ? params.data.types[0] : { in: params.data.types };
   }
 
   // Filter by category if provided
@@ -272,6 +275,16 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       });
     }
 
+    const failedUrlCount = photosWithUrls.filter((p: any) => p.s3Url === null).length;
+    if (failedUrlCount > 0 && photos.length > 0) {
+      logger.error('[Photos API] Signed URL generation failed for photos', {
+        failedCount: failedUrlCount,
+        totalCount: photos.length,
+        patientId,
+        clinicId,
+      });
+    }
+
     return NextResponse.json({
       photos: photosWithUrls,
       pagination: {
@@ -280,6 +293,9 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         total,
         totalPages: Math.ceil(total / params.data.limit),
       },
+      ...(failedUrlCount > 0 && {
+        warning: `${failedUrlCount} photo(s) could not be loaded. Please try again or contact support.`,
+      }),
     });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';

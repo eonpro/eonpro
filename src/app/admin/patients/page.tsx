@@ -118,6 +118,7 @@ const displayContact = (
 
 export default function AdminPatientsPage() {
   const router = useRouter();
+  const [isPharmacyExperience, setIsPharmacyExperience] = useState(false);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -138,6 +139,22 @@ export default function AdminPatientsPage() {
   const [isSearching, setIsSearching] = useState(false);
 
   // Debounce search input
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const isLogosRxHost = window.location.hostname.toLowerCase() === 'logosrx.eonpro.io';
+    let isPharmacyRepRole = false;
+    try {
+      const rawUser = window.localStorage.getItem('user');
+      if (rawUser) {
+        const parsed = JSON.parse(rawUser) as { role?: string };
+        isPharmacyRepRole = parsed?.role?.toLowerCase?.() === 'pharmacy_rep';
+      }
+    } catch {
+      isPharmacyRepRole = false;
+    }
+    setIsPharmacyExperience(isLogosRxHost || isPharmacyRepRole);
+  }, []);
+
   useEffect(() => {
     if (searchTimeoutRef.current) {
       clearTimeout(searchTimeoutRef.current);
@@ -162,7 +179,7 @@ export default function AdminPatientsPage() {
         setSalesReps(data.salesReps || []);
       }
     } catch (error) {
-      console.error('Failed to fetch sales reps:', error);
+      process.env.NODE_ENV === 'development' && console.error('Failed to fetch sales reps:', error);
     }
   }, []);
 
@@ -200,7 +217,7 @@ export default function AdminPatientsPage() {
           });
         }
       } catch (error) {
-        console.error('Failed to fetch patients:', error);
+        process.env.NODE_ENV === 'development' && console.error('Failed to fetch patients:', error);
       } finally {
         setLoading(false);
       }
@@ -314,8 +331,10 @@ export default function AdminPatientsPage() {
     <div className="mx-auto max-w-7xl p-6">
       <div className="mb-8 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Patients</h1>
-          <p className="mt-1 text-gray-600">
+          <h1 className={`text-2xl font-bold ${isPharmacyExperience ? 'text-white' : 'text-gray-900'}`}>
+            Patients
+          </h1>
+          <p className={`mt-1 ${isPharmacyExperience ? 'text-white/85' : 'text-gray-600'}`}>
             Patients who have an invoice or a prescription placed
           </p>
         </div>
@@ -337,18 +356,33 @@ export default function AdminPatientsPage() {
       {/* Info Banner */}
       <div
         className="mb-6 rounded-xl border p-4"
-        style={{
-          backgroundColor: 'var(--brand-primary-light, rgba(79, 167, 126, 0.1))',
-          borderColor: 'var(--brand-primary, #4fa77e)',
-        }}
+        style={
+          isPharmacyExperience
+            ? {
+                backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                borderColor: 'rgba(255, 255, 255, 0.35)',
+              }
+            : {
+                backgroundColor: 'var(--brand-primary-light, rgba(79, 167, 126, 0.1))',
+                borderColor: 'var(--brand-primary, #4fa77e)',
+              }
+        }
       >
         <div className="flex items-start gap-3">
-          <Users className="mt-0.5 h-5 w-5" style={{ color: 'var(--brand-primary, #4fa77e)' }} />
+          <Users
+            className={`mt-0.5 h-5 w-5 ${isPharmacyExperience ? 'text-white/90' : ''}`}
+            style={!isPharmacyExperience ? { color: 'var(--brand-primary, #4fa77e)' } : undefined}
+          />
           <div>
-            <p className="text-sm font-medium text-gray-800">
+            <p
+              className={`text-sm font-medium ${isPharmacyExperience ? 'text-white' : 'text-gray-800'}`}
+            >
               This list shows patients with an invoice or prescription history
             </p>
-            <p className="mt-1 text-xs" style={{ color: 'var(--brand-primary, #4fa77e)' }}>
+            <p
+              className={`mt-1 text-xs ${isPharmacyExperience ? 'text-white/80' : ''}`}
+              style={!isPharmacyExperience ? { color: 'var(--brand-primary, #4fa77e)' } : undefined}
+            >
               The Intakes tab shows every patient profile in the system
             </p>
           </div>
@@ -467,7 +501,7 @@ export default function AdminPatientsPage() {
       {/* Results summary */}
       {!loading && (
         <div className="mb-4 flex items-center justify-between">
-          <p className="text-sm text-gray-600">
+          <p className={`text-sm ${isPharmacyExperience ? 'text-white/85' : 'text-gray-600'}`}>
             {isSearching ? (
               <>
                 Found <span className="font-medium">{filteredPatients.length}</span> patient

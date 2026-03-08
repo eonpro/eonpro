@@ -41,8 +41,8 @@ describe('patient-portal-client', () => {
     it('returns SESSION_EXPIRED_MESSAGE for 401', () => {
       expect(getPortalResponseError(new Response('', { status: 401 }))).toBe(SESSION_EXPIRED_MESSAGE);
     });
-    it('returns access denied message for 403', () => {
-      expect(getPortalResponseError(new Response('', { status: 403 }))).toContain('Access denied');
+    it('returns session expired message for 403', () => {
+      expect(getPortalResponseError(new Response('', { status: 403 }))).toBe(SESSION_EXPIRED_MESSAGE);
     });
     it('returns null for 200', () => {
       expect(getPortalResponseError(new Response('', { status: 200 }))).toBeNull();

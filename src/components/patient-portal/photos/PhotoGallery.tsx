@@ -425,8 +425,11 @@ function PhotoCard({ photo, onClick, showWeight }: PhotoCardProps) {
           onError={() => setError(true)}
         />
       ) : (
-        <div className="absolute inset-0 flex items-center justify-center">
-          <ImageIcon className="h-8 w-8 text-gray-300" />
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 px-2">
+          <AlertCircle className="h-6 w-6 text-gray-400" />
+          <p className="text-center text-[10px] leading-tight text-gray-400">
+            {error ? 'Could not load image' : 'Image not available'}
+          </p>
         </div>
       )}
 

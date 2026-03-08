@@ -37,14 +37,9 @@ export async function GET(req: NextRequest) {
       select: {
         id: true,
         patientId: true,
-        firstName: true,
-        lastName: true,
-        email: true,
-        phone: true,
         source: true,
         createdAt: true,
         tags: true,
-        notes: true,
       },
     });
 

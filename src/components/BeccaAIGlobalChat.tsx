@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import dynamic from 'next/dynamic';
 import { usePathname } from 'next/navigation';
-import BeccaAIChat from './BeccaAIChat';
 import { isBrowser, getLocalStorageItem } from '@/lib/utils/ssr-safe';
 import { getStoredUser } from '@/lib/auth/stored-role';
 import { apiFetch } from '@/lib/api/fetch';
@@ -10,6 +10,11 @@ import { apiFetch } from '@/lib/api/fetch';
 interface BeccaAIGlobalChatProps {
   userEmail?: string;
 }
+
+const BeccaAIChat = dynamic(() => import('./BeccaAIChat'), {
+  ssr: false,
+  loading: () => null,
+});
 
 // Roles that have access to Becca AI
 const ALLOWED_ROLES = ['super_admin', 'admin', 'provider', 'staff', 'support'];

@@ -6,35 +6,21 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma, getClinicContext, withClinicContext } from '@/lib/db';
-import { getAuthUser } from '@/lib/auth';
+import { prisma } from '@/lib/db';
+import { withAdminAuth } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
 import { AGGREGATION_TAKE } from '@/lib/pagination';
-import { requirePermission, toPermissionContext } from '@/lib/rbac/permissions';
-import { verifyClinicAccess } from '@/lib/auth/clinic-access';
-import { subDays, subMonths, startOfMonth, format } from 'date-fns';
+import { subDays, subMonths, format } from 'date-fns';
 
-export async function GET(request: NextRequest) {
+export const GET = withAdminAuth(async (request: NextRequest, user) => {
   try {
-    const user = await getAuthUser(request);
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // Get clinic ID from context or fall back to user's clinic
-    const contextClinicId = getClinicContext();
-    const clinicId = contextClinicId || user.clinicId;
+    const clinicId = user.clinicId;
 
     if (!clinicId) {
       return NextResponse.json({ error: 'Clinic context required' }, { status: 400 });
     }
 
-    requirePermission(toPermissionContext(user), 'financial:view');
-    if (!verifyClinicAccess(user, clinicId)) {
-      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
-    }
-
-    return withClinicContext(clinicId, async () => {
+    {
       const thirtyDaysAgo = subDays(new Date(), 30);
 
       // Get payments for fee calculations
@@ -126,9 +112,9 @@ export async function GET(request: NextRequest) {
       };
 
       return NextResponse.json(response);
-    });
+    }
   } catch (error) {
     logger.error('Failed to fetch payout data', { error });
     return NextResponse.json({ error: 'Failed to fetch payout data' }, { status: 500 });
   }
-}
+});

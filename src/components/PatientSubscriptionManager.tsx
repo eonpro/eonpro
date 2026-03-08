@@ -139,7 +139,7 @@ export function PatientSubscriptionManager({
         const shipData = await shipRes.json();
         setShipmentSchedules(shipData.shipments || []);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
       setError(errorMessage);
     } finally {
@@ -162,7 +162,7 @@ export function PatientSubscriptionManager({
 
       await fetchSubscriptions();
       alert('Subscription paused successfully');
-    } catch (err: any) {
+    } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
       alert(`Error: ${errorMessage}`);
     } finally {
@@ -181,7 +181,7 @@ export function PatientSubscriptionManager({
 
       await fetchSubscriptions();
       alert('Subscription resumed successfully');
-    } catch (err: any) {
+    } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
       alert(`Error: ${errorMessage}`);
     } finally {
@@ -206,7 +206,7 @@ export function PatientSubscriptionManager({
 
       await fetchSubscriptions();
       alert('Subscription canceled successfully');
-    } catch (err: any) {
+    } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
       alert(`Error: ${errorMessage}`);
     } finally {

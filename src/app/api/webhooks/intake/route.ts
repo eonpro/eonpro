@@ -84,8 +84,8 @@ function authenticate(
   const validSecrets = secretEnvVars.map((envVar) => process.env[envVar]).filter(Boolean);
 
   if (validSecrets.length === 0) {
-    logger.warn(`[INTAKE WEBHOOK] No secret configured for source: ${source}`);
-    return { valid: true, method: 'no-secret-configured' };
+    logger.error(`[INTAKE WEBHOOK] No secret configured for source: ${source} — rejecting request`);
+    return { valid: false, error: 'No webhook secret configured for this source' };
   }
 
   // Check all possible auth headers
@@ -156,7 +156,7 @@ export async function POST(req: NextRequest) {
     try {
       payload = await req.json();
       webhookLogData.payload = payload;
-    } catch (parseError: any) {
+    } catch (parseError: unknown) {
       logger.error(`[INTAKE WEBHOOK ${requestId}] JSON parse error:`, parseError);
       webhookLogData.status = WebhookStatus.INVALID_PAYLOAD;
       webhookLogData.statusCode = 400;
@@ -177,7 +177,7 @@ export async function POST(req: NextRequest) {
     try {
       normalized = normalizeMedLinkPayload(payload);
       logger.debug(`[INTAKE WEBHOOK ${requestId}] Payload normalized successfully`);
-    } catch (normalizeError: any) {
+    } catch (normalizeError: unknown) {
       logger.error(`[INTAKE WEBHOOK ${requestId}] Normalization error:`, normalizeError);
       webhookLogData.status = WebhookStatus.PROCESSING_ERROR;
       webhookLogData.statusCode = 422;
@@ -207,10 +207,17 @@ export async function POST(req: NextRequest) {
     );
 
     // Step 6: Process intake
+    // Resolve clinicId from trusted source mapping — never trust payload.clinicId
+    const trustedClinicId = SOURCE_CLINICS[source]
+      ? undefined // Will be resolved from clinicSubdomain inside processor
+      : (process.env[`INTAKE_CLINIC_ID_${source.toUpperCase()}`]
+          ? parseInt(process.env[`INTAKE_CLINIC_ID_${source.toUpperCase()}`]!, 10)
+          : undefined);
+
     const processor = new IntakeProcessor({ source, requestId });
     const result = await processor.process(normalized, {
       clinicSubdomain: SOURCE_CLINICS[source] || undefined,
-      clinicId: payload.clinicId as number | undefined,
+      clinicId: trustedClinicId,
       isPartialSubmission: isPartial,
       generateSoapNote: !isPartial,
       tags: source === 'weightlossintake' ? ['glp1', 'eonmeds'] : [],
@@ -237,7 +244,7 @@ export async function POST(req: NextRequest) {
       },
       { status: 200 }
     );
-  } catch (error: any) {
+  } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error(`[INTAKE WEBHOOK ${requestId}] Unexpected error:`, error);
 

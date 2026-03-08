@@ -48,10 +48,8 @@ export const GET = withProviderAuth(async (req, user) => {
         role: user.role,
       },
     });
-  } catch (error: any) {
-    // @ts-ignore
-
-    logger.error('Error fetching protected patients:', error);
+  } catch (error: unknown) {
+    logger.error('Error fetching protected patients:', error instanceof Error ? error : undefined);
     return Response.json({ error: 'Failed to fetch patients' }, { status: 500 });
   }
 });
@@ -121,13 +119,10 @@ export const POST = withProviderAuth(async (req, user) => {
       patient,
       message: 'Patient created successfully',
     });
-  } catch (error: any) {
-    // @ts-ignore
+  } catch (error: unknown) {
+    logger.error('Error creating patient:', error instanceof Error ? error : undefined);
 
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    logger.error('Error creating patient:', error);
-
-    if (error.code === 'P2002') {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
       return Response.json({ error: 'Patient with this email already exists' }, { status: 400 });
     }
 

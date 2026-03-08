@@ -110,9 +110,10 @@ export function extractVitalsFromIntake(
               response.question?.questionText ||
               ''
             ).toLowerCase();
+            const val = response.value || (response as any).answer;
             for (const label of labels) {
-              if (questionText.includes(label.toLowerCase()) && response.value && response.value !== '') {
-                return String(response.value);
+              if (questionText.includes(label.toLowerCase()) && val && val !== '') {
+                return String(val);
               }
             }
           }

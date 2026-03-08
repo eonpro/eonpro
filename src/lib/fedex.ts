@@ -3,6 +3,7 @@ import { createCircuitBreaker, circuitBreakerRegistry } from '@/lib/resilience/c
 import { decryptPHI, isEncrypted } from '@/lib/security/phi-encryption';
 import type { ShippingAdapter, IntegrationHealthResult } from '@/lib/integrations/adapter';
 import { registerAdapter } from '@/lib/integrations/adapter';
+import crypto from 'crypto';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -12,6 +13,18 @@ export type FedExCredentials = {
   clientId: string;
   clientSecret: string;
   accountNumber: string;
+};
+
+export type FedExCredentialSource = 'clinic' | 'env';
+export type FedExEnvironment = 'sandbox' | 'production';
+
+export type FedExCredentialResolution = {
+  credentials: FedExCredentials;
+  source: FedExCredentialSource;
+  environment: FedExEnvironment;
+  accountFingerprint: string;
+  usedEnvFallback: boolean;
+  clinicConfigComplete: boolean;
 };
 
 export type FedExAddress = {
@@ -72,6 +85,16 @@ const FEDEX_API_BASE =
     : 'https://apis.fedex.com';
 const TOKEN_REFRESH_BUFFER_MS = 5 * 60 * 1000; // Refresh 5 min before expiry
 
+function getFedExEnvironment(): FedExEnvironment {
+  return process.env.FEDEX_SANDBOX === 'true' ? 'sandbox' : 'production';
+}
+
+function toAccountFingerprint(accountNumber: string): string {
+  const last4 = accountNumber.slice(-4).padStart(4, '*');
+  const hash8 = crypto.createHash('sha256').update(accountNumber).digest('hex').slice(0, 8);
+  return `${last4}-${hash8}`;
+}
+
 async function getAccessToken(credentials: FedExCredentials): Promise<string> {
   const cacheKey = credentials.clientId;
   const cached = tokenCache.get(cacheKey);
@@ -88,6 +111,7 @@ async function getAccessToken(credentials: FedExCredentials): Promise<string> {
       client_id: credentials.clientId,
       client_secret: credentials.clientSecret,
     }),
+    signal: AbortSignal.timeout(30000),
   });
 
   if (!response.ok) {
@@ -147,6 +171,7 @@ async function fedexRequest<T>(
         Authorization: `Bearer ${token}`,
       },
       body: body ? JSON.stringify(body) : undefined,
+      signal: AbortSignal.timeout(30000),
     });
 
     if (!response.ok) {
@@ -201,6 +226,85 @@ export function resolveCredentials(clinic?: {
   if (envCreds) return envCreds;
 
   throw new Error('FedEx credentials not configured. Set them in clinic settings or environment variables.');
+}
+
+export function resolveCredentialsWithAttribution(
+  clinic?: {
+    id?: number;
+    fedexClientId?: string | null;
+    fedexClientSecret?: string | null;
+    fedexAccountNumber?: string | null;
+    fedexEnabled?: boolean;
+  },
+  options?: {
+    allowEnvFallback?: boolean;
+  }
+): FedExCredentialResolution {
+  const allowEnvFallback = options?.allowEnvFallback === true;
+  const environment = getFedExEnvironment();
+
+  const clinicHasAnyConfig = Boolean(
+    clinic?.fedexClientId || clinic?.fedexClientSecret || clinic?.fedexAccountNumber
+  );
+  const clinicConfigComplete = Boolean(
+    clinic?.fedexEnabled &&
+      clinic?.fedexClientId &&
+      clinic?.fedexClientSecret &&
+      clinic?.fedexAccountNumber
+  );
+
+  if (clinicConfigComplete) {
+    const credentials: FedExCredentials = {
+      clientId: maybeDecrypt(clinic!.fedexClientId!),
+      clientSecret: maybeDecrypt(clinic!.fedexClientSecret!),
+      accountNumber: maybeDecrypt(clinic!.fedexAccountNumber!),
+    };
+    return {
+      credentials,
+      source: 'clinic',
+      environment,
+      accountFingerprint: toAccountFingerprint(credentials.accountNumber),
+      usedEnvFallback: false,
+      clinicConfigComplete: true,
+    };
+  }
+
+  // Guardrail: if clinic has any FedEx config (or is enabled) but is incomplete,
+  // fail closed unless explicit env fallback is allowed.
+  if (clinic?.fedexEnabled || clinicHasAnyConfig) {
+    if (!allowEnvFallback) {
+      throw new Error(
+        'Clinic FedEx configuration is incomplete. Provide client ID, client secret, and account number, or disable clinic FedEx.'
+      );
+    }
+  }
+
+  const envCreds = getEnvCredentials();
+  if (!envCreds) {
+    throw new Error('FedEx credentials not configured. Set them in clinic settings or environment variables.');
+  }
+
+  if (clinic?.id && (clinic?.fedexEnabled || clinicHasAnyConfig)) {
+    logger.warn('[FedEx] Using environment fallback credentials for clinic shipping', {
+      clinicId: clinic.id,
+      environment,
+      accountFingerprint: toAccountFingerprint(envCreds.accountNumber),
+      reason: clinic.fedexEnabled ? 'clinic_enabled_but_incomplete' : 'clinic_partial_configuration',
+    });
+  }
+
+  return {
+    credentials: envCreds,
+    source: 'env',
+    environment,
+    accountFingerprint: toAccountFingerprint(envCreds.accountNumber),
+    usedEnvFallback: true,
+    clinicConfigComplete: false,
+  };
+}
+
+export function fedexEnvironment(): FedExEnvironment {
+  return getFedExEnvironment();
 }
 
 // ---------------------------------------------------------------------------

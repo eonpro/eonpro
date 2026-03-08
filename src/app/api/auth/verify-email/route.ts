@@ -54,7 +54,7 @@ export async function GET(req: NextRequest): Promise<Response> {
 
     // Redirect to success page
     return NextResponse.redirect(new URL('/email-verified?status=success', req.url));
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('Error verifying email via link:', error);
     return NextResponse.redirect(
       new URL('/email-verified?status=error&message=An+error+occurred', req.url)
@@ -108,7 +108,7 @@ export const POST = standardRateLimit(async (req: NextRequest) => {
       return NextResponse.json({ error: 'Failed to send verification email' }, { status: 500 });
     }
 
-    logger.info(`Verification email sent to ${email}`);
+    logger.info('Verification email sent');
 
     return NextResponse.json({
       success: true,
@@ -142,7 +142,7 @@ export const PUT = standardRateLimit(async (req: NextRequest) => {
       return NextResponse.json({ error: result.message }, { status: 400 });
     }
 
-    logger.info(`Email verified for ${email}`);
+    logger.info('Email verified successfully');
 
     return NextResponse.json({
       success: true,

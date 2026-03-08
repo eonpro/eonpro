@@ -116,7 +116,7 @@ export default function OrderManagementModal({
         onSuccess();
         onClose();
       }, 2000);
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(err.message || 'Failed to cancel order');
     } finally {
       setLoading(false);
@@ -166,7 +166,7 @@ export default function OrderManagementModal({
         onSuccess();
         onClose();
       }, 2000);
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(err.message || 'Failed to modify order');
     } finally {
       setLoading(false);

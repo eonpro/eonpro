@@ -801,6 +801,14 @@ export default function AppointmentModal({
                               readOnly
                               className="flex-1 rounded border border-green-300 bg-white px-2 py-1 font-mono text-xs"
                             />
+                            <a
+                              href={formData.zoomLink}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="rounded bg-blue-600 px-2 py-1 text-xs text-white hover:bg-blue-700"
+                            >
+                              Join
+                            </a>
                             <button
                               type="button"
                               onClick={() => {

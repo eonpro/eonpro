@@ -15,6 +15,7 @@ import { JWT_SECRET } from '@/lib/auth/config';
 import cache from '@/lib/cache/redis';
 import { logger } from '@/lib/logger';
 import { emitCriticalAlert, trackAlertMetric } from '@/lib/observability/sentry-alerts';
+import { verifyCronAuth } from '@/lib/cron/tenant-isolation';
 import {
   type ProbeResult,
   type ProbeStatus,
@@ -113,6 +114,10 @@ function overallStatus(probes: ProbeResult[]): ProbeStatus {
 }
 
 export async function GET(_request: NextRequest) {
+  if (!verifyCronAuth(_request)) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   const start = Date.now();
 
   try {

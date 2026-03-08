@@ -297,7 +297,7 @@ export default function AffiliateAnalyticsPage() {
           setTrafficSources(data.sources || []);
         }
       } catch (err) {
-        console.error('Failed to fetch analytics:', err);
+        process.env.NODE_ENV === 'development' && console.error('Failed to fetch analytics:', err);
         setError('Failed to load analytics data');
       } finally {
         setIsLoading(false);

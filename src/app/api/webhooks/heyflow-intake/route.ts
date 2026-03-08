@@ -135,8 +135,12 @@ export async function POST(req: NextRequest) {
       receivedAt: new Date().toISOString(),
     };
 
-    // Upsert patient
-    const patient = await upsertPatientFromIntake(normalized);
+    // Resolve clinic from configured mapping or environment
+    const heyflowClinicId = process.env.HEYFLOW_DEFAULT_CLINIC_ID
+      ? parseInt(process.env.HEYFLOW_DEFAULT_CLINIC_ID, 10)
+      : 1;
+
+    const patient = await upsertPatientFromIntake(normalized, { clinicId: heyflowClinicId });
 
     // Extract and track promo/affiliate code
     const promoCode = extractPromoCode(payload);
@@ -163,7 +167,7 @@ export async function POST(req: NextRequest) {
             }
           }
         }
-      } catch (trackError: any) {
+      } catch (trackError: unknown) {
         logger.warn(`[HEYFLOW WEBHOOK] Affiliate tracking failed: ${trackError.message}`);
       }
     } else {
@@ -180,7 +184,7 @@ export async function POST(req: NextRequest) {
             logger.info(`[HEYFLOW WEBHOOK] Fallback affiliate attribution: ${fallback.refCode}`);
           }
         }
-      } catch (fallbackErr: any) {
+      } catch (fallbackErr: unknown) {
         logger.warn(`[HEYFLOW WEBHOOK] Fallback attribution failed: ${fallbackErr.message}`);
       }
     }
@@ -242,7 +246,7 @@ export async function POST(req: NextRequest) {
       const soapNote = await generateSOAPFromIntake(patient.id, patientDocument.id);
       soapNoteId = soapNote.id;
       logger.debug('[HEYFLOW WEBHOOK] SOAP note generated successfully:', { value: soapNoteId });
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error('[HEYFLOW WEBHOOK] Failed to generate SOAP note:', { error });
       // Don't fail the webhook if SOAP generation fails
     }
@@ -257,8 +261,7 @@ export async function POST(req: NextRequest) {
       },
       { status: 200 }
     );
-  } catch (err: any) {
-    // @ts-ignore
+  } catch (err: unknown) {
 
     logger.error('Failed to process MedLink webhook', { error: err });
     return Response.json({ error: 'Failed to process intake' }, { status: 500 });

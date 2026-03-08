@@ -185,7 +185,7 @@ export default function ClinicBillingReportsPage() {
         alert(err.error || 'Failed to load report');
       }
     } catch (e) {
-      console.error(e);
+      process.env.NODE_ENV === 'development' && console.error(e);
       alert('Failed to load report');
     } finally {
       setLoading(false);
@@ -221,7 +221,7 @@ export default function ClinicBillingReportsPage() {
       a.click();
       URL.revokeObjectURL(url);
     } catch (e) {
-      console.error(e);
+      process.env.NODE_ENV === 'development' && console.error(e);
       alert('Export failed');
     } finally {
       setExporting(false);

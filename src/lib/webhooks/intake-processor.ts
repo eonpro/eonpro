@@ -97,7 +97,7 @@ export class IntakeProcessor {
     let document = null;
     try {
       document = await this.generateAndStoreDocument(normalized, patient, clinicId);
-    } catch (error: any) {
+    } catch (error: unknown) {
       this.errors.push(`PDF generation failed: ${error.message}`);
       logger.error(`[INTAKE ${this.requestId}] PDF generation failed:`, error);
     }
@@ -107,7 +107,7 @@ export class IntakeProcessor {
     if (!options.isPartialSubmission) {
       try {
         weightLog = await this.createInitialWeightLog(normalized, patient);
-      } catch (error: any) {
+      } catch (error: unknown) {
         this.errors.push(`Weight log creation failed: ${error.message}`);
         logger.error(`[INTAKE ${this.requestId}] Weight log creation failed:`, error);
       }
@@ -118,7 +118,7 @@ export class IntakeProcessor {
     if (options.generateSoapNote !== false && document && !options.isPartialSubmission) {
       try {
         soapNote = await this.generateSoapNote(patient.id, document.id);
-      } catch (error: any) {
+      } catch (error: unknown) {
         this.errors.push(`SOAP generation failed: ${error.message}`);
         logger.error(`[INTAKE ${this.requestId}] SOAP generation failed:`, error);
       }
@@ -128,7 +128,7 @@ export class IntakeProcessor {
     if (options.promoCode) {
       try {
         await this.trackReferralAttribution(patient.id, options.promoCode, clinicId, options.referralSource);
-      } catch (error: any) {
+      } catch (error: unknown) {
         this.errors.push(`Referral tracking failed: ${error.message}`);
       }
     }

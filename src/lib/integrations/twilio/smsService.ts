@@ -656,7 +656,7 @@ export async function sendSMS(message: SMSMessage): Promise<SMSResponse> {
         priceUnit: result.priceUnit,
       },
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     const errorCode = error.code || error.errorCode;
 
@@ -744,7 +744,7 @@ export async function sendAppointmentReminder(
       clinicId: patient.clinicId,
       templateType: 'APPOINTMENT_REMINDER',
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('[APPOINTMENT_REMINDER_ERROR]', { error, patientId });
     return {
@@ -798,7 +798,7 @@ export async function sendPrescriptionReady(
       clinicId: patient.clinicId,
       templateType: 'PRESCRIPTION_READY',
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('[PRESCRIPTION_READY_ERROR]', { error, patientId });
     return {
@@ -846,7 +846,7 @@ export async function sendLabResultsReady(patientId: number): Promise<SMSRespons
       clinicId: patient.clinicId,
       templateType: 'LAB_RESULTS_READY',
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('[LAB_RESULTS_ERROR]', { error, patientId });
     return {
@@ -944,7 +944,7 @@ export async function processIncomingSMS(
 
     // Default response
     return 'Thank you for your message. Your healthcare team has been notified and will respond soon.';
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('[PROCESS_INCOMING_SMS_ERROR]', { error });
     return 'We received your message. Please contact your clinic directly for immediate assistance.';
   }
@@ -1073,7 +1073,7 @@ export async function getSMSStatus(messageId: string): Promise<any> {
       dateSent: message.dateSent,
       dateUpdated: message.dateUpdated,
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('[SMS_STATUS_ERROR]', { error });
     throw error;
   }

@@ -42,8 +42,7 @@ export async function POST(request: NextRequest) {
       expiresIn,
       operation,
     });
-  } catch (error: any) {
-    // @ts-ignore
+  } catch (error: unknown) {
 
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('[S3 Signed URL] Error:', error);

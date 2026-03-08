@@ -82,7 +82,7 @@ export async function GET(
         clinic: invoice.clinic,
       },
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('Failed to fetch invoice for payment', error);
     return NextResponse.json({ error: 'Failed to load invoice' }, { status: 500 });
   }

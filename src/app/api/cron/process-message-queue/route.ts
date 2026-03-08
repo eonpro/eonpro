@@ -14,12 +14,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { processFailedMessages, getQueueStats } from '@/lib/resilience/message-queue';
 import { circuitBreakers, CircuitState } from '@/lib/resilience/circuitBreaker';
+import { verifyCronAuth } from '@/lib/cron/tenant-isolation';
 import { logger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 30;
 
 export async function GET(request: NextRequest) {
+  if (!verifyCronAuth(request)) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
   const startTime = Date.now();
   const results: Record<string, { processed: number; failed: number; remaining: number; skipped?: boolean }> = {};
 

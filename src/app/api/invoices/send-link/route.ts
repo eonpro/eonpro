@@ -192,7 +192,7 @@ async function sendInvoiceLinkHandler(req: NextRequest, user: AuthUser): Promise
           patientId: patient.id,
           phone: patient.phone.slice(-4),
         });
-      } catch (smsError: any) {
+      } catch (smsError: unknown) {
         logger.error('Failed to send invoice SMS', smsError);
         deliveryResults.push({ method: 'sms', success: false, error: smsError.message });
       }
@@ -236,7 +236,7 @@ async function sendInvoiceLinkHandler(req: NextRequest, user: AuthUser): Promise
           patientId: patient.id,
           email: patient.email,
         });
-      } catch (emailError: any) {
+      } catch (emailError: unknown) {
         logger.error('Failed to send invoice email', emailError);
         deliveryResults.push({ method: 'email', success: false, error: emailError.message });
       }
@@ -282,7 +282,7 @@ async function sendInvoiceLinkHandler(req: NextRequest, user: AuthUser): Promise
       },
       { status: anySuccess ? 200 : 500 }
     );
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
         { error: 'Invalid request', details: error.errors },
@@ -346,7 +346,7 @@ async function getInvoiceLinkHandler(req: NextRequest, user: AuthUser): Promise<
       paymentUrl,
       linkMetadata: invoice.metadata,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('Failed to get invoice link info', { error: errorMessage });
     return NextResponse.json({ error: 'Failed to get invoice info' }, { status: 500 });

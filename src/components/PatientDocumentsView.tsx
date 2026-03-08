@@ -146,7 +146,7 @@ export default function PatientDocumentsView({
             : `Upload failed (${response.status})`);
         throw new Error(msg);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (progressInterval) clearInterval(progressInterval);
       logger.error('Upload error:', error);
       setIsUploading(false);
@@ -176,9 +176,8 @@ export default function PatientDocumentsView({
       } else {
         throw new Error('Delete failed');
       }
-    } catch (error: any) {
-      // @ts-ignore
-
+    } catch (error: unknown) {
+      
       logger.error('Delete error:', error);
       alert('Failed to delete document. Please try again.');
     }
@@ -244,9 +243,8 @@ export default function PatientDocumentsView({
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
       }
-    } catch (error: any) {
-      // @ts-ignore
-
+    } catch (error: unknown) {
+      
       logger.error('Download error:', error);
       alert('Failed to download document. Please try again.');
     }

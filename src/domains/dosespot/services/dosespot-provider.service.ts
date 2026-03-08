@@ -8,7 +8,7 @@
  * @module domains/dosespot/services
  */
 
-import { prisma } from '@/lib/db';
+import { basePrisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { auditLog, AuditEventType } from '@/lib/audit/hipaa-audit';
 import { getClinicDoseSpotClient } from '@/lib/clinic-dosespot';
@@ -26,10 +26,11 @@ export function createDoseSpotProviderService(): DoseSpotProviderService {
       clinicId: number,
       userId: number
     ): Promise<ProviderSyncResult> {
-      const provider = await prisma.provider.findUnique({
+      const provider = await basePrisma.provider.findUnique({
         where: { id: providerId },
         select: {
           id: true,
+          clinicId: true,
           firstName: true,
           lastName: true,
           email: true,
@@ -38,11 +39,33 @@ export function createDoseSpotProviderService(): DoseSpotProviderService {
           dea: true,
           licenseState: true,
           doseSpotClinicianId: true,
+          providerClinics: {
+            where: { clinicId, isActive: true },
+            select: { id: true },
+          },
+          user: {
+            select: {
+              clinicId: true,
+              userClinics: {
+                where: { clinicId, isActive: true },
+                select: { id: true },
+              },
+            },
+          },
         },
       });
 
       if (!provider) {
         throw new Error(`Provider ${providerId} not found`);
+      }
+
+      const hasClinicAccess =
+        provider.clinicId === clinicId ||
+        provider.providerClinics.length > 0 ||
+        provider.user?.clinicId === clinicId ||
+        (provider.user?.userClinics?.length ?? 0) > 0;
+      if (!hasClinicAccess) {
+        throw new Error(`Provider ${providerId} not assigned to clinic ${clinicId}`);
       }
 
       const client = await getClinicDoseSpotClient(clinicId);
@@ -87,7 +110,7 @@ export function createDoseSpotProviderService(): DoseSpotProviderService {
       const newId = await client.addProvider(payload);
       const doseSpotClinicianId = parseInt(newId, 10);
 
-      await prisma.provider.update({
+      await basePrisma.provider.update({
         where: { id: providerId },
         data: { doseSpotClinicianId },
       });

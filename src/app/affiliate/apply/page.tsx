@@ -166,7 +166,7 @@ export default function AffiliateApplyPage() {
           document.title = `Become a Partner | ${data.name}`;
         }
       } catch (err) {
-        console.log('Using default branding');
+        process.env.NODE_ENV === 'development' && console.log('Using default branding');
       } finally {
         setBrandingLoaded(true);
       }

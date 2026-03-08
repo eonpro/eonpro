@@ -58,7 +58,7 @@ export default function WithdrawPage() {
           setData(withdrawData);
         }
       } catch (error) {
-        console.error('Failed to fetch withdraw data:', error);
+        process.env.NODE_ENV === 'development' && console.error('Failed to fetch withdraw data:', error);
       } finally {
         setIsLoading(false);
       }

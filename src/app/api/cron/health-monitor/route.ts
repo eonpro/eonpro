@@ -16,6 +16,7 @@ import { prisma, checkDatabaseHealth, getServerlessConfig } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { alertHealthDegraded, alertCritical } from '@/lib/observability/slack-alerts';
 import { emitCriticalAlert, trackAlertMetric } from '@/lib/observability/sentry-alerts';
+import { verifyCronAuth } from '@/lib/cron/tenant-isolation';
 import cache from '@/lib/cache/redis';
 
 export const dynamic = 'force-dynamic';
@@ -98,6 +99,10 @@ async function checkRedis(): Promise<ServiceCheck> {
 }
 
 export async function GET(request: NextRequest) {
+  if (!verifyCronAuth(request)) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   const startTime = Date.now();
 
   try {

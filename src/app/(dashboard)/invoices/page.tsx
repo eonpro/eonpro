@@ -163,7 +163,7 @@ export default function InvoicesPage() {
       const data = await response.json();
       setInvoices(data.invoices || []);
       setTotalPages(data.totalPages || 1);
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(err.message);
     } finally {
       setLoading(false);
@@ -181,7 +181,7 @@ export default function InvoicesPage() {
 
       const data = await response.json();
       setSummary(data);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Failed to fetch summary:', err);
     }
   }, [dateRange]);
@@ -206,7 +206,7 @@ export default function InvoicesPage() {
       alert(result.success ? 'Invoice sent successfully!' : 'Failed to send invoice');
       setShowSendModal(false);
       setSelectedInvoice(null);
-    } catch (err: any) {
+    } catch (err: unknown) {
       alert(err.message);
     }
   };
@@ -224,7 +224,7 @@ export default function InvoicesPage() {
 
       fetchInvoices();
       alert('Invoice voided successfully');
-    } catch (err: any) {
+    } catch (err: unknown) {
       alert(err.message);
     }
   };
@@ -249,7 +249,7 @@ export default function InvoicesPage() {
       setSelectedInvoice(null);
       fetchInvoices();
       fetchSummary();
-    } catch (err: any) {
+    } catch (err: unknown) {
       alert(err.message);
     }
   };
@@ -823,7 +823,7 @@ function CreateInvoiceModal({
       if (!response.ok) throw new Error('Failed to create invoice');
 
       onSuccess();
-    } catch (err: any) {
+    } catch (err: unknown) {
       alert(err.message);
     } finally {
       setSubmitting(false);

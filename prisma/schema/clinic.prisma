@@ -20,7 +20,7 @@ model SystemSettings {
   updatedById Int?
   updatedBy   User?    @relation(fields: [updatedById], references: [id])
 
-  @@unique([category, key])
+  @@unique([clinicId, category, key])
   @@index([category])
 }
 

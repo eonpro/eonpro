@@ -48,11 +48,15 @@ export const GET = withAuth(async (req: NextRequest, user) => {
       return NextResponse.json({ error: 'providerId and date are required' }, { status: 400 });
     }
 
+    const resolvedClinicId = (clinicId && user.role === 'super_admin')
+      ? parseInt(clinicId)
+      : (user.clinicId ?? undefined);
+
     const slots = await getAvailableSlots(
       parseInt(providerId),
       new Date(date),
       duration ? parseInt(duration) : 30,
-      clinicId ? parseInt(clinicId) : undefined
+      resolvedClinicId
     );
 
     return NextResponse.json({ slots });
@@ -78,9 +82,13 @@ export const POST = withProviderAuth(async (req: NextRequest, user) => {
       );
     }
 
+    const availClinicId = user.role === 'super_admin'
+      ? parsed.data.clinicId
+      : user.clinicId ?? undefined;
+
     const result = await setProviderAvailability({
       providerId: parsed.data.providerId,
-      clinicId: parsed.data.clinicId,
+      clinicId: availClinicId,
       dayOfWeek: parsed.data.dayOfWeek,
       startTime: parsed.data.startTime,
       endTime: parsed.data.endTime,
@@ -114,12 +122,16 @@ export const PUT = withProviderAuth(async (req: NextRequest, user) => {
       );
     }
 
+    const timeOffClinicId = user.role === 'super_admin'
+      ? parsed.data.clinicId
+      : user.clinicId ?? undefined;
+
     const result = await addProviderTimeOff(
       parsed.data.providerId,
       new Date(parsed.data.startDate),
       new Date(parsed.data.endDate),
       parsed.data.reason,
-      parsed.data.clinicId
+      timeOffClinicId
     );
 
     if (!result.success) {

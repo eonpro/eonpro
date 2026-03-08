@@ -142,7 +142,7 @@ async function callLifefile<T = any>(
     try {
       const res = await fn(client);
       return res.data;
-    } catch (err: any) {
+    } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : String(err);
 
       if (err.response?.status && err.response.status >= 500) {

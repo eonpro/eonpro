@@ -162,9 +162,8 @@ export async function generateIntakeFormPDF(options: PDFGenerationOptions): Prom
     logger.info('Generated PDF for intake form submission', { submissionId });
 
     return pdfBuffer as Buffer;
-  } catch (error: any) {
-    // @ts-ignore
-
+  } catch (error: unknown) {
+    
     logger.error('Failed to generate PDF', { error, submissionId });
     return null;
   }
@@ -398,9 +397,8 @@ export async function generatePDFOnSubmission(submissionId: number): Promise<voi
   try {
     await generateIntakeFormPDF({ submissionId });
     logger.info('PDF generated automatically for submission', { submissionId });
-  } catch (error: any) {
-    // @ts-ignore
-
+  } catch (error: unknown) {
+    
     logger.error('Failed to auto-generate PDF', { error, submissionId });
   }
 }

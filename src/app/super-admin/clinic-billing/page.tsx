@@ -130,10 +130,10 @@ export default function ClinicBillingPage() {
         setSummary(data.summary ?? null);
       } else {
         const err = await response.json().catch(() => ({}));
-        console.error('Clinic fees error', response.status, err);
+        process.env.NODE_ENV === 'development' && console.error('Clinic fees error', response.status, err);
       }
     } catch (error) {
-      console.error('Failed to fetch clinics:', error);
+      process.env.NODE_ENV === 'development' && console.error('Failed to fetch clinics:', error);
     } finally {
       setLoading(false);
     }
@@ -216,7 +216,7 @@ export default function ClinicBillingPage() {
         alert(error.error || 'Failed to save configuration');
       }
     } catch (error) {
-      console.error('Failed to save config:', error);
+      process.env.NODE_ENV === 'development' && console.error('Failed to save config:', error);
       alert('Failed to save configuration');
     } finally {
       setSaving(false);

@@ -155,7 +155,7 @@ export default function RegisterPage() {
 
       setClinic(data.clinic);
       setStep('details');
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(err.message || 'Failed to validate clinic code');
     } finally {
       setLoading(false);
@@ -231,7 +231,7 @@ export default function RegisterPage() {
       }
 
       setStep('success');
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(err.message || 'Registration failed. Please try again.');
     } finally {
       setLoading(false);

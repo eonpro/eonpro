@@ -83,7 +83,7 @@ export const GET = withAuth(
           role: user.role,
         },
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       logger.error('[API] Error fetching SOAP notes:', error);
       return NextResponse.json(
@@ -194,7 +194,7 @@ export const POST = withAuth(
         data: result.soapNote,
         message: 'SOAP note created successfully',
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : String(error);
 
       logger.error('[API] Error creating SOAP note:', {

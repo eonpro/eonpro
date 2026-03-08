@@ -247,6 +247,40 @@ describe('Role-Based Access Control', () => {
       expect(() => requirePermission(ctx, 'financial:view')).toThrow('Forbidden');
     });
 
+    it('pharmacy_rep can view patients/orders but not edit patient data', () => {
+      const ctx: PermissionContext = toPermissionContext({
+        role: 'pharmacy_rep',
+        clinicId: 1,
+      });
+      expect(PERMISSION_MATRIX.pharmacy_rep?.['patient:view']).toBe(true);
+      expect(PERMISSION_MATRIX.pharmacy_rep?.['order:view']).toBe(true);
+      expect(PERMISSION_MATRIX.pharmacy_rep?.['order:create']).toBe(true);
+      expect(PERMISSION_MATRIX.pharmacy_rep?.['patient:edit']).toBe(false);
+      expect(() => requirePermission(ctx, 'patient:view')).not.toThrow();
+      expect(() => requirePermission(ctx, 'order:view')).not.toThrow();
+      expect(() => requirePermission(ctx, 'order:create')).not.toThrow();
+      expect(() => requirePermission(ctx, 'patient:edit')).toThrow('Forbidden');
+    });
+
+    it('pharmacy_rep is blocked from cross-clinic resources', () => {
+      const ctx: PermissionContext = toPermissionContext({
+        role: 'pharmacy_rep',
+        clinicId: 1,
+      });
+      expect(
+        rbacHasPermission(ctx, 'patient:view', {
+          clinicId: 2,
+          patientId: 10,
+        })
+      ).toBe(false);
+      expect(() =>
+        requirePermission(ctx, 'patient:view', {
+          clinicId: 2,
+          patientId: 10,
+        })
+      ).toThrow('Forbidden');
+    });
+
     it('admin can perform admin-level actions', () => {
       const ctx: PermissionContext = toPermissionContext({
         role: 'admin',

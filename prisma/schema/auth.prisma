@@ -334,6 +334,7 @@ enum UserRole {
   STAFF
   SUPPORT
   SALES_REP
+  PHARMACY_REP
 }
 
 enum UserStatus {

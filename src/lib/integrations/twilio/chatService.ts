@@ -74,9 +74,8 @@ export class ChatClientManager {
           });
         }
       });
-    } catch (error: any) {
-      // @ts-ignore
-
+    } catch (error: unknown) {
+      
       logger.error('[CHAT] Initialization error:', error);
       throw error;
     }
@@ -128,9 +127,8 @@ export class ChatClientManager {
         const data = await response.json();
         return data.token;
       }
-    } catch (error: any) {
-      // @ts-ignore
-
+    } catch (error: unknown) {
+      
       logger.error('[CHAT] Failed to fetch new token:', error);
     }
     return null;
@@ -148,9 +146,8 @@ export class ChatClientManager {
       // Try to get existing conversation
       let conversation = await this.client.getConversationByUniqueName(uniqueName);
       return conversation;
-    } catch (error: any) {
-      // @ts-ignore
-
+    } catch (error: unknown) {
+      
       // Create new conversation if doesn't exist
       try {
         const conversation = await this.client.createConversation({
@@ -167,7 +164,7 @@ export class ChatClientManager {
         await conversation.join();
 
         return conversation;
-      } catch (createError: any) {
+      } catch (createError: unknown) {
         logger.error('[CHAT] Failed to create conversation:', { value: createError });
         throw createError;
       }
@@ -180,9 +177,8 @@ export class ChatClientManager {
 
     try {
       await conversation.sendMessage(text, attributes);
-    } catch (error: any) {
-      // @ts-ignore
-
+    } catch (error: unknown) {
+      
       logger.error('[CHAT] Failed to send message:', error);
       throw error;
     }
@@ -206,9 +202,8 @@ export class ChatClientManager {
       formData.append('file', file);
 
       await conversation.sendMessage(formData);
-    } catch (error: any) {
-      // @ts-ignore
-
+    } catch (error: unknown) {
+      
       logger.error('[CHAT] Failed to send file:', error);
       throw error;
     }
@@ -220,9 +215,8 @@ export class ChatClientManager {
 
     try {
       await conversation.updateLastReadMessageIndex(messageIndex);
-    } catch (error: any) {
-      // @ts-ignore
-
+    } catch (error: unknown) {
+      
       logger.error('[CHAT] Failed to mark as read:', error);
     }
   }
@@ -233,9 +227,8 @@ export class ChatClientManager {
 
     try {
       await conversation.typing();
-    } catch (error: any) {
-      // @ts-ignore
-
+    } catch (error: unknown) {
+      
       logger.error('[CHAT] Failed to send typing indicator:', error);
     }
   }
@@ -250,9 +243,8 @@ export class ChatClientManager {
     try {
       const messages = await conversation.getMessages(limit);
       return messages.items;
-    } catch (error: any) {
-      // @ts-ignore
-
+    } catch (error: unknown) {
+      
       logger.error('[CHAT] Failed to get messages:', error);
       return [];
     }
@@ -267,9 +259,8 @@ export class ChatClientManager {
     try {
       const participants = await conversation.getParticipants();
       return participants.filter((p: any) => p.user?.isOnline);
-    } catch (error: any) {
-      // @ts-ignore
-
+    } catch (error: unknown) {
+      
       logger.error('[CHAT] Failed to get participants:', error);
       return [];
     }
@@ -281,9 +272,8 @@ export class ChatClientManager {
 
     try {
       await conversation.leave();
-    } catch (error: any) {
-      // @ts-ignore
-
+    } catch (error: unknown) {
+      
       logger.error('[CHAT] Failed to leave conversation:', error);
     }
   }

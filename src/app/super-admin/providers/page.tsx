@@ -174,7 +174,7 @@ export default function SuperAdminProvidersPage() {
         setClinics(data.clinics || []);
       }
     } catch (error) {
-      console.error('Failed to fetch clinics:', error);
+      process.env.NODE_ENV === 'development' && console.error('Failed to fetch clinics:', error);
     }
   };
 
@@ -202,7 +202,7 @@ export default function SuperAdminProvidersPage() {
         setFetchError(data.error || 'Failed to load providers');
       }
     } catch (error) {
-      console.error('Failed to fetch providers:', error);
+      process.env.NODE_ENV === 'development' && console.error('Failed to fetch providers:', error);
       setFetchError('Failed to connect to server');
     } finally {
       setLoading(false);

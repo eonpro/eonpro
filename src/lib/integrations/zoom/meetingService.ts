@@ -1,21 +1,22 @@
 /**
  * Zoom Meeting Service
  *
- * Handles Zoom meeting creation, management, and participant control
+ * Handles Zoom meeting creation, management, and participant control.
+ * Uses Server-to-Server OAuth (account_credentials grant) for API access.
  */
 
+import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import {
   isZoomEnabled,
   zoomConfig,
   MeetingType,
-  MeetingStatus,
   TELEHEALTH_SETTINGS,
-  CONSULTATION_DURATIONS,
   ZOOM_ERRORS,
 } from './config';
-// import { prisma } from '@/lib/db'; // Uncomment when telehealthSession table is added
 import crypto from 'crypto';
+
+const ZOOM_API_TIMEOUT_MS = 15_000;
 
 // Meeting creation interface
 export interface CreateMeetingParams {
@@ -65,38 +66,24 @@ export interface ZoomParticipant {
   status: 'in_meeting' | 'waiting' | 'left';
 }
 
-// Generate Zoom JWT for API calls (Server-side only)
-export async function generateZoomJWT(): Promise<string> {
-  if (typeof window !== 'undefined') {
-    throw new Error('generateZoomJWT can only be called on the server side');
-  }
+// ============================================================================
+// Token Cache — prevents re-fetching on every API call
+// ============================================================================
 
-  // Only generate real JWT if configured
-  if (!isZoomEnabled()) {
-    return 'mock_jwt_token';
-  }
+let cachedAccessToken: string | null = null;
+let cachedTokenExpiresAt: number = 0;
 
-  try {
-    const { default: jwt } = await import('jsonwebtoken');
-
-    const payload = {
-      iss: zoomConfig.clientId,
-      exp: Math.floor(Date.now() / 1000) + 3600, // 1 hour
-    };
-
-    return jwt.sign(payload, zoomConfig.clientSecret, { algorithm: 'HS256' });
-  } catch (error: any) {
-    // @ts-ignore
-
-    logger.error('[ZOOM] Failed to generate JWT:', error);
-    return '';
-  }
-}
-
-// Get OAuth access token
+/**
+ * Get OAuth access token using Server-to-Server (account_credentials) grant.
+ * Caches the token in memory with a 5-minute safety buffer.
+ */
 export async function getZoomAccessToken(): Promise<string> {
   if (!isZoomEnabled()) {
     return 'mock_access_token';
+  }
+
+  if (cachedAccessToken && Date.now() < cachedTokenExpiresAt) {
+    return cachedAccessToken;
   }
 
   try {
@@ -111,26 +98,33 @@ export async function getZoomAccessToken(): Promise<string> {
         'Content-Type': 'application/x-www-form-urlencoded',
       },
       body: `grant_type=account_credentials&account_id=${zoomConfig.accountId}`,
+      signal: AbortSignal.timeout(ZOOM_API_TIMEOUT_MS),
     });
 
     if (!response.ok) {
-      throw new Error('Failed to get access token');
+      const errorBody = await response.text();
+      throw new Error(`OAuth token request failed (${response.status}): ${errorBody}`);
     }
 
     const data = await response.json();
-    return data.access_token;
-  } catch (error: any) {
-    // @ts-ignore
+    cachedAccessToken = data.access_token;
+    cachedTokenExpiresAt = Date.now() + (data.expires_in - 300) * 1000;
 
-    logger.error('[ZOOM] Failed to get access token:', error);
+    return data.access_token;
+  } catch (error) {
+    logger.error('[ZOOM] Failed to get access token', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
     throw error;
   }
 }
 
-// Create a Zoom meeting
+// ============================================================================
+// Meeting CRUD
+// ============================================================================
+
 export async function createZoomMeeting(params: CreateMeetingParams): Promise<ZoomMeetingResponse> {
   if (!isZoomEnabled()) {
-    // Return mock meeting for development
     return createMockMeeting(params);
   }
 
@@ -144,7 +138,7 @@ export async function createZoomMeeting(params: CreateMeetingParams): Promise<Zo
       duration: params.duration,
       timezone: 'America/New_York',
       password: params.password || generateMeetingPassword(),
-      agenda: params.agenda || `Telehealth consultation`,
+      agenda: params.agenda || 'Telehealth consultation',
       settings: {
         ...TELEHEALTH_SETTINGS,
         ...params.settings,
@@ -158,49 +152,73 @@ export async function createZoomMeeting(params: CreateMeetingParams): Promise<Zo
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(meetingData),
+      signal: AbortSignal.timeout(ZOOM_API_TIMEOUT_MS),
     });
 
     if (!response.ok) {
       const error = await response.json();
-      logger.error('[ZOOM] Meeting creation failed:', error);
+      logger.error('[ZOOM] Meeting creation failed', { status: response.status, error });
       throw new Error(ZOOM_ERRORS.MEETING_CREATE_FAILED);
     }
 
-    const meeting = await response.json();
+    const raw = await response.json();
 
-    // Store meeting in database (would create telehealthSession in production)
-    // Commented out as table doesn't exist yet
-    /*
+    // Normalize Zoom snake_case response to our camelCase interface
+    const meeting: ZoomMeetingResponse = {
+      id: raw.id,
+      uuid: raw.uuid,
+      hostId: raw.host_id,
+      topic: raw.topic,
+      type: raw.type,
+      status: raw.status || 'waiting',
+      startTime: raw.start_time,
+      duration: raw.duration,
+      timezone: raw.timezone,
+      agenda: raw.agenda,
+      createdAt: raw.created_at || new Date().toISOString(),
+      startUrl: raw.start_url,
+      joinUrl: raw.join_url,
+      password: raw.password,
+      h323Password: raw.h323_password,
+      pstnPassword: raw.pstn_password,
+      encryptedPassword: raw.encrypted_password,
+      settings: raw.settings,
+    };
+
     try {
       await prisma.telehealthSession.create({
         data: {
           meetingId: meeting.id.toString(),
-          meetingUrl: meeting.join_url,
-          providerUrl: meeting.start_url,
+          meetingUuid: meeting.uuid,
+          joinUrl: meeting.joinUrl,
+          hostUrl: meeting.startUrl,
+          password: meeting.password,
+          topic: meeting.topic,
           patientId: params.patientId,
           providerId: params.providerId,
           scheduledAt: params.scheduledAt || new Date(),
           duration: params.duration,
-          status: 'scheduled',
-          metadata: meeting,
+          status: 'SCHEDULED',
+          platform: 'zoom',
+          metadata: { zoomResponse: raw, createdAt: new Date().toISOString() } as any,
         },
       });
-    } catch (dbError: any) {
-      logger.debug('[ZOOM] Database save skipped:', { value: dbError });
+    } catch (dbError) {
+      logger.error('[ZOOM] Failed to persist meeting to database', {
+        meetingId: meeting.id,
+        error: dbError instanceof Error ? dbError.message : 'Unknown error',
+      });
     }
-    */
-    logger.debug('[ZOOM] Meeting created (database save skipped - table not configured)');
 
     return meeting;
-  } catch (error: any) {
-    // @ts-ignore
-
-    logger.error('[ZOOM] Meeting creation error:', error);
+  } catch (error) {
+    logger.error('[ZOOM] Meeting creation error', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
     throw error;
   }
 }
 
-// Get meeting details
 export async function getZoomMeeting(meetingId: string): Promise<ZoomMeetingResponse | null> {
   if (!isZoomEnabled()) {
     return createMockMeeting({
@@ -218,6 +236,7 @@ export async function getZoomMeeting(meetingId: string): Promise<ZoomMeetingResp
       headers: {
         Authorization: `Bearer ${accessToken}`,
       },
+      signal: AbortSignal.timeout(ZOOM_API_TIMEOUT_MS),
     });
 
     if (!response.ok) {
@@ -227,22 +246,39 @@ export async function getZoomMeeting(meetingId: string): Promise<ZoomMeetingResp
       throw new Error('Failed to get meeting details');
     }
 
-    return await response.json();
-  } catch (error: any) {
-    // @ts-ignore
-
-    logger.error('[ZOOM] Failed to get meeting:', error);
+    const raw = await response.json();
+    return {
+      id: raw.id,
+      uuid: raw.uuid,
+      hostId: raw.host_id,
+      topic: raw.topic,
+      type: raw.type,
+      status: raw.status,
+      startTime: raw.start_time,
+      duration: raw.duration,
+      timezone: raw.timezone,
+      agenda: raw.agenda,
+      createdAt: raw.created_at || '',
+      startUrl: raw.start_url,
+      joinUrl: raw.join_url,
+      password: raw.password,
+      settings: raw.settings,
+    };
+  } catch (error) {
+    logger.error('[ZOOM] Failed to get meeting', {
+      meetingId,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
     return null;
   }
 }
 
-// Update meeting
 export async function updateZoomMeeting(
   meetingId: string,
   updates: Partial<CreateMeetingParams>
 ): Promise<boolean> {
   if (!isZoomEnabled()) {
-    return true; // Mock success
+    return true;
   }
 
   try {
@@ -261,21 +297,22 @@ export async function updateZoomMeeting(
         agenda: updates.agenda,
         settings: updates.settings,
       }),
+      signal: AbortSignal.timeout(ZOOM_API_TIMEOUT_MS),
     });
 
     return response.ok;
-  } catch (error: any) {
-    // @ts-ignore
-
-    logger.error('[ZOOM] Failed to update meeting:', error);
+  } catch (error) {
+    logger.error('[ZOOM] Failed to update meeting', {
+      meetingId,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
     return false;
   }
 }
 
-// Delete/Cancel meeting
 export async function cancelZoomMeeting(meetingId: string): Promise<boolean> {
   if (!isZoomEnabled()) {
-    return true; // Mock success
+    return true;
   }
 
   try {
@@ -286,36 +323,35 @@ export async function cancelZoomMeeting(meetingId: string): Promise<boolean> {
       headers: {
         Authorization: `Bearer ${accessToken}`,
       },
+      signal: AbortSignal.timeout(ZOOM_API_TIMEOUT_MS),
     });
 
-    if (response.ok) {
-      // Update database status (would update telehealthSession in production)
-      /*
+    if (response.ok || response.status === 204) {
       try {
         await prisma.telehealthSession.updateMany({
           where: { meetingId },
-          data: { status: 'cancelled' },
+          data: { status: 'CANCELLED' },
         });
-      } catch (dbError: any) {
-        logger.debug('[ZOOM] Database update skipped:', { value: dbError });
+      } catch (dbError) {
+        logger.error('[ZOOM] Failed to update meeting status in database', {
+          meetingId,
+          error: dbError instanceof Error ? dbError.message : 'Unknown error',
+        });
       }
-      */
-      logger.debug('[ZOOM] Meeting cancelled (database update skipped - table not configured)');
     }
 
-    return response.ok;
-  } catch (error: any) {
-    // @ts-ignore
-
-    logger.error('[ZOOM] Failed to cancel meeting:', error);
+    return response.ok || response.status === 204;
+  } catch (error) {
+    logger.error('[ZOOM] Failed to cancel meeting', {
+      meetingId,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
     return false;
   }
 }
 
-// Get meeting participants
 export async function getMeetingParticipants(meetingId: string): Promise<ZoomParticipant[]> {
   if (!isZoomEnabled()) {
-    // Return mock participants
     return [
       {
         id: 'mock-host',
@@ -343,6 +379,7 @@ export async function getMeetingParticipants(meetingId: string): Promise<ZoomPar
         headers: {
           Authorization: `Bearer ${accessToken}`,
         },
+        signal: AbortSignal.timeout(ZOOM_API_TIMEOUT_MS),
       }
     );
 
@@ -352,18 +389,18 @@ export async function getMeetingParticipants(meetingId: string): Promise<ZoomPar
 
     const data = await response.json();
     return data.participants || [];
-  } catch (error: any) {
-    // @ts-ignore
-
-    logger.error('[ZOOM] Failed to get participants:', error);
+  } catch (error) {
+    logger.error('[ZOOM] Failed to get participants', {
+      meetingId,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
     return [];
   }
 }
 
-// Admit participant from waiting room
 export async function admitParticipant(meetingId: string, participantId: string): Promise<boolean> {
   if (!isZoomEnabled()) {
-    return true; // Mock success
+    return true;
   }
 
   try {
@@ -376,45 +413,29 @@ export async function admitParticipant(meetingId: string, participantId: string)
         headers: {
           Authorization: `Bearer ${accessToken}`,
         },
+        signal: AbortSignal.timeout(ZOOM_API_TIMEOUT_MS),
       }
     );
 
     return response.ok;
-  } catch (error: any) {
-    // @ts-ignore
-
-    logger.error('[ZOOM] Failed to admit participant:', error);
+  } catch (error) {
+    logger.error('[ZOOM] Failed to admit participant', {
+      meetingId,
+      participantId,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
     return false;
   }
 }
 
-// Generate meeting password
+// ============================================================================
+// Helpers
+// ============================================================================
+
 function generateMeetingPassword(): string {
-  return Math.random().toString(36).substring(2, 8).toUpperCase();
+  return crypto.randomBytes(4).toString('hex').toUpperCase();
 }
 
-// Generate SDK signature for client-side SDK
-export function generateZoomSignature(
-  meetingNumber: string,
-  role: number = 0 // 0 = participant, 1 = host
-): string {
-  if (!zoomConfig.sdkKey || !zoomConfig.sdkSecret) {
-    return 'mock_signature';
-  }
-
-  const timestamp = new Date().getTime() - 30000;
-  const msg = Buffer.from(zoomConfig.sdkKey + meetingNumber + timestamp + role).toString('base64');
-
-  const hash = crypto.createHmac('sha256', zoomConfig.sdkSecret).update(msg).digest('base64');
-
-  const signature = Buffer.from(
-    `${zoomConfig.sdkKey}.${meetingNumber}.${timestamp}.${role}.${hash}`
-  ).toString('base64');
-
-  return signature;
-}
-
-// Create mock meeting for development
 function createMockMeeting(params: CreateMeetingParams): ZoomMeetingResponse {
   const meetingId = Math.floor(Math.random() * 1000000000);
   const password = generateMeetingPassword();
@@ -435,7 +456,6 @@ function createMockMeeting(params: CreateMeetingParams): ZoomMeetingResponse {
   };
 }
 
-// Export mock service for testing
 export const mockZoomService = {
   createMeeting: createMockMeeting,
   getMeeting: () =>

@@ -47,9 +47,8 @@ export default function OrdersDashboardPage() {
         const res = await apiFetch('/api/orders/list');
         const data = await res.json();
         setOrders(data.orders ?? []);
-      } catch (err: any) {
-        // @ts-ignore
-
+      } catch (err: unknown) {
+        
         logger.error(err);
       } finally {
         setLoading(false);

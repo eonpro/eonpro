@@ -103,7 +103,7 @@ export const GET = withSuperAdminAuth(
       });
 
       return NextResponse.json({ users: formattedUsers });
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error('Error fetching clinic users', { error: error instanceof Error ? error.message : String(error) });
       return NextResponse.json({ error: 'Failed to fetch clinic users' }, { status: 500 });
     }
@@ -177,10 +177,10 @@ export const POST = withSuperAdminAuth(
       }
 
       // Validate role (case-insensitive) - normalizedRole already defined above
-      const validRoles = ['admin', 'provider', 'staff', 'support', 'sales_rep'];
+      const validRoles = ['admin', 'provider', 'staff', 'support', 'sales_rep', 'pharmacy_rep'];
       if (!validRoles.includes(normalizedRole)) {
         return NextResponse.json(
-          { error: 'Invalid role. Must be ADMIN, PROVIDER, STAFF, SUPPORT, or SALES_REP' },
+          { error: 'Invalid role. Must be ADMIN, PROVIDER, STAFF, SUPPORT, SALES_REP, or PHARMACY_REP' },
           { status: 400 }
         );
       }
@@ -261,7 +261,7 @@ export const POST = withSuperAdminAuth(
                 data: { clinicId: null }, // Make provider shared across clinics
               });
               logger.info('[CLINIC-USERS] Made Provider shared for multi-clinic user', { providerId: existingUser.provider.id, email: existingUser.email });
-            } catch (updateError: any) {
+            } catch (updateError: unknown) {
               logger.error('Error making provider shared', { error: updateError instanceof Error ? updateError.message : String(updateError) });
             }
           }
@@ -304,7 +304,7 @@ export const POST = withSuperAdminAuth(
             });
 
             logger.info('[CLINIC-USERS] Created and linked Provider record for existing user', { email: existingUser.email });
-          } catch (providerError: any) {
+          } catch (providerError: unknown) {
             logger.error('Error creating provider record for existing user', { error: providerError instanceof Error ? providerError.message : String(providerError) });
             // Don't fail the operation - the user was already added to the clinic
             // They can complete their provider profile later
@@ -409,7 +409,7 @@ export const POST = withSuperAdminAuth(
                 isActive: true,
               },
             });
-          } catch (ucError: any) {
+          } catch (ucError: unknown) {
             logger.warn('Could not create UserClinic record', { error: ucError.message });
           }
 
@@ -418,7 +418,7 @@ export const POST = withSuperAdminAuth(
             message: 'User account created and linked to existing provider',
             isExistingProvider: true,
           });
-        } catch (createError: any) {
+        } catch (createError: unknown) {
           // If user creation fails due to unique constraint, the email might exist
           // Try to find and link the existing user
           if (createError.code === 'P2002') {
@@ -500,7 +500,7 @@ export const POST = withSuperAdminAuth(
             isActive: true,
           },
         });
-      } catch (ucError: any) {
+      } catch (ucError: unknown) {
         logger.warn('Could not create UserClinic record', { error: ucError.message });
         // Continue anyway - the user was created successfully
       }
@@ -531,7 +531,7 @@ export const POST = withSuperAdminAuth(
               data: { providerId: providerRecord.id },
             });
           }
-        } catch (providerError: any) {
+        } catch (providerError: unknown) {
           logger.error('Error creating provider record', { error: providerError instanceof Error ? providerError.message : String(providerError) });
           // Don't fail the whole operation - the user was created
           // Just log the error for debugging
@@ -556,7 +556,7 @@ export const POST = withSuperAdminAuth(
         user: newUser,
         message: 'User created successfully',
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error('Error creating clinic user', { error: error instanceof Error ? error.message : String(error) });
       return NextResponse.json(
         { error: error.message || 'Failed to create user' },

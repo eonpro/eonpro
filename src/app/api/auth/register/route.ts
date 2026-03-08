@@ -158,8 +158,8 @@ async function handler(req: NextRequest): Promise<Response> {
       success: true,
       message: result.message,
     });
-  } catch (error: any) {
-    logger.error('Registration endpoint error', { error: error.message });
+  } catch (error: unknown) {
+    logger.error('Registration endpoint error', { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json({ error: 'An error occurred. Please try again.' }, { status: 500 });
   }
 }

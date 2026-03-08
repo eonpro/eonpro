@@ -88,8 +88,8 @@ export async function POST(req: NextRequest) {
         lifefileLocationId: updated.lifefileLocationId,
       },
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('[CONFIGURE] Error configuring EONMEDS:', error);
-    return NextResponse.json({ error: error.message || 'Configuration failed' }, { status: 500 });
+    return NextResponse.json({ error: error instanceof Error ? error.message : String(error) || 'Configuration failed' }, { status: 500 });
   }
 }

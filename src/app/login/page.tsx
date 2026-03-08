@@ -24,6 +24,7 @@ interface Clinic {
 interface ClinicBranding {
   clinicId: number;
   name: string;
+  subdomain?: string | null;
   logoUrl: string | null;
   iconUrl: string | null;
   faviconUrl: string | null;
@@ -31,7 +32,13 @@ interface ClinicBranding {
   secondaryColor: string;
   accentColor: string;
   buttonTextColor: 'auto' | 'light' | 'dark';
+  backgroundColor?: string;
 }
+
+const LOGOSRX_HOST = 'logosrx.eonpro.io';
+const LOGOSRX_WHITE_LOGO = 'https://static.wixstatic.com/shapes/c49a9b_ed88aadf7f9b426f990b60e1965c329b.svg';
+const LOGOSRX_BG = '#1E2F8A';
+const LOGOSRX_PRIMARY = '#D22D8A';
 
 // Helper function to calculate text color based on background luminance
 function getTextColorForBg(hex: string, mode: 'auto' | 'light' | 'dark'): string {
@@ -159,6 +166,7 @@ function LoginContent() {
   const [branding, setBranding] = useState<ClinicBranding | null>(null);
   const [resolvedClinicId, setResolvedClinicId] = useState<number | null>(null);
   const [isMainApp, setIsMainApp] = useState(false);
+  const [isLogosRxExperience, setIsLogosRxExperience] = useState(false);
 
   // Wrong clinic domain: show message + link to correct clinic login
   const [wrongClinicRedirectUrl, setWrongClinicRedirectUrl] = useState<string | null>(null);
@@ -182,7 +190,7 @@ function LoginContent() {
     if (!isBrowser) return;
     const staleCookieNames = [
       'auth-token', 'admin-token', 'super_admin-token', 'provider-token',
-      'patient-token', 'staff-token', 'support-token', 'affiliate-token',
+      'patient-token', 'staff-token', 'support-token', 'affiliate-token', 'pharmacy_rep-token',
     ];
     staleCookieNames.forEach((name) => {
       // Clear on current hostname (e.g. ot.eonpro.io)
@@ -225,6 +233,8 @@ function LoginContent() {
     const resolveClinic = async () => {
       try {
         const domain = window.location.hostname;
+        const isLogosRxHost = domain === LOGOSRX_HOST;
+        setIsLogosRxExperience(isLogosRxHost);
         const response = await fetch(`/api/clinic/resolve?domain=${encodeURIComponent(domain)}`);
 
         if (response.ok) {
@@ -240,6 +250,7 @@ function LoginContent() {
           setBranding({
             clinicId: data.clinicId,
             name: data.name,
+            subdomain: data.subdomain ?? null,
             logoUrl: data.branding.logoUrl,
             iconUrl: data.branding.iconUrl,
             faviconUrl: data.branding.faviconUrl,
@@ -247,7 +258,11 @@ function LoginContent() {
             secondaryColor: data.branding.secondaryColor,
             accentColor: data.branding.accentColor,
             buttonTextColor: data.branding.buttonTextColor || 'auto',
+            backgroundColor: data.branding.backgroundColor,
           });
+          if (data.subdomain === 'logosrx') {
+            setIsLogosRxExperience(true);
+          }
 
           // Update favicon if clinic has one
           if (data.branding.faviconUrl) {
@@ -456,7 +471,7 @@ function LoginContent() {
       setOtpCountdown(60); // 60 second cooldown
       setCanResend(false);
       setStep('otp');
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(err.message || 'Failed to send verification code. Please try again.');
     } finally {
       setLoading(false);
@@ -492,7 +507,7 @@ function LoginContent() {
       setEmailOtpCountdown(60);
       setCanResendEmailOtp(false);
       setStep('email-otp');
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(err.message || 'Failed to send login code. Please try again.');
     } finally {
       setLoading(false);
@@ -566,7 +581,7 @@ function LoginContent() {
       }
 
       handleLoginSuccess(data);
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(err.message || 'Invalid login code. Please try again.');
       setEmailOtp(['', '', '', '', '', '']);
       emailOtpRefs.current[0]?.focus();
@@ -597,7 +612,7 @@ function LoginContent() {
       setResetCountdown(60);
       setCanResendReset(false);
       setStep('forgot');
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(err.message || 'Failed to send reset code');
     } finally {
       setLoading(false);
@@ -691,7 +706,7 @@ function LoginContent() {
       setStep('password');
       setError(''); // Clear any errors
       setSessionMessage('Password reset successful! Please log in with your new password.');
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(err.message || 'Failed to reset password');
     } finally {
       setLoading(false);
@@ -758,7 +773,7 @@ function LoginContent() {
 
       // Success - store tokens and redirect
       handleLoginSuccess(data);
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(err.message || 'Invalid verification code. Please try again.');
       setOtp(['', '', '', '', '', '']);
       otpRefs.current[0]?.focus();
@@ -868,7 +883,7 @@ function LoginContent() {
       setRedirecting(true);
       handleLoginSuccess(data as Parameters<typeof handleLoginSuccess>[0]);
       return; // Don't run finally setLoading(false) — keep "Redirecting..." until nav
-    } catch (err: any) {
+    } catch (err: unknown) {
       const isTimeout = err?.name === 'AbortError';
       // AbortError (timeout): retry once if we haven't already
       if (!isRetry && isTimeout) {
@@ -951,7 +966,7 @@ function LoginContent() {
       setRedirecting(true);
       handleLoginSuccess(data as Parameters<typeof handleLoginSuccess>[0]);
       return; // Keep "Redirecting..." until nav; don't run finally setLoading(false)
-    } catch (err: any) {
+    } catch (err: unknown) {
       const isTimeout = err?.name === 'AbortError';
       // AbortError (timeout): retry once if we haven't already
       if (!isRetry && isTimeout) {
@@ -1006,6 +1021,8 @@ function LoginContent() {
       localStorage.setItem('provider-token', data.token);
     } else if (userRole === 'staff') {
       localStorage.setItem('staff-token', data.token);
+    } else if (userRole === 'pharmacy_rep') {
+      localStorage.setItem('pharmacy_rep-token', data.token);
     }
 
     // When the system logged the user out (session expired, invalid session, etc.),
@@ -1052,6 +1069,9 @@ function LoginContent() {
       case 'staff':
         router.push('/staff');
         break;
+      case 'pharmacy_rep':
+        router.push('/admin');
+        break;
       case 'support':
         router.push('/support');
         break;
@@ -1080,11 +1100,11 @@ function LoginContent() {
   };
 
   // Get colors from branding or use defaults
-  const primaryColor = branding?.primaryColor || '#10B981';
-  const secondaryColor = branding?.secondaryColor || '#3B82F6';
-  const accentColor = branding?.accentColor || '#d3f931';
+  const primaryColor = isLogosRxExperience ? LOGOSRX_PRIMARY : (branding?.primaryColor || '#10B981');
   const buttonTextMode = branding?.buttonTextColor || 'auto';
-  const buttonTextColor = getTextColorForBg(primaryColor, buttonTextMode);
+  const buttonTextColor = isLogosRxExperience
+    ? '#ffffff'
+    : getTextColorForBg(primaryColor, buttonTextMode);
 
   // Provider login screen: hide redundant link, use distinct background
   const redirectParam = searchParams.get('redirect');
@@ -1093,7 +1113,9 @@ function LoginContent() {
 
   const bgColor = isProviderLogin
     ? '#e8eeff'
-    : branding
+    : isLogosRxExperience
+      ? LOGOSRX_BG
+      : branding
       ? `${primaryColor}0D`
       : '#f0fdf4';
 
@@ -1114,16 +1136,39 @@ function LoginContent() {
         <div className="p-4 sm:p-6">
           <button
             onClick={() => router.push('/')}
-            className="flex min-h-[44px] min-w-[44px] touch-manipulation items-center justify-center rounded-full transition-colors hover:bg-black/5 active:bg-black/10"
+            className={`flex min-h-[44px] min-w-[44px] touch-manipulation items-center justify-center rounded-full transition-colors ${
+              isLogosRxExperience ? 'hover:bg-white/10 active:bg-white/20' : 'hover:bg-black/5 active:bg-black/10'
+            }`}
             aria-label="Close"
           >
-            <X className="h-6 w-6 text-gray-700" />
+            <X className={`h-6 w-6 ${isLogosRxExperience ? 'text-white/90' : 'text-gray-700'}`} />
           </button>
         </div>
 
         {/* Logo centered at top - uses clinic logo if available */}
         <div className="flex flex-col items-center pb-6 pt-2 sm:pb-8 sm:pt-4">
-          {branding && !isMainApp ? (
+          {isLogosRxExperience && (
+            <>
+              <img
+                src={LOGOSRX_WHITE_LOGO}
+                alt="LogosRx"
+                className="h-12 max-w-[220px] object-contain"
+                width={220}
+                height={48}
+              />
+              <p className="mt-2 flex items-center justify-center gap-1.5 text-xs text-white/80">
+                Powered by{' '}
+                <img
+                  src="/api/assets/eonpro-logo"
+                  alt="EONPRO"
+                  className="h-[21px] w-auto brightness-0 invert"
+                  width={84}
+                  height={21}
+                />
+              </p>
+            </>
+          )}
+          {!isLogosRxExperience && branding && !isMainApp ? (
             <>
               {branding.logoUrl ? (
                 <img
@@ -1149,7 +1194,7 @@ function LoginContent() {
                 />
               </p>
             </>
-          ) : (
+          ) : !isLogosRxExperience ? (
             /* Main app (app.eonpro.io) - show EONPRO logo only, no "Powered by" */
             <img
               src="/api/assets/eonpro-logo"
@@ -1158,7 +1203,7 @@ function LoginContent() {
               width={160}
               height={40}
             />
-          )}
+          ) : null}
         </div>
 
         {/* Main Content */}
@@ -1176,15 +1221,25 @@ function LoginContent() {
           )}
 
           {/* Welcome Text - mobile-friendly sizing */}
-          <h1 className="mb-3 text-4xl font-light tracking-tight text-gray-900 sm:mb-4 sm:text-5xl md:text-6xl">
+          <h1
+            className={`mb-3 text-center text-4xl font-light tracking-tight sm:mb-4 sm:text-5xl md:text-6xl ${
+              isLogosRxExperience ? 'text-white' : 'text-gray-900'
+            }`}
+          >
             Welcome
           </h1>
-          <p className="mb-6 text-base text-gray-600 sm:mb-8 sm:text-lg">
-            {isProviderLogin
-              ? 'Provider sign in'
-              : branding && !isMainApp
-                ? `Sign in to ${branding.name}`
-                : 'Sign in to EONPRO'}
+          <p
+            className={`mb-6 text-center text-base sm:mb-8 sm:text-lg ${
+              isLogosRxExperience ? 'text-white/85' : 'text-gray-600'
+            }`}
+          >
+            {isLogosRxExperience
+              ? 'Sign in to LogosRx'
+              : isProviderLogin
+                ? 'Provider sign in'
+                : branding && !isMainApp
+                  ? `Sign in to ${branding.name}`
+                  : 'Sign in to EONPRO'}
           </p>
           {isProviderLogin && (
             <p className="mb-4 max-w-sm text-center text-sm text-gray-500 sm:mb-6">
@@ -1193,7 +1248,7 @@ function LoginContent() {
           )}
 
           {/* Patient login redirect banner on clinic subdomains */}
-          {branding && !isMainApp && !isProviderLogin && step === 'identifier' && (
+          {branding && !isMainApp && !isProviderLogin && !isLogosRxExperience && step === 'identifier' && (
             <a
               href="/patient-login"
               className="mb-8 flex w-full max-w-md items-center justify-between rounded-2xl border border-gray-200 bg-white/80 p-4 transition-all hover:bg-white hover:shadow-md"
@@ -2045,7 +2100,7 @@ function LoginContent() {
 
         {/* Footer */}
         <div className="p-6 text-center">
-          <p className="text-xs text-gray-500">
+          <p className={`text-xs ${isLogosRxExperience ? 'text-white/65' : 'text-gray-500'}`}>
             HIPAA Compliant Healthcare Platform • © 2026 EONPro
           </p>
         </div>

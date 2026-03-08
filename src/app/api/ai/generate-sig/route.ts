@@ -230,9 +230,9 @@ Return ONLY valid JSON matching the specified format.`;
       missedDose: parsed.missedDose,
       phase: options?.doseLevel as EnhancedSigTemplate['phase'],
     };
-  } catch (error: any) {
-    logger.error('[AI Sig] Generation failed', { error: error.message });
-    throw new Error(`Failed to generate sig: ${error.message}`);
+  } catch (error: unknown) {
+    logger.error('[AI Sig] Generation failed', { error: error instanceof Error ? error.message : String(error) });
+    throw new Error(`Failed to generate sig: ${error instanceof Error ? error.message : String(error)}`);
   }
 }
 
@@ -314,7 +314,7 @@ async function handleGenerateSig(req: NextRequest) {
         targetDose: t.targetDose,
       })),
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (error.name === 'ZodError') {
       return NextResponse.json(
         { error: 'Invalid request', details: error.errors },
@@ -322,8 +322,8 @@ async function handleGenerateSig(req: NextRequest) {
       );
     }
 
-    logger.error('[AI Sig] Error', { error: error.message });
-    return NextResponse.json({ error: error.message || 'Failed to generate sig' }, { status: 500 });
+    logger.error('[AI Sig] Error', { error: error instanceof Error ? error.message : String(error) });
+    return NextResponse.json({ error: error instanceof Error ? error.message : String(error) || 'Failed to generate sig' }, { status: 500 });
   }
 }
 

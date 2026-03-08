@@ -95,7 +95,7 @@ export default function MonitoringDashboard() {
         const errorData = await response.json();
         setError(errorData.error || 'Failed to fetch health status');
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(err.message || 'Network error');
     } finally {
       setLoading(false);

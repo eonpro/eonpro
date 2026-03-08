@@ -186,7 +186,7 @@ export const POST = withAuth(
           name: `${patient.firstName} ${patient.lastName}`,
         },
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       logger.error('[API] Error generating SOAP note:', { error: errorMessage });
 
@@ -277,7 +277,7 @@ async function handleBatchGeneration(
         noData: result.noData,
       },
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('[API] Batch SOAP note processing failed:', {
       error: error.message,
       clinicId,
@@ -332,7 +332,7 @@ export const GET = withAuth(
         percentageMissing:
           totalQueueCount > 0 ? Math.round((missingCount / totalQueueCount) * 100) : 0,
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error('[API] Error getting missing SOAP note count:', {
         error: error.message,
       });

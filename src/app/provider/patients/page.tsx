@@ -230,7 +230,7 @@ export default function ProviderPatientsPage() {
       setPatients((prev) => [...prev, ...allNewPatients]);
       setOffset(currentOffset);
     } catch (err) {
-      console.error('Error loading all patients:', err);
+      process.env.NODE_ENV === 'development' && console.error('Error loading all patients:', err);
     } finally {
       setLoadingMore(false);
     }
@@ -280,7 +280,7 @@ export default function ProviderPatientsPage() {
           setError(data.error || 'Failed to create patient');
         }
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(err.message || 'Failed to create patient');
     } finally {
       setCreating(false);

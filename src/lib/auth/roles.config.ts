@@ -13,7 +13,8 @@ export type UserRole =
   | 'support'
   | 'patient'
   | 'affiliate'
-  | 'sales_rep';
+  | 'sales_rep'
+  | 'pharmacy_rep';
 
 export interface RoleConfig {
   role: UserRole;
@@ -760,6 +761,66 @@ export const SALES_REP_CONFIG: RoleConfig = {
   ],
 };
 
+// PHARMACY_REP - Cross-clinic pharmacy operations with read-only patient profile access
+export const PHARMACY_REP_CONFIG: RoleConfig = {
+  role: 'pharmacy_rep',
+  displayName: 'Pharmacy Representative',
+  description: 'Read patient profiles and manage shipping/tracking workflows',
+  defaultPath: '/admin/patients',
+  theme: {
+    primaryColor: '#7C3AED',
+    secondaryColor: '#6D28D9',
+    iconColor: '#C4B5FD',
+    bgGradient: 'from-violet-600 to-purple-700',
+  },
+  features: {
+    viewAllPatients: true,
+    editPatients: false,
+    deletePatients: false,
+    viewPatientPHI: true,
+    exportPatientData: false,
+    createSoapNotes: false,
+    prescribeRx: false,
+    orderLabs: false,
+    viewMedicalRecords: false,
+    uploadDocuments: false,
+    manageUsers: false,
+    manageClinics: false,
+    viewAnalytics: false,
+    viewFinancials: false,
+    manageSubscriptions: false,
+    internalMessaging: true,
+    patientMessaging: false,
+    ticketManagement: false,
+    supportTickets: true,
+    systemSettings: false,
+    auditLogs: false,
+    apiAccess: false,
+    bulkOperations: false,
+    manageOrders: false,
+    processPayments: false,
+    manageInventory: false,
+    viewCommissions: false,
+    mergePatients: false,
+  },
+  navigation: {
+    primary: [
+      { label: 'Dashboard', path: '/', icon: 'Home' },
+      { label: 'Patients', path: '/admin/patients', icon: 'Users' },
+      { label: 'Shipping', path: '/admin/shipping', icon: 'Truck' },
+    ],
+  },
+  widgets: [
+    { id: 'shipping-queue', title: 'Shipping Queue', type: 'list', size: 'large', position: 1 },
+    { id: 'tracking-status', title: 'Tracking Status', type: 'list', size: 'large', position: 2 },
+  ],
+  restrictions: [
+    'Read-only access to patient demographics',
+    'No clinical or billing edits',
+    'Shipping and tracking operations only',
+  ],
+};
+
 // Role configuration map
 export const ROLE_CONFIGS: Record<UserRole, RoleConfig> = {
   super_admin: SUPER_ADMIN_CONFIG,
@@ -770,6 +831,7 @@ export const ROLE_CONFIGS: Record<UserRole, RoleConfig> = {
   patient: PATIENT_CONFIG,
   affiliate: AFFILIATE_CONFIG,
   sales_rep: SALES_REP_CONFIG,
+  pharmacy_rep: PHARMACY_REP_CONFIG,
 };
 
 // Helper function to get role configuration

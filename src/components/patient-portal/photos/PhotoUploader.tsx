@@ -96,6 +96,8 @@ function generateId(): string {
 }
 
 async function compressImage(file: File): Promise<{ blob: Blob; width: number; height: number }> {
+  const isHeic = /\.(heic|heif)$/i.test(file.name) || ['image/heic', 'image/heif'].includes(file.type);
+
   return new Promise((resolve, reject) => {
     const img = new Image();
     const objectUrl = URL.createObjectURL(file);
@@ -104,7 +106,6 @@ async function compressImage(file: File): Promise<{ blob: Blob; width: number; h
       URL.revokeObjectURL(objectUrl);
       let { width, height } = img;
 
-      // Calculate new dimensions
       if (width > MAX_DIMENSION || height > MAX_DIMENSION) {
         if (width > height) {
           height = (height / width) * MAX_DIMENSION;
@@ -115,7 +116,6 @@ async function compressImage(file: File): Promise<{ blob: Blob; width: number; h
         }
       }
 
-      // Create canvas and draw
       const canvas = document.createElement('canvas');
       canvas.width = width;
       canvas.height = height;
@@ -127,7 +127,6 @@ async function compressImage(file: File): Promise<{ blob: Blob; width: number; h
 
       ctx.drawImage(img, 0, 0, width, height);
 
-      // Convert to blob
       canvas.toBlob(
         (blob) => {
           if (blob) {
@@ -142,7 +141,13 @@ async function compressImage(file: File): Promise<{ blob: Blob; width: number; h
     };
     img.onerror = () => {
       URL.revokeObjectURL(objectUrl);
-      reject(new Error('Failed to load image'));
+      reject(
+        new Error(
+          isHeic
+            ? 'HEIC format is not supported by your browser. Please convert to JPEG or PNG first, or use your camera to take the photo directly.'
+            : 'Failed to load image. The file may be corrupted or in an unsupported format.',
+        ),
+      );
     };
     img.src = objectUrl;
   });
@@ -308,11 +313,12 @@ export function PhotoUploader({
           throw new Error('Failed to upload to S3');
         }
 
-        // Create and upload thumbnail
+        // Create and upload thumbnail from compressed JPEG (not original which may be HEIC)
         let finalThumbnailKey: string | undefined;
         if (thumbnailUploadUrl && thumbnailKey) {
           try {
-            const thumbnail = await createThumbnail(photo.file);
+            const thumbnailFile = new File([blob], 'thumb.jpg', { type: 'image/jpeg' });
+            const thumbnail = await createThumbnail(thumbnailFile);
             await fetch(thumbnailUploadUrl, {
               method: 'PUT',
               body: thumbnail,
@@ -321,7 +327,6 @@ export function PhotoUploader({
             finalThumbnailKey = thumbnailKey;
           } catch (thumbError) {
             console.warn('Failed to upload thumbnail:', thumbError);
-            // Continue without thumbnail
           }
         }
 

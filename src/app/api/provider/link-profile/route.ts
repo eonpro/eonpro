@@ -68,10 +68,10 @@ async function handlePost(req: NextRequest, user: AuthUser) {
         npi: provider.npi,
       },
     });
-  } catch (error: any) {
-    logger.error('Error linking provider profile', { error: error.message, userId: user.id });
+  } catch (error: unknown) {
+    logger.error('Error linking provider profile', { error: error instanceof Error ? error.message : String(error), userId: user.id });
     return NextResponse.json(
-      { error: `Failed to link profile: ${error.message}` },
+      { error: `Failed to link profile: ${error instanceof Error ? error.message : String(error)}` },
       { status: 500 }
     );
   }

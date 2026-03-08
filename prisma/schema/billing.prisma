@@ -44,6 +44,10 @@ model Invoice {
   refillQueue             RefillQueue[]
 
   @@index([prescriptionProcessed])
+  @@index([clinicId])
+  @@index([patientId])
+  @@index([status])
+  @@index([createdAt])
 }
 
 model Payment {
@@ -71,6 +75,12 @@ model Payment {
   invoice               Invoice?      @relation(fields: [invoiceId], references: [id])
   patient               Patient       @relation(fields: [patientId], references: [id])
   subscription          Subscription? @relation(fields: [subscriptionId], references: [id])
+
+  @@index([clinicId])
+  @@index([patientId])
+  @@index([status])
+  @@index([createdAt])
+  @@index([invoiceId])
 }
 
 // Audit trail for Stripe payment matching

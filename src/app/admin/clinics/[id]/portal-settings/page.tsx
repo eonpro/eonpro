@@ -185,7 +185,7 @@ export default function ClinicPortalSettingsPage() {
 
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(err.message || 'Failed to save settings');
     } finally {
       setSaving(false);

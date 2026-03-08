@@ -21,6 +21,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
+import { verifyCronAuth } from '@/lib/cron/tenant-isolation';
 import { logger } from '@/lib/logger';
 
 // Stable lock key for data retention cron (arbitrary unique integer, different from payouts)
@@ -133,14 +134,11 @@ async function archiveOldTouches(): Promise<number> {
 }
 
 export async function GET(request: NextRequest) {
-  const startTime = Date.now();
-
-  // Verify cron authorization (Vercel cron secret or internal auth)
-  const cronSecret = request.headers.get('authorization')?.replace('Bearer ', '');
-  const expectedSecret = process.env.CRON_SECRET;
-  if (expectedSecret && cronSecret !== expectedSecret) {
+  if (!verifyCronAuth(request)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
+
+  const startTime = Date.now();
 
   // Acquire advisory lock
   const lockAcquired = await acquireCronLock();

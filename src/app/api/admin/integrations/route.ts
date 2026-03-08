@@ -144,7 +144,7 @@ function decryptData(encryptedData: string): any {
     decrypted += decipher.final('utf8');
 
     return JSON.parse(decrypted);
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('Failed to decrypt data:', error);
     return null;
   }
@@ -220,10 +220,8 @@ export const GET = withAuth(
         },
         recentActivity: recentLogs,
       });
-    } catch (error: any) {
-      // @ts-ignore
-
-      logger.error('Error fetching integrations:', error);
+    } catch (error: unknown) {
+      logger.error('Error fetching integrations:', error instanceof Error ? error : undefined);
       return NextResponse.json({ error: 'Failed to fetch integrations' }, { status: 500 });
     }
   },
@@ -305,12 +303,12 @@ export const POST = withAuth(
           status: integration.status,
         },
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error('Error configuring integration:', error);
 
-      if (error.name === 'ZodError') {
+      if (error instanceof Error && error.name === 'ZodError') {
         return NextResponse.json(
-          { error: 'Invalid configuration data', details: error.errors },
+          { error: 'Invalid configuration data', details: (error as Error & { errors: unknown[] }).errors },
           { status: 400 }
         );
       }
@@ -400,10 +398,8 @@ export const PUT = withAuth(
           status: updated.status,
         },
       });
-    } catch (error: any) {
-      // @ts-ignore
-
-      logger.error('Error updating integration:', error);
+    } catch (error: unknown) {
+      logger.error('Error updating integration:', error instanceof Error ? error : undefined);
       return NextResponse.json({ error: 'Failed to update integration' }, { status: 500 });
     }
   },
@@ -471,10 +467,8 @@ export const DELETE = withAuth(
         success: true,
         message: 'Integration deleted successfully',
       });
-    } catch (error: any) {
-      // @ts-ignore
-
-      logger.error('Error deleting integration:', error);
+    } catch (error: unknown) {
+      logger.error('Error deleting integration:', error instanceof Error ? error : undefined);
       return NextResponse.json({ error: 'Failed to delete integration' }, { status: 500 });
     }
   },

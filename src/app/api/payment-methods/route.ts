@@ -94,7 +94,7 @@ async function handleGet(request: NextRequest, _user: AuthUser) {
       success: true,
       data: merged,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('[PAYMENT_METHODS] GET error:', error);
     return NextResponse.json({ error: 'Failed to fetch payment methods' }, { status: 500 });
   }
@@ -134,7 +134,7 @@ async function handleDelete(request: NextRequest, _user: AuthUser) {
       success: true,
       message: 'Payment method removed successfully',
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('[PAYMENT_METHODS] DELETE error:', error);
 

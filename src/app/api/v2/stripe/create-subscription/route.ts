@@ -119,8 +119,7 @@ export async function POST(req: NextRequest) {
       clientSecret: clientSecret,
       status: subscription.status,
     });
-  } catch (error: any) {
-    // @ts-ignore
+  } catch (error: unknown) {
 
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('[STRIPE_CREATE_SUBSCRIPTION]', error);

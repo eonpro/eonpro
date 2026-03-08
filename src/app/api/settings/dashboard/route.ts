@@ -222,8 +222,7 @@ export const GET = withAuth(
       logger.info('Settings dashboard accessed', { userId: user.id });
 
       return NextResponse.json(dashboard);
-    } catch (error: any) {
-      // @ts-ignore
+    } catch (error: unknown) {
 
       logger.error('Error fetching settings dashboard:', error);
       return NextResponse.json({ error: 'Failed to fetch settings dashboard' }, { status: 500 });

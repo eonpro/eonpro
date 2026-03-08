@@ -29,6 +29,7 @@ export const GET = withAuth(
       const page = parseInt(searchParams.get('page') || '1', 10);
       const limit = parseInt(searchParams.get('limit') || '50', 10);
       const filter = searchParams.get('filter') || 'all'; // all, online, recent, never
+      const loginType = (searchParams.get('loginType') || 'all').toLowerCase();
       const search = (searchParams.get('search') || '').trim();
       const sortBy = searchParams.get('sortBy') || 'lastLogin';
       const sortOrder = searchParams.get('sortOrder') || 'desc';
@@ -40,6 +41,28 @@ export const GET = withAuth(
 
       // Build where clause based on filter
       let whereClause: any = {};
+      const loginTypeRoleMap: Record<string, string[]> = {
+        all: [],
+        super_admin: ['SUPER_ADMIN'],
+        admin: ['ADMIN'],
+        provider: ['PROVIDER'],
+        staff: ['STAFF'],
+        support: ['SUPPORT'],
+        patient: ['PATIENT'],
+        affiliate: ['AFFILIATE'],
+        sales: ['SALES_REP'],
+        sales_rep: ['SALES_REP'],
+        pharmacy: ['PHARMACY_REP'],
+        pharmacy_staff: ['PHARMACY_REP'],
+      };
+
+      if (!(loginType in loginTypeRoleMap)) {
+        return NextResponse.json({ error: 'Invalid loginType filter' }, { status: 400 });
+      }
+
+      if (loginType !== 'all') {
+        whereClause.role = { in: loginTypeRoleMap[loginType] };
+      }
 
       if (search) {
         whereClause.OR = [
@@ -219,8 +242,8 @@ export const GET = withAuth(
           totalPages: Math.ceil(totalCount / limit),
         },
       });
-    } catch (error: any) {
-      logger.error('[API] Error fetching user activity:', { error: error.message });
+    } catch (error: unknown) {
+      logger.error('[API] Error fetching user activity:', { error: error instanceof Error ? error.message : String(error) });
       return NextResponse.json({ error: 'Failed to fetch user activity' }, { status: 500 });
     }
   },
@@ -271,8 +294,8 @@ export const POST = withAuth(
       }
 
       return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
-    } catch (error: any) {
-      logger.error('[API] Error performing user activity action:', { error: error.message });
+    } catch (error: unknown) {
+      logger.error('[API] Error performing user activity action:', { error: error instanceof Error ? error.message : String(error) });
       return NextResponse.json({ error: 'Failed to perform action' }, { status: 500 });
     }
   },

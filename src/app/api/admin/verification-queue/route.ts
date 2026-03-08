@@ -7,7 +7,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { withAdminAuth, AuthUser } from '@/lib/auth/middleware';
+import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { z } from 'zod';
@@ -145,11 +145,11 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       prisma.patient.count({ where: { ...clinicFilter, identityVerified: true } }),
       prisma.patientPhoto.findMany({
         where: { ...idPhotoBase, verificationStatus: { in: ['REJECTED', 'EXPIRED'] } },
-        select: { patientId: true }, distinct: ['patientId'],
+        select: { patientId: true }, distinct: ['patientId'], take: 1000,
       }).then((r) => r.length),
       prisma.patientPhoto.findMany({
         where: { ...idPhotoBase, verificationStatus: { in: ['PENDING', 'IN_REVIEW'] } },
-        select: { patientId: true }, distinct: ['patientId'],
+        select: { patientId: true }, distinct: ['patientId'], take: 1000,
       }).then((r) => r.length),
     ]);
 
@@ -301,6 +301,7 @@ async function handlePatch(req: NextRequest, user: AuthUser) {
         },
         select: { id: true, type: true },
         orderBy: { verifiedAt: 'asc' },
+        take: 100,
       });
 
       const typesVerified = new Set(verifiedByType.map((p) => p.type));
@@ -331,6 +332,7 @@ async function handlePatch(req: NextRequest, user: AuthUser) {
             id: { notIn: [...keepIds] },
           },
           select: { id: true },
+          take: 100,
         });
 
         if (extraPhotos.length > 0) {
@@ -390,5 +392,5 @@ async function handlePatch(req: NextRequest, user: AuthUser) {
 // Exports
 // =============================================================================
 
-export const GET = withAdminAuth(handleGet);
-export const PATCH = withAdminAuth(handlePatch);
+export const GET = withAuth(handleGet, { roles: ['super_admin', 'admin', 'staff'] });
+export const PATCH = withAuth(handlePatch, { roles: ['super_admin', 'admin', 'staff'] });

@@ -35,6 +35,7 @@ import {
   UserCircle,
   Camera,
 } from 'lucide-react';
+import ClinicZoomIntegration from '@/components/admin/ClinicZoomIntegration';
 
 // Types
 interface Clinic {
@@ -267,7 +268,7 @@ export default function AdminSettingsPage() {
         setProfilePhone(profile.phone || '');
       }
     } catch (err) {
-      console.error('Failed to load profile:', err);
+      process.env.NODE_ENV === 'development' && console.error('Failed to load profile:', err);
     }
   };
 
@@ -384,7 +385,7 @@ export default function AdminSettingsPage() {
         }
       }
     } catch (err) {
-      console.error('Failed to load clinic info:', err);
+      process.env.NODE_ENV === 'development' && console.error('Failed to load clinic info:', err);
     } finally {
       setLoading(false);
     }
@@ -399,7 +400,7 @@ export default function AdminSettingsPage() {
         setSettingsForm(data.settings);
       }
     } catch (err) {
-      console.error('Failed to load settings:', err);
+      process.env.NODE_ENV === 'development' && console.error('Failed to load settings:', err);
     }
   };
 
@@ -411,7 +412,7 @@ export default function AdminSettingsPage() {
         setStats(data);
       }
     } catch (err) {
-      console.error('Failed to load stats:', err);
+      process.env.NODE_ENV === 'development' && console.error('Failed to load stats:', err);
     }
   };
 
@@ -424,7 +425,7 @@ export default function AdminSettingsPage() {
         setUsers(data.users);
       }
     } catch (err) {
-      console.error('Failed to load users:', err);
+      process.env.NODE_ENV === 'development' && console.error('Failed to load users:', err);
     } finally {
       setLoadingUsers(false);
     }
@@ -446,7 +447,7 @@ export default function AdminSettingsPage() {
         setLogPagination(data.pagination);
       }
     } catch (err) {
-      console.error('Failed to load audit logs:', err);
+      process.env.NODE_ENV === 'development' && console.error('Failed to load audit logs:', err);
     } finally {
       setLoadingLogs(false);
     }
@@ -689,6 +690,7 @@ export default function AdminSettingsPage() {
     { value: 'PROVIDER', label: 'Provider' },
     { value: 'STAFF', label: 'Staff' },
     { value: 'SUPPORT', label: 'Support' },
+    { value: 'SALES_REP', label: 'Sales Rep' },
   ];
 
   const stateOptions = [
@@ -1960,6 +1962,8 @@ export default function AdminSettingsPage() {
                   </div>
                 </div>
               </div>
+
+              <ClinicZoomIntegration />
 
               <p className="text-sm text-gray-500">
                 Contact support to enable additional integrations or configure API access.

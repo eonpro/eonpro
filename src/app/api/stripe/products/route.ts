@@ -162,11 +162,11 @@ async function getProductsHandler(request: NextRequest, user: AuthUser) {
       },
       timestamp: new Date().toISOString(),
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('[STRIPE PRODUCTS] Error:', error);
 
     return NextResponse.json(
-      { error: error.message || 'Failed to fetch products' },
+      { error: error instanceof Error ? error.message : String(error) || 'Failed to fetch products' },
       { status: 500 }
     );
   }
@@ -233,7 +233,7 @@ async function createProductHandler(request: NextRequest, user: AuthUser) {
         },
       },
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('[STRIPE PRODUCTS] Error creating product:', error);
 
     if (error instanceof z.ZodError) {
@@ -244,7 +244,7 @@ async function createProductHandler(request: NextRequest, user: AuthUser) {
     }
 
     return NextResponse.json(
-      { error: error.message || 'Failed to create product' },
+      { error: error instanceof Error ? error.message : String(error) || 'Failed to create product' },
       { status: 500 }
     );
   }

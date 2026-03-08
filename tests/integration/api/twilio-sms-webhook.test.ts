@@ -17,10 +17,16 @@ const mockPrismaChatMessage = {
 };
 
 vi.mock('@/lib/db', () => ({
+  prisma: {
+    patient: mockPrismaPatient,
+    patientChatMessage: mockPrismaChatMessage,
+  },
   basePrisma: {
     patient: mockPrismaPatient,
     patientChatMessage: mockPrismaChatMessage,
   },
+  runWithClinicContext: vi.fn((_clinicId: number, fn: () => Promise<unknown>) => fn()),
+  getClinicContext: vi.fn(() => 1),
 }));
 
 vi.mock('@/lib/logger', () => ({

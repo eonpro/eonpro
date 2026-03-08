@@ -98,7 +98,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
     });
 
     return NextResponse.json({ products });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('[Products API] Error fetching products:', error);
     return NextResponse.json({ error: 'Failed to fetch products' }, { status: 500 });
   }
@@ -182,7 +182,7 @@ async function handlePost(req: NextRequest, user: AuthUser) {
           productId: stripeProductId,
           priceId: stripePriceId,
         });
-      } catch (stripeError: any) {
+      } catch (stripeError: unknown) {
         logger.warn(
           '[Products API] Failed to create Stripe product (continuing without)',
           stripeError.message
@@ -222,7 +222,7 @@ async function handlePost(req: NextRequest, user: AuthUser) {
     logger.info('[Products API] Product created', { productId: product.id, clinicId });
 
     return NextResponse.json({ product });
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
         { error: 'Validation error', details: error.errors },

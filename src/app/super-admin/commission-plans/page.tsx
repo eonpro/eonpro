@@ -121,7 +121,7 @@ export default function SuperAdminCommissionPlansPage() {
         }
       }
     } catch (err) {
-      console.error('Failed to fetch data:', err);
+      process.env.NODE_ENV === 'development' && console.error('Failed to fetch data:', err);
       setError('Failed to connect to server');
     } finally {
       setLoading(false);
@@ -235,7 +235,7 @@ export default function SuperAdminCommissionPlansPage() {
       setDeleteConfirm(null);
       fetchData();
     } catch (err) {
-      console.error('Delete error:', err);
+      process.env.NODE_ENV === 'development' && console.error('Delete error:', err);
       setFormError(err instanceof Error ? err.message : 'Failed to delete');
     }
   };
@@ -259,7 +259,7 @@ export default function SuperAdminCommissionPlansPage() {
 
       fetchData();
     } catch (err) {
-      console.error('Toggle error:', err);
+      process.env.NODE_ENV === 'development' && console.error('Toggle error:', err);
     }
   };
 

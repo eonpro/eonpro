@@ -1,153 +1,163 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Feature } from '@/components/Feature';
 import MeetingRoom from '@/components/zoom/MeetingRoom';
-import { logger } from '@/lib/logger';
 import {
   Video,
   Calendar,
   Clock,
   Users,
   Plus,
-  Settings,
   ChevronRight,
   AlertCircle,
   CheckCircle,
   XCircle,
-  Phone,
-  Link2,
   Copy,
-  Edit,
-  Trash,
+  ExternalLink,
+  Loader2,
 } from 'lucide-react';
 import { CONSULTATION_DURATIONS } from '@/lib/integrations/zoom/config';
 import { apiFetch } from '@/lib/api/fetch';
 
-interface Meeting {
-  id: string;
+interface TelehealthSession {
+  id: number;
   topic: string;
-  patientName: string;
-  providerId: string;
-  scheduledAt: Date;
+  scheduledAt: string;
   duration: number;
-  status: 'scheduled' | 'waiting' | 'in_progress' | 'completed' | 'cancelled';
-  joinUrl?: string;
+  status: string;
+  joinUrl: string;
+  hostUrl?: string;
   meetingId?: string;
   password?: string;
+  patient: {
+    id: number;
+    firstName: string;
+    lastName: string;
+  };
+  appointment?: {
+    id: number;
+    title: string;
+    reason: string;
+  };
 }
 
+interface Patient {
+  id: number;
+  firstName: string;
+  lastName: string;
+}
+
+type ViewState = 'list' | 'lobby';
+
 export default function TelehealthPage() {
-  const [activeMeeting, setActiveMeeting] = useState<Meeting | null>(null);
-  const [showNewMeetingForm, setShowNewMeetingForm] = useState(false);
-  const [meetings, setMeetings] = useState<Meeting[]>([]);
-  const [selectedPatient, setSelectedPatient] = useState<string>('');
-  const [meetingTopic, setMeetingTopic] = useState<string>('');
-  const [meetingDate, setMeetingDate] = useState<string>('');
-  const [meetingTime, setMeetingTime] = useState<string>('');
-  const [meetingDuration, setMeetingDuration] = useState<number>(30);
+  const [sessions, setSessions] = useState<TelehealthSession[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [totalCount, setTotalCount] = useState(0);
+  const [zoomEnabled, setZoomEnabled] = useState(false);
+
+  const [viewState, setViewState] = useState<ViewState>('list');
+  const [activeSession, setActiveSession] = useState<TelehealthSession | null>(null);
+
+  const [showNewForm, setShowNewForm] = useState(false);
+  const [patients, setPatients] = useState<Patient[]>([]);
+  const [patientsLoading, setPatientsLoading] = useState(false);
+  const [patientSearch, setPatientSearch] = useState('');
+  const [selectedPatientId, setSelectedPatientId] = useState<number | null>(null);
+  const [meetingTopic, setMeetingTopic] = useState('');
+  const [meetingDate, setMeetingDate] = useState('');
+  const [meetingTime, setMeetingTime] = useState('');
+  const [meetingDuration, setMeetingDuration] = useState(30);
   const [isCreating, setIsCreating] = useState(false);
-  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [copiedId, setCopiedId] = useState<number | null>(null);
 
-  // Sample patients for demo
-  const samplePatients = [
-    { id: '1', name: 'John Doe' },
-    { id: '2', name: 'Jane Smith' },
-    { id: '3', name: 'Robert Johnson' },
-    { id: '4', name: 'Emily Davis' },
-  ];
-
-  // Load sample meetings
-  useEffect(() => {
-    // Use a stable date for SSR compatibility
-    const now = new Date();
-    const sampleMeetings: Meeting[] = [
-      {
-        id: 'meet-1',
-        topic: 'Follow-up Consultation',
-        patientName: 'John Doe',
-        providerId: 'dr-1',
-        scheduledAt: new Date(now.getTime() + 1000 * 60 * 30), // 30 min from now
-        duration: 30,
-        status: 'scheduled',
-        meetingId: '123456789',
-        password: 'ABC123',
-        joinUrl: 'https://zoom.us/j/123456789?pwd=ABC123',
-      },
-      {
-        id: 'meet-2',
-        topic: 'Initial Assessment',
-        patientName: 'Jane Smith',
-        providerId: 'dr-1',
-        scheduledAt: new Date(now.getTime() + 1000 * 60 * 60 * 2), // 2 hours from now
-        duration: 45,
-        status: 'scheduled',
-        meetingId: '987654321',
-        password: 'XYZ789',
-        joinUrl: 'https://zoom.us/j/987654321?pwd=XYZ789',
-      },
-      {
-        id: 'meet-3',
-        topic: 'Prescription Review',
-        patientName: 'Robert Johnson',
-        providerId: 'dr-1',
-        scheduledAt: new Date(now.getTime() - 1000 * 60 * 60 * 24), // Yesterday
-        duration: 15,
-        status: 'completed',
-        meetingId: '555555555',
-      },
-    ];
-    setMeetings(sampleMeetings);
+  const fetchSessions = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await apiFetch('/api/provider/telehealth/upcoming');
+      if (res.ok) {
+        const data = await res.json();
+        setSessions(data.sessions || []);
+        setTotalCount(data.totalCount || 0);
+        setZoomEnabled(data.zoomEnabled || false);
+      }
+    } catch (error) {
+      console.error('Failed to fetch sessions:', error);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  const createMeeting = async () => {
-    if (!selectedPatient || !meetingTopic || !meetingDate || !meetingTime) {
-      alert('Please fill in all required fields');
+  useEffect(() => {
+    fetchSessions();
+  }, [fetchSessions]);
+
+  const searchPatients = useCallback(async (query: string) => {
+    if (query.length < 2) {
+      setPatients([]);
+      return;
+    }
+    setPatientsLoading(true);
+    try {
+      const res = await apiFetch(`/api/admin/patients?search=${encodeURIComponent(query)}&limit=10`);
+      if (res.ok) {
+        const data = await res.json();
+        setPatients(
+          (data.patients || []).map((p: any) => ({
+            id: p.id,
+            firstName: p.firstName || '',
+            lastName: p.lastName || '',
+          }))
+        );
+      }
+    } catch {
+      setPatients([]);
+    } finally {
+      setPatientsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const timer = setTimeout(() => searchPatients(patientSearch), 300);
+    return () => clearTimeout(timer);
+  }, [patientSearch, searchPatients]);
+
+  const createAppointment = async () => {
+    if (!selectedPatientId || !meetingTopic || !meetingDate || !meetingTime) {
+      setCreateError('Please fill in all required fields');
       return;
     }
 
     setIsCreating(true);
+    setCreateError(null);
 
     try {
-      // Combine date and time
       const scheduledAt = new Date(`${meetingDate}T${meetingTime}`);
 
-      // Call API to create meeting
-      const response = await apiFetch('/api/v2/zoom/meetings', {
+      const res = await apiFetch('/api/scheduling/appointments', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          topic: meetingTopic,
-          patientId: selectedPatient,
+          patientId: selectedPatientId,
+          title: meetingTopic,
+          type: 'VIDEO',
+          startTime: scheduledAt.toISOString(),
           duration: meetingDuration,
-          scheduledAt: scheduledAt.toISOString(),
+          reason: meetingTopic,
         }),
       });
 
-      if (response.ok) {
-        const meeting = await response.json();
-
-        const newMeeting: Meeting = {
-          id: `meet-${Date.now()}`,
-          topic: meetingTopic,
-          patientName: samplePatients.find((p: any) => p.id === selectedPatient)?.name || '',
-          providerId: 'dr-1',
-          scheduledAt,
-          duration: meetingDuration,
-          status: 'scheduled',
-          meetingId: meeting.meetingId || `mock-${Date.now()}`,
-          password: meeting.password || 'DEMO123',
-          joinUrl: meeting.joinUrl || `https://zoom.us/j/mock-${Date.now()}`,
-        };
-
-        setMeetings((prev) => [...prev, newMeeting]);
-        setShowNewMeetingForm(false);
+      if (res.ok) {
+        setShowNewForm(false);
         resetForm();
+        await fetchSessions();
+      } else {
+        const data = await res.json();
+        setCreateError(data.error || 'Failed to schedule appointment');
       }
-    } catch (error: any) {
-      // @ts-ignore
-
-      logger.error('Failed to create meeting:', error);
+    } catch {
+      setCreateError('Failed to create telehealth appointment');
     } finally {
       setIsCreating(false);
     }
@@ -155,96 +165,110 @@ export default function TelehealthPage() {
 
   const resetForm = () => {
     setMeetingTopic('');
-    setSelectedPatient('');
+    setSelectedPatientId(null);
+    setPatientSearch('');
+    setPatients([]);
     setMeetingDate('');
     setMeetingTime('');
     setMeetingDuration(30);
+    setCreateError(null);
   };
 
-  const joinMeeting = (meeting: Meeting) => {
-    setActiveMeeting(meeting);
+  const startMeeting = (session: TelehealthSession) => {
+    setActiveSession(session);
+    setViewState('lobby');
   };
 
-  const copyMeetingLink = (meeting: Meeting) => {
-    const link =
-      meeting.joinUrl || `Meeting ID: ${meeting.meetingId}, Password: ${meeting.password}`;
-    navigator.clipboard.writeText(link);
-    setCopiedId(meeting.id);
+  const openZoomDirect = (session: TelehealthSession) => {
+    const url = session.hostUrl || session.joinUrl;
+    if (url) window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
+  const copyLink = (session: TelehealthSession) => {
+    if (!session.joinUrl) return;
+    navigator.clipboard.writeText(session.joinUrl);
+    setCopiedId(session.id);
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-  const cancelMeeting = async (meetingId: string) => {
-    if (!confirm('Are you sure you want to cancel this meeting?')) return;
-
-    setMeetings((prev) =>
-      prev.map((m: any) => (m.id === meetingId ? { ...m, status: 'cancelled' as const } : m))
-    );
-  };
-
-  const formatDateTime = (date: Date): string => {
+  const formatDateTime = (dateStr: string): string => {
     return new Intl.DateTimeFormat('en-US', {
-      dateStyle: 'medium',
-      timeStyle: 'short',
-    }).format(date);
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(new Date(dateStr));
   };
 
-  const getStatusBadge = (status: Meeting['status']) => {
-    const badges = {
-      scheduled: { icon: Clock, color: 'text-blue-600 bg-blue-100' },
-      waiting: { icon: Users, color: 'text-yellow-600 bg-yellow-100' },
-      in_progress: { icon: Video, color: 'text-green-600 bg-green-100' },
-      completed: { icon: CheckCircle, color: 'text-gray-600 bg-gray-100' },
-      cancelled: { icon: XCircle, color: 'text-red-600 bg-red-100' },
+  const getStatusBadge = (status: string) => {
+    const map: Record<string, { icon: typeof Clock; color: string; label: string }> = {
+      SCHEDULED: { icon: Clock, color: 'text-blue-600 bg-blue-100', label: 'Scheduled' },
+      WAITING: { icon: Users, color: 'text-yellow-600 bg-yellow-100', label: 'Waiting' },
+      IN_PROGRESS: { icon: Video, color: 'text-green-600 bg-green-100', label: 'In Progress' },
+      COMPLETED: { icon: CheckCircle, color: 'text-gray-600 bg-gray-100', label: 'Completed' },
+      CANCELLED: { icon: XCircle, color: 'text-red-600 bg-red-100', label: 'Cancelled' },
+      NO_SHOW: { icon: AlertCircle, color: 'text-orange-600 bg-orange-100', label: 'No Show' },
     };
-
-    const badge = badges[status];
+    const badge = map[status] || map.SCHEDULED;
     const Icon = badge.icon;
-
     return (
-      <span
-        className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium ${badge.color}`}
-      >
+      <span className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium ${badge.color}`}>
         <Icon className="h-3 w-3" />
-        {status.charAt(0).toUpperCase() + status.slice(1).replace('_', ' ')}
+        {badge.label}
       </span>
     );
   };
 
-  // If in a meeting, show meeting room
-  if (activeMeeting) {
+  if (viewState === 'lobby' && activeSession) {
     return (
-      <MeetingRoom
-        meetingId={activeMeeting.meetingId || ''}
-        meetingPassword={activeMeeting.password}
-        userName="Dr. Smith"
-        userEmail="dr.smith@lifefile.com"
-        role="host"
-        onMeetingEnd={() => setActiveMeeting(null)}
-      />
+      <div className="min-h-screen bg-gray-50">
+        <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+          <MeetingRoom
+            meetingId={activeSession.meetingId || activeSession.id.toString()}
+            meetingPassword={activeSession.password}
+            userName="Provider"
+            role="host"
+            joinUrl={activeSession.joinUrl}
+            hostUrl={activeSession.hostUrl}
+            topic={activeSession.topic}
+            patientName={`${activeSession.patient.firstName} ${activeSession.patient.lastName}`}
+            scheduledAt={activeSession.scheduledAt}
+            duration={activeSession.duration}
+            onBack={() => {
+              setViewState('list');
+              setActiveSession(null);
+              fetchSessions();
+            }}
+          />
+        </div>
+      </div>
     );
   }
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="py-12">
+      <div className="py-8">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           {/* Header */}
-          <div className="mb-6 rounded-lg bg-white p-6 shadow-sm">
+          <div className="mb-6 rounded-xl bg-white p-6 shadow-sm">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <Video className="h-8 w-8 text-blue-600" />
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-600">
+                  <Video className="h-6 w-6 text-white" />
+                </div>
                 <div>
-                  <h1 className="text-3xl font-bold text-gray-900">Telehealth Center</h1>
-                  <p className="mt-1 text-gray-600">
-                    Manage virtual consultations and video appointments
+                  <h1 className="text-2xl font-bold text-gray-900">Telehealth Center</h1>
+                  <p className="text-sm text-gray-500">
+                    Manage and join virtual consultations
                   </p>
                 </div>
               </div>
               <button
-                onClick={() => setShowNewMeetingForm(true)}
-                className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
+                onClick={() => setShowNewForm(true)}
+                className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-blue-700"
               >
-                <Plus className="h-5 w-5" />
+                <Plus className="h-4 w-4" />
                 Schedule Consultation
               </button>
             </div>
@@ -253,261 +277,293 @@ export default function TelehealthPage() {
           <Feature
             feature="ZOOM_TELEHEALTH"
             fallback={
-              <div className="rounded-lg bg-white p-12 text-center shadow-sm">
-                <Video className="mx-auto mb-4 h-16 w-16 text-gray-400" />
-                <h2 className="mb-2 text-2xl font-semibold">Telehealth Coming Soon</h2>
-                <p className="mx-auto mb-8 max-w-md text-gray-600">
+              <div className="rounded-xl bg-white p-12 text-center shadow-sm">
+                <Video className="mx-auto mb-4 h-16 w-16 text-gray-300" />
+                <h2 className="mb-2 text-2xl font-semibold text-gray-900">Telehealth Coming Soon</h2>
+                <p className="mx-auto max-w-md text-gray-500">
                   Virtual consultations with Zoom integration will be available soon.
                 </p>
-
-                <div className="mx-auto mt-8 grid max-w-3xl gap-6 text-left md:grid-cols-3">
-                  <div className="rounded-lg border p-4">
-                    <h3 className="mb-2 font-semibold">📹 HD Video Calls</h3>
-                    <p className="text-sm text-gray-600">
-                      High-quality video consultations with screen sharing
-                    </p>
-                  </div>
-                  <div className="rounded-lg border p-4">
-                    <h3 className="mb-2 font-semibold">⏰ Smart Scheduling</h3>
-                    <p className="text-sm text-gray-600">
-                      Automated reminders and calendar integration
-                    </p>
-                  </div>
-                  <div className="rounded-lg border p-4">
-                    <h3 className="mb-2 font-semibold">HIPAA Compliant</h3>
-                    <p className="text-sm text-gray-600">
-                      Secure, encrypted video calls with recording options
-                    </p>
-                  </div>
-                </div>
               </div>
             }
           >
-            {/* New Meeting Form */}
-            {showNewMeetingForm && (
+            {/* New Appointment Modal */}
+            {showNewForm && (
               <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-                <div className="w-full max-w-md rounded-lg bg-white p-6">
-                  <h2 className="mb-4 text-xl font-semibold">Schedule Telehealth Consultation</h2>
+                <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+                  <h2 className="mb-4 text-xl font-semibold text-gray-900">
+                    Schedule Video Consultation
+                  </h2>
 
                   <div className="space-y-4">
+                    {/* Patient Search */}
                     <div>
                       <label className="mb-1 block text-sm font-medium text-gray-700">
-                        Patient
+                        Patient <span className="text-red-500">*</span>
                       </label>
-                      <select
-                        value={selectedPatient}
-                        onChange={(e: any) => setSelectedPatient(e.target.value)}
-                        className="w-full rounded-lg border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      >
-                        <option value="">Select a patient</option>
-                        {samplePatients.map((patient: any) => (
-                          <option key={patient.id} value={patient.id}>
-                            {patient.name}
-                          </option>
-                        ))}
-                      </select>
+                      <input
+                        type="text"
+                        value={patientSearch}
+                        onChange={(e) => {
+                          setPatientSearch(e.target.value);
+                          setSelectedPatientId(null);
+                        }}
+                        placeholder="Search by patient name..."
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      />
+                      {patientsLoading && (
+                        <div className="mt-1 flex items-center gap-1 text-xs text-gray-400">
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                          Searching...
+                        </div>
+                      )}
+                      {patients.length > 0 && !selectedPatientId && (
+                        <div className="mt-1 max-h-40 overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-sm">
+                          {patients.map((p) => (
+                            <button
+                              key={p.id}
+                              onClick={() => {
+                                setSelectedPatientId(p.id);
+                                setPatientSearch(`${p.firstName} ${p.lastName}`);
+                                setPatients([]);
+                              }}
+                              className="block w-full px-3 py-2 text-left text-sm hover:bg-gray-50"
+                            >
+                              {p.firstName} {p.lastName}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      {selectedPatientId && (
+                        <p className="mt-1 text-xs text-green-600">Patient selected</p>
+                      )}
                     </div>
 
                     <div>
                       <label className="mb-1 block text-sm font-medium text-gray-700">
-                        Consultation Topic
+                        Topic <span className="text-red-500">*</span>
                       </label>
                       <input
                         type="text"
                         value={meetingTopic}
-                        onChange={(e: any) => setMeetingTopic(e.target.value)}
+                        onChange={(e) => setMeetingTopic(e.target.value)}
                         placeholder="e.g., Follow-up Consultation"
-                        className="w-full rounded-lg border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                       />
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <label className="mb-1 block text-sm font-medium text-gray-700">Date</label>
+                        <label className="mb-1 block text-sm font-medium text-gray-700">
+                          Date <span className="text-red-500">*</span>
+                        </label>
                         <input
                           type="date"
                           value={meetingDate}
-                          onChange={(e: any) => setMeetingDate(e.target.value)}
+                          onChange={(e) => setMeetingDate(e.target.value)}
                           min={new Date().toISOString().split('T')[0]}
-                          className="w-full rounded-lg border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                         />
                       </div>
-
                       <div>
-                        <label className="mb-1 block text-sm font-medium text-gray-700">Time</label>
+                        <label className="mb-1 block text-sm font-medium text-gray-700">
+                          Time <span className="text-red-500">*</span>
+                        </label>
                         <input
                           type="time"
                           value={meetingTime}
-                          onChange={(e: any) => setMeetingTime(e.target.value)}
-                          className="w-full rounded-lg border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          onChange={(e) => setMeetingTime(e.target.value)}
+                          className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                         />
                       </div>
                     </div>
 
                     <div>
-                      <label className="mb-1 block text-sm font-medium text-gray-700">
-                        Duration
-                      </label>
+                      <label className="mb-1 block text-sm font-medium text-gray-700">Duration</label>
                       <div className="grid grid-cols-4 gap-2">
-                        {Object.entries(CONSULTATION_DURATIONS).map(([key, duration]) => (
+                        {Object.entries(CONSULTATION_DURATIONS).map(([key, dur]) => (
                           <button
                             key={key}
-                            onClick={() => setMeetingDuration(duration)}
+                            type="button"
+                            onClick={() => setMeetingDuration(dur)}
                             className={`rounded-lg px-3 py-2 text-sm transition-colors ${
-                              meetingDuration === duration
+                              meetingDuration === dur
                                 ? 'bg-blue-600 text-white'
-                                : 'bg-gray-100 hover:bg-gray-200'
+                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                             }`}
                           >
-                            {duration} min
+                            {dur} min
                           </button>
                         ))}
                       </div>
                     </div>
+
+                    {createError && (
+                      <div className="rounded-lg border border-red-200 bg-red-50 p-3">
+                        <p className="flex items-center gap-2 text-sm text-red-700">
+                          <AlertCircle className="h-4 w-4" />
+                          {createError}
+                        </p>
+                      </div>
+                    )}
                   </div>
 
                   <div className="mt-6 flex gap-3">
                     <button
-                      onClick={() => setShowNewMeetingForm(false)}
-                      className="flex-1 rounded-lg border border-gray-300 px-4 py-2 hover:bg-gray-50"
+                      onClick={() => { setShowNewForm(false); resetForm(); }}
                       disabled={isCreating}
+                      className="flex-1 rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
                     >
                       Cancel
                     </button>
                     <button
-                      onClick={createMeeting}
-                      disabled={isCreating}
-                      className="flex-1 rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 disabled:bg-gray-400"
+                      onClick={createAppointment}
+                      disabled={isCreating || !selectedPatientId}
+                      className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-700 disabled:bg-gray-300"
                     >
-                      {isCreating ? 'Creating...' : 'Schedule Meeting'}
+                      {isCreating ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Scheduling...
+                        </>
+                      ) : (
+                        'Schedule Meeting'
+                      )}
                     </button>
                   </div>
                 </div>
               </div>
             )}
 
-            {/* Meetings List */}
-            <div className="rounded-lg bg-white shadow-sm">
-              <div className="border-b p-6">
-                <h2 className="text-xl font-semibold">Scheduled Consultations</h2>
+            {/* Sessions List */}
+            <div className="rounded-xl bg-white shadow-sm">
+              <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
+                <h2 className="text-lg font-semibold text-gray-900">
+                  Upcoming Consultations
+                  {totalCount > 0 && (
+                    <span className="ml-2 text-sm font-normal text-gray-500">({totalCount})</span>
+                  )}
+                </h2>
+                {!zoomEnabled && (
+                  <span className="rounded-full bg-yellow-100 px-3 py-1 text-xs font-medium text-yellow-700">
+                    Zoom not configured
+                  </span>
+                )}
               </div>
 
-              <div className="divide-y">
-                {meetings.length === 0 ? (
-                  <div className="p-8 text-center text-gray-500">
-                    No consultations scheduled yet
-                  </div>
-                ) : (
-                  meetings.map((meeting: any) => (
-                    <div key={meeting.id} className="p-6 hover:bg-gray-50">
+              {loading ? (
+                <div className="flex items-center justify-center py-16">
+                  <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+                </div>
+              ) : sessions.length === 0 ? (
+                <div className="py-16 text-center">
+                  <Video className="mx-auto mb-3 h-12 w-12 text-gray-300" />
+                  <p className="text-gray-500">No upcoming consultations</p>
+                  <p className="mt-1 text-sm text-gray-400">
+                    Schedule a video appointment to get started
+                  </p>
+                </div>
+              ) : (
+                <div className="divide-y divide-gray-100">
+                  {sessions.map((session) => (
+                    <div key={session.id} className="px-6 py-5 transition-colors hover:bg-gray-50/50">
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
-                          <div className="mb-2 flex items-center gap-3">
-                            <h3 className="text-lg font-semibold">{meeting.topic}</h3>
-                            {getStatusBadge(meeting.status)}
+                          <div className="mb-1.5 flex items-center gap-3">
+                            <h3 className="font-semibold text-gray-900">{session.topic}</h3>
+                            {getStatusBadge(session.status)}
                           </div>
 
-                          <div className="mb-3 flex items-center gap-4 text-sm text-gray-600">
-                            <div className="flex items-center gap-1">
+                          <div className="mb-2 flex flex-wrap items-center gap-4 text-sm text-gray-500">
+                            <span className="flex items-center gap-1">
                               <Users className="h-4 w-4" />
-                              {meeting.patientName}
-                            </div>
-                            <div className="flex items-center gap-1">
+                              {session.patient.firstName} {session.patient.lastName}
+                            </span>
+                            <span className="flex items-center gap-1">
                               <Calendar className="h-4 w-4" />
-                              {formatDateTime(meeting.scheduledAt)}
-                            </div>
-                            <div className="flex items-center gap-1">
+                              {formatDateTime(session.scheduledAt)}
+                            </span>
+                            <span className="flex items-center gap-1">
                               <Clock className="h-4 w-4" />
-                              {meeting.duration} minutes
-                            </div>
+                              {session.duration} min
+                            </span>
                           </div>
-
-                          {meeting.meetingId && (
-                            <div className="flex items-center gap-4 text-sm">
-                              <span className="text-gray-500">
-                                Meeting ID: <span className="font-mono">{meeting.meetingId}</span>
-                              </span>
-                              {meeting.password && (
-                                <span className="text-gray-500">
-                                  Password: <span className="font-mono">{meeting.password}</span>
-                                </span>
-                              )}
-                            </div>
-                          )}
                         </div>
 
                         <div className="flex items-center gap-2">
-                          {meeting.status === 'scheduled' && (
+                          {(session.status === 'SCHEDULED' || session.status === 'WAITING') && (
                             <>
                               <button
-                                onClick={() => copyMeetingLink(meeting)}
-                                className="rounded-lg p-2 text-gray-600 transition-colors hover:bg-gray-100"
-                                title="Copy meeting link"
+                                onClick={() => copyLink(session)}
+                                className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+                                title="Copy patient link"
                               >
-                                {copiedId === meeting.id ? (
-                                  <CheckCircle className="h-5 w-5 text-green-600" />
+                                {copiedId === session.id ? (
+                                  <CheckCircle className="h-5 w-5 text-green-500" />
                                 ) : (
                                   <Copy className="h-5 w-5" />
                                 )}
                               </button>
 
                               <button
-                                onClick={() => joinMeeting(meeting)}
-                                className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
+                                onClick={() => startMeeting(session)}
+                                className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700"
                               >
                                 <Video className="h-4 w-4" />
-                                Start Meeting
-                              </button>
-
-                              <button
-                                onClick={() => cancelMeeting(meeting.id)}
-                                className="rounded-lg p-2 text-red-600 transition-colors hover:bg-red-50"
-                                title="Cancel meeting"
-                              >
-                                <XCircle className="h-5 w-5" />
+                                Start
                               </button>
                             </>
                           )}
 
-                          {meeting.status === 'completed' && (
-                            <button className="flex items-center gap-2 rounded-lg bg-gray-100 px-4 py-2 text-gray-600">
-                              <ChevronRight className="h-4 w-4" />
-                              View Recording
+                          {session.status === 'IN_PROGRESS' && (
+                            <button
+                              onClick={() => openZoomDirect(session)}
+                              className="flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-green-700"
+                            >
+                              <ExternalLink className="h-4 w-4" />
+                              Rejoin
                             </button>
+                          )}
+
+                          {session.status === 'COMPLETED' && session.appointment && (
+                            <a
+                              href={`/provider/soap-notes?appointmentId=${session.appointment.id}`}
+                              className="flex items-center gap-2 rounded-lg bg-gray-100 px-4 py-2 text-sm text-gray-600 hover:bg-gray-200"
+                            >
+                              <ChevronRight className="h-4 w-4" />
+                              SOAP Notes
+                            </a>
                           )}
                         </div>
                       </div>
                     </div>
-                  ))
-                )}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
 
-            {/* Statistics */}
-            <div className="mt-6 grid grid-cols-4 gap-4">
-              <div className="rounded-lg bg-white p-4 shadow-sm">
-                <div className="text-2xl font-bold text-blue-600">
-                  {meetings.filter((m: any) => m.status === 'scheduled').length}
+            {/* Stats */}
+            {!loading && sessions.length > 0 && (
+              <div className="mt-6 grid grid-cols-3 gap-4">
+                <div className="rounded-xl bg-white p-4 shadow-sm">
+                  <div className="text-2xl font-bold text-blue-600">
+                    {sessions.filter((s) => s.status === 'SCHEDULED' || s.status === 'WAITING').length}
+                  </div>
+                  <div className="text-sm text-gray-500">Upcoming</div>
                 </div>
-                <div className="text-sm text-gray-600">Upcoming</div>
-              </div>
-              <div className="rounded-lg bg-white p-4 shadow-sm">
-                <div className="text-2xl font-bold text-green-600">
-                  {meetings.filter((m: any) => m.status === 'completed').length}
+                <div className="rounded-xl bg-white p-4 shadow-sm">
+                  <div className="text-2xl font-bold text-green-600">
+                    {sessions.filter((s) => s.status === 'IN_PROGRESS').length}
+                  </div>
+                  <div className="text-sm text-gray-500">In Progress</div>
                 </div>
-                <div className="text-sm text-gray-600">Completed</div>
-              </div>
-              <div className="rounded-lg bg-white p-4 shadow-sm">
-                <div className="text-2xl font-bold text-yellow-600">
-                  {meetings.reduce((sum, m) => sum + m.duration, 0)}
+                <div className="rounded-xl bg-white p-4 shadow-sm">
+                  <div className="text-2xl font-bold text-gray-600">
+                    {sessions.reduce((sum, s) => sum + s.duration, 0)}
+                  </div>
+                  <div className="text-sm text-gray-500">Total Minutes</div>
                 </div>
-                <div className="text-sm text-gray-600">Total Minutes</div>
               </div>
-              <div className="rounded-lg bg-white p-4 shadow-sm">
-                <div className="text-2xl font-bold text-[var(--brand-primary)]">98%</div>
-                <div className="text-sm text-gray-600">Satisfaction</div>
-              </div>
-            </div>
+            )}
           </Feature>
         </div>
       </div>

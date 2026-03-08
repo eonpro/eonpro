@@ -38,9 +38,11 @@ export const GET = withAuth(async (request, user) => {
   try {
     const { searchParams } = new URL(request.url);
 
-    // Clinic ID (super admin can view any clinic)
+    // Only super_admin may query another clinic's stats
     const clinicIdParam = searchParams.get('clinicId');
-    const clinicId = clinicIdParam ? parseInt(clinicIdParam, 10) : user.clinicId;
+    const clinicId = (clinicIdParam && user.role === 'super_admin')
+      ? parseInt(clinicIdParam, 10)
+      : user.clinicId;
 
     if (!clinicId) {
       return NextResponse.json({ error: 'Clinic ID is required' }, { status: 400 });

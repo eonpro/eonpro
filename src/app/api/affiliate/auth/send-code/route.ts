@@ -108,7 +108,7 @@ async function handlePost(request: NextRequest) {
 
       // In development, log the code
       if (process.env.NODE_ENV === 'development') {
-        logger.info(`[DEV] OTP Code for ${phone}: ${code}`);
+        logger.info('[DEV] OTP Code generated for affiliate', { affiliateId: affiliate.id });
       }
     }
 

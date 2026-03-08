@@ -46,8 +46,7 @@ async function deleteHandler(request: NextRequest, user: AuthUser) {
     logger.debug('[S3 Delete] Success:', { key });
 
     return NextResponse.json({ success });
-  } catch (error: any) {
-    // @ts-ignore
+  } catch (error: unknown) {
 
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('[S3 Delete] Error:', error);

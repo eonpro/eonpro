@@ -174,7 +174,7 @@ export default function SuperAdminAffiliateDetailPage() {
         }
       }
     } catch (err) {
-      console.error('Failed to fetch stats:', err);
+      process.env.NODE_ENV === 'development' && console.error('Failed to fetch stats:', err);
     }
   };
 
@@ -190,7 +190,7 @@ export default function SuperAdminAffiliateDetailPage() {
         setAvailablePlans(clinicPlans);
       }
     } catch (err) {
-      console.error('Failed to fetch plans:', err);
+      process.env.NODE_ENV === 'development' && console.error('Failed to fetch plans:', err);
     }
   };
 
@@ -231,7 +231,7 @@ export default function SuperAdminAffiliateDetailPage() {
       setCopiedCode(code);
       setTimeout(() => setCopiedCode(null), 2000);
     } catch (e) {
-      console.error('Failed to copy');
+      process.env.NODE_ENV === 'development' && console.error('Failed to copy');
     }
   };
 

@@ -37,6 +37,7 @@ async function handler(req: NextRequest, user: AuthUser) {
         status: { notIn: TERMINAL_STATUSES },
       },
       select: { id: true, status: true, patientId: true, primaryMedName: true },
+      take: 500,
     });
 
     // For each, check if the patient has any PatientShippingUpdate
@@ -86,9 +87,9 @@ async function handler(req: NextRequest, user: AuthUser) {
       toComplete: toComplete.length,
       details,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('[BULK COMPLETE] Error:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });
   }
 }
 

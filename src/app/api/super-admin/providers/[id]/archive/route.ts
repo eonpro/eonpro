@@ -115,10 +115,10 @@ export const POST = withSuperAdminAuth(
         message: 'Provider archived successfully',
         provider: updatedProvider,
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error('[SUPER-ADMIN/PROVIDERS] Error archiving provider:', error);
       return NextResponse.json(
-        { error: error.message || 'Failed to archive provider' },
+        { error: error instanceof Error ? error.message : String(error) || 'Failed to archive provider' },
         { status: 500 }
       );
     }
@@ -210,10 +210,10 @@ export const DELETE = withSuperAdminAuth(
         message: 'Provider unarchived successfully',
         provider: updatedProvider,
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error('[SUPER-ADMIN/PROVIDERS] Error unarchiving provider:', error);
       return NextResponse.json(
-        { error: error.message || 'Failed to unarchive provider' },
+        { error: error instanceof Error ? error.message : String(error) || 'Failed to unarchive provider' },
         { status: 500 }
       );
     }

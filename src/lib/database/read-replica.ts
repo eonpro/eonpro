@@ -57,7 +57,7 @@ function createReadReplicaClient(): PrismaClient | null {
   });
 
   // Lightweight query timing middleware (no guardrails needed for reads)
-  // @ts-ignore - Prisma v5 middleware
+  // @ts-expect-error — Prisma v5 middleware API not in current type definitions
   client.$use?.(async (params: any, next: any) => {
     const start = Date.now();
     try {

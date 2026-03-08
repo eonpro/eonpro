@@ -66,9 +66,11 @@ export async function GET(request: NextRequest) {
     const rawPageSize = parseInt(searchParams.get('pageSize') || '20', 10) || 20;
     const pageSize = Math.min(100, Math.max(1, rawPageSize));
 
+    const trackedMergeWindow = hasTrackingNumber === 'true' ? Math.max(page * pageSize, pageSize) : pageSize;
+
     // Use order service for proper access control
     const result = await orderService.listOrders(userContext, {
-      limit: hasTrackingNumber === 'true' ? 1000 : pageSize,
+      limit: trackedMergeWindow,
       offset: hasTrackingNumber === 'true' ? 0 : (page - 1) * pageSize,
       hasTrackingNumber:
         hasTrackingNumber === 'true' ? true : hasTrackingNumber === 'false' ? false : undefined,
@@ -84,6 +86,7 @@ export async function GET(request: NextRequest) {
       ? await prisma.orderEvent.findMany({
           where: { orderId: { in: orderIds } },
           orderBy: { createdAt: 'desc' },
+          take: 500,
         })
       : [];
 
@@ -106,6 +109,7 @@ export async function GET(request: NextRequest) {
         },
         orderBy: { createdAt: 'desc' },
         select: { patientId: true, status: true, body: true },
+        take: 500,
       });
 
       for (const order of trackingOrders) {
@@ -153,22 +157,17 @@ export async function GET(request: NextRequest) {
     // If requesting orders with tracking numbers, also fetch from PatientShippingUpdate
     // This catches shipments that weren't linked to an Order record
     if (hasTrackingNumber === 'true') {
-      // Build clinic filter
-      const clinicFilter =
-        userContext.role === 'super_admin' ? {} : { clinicId: userContext.clinicId };
-
-      // Get all existing order IDs with tracking from our results
-      const existingOrderIds = new Set(
-        ordersWithEvents.filter((o) => o.trackingNumber).map((o) => o.id)
-      );
-
-      // Fetch shipments from PatientShippingUpdate that aren't already in orders
-      const patientShipments = await prisma.patientShippingUpdate.findMany({
+      const shipmentWhere = {
         where: {
           ...(userContext.role === 'super_admin' ? {} : { clinicId: userContext.clinicId }),
-          // Exclude shipments already linked to orders we have
-          OR: [{ orderId: null }, { orderId: { notIn: Array.from(existingOrderIds) } }],
+          // Only include shipment-only records; exclude shipments linked to tracked orders.
+          OR: [{ orderId: null }, { order: { trackingNumber: null } }, { order: { is: null } }],
         } as any,
+      };
+
+      // Fetch shipment-only records in the same dynamic window used for tracked orders.
+      const patientShipments = await prisma.patientShippingUpdate.findMany({
+        ...shipmentWhere,
         include: {
           patient: {
             select: {
@@ -186,13 +185,11 @@ export async function GET(request: NextRequest) {
           },
         },
         orderBy: { createdAt: 'desc' },
-        take: 1000,
+        take: trackedMergeWindow,
       });
 
       // Batch-load SMS status for all shipments
-      const filteredShipments = patientShipments.filter(
-        (s: any) => !existingOrderIds.has(s.orderId || -1)
-      );
+      const filteredShipments = patientShipments;
 
       const shipmentPatientIds = [
         ...new Set(
@@ -211,6 +208,7 @@ export async function GET(request: NextRequest) {
               },
               orderBy: { createdAt: 'desc' },
               select: { patientId: true, status: true, body: true },
+              take: 500,
             })
           : [];
 
@@ -258,7 +256,8 @@ export async function GET(request: NextRequest) {
         return new Date(dateB).getTime() - new Date(dateA).getTime();
       });
 
-      const total = allOrders.length;
+      const shipmentOnlyTotal = await prisma.patientShippingUpdate.count(shipmentWhere as any);
+      const total = result.total + shipmentOnlyTotal;
       const start = (page - 1) * pageSize;
       const paginatedOrders = allOrders.slice(start, start + pageSize);
 

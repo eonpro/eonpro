@@ -70,9 +70,8 @@ export class PerformanceMonitor {
             span.setStatus({ code: 1 }); // OK status
           }
           return result;
-        } catch (error: any) {
-          // @ts-ignore
-
+        } catch (error: unknown) {
+          
           if (span) {
             span.setStatus({ code: 2 }); // ERROR status
           }
@@ -109,9 +108,8 @@ export class PerformanceMonitor {
             span.setStatus({ code: 1 }); // OK status
           }
           return result;
-        } catch (error: any) {
-          // @ts-ignore
-
+        } catch (error: unknown) {
+          
           if (span) {
             span.setStatus({ code: 2 }); // ERROR status
           }
@@ -141,7 +139,7 @@ export class ErrorTracker {
       // Add breadcrumb
       Sentry.addBreadcrumb({
         category: 'error',
-        message: error.message,
+        message: error instanceof Error ? error.message : String(error),
         level: 'error',
         data: context,
       });
@@ -201,21 +199,18 @@ export class UserActivityTracker {
       if (metrics && typeof metrics.increment === 'function') {
         metrics.increment('user.action', 1);
       }
-    } catch (e: any) {
-      // @ts-ignore
+    } catch {
       // Metrics API may not be available
     }
   }
 
-  // Track feature usage
   static trackFeatureUsage(feature: string, variant?: string) {
     try {
-      const metrics = Sentry.metrics as any;
+      const metrics = Sentry.metrics as unknown as { increment?: (name: string, value: number) => void };
       if (metrics && typeof metrics.increment === 'function') {
         metrics.increment('feature.usage', 1);
       }
-    } catch (e: any) {
-      // @ts-ignore
+    } catch {
       // Metrics API may not be available
     }
   }
@@ -342,9 +337,8 @@ export function useMonitoring() {
       const result = await operation();
       monitor.endTransaction(name, 'ok');
       return result;
-    } catch (error: any) {
-      // @ts-ignore
-
+    } catch (error: unknown) {
+      
       monitor.endTransaction(name, 'error');
       throw error;
     }

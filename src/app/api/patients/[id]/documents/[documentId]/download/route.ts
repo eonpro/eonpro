@@ -187,7 +187,7 @@ const downloadDocumentHandler = withAuthParams(
               'Content-Length': fileData.length.toString(),
             },
           });
-        } catch (error: any) {
+        } catch (error: unknown) {
           logger.error('Error retrieving from external storage for download', {
             error: error instanceof Error ? error.message : String(error),
             key: document.externalUrl,

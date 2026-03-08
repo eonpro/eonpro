@@ -90,19 +90,16 @@ async function sendEmailWithLink(
         subject: `Please complete your ${formName} form`,
         html: emailContent,
       });
-      logger.info(`Email sent to ${to} with form link`);
-    } catch (error: any) {
-      // @ts-ignore
+      logger.info('Intake form email sent');
+    } catch (error: unknown) {
 
       logger.error('Failed to send email:', error);
       throw new Error('Failed to send email');
     }
   } else {
     // Development mode - log to console
-    logger.info('[EMAIL] Would be sent:', {
-      to,
+    logger.info('[EMAIL] Would be sent (dev mode)', {
       subject: `Please complete your ${formName} form`,
-      link,
     });
   }
 }
@@ -115,10 +112,7 @@ async function sendSMSWithLink(phone: string, formName: string, link: string): P
 
   if (!twilioAccountSid || !twilioAuthToken || !twilioPhoneNumber) {
     logger.warn('Twilio not configured - SMS not sent');
-    logger.info('[SMS] Would be sent:', {
-      to: phone,
-      message: `Please complete your ${formName} intake form: ${link}`,
-    });
+    logger.info('[SMS] Would be sent (dev mode, Twilio not configured)');
     return;
   }
 
@@ -132,9 +126,8 @@ async function sendSMSWithLink(phone: string, formName: string, link: string): P
       to: phone,
     });
 
-    logger.info(`SMS sent to ${phone} with form link`);
-  } catch (error: any) {
-    // @ts-ignore
+    logger.info('Intake form SMS sent');
+  } catch (error: unknown) {
 
     logger.error('Failed to send SMS:', error);
     // Don't throw - SMS is optional
@@ -198,10 +191,10 @@ export const POST = withProviderAuth(async (req: NextRequest, user) => {
       message:
         sendMethod === 'none' ? 'Link created (not sent)' : `Form link sent via ${sendMethod}`,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('Failed to send form link', error);
     return NextResponse.json(
-      { error: error.message || 'Failed to send form link' },
+      { error: error instanceof Error ? error.message : String(error) || 'Failed to send form link' },
       { status: 500 }
     );
   }

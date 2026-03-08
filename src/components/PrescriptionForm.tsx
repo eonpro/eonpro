@@ -416,7 +416,7 @@ export default function PrescriptionForm({
         const res = await apiFetch('/api/patients');
         const data = await res.json();
         setPatients(data.patients ?? []);
-      } catch (err: any) {
+      } catch (err: unknown) {
         logger.error('Failed to load patients', err);
       }
     }
@@ -633,7 +633,7 @@ export default function PrescriptionForm({
       } else {
         window.location.href = '/orders/dashboard?submitted=1';
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       logger.error('Prescription fetch error:', err);
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
       alert(`Unexpected error submitting prescription:\n${errorMessage}`);

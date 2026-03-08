@@ -356,7 +356,7 @@ function PatientLoginPage() {
       setRedirecting(true);
       handleLoginSuccess(data as Parameters<typeof handleLoginSuccess>[0]);
       return;
-    } catch (err: any) {
+    } catch (err: unknown) {
       const isTimeout = err?.name === 'AbortError';
       if (!isRetry && isTimeout) {
         await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
@@ -439,7 +439,7 @@ function PatientLoginPage() {
       setEmailOtpCountdown(60);
       setCanResendEmailOtp(false);
       setStep('email-otp');
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(err.message || 'Failed to send login code. Please try again.');
     } finally {
       setLoading(false);
@@ -508,7 +508,7 @@ function PatientLoginPage() {
       }
 
       handleLoginSuccess(data);
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(err.message || 'Invalid login code. Please try again.');
       setEmailOtp(['', '', '', '', '', '']);
       emailOtpRefs.current[0]?.focus();
@@ -536,7 +536,7 @@ function PatientLoginPage() {
       setResetCountdown(60);
       setCanResendReset(false);
       setStep('forgot');
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(err.message || 'Failed to send reset code');
     } finally {
       setLoading(false);
@@ -606,7 +606,7 @@ function PatientLoginPage() {
       setStep('password');
       setError('');
       setSessionMessage('Password reset successful! Please log in with your new password.');
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(err.message || 'Failed to reset password');
     } finally {
       setLoading(false);

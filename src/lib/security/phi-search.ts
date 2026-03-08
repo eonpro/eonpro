@@ -315,6 +315,14 @@ export const PHISearchService = {
     // Validate the base query doesn't search encrypted fields
     validateWhereClause(baseQuery, 'PHISearchService.searchPatients');
 
+    // Ensure tenant scoping: baseQuery must include clinicId for non-global searches
+    if (!baseQuery || !('clinicId' in baseQuery)) {
+      logger.warn('[PHI-SEARCH] searchPatients called without clinicId in baseQuery — results may span tenants', {
+        hasBaseQuery: !!baseQuery,
+        queryKeys: baseQuery ? Object.keys(baseQuery) : [],
+      });
+    }
+
     // ── FAST PATH: searchIndex (GIN-indexed, O(1) via pg_trgm) ──────────
     // Try the plaintext searchIndex first. This avoids fetching/decrypting
     // thousands of records when the index already covers the query.

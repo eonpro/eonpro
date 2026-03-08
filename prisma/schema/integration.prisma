@@ -49,7 +49,7 @@ model Integration {
   id          Int               @id @default(autoincrement())
   clinicId    Int? // Multi-clinic support
   clinic      Clinic?           @relation(fields: [clinicId], references: [id])
-  name        String            @unique
+  name        String
   provider    String // stripe, lifefile, twilio, sendgrid, etc.
   status      IntegrationStatus @default(INACTIVE)
   config      Json // Encrypted configuration
@@ -67,6 +67,7 @@ model Integration {
   webhooks    WebhookConfig[]
   logs        IntegrationLog[]
 
+  @@unique([clinicId, name])
   @@index([provider, status])
 }
 

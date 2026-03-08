@@ -260,8 +260,8 @@ export async function validateDatabaseSchema(
     }
 
     return result;
-  } catch (error: any) {
-    logger.error('[SchemaValidator] Failed to validate schema', { error: error.message });
+  } catch (error: unknown) {
+    logger.error('[SchemaValidator] Failed to validate schema', { error: error instanceof Error ? error.message : String(error) });
 
     return {
       valid: false,
@@ -270,7 +270,7 @@ export async function validateDatabaseSchema(
           type: 'MISSING_TABLE',
           table: 'DATABASE',
           severity: 'CRITICAL',
-          message: `Database connection/query failed: ${error.message}`,
+          message: `Database connection/query failed: ${error instanceof Error ? error.message : String(error)}`,
         },
       ],
       warnings: [],
@@ -372,10 +372,10 @@ export async function validateTableBeforeOperation(
     }
 
     return { valid: true };
-  } catch (error: any) {
+  } catch (error: unknown) {
     return {
       valid: false,
-      error: `Failed to validate table ${tableName}: ${error.message}`,
+      error: `Failed to validate table ${tableName}: ${error instanceof Error ? error.message : String(error)}`,
     };
   }
 }

@@ -117,6 +117,7 @@ const statusTabs = [
 export default function VerificationQueuePage() {
   const [data, setData] = useState<VerificationData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState<string>('PENDING');
   const [selectedVerification, setSelectedVerification] = useState<Verification | null>(null);
@@ -126,13 +127,36 @@ export default function VerificationQueuePage() {
 
   const fetchVerifications = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
       const params = new URLSearchParams({ page: page.toString(), limit: '20' });
       if (statusFilter !== 'all') params.set('status', statusFilter);
       const response = await apiFetch(`/api/admin/verification-queue?${params}`);
-      if (response.ok) setData(await response.json());
+      if (response.ok) {
+        setData(await response.json());
+        return;
+      }
+
+      const payload = await response.json().catch(() => ({}));
+      const message =
+        (payload as { error?: string })?.error ||
+        (response.status === 403
+          ? 'Access denied for ID verification queue.'
+          : 'Failed to load verification queue.');
+      setError(message);
+      setData({
+        verifications: [],
+        pagination: { page, limit: 20, total: 0, totalPages: 0 },
+        stats: { byStatus: {} },
+      });
     } catch (error) {
-      console.error('Failed to fetch verifications:', error);
+      process.env.NODE_ENV === 'development' && console.error('Failed to fetch verifications:', error);
+      setError('Failed to load verification queue.');
+      setData({
+        verifications: [],
+        pagination: { page, limit: 20, total: 0, totalPages: 0 },
+        stats: { byStatus: {} },
+      });
     } finally {
       setLoading(false);
     }
@@ -172,7 +196,7 @@ export default function VerificationQueuePage() {
         }
       }
     } catch (error) {
-      console.error('Failed to verify:', error);
+      process.env.NODE_ENV === 'development' && console.error('Failed to verify:', error);
     } finally {
       setProcessing(false);
     }
@@ -188,7 +212,7 @@ export default function VerificationQueuePage() {
             body: JSON.stringify({ photoId: photo.id, action: 'approve' }),
           });
         } catch (error) {
-          console.error('Failed to approve photo:', photo.id);
+          process.env.NODE_ENV === 'development' && console.error('Failed to approve photo:', photo.id);
         }
       }
     }
@@ -197,7 +221,7 @@ export default function VerificationQueuePage() {
     setProcessing(false);
   };
 
-  const filteredVerifications = data?.verifications.filter((v) => {
+  const filteredVerifications = (data?.verifications || []).filter((v) => {
     if (!searchTerm) return true;
     const term = searchTerm.toLowerCase();
     return (
@@ -289,6 +313,12 @@ export default function VerificationQueuePage() {
       {/* ================================================================= */}
       {/* Filters: Tabs + Search */}
       {/* ================================================================= */}
+      {error && (
+        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          {error}
+        </div>
+      )}
+
       <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex gap-1 rounded-lg bg-gray-100/80 p-1">
           {statusTabs.map((tab) => {
@@ -442,7 +472,7 @@ export default function VerificationQueuePage() {
       {/* ================================================================= */}
       {/* Empty State */}
       {/* ================================================================= */}
-      {filteredVerifications && filteredVerifications.length === 0 && (
+      {filteredVerifications.length === 0 && (
         <div className="mt-2 rounded-xl border border-dashed border-gray-200 bg-white py-16 text-center">
           <Shield className="mx-auto h-10 w-10 text-gray-300" />
           <p className="mt-3 text-sm font-medium text-gray-500">

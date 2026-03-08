@@ -7,8 +7,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type Stripe from 'stripe';
 
 // Mock Prisma
-vi.mock('@/lib/db', () => ({
-  prisma: {
+const mockPrisma = vi.hoisted(() => {
+  const p: Record<string, unknown> = {
     payment: {
       create: vi.fn(),
       findUnique: vi.fn(),
@@ -22,11 +22,17 @@ vi.mock('@/lib/db', () => ({
       findUnique: vi.fn(),
       update: vi.fn(),
     },
-  },
+    $transaction: vi.fn((fn: (tx: unknown) => Promise<unknown>) => fn(p)),
+  };
+  return p;
+});
+
+vi.mock('@/lib/db', () => ({
+  prisma: mockPrisma,
 }));
 
 // Mock Stripe
-const mockStripeClient = {
+const mockStripeClient = vi.hoisted(() => ({
   paymentIntents: {
     create: vi.fn(),
     confirm: vi.fn(),
@@ -45,10 +51,11 @@ const mockStripeClient = {
     create: vi.fn(),
     retrieve: vi.fn(),
   },
-};
+}));
 
 vi.mock('@/lib/stripe', () => ({
   getStripe: vi.fn(() => mockStripeClient),
+  requireStripeClient: vi.fn(() => mockStripeClient),
   stripe: mockStripeClient,
   STRIPE_CONFIG: {
     currency: 'usd',
@@ -57,7 +64,7 @@ vi.mock('@/lib/stripe', () => ({
 }));
 
 // Mock customer service
-const mockGetOrCreateCustomer = vi.fn().mockResolvedValue({ id: 'cus_test123' });
+const mockGetOrCreateCustomer = vi.hoisted(() => vi.fn().mockResolvedValue({ id: 'cus_test123' }));
 vi.mock('@/services/stripe/customerService', () => ({
   StripeCustomerService: {
     getOrCreateCustomer: mockGetOrCreateCustomer,
@@ -74,17 +81,34 @@ vi.mock('@/lib/logger', () => ({
   },
 }));
 
+vi.mock('@/lib/resilience/circuitBreaker', () => ({
+  circuitBreakers: {
+    stripe: { execute: vi.fn((fn: () => unknown) => fn()) },
+  },
+  CircuitState: { CLOSED: 'CLOSED', OPEN: 'OPEN', HALF_OPEN: 'HALF_OPEN' },
+  createCircuitBreaker: vi.fn(() => ({ execute: vi.fn((fn: () => unknown) => fn()) })),
+  circuitBreakerRegistry: { register: vi.fn() },
+}));
+
 import { prisma } from '@/lib/db';
 
 describe('Stripe Payment Service', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    // Reset customer service mock to return valid customer
     mockGetOrCreateCustomer.mockResolvedValue({ id: 'cus_test123' });
+    // Default: payment.create returns pending, payment.update returns with Stripe ID
+    vi.mocked(prisma.payment.create).mockResolvedValue({ id: 1, status: 'PENDING', patientId: 1, amount: 0 } as any);
+    vi.mocked(prisma.payment.update).mockImplementation(async (args: any) => ({
+      id: args?.where?.id ?? 1,
+      status: 'PROCESSING',
+      patientId: 1,
+      amount: 0,
+      ...(args?.data ?? {}),
+    } as any));
   });
 
   afterEach(() => {
-    vi.resetAllMocks();
+    vi.clearAllMocks();
   });
 
   describe('createPaymentIntent', () => {
@@ -101,9 +125,16 @@ describe('Stripe Payment Service', () => {
 
       vi.mocked(prisma.payment.create).mockResolvedValue({
         id: 1,
-        stripePaymentIntentId: 'pi_test123',
         amount: 10000,
         status: 'PENDING',
+        patientId: 1,
+      } as any);
+
+      vi.mocked(prisma.payment.update).mockResolvedValue({
+        id: 1,
+        stripePaymentIntentId: 'pi_test123',
+        amount: 10000,
+        status: 'PROCESSING',
         patientId: 1,
       } as any);
 
@@ -120,7 +151,8 @@ describe('Stripe Payment Service', () => {
           amount: 10000,
           currency: 'usd',
           customer: 'cus_test123',
-        })
+        }),
+        expect.objectContaining({ idempotencyKey: expect.any(String) })
       );
     });
 
@@ -149,7 +181,8 @@ describe('Stripe Payment Service', () => {
             invoiceId: '123',
             orderId: '456',
           }),
-        })
+        }),
+        expect.anything()
       );
     });
   });
@@ -314,7 +347,9 @@ describe('Stripe Payment Service', () => {
       vi.mocked(prisma.payment.findUnique).mockResolvedValue({
         id: 1,
         amount: 10000,
+        stripePaymentIntentId: 'pi_refund123',
         stripeChargeId: 'ch_refund123',
+        metadata: {},
       } as any);
 
       mockStripeClient.refunds.create.mockResolvedValue({
@@ -326,11 +361,13 @@ describe('Stripe Payment Service', () => {
       const refund = await StripePaymentService.refundPayment(1);
 
       expect(refund.amount).toBe(10000);
-      expect(mockStripeClient.refunds.create).toHaveBeenCalledWith({
-        charge: 'ch_refund123',
-        amount: 10000,
-        reason: 'requested_by_customer',
-      });
+      expect(mockStripeClient.refunds.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          payment_intent: 'pi_refund123',
+          amount: 10000,
+          reason: 'requested_by_customer',
+        })
+      );
     });
 
     it('should create partial refund', async () => {
@@ -339,7 +376,9 @@ describe('Stripe Payment Service', () => {
       vi.mocked(prisma.payment.findUnique).mockResolvedValue({
         id: 1,
         amount: 10000,
+        stripePaymentIntentId: 'pi_partial123',
         stripeChargeId: 'ch_partial123',
+        metadata: {},
       } as any);
 
       mockStripeClient.refunds.create.mockResolvedValue({
@@ -350,11 +389,13 @@ describe('Stripe Payment Service', () => {
 
       await StripePaymentService.refundPayment(1, 5000);
 
-      expect(mockStripeClient.refunds.create).toHaveBeenCalledWith({
-        charge: 'ch_partial123',
-        amount: 5000,
-        reason: 'requested_by_customer',
-      });
+      expect(mockStripeClient.refunds.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          payment_intent: 'pi_partial123',
+          amount: 5000,
+          reason: 'requested_by_customer',
+        })
+      );
     });
 
     it('should throw error if payment not found', async () => {
@@ -367,16 +408,17 @@ describe('Stripe Payment Service', () => {
       );
     });
 
-    it('should throw error if no charge ID', async () => {
+    it('should throw error if no Stripe ID', async () => {
       const { StripePaymentService } = await import('@/services/stripe/paymentService');
 
       vi.mocked(prisma.payment.findUnique).mockResolvedValue({
         id: 1,
         amount: 10000,
+        stripePaymentIntentId: null,
         stripeChargeId: null,
       } as any);
 
-      await expect(StripePaymentService.refundPayment(1)).rejects.toThrow('no charge ID');
+      await expect(StripePaymentService.refundPayment(1)).rejects.toThrow('no Stripe ID');
     });
 
     it('should update payment status after refund', async () => {
@@ -385,7 +427,9 @@ describe('Stripe Payment Service', () => {
       vi.mocked(prisma.payment.findUnique).mockResolvedValue({
         id: 1,
         amount: 10000,
+        stripePaymentIntentId: 'pi_status123',
         stripeChargeId: 'ch_status123',
+        metadata: {},
       } as any);
 
       mockStripeClient.refunds.create.mockResolvedValue({
@@ -395,10 +439,10 @@ describe('Stripe Payment Service', () => {
 
       await StripePaymentService.refundPayment(1);
 
-      expect(prisma.payment.update).toHaveBeenCalledWith({
-        where: { id: 1 },
-        data: { status: 'REFUNDED' },
-      });
+      // Service calls update twice: once to mark PROCESSING, once to mark REFUNDED
+      const updateCalls = vi.mocked(prisma.payment.update).mock.calls;
+      const lastUpdate = updateCalls[updateCalls.length - 1][0];
+      expect(lastUpdate.data).toEqual(expect.objectContaining({ status: 'REFUNDED' }));
     });
   });
 

@@ -43,6 +43,7 @@ function getAuthToken(): string | null {
     localStorage.getItem('provider-token') ||
     localStorage.getItem('staff-token') ||
     localStorage.getItem('sales_rep-token') ||
+    localStorage.getItem('pharmacy_rep-token') ||
     null
   );
 }
@@ -192,6 +193,7 @@ export function clearAuthTokens() {
     'provider-token',
     'staff-token',
     'sales_rep-token',
+    'pharmacy_rep-token',
     'affiliate-token',
     'patient-token',
     'token_timestamp',
@@ -211,6 +213,7 @@ export function clearAuthTokens() {
     'staff-token',
     'support-token',
     'sales_rep-token',
+    'pharmacy_rep-token',
     'affiliate-token',
     'patient-token',
   ];
@@ -245,6 +248,15 @@ export function redirectToLogin(reason: string = 'session_expired') {
  * Handle API response errors
  */
 async function handleResponseError(response: Response): Promise<Response> {
+  // Handle rate limiting — stop retrying and show clear message
+  if (response.status === 429) {
+    const retryAfter = response.headers.get('Retry-After');
+    const waitSeconds = retryAfter ? parseInt(retryAfter, 10) : 60;
+    logger.warn('Rate limited by server', { retryAfter: waitSeconds });
+    // Don't trigger session expiry — this is a temporary block, not an auth failure
+    return response;
+  }
+
   if (response.status === 401 || response.status === 403) {
     // Check if this is an auth-related error
     const contentType = response.headers.get('content-type');
@@ -398,7 +410,7 @@ export async function apiFetch(
 
     // Check for auth errors
     return await handleResponseError(response);
-  } catch (error: any) {
+  } catch (error: unknown) {
     // Re-throw auth errors
     if (error.isAuthError) {
       throw error;

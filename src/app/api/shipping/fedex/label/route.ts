@@ -3,7 +3,7 @@ import { withAuth, type AuthUser } from '@/lib/auth/middleware';
 import { prisma } from '@/lib/db';
 import { logPHIAccess } from '@/lib/audit/hipaa-audit';
 import { handleApiError } from '@/domains/shared/errors';
-import { resolveCredentials, createShipment, cancelShipment } from '@/lib/fedex';
+import { resolveCredentialsWithAttribution, createShipment, cancelShipment } from '@/lib/fedex';
 import { FEDEX_SERVICE_TYPES } from '@/lib/fedex-services';
 import { encryptPHI, isEncrypted } from '@/lib/security/phi-encryption';
 import { uploadToS3 } from '@/lib/integrations/aws/s3Service';
@@ -51,17 +51,56 @@ function encryptAddressJson(addr: Record<string, unknown>): Record<string, unkno
   return encrypted;
 }
 
+function classifyFedExLabelError(error: unknown): { status: number; message: string } {
+  const raw = error instanceof Error ? error.message : String(error ?? '');
+  const normalized = raw.toLowerCase();
+
+  if (normalized.includes('temporarily unavailable') || normalized.includes('circuit')) {
+    return {
+      status: 503,
+      message: 'FedEx shipping service is temporarily unavailable. Please try again shortly.',
+    };
+  }
+
+  const statusMatch = raw.match(/FedEx API error:\s*(\d{3})/i);
+  const upstreamStatus = statusMatch ? Number(statusMatch[1]) : null;
+  if (upstreamStatus === 400 || upstreamStatus === 404 || upstreamStatus === 422) {
+    return {
+      status: 422,
+      message:
+        'FedEx could not create this shipment with the provided address/package details. Please review and try again.',
+    };
+  }
+
+  if (upstreamStatus === 401 || upstreamStatus === 403) {
+    return {
+      status: 503,
+      message: 'FedEx credentials are unavailable. Contact your administrator.',
+    };
+  }
+
+  return {
+    status: 502,
+    message: 'Failed to create FedEx shipment. Please try again.',
+  };
+}
+
 // ---------------------------------------------------------------------------
 // POST — Generate a FedEx shipping label
 // ---------------------------------------------------------------------------
 
 async function handleCreateLabel(req: NextRequest, user: AuthUser) {
   try {
-    const body = await req.json();
+    let body: unknown;
+    try {
+      body = await req.json();
+    } catch {
+      return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
+    }
     const parsed = createLabelSchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json(
-        { error: 'Validation failed', details: parsed.error.flatten() },
+        { error: 'Validation failed' },
         { status: 400 },
       );
     }
@@ -91,6 +130,8 @@ async function handleCreateLabel(req: NextRequest, user: AuthUser) {
     const clinic = await prisma.clinic.findUnique({
       where: { id: clinicId },
       select: {
+        id: true,
+        name: true,
         fedexClientId: true,
         fedexClientSecret: true,
         fedexAccountNumber: true,
@@ -98,9 +139,12 @@ async function handleCreateLabel(req: NextRequest, user: AuthUser) {
       },
     });
 
-    let credentials;
+    const allowEnvFallback = process.env.FEDEX_ALLOW_ENV_FALLBACK_FOR_CLINIC_SHIPPING === 'true';
+    let resolution;
     try {
-      credentials = resolveCredentials(clinic ?? undefined);
+      resolution = resolveCredentialsWithAttribution(clinic ?? undefined, {
+        allowEnvFallback,
+      });
     } catch {
       return NextResponse.json(
         { error: 'FedEx credentials not configured. Contact your administrator.' },
@@ -110,7 +154,7 @@ async function handleCreateLabel(req: NextRequest, user: AuthUser) {
 
     let result;
     try {
-      result = await createShipment(credentials, {
+      result = await createShipment(resolution.credentials, {
         serviceType,
         packagingType,
         shipper: origin,
@@ -119,9 +163,20 @@ async function handleCreateLabel(req: NextRequest, user: AuthUser) {
         oneRate,
         labelFormat,
       });
-    } catch (fedexErr: any) {
-      const msg = fedexErr?.message || 'FedEx shipment creation failed';
-      return NextResponse.json({ error: msg }, { status: 502 });
+    } catch (fedexErr: unknown) {
+      const classified = classifyFedExLabelError(fedexErr);
+      logger.warn('[FedExLabel] Shipment creation failed', {
+        patientId,
+        clinicId,
+        clinicName: clinic?.name || null,
+        status: classified.status,
+        credentialSource: resolution.source,
+        fedexEnvironment: resolution.environment,
+        accountFingerprint: resolution.accountFingerprint,
+        usedEnvFallback: resolution.usedEnvFallback,
+        error: fedexErr instanceof Error ? fedexErr.message : String(fedexErr),
+      });
+      return NextResponse.json({ error: classified.message }, { status: classified.status });
     }
 
     let s3Key: string | null = null;
@@ -213,6 +268,12 @@ async function handleCreateLabel(req: NextRequest, user: AuthUser) {
             serviceType,
             createdBy: user.id,
             linkedToOrder: !!orderId,
+            fedexRouting: {
+              credentialSource: resolution.source,
+              fedexEnvironment: resolution.environment,
+              accountFingerprint: resolution.accountFingerprint,
+              usedEnvFallback: resolution.usedEnvFallback,
+            },
           } as any,
         },
       });
@@ -240,12 +301,16 @@ async function handleCreateLabel(req: NextRequest, user: AuthUser) {
       serviceType,
       labelFormat: result.labelFormat,
       orderId: orderId ?? null,
+      credentialSource: resolution.source,
+      fedexEnvironment: resolution.environment,
+      accountFingerprint: resolution.accountFingerprint,
+      usedEnvFallback: resolution.usedEnvFallback,
     });
 
     if (orderId) {
       const patientForSms = await prisma.patient.findUnique({
         where: { id: patientId },
-        select: { phone: true, firstName: true, lastName: true },
+        select: { phone: true, email: true, firstName: true, lastName: true },
       });
       const clinicForSms = await prisma.clinic.findUnique({
         where: { id: clinicId },
@@ -255,6 +320,7 @@ async function handleCreateLabel(req: NextRequest, user: AuthUser) {
         sendTrackingNotificationSMS({
           patientId,
           patientPhone: patientForSms.phone,
+          patientEmail: patientForSms.email,
           patientFirstName: patientForSms.firstName,
           patientLastName: patientForSms.lastName,
           clinicId,
@@ -278,6 +344,13 @@ async function handleCreateLabel(req: NextRequest, user: AuthUser) {
       labelData: result.labelPdfBase64,
       labelFormat: result.labelFormat,
       orderId: orderId ?? null,
+      routing: {
+        clinicId,
+        credentialSource: resolution.source,
+        fedexEnvironment: resolution.environment,
+        accountFingerprint: resolution.accountFingerprint,
+        usedEnvFallback: resolution.usedEnvFallback,
+      },
     });
   } catch (error) {
     return handleApiError(error, { route: 'POST /api/shipping/fedex/label' });
@@ -285,7 +358,7 @@ async function handleCreateLabel(req: NextRequest, user: AuthUser) {
 }
 
 export const POST = withAuth(handleCreateLabel, {
-  roles: ['super_admin', 'admin'],
+  roles: ['super_admin', 'admin', 'pharmacy_rep'],
 });
 
 // ---------------------------------------------------------------------------
@@ -376,7 +449,7 @@ async function handleGetLabel(req: NextRequest, user: AuthUser) {
 }
 
 export const GET = withAuth(handleGetLabel, {
-  roles: ['super_admin', 'admin'],
+  roles: ['super_admin', 'admin', 'pharmacy_rep'],
 });
 
 // ---------------------------------------------------------------------------
@@ -416,6 +489,7 @@ async function handleVoidLabel(req: NextRequest, user: AuthUser) {
     const clinic = await prisma.clinic.findUnique({
       where: { id: label.clinicId },
       select: {
+        id: true,
         fedexClientId: true,
         fedexClientSecret: true,
         fedexAccountNumber: true,
@@ -423,9 +497,12 @@ async function handleVoidLabel(req: NextRequest, user: AuthUser) {
       },
     });
 
-    let credentials;
+    const allowEnvFallback = process.env.FEDEX_ALLOW_ENV_FALLBACK_FOR_CLINIC_SHIPPING === 'true';
+    let resolution;
     try {
-      credentials = resolveCredentials(clinic ?? undefined);
+      resolution = resolveCredentialsWithAttribution(clinic ?? undefined, {
+        allowEnvFallback,
+      });
     } catch {
       return NextResponse.json(
         { error: 'FedEx credentials not configured' },
@@ -433,7 +510,7 @@ async function handleVoidLabel(req: NextRequest, user: AuthUser) {
       );
     }
 
-    await cancelShipment(credentials, label.trackingNumber);
+    await cancelShipment(resolution.credentials, label.trackingNumber);
 
     await prisma.$transaction(async (tx) => {
       await tx.shipmentLabel.update({
@@ -471,6 +548,10 @@ async function handleVoidLabel(req: NextRequest, user: AuthUser) {
       clinicId: label.clinicId,
       trackingNumber: label.trackingNumber,
       orderId: label.orderId,
+      credentialSource: resolution.source,
+      fedexEnvironment: resolution.environment,
+      accountFingerprint: resolution.accountFingerprint,
+      usedEnvFallback: resolution.usedEnvFallback,
     });
 
     return NextResponse.json({ success: true });
@@ -480,5 +561,5 @@ async function handleVoidLabel(req: NextRequest, user: AuthUser) {
 }
 
 export const DELETE = withAuth(handleVoidLabel, {
-  roles: ['super_admin', 'admin'],
+  roles: ['super_admin', 'admin', 'pharmacy_rep'],
 });

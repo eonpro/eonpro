@@ -262,7 +262,7 @@ async function sendSMS(
 
       throw new Error(result.error || 'Failed to send SMS');
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('Failed to send SMS', { error: error.message, notificationId });
 
     await prisma.prescriptionNotification.update({
@@ -431,7 +431,7 @@ export async function sendPrescriptionNotification(
       sms: shouldSendSMS,
       chat: shouldSendChat,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('Failed to send prescription notification', {
       prescriptionId,
       status,

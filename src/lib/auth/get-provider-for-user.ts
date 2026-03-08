@@ -119,27 +119,39 @@ export async function getProviderForUser(
           });
           return provider;
         }
+
+        // Dangling link: User.providerId points to a missing provider record.
+        // Continue to email fallback and re-link automatically when possible.
+        logger.warn('[GetProviderForUser] User has dangling providerId; attempting recovery', {
+          userId: user.id,
+          danglingProviderId: currentUserData.providerId,
+          email: currentUserData.email,
+        });
       }
 
-      // Also check if there's a provider with matching email that we should auto-link
-      if (currentUserData?.email && !currentUserData.providerId) {
+      // Also check if there's a provider with matching email that we should auto-link.
+      // This recovery path runs for both unlinked users and dangling provider links.
+      if (currentUserData?.email) {
         const providerByEmail = await basePrisma.provider.findFirst({
           where: { email: { equals: currentUserData.email, mode: 'insensitive' } },
           select: { ...baseSelect, email: true },
         });
 
         if (providerByEmail) {
-          // Auto-link the user to this provider for future requests
+          // Auto-link/fix-link the user to this provider for future requests.
           try {
-            await basePrisma.user.update({
-              where: { id: user.id },
-              data: { providerId: providerByEmail.id },
-            });
-            logger.info('[GetProviderForUser] Auto-linked user to provider', {
-              userId: user.id,
-              providerId: providerByEmail.id,
-              email: currentUserData.email,
-            });
+            if (currentUserData.providerId !== providerByEmail.id) {
+              await basePrisma.user.update({
+                where: { id: user.id },
+                data: { providerId: providerByEmail.id },
+              });
+              logger.info('[GetProviderForUser] Auto-linked user to provider', {
+                userId: user.id,
+                previousProviderId: currentUserData.providerId ?? null,
+                providerId: providerByEmail.id,
+                email: currentUserData.email,
+              });
+            }
           } catch (linkError) {
             // Non-critical - just log
             logger.warn('[GetProviderForUser] Failed to auto-link user to provider', {

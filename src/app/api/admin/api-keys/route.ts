@@ -143,8 +143,7 @@ export const GET = withAuth(
           revoked: apiKeys.filter((k: any) => k.status === 'REVOKED').length,
         },
       });
-    } catch (error: any) {
-      // @ts-ignore
+    } catch (error: unknown) {
 
       logger.error('Error fetching API keys:', error);
       return NextResponse.json({ error: 'Failed to fetch API keys' }, { status: 500 });
@@ -236,7 +235,7 @@ export const POST = withAuth(
           expiresAt: apiKey.expiresAt,
         },
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error('Error creating API key:', error);
 
       if (error.name === 'ZodError') {
@@ -340,8 +339,7 @@ export const PUT = withAuth(
           rateLimit: updated.rateLimit,
         },
       });
-    } catch (error: any) {
-      // @ts-ignore
+    } catch (error: unknown) {
 
       logger.error('Error updating API key:', error);
       return NextResponse.json({ error: 'Failed to update API key' }, { status: 500 });
@@ -432,8 +430,7 @@ export const DELETE = withAuth(
           message: 'API key revoked successfully',
         });
       }
-    } catch (error: any) {
-      // @ts-ignore
+    } catch (error: unknown) {
 
       logger.error('Error revoking API key:', error);
       return NextResponse.json({ error: 'Failed to revoke API key' }, { status: 500 });

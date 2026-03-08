@@ -133,7 +133,7 @@ export function BrandingImageUploader({
           };
           reader.readAsDataURL(file);
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error('Upload error:', err);
 
         // Fallback to data URL if S3 is not available

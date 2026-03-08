@@ -54,7 +54,7 @@ export const GET = withProviderAuth(async (req: NextRequest) => {
       pendingOrders,
       cancelledOrders,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     return NextResponse.json({ error: 'Failed to fetch analytics' }, { status: 500 });
   }
 });

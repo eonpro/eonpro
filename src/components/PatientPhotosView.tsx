@@ -378,12 +378,21 @@ export default function PatientPhotosView({ patientId, patientName }: PatientPho
                       src={photo.thumbnailUrl || photo.s3Url || ''}
                       alt={photoTypeLabels[photo.type] || photo.type}
                       className="h-full w-full object-cover"
+                      onError={(e) => {
+                        const target = e.currentTarget;
+                        target.style.display = 'none';
+                        const fallback = target.nextElementSibling as HTMLElement | null;
+                        if (fallback) fallback.style.display = 'flex';
+                      }}
                     />
-                  ) : (
-                    <div className="flex h-full items-center justify-center">
-                      <ImageIcon className="h-8 w-8 text-gray-300" />
-                    </div>
-                  )}
+                  ) : null}
+                  <div
+                    className="flex h-full flex-col items-center justify-center gap-1"
+                    style={{ display: photo.thumbnailUrl || photo.s3Url ? 'none' : 'flex' }}
+                  >
+                    <AlertCircle className="h-6 w-6 text-gray-400" />
+                    <p className="text-[10px] text-gray-400">Image not available</p>
+                  </div>
 
                   {/* Verification Badge */}
                   {['ID_FRONT', 'ID_BACK', 'SELFIE'].includes(photo.type) && (
@@ -447,8 +456,9 @@ export default function PatientPhotosView({ patientId, patientName }: PatientPho
                             className="h-full w-full object-cover"
                           />
                         ) : (
-                          <div className="flex h-full items-center justify-center">
-                            <ImageIcon className="h-6 w-6 text-gray-300" />
+                          <div className="flex h-full flex-col items-center justify-center gap-0.5">
+                            <AlertCircle className="h-4 w-4 text-gray-400" />
+                            <p className="text-[8px] text-gray-400">N/A</p>
                           </div>
                         )}
                       </div>
@@ -487,8 +497,10 @@ export default function PatientPhotosView({ patientId, patientName }: PatientPho
                     className="h-full max-h-[70vh] w-full object-contain"
                   />
                 ) : (
-                  <div className="flex h-96 items-center justify-center">
-                    <ImageIcon className="h-16 w-16 text-gray-600" />
+                  <div className="flex h-96 flex-col items-center justify-center gap-2">
+                    <AlertCircle className="h-12 w-12 text-gray-500" />
+                    <p className="text-sm text-gray-400">Image not available</p>
+                    <p className="text-xs text-gray-500">The signed URL may have expired. Try refreshing.</p>
                   </div>
                 )}
               </div>

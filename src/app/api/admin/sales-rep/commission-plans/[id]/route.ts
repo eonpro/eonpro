@@ -13,6 +13,60 @@ import { prisma, runWithClinicContext } from '@/lib/db';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
 
+type VolumeTierInput = {
+  minSales?: number | null;
+  maxSales?: number | null;
+  amountCents?: number | null;
+};
+
+function validateAndNormalizeVolumeTiers(
+  enabled: boolean,
+  tiers: unknown
+): { valid: true; normalized: Array<{ minSales: number; maxSales: number | null; amountCents: number; sortOrder: number }> } | { valid: false; error: string } {
+  if (!enabled) {
+    return { valid: true, normalized: [] };
+  }
+
+  if (!Array.isArray(tiers) || tiers.length === 0) {
+    return { valid: false, error: 'volumeTiers must include at least one tier when volume tiers are enabled' };
+  }
+
+  const normalized = (tiers as VolumeTierInput[])
+    .map((tier, idx) => ({
+      minSales: Number(tier.minSales),
+      maxSales: tier.maxSales == null ? null : Number(tier.maxSales),
+      amountCents: Number(tier.amountCents),
+      sortOrder: idx,
+    }))
+    .sort((a, b) => a.minSales - b.minSales);
+
+  for (let i = 0; i < normalized.length; i += 1) {
+    const tier = normalized[i];
+    if (!Number.isInteger(tier.minSales) || tier.minSales < 1) {
+      return { valid: false, error: 'Each tier minSales must be an integer >= 1' };
+    }
+    if (!Number.isInteger(tier.amountCents) || tier.amountCents < 0) {
+      return { valid: false, error: 'Each tier amountCents must be a non-negative integer' };
+    }
+    if (tier.maxSales != null) {
+      if (!Number.isInteger(tier.maxSales) || tier.maxSales < tier.minSales) {
+        return { valid: false, error: 'Each tier maxSales must be null or an integer >= minSales' };
+      }
+    }
+    if (i < normalized.length - 1) {
+      const next = normalized[i + 1];
+      if (tier.maxSales == null) {
+        return { valid: false, error: 'Only the last tier may be open-ended (maxSales = null)' };
+      }
+      if (next.minSales <= tier.maxSales) {
+        return { valid: false, error: 'Volume tiers must not overlap; each next minSales must be greater than previous maxSales' };
+      }
+    }
+  }
+
+  return { valid: true, normalized };
+}
+
 interface RouteContext {
   params: Promise<{ id: string }>;
 }
@@ -31,7 +85,12 @@ export const GET = withAuth(
       const { basePrisma } = await import('@/lib/db');
       const plan = await basePrisma.salesRepCommissionPlan.findUnique({
         where: { id: planId },
-        include: { _count: { select: { assignments: true } } },
+        include: {
+          _count: { select: { assignments: true } },
+          volumeTiers: {
+            orderBy: [{ minSales: 'asc' }, { id: 'asc' }],
+          },
+        },
       });
 
       if (!plan) {
@@ -68,6 +127,15 @@ export const GET = withAuth(
           multiItemBonusPercentBps: plan.multiItemBonusPercentBps,
           multiItemBonusFlatCents: plan.multiItemBonusFlatCents,
           multiItemMinQuantity: plan.multiItemMinQuantity,
+          volumeTierEnabled: plan.volumeTierEnabled,
+          volumeTierWindow: plan.volumeTierWindow,
+          volumeTierRetroactive: plan.volumeTierRetroactive,
+          volumeTiers: plan.volumeTiers.map((tier) => ({
+            id: tier.id,
+            minSales: tier.minSales,
+            maxSales: tier.maxSales,
+            amountCents: tier.amountCents,
+          })),
         },
       });
     } catch (error) {
@@ -123,6 +191,10 @@ export const PATCH = withAuth(
         multiItemBonusPercentBps,
         multiItemBonusFlatCents,
         multiItemMinQuantity,
+        volumeTierEnabled,
+        volumeTierWindow,
+        volumeTierRetroactive,
+        volumeTiers,
         productRules,
       } = body;
 
@@ -174,6 +246,43 @@ export const PATCH = withAuth(
         return NextResponse.json({ error: validationErrors[0] }, { status: 400 });
       }
 
+      const effectiveVolumeTierEnabled =
+        volumeTierEnabled !== undefined ? Boolean(volumeTierEnabled) : existingPlan.volumeTierEnabled;
+      const effectiveVolumeTierWindow =
+        volumeTierWindow !== undefined ? volumeTierWindow : existingPlan.volumeTierWindow;
+
+      if (
+        volumeTierEnabled === true &&
+        volumeTiers === undefined &&
+        existingPlan.volumeTierEnabled === false
+      ) {
+        return NextResponse.json(
+          { error: 'volumeTiers must be provided when enabling volume tiers' },
+          { status: 400 }
+        );
+      }
+
+      if (
+        effectiveVolumeTierEnabled &&
+        effectiveVolumeTierWindow !== 'CALENDAR_WEEK_MON_SUN' &&
+        effectiveVolumeTierWindow !== 'REPORT_PERIOD'
+      ) {
+        return NextResponse.json(
+          {
+            error: 'volumeTierWindow must be CALENDAR_WEEK_MON_SUN or REPORT_PERIOD when volume tiers are enabled',
+          },
+          { status: 400 }
+        );
+      }
+
+      const normalizedVolumeTiers =
+        volumeTiers !== undefined
+          ? validateAndNormalizeVolumeTiers(effectiveVolumeTierEnabled, volumeTiers)
+          : { valid: true as const, normalized: [] };
+      if (!normalizedVolumeTiers.valid) {
+        return NextResponse.json({ error: normalizedVolumeTiers.error }, { status: 400 });
+      }
+
       const updateData: Record<string, unknown> = {};
       if (name !== undefined) updateData.name = name;
       if (description !== undefined) updateData.description = description;
@@ -205,6 +314,14 @@ export const PATCH = withAuth(
       if (multiItemBonusPercentBps !== undefined) updateData.multiItemBonusPercentBps = multiItemBonusPercentBps;
       if (multiItemBonusFlatCents !== undefined) updateData.multiItemBonusFlatCents = multiItemBonusFlatCents;
       if (multiItemMinQuantity !== undefined) updateData.multiItemMinQuantity = multiItemMinQuantity;
+      if (volumeTierEnabled !== undefined) {
+        updateData.volumeTierEnabled = volumeTierEnabled;
+        if (volumeTierEnabled === false) {
+          updateData.volumeTierWindow = null;
+        }
+      }
+      if (volumeTierWindow !== undefined) updateData.volumeTierWindow = volumeTierWindow;
+      if (volumeTierRetroactive !== undefined) updateData.volumeTierRetroactive = volumeTierRetroactive;
 
       const updatedPlan = await runWithClinicContext(existingPlan.clinicId, async () => {
         const plan = await prisma.salesRepCommissionPlan.update({
@@ -235,6 +352,22 @@ export const PATCH = withAuth(
                 percentBps: bonusType === 'PERCENT' ? Number(r.percentBps) : null,
                 flatAmountCents: bonusType === 'FLAT' ? Number(r.flatAmountCents) : null,
               },
+            });
+          }
+        }
+        if (effectiveVolumeTierEnabled === false) {
+          await prisma.salesRepVolumeCommissionTier.deleteMany({ where: { planId } });
+        } else if (volumeTiers !== undefined) {
+          await prisma.salesRepVolumeCommissionTier.deleteMany({ where: { planId } });
+          if (normalizedVolumeTiers.valid && normalizedVolumeTiers.normalized.length > 0) {
+            await prisma.salesRepVolumeCommissionTier.createMany({
+              data: normalizedVolumeTiers.normalized.map((tier) => ({
+                planId,
+                minSales: tier.minSales,
+                maxSales: tier.maxSales,
+                amountCents: tier.amountCents,
+                sortOrder: tier.sortOrder,
+              })),
             });
           }
         }

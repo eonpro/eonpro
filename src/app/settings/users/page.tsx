@@ -157,7 +157,7 @@ export default function UserManagementPage() {
 
       const data = await res.json();
       setUsers(data.users || []);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error fetching users:', err);
       setError(err.message);
     } finally {
@@ -211,7 +211,7 @@ export default function UserManagementPage() {
       setShowCreateModal(false);
       setFormData(initialFormState);
       fetchUsers();
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast.error(err.message || 'Failed to create user');
     } finally {
       setSubmitting(false);
@@ -254,7 +254,7 @@ export default function UserManagementPage() {
       setEditingUser(null);
       setFormData(initialFormState);
       fetchUsers();
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast.error(err.message || 'Failed to update user');
     } finally {
       setSubmitting(false);
@@ -287,7 +287,7 @@ export default function UserManagementPage() {
         `User ${user.status === 'SUSPENDED' ? 'activated' : 'suspended'} successfully!`
       );
       fetchUsers();
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast.error(err.message || 'Failed to update user status');
     }
   };
@@ -337,6 +337,8 @@ export default function UserManagementPage() {
         return 'bg-amber-100 text-amber-800 ring-1 ring-amber-600/20';
       case 'SUPPORT':
         return 'bg-orange-100 text-orange-800 ring-1 ring-orange-600/20';
+      case 'SALES_REP':
+        return 'bg-violet-100 text-violet-800 ring-1 ring-violet-600/20';
       default:
         return 'bg-gray-100 text-gray-800 ring-1 ring-gray-600/20';
     }
@@ -582,6 +584,7 @@ export default function UserManagementPage() {
                       <option value="PROVIDER">Provider</option>
                       <option value="STAFF">Staff</option>
                       <option value="SUPPORT">Support</option>
+                      <option value="SALES_REP">Sales Rep</option>
                     </select>
                   </div>
                 </div>
@@ -814,6 +817,7 @@ export default function UserManagementPage() {
                       <option value="PROVIDER">Provider</option>
                       <option value="STAFF">Staff</option>
                       <option value="SUPPORT">Support</option>
+                      <option value="SALES_REP">Sales Rep</option>
                     </select>
                   </div>
                 </div>

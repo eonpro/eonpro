@@ -102,9 +102,8 @@ export async function createFormTemplate(
 
     logger.info(`Form template created: ${template.id} - ${template.name}`);
     return template;
-  } catch (error: any) {
-    // @ts-ignore
-
+  } catch (error: unknown) {
+    
     logger.error('Failed to create form template', error);
     throw error;
   }
@@ -147,9 +146,8 @@ export async function getFormTemplates(
     });
 
     return templates;
-  } catch (error: any) {
-    // @ts-ignore
-
+  } catch (error: unknown) {
+    
     logger.error('Failed to get form templates', error);
     throw error;
   }
@@ -215,9 +213,8 @@ export async function getFormTemplate(templateId: number, includeStats = false):
     });
 
     return template;
-  } catch (error: any) {
-    // @ts-ignore
-
+  } catch (error: unknown) {
+    
     logger.error('Failed to get form template', error);
     throw error;
   }
@@ -282,9 +279,8 @@ export async function updateFormTemplate(
 
     logger.info(`Form template updated: ${templateId}`);
     return template;
-  } catch (error: any) {
-    // @ts-ignore
-
+  } catch (error: unknown) {
+    
     logger.error('Failed to update form template', error);
     throw error;
   }
@@ -304,9 +300,8 @@ export async function deleteFormTemplate(templateId: number): Promise<void> {
     templateCache.clear();
 
     logger.info(`Form template deleted: ${templateId}`);
-  } catch (error: any) {
-    // @ts-ignore
-
+  } catch (error: unknown) {
+    
     logger.error('Failed to delete form template', error);
     throw error;
   }
@@ -356,9 +351,8 @@ export async function createFormLink(input: FormLinkInput): Promise<IntakeFormLi
 
     logger.info(`Form link created: ${linkId} for ${input.patientEmail}`);
     return link;
-  } catch (error: any) {
-    // @ts-ignore
-
+  } catch (error: unknown) {
+    
     logger.error('Failed to create form link', error);
     throw error;
   }
@@ -410,9 +404,8 @@ export async function getFormByLinkId(linkId: string): Promise<any> {
     }
 
     return link;
-  } catch (error: any) {
-    // @ts-ignore
-
+  } catch (error: unknown) {
+    
     logger.error('Failed to get form by link ID', error);
     throw error;
   }
@@ -578,9 +571,8 @@ export async function submitFormResponses(
 
     logger.info(`Form submitted: ${linkId}`);
     return submission;
-  } catch (error: any) {
-    // @ts-ignore
-
+  } catch (error: unknown) {
+    
     logger.error('Failed to submit form responses', error);
     throw error;
   }
@@ -629,9 +621,8 @@ export async function getFormSubmissions(
     });
 
     return submissions;
-  } catch (error: any) {
-    // @ts-ignore
-
+  } catch (error: unknown) {
+    
     logger.error('Failed to get form submissions', error);
     throw error;
   }
@@ -685,9 +676,8 @@ export async function exportFormSubmission(submissionId: number): Promise<any> {
     };
 
     return structuredData;
-  } catch (error: any) {
-    // @ts-ignore
-
+  } catch (error: unknown) {
+    
     logger.error('Failed to export form submission', error);
     throw error;
   }

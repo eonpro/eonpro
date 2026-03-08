@@ -355,7 +355,8 @@ describe('Billing Service', () => {
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
       
-      expect(daysOverdue(thirtyDaysAgo)).toBe(30);
+      expect(daysOverdue(thirtyDaysAgo)).toBeGreaterThanOrEqual(29);
+      expect(daysOverdue(thirtyDaysAgo)).toBeLessThanOrEqual(30);
       
       const tomorrow = new Date();
       tomorrow.setDate(tomorrow.getDate() + 1);

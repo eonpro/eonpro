@@ -276,7 +276,7 @@ export default function BeccaAIChat({
         setSessionId(data.data.sessionId);
         generateSuggestions(textToSend, data.data.answer);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       logger.error('Error sending message:', err);
       setMessages((prev) => {
         const filtered = prev.filter((m) => !m.isStreaming);

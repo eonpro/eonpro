@@ -175,9 +175,8 @@ export class CircuitBreaker<T = any> {
       const result = await this.executeWithTimeout(fn, ...args);
       this.onSuccess();
       return result;
-    } catch (error: any) {
-      // @ts-ignore
-
+    } catch (error: unknown) {
+      
       if (error instanceof Error && error.message.includes('Timeout')) {
         this.onTimeout();
       } else {

@@ -98,7 +98,9 @@ const postHandler = withAuth(async (request: NextRequest, user) => {
       },
     });
 
-    logPHICreate(request, user, 'PatientSleepLog', sleepLog.id, patientId).catch(() => {});
+    logPHICreate(request, user, 'PatientSleepLog', sleepLog.id, patientId).catch((err) => {
+      logger.error('[HIPAA AUDIT] Failed to log PHI create', { error: err instanceof Error ? err.message : 'Unknown', resource: 'PatientSleepLog', patientId });
+    });
 
     return NextResponse.json(sleepLog, { status: 201 });
   } catch (error) {
@@ -158,7 +160,9 @@ const getHandler = withAuth(async (request: NextRequest, user) => {
           logsWithQuality.length
         : null;
 
-    logPHIAccess(request, user, 'PatientSleepLog', 'list', patientId).catch(() => {});
+    logPHIAccess(request, user, 'PatientSleepLog', 'list', patientId).catch((err) => {
+      logger.error('[HIPAA AUDIT] Failed to log PHI access', { error: err instanceof Error ? err.message : 'Unknown', resource: 'PatientSleepLog', patientId });
+    });
 
     return NextResponse.json({
       data: sleepLogs,

@@ -120,8 +120,12 @@ export const GET = withAuth(async (req: NextRequest, user) => {
       );
     }
 
+    const resolvedClinicId = (clinicId && user.role === 'super_admin')
+      ? parseInt(clinicId)
+      : (user.clinicId || undefined);
+
     const appointments = await getAppointments({
-      clinicId: clinicId ? parseInt(clinicId) : user.clinicId || undefined,
+      clinicId: resolvedClinicId,
       providerId: providerIdParam ? parseInt(providerIdParam) : undefined,
       patientId: patientId ? parseInt(patientId) : undefined,
       startDate: new Date(startDate),
@@ -161,8 +165,12 @@ export const POST = withProviderAuth(async (req: NextRequest, user) => {
       );
     }
 
+    const apptClinicId = user.role === 'super_admin'
+      ? (parsed.data.clinicId || user.clinicId)
+      : user.clinicId;
+
     const result = await createAppointment({
-      clinicId: parsed.data.clinicId,
+      clinicId: apptClinicId!,
       patientId: parsed.data.patientId,
       providerId: parsed.data.providerId,
       appointmentTypeId: parsed.data.appointmentTypeId,

@@ -39,8 +39,7 @@ export async function POST(req: NextRequest) {
       details: result.details,
       mock: isMock, // Indicate if using mock service
     });
-  } catch (error: any) {
-    // @ts-ignore
+  } catch (error: unknown) {
 
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('[SEND_SMS_API_ERROR]', error);

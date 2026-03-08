@@ -201,9 +201,8 @@ export default function EmailCommunicationsPage() {
         setCustomHtml('');
         setCustomText('');
       }
-    } catch (error: any) {
-      // @ts-ignore
-
+    } catch (error: unknown) {
+      
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       setSendResult({ error: errorMessage });
     } finally {
@@ -231,9 +230,8 @@ export default function EmailCommunicationsPage() {
         setCustomText(preview.text);
         setSubject(preview.subject);
       }
-    } catch (error: any) {
-      // @ts-ignore
-
+    } catch (error: unknown) {
+      
       logger.error('Preview error:', error);
     }
   };

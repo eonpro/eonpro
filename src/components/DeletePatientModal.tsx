@@ -49,7 +49,7 @@ export default function DeletePatientModal({
     try {
       await onDelete();
       // Redirect will happen after successful deletion
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(err.message || 'Failed to delete patient');
       setDeleting(false);
     }

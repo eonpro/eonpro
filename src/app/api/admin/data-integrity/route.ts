@@ -164,7 +164,7 @@ async function handleGet(request: NextRequest, user: AuthUser) {
         'X-Check-Duration': `${duration}ms`,
       },
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('[DataIntegrity] Check failed', { error: error.message });
 
     return NextResponse.json(
@@ -226,9 +226,11 @@ async function handlePost(req: NextRequest, user: AuthUser) {
       }
     }
 
-    const clinicFilter: Prisma.PatientWhereInput = body.clinicId
-      ? { clinicId: body.clinicId }
-      : {};
+    // Only super_admin can run cross-clinic backfills; regular admins are scoped to their own clinic
+    const effectiveClinicId = user.role === 'super_admin' ? body.clinicId : user.clinicId;
+    const clinicFilter: Prisma.PatientWhereInput = effectiveClinicId
+      ? { clinicId: effectiveClinicId }
+      : (user.role === 'super_admin' ? {} : { clinicId: user.clinicId! });
 
     const where: Prisma.PatientWhereInput = {
       ...clinicFilter,
@@ -341,7 +343,7 @@ async function testCriticalQueries(): Promise<DataQueryResult> {
       success: true,
       duration: Date.now() - invoiceStart,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     testedQueries.push({
       name: 'Invoice with Relations',
       success: false,
@@ -367,7 +369,7 @@ async function testCriticalQueries(): Promise<DataQueryResult> {
       success: true,
       duration: Date.now() - patientStart,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     testedQueries.push({
       name: 'Patient with Relations',
       success: false,
@@ -387,7 +389,7 @@ async function testCriticalQueries(): Promise<DataQueryResult> {
       success: true,
       duration: Date.now() - paymentStart,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     testedQueries.push({
       name: 'Payment with Relations',
       success: false,
@@ -407,7 +409,7 @@ async function testCriticalQueries(): Promise<DataQueryResult> {
       success: true,
       duration: Date.now() - subStart,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     testedQueries.push({
       name: 'Subscription with Relations',
       success: false,
@@ -427,7 +429,7 @@ async function testCriticalQueries(): Promise<DataQueryResult> {
       success: true,
       duration: Date.now() - soapStart,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     testedQueries.push({
       name: 'SOAP Note with Relations',
       success: false,
@@ -546,7 +548,7 @@ async function checkDataIntegrity(clinicId?: number): Promise<DataIntegrityResul
         message: `${missingSearchIndex} patients have no searchIndex — search will use slow fallback. POST this endpoint with { "action": "backfill-search-index" } to fix.`,
       });
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     issues.push({
       type: 'CHECK_FAILED',
       severity: 'critical',

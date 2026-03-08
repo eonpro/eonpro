@@ -128,8 +128,12 @@ export const POST = withProviderAuth(async (req: NextRequest, user) => {
       );
     }
 
+    const resolvedClinicId = user.role === 'super_admin'
+      ? (parsed.data.clinicId || user.clinicId)
+      : user.clinicId;
+
     const result = await createSuperbill({
-      clinicId: parsed.data.clinicId,
+      clinicId: resolvedClinicId!,
       patientId: parsed.data.patientId,
       providerId: parsed.data.providerId,
       appointmentId: parsed.data.appointmentId,

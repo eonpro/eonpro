@@ -112,8 +112,8 @@ async function handler(req: NextRequest): Promise<Response> {
       },
       code: normalizedCode,
     });
-  } catch (error: any) {
-    logger.error('Error validating clinic code', { error: error.message });
+  } catch (error: unknown) {
+    logger.error('Error validating clinic code', { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json({ error: 'An error occurred. Please try again.' }, { status: 500 });
   }
   }); // end withoutClinicFilter

@@ -289,7 +289,7 @@ export async function POST(req: NextRequest) {
       const soapNote = await generateSOAPFromIntake(patient.id, patientDocument.id);
       soapNoteId = soapNote.id;
       logger.debug(`[EONPRO INTAKE ${requestId}] SOAP note generated`, { soapNoteId });
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error(`[EONPRO INTAKE ${requestId}] SOAP generation failed (non-fatal)`, { error });
     }
 
@@ -325,7 +325,7 @@ export async function POST(req: NextRequest) {
 
     logger.debug(`[EONPRO INTAKE ${requestId}] Webhook completed successfully`);
     return Response.json(response, { status: 200 });
-  } catch (err: any) {
+  } catch (err: unknown) {
     logger.error(`[EONPRO INTAKE ${requestId}] Failed to process intake`, {
       error: err.message,
       // Stack trace logged only in development for security

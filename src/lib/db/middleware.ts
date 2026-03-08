@@ -335,9 +335,8 @@ async function logDataAccess(params: any, user: any): Promise<void> {
       timestamp: new Date().toISOString(),
       // Don't log actual data for privacy
     });
-  } catch (error: any) {
-    // @ts-ignore
-
+  } catch (error: unknown) {
+    
     logger.error('Failed to log data access:', error);
   }
 }

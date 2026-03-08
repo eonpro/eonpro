@@ -77,7 +77,7 @@ export default function IntakeFormPage({ params }: { params: Promise<{ linkId: s
           phone: data.form.patientPhone || '',
         }));
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       logger.error('Failed to fetch form', err);
       setError(err.message || 'Failed to load form');
     } finally {
@@ -192,7 +192,7 @@ export default function IntakeFormPage({ params }: { params: Promise<{ linkId: s
       }
 
       setSuccess(true);
-    } catch (err: any) {
+    } catch (err: unknown) {
       logger.error('Failed to submit form', err);
       setError(err.message || 'Failed to submit form. Please try again.');
     } finally {

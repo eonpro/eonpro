@@ -211,11 +211,11 @@ export async function POST(req: NextRequest) {
         }
 
         logger.info('[REGENERATE] PDF generated successfully', { patientId });
-      } catch (error: any) {
-        logger.error('[REGENERATE] PDF generation failed', { error: error.message });
+      } catch (error: unknown) {
+        logger.error('[REGENERATE] PDF generation failed', { error: error instanceof Error ? error.message : String(error) });
         results.actions.push({
           type: 'pdf_error',
-          error: error.message,
+          error: error instanceof Error ? error.message : String(error),
         });
       }
     }
@@ -261,11 +261,11 @@ export async function POST(req: NextRequest) {
             });
           }
         }
-      } catch (error: any) {
-        logger.error('[REGENERATE] SOAP generation failed', { error: error.message });
+      } catch (error: unknown) {
+        logger.error('[REGENERATE] SOAP generation failed', { error: error instanceof Error ? error.message : String(error) });
         results.actions.push({
           type: 'soap_error',
-          error: error.message,
+          error: error instanceof Error ? error.message : String(error),
         });
       }
     }
@@ -289,12 +289,12 @@ export async function POST(req: NextRequest) {
       success: true,
       ...results,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('[REGENERATE] Error:', error);
     return NextResponse.json(
       {
         error: 'Failed to regenerate documents',
-        message: error.message,
+        message: error instanceof Error ? error.message : String(error),
       },
       { status: 500 }
     );
@@ -383,12 +383,12 @@ export async function GET(req: NextRequest) {
         missingSoap: patientsWithoutSoap.length,
       },
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('[REGENERATE] Error fetching patients:', error);
     return NextResponse.json(
       {
         error: 'Failed to fetch patients',
-        message: error.message,
+        message: error instanceof Error ? error.message : String(error),
       },
       { status: 500 }
     );

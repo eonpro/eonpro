@@ -158,9 +158,8 @@ export async function sendIntakeFormNotifications(options: NotificationOptions):
       submissionId,
       notificationsSent: notifications.length,
     });
-  } catch (error: any) {
-    // @ts-ignore
-
+  } catch (error: unknown) {
+    
     logger.error('Failed to send intake form notifications', { error, submissionId });
     throw error;
   }
@@ -238,9 +237,8 @@ export async function sendTestNotification(
 
     await sendEmail(testEmail);
     logger.info('Test notification sent', { templateId, recipientEmail });
-  } catch (error: any) {
-    // @ts-ignore
-
+  } catch (error: unknown) {
+    
     logger.error('Failed to send test notification', { error, templateId, recipientEmail });
     throw error;
   }

@@ -421,6 +421,7 @@ export async function POST(req: NextRequest) {
       sendTrackingNotificationSMS({
         patientId: patient.id,
         patientPhone: patient.phone,
+        patientEmail: patient.email,
         patientFirstName: patient.firstName,
         patientLastName: patient.lastName,
         clinicId: clinic.id,

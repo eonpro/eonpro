@@ -130,7 +130,7 @@ export default function SuperAdminAffiliateReportsPage() {
         });
       }
     } catch (error) {
-      console.error('Failed to fetch reports:', error);
+      process.env.NODE_ENV === 'development' && console.error('Failed to fetch reports:', error);
     } finally {
       setLoading(false);
     }
@@ -148,7 +148,7 @@ export default function SuperAdminAffiliateReportsPage() {
         setLeaderboardData(await response.json());
       }
     } catch (error) {
-      console.error('Failed to fetch leaderboard:', error);
+      process.env.NODE_ENV === 'development' && console.error('Failed to fetch leaderboard:', error);
     } finally {
       setLeaderboardLoading(false);
     }

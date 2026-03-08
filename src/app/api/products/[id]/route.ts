@@ -80,7 +80,7 @@ async function handleGet(req: NextRequest, user: AuthUser, context: RouteContext
     }
 
     return NextResponse.json({ product });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('[Products API] Error fetching product:', error);
     return NextResponse.json({ error: 'Failed to fetch product' }, { status: 500 });
   }
@@ -117,7 +117,7 @@ async function handlePut(req: NextRequest, user: AuthUser, context: RouteContext
           name: validated.name,
           description: validated.description || undefined,
         });
-      } catch (stripeError: any) {
+      } catch (stripeError: unknown) {
         logger.warn('[Products API] Failed to update Stripe product:', stripeError.message);
       }
     }
@@ -174,7 +174,7 @@ async function handlePut(req: NextRequest, user: AuthUser, context: RouteContext
         (validated as any).stripePriceId = newPrice.id;
 
         logger.info('[Products API] Created new Stripe price', { priceId: newPrice.id });
-      } catch (stripeError: any) {
+      } catch (stripeError: unknown) {
         logger.warn('[Products API] Failed to update Stripe price:', stripeError.message);
       }
     }
@@ -188,7 +188,7 @@ async function handlePut(req: NextRequest, user: AuthUser, context: RouteContext
     logger.info('[Products API] Product updated', { productId });
 
     return NextResponse.json({ product });
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
         { error: 'Validation error', details: error.errors },
@@ -228,7 +228,7 @@ async function handleDelete(req: NextRequest, user: AuthUser, context: RouteCont
         if (existingProduct.stripePriceId) {
           await stripe.prices.update(existingProduct.stripePriceId, { active: false });
         }
-      } catch (stripeError: any) {
+      } catch (stripeError: unknown) {
         logger.warn('[Products API] Failed to archive Stripe product:', stripeError.message);
       }
     }
@@ -242,7 +242,7 @@ async function handleDelete(req: NextRequest, user: AuthUser, context: RouteCont
     logger.info('[Products API] Product archived', { productId });
 
     return NextResponse.json({ success: true, message: 'Product archived' });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('[Products API] Error deleting product:', error);
     return NextResponse.json({ error: 'Failed to delete product' }, { status: 500 });
   }

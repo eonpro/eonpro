@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
         accountName: account.business_profile?.name || account.email,
         config,
       });
-    } catch (stripeError: any) {
+    } catch (stripeError: unknown) {
       const errorMessage = stripeError instanceof Error ? stripeError.message : String(stripeError);
       // If it's a permissions error, the keys are valid but limited
       if (stripeError.type === 'StripePermissionError') {
@@ -73,8 +73,7 @@ export async function POST(req: NextRequest) {
         config,
       });
     }
-  } catch (error: any) {
-    // @ts-ignore
+  } catch (error: unknown) {
 
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('[STRIPE_VALIDATE] Error:', error);

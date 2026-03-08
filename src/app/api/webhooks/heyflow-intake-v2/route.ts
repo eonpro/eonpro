@@ -186,7 +186,7 @@ export async function POST(req: NextRequest) {
           logger.debug(`  [${i}] ${answer.label || answer.question}: ${answer.value}`);
         });
       }
-    } catch (parseError: any) {
+    } catch (parseError: unknown) {
       logger.error('[HEYFLOW V2] Failed to parse JSON payload:', { value: parseError });
       webhookLogData.status = WebhookStatus.INVALID_PAYLOAD;
       webhookLogData.statusCode = 400;
@@ -227,7 +227,7 @@ export async function POST(req: NextRequest) {
           logger.debug(`  ${field.label}: ${field.value}`);
         });
       }
-    } catch (normalizeError: any) {
+    } catch (normalizeError: unknown) {
       logger.error('[HEYFLOW V2] Failed to normalize payload:', { value: normalizeError });
       webhookLogData.status = WebhookStatus.PROCESSING_ERROR;
       webhookLogData.statusCode = 422;
@@ -291,7 +291,7 @@ export async function POST(req: NextRequest) {
               }
             }
           }
-        } catch (trackError: any) {
+        } catch (trackError: unknown) {
           logger.warn(`[HEYFLOW V2] Affiliate tracking failed: ${trackError.message}`);
         }
       } else {
@@ -308,7 +308,7 @@ export async function POST(req: NextRequest) {
               logger.info(`[HEYFLOW V2] Fallback affiliate attribution: ${fallback.refCode}`);
             }
           }
-        } catch (fallbackErr: any) {
+        } catch (fallbackErr: unknown) {
           logger.warn(`[HEYFLOW V2] Fallback attribution failed: ${fallbackErr.message}`);
         }
       }
@@ -379,7 +379,7 @@ export async function POST(req: NextRequest) {
         const soapNote = await generateSOAPFromIntake(patient.id, patientDocument.id);
         soapNoteId = soapNote.id;
         logger.debug(`[HEYFLOW V2] SOAP note generated: ${soapNoteId}`);
-      } catch (soapError: any) {
+      } catch (soapError: unknown) {
         logger.error('[HEYFLOW V2] Failed to generate SOAP note:', { value: soapError });
         // Don't fail the webhook if SOAP generation fails
       }
@@ -416,7 +416,7 @@ export async function POST(req: NextRequest) {
               timestamp: new Date().toISOString(),
             }),
           });
-        } catch (notifyError: any) {
+        } catch (notifyError: unknown) {
           logger.error('[HEYFLOW V2] Notification failed:', { value: notifyError });
         }
       }
@@ -435,7 +435,7 @@ export async function POST(req: NextRequest) {
 
       logger.debug(`${'='.repeat(60)}\n`);
       return Response.json(responseData, { status: 200 });
-    } catch (processingError: any) {
+    } catch (processingError: unknown) {
       logger.error('[HEYFLOW V2] Processing error:', { value: processingError });
 
       // Log to Sentry with full context
@@ -462,7 +462,7 @@ export async function POST(req: NextRequest) {
         { status: 500 }
       );
     }
-  } catch (unexpectedError: any) {
+  } catch (unexpectedError: unknown) {
     // Catch-all for any unexpected errors
     logger.error('[HEYFLOW V2] Unexpected error:', { value: unexpectedError });
 

@@ -420,6 +420,7 @@ export async function POST(req: NextRequest) {
       sendTrackingNotificationSMS({
         patientId: patient.id,
         patientPhone: patient.phone,
+        patientEmail: patient.email,
         patientFirstName: patient.firstName,
         patientLastName: patient.lastName,
         clinicId: clinic.id,
@@ -520,7 +521,7 @@ export async function POST(req: NextRequest) {
     });
 
     }); // end runWithClinicContext
-  } catch (error: any) {
+  } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('[WELLMEDR SHIPPING] Error processing webhook:', {
       error: errorMessage,

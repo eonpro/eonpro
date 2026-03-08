@@ -214,7 +214,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               router.push('/');
           }
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         setError(err.message);
         throw err;
       } finally {
@@ -237,9 +237,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           },
         });
       }
-    } catch (error: any) {
-      // @ts-ignore
-
+    } catch (error: unknown) {
+      
       logger.error('Logout error:', error);
     } finally {
       // Clear local state
@@ -277,9 +276,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (userData) {
         setUser(userData);
       }
-    } catch (error: any) {
-      // @ts-ignore
-
+    } catch (error: unknown) {
+      
       logger.error('Token refresh failed:', error);
       await logout();
       throw error;
@@ -323,9 +321,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Try to refresh if access token is invalid
         try {
           await refreshToken();
-        } catch (error: any) {
-          // @ts-ignore
-
+        } catch (error: unknown) {
+          
           logger.error('Session refresh failed:', error);
         }
       }
@@ -392,9 +389,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           // Refresh when 90% of token lifetime has passed
           try {
             await refreshToken();
-          } catch (error: any) {
-            // @ts-ignore
-
+          } catch (error: unknown) {
+            
             logger.error('Auto refresh failed:', error);
           }
         }

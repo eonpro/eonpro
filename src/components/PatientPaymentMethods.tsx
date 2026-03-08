@@ -113,9 +113,8 @@ export default function PatientPaymentMethods({
       if (!response.ok) throw new Error('Failed to fetch cards');
       const data = await response.json();
       setCards(data.data || []);
-    } catch (err: any) {
-      // @ts-ignore
-
+    } catch (err: unknown) {
+      
       logger.error('Failed to fetch payment methods:', err);
       setError('Failed to load payment methods');
     } finally {
@@ -251,9 +250,8 @@ export default function PatientPaymentMethods({
       await fetchCards();
       setSuccessMessage('Payment method removed');
       setTimeout(() => setSuccessMessage(null), 5000);
-    } catch (err: any) {
-      // @ts-ignore
-
+    } catch (err: unknown) {
+      
       setError('Failed to remove payment method');
     }
   };
@@ -277,9 +275,8 @@ export default function PatientPaymentMethods({
       await fetchCards();
       setSuccessMessage('Default payment method updated');
       setTimeout(() => setSuccessMessage(null), 5000);
-    } catch (err: any) {
-      // @ts-ignore
-
+    } catch (err: unknown) {
+      
       setError('Failed to update default payment method');
     }
   };

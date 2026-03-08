@@ -21,8 +21,11 @@ import { hashRefreshToken } from '@/lib/auth/refresh-token-rotation';
 
 // Schema for OTP verification
 const verifyOtpSchema = z.object({
-  phone: z.string().min(10, 'Phone number must be at least 10 digits'),
-  code: z.string().length(6, 'OTP must be exactly 6 digits'),
+  phone: z.string().trim().min(10, 'Phone number must be at least 10 digits'),
+  code: z
+    .string()
+    .trim()
+    .regex(/^\d{6}$/, 'OTP must be exactly 6 digits'),
 });
 
 export const POST = standardRateLimit(async (req: NextRequest) => {
@@ -46,21 +49,16 @@ export const POST = standardRateLimit(async (req: NextRequest) => {
     }
 
     // Find the OTP record
-    const otpRecord = await prisma.phoneOtp
-      .findFirst({
-        where: {
-          phone: formattedPhone,
-          code: code,
-          expiresAt: {
-            gt: new Date(),
-          },
-          used: false,
+    const otpRecord = await prisma.phoneOtp.findFirst({
+      where: {
+        phone: formattedPhone,
+        code: code,
+        expiresAt: {
+          gt: new Date(),
         },
-      })
-      .catch((err) => {
-        logger.warn('[VerifyOTP] Failed to query OTP record', { error: err instanceof Error ? err.message : String(err) });
-        return null;
-      });
+        used: false,
+      },
+    });
 
     if (!otpRecord) {
       logger.warn('Invalid or expired OTP attempt', { phone: formattedPhone });
@@ -71,14 +69,10 @@ export const POST = standardRateLimit(async (req: NextRequest) => {
     }
 
     // Mark OTP as used
-    await prisma.phoneOtp
-      .update({
-        where: { id: otpRecord.id },
-        data: { used: true, usedAt: new Date() },
-      })
-      .catch((err) => {
-        logger.warn('[VerifyOTP] Failed to mark OTP as used', { error: err instanceof Error ? err.message : String(err), otpId: otpRecord.id });
-      });
+    await prisma.phoneOtp.update({
+      where: { id: otpRecord.id },
+      data: { used: true, usedAt: new Date() },
+    });
 
     // Find the account
     type UserData = {
@@ -181,7 +175,10 @@ export const POST = standardRateLimit(async (req: NextRequest) => {
     }
 
     if (!user && !patient) {
-      return NextResponse.json({ error: 'Account not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Invalid or expired verification code. Please request a new code.' },
+        { status: 401 }
+      );
     }
 
     // Check if user account is active
@@ -328,17 +325,25 @@ export const POST = standardRateLimit(async (req: NextRequest) => {
       sessionId,
     });
 
-    prisma.auditLog.create({
-      data: {
-        action: 'LOGIN',
-        userId: user?.id || 0,
-        details: { method: 'phone_otp', isPatient: isPatientLogin, sessionId },
-      },
-    }).catch((err: unknown) => {
-      logger.warn('[VERIFY-OTP] Audit log creation failed', {
-        error: err instanceof Error ? err.message : 'Unknown error',
+    if (user?.id) {
+      prisma.auditLog
+        .create({
+          data: {
+            action: 'LOGIN',
+            userId: user.id,
+            details: { method: 'phone_otp', isPatient: isPatientLogin, sessionId },
+          },
+        })
+        .catch((err: unknown) => {
+          logger.warn('[VERIFY-OTP] Audit log creation failed', {
+            error: err instanceof Error ? err.message : 'Unknown error',
+          });
+        });
+    } else {
+      logger.info('[VERIFY-OTP] Skipping user auditLog write for patient-only OTP login', {
+        patientId: patient?.id,
       });
-    });
+    }
 
     const userData =
       isPatientLogin && patient

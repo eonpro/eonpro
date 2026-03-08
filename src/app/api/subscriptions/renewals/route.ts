@@ -135,6 +135,7 @@ async function handler(req: NextRequest, user: AuthUser) {
           where: { clinicId, providerId: user.providerId },
           select: { patientId: true },
           distinct: ['patientId'],
+          take: 500,
         });
         baseWhere.patientId = { in: providerPatientIds.map((p) => p.patientId) };
       }

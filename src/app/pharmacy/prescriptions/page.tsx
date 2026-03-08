@@ -36,9 +36,8 @@ export default function PrescriptionsPage() {
         const data = await res.json();
         setPrescriptions(data.prescriptions || []);
       }
-    } catch (error: any) {
-      // @ts-ignore
-
+    } catch (error: unknown) {
+      
       logger.error('Failed to fetch prescriptions', error);
     } finally {
       setLoading(false);

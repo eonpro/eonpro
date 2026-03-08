@@ -442,7 +442,7 @@ export default function PrescriptionQueuePage() {
           setUserRole(data.user?.role || null);
         }
       } catch (err) {
-        console.error('Error checking user role:', err);
+        process.env.NODE_ENV === 'development' && console.error('Error checking user role:', err);
       }
     };
     checkUserRole();
@@ -493,7 +493,7 @@ export default function PrescriptionQueuePage() {
         await new Promise((r) => setTimeout(r, 2000 * (retryAttempt + 1)));
         return fetchQueue(retryAttempt + 1);
       }
-      console.error('Error fetching prescription queue:', err);
+      process.env.NODE_ENV === 'development' && console.error('Error fetching prescription queue:', err);
       setError('Failed to fetch prescription queue. Please check your connection and try again.');
       setFetchFailed(true);
       setQueueItems([]);
@@ -521,7 +521,7 @@ export default function PrescriptionQueuePage() {
         return data;
       }
     } catch (err) {
-      console.error('Error fetching patient details:', err);
+      process.env.NODE_ENV === 'development' && console.error('Error fetching patient details:', err);
     } finally {
       setLoadingDetails(false);
     }
@@ -602,7 +602,7 @@ export default function PrescriptionQueuePage() {
         setError(data.error || data.message || 'Failed to generate SOAP note');
       }
     } catch (err) {
-      console.error('Error generating SOAP note:', err);
+      process.env.NODE_ENV === 'development' && console.error('Error generating SOAP note:', err);
       setError('Failed to generate SOAP note. Please try again.');
     } finally {
       setGeneratingSoapNote(null);
@@ -663,7 +663,7 @@ export default function PrescriptionQueuePage() {
         setError(data.error || 'Failed to approve SOAP note');
       }
     } catch (err) {
-      console.error('Error approving SOAP note:', err);
+      process.env.NODE_ENV === 'development' && console.error('Error approving SOAP note:', err);
       setError('Failed to approve SOAP note. Please try again.');
     } finally {
       setApprovingSoapNote(null);
@@ -1087,11 +1087,11 @@ export default function PrescriptionQueuePage() {
           }
           if (errorData.detail) errorMessage += ` Reason: ${errorData.detail}`;
         }
-        console.error('[Prescription Queue] Submission error:', errorData);
+        process.env.NODE_ENV === 'development' && console.error('[Prescription Queue] Submission error:', errorData);
         setError(errorMessage);
       }
     } catch (err) {
-      console.error('Error submitting prescription:', err);
+      process.env.NODE_ENV === 'development' && console.error('Error submitting prescription:', err);
       setError('Failed to submit prescription');
     } finally {
       setSubmittingPrescription(false);
@@ -1137,7 +1137,7 @@ export default function PrescriptionQueuePage() {
         if (showMessage) setError(errorData.error || 'Failed to mark as processed');
       }
     } catch (err) {
-      console.error('Error marking prescription as processed:', err);
+      process.env.NODE_ENV === 'development' && console.error('Error marking prescription as processed:', err);
       if (showMessage) setError('Failed to mark prescription as processed');
     } finally {
       setProcessing(null);
@@ -1184,7 +1184,7 @@ export default function PrescriptionQueuePage() {
         setError(errorData.error || 'Failed to decline prescription');
       }
     } catch (err) {
-      console.error('Error declining prescription:', err);
+      process.env.NODE_ENV === 'development' && console.error('Error declining prescription:', err);
       setError('Failed to decline prescription');
     } finally {
       setDeclining(false);

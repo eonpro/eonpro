@@ -44,9 +44,8 @@ export default function SendIntakeFormModal({ patient, onClose }: SendIntakeForm
         const data = await res.json();
         setTemplates(data.templates || []);
       }
-    } catch (error: any) {
-      // @ts-ignore
-
+    } catch (error: unknown) {
+      
       logger.error('Failed to fetch templates', error);
     }
   };
@@ -82,9 +81,8 @@ export default function SendIntakeFormModal({ patient, onClose }: SendIntakeForm
         const error = await res.json();
         setMessage(`ERROR: ${error.error || 'Failed to send form'}`);
       }
-    } catch (error: any) {
-      // @ts-ignore
-
+    } catch (error: unknown) {
+      
       logger.error('Failed to send form', error);
       setMessage('ERROR: Failed to send form');
     } finally {

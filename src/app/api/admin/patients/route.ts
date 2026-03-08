@@ -28,7 +28,7 @@ import { PERMISSIONS } from '@/lib/auth/permissions';
 const SALES_REP_VIEW_ALL_PATIENTS = PERMISSIONS.SALES_REP_VIEW_ALL_PATIENTS;
 
 // Roles that can access this endpoint (provider/staff may use admin Patients page)
-const ALLOWED_ROLES = ['super_admin', 'admin', 'sales_rep', 'provider', 'staff'] as const;
+const ALLOWED_ROLES = ['super_admin', 'admin', 'sales_rep', 'provider', 'staff', 'pharmacy_rep'] as const;
 
 // Helper to safely decrypt a field
 const safeDecrypt = (value: string | null): string | null => {
@@ -62,6 +62,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
     const search = (searchParams.get('search') || '').trim();
     const includeContact = searchParams.get('includeContact') === 'true';
     const salesRepId = searchParams.get('salesRepId');
+    const salesRequestOnly = searchParams.get('salesRequestOnly') === 'true';
 
     const clinicId = user.role === 'super_admin' ? undefined : user.clinicId;
 
@@ -224,7 +225,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
     // We scan ALL such patients in chunks so every patient is findable.
     // Matched patients are self-healed: searchIndex is backfilled so next search uses the fast path.
     const FALLBACK_CHUNK_SIZE = 500;
-    const FALLBACK_MAX_SCAN = 10_000;
+    const FALLBACK_MAX_SCAN = 2_000;
     let fallbackPatients: typeof indexedPatients = [];
     if (search) {
       const fallbackWhere: Prisma.PatientWhereInput = {
@@ -385,13 +386,17 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         convertedAt = new Date(Math.min(new Date(invoiceDate).getTime(), new Date(orderDate).getTime()));
       }
 
+      const rawTags = Array.isArray(patient.tags) ? (patient.tags as string[]) : [];
+      const salesRequestTag = rawTags.find((tag) => tag.startsWith('sales-request:pending:'));
+      const salesRequestRepId = salesRequestTag ? Number(salesRequestTag.split(':').pop()) : null;
+
       const baseData: Record<string, unknown> = {
         id: patient.id,
         patientId: patient.patientId,
         firstName: safeDecrypt(patient.firstName),
         lastName: safeDecrypt(patient.lastName),
         gender: safeDecrypt(patient.gender),
-        tags: Array.isArray(patient.tags) ? patient.tags : [],
+        tags: rawTags,
         medicationNames: Array.from(medicationNames),
         source: patient.source,
         createdAt: patient.createdAt,
@@ -415,6 +420,13 @@ async function handleGet(req: NextRequest, user: AuthUser) {
           : null,
         salesRepId: salesRepAssignment?.salesRepId || null,
         identityVerified: patient.identityVerified ?? false,
+        salesRequest:
+          salesRequestTag && Number.isInteger(salesRequestRepId)
+            ? {
+                status: 'PENDING',
+                requestedByRepId: salesRequestRepId,
+              }
+            : null,
       };
 
       if (includeContact) {
@@ -434,20 +446,31 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       return baseData;
     });
 
+    const filteredPatientsData = salesRequestOnly
+      ? patientsData.filter(
+          (patient) =>
+            Boolean(
+              (patient as { salesRequest?: { status: string } | null }).salesRequest?.status ===
+                'PENDING'
+            )
+        )
+      : patientsData;
+
     logger.info('[ADMIN-PATIENTS] List patients with invoices/prescriptions', {
       userId: user.id,
       clinicId,
       total,
-      returned: patientsData.length,
+      returned: filteredPatientsData.length,
       search: search || undefined,
+      salesRequestOnly,
     });
 
     return NextResponse.json({
-      patients: patientsData,
+      patients: filteredPatientsData,
       meta: {
-        count: patientsData.length,
-        total,
-        hasMore: offset + patientsData.length < total,
+        count: filteredPatientsData.length,
+        total: salesRequestOnly ? filteredPatientsData.length : total,
+        hasMore: salesRequestOnly ? false : offset + filteredPatientsData.length < total,
         type: 'patients',
       },
     });

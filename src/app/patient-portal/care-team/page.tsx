@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -9,9 +9,10 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
-import { portalFetch, getPortalResponseError, SESSION_EXPIRED_MESSAGE } from '@/lib/api/patient-portal-client';
+import { SESSION_EXPIRED_MESSAGE } from '@/lib/api/patient-portal-client';
 import { useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
 import { usePatientPortalLanguage } from '@/lib/contexts/PatientPortalLanguageContext';
+import { usePortalSWR } from '@/hooks/usePortalSWR';
 
 export default function CareTeamPage() {
   const router = useRouter();
@@ -19,56 +20,44 @@ export default function CareTeamPage() {
   const { t } = usePatientPortalLanguage();
   const primaryColor = branding?.primaryColor || '#4fa77e';
 
-  const [careTeam, setCareTeam] = useState<Array<{
+  const { data, error, isLoading, mutate } = usePortalSWR<{
+    providers?: Array<{
+      id: number;
+      firstName?: string;
+      lastName?: string;
+      titleLine?: string;
+      isActive?: boolean;
+    }>;
+  }>('/api/patient-portal/care-team');
+
+  const normalizedError =
+    error?.message === 'Unauthorized' || error?.message === 'Forbidden'
+      ? SESSION_EXPIRED_MESSAGE
+      : error?.message || null;
+
+  const careTeam = useMemo<Array<{
     id: number;
     name: string;
     role: string;
     specialty: string;
     avatar: string;
     available: boolean;
-  }>>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      try {
-        setError(null);
-        const res = await portalFetch('/api/patient-portal/care-team');
-        const sessionErr = getPortalResponseError(res);
-        if (sessionErr) {
-          if (!cancelled) setError(sessionErr);
-          return;
-        }
-        if (!res.ok) {
-          if (!cancelled) setError('Failed to load your care team. Please try again.');
-          return;
-        }
-        const data = await res.json();
-        if (!cancelled && data?.providers) {
-          setCareTeam((data.providers ?? []).map((p: { id: number; firstName?: string; lastName?: string; titleLine?: string; isActive?: boolean }) => ({
-            id: p.id,
-            name: `${p.firstName ?? ''} ${p.lastName ?? ''}`.trim() || 'Provider',
-            role: p.titleLine ?? 'Care Provider',
-            specialty: '',
-            avatar: `${(p.firstName ?? '?')[0]}${(p.lastName ?? '?')[0]}`.toUpperCase(),
-            available: p.isActive !== false,
-          })));
-        }
-      } catch {
-        if (!cancelled) setError('Unable to load care team. Please check your connection.');
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    };
-    load();
-    return () => { cancelled = true; };
-  }, []);
+  }>>(
+    () =>
+      (data?.providers ?? []).map((p) => ({
+        id: p.id,
+        name: `${p.firstName ?? ''} ${p.lastName ?? ''}`.trim() || 'Provider',
+        role: p.titleLine ?? 'Care Provider',
+        specialty: '',
+        avatar: `${(p.firstName ?? '?')[0]}${(p.lastName ?? '?')[0]}`.toUpperCase(),
+        available: p.isActive !== false,
+      })),
+    [data?.providers],
+  );
 
   const handleChat = () => router.push(`${PATIENT_PORTAL_PATH}/chat`);
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="min-h-screen animate-pulse">
         {/* Header */}
@@ -130,21 +119,21 @@ export default function CareTeamPage() {
 
       {/* Content */}
       <div className="mx-auto max-w-2xl space-y-6 px-4 py-6">
-        {error && (
+        {normalizedError && (
           <div
             className={`flex items-center gap-3 rounded-xl border p-4 ${
-              error === SESSION_EXPIRED_MESSAGE
+              normalizedError === SESSION_EXPIRED_MESSAGE
                 ? 'border-amber-200 bg-amber-50'
                 : 'border-red-200 bg-red-50'
             }`}
             role="alert"
           >
             <p className={`flex-1 text-sm font-medium ${
-              error === SESSION_EXPIRED_MESSAGE ? 'text-amber-900' : 'text-red-700'
+              normalizedError === SESSION_EXPIRED_MESSAGE ? 'text-amber-900' : 'text-red-700'
             }`}>
-              {error}
+              {normalizedError}
             </p>
-            {error === SESSION_EXPIRED_MESSAGE ? (
+            {normalizedError === SESSION_EXPIRED_MESSAGE ? (
               <Link
                 href={`/patient-login?redirect=${encodeURIComponent(`${PATIENT_PORTAL_PATH}/care-team`)}&reason=session_expired`}
                 className="shrink-0 rounded-lg bg-amber-200 px-3 py-1.5 text-sm font-medium text-amber-900 hover:bg-amber-300"
@@ -153,7 +142,9 @@ export default function CareTeamPage() {
               </Link>
             ) : (
               <button
-                onClick={() => window.location.reload()}
+                onClick={() => {
+                  void mutate();
+                }}
                 className="shrink-0 rounded-lg bg-red-100 px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-200"
               >
                 Retry

@@ -10,6 +10,10 @@ import * as jose from 'jose';
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
+  if (process.env.NODE_ENV === 'production') {
+    return NextResponse.json({ error: 'Not available in production' }, { status: 404 });
+  }
+
   const diag: Record<string, unknown> = {
     timestamp: new Date().toISOString(),
     nodeEnv: process.env.NODE_ENV,

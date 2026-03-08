@@ -213,7 +213,7 @@ export function useOfflineStorage() {
   const requestSync = useCallback(async (tag: string) => {
     if ('serviceWorker' in navigator && 'sync' in ServiceWorkerRegistration.prototype) {
       const registration = await navigator.serviceWorker.ready;
-      // @ts-ignore - sync is not in TypeScript types yet
+      // @ts-expect-error — ServiceWorker sync API not in TypeScript DOM types
       await registration.sync.register(tag);
     }
   }, []);

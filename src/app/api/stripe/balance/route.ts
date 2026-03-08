@@ -255,10 +255,10 @@ async function getBalanceHandler(request: NextRequest, user: AuthUser) {
       isConnectedAccount: !!stripeAccountId,
       timestamp: new Date().toISOString(),
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('[STRIPE BALANCE] Error:', error);
 
-    if (error.message?.includes('not configured')) {
+    if (error instanceof Error ? error.message : String(error)?.includes('not configured')) {
       return NextResponse.json(
         { error: 'Stripe is not configured', code: 'STRIPE_NOT_CONFIGURED' },
         { status: 503 }
@@ -266,7 +266,7 @@ async function getBalanceHandler(request: NextRequest, user: AuthUser) {
     }
 
     return NextResponse.json(
-      { error: error.message || 'Failed to fetch balance' },
+      { error: error instanceof Error ? error.message : String(error) || 'Failed to fetch balance' },
       { status: 500 }
     );
   }

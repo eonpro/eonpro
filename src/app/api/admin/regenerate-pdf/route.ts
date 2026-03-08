@@ -215,7 +215,7 @@ export const POST = withAuthParams(
             success: true,
             pdfSize: pdfBuffer.length,
           });
-        } catch (error: any) {
+        } catch (error: unknown) {
           const errorMessage = error instanceof Error ? error.message : 'Unknown error';
           logger.error(`[PDF REGENERATION] Failed for document ${doc.id}:`, error);
           results.push({
@@ -236,7 +236,7 @@ export const POST = withAuthParams(
         failed: failCount,
         results,
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       logger.error('[PDF REGENERATION] Error:', error);
       return NextResponse.json(
@@ -279,7 +279,7 @@ export const GET = withAuthParams(
         needsRegeneration,
         percentValid: totalIntake > 0 ? Math.round((withData / totalIntake) * 100) : 100,
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       logger.error('[PDF REGENERATION] Error getting stats:', error);
       return NextResponse.json(

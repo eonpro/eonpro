@@ -78,6 +78,7 @@ export default function PhotosHubPage() {
   const [stats, setStats] = useState<PhotoStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [photoWarning, setPhotoWarning] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<RecentPhoto | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -99,6 +100,12 @@ export default function PhotosHubPage() {
         data !== null && typeof data === 'object' && 'photos' in data
           ? (data as { photos?: unknown[] }).photos ?? []
           : [];
+
+      if (data && typeof data === 'object' && 'warning' in data) {
+        setPhotoWarning((data as { warning?: string }).warning || null);
+      } else {
+        setPhotoWarning(null);
+      }
 
       // Calculate stats
       const progressPhotos = photos.filter((p: any) =>
@@ -314,6 +321,22 @@ export default function PhotosHubPage() {
         <p className="text-sm text-gray-500">Manage your photos and documents</p>
       </div>
 
+      {/* Photo Loading Warning */}
+      {photoWarning && (
+        <div className="mb-4 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4">
+          <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-amber-600" />
+          <div>
+            <p className="text-sm font-medium text-amber-800">{photoWarning}</p>
+            <button
+              onClick={fetchStats}
+              className="mt-1 text-xs font-medium text-amber-700 underline hover:text-amber-900"
+            >
+              Retry loading photos
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Quick Stats */}
       <div className="mb-6 grid grid-cols-2 sm:grid-cols-3 gap-3">
         <div className="rounded-xl bg-white p-4 text-center shadow-sm">
@@ -397,12 +420,21 @@ export default function PhotosHubPage() {
                       loading="lazy"
                       width={160}
                       height={160}
+                      onError={(e) => {
+                        const target = e.currentTarget;
+                        target.style.display = 'none';
+                        const fallback = target.nextElementSibling as HTMLElement | null;
+                        if (fallback) fallback.style.display = 'flex';
+                      }}
                     />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center">
-                      <ImageIcon className="h-6 w-6 text-gray-300" />
-                    </div>
-                  )}
+                  ) : null}
+                  <div
+                    className="flex h-full w-full flex-col items-center justify-center gap-1"
+                    style={{ display: photo.thumbnailUrl ? 'none' : 'flex' }}
+                  >
+                    <AlertCircle className="h-5 w-5 text-gray-400" />
+                    <p className="text-[10px] text-gray-400">Not available</p>
+                  </div>
 
                   {/* Verified badge for protected photos */}
                   {isVerifiedId && (

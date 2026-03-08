@@ -30,6 +30,12 @@ function generateOTP(): string {
 // OTP expiry time in minutes
 const OTP_EXPIRY_MINUTES = 5;
 
+function maskPhone(phone: string): string {
+  const digits = phone.replace(/\D/g, '');
+  if (digits.length < 4) return '***';
+  return `***${digits.slice(-4)}`;
+}
+
 export const POST = standardRateLimit(async (req: NextRequest) => {
   try {
     const body = await req.json();
@@ -37,7 +43,7 @@ export const POST = standardRateLimit(async (req: NextRequest) => {
 
     if (!validated.success) {
       return NextResponse.json(
-        { error: 'Invalid phone number', details: validated.error.issues },
+        { error: 'Invalid phone number' },
         { status: 400 }
       );
     }
@@ -97,7 +103,9 @@ export const POST = standardRateLimit(async (req: NextRequest) => {
     // But we won't send OTP if no account found
     if (!provider && !patient) {
       // For security, still return success but log the attempt
-      logger.warn('OTP request for unregistered phone number', { phone: formattedPhone });
+      logger.warn('OTP request for unregistered phone number', {
+        phone: maskPhone(formattedPhone),
+      });
 
       // Return success to prevent phone enumeration attacks
       return NextResponse.json({
@@ -138,14 +146,14 @@ export const POST = standardRateLimit(async (req: NextRequest) => {
         },
       });
       otpStored = true;
-    } catch (err: any) {
+    } catch (err: unknown) {
       logger.error('Failed to store OTP in database', { error: err.message });
     }
 
     if (!otpStored) {
       return NextResponse.json(
-        { error: 'Unable to generate verification code. Please try again or use email login.' },
-        { status: 500 }
+        { error: 'Verification code service is temporarily unavailable. Please try again.' },
+        { status: 503 }
       );
     }
 
@@ -171,28 +179,19 @@ export const POST = standardRateLimit(async (req: NextRequest) => {
         logger.error('Failed to send OTP SMS', {
           error: smsResult.error,
           details: smsResult.details,
-          phone: formattedPhone,
+          phone: maskPhone(formattedPhone),
           twilioConfigured,
           twilioFeatureEnabled,
           useMock,
         });
         return NextResponse.json(
-          {
-            error: 'Failed to send verification code. Please try again.',
-            debug: {
-              twilioConfigured,
-              twilioFeatureEnabled,
-              useMock,
-              twilioError: smsResult.error,
-              twilioDetails: smsResult.details?.message || smsResult.details,
-            },
-          },
-          { status: 500 }
+          { error: 'SMS delivery is temporarily unavailable. Please try again.' },
+          { status: 503 }
         );
       }
 
       logger.info('OTP sent successfully', {
-        phone: formattedPhone,
+        phone: maskPhone(formattedPhone),
         providerId: provider?.id,
         patientId: patient?.id,
         messageId: smsResult.messageId,
@@ -208,11 +207,14 @@ export const POST = standardRateLimit(async (req: NextRequest) => {
           debug: { mock: true, twilioConfigured, twilioFeatureEnabled },
         });
       }
-    } catch (smsError: any) {
-      logger.error('Failed to send OTP SMS', { error: smsError.message, phone: formattedPhone });
+    } catch (smsError: unknown) {
+      logger.error('Failed to send OTP SMS', {
+        error: smsError.message,
+        phone: maskPhone(formattedPhone),
+      });
       return NextResponse.json(
-        { error: 'Failed to send verification code. Please try again.', debug: smsError.message },
-        { status: 500 }
+        { error: 'SMS delivery is temporarily unavailable. Please try again.' },
+        { status: 503 }
       );
     }
 
@@ -221,7 +223,7 @@ export const POST = standardRateLimit(async (req: NextRequest) => {
       message: 'Verification code sent to your phone.',
       expiresIn: OTP_EXPIRY_MINUTES * 60, // in seconds
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     return handleApiError(error, { route: 'POST /api/auth/send-otp' });
   }
 });

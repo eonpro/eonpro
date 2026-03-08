@@ -56,8 +56,7 @@ export async function POST(req: NextRequest) {
         identity,
         mock: false,
       });
-    } catch (error: any) {
-      // @ts-ignore
+    } catch (error: unknown) {
 
       logger.error('[CHAT_TOKEN] Failed to generate token:', error);
 
@@ -79,8 +78,7 @@ export async function POST(req: NextRequest) {
         fallback: true,
       });
     }
-  } catch (error: any) {
-    // @ts-ignore
+  } catch (error: unknown) {
 
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('[CHAT_TOKEN] Error:', error);

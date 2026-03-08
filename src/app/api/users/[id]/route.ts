@@ -95,7 +95,7 @@ async function getUserHandler(
     }
 
     return NextResponse.json({ user: targetUser });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('Error fetching user:', error);
     return NextResponse.json({ error: 'Failed to fetch user' }, { status: 500 });
   }
@@ -239,7 +239,7 @@ async function updateUserHandler(
       message: 'User updated successfully',
       user: updatedUser,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('User update error:', error);
 
     if (error.name === 'ZodError') {
@@ -319,7 +319,7 @@ async function deleteUserHandler(
         message: 'User suspended successfully',
       });
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('User deletion error:', error);
     return NextResponse.json({ error: 'Failed to delete user' }, { status: 500 });
   }

@@ -53,7 +53,7 @@ const getSubscriptionsHandler = withAuthParams(
       }));
 
       return NextResponse.json(formattedSubscriptions);
-    } catch (error: any) {
+    } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       logger.error('Error fetching subscriptions:', {
         patientId: (await params).id,

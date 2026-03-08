@@ -38,7 +38,7 @@ export const GET = withAdminAuth(async (req: NextRequest) => {
     });
 
     return NextResponse.json({ rules });
-  } catch (error: any) {
+  } catch (error: unknown) {
     return NextResponse.json({ error: 'Failed to fetch notification rules' }, { status: 500 });
   }
 });
@@ -64,7 +64,7 @@ export const POST = withAdminAuth(async (req: NextRequest) => {
       success: true,
       rule,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     return NextResponse.json({ error: 'Failed to create notification rule' }, { status: 500 });
   }
 });
@@ -88,7 +88,7 @@ export const PUT = withAdminAuth(async (req: NextRequest) => {
       success: true,
       rule,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     return NextResponse.json({ error: 'Failed to update notification rule' }, { status: 500 });
   }
 });
@@ -111,7 +111,7 @@ export const DELETE = withAdminAuth(async (req: NextRequest) => {
       success: true,
       message: 'Rule deleted successfully',
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     return NextResponse.json({ error: 'Failed to delete notification rule' }, { status: 500 });
   }
 });

@@ -163,7 +163,7 @@ export const POST = withAuthParams(
       let formData: FormData;
       try {
         formData = await request.formData();
-      } catch (formError: any) {
+      } catch (formError: unknown) {
         const msg = formError?.message || 'Invalid request body';
         logger.error('Documents upload: formData parse failed', { userId: user?.id, error: msg });
         return NextResponse.json(
@@ -334,7 +334,7 @@ export const POST = withAuthParams(
       }
 
       return NextResponse.json(uploadedDocuments);
-    } catch (error: any) {
+    } catch (error: unknown) {
       const errorMessage =
         error instanceof Error ? error.message : String(error ?? 'Unknown error');
       logger.error('Error uploading documents', {
@@ -357,7 +357,7 @@ export const POST = withAuthParams(
       } = {
         error: isStorageError
           ? 'Document storage is temporarily unavailable. For lab results, use the Lab tab and upload a Quest PDF there.'
-          : `Upload failed: ${errorMessage}`,
+          : 'Upload failed. Please try again.',
       };
       if (isStorageError) {
         body.code = 'STORAGE_UNAVAILABLE';

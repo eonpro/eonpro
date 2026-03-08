@@ -169,7 +169,7 @@ export async function GET(
         })),
       recentPayments: paymentHistory.slice(0, 10),
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('Failed to get patient billing', error);
     return NextResponse.json(
       { error: error.message || 'Failed to get billing info' },
@@ -283,7 +283,7 @@ export async function POST(
       change: balanceChange,
       message: `${validated.type === 'credit' ? 'Credit added' : validated.type === 'debit' ? 'Debit applied' : 'Balance adjusted'} successfully`,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
         { error: 'Invalid request', details: error.errors },

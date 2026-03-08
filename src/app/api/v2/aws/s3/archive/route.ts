@@ -44,8 +44,7 @@ export async function POST(request: NextRequest) {
       archiveKey,
       message: 'File archived successfully',
     });
-  } catch (error: any) {
-    // @ts-ignore
+  } catch (error: unknown) {
 
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('[S3 Archive] Error:', error);

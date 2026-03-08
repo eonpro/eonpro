@@ -250,7 +250,7 @@ export default function SuperAdminAffiliatesPage() {
         setAnalytics(await response.json());
       }
     } catch (error) {
-      console.error('Failed to fetch analytics:', error);
+      process.env.NODE_ENV === 'development' && console.error('Failed to fetch analytics:', error);
     } finally {
       setAnalyticsLoading(false);
     }
@@ -266,7 +266,7 @@ export default function SuperAdminAffiliatesPage() {
         setDiagnostics(await response.json());
       }
     } catch (error) {
-      console.error('Failed to fetch diagnostics:', error);
+      process.env.NODE_ENV === 'development' && console.error('Failed to fetch diagnostics:', error);
     } finally {
       setDiagnosticsLoading(false);
     }
@@ -314,7 +314,7 @@ export default function SuperAdminAffiliatesPage() {
         }
       }
     } catch (error) {
-      console.error('Failed to fetch data:', error);
+      process.env.NODE_ENV === 'development' && console.error('Failed to fetch data:', error);
       setFetchError('Failed to connect to server');
     } finally {
       setLoading(false);
@@ -371,7 +371,7 @@ export default function SuperAdminAffiliatesPage() {
       setCopiedCode(code);
       setTimeout(() => setCopiedCode(null), 2000);
     } catch (e) {
-      console.error('Failed to copy');
+      process.env.NODE_ENV === 'development' && console.error('Failed to copy');
     }
   };
 

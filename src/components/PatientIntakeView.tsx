@@ -747,7 +747,7 @@ export default function PatientIntakeView({
             typeof intakeDoc.intakeData === 'string'
               ? JSON.parse(intakeDoc.intakeData)
               : intakeDoc.intakeData;
-        } catch (error: any) {
+        } catch (error: unknown) {
           logger.error('Error parsing intakeData field:', error);
         }
       } else if (intakeDoc.data) {
@@ -777,7 +777,7 @@ export default function PatientIntakeView({
             // Already parsed by page.tsx
             parsed = rawData as IntakeData;
           }
-        } catch (error: any) {
+        } catch (error: unknown) {
           logger.debug('Data field does not contain valid JSON');
         }
       }
@@ -1166,7 +1166,7 @@ export default function PatientIntakeView({
       setTimeout(() => {
         window.location.href = window.location.href;
       }, 500);
-    } catch (error: any) {
+    } catch (error: unknown) {
       setSaveError(error.message || 'Failed to save intake data');
       setIsSaving(false);
     }

@@ -41,6 +41,29 @@ const defaultBrandingPayload = {
   },
 };
 
+const LOGOS_RX_SUBDOMAIN = 'logosrx';
+const LOGOS_RX_THEME = {
+  clinicId: null,
+  name: 'LogosRx',
+  subdomain: LOGOS_RX_SUBDOMAIN,
+  customDomain: null,
+  isMainApp: false,
+  branding: {
+    logoUrl: 'https://static.wixstatic.com/shapes/c49a9b_ed88aadf7f9b426f990b60e1965c329b.svg',
+    iconUrl: 'https://static.wixstatic.com/shapes/c49a9b_70a8d7f88d384ab9956055674c2632a7.svg',
+    faviconUrl: null,
+    primaryColor: '#1E2F8A',
+    secondaryColor: '#2C4DAA',
+    accentColor: '#D22D8A',
+    buttonTextColor: 'light' as const,
+    backgroundColor: '#1E2F8A',
+  },
+  contact: {
+    supportEmail: 'support@eonpro.io',
+    phone: null,
+  },
+};
+
 function isMainAppDomain(domain: string): boolean {
   const normalized = domain.split(':')[0].toLowerCase();
   return (
@@ -73,6 +96,14 @@ async function handler(request: NextRequest) {
     // Short-circuit for main app domain: no DB call, avoids timeouts and load
     if (isMainAppDomain(domain)) {
       return NextResponse.json(defaultBrandingPayload, {
+        headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' },
+      });
+    }
+
+    const normalizedDomain = domain.split(':')[0].toLowerCase();
+    const firstLabel = normalizedDomain.split('.')[0];
+    if (normalizedDomain.endsWith('.eonpro.io') && firstLabel === LOGOS_RX_SUBDOMAIN) {
+      return NextResponse.json(LOGOS_RX_THEME, {
         headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' },
       });
     }
@@ -193,6 +224,13 @@ export const GET = withApiHandler(handler);
 async function resolveClinicFromDomain(domain: string) {
   // Normalize domain (remove port, lowercase)
   const normalizedDomain = domain.split(':')[0].toLowerCase();
+  const firstLabel = normalizedDomain.split('.')[0];
+
+  // Reserved pharmacy experience hosted on logosrx.eonpro.io.
+  // This is intentionally not tied to a single clinic record.
+  if (normalizedDomain.endsWith('.eonpro.io') && firstLabel === LOGOS_RX_SUBDOMAIN) {
+    return null;
+  }
 
   // First, try to match custom domain exactly
   // Using basePrisma since this is a public endpoint (no auth/clinic context)

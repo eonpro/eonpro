@@ -308,7 +308,7 @@ export class InvoiceManager {
             logger.warn('Auto-charge failed', { invoiceId: finalizedInvoice.id, error: payError });
           }
         }
-      } catch (stripeError: any) {
+      } catch (stripeError: unknown) {
         logger.error('Stripe invoice creation failed', stripeError);
         // Continue without Stripe - create local invoice only
       }
@@ -624,8 +624,8 @@ export class InvoiceManager {
       try {
         await this.stripeClient.invoices.sendInvoice(invoice.stripeInvoiceId);
         delivery.push({ method: 'stripe_email', success: true });
-      } catch (stripeError: any) {
-        delivery.push({ method: 'stripe_email', success: false, error: stripeError.message });
+      } catch (stripeError: unknown) {
+        delivery.push({ method: 'stripe_email', success: false, error: stripeError instanceof Error ? stripeError.message : String(stripeError) });
       }
     }
 
@@ -640,8 +640,8 @@ export class InvoiceManager {
             text: this.generateInvoiceEmailText(invoice, paymentUrl, options?.customMessage),
           });
           delivery.push({ method: 'email', success: true });
-        } catch (emailError: any) {
-          delivery.push({ method: 'email', success: false, error: emailError.message });
+        } catch (emailError: unknown) {
+          delivery.push({ method: 'email', success: false, error: emailError instanceof Error ? emailError.message : String(emailError) });
         }
       }
     }
@@ -659,8 +659,8 @@ export class InvoiceManager {
             body: smsMessage,
           });
           delivery.push({ method: 'sms', success: true });
-        } catch (smsError: any) {
-          delivery.push({ method: 'sms', success: false, error: smsError.message });
+        } catch (smsError: unknown) {
+          delivery.push({ method: 'sms', success: false, error: smsError instanceof Error ? smsError.message : String(smsError) });
         }
       }
     }
@@ -703,8 +703,8 @@ export class InvoiceManager {
     if (this.stripeClient && invoice.stripeInvoiceId) {
       try {
         await this.stripeClient.invoices.voidInvoice(invoice.stripeInvoiceId);
-      } catch (stripeError: any) {
-        logger.warn('Stripe void failed', { error: stripeError.message });
+      } catch (stripeError: unknown) {
+        logger.warn('Stripe void failed', { error: stripeError instanceof Error ? stripeError.message : String(stripeError) });
       }
     }
 
@@ -739,8 +739,8 @@ export class InvoiceManager {
     if (this.stripeClient && invoice.stripeInvoiceId && invoice.status !== 'PAID') {
       try {
         await this.stripeClient.invoices.voidInvoice(invoice.stripeInvoiceId);
-      } catch (stripeError: any) {
-        logger.warn('Stripe void failed during cancel', { error: stripeError.message });
+      } catch (stripeError: unknown) {
+        logger.warn('Stripe void failed during cancel', { error: stripeError instanceof Error ? stripeError.message : String(stripeError) });
       }
     }
 
@@ -775,8 +775,8 @@ export class InvoiceManager {
     if (this.stripeClient && invoice.stripeInvoiceId) {
       try {
         await this.stripeClient.invoices.markUncollectible(invoice.stripeInvoiceId);
-      } catch (stripeError: any) {
-        logger.warn('Stripe mark uncollectible failed', { error: stripeError.message });
+      } catch (stripeError: unknown) {
+        logger.warn('Stripe mark uncollectible failed', { error: stripeError instanceof Error ? stripeError.message : String(stripeError) });
       }
     }
 
@@ -1098,7 +1098,7 @@ export class InvoiceManager {
             reason: 'requested_by_customer',
           });
         } catch (stripeError: unknown) {
-          const errMsg = stripeError instanceof Error ? stripeError.message : 'Unknown error';
+          const errMsg = stripeError instanceof Error ? stripeError instanceof Error ? stripeError.message : String(stripeError) : 'Unknown error';
           logger.error('Stripe refund failed', { error: errMsg });
           throw new Error(`Stripe refund failed: ${errMsg}`);
         }

@@ -35,7 +35,7 @@ const loginSchema = z.object({
   email: z.string().email('Invalid email address'),
   password: z.string().min(1, 'Password is required'),
   role: z
-    .enum(['patient', 'provider', 'admin', 'super_admin', 'affiliate', 'staff', 'support'])
+    .enum(['patient', 'provider', 'admin', 'super_admin', 'affiliate', 'staff', 'support', 'pharmacy_rep'])
     .default('patient'),
   clinicId: z.number().nullable().optional(), // Accept null, undefined, or number
   captchaToken: z.string().optional(), // For CAPTCHA verification when required
@@ -293,11 +293,12 @@ async function loginHandler(req: NextRequest) {
 
         case 'staff':
         case 'support':
-          // Staff and support users
+        case 'pharmacy_rep':
+          // Staff, support, and pharmacy reps
           const staffUser = await prisma.user.findFirst({
             where: {
               email: email.toLowerCase(),
-              role: { in: ['STAFF', 'SUPPORT'] },
+              role: { in: ['STAFF', 'SUPPORT', 'PHARMACY_REP'] },
             },
           });
           if (staffUser) {
@@ -1023,6 +1024,7 @@ async function loginHandler(req: NextRequest) {
       'staff-token',
       'support-token',
       'sales_rep-token',
+      'pharmacy_rep-token',
       'selected-clinic',
     ];
 

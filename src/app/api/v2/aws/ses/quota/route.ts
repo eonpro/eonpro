@@ -36,8 +36,7 @@ export async function GET(request: NextRequest) {
     const quota = await getSendQuota();
 
     return NextResponse.json(quota);
-  } catch (error: any) {
-    // @ts-ignore
+  } catch (error: unknown) {
 
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('[SES Quota] Error:', error);

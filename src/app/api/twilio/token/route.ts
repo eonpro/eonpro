@@ -67,7 +67,7 @@ export async function POST(req: NextRequest) {
           identity: userId,
           patientId: patientId,
         });
-      } catch (twilioError: any) {
+      } catch (twilioError: unknown) {
         logger.error('Twilio error generating token', { value: twilioError });
       }
     }
@@ -80,7 +80,7 @@ export async function POST(req: NextRequest) {
       demo: true,
       notice: 'Using demo mode',
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('Failed to generate Twilio token', error);
     // Return demo token even on error
     return NextResponse.json({

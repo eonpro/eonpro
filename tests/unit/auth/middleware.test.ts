@@ -7,6 +7,76 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
 import { SignJWT } from 'jose';
 
+vi.mock('@/lib/auth/session-manager', () => ({
+  validateSession: vi.fn(() => Promise.resolve({ valid: true, expired: false, session: { lastActivity: Date.now(), createdAt: Date.now() } })),
+  getSessionStorageStatus: vi.fn(() => ({ type: 'memory' })),
+  trackSessionActivity: vi.fn(() => Promise.resolve()),
+}));
+
+vi.mock('@/lib/auth/auth-rate-limiter', () => ({
+  isAuthBlocked: vi.fn(() => Promise.resolve(false)),
+  recordAuthFailure: vi.fn(() => Promise.resolve()),
+  clearAuthFailures: vi.fn(() => Promise.resolve()),
+}));
+
+vi.mock('@/lib/cache/request-scoped', () => ({
+  getClinicBySubdomainCache: vi.fn(() => null),
+}));
+
+vi.mock('@prisma/client', () => ({
+  Prisma: {
+    PrismaClientKnownRequestError: class PrismaClientKnownRequestError extends Error {
+      code: string;
+      constructor(message: string, opts: { code: string; clientVersion: string }) {
+        super(message);
+        this.code = opts.code;
+      }
+    },
+    PrismaClientInitializationError: class PrismaClientInitializationError extends Error {
+      constructor(message: string) { super(message); }
+    },
+    PrismaClientRustPanicError: class PrismaClientRustPanicError extends Error {
+      constructor(message: string) { super(message); }
+    },
+  },
+}));
+
+vi.mock('@/lib/db', () => ({
+  prisma: { auditLog: { create: vi.fn(() => Promise.resolve({})) } },
+  basePrisma: { clinic: { findFirst: vi.fn(() => Promise.resolve(null)) } },
+  setClinicContext: vi.fn(),
+  runWithClinicContext: vi.fn((_clinicId: number | undefined, fn: () => Promise<unknown>) => fn()),
+  getClinicContext: vi.fn(() => 1),
+}));
+
+vi.mock('@/lib/observability/request-context', () => ({
+  runWithRequestContext: vi.fn((_ctx: unknown, fn: () => Promise<unknown>) => fn()),
+  getRequestId: vi.fn(() => 'test-request-id'),
+}));
+
+vi.mock('@/lib/auth/middleware-cache', () => ({
+  resolveSubdomainClinicId: vi.fn(() => Promise.resolve(null)),
+  hasClinicAccess: vi.fn(() => Promise.resolve(true)),
+  trackSessionActivity: vi.fn(() => Promise.resolve()),
+}));
+
+vi.mock('@/lib/audit/hipaa-audit', () => ({
+  auditLog: vi.fn(() => Promise.resolve()),
+  AuditEventType: { SESSION_TIMEOUT: 'SESSION_TIMEOUT', AUTH_FAILURE: 'AUTH_FAILURE', AUTH_LOGIN: 'AUTH_LOGIN' },
+}));
+
+vi.mock('@/lib/logger', () => ({
+  logger: {
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    debug: vi.fn(),
+    security: vi.fn(),
+    requestSummary: vi.fn(),
+    api: vi.fn(),
+  },
+}));
+
 // Import the functions we want to test
 import {
   withAuth,
@@ -49,6 +119,7 @@ const createValidToken = async (payload: Partial<AuthUser> = {}): Promise<string
     email: 'test@example.com',
     role: 'admin' as UserRole,
     clinicId: 1,
+    sessionId: 'test-session-id',
     tokenVersion: 1,
     ...payload,
   })
@@ -59,8 +130,29 @@ const createValidToken = async (payload: Partial<AuthUser> = {}): Promise<string
 };
 
 describe('Authentication Middleware', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
+    const rateLimiter = await import('@/lib/auth/auth-rate-limiter');
+    vi.mocked(rateLimiter.isAuthBlocked).mockImplementation(() => Promise.resolve(false));
+    vi.mocked(rateLimiter.recordAuthFailure).mockImplementation(() => Promise.resolve());
+    vi.mocked(rateLimiter.clearAuthFailures).mockImplementation(() => Promise.resolve());
+    
+    const sessionMgr = await import('@/lib/auth/session-manager');
+    vi.mocked(sessionMgr.validateSession).mockImplementation(() => Promise.resolve({ valid: true, expired: false, session: { lastActivity: Date.now(), createdAt: Date.now() } }));
+
+    const audit = await import('@/lib/audit/hipaa-audit');
+    vi.mocked(audit.auditLog).mockImplementation(() => Promise.resolve());
+
+    const cache = await import('@/lib/cache/request-scoped');
+    vi.mocked(cache.getClinicBySubdomainCache).mockImplementation(() => null);
+
+    const mwCache = await import('@/lib/auth/middleware-cache');
+    vi.mocked(mwCache.resolveSubdomainClinicId).mockImplementation(() => Promise.resolve(null));
+    vi.mocked(mwCache.hasClinicAccess).mockImplementation(() => Promise.resolve(true));
+    vi.mocked(mwCache.trackSessionActivity).mockImplementation(() => Promise.resolve());
+
+    const { prisma } = await import('@/lib/db');
+    vi.mocked((prisma as any).auditLog.create).mockImplementation(() => Promise.resolve({}));
   });
 
   describe('withAuth', () => {

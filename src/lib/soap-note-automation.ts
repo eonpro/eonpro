@@ -200,7 +200,7 @@ export async function ensureSoapNoteExists(
           soapNoteStatus: soapNote.status,
           action: 'generated',
         };
-      } catch (genError: any) {
+      } catch (genError: unknown) {
         const errorMsg = genError.message || 'Unknown error';
         logger.error('[SOAP-AUTOMATION] Failed to generate from intake', {
           ...logContext,
@@ -301,7 +301,7 @@ export async function ensureSoapNoteExists(
             soapNoteStatus: soapNote.status,
             action: 'generated',
           };
-        } catch (metaError: any) {
+        } catch (metaError: unknown) {
           const errorMsg = metaError.message || 'Unknown error';
           logger.error('[SOAP-AUTOMATION] Failed to generate from invoice metadata', {
             ...logContext,
@@ -371,7 +371,7 @@ export async function ensureSoapNoteExists(
           soapNoteStatus: soapNote.status,
           action: 'generated',
         };
-      } catch (submissionError: any) {
+      } catch (submissionError: unknown) {
         const errorMsg = submissionError.message || 'Unknown error';
         logger.error('[SOAP-AUTOMATION] Failed to generate from intake submission', {
           ...logContext,
@@ -408,10 +408,10 @@ export async function ensureSoapNoteExists(
       action: 'no_data',
       error: 'No intake data available - requires manual SOAP note creation',
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('[SOAP-AUTOMATION] Unexpected error ensuring SOAP note', {
       ...logContext,
-      error: error.message,
+      error: error instanceof Error ? error.message : String(error),
     });
 
     return {
@@ -419,7 +419,7 @@ export async function ensureSoapNoteExists(
       soapNoteId: null,
       soapNoteStatus: null,
       action: 'failed',
-      error: error.message,
+      error: error instanceof Error ? error.message : String(error),
     };
   }
 }

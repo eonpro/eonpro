@@ -135,6 +135,7 @@ export default function IDVerificationPage() {
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [photoWarning, setPhotoWarning] = useState<string | null>(null);
   const [captureActive, setCaptureActive] = useState(false);
 
   const fetchPhotos = useCallback(async () => {
@@ -149,6 +150,11 @@ export default function IDVerificationPage() {
         data !== null && typeof data === 'object' && 'photos' in data
           ? ((data as { photos?: Photo[] }).photos ?? [])
           : [];
+      if (data && typeof data === 'object' && 'warning' in data) {
+        setPhotoWarning((data as { warning?: string }).warning || null);
+      } else {
+        setPhotoWarning(null);
+      }
       setPhotos(all.filter((p: Photo) => ['ID_FRONT', 'ID_BACK', 'SELFIE'].includes(p.type)));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load');
@@ -263,6 +269,22 @@ export default function IDVerificationPage() {
           Verify your identity to access all platform features
         </p>
       </div>
+
+      {/* Photo Loading Warning */}
+      {photoWarning && (
+        <div className="mb-4 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4">
+          <AlertTriangle className="mt-0.5 h-5 w-5 flex-shrink-0 text-amber-600" />
+          <div>
+            <p className="text-sm font-medium text-amber-800">{photoWarning}</p>
+            <button
+              onClick={fetchPhotos}
+              className="mt-1 text-xs font-medium text-amber-700 underline hover:text-amber-900"
+            >
+              Retry loading photos
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Overall Status Card */}
       <div className={`rounded-2xl ${statusConfig.bgColor} mb-6 p-5`}>

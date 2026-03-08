@@ -84,9 +84,13 @@ export const POST = withAdminAuth(async (req: NextRequest, user) => {
       );
     }
 
+    const resolvedClinicId = user.role === 'super_admin'
+      ? (parsed.data.clinicId || user.clinicId)
+      : user.clinicId;
+
     const billingCode = await prisma.billingCode.create({
       data: {
-        clinicId: parsed.data.clinicId,
+        clinicId: resolvedClinicId!,
         codeType: parsed.data.codeType,
         code: parsed.data.code,
         description: parsed.data.description,
@@ -97,7 +101,7 @@ export const POST = withAdminAuth(async (req: NextRequest, user) => {
     });
 
     return NextResponse.json({ billingCode }, { status: 201 });
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (error.code === 'P2002') {
       return NextResponse.json({ error: 'This code already exists' }, { status: 409 });
     }

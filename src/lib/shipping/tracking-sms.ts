@@ -18,6 +18,7 @@ import { decryptPHI } from '@/lib/security/phi-encryption';
 import { notificationService } from '@/services/notification/notificationService';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import { sendEmail } from '@/lib/email';
 
 // ============================================================================
 // Types
@@ -27,6 +28,8 @@ export interface TrackingNotificationInput {
   patientId: number;
   /** Encrypted patient phone (PHI) */
   patientPhone: string | null;
+  /** Encrypted patient email (PHI) */
+  patientEmail?: string | null;
   /** Encrypted patient first name (PHI) */
   patientFirstName: string | null;
   /** Encrypted patient last name (PHI) - used for admin notification */
@@ -39,6 +42,14 @@ export interface TrackingNotificationInput {
   carrier: string;
   /** Order ID if available - used for linking in admin notification */
   orderId?: number;
+}
+
+export interface OrderTrackingNotificationInput {
+  orderId: number;
+  trackingNumber: string | null | undefined;
+  previousTrackingNumber?: string | null;
+  carrier?: string | null;
+  source: string;
 }
 
 // ============================================================================
@@ -74,6 +85,23 @@ function getTrackingUrl(carrier: string, trackingNumber: string): string {
   );
 }
 
+function normalizeTrackingNumber(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : null;
+}
+
+function detectCarrierFromTracking(trackingNumber: string): string {
+  const tn = trackingNumber.toUpperCase();
+
+  if (/^1Z[A-Z0-9]{16}$/i.test(tn)) return 'UPS';
+  if (/^\d{12}$|^\d{15}$|^\d{20}$|^\d{22}$/.test(tn)) return 'FedEx';
+  if (/^\d{20,22}$/.test(tn) || /^(94|93|92|91|9[0-5])\d{18,20}$/.test(tn)) return 'USPS';
+  if (/^\d{10}$/.test(tn)) return 'DHL';
+
+  return 'Unknown';
+}
+
 /**
  * Build the SMS message body for a tracking notification
  */
@@ -97,6 +125,47 @@ function buildTrackingMessage(
   );
 }
 
+function buildTrackingEmailHtml(
+  firstName: string,
+  clinicName: string,
+  trackingNumber: string,
+  carrier: string
+): string {
+  const trackingUrl = getTrackingUrl(carrier, trackingNumber);
+  const displayName = stripBusinessSuffix(clinicName);
+
+  return `
+    <div style="font-family: Arial, sans-serif; line-height: 1.5; color: #111827;">
+      <p>Hello ${firstName},</p>
+      <p>Your prescription from <strong>${displayName}</strong> has been processed and shipped.</p>
+      <p><strong>Tracking number:</strong> ${trackingNumber}</p>
+      <p><a href="${trackingUrl}" target="_blank" rel="noopener noreferrer">Track your package</a></p>
+      <p>Thank you,<br/>${displayName}</p>
+    </div>
+  `;
+}
+
+function buildTrackingEmailText(
+  firstName: string,
+  clinicName: string,
+  trackingNumber: string,
+  carrier: string
+): string {
+  const trackingUrl = getTrackingUrl(carrier, trackingNumber);
+  const displayName = stripBusinessSuffix(clinicName);
+
+  return [
+    `Hello ${firstName},`,
+    '',
+    `Your prescription from ${displayName} has been processed and shipped.`,
+    `Tracking number: ${trackingNumber}`,
+    `Track your package: ${trackingUrl}`,
+    '',
+    `Thank you,`,
+    displayName,
+  ].join('\n');
+}
+
 // ============================================================================
 // Public API
 // ============================================================================
@@ -115,7 +184,7 @@ function buildTrackingMessage(
 export async function sendTrackingNotificationSMS(
   input: TrackingNotificationInput
 ): Promise<SMSResponse> {
-  const { patientId, patientPhone, patientFirstName, clinicId, clinicName, trackingNumber, carrier } = input;
+  const { patientId, patientPhone, patientEmail, patientFirstName, clinicId, clinicName, trackingNumber, carrier } = input;
   const patientLastName = input.patientLastName;
   const orderId = input.orderId;
 
@@ -192,6 +261,43 @@ export async function sendTrackingNotificationSMS(
     });
   }
 
+  // Email fallback/backup notification
+  const email = safeDecrypt(patientEmail);
+  if (email) {
+    const subject = 'Your prescription shipment is on the way';
+    const emailResult = await sendEmail({
+      to: email,
+      subject,
+      html: buildTrackingEmailHtml(firstName, clinicName, trackingNumber, carrier),
+      text: buildTrackingEmailText(firstName, clinicName, trackingNumber, carrier),
+      userId: patientId,
+      clinicId,
+      sourceType: 'automation',
+      sourceId: `tracking-email-${trackingNumber}`,
+    });
+
+    if (emailResult.success) {
+      logger.info('[TRACKING EMAIL] Sent successfully', {
+        patientId,
+        clinicId,
+        trackingNumber,
+      });
+    } else {
+      logger.warn('[TRACKING EMAIL] Failed to send (non-blocking)', {
+        patientId,
+        clinicId,
+        trackingNumber,
+        error: emailResult.error,
+      });
+    }
+  } else {
+    logger.info('[TRACKING EMAIL] Skipped - no email on patient', {
+      patientId,
+      clinicId,
+      trackingNumber,
+    });
+  }
+
   // Send internal admin notification regardless of SMS outcome
   const lastName = safeDecrypt(patientLastName) || '';
   const patientDisplayName = `${firstName} ${lastName}`.trim();
@@ -211,6 +317,77 @@ export async function sendTrackingNotificationSMS(
   });
 
   return result;
+}
+
+/**
+ * Trigger patient tracking SMS when an order receives a new tracking number.
+ *
+ * This helper deduplicates notifications by comparing previous vs new tracking number.
+ */
+export async function notifyPatientOnOrderTrackingUpdate(
+  input: OrderTrackingNotificationInput
+): Promise<void> {
+  const nextTracking = normalizeTrackingNumber(input.trackingNumber);
+  const previousTracking = normalizeTrackingNumber(input.previousTrackingNumber);
+
+  if (!nextTracking) return;
+  if (previousTracking === nextTracking) return;
+
+  try {
+    const order = await prisma.order.findUnique({
+      where: { id: input.orderId },
+      select: {
+        id: true,
+        patientId: true,
+        clinicId: true,
+        patient: {
+          select: {
+            id: true,
+            phone: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+      },
+    });
+
+    if (!order?.patient) {
+      logger.warn('[TRACKING SMS] Skipped order tracking notification: patient/order missing', {
+        orderId: input.orderId,
+        source: input.source,
+      });
+      return;
+    }
+
+    const clinic = await prisma.clinic.findUnique({
+      where: { id: order.clinicId },
+      select: { name: true },
+    });
+
+    const carrier =
+      (input.carrier && input.carrier.trim().length > 0 ? input.carrier.trim() : null) ||
+      detectCarrierFromTracking(nextTracking);
+
+    await sendTrackingNotificationSMS({
+      patientId: order.patient.id,
+      patientPhone: order.patient.phone,
+      patientEmail: order.patient.email,
+      patientFirstName: order.patient.firstName,
+      patientLastName: order.patient.lastName,
+      clinicId: order.clinicId,
+      clinicName: clinic?.name || 'Your Clinic',
+      trackingNumber: nextTracking,
+      carrier,
+      orderId: order.id,
+    });
+  } catch (err) {
+    logger.warn('[TRACKING SMS] Failed to notify for order tracking update (non-blocking)', {
+      orderId: input.orderId,
+      source: input.source,
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
 }
 
 // ============================================================================

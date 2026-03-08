@@ -8,8 +8,11 @@
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 
-// Test configuration
-const BASE_URL = process.env.TEST_BASE_URL || 'http://localhost:3000';
+// Integration test — requires running server
+// Run with: TEST_BASE_URL=http://localhost:3001 npx vitest run tests/multi-tenant.test.ts
+const BASE_URL = process.env.TEST_BASE_URL || 'http://localhost:3001';
+
+const describeWithServer = process.env.TEST_BASE_URL ? describe : describe.skip;
 
 // Test users and clinics
 const TEST_DATA = {
@@ -71,7 +74,7 @@ async function apiCall(
 // TEST SUITE: AUTHENTICATION & MULTI-CLINIC ACCESS
 // ============================================================================
 
-describe('Multi-Tenant Authentication', () => {
+describeWithServer('Multi-Tenant Authentication', () => {
   
   it('should login as super admin', async () => {
     const res = await fetch(`${BASE_URL}/api/auth/login`, {
@@ -135,7 +138,7 @@ describe('Multi-Tenant Authentication', () => {
 // TEST SUITE: PATIENT DATA ISOLATION
 // ============================================================================
 
-describe('Patient Data Isolation', () => {
+describeWithServer('Patient Data Isolation', () => {
   let clinic1Token: string;
   let clinic2Token: string;
 
@@ -287,7 +290,7 @@ describe('Patient Data Isolation', () => {
 // TEST SUITE: ORDER DATA ISOLATION
 // ============================================================================
 
-describe('Order Data Isolation', () => {
+describeWithServer('Order Data Isolation', () => {
   let clinic1Token: string;
   let clinic2Token: string;
 
@@ -347,7 +350,7 @@ describe('Order Data Isolation', () => {
 // TEST SUITE: PROVIDER DATA ISOLATION
 // ============================================================================
 
-describe('Provider Data Isolation', () => {
+describeWithServer('Provider Data Isolation', () => {
   let clinic1Token: string;
   let clinic2Token: string;
 
@@ -398,7 +401,7 @@ describe('Provider Data Isolation', () => {
 // TEST SUITE: LIFEFILE CREDENTIALS ISOLATION
 // ============================================================================
 
-describe('Lifefile Credentials Per Clinic', () => {
+describeWithServer('Lifefile Credentials Per Clinic', () => {
   
   it('should have different Lifefile credentials per clinic', async () => {
     // This test verifies that each clinic has its own Lifefile configuration
@@ -431,7 +434,7 @@ describe('Lifefile Credentials Per Clinic', () => {
 // TEST SUITE: SUPER ADMIN CROSS-CLINIC ACCESS
 // ============================================================================
 
-describe('Super Admin Cross-Clinic Access', () => {
+describeWithServer('Super Admin Cross-Clinic Access', () => {
   
   it('super admin should see all patients across clinics', async () => {
     const res = await fetch(`${BASE_URL}/api/patients`, {
@@ -478,7 +481,7 @@ describe('Super Admin Cross-Clinic Access', () => {
 // TEST SUITE: PRESCRIPTION CLINIC CONTEXT
 // ============================================================================
 
-describe('Prescription Clinic Context', () => {
+describeWithServer('Prescription Clinic Context', () => {
   
   it('prescription should use correct clinic Lifefile credentials', async () => {
     // This is a documentation test - actual prescription would require valid patient/provider
@@ -501,7 +504,7 @@ describe('Prescription Clinic Context', () => {
 // TEST SUITE: DATA LEAK PREVENTION
 // ============================================================================
 
-describe('Cross-Clinic Data Leak Prevention', () => {
+describeWithServer('Cross-Clinic Data Leak Prevention', () => {
   let clinic1Token: string;
   
   beforeAll(async () => {
@@ -575,7 +578,7 @@ describe('Cross-Clinic Data Leak Prevention', () => {
 // MANUAL TEST CHECKLIST
 // ============================================================================
 
-describe('Manual Test Checklist', () => {
+describeWithServer('Manual Test Checklist', () => {
   it('documents manual tests to perform', () => {
     console.log(`
 ╔══════════════════════════════════════════════════════════════════════════════╗

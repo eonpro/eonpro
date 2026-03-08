@@ -55,9 +55,8 @@ export async function logWebhookAttempt(data: WebhookLogData) {
         processingTimeMs: data.processingTimeMs,
       },
     });
-  } catch (error: any) {
-    // @ts-ignore
-
+  } catch (error: unknown) {
+    
     logger.error('[WebhookLogger] Failed to log webhook attempt:', error);
     // Don't throw - logging failures shouldn't break the webhook
   }

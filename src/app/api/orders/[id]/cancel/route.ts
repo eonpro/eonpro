@@ -71,13 +71,13 @@ export const POST = withAuthParams(
       });
 
       return NextResponse.json(result);
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (error instanceof CancelOrderError) {
         return NextResponse.json({ error: error.message }, { status: error.statusCode });
       }
-      logger.error('[ORDER CANCEL] Error:', error);
+      logger.error('[ORDER CANCEL] Error:', error instanceof Error ? error : undefined);
       return NextResponse.json(
-        { error: 'Failed to cancel order', message: error.message },
+        { error: 'Failed to cancel order' },
         { status: 500 }
       );
     }

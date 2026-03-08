@@ -56,7 +56,7 @@ export default function PayoutMethodPage() {
           }
         }
       } catch (error) {
-        console.error('Failed to fetch payout method:', error);
+        process.env.NODE_ENV === 'development' && console.error('Failed to fetch payout method:', error);
       } finally {
         setIsLoading(false);
       }

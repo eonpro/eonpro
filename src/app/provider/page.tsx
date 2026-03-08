@@ -10,8 +10,10 @@ import {
   Pill,
   Loader2,
   X,
+  Video,
 } from 'lucide-react';
 import { ProviderDashboardSkeleton } from '@/components/dashboards/ProviderDashboardSkeleton';
+import ProviderCalendarStatusCard from '@/components/ProviderCalendarStatusCard';
 import { apiFetch } from '@/lib/api/fetch';
 import { safeParseJsonString } from '@/lib/utils/safe-json';
 
@@ -453,6 +455,11 @@ export default function ProviderDashboard() {
             )}
           </div>
         </div>
+      </div>
+
+      {/* Telehealth & Calendar Status */}
+      <div className="mb-8">
+        <ProviderCalendarStatusCard />
       </div>
 
       {/* Quick Actions */}

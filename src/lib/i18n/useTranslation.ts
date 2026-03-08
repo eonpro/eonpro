@@ -39,9 +39,8 @@ async function loadTranslation(language: string, namespace: string = 'common') {
       translations[key] = data;
       return data;
     }
-  } catch (error: any) {
-    // @ts-ignore
-
+  } catch (error: unknown) {
+    
     logger.error(`Failed to load translation: ${key}`, error);
   }
 

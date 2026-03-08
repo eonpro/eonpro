@@ -31,9 +31,8 @@ export default function PharmacyAnalyticsPage() {
         const data = await res.json();
         setAnalytics(data);
       }
-    } catch (error: any) {
-      // @ts-ignore
-
+    } catch (error: unknown) {
+      
       logger.error('Failed to fetch analytics', error);
     } finally {
       setLoading(false);

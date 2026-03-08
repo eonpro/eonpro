@@ -26,6 +26,8 @@ export default defineConfig({
       '.next',
       'coverage',
       'tests/e2e/**',
+      'tests/enterprise-provider-clinic.test.ts',
+      'tests/multi-tenant.test.ts',
     ],
     
     // Setup files

@@ -130,7 +130,7 @@ function StripeSettingsContent() {
         const data = await res.json();
         throw new Error(data.error || 'Failed to load Stripe status');
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(err.message);
     }
   };
@@ -163,7 +163,7 @@ function StripeSettingsContent() {
 
       // Redirect to Stripe OAuth
       window.location.href = data.authorizeUrl;
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(err.message);
     } finally {
       setActionLoading(false);
@@ -213,7 +213,7 @@ function StripeSettingsContent() {
 
       // Redirect to Stripe onboarding
       window.location.href = data.onboardingUrl;
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(err.message);
     } finally {
       setActionLoading(false);
@@ -235,7 +235,7 @@ function StripeSettingsContent() {
       } else {
         throw new Error(data.error || 'Failed to get onboarding link');
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(err.message);
     } finally {
       setActionLoading(false);
@@ -257,7 +257,7 @@ function StripeSettingsContent() {
       } else {
         throw new Error(data.error || 'Dashboard access not available');
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(err.message);
     } finally {
       setActionLoading(false);
@@ -281,7 +281,7 @@ function StripeSettingsContent() {
       } else {
         throw new Error(data.error || 'Failed to sync status');
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(err.message);
     } finally {
       setActionLoading(false);
@@ -308,7 +308,7 @@ function StripeSettingsContent() {
       await loadStripeStatus(clinicId);
       setShowDisconnectConfirm(false);
       setSuccess('Stripe account disconnected');
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(err.message);
     } finally {
       setActionLoading(false);

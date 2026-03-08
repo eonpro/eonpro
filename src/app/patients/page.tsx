@@ -164,7 +164,7 @@ export default function PatientsPage() {
       const patientData = data.patients ?? [];
       setPatients(patientData);
       setFilteredPatients(patientData);
-    } catch (err: any) {
+    } catch (err: unknown) {
       logger.error(err);
       setError('Failed to load patients');
     } finally {
@@ -273,9 +273,8 @@ export default function PatientsPage() {
       setForm(initialForm);
       setAddressLocked(false);
       fetchPatients();
-    } catch (err: any) {
-      // @ts-ignore
-
+    } catch (err: unknown) {
+      
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
       setError(errorMessage ?? 'Failed to save patient');
     }

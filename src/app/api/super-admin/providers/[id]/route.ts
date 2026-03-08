@@ -152,10 +152,10 @@ export const GET = withSuperAdminAuth(
         provider,
         auditHistory,
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error('[SUPER-ADMIN/PROVIDERS] Error fetching provider:', error);
       return NextResponse.json(
-        { error: 'Failed to fetch provider', details: error.message },
+        { error: 'Failed to fetch provider', details: error instanceof Error ? error.message : String(error) },
         { status: 500 }
       );
     }
@@ -258,22 +258,22 @@ export const PUT = withSuperAdminAuth(
         provider,
         message: 'Provider updated successfully',
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error('[SUPER-ADMIN/PROVIDERS] Error updating provider:', error);
 
       if (error.code === 'CONFLICT') {
         return NextResponse.json(
-          { error: error.message || 'NPI already registered' },
+          { error: error instanceof Error ? error.message : String(error) || 'NPI already registered' },
           { status: 409 }
         );
       }
 
       if (error.code === 'VALIDATION_ERROR') {
-        return NextResponse.json({ error: error.message, details: error.details }, { status: 400 });
+        return NextResponse.json({ error: error instanceof Error ? error.message : String(error), details: error.details }, { status: 400 });
       }
 
       return NextResponse.json(
-        { error: error.message || 'Failed to update provider' },
+        { error: error instanceof Error ? error.message : String(error) || 'Failed to update provider' },
         { status: 500 }
       );
     }
@@ -367,10 +367,10 @@ export const DELETE = withSuperAdminAuth(
           npi: provider.npi,
         },
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error('[SUPER-ADMIN/PROVIDERS] Error deleting provider:', error);
       return NextResponse.json(
-        { error: error.message || 'Failed to delete provider' },
+        { error: error instanceof Error ? error.message : String(error) || 'Failed to delete provider' },
         { status: 500 }
       );
     }

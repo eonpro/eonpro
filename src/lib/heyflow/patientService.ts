@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db';
 import { generatePatientId } from '@/lib/patients';
 import { logger } from '@/lib/logger';
 import { buildPatientSearchIndex } from '@/lib/utils/search';
+import { encryptPatientPHI } from '@/lib/security/phi-encryption';
 import type { NormalizedIntake, NormalizedPatient } from './types';
 
 type NormalizedPatientForCreate = {
@@ -122,11 +123,12 @@ export async function upsertPatientFromIntake(
     submissionId: intake.submissionId,
   });
 
+  const encryptedPHI = encryptPatientPHI(normalized);
   const created = await prisma.patient.create({
     data: {
-      ...normalized,
+      ...encryptedPHI,
       patientId,
-      clinicId, // CRITICAL: Associate patient with correct clinic
+      clinicId,
       tags: hashtags,
       notes: `Created via MedLink submission ${intake.submissionId}`,
       source: 'webhook',

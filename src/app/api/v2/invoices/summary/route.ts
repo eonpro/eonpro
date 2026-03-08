@@ -259,9 +259,9 @@ async function getInvoiceSummaryHandler(req: NextRequest, user: AuthUser): Promi
         };
       }),
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('Failed to get invoice summary', error);
-    return NextResponse.json({ error: error.message || 'Failed to get summary' }, { status: 500 });
+    return NextResponse.json({ error: error instanceof Error ? error.message : String(error) || 'Failed to get summary' }, { status: 500 });
   }
 }
 

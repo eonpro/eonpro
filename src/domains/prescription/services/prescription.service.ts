@@ -22,6 +22,7 @@ import { MEDS, GLP1_PRODUCT_IDS, SYRINGE_KIT_PRODUCT_ID } from '@/lib/medication
 import { SHIPPING_METHODS } from '@/lib/shipping';
 import { generatePrescriptionPDF } from '@/lib/pdf';
 import { buildPatientSearchIndex } from '@/lib/utils/search';
+import { encryptPatientPHI } from '@/lib/security/phi-encryption';
 import { markPrescribed } from '@/services/refill';
 import { providerCompensationService } from '@/services/provider';
 import { platformFeeService } from '@/services/billing';
@@ -440,14 +441,17 @@ export function createPrescriptionService(): PrescriptionService {
                 email: input.patient.email,
                 phone: input.patient.phone,
               });
+              const phiData = encryptPatientPHI({
+                firstName: input.patient.firstName,
+                lastName: input.patient.lastName,
+                email: input.patient.email,
+                phone: input.patient.phone,
+                dob: input.patient.dob,
+              });
               patientRecord = await tx.patient.create({
                 data: {
-                  firstName: input.patient.firstName,
-                  lastName: input.patient.lastName,
-                  dob: input.patient.dob,
+                  ...phiData,
                   gender: input.patient.gender,
-                  phone: input.patient.phone,
-                  email: input.patient.email,
                   address1: input.patient.address1,
                   address2: input.patient.address2 ?? null,
                   city: input.patient.city,

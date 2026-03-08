@@ -7,7 +7,14 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
-import { basePrisma as prisma } from '../src/lib/db';
+
+// Integration test — requires real database connection
+// Run with: DATABASE_URL=... npx vitest run tests/enterprise-provider-clinic.test.ts
+const describeWithDb = process.env.DATABASE_URL ? describe : describe.skip;
+
+// Lazy-import prisma only when tests actually run
+let prisma: Awaited<typeof import('../src/lib/db')>['basePrisma'];
+
 
 // Test data
 let testClinic1: { id: number; name: string };
@@ -16,8 +23,11 @@ let testClinic3: { id: number; name: string };
 let testProvider: { id: number; firstName: string; lastName: string; npi: string };
 let testUser: { id: number; email: string };
 
-describe('Enterprise Multi-Clinic Provider Architecture', () => {
+describeWithDb('Enterprise Multi-Clinic Provider Architecture', () => {
   beforeAll(async () => {
+    if (!process.env.DATABASE_URL) return;
+    const db = await import('../src/lib/db');
+    prisma = db.basePrisma;
     // Clean up any existing test data
     await prisma.providerClinic.deleteMany({
       where: {
@@ -112,6 +122,7 @@ describe('Enterprise Multi-Clinic Provider Architecture', () => {
   });
 
   afterAll(async () => {
+    if (!prisma) return;
     // Clean up test data
     await prisma.providerClinic.deleteMany({
       where: { providerId: testProvider.id }

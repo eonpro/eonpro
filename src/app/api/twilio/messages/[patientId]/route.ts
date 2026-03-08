@@ -31,7 +31,7 @@ export async function GET(req: NextRequest, context: RouteParams) {
     if (isNaN(patientId)) {
       return NextResponse.json({ error: 'Invalid patient ID', messages: [] }, { status: 400 });
     }
-  } catch (paramError: any) {
+  } catch (paramError: unknown) {
     logger.error('[Messages] Failed to parse params', { error: paramError.message });
     return NextResponse.json(
       { error: 'Invalid request parameters', messages: [] },
@@ -98,7 +98,7 @@ export async function GET(req: NextRequest, context: RouteParams) {
             limit: 50,
           });
           logger.info('[Messages] Outbound fetch success', { count: outboundMessages.length });
-        } catch (outErr: any) {
+        } catch (outErr: unknown) {
           logger.error('[Messages] Outbound fetch failed', { error: outErr.message });
         }
 
@@ -110,7 +110,7 @@ export async function GET(req: NextRequest, context: RouteParams) {
             limit: 50,
           });
           logger.info('[Messages] Inbound fetch success', { count: inboundMessages.length });
-        } catch (inErr: any) {
+        } catch (inErr: unknown) {
           logger.error('[Messages] Inbound fetch failed', { error: inErr.message });
         }
 
@@ -181,7 +181,7 @@ export async function GET(req: NextRequest, context: RouteParams) {
             localCount: localMessages.length,
           },
         });
-      } catch (twilioError: any) {
+      } catch (twilioError: unknown) {
         logger.error('Twilio error fetching messages', {
           error: twilioError.message,
           code: twilioError.code,
@@ -269,7 +269,7 @@ export async function GET(req: NextRequest, context: RouteParams) {
           twilioConfigured: false,
         });
       }
-    } catch (dbError: any) {
+    } catch (dbError: unknown) {
       logger.error('[Messages] Database query failed', { error: dbError.message });
       // Continue to return empty
     }
@@ -281,15 +281,15 @@ export async function GET(req: NextRequest, context: RouteParams) {
       twilioConfigured: false,
       message: 'No messages yet - send your first message!',
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('[Messages] Fatal error getting message history', {
-      error: error.message,
+      error: error instanceof Error ? error.message : String(error),
     });
 
     // Return empty messages with actual error info
     return NextResponse.json({
       messages: [],
-      error: error.message || 'Unknown error occurred',
+      error: error instanceof Error ? error.message : String(error) || 'Unknown error occurred',
       errorType: error.name,
       debug: process.env.NODE_ENV === 'development' ? error.stack : undefined,
     });

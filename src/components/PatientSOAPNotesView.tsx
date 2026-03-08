@@ -78,7 +78,7 @@ export default function PatientSOAPNotesView({
       } else {
         setError(data.error);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError('Failed to load SOAP notes');
       logger.error('Error fetching SOAP notes:', err);
     } finally {
@@ -132,7 +132,7 @@ export default function PatientSOAPNotesView({
           setError(errorMessage);
         }
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError('Failed to generate SOAP note. Please try again.');
       logger.error('Error generating SOAP note:', err);
     } finally {
@@ -172,7 +172,7 @@ export default function PatientSOAPNotesView({
           setError(data.error || 'Failed to approve SOAP note');
         }
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError('Failed to approve SOAP note');
       logger.error('Error approving SOAP note:', err);
     }
@@ -204,9 +204,8 @@ export default function PatientSOAPNotesView({
       } else {
         setError(data.error);
       }
-    } catch (err: any) {
-      // @ts-ignore
-
+    } catch (err: unknown) {
+      
       setError('Failed to edit SOAP note');
       logger.error('Error editing SOAP note:', err);
     }
@@ -228,9 +227,8 @@ export default function PatientSOAPNotesView({
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-    } catch (err: any) {
-      // @ts-ignore
-
+    } catch (err: unknown) {
+      
       logger.error('Error exporting SOAP note:', err);
     }
   };

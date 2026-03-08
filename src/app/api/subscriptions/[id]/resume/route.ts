@@ -57,8 +57,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     }
 
     return NextResponse.json(updatedSubscription);
-  } catch (error: any) {
-    // @ts-ignore
+  } catch (error: unknown) {
 
     logger.error('Error resuming subscription:', error);
     return NextResponse.json({ error: 'Failed to resume subscription' }, { status: 500 });

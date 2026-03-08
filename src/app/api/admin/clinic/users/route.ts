@@ -97,10 +97,11 @@ export const GET = withAuth(
         STAFF: 2,
         SUPPORT: 3,
         SALES_REP: 4,
-        PROVIDER: 5,
-        INFLUENCER: 6,
-        AFFILIATE: 7,
-        PATIENT: 8,
+        PHARMACY_REP: 5,
+        PROVIDER: 6,
+        INFLUENCER: 7,
+        AFFILIATE: 8,
+        PATIENT: 9,
       };
       const byRoleThenName = (a: (typeof formattedUsers)[number], b: (typeof formattedUsers)[number]) => {
         const orderA = roleOrder[a.role] ?? 9;
@@ -311,7 +312,7 @@ export const POST = withAuth(
             where: { id: newUser.id },
             data: { providerId: providerRecord.id },
           });
-        } catch (providerError: any) {
+        } catch (providerError: unknown) {
           logger.error('Error creating provider record:', providerError);
         }
       }
@@ -346,10 +347,10 @@ export const POST = withAuth(
         user: newUser,
         message: 'User created successfully',
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error('Error creating clinic user:', error);
       return NextResponse.json(
-        { error: error.message || 'Failed to create user' },
+        { error: error instanceof Error ? error.message : String(error) || 'Failed to create user' },
         { status: 500 }
       );
     }

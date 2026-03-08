@@ -87,7 +87,7 @@ export async function GET(req: NextRequest) {
     try {
       await openai.models.list();
       report.checks.apiConnectivity = 'connected';
-    } catch (connectError: any) {
+    } catch (connectError: unknown) {
       report.status = 'unhealthy';
       report.checks.apiConnectivity = 'failed';
       report.checks.errorDetails = `API connectivity failed: ${connectError.message}`;
@@ -134,7 +134,7 @@ export async function GET(req: NextRequest) {
           report.status = 'degraded';
           report.recommendations?.push(`Unexpected response from model: "${reply}"`);
         }
-      } catch (completionError: any) {
+      } catch (completionError: unknown) {
         report.checks.completionTest = 'failed';
         report.status = 'degraded';
 
@@ -175,11 +175,11 @@ export async function GET(req: NextRequest) {
         'Cache-Control': 'no-cache, no-store, must-revalidate',
       },
     });
-  } catch (error: any) {
-    logger.error('[AI Health] Health check failed', { error: error.message });
+  } catch (error: unknown) {
+    logger.error('[AI Health] Health check failed', { error: error instanceof Error ? error.message : String(error) });
 
     report.status = 'unhealthy';
-    report.checks.errorDetails = error.message;
+    report.checks.errorDetails = error instanceof Error ? error.message : String(error);
     report.responseTime = Date.now() - startTime;
 
     return NextResponse.json(report, { status: 503 });

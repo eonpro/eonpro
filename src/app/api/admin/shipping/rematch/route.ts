@@ -136,6 +136,7 @@ async function handlePost(req: NextRequest, user: AuthUser) {
           sendTrackingNotificationSMS({
             patientId: result.patient.id,
             patientPhone: result.patient.phone,
+            patientEmail: result.patient.email,
             patientFirstName: result.patient.firstName,
             patientLastName: result.patient.lastName,
             clinicId,

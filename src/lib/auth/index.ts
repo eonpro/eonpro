@@ -12,6 +12,7 @@ export {
   withProviderAuth,
   withClinicalAuth,
   withSupportAuth,
+  withPharmacyAccessAuth,
   withAffiliateAuth,
   withPatientAuth,
   verifyAuth,

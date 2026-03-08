@@ -325,7 +325,7 @@ export default function SigBuilder({
           onRefillsChange(data.sig.refills);
         }
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       logger.error('[SigBuilder] AI generation failed', { error: err.message });
       setError(err.message || 'Failed to generate sig');
     } finally {

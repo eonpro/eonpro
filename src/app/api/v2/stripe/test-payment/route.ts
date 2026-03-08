@@ -112,8 +112,7 @@ export async function POST(req: NextRequest) {
       logger.error('[STRIPE_TEST] Payment failed:', { value: stripeError });
       return NextResponse.json({ error: 'Payment failed', details: errorMessage }, { status: 400 });
     }
-  } catch (error: any) {
-    // @ts-ignore
+  } catch (error: unknown) {
 
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('[STRIPE_TEST] Error:', error);

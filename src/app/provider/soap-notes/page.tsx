@@ -130,7 +130,7 @@ export default function ProviderSOAPNotesPage() {
       const data = await response.json();
       setSoapNotes(data.data || []);
     } catch (err) {
-      console.error('Error fetching SOAP notes:', err);
+      process.env.NODE_ENV === 'development' && console.error('Error fetching SOAP notes:', err);
       setError(err instanceof Error ? err.message : 'Failed to load SOAP notes');
       setSoapNotes([]);
     } finally {

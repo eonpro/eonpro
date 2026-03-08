@@ -124,7 +124,7 @@ export default function EditPatientForm({ patient, documents }: Props) {
       setMessage('Patient updated successfully!');
       // Refresh the page to show updated data
       setTimeout(() => window.location.reload(), 1000);
-    } catch (err: any) {
+    } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
       setMessage(errorMessage ?? 'Failed to update patient');
     } finally {
@@ -149,9 +149,8 @@ export default function EditPatientForm({ patient, documents }: Props) {
       }
       setDocs((prev: any) => [data.document, ...prev]);
       event.target.value = '';
-    } catch (err: any) {
-      // @ts-ignore
-
+    } catch (err: unknown) {
+      
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
       setMessage(errorMessage ?? 'Failed to upload document');
     } finally {

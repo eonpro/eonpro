@@ -171,11 +171,11 @@ async function getDisputesHandler(request: NextRequest, user: AuthUser) {
       },
       timestamp: new Date().toISOString(),
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('[STRIPE DISPUTES] Error:', error);
 
     return NextResponse.json(
-      { error: error.message || 'Failed to fetch disputes' },
+      { error: error instanceof Error ? error.message : String(error) || 'Failed to fetch disputes' },
       { status: 500 }
     );
   }
@@ -236,11 +236,11 @@ async function submitDisputeEvidenceHandler(request: NextRequest, user: AuthUser
       },
       message: evidence?.submit ? 'Evidence submitted' : 'Evidence saved (not submitted)',
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('[STRIPE DISPUTES] Error submitting evidence:', error);
 
     return NextResponse.json(
-      { error: error.message || 'Failed to submit evidence' },
+      { error: error instanceof Error ? error.message : String(error) || 'Failed to submit evidence' },
       { status: 500 }
     );
   }

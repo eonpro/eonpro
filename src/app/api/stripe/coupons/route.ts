@@ -166,11 +166,11 @@ async function getCouponsHandler(request: NextRequest, user: AuthUser) {
       },
       timestamp: new Date().toISOString(),
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('[STRIPE COUPONS] Error:', error);
 
     return NextResponse.json(
-      { error: error.message || 'Failed to fetch coupons' },
+      { error: error instanceof Error ? error.message : String(error) || 'Failed to fetch coupons' },
       { status: 500 }
     );
   }
@@ -260,7 +260,7 @@ async function createCouponHandler(request: NextRequest, user: AuthUser) {
           }
         : null,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('[STRIPE COUPONS] Error creating coupon:', error);
 
     if (error instanceof z.ZodError) {
@@ -271,7 +271,7 @@ async function createCouponHandler(request: NextRequest, user: AuthUser) {
     }
 
     return NextResponse.json(
-      { error: error.message || 'Failed to create coupon' },
+      { error: error instanceof Error ? error.message : String(error) || 'Failed to create coupon' },
       { status: 500 }
     );
   }

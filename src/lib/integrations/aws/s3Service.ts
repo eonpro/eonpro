@@ -138,7 +138,7 @@ export async function uploadToS3(params: UploadFileParams): Promise<S3FileRespon
       lastModified: new Date(),
       metadata: params.metadata,
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     const awsCode = error?.Code || error?.name;
     logger.error('[S3] Upload failed:', { error, awsCode });
     const err = new Error(S3_ERRORS.UPLOAD_FAILED) as Error & { awsCode?: string };
@@ -175,9 +175,8 @@ export async function downloadFromS3(key: string): Promise<Buffer> {
     }
 
     return Buffer.concat(chunks);
-  } catch (error: any) {
-    // @ts-ignore
-
+  } catch (error: unknown) {
+    
     logger.error('[S3] Download failed:', error);
 
     if (error.Code === 'NoSuchKey') {
@@ -221,7 +220,7 @@ export async function generateSignedUrl(
     }
 
     return url;
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('[S3] Failed to generate signed URL', {
       operation,
       bucket: s3Config.bucketName,
@@ -256,9 +255,8 @@ export async function deleteFromS3(key: string): Promise<boolean> {
 
     await client.send(command);
     return true;
-  } catch (error: any) {
-    // @ts-ignore
-
+  } catch (error: unknown) {
+    
     logger.error('[S3] Delete failed:', error);
     throw new Error(S3_ERRORS.DELETE_FAILED);
   }
@@ -320,9 +318,8 @@ export async function listS3Files(
     }
 
     return files;
-  } catch (error: any) {
-    // @ts-ignore
-
+  } catch (error: unknown) {
+    
     logger.error('[S3] List failed:', error);
     return [];
   }
@@ -357,9 +354,8 @@ export async function getFileMetadata(key: string): Promise<Record<string, any>>
       metadata: response.Metadata,
       serverSideEncryption: response.ServerSideEncryption,
     };
-  } catch (error: any) {
-    // @ts-ignore
-
+  } catch (error: unknown) {
+    
     logger.error('[S3] Failed to get metadata:', error);
 
     if (error.Code === 'NoSuchKey') {
@@ -393,9 +389,8 @@ export async function archiveFile(key: string): Promise<string> {
     await deleteFromS3(key);
 
     return archiveKey;
-  } catch (error: any) {
-    // @ts-ignore
-
+  } catch (error: unknown) {
+    
     logger.error('[S3] Archive failed:', error);
     throw new Error('Failed to archive file');
   }

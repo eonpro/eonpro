@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
     // Run the migration (reuse POST logic)
     const body = { migration };
     return runMigration(body, authResult.user);
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('Migration error', { error: 'Operation failed' });
     return NextResponse.json({ error: 'Operation failed' }, { status: 500 });
   }
@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json();
     return runMigration(body, authResult.user);
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('Migration error', { error: 'Operation failed' });
     return NextResponse.json({ error: 'Operation failed' }, { status: 500 });
   }
@@ -491,7 +491,7 @@ async function runMigration(body: any, auth: any) {
       },
       { status: 400 }
     );
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('Migration error', { error: 'Operation failed' });
     return NextResponse.json({ error: 'Migration failed' }, { status: 500 });
   }

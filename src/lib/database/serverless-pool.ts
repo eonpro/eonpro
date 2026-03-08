@@ -86,9 +86,12 @@ export function getServerlessConfig(): ServerlessPoolConfig {
     // Previous value of 5 hit ceiling at ~360 instances.
     connectionLimit = isVercel ? 3 : 10;
   } else if (isVercel) {
-    // No external pooler: MUST stay at 1 to prevent P2024.
-    // Each Vercel instance opens a direct connection to PostgreSQL.
-    connectionLimit = 1;
+    // Without external pooler: allow 3 connections per instance so Promise.all
+    // queries can actually run concurrently instead of serializing through a
+    // single slot. At typical Vercel concurrency (~50-100 instances) this uses
+    // 150-300 connections, well within most PostgreSQL limits (100-400).
+    // Tune down via DATABASE_CONNECTION_LIMIT=1 if P2024 errors appear.
+    connectionLimit = 3;
   } else {
     // Local development or non-serverless
     connectionLimit = 5;
@@ -96,7 +99,7 @@ export function getServerlessConfig(): ServerlessPoolConfig {
 
   return {
     connectionLimit,
-    poolTimeout: hasExternalPooler ? 30 : (isVercel ? 15 : 30), // Proxy borrow timeout is 120s; 30s is safe
+    poolTimeout: hasExternalPooler ? 30 : (isVercel ? 20 : 30),
     connectTimeout: 10,
     idleTimeout: isVercel ? 10 : 60, // Release idle connections quickly on serverless
     statementTimeout: 30000, // 30s statement timeout

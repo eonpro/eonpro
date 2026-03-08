@@ -89,12 +89,22 @@ export default function AdminPage() {
     clinics: Array<{ id: number; name: string; color: string; totalPatients: number }>;
   } | null>(null);
   const [geoLoading, setGeoLoading] = useState(true);
+  const [isLogosRxHost, setIsLogosRxHost] = useState(false);
+  const [pharmacyClinics, setPharmacyClinics] = useState<ClinicInfo[]>([]);
+  const [activeClinicId, setActiveClinicId] = useState<number | null>(null);
+  const [switchingClinicId, setSwitchingClinicId] = useState<number | null>(null);
 
   // Hydration-safe: set currentTime only on client
   useEffect(() => {
     setCurrentTime(new Date());
     const timer = setInterval(() => setCurrentTime(new Date()), 60000);
     return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setIsLogosRxHost(window.location.hostname.toLowerCase() === 'logosrx.eonpro.io');
+    }
   }, []);
 
   useEffect(() => {
@@ -106,6 +116,11 @@ export default function AdminPage() {
         if (!parsed) return;
         if (typeof parsed.role === 'string' && parsed.role.toLowerCase() === 'super_admin') {
           window.location.href = '/super-admin';
+          return;
+        }
+        if (typeof parsed.role === 'string' && parsed.role.toLowerCase() === 'pharmacy_rep') {
+          setUserData(parsed);
+          setStats(defaultStats());
           return;
         }
         setUserData(parsed);
@@ -129,7 +144,13 @@ export default function AdminPage() {
 
   // Single API call for dashboard
   useEffect(() => {
+    if (!userData) return;
     let cancelled = false;
+    const role = String((userData?.role as string | undefined) ?? '').toLowerCase();
+    if (role === 'pharmacy_rep' || isLogosRxHost) {
+      setStats(defaultStats());
+      return;
+    }
     (async () => {
       try {
         const res = await apiFetch('/api/admin/dashboard');
@@ -152,10 +173,16 @@ export default function AdminPage() {
       }
     })();
     return () => { cancelled = true; };
-  }, []);
+  }, [userData, isLogosRxHost]);
 
   // Fetch geographic data for the map
   useEffect(() => {
+    if (!userData) return;
+    const role = String((userData?.role as string | undefined) ?? '').toLowerCase();
+    if (role === 'pharmacy_rep' || isLogosRxHost) {
+      setGeoLoading(false);
+      return;
+    }
     let cancelled = false;
     (async () => {
       try {
@@ -172,7 +199,33 @@ export default function AdminPage() {
       }
     })();
     return () => { cancelled = true; };
-  }, []);
+  }, [userData, isLogosRxHost]);
+
+  useEffect(() => {
+    if (!userData) return;
+    const role = String((userData?.role as string | undefined) ?? '').toLowerCase();
+    const isPharmacyExperience = role === 'pharmacy_rep' || isLogosRxHost;
+    if (!isPharmacyExperience) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await apiFetch('/api/user/clinics');
+        if (!res.ok || cancelled) return;
+        const data = await res.json();
+        if (cancelled) return;
+        const clinics = Array.isArray(data?.clinics) ? data.clinics : [];
+        setPharmacyClinics(clinics.slice(0, 3));
+        setActiveClinicId(Number(data?.activeClinicId) || null);
+      } catch {
+        // Non-blocking; home still renders without clinic cards.
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [userData, isLogosRxHost]);
 
   function defaultStats(): DashboardStats {
     return {
@@ -230,6 +283,84 @@ export default function AdminPage() {
     (userData?.firstName as string) ||
     (userData?.email as string)?.split('@')[0] ||
     'there';
+  const isPharmacyRep = String((userData?.role as string | undefined) ?? '').toLowerCase() === 'pharmacy_rep';
+  const isPharmacyExperience = isPharmacyRep || isLogosRxHost;
+
+  if (isPharmacyExperience) {
+    return (
+      <div className="p-8 text-white">
+        <h1 className="mb-5 text-3xl font-semibold text-white">
+          Welcome, <span className="text-white">{displayName}</span>
+        </h1>
+        <div className="mb-6 flex flex-wrap gap-3">
+          <button
+            type="button"
+            onClick={() => {
+              window.location.href = '/admin/patients';
+            }}
+            className="rounded-xl bg-[#D22D8A] px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#bb257b]"
+          >
+            Search patients
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              window.location.href = '/admin/shipping';
+            }}
+            className="rounded-xl border border-white/35 bg-white/10 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/20"
+          >
+            Open shipping
+          </button>
+        </div>
+        {pharmacyClinics.length > 0 && (
+          <div>
+            <p className="mb-3 text-sm font-medium text-white/85">Quick clinic switch</p>
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+              {pharmacyClinics.map((clinic) => (
+                <button
+                  key={clinic.id}
+                  type="button"
+                  disabled={switchingClinicId === clinic.id}
+                  onClick={async () => {
+                    try {
+                      setSwitchingClinicId(clinic.id);
+                      const switchRes = await apiFetch('/api/clinic/switch', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ clinicId: clinic.id }),
+                      });
+                      if (!switchRes.ok) return;
+
+                      // Best effort: persist active clinic reference for UI defaults.
+                      await apiFetch('/api/user/clinics', {
+                        method: 'PUT',
+                        body: JSON.stringify({ clinicId: clinic.id }),
+                      }).catch(() => {});
+
+                      setActiveClinicId(clinic.id);
+                      localStorage.setItem('activeClinicId', String(clinic.id));
+                      document.cookie = `selected-clinic=${clinic.id}; path=/; max-age=31536000`;
+                      window.location.reload();
+                    } finally {
+                      setSwitchingClinicId(null);
+                    }
+                  }}
+                  className={`rounded-2xl border p-4 text-left transition-colors ${
+                    activeClinicId === clinic.id
+                      ? 'border-[#D22D8A] bg-[#D22D8A]/20'
+                      : 'border-white/25 bg-white/10 hover:bg-white/20'
+                  }`}
+                >
+                  <p className="text-sm font-semibold text-white">{clinic.name}</p>
+                  <p className="mt-1 text-xs text-white/70">{clinic.subdomain || 'clinic'}</p>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   // Immediate shell: show skeleton until data arrives (no blocking)
   if (!stats) {

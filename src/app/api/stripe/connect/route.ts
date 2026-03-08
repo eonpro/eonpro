@@ -72,7 +72,7 @@ async function getConnectHandler(request: NextRequest, user: AuthUser) {
       try {
         const url = await getDashboardLink(clinicIdNum);
         return NextResponse.json({ dashboardUrl: url });
-      } catch (error: any) {
+      } catch (error: unknown) {
         // Login links only work for Standard accounts with completed onboarding
         return NextResponse.json(
           { error: 'Dashboard access not available. Complete onboarding first.' },
@@ -104,10 +104,10 @@ async function getConnectHandler(request: NextRequest, user: AuthUser) {
         connectedAt: clinic.stripeConnectedAt,
       },
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('[STRIPE CONNECT] GET Error:', error);
     return NextResponse.json(
-      { error: error.message || 'Failed to get connect status' },
+      { error: error instanceof Error ? error.message : String(error) || 'Failed to get connect status' },
       { status: 500 }
     );
   }
@@ -166,15 +166,15 @@ async function createConnectHandler(request: NextRequest, user: AuthUser) {
       onboardingUrl: result.onboardingUrl,
       message: 'Connected account created. Redirect user to onboardingUrl to complete setup.',
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('[STRIPE CONNECT] POST Error:', error);
 
-    if (error.message?.includes('already has a connected account')) {
-      return NextResponse.json({ error: error.message }, { status: 409 });
+    if (error instanceof Error ? error.message : String(error)?.includes('already has a connected account')) {
+      return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 409 });
     }
 
     return NextResponse.json(
-      { error: error.message || 'Failed to create connected account' },
+      { error: error instanceof Error ? error.message : String(error) || 'Failed to create connected account' },
       { status: 500 }
     );
   }
@@ -222,10 +222,10 @@ async function deleteConnectHandler(request: NextRequest, user: AuthUser) {
       success: true,
       message: 'Connected account removed',
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('[STRIPE CONNECT] DELETE Error:', error);
     return NextResponse.json(
-      { error: error.message || 'Failed to delete connected account' },
+      { error: error instanceof Error ? error.message : String(error) || 'Failed to delete connected account' },
       { status: 500 }
     );
   }

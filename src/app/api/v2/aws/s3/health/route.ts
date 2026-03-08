@@ -44,8 +44,7 @@ export async function GET(request: NextRequest) {
         message: 'S3 bucket is accessible',
         bucket: s3Config.bucketName,
       });
-    } catch (error: any) {
-      // @ts-ignore
+    } catch (error: unknown) {
 
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       return NextResponse.json({
@@ -54,8 +53,7 @@ export async function GET(request: NextRequest) {
         error: error.Code || error.name,
       });
     }
-  } catch (error: any) {
-    // @ts-ignore
+  } catch (error: unknown) {
 
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return NextResponse.json({

@@ -17,9 +17,8 @@ export default function OrdersStatusPage() {
       const res = await apiFetch(`/api/orders/${encodeURIComponent(orderId)}`);
       const data = await res.json();
       setResult(data);
-    } catch (err: any) {
-      // @ts-ignore
-
+    } catch (err: unknown) {
+      
       logger.error(err);
       setResult({ error: 'Failed to fetch order status' });
     } finally {

@@ -122,11 +122,11 @@ async function getReportsHandler(request: NextRequest, user: AuthUser) {
         data: reportData,
       },
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('[STRIPE REPORTS] Error:', error);
 
     return NextResponse.json(
-      { error: error.message || 'Failed to generate report' },
+      { error: error instanceof Error ? error.message : String(error) || 'Failed to generate report' },
       { status: 500 }
     );
   }

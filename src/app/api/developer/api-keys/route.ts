@@ -73,8 +73,7 @@ export const GET = withAuth(
           active: apiKeys.filter((k: any) => k.status === 'active').length,
         },
       });
-    } catch (error: any) {
-      // @ts-ignore
+    } catch (error: unknown) {
 
       logger.error('Error fetching API keys:', error);
       return NextResponse.json({ error: 'Failed to fetch API keys' }, { status: 500 });
@@ -142,7 +141,7 @@ export const POST = withAuth(
           },
         })
         .catch((error: Error) => {
-          logger.warn('Failed to create audit log:', { error: error.message });
+          logger.warn('Failed to create audit log:', { error: error instanceof Error ? error.message : String(error) });
         });
 
       logger.info('API key created', { keyName: validated.name, userId: user.id });
@@ -153,7 +152,7 @@ export const POST = withAuth(
           'API key created successfully. Store this key securely - it will not be shown again.',
         apiKey: newApiKey,
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error('Error creating API key:', error);
 
       if (error.name === 'ZodError') {
@@ -209,7 +208,7 @@ export const DELETE = withAuth(
           },
         })
         .catch((error: Error) => {
-          logger.warn('Failed to create audit log:', { error: error.message });
+          logger.warn('Failed to create audit log:', { error: error instanceof Error ? error.message : String(error) });
         });
 
       logger.info('API key revoked', { keyId, userId: user.id });
@@ -218,8 +217,7 @@ export const DELETE = withAuth(
         success: true,
         message: 'API key revoked successfully',
       });
-    } catch (error: any) {
-      // @ts-ignore
+    } catch (error: unknown) {
 
       logger.error('Error revoking API key:', error);
       return NextResponse.json({ error: 'Failed to revoke API key' }, { status: 500 });
@@ -305,12 +303,11 @@ export const PUT = withAuth(
           },
         })
         .catch((error: Error) => {
-          logger.warn('Failed to create audit log:', { error: error.message });
+          logger.warn('Failed to create audit log:', { error: error instanceof Error ? error.message : String(error) });
         });
 
       return NextResponse.json(responseData);
-    } catch (error: any) {
-      // @ts-ignore
+    } catch (error: unknown) {
 
       logger.error('Error updating API key:', error);
       return NextResponse.json({ error: 'Failed to update API key' }, { status: 500 });

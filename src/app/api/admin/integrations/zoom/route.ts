@@ -16,9 +16,10 @@ import {
   saveClinicZoomTokens,
   updateClinicZoomSettings,
   disconnectClinicZoom,
-  exchangeZoomCode,
-  getClinicZoomUser,
 } from '@/lib/clinic-zoom';
+import { circuitBreakers } from '@/lib/resilience/circuitBreaker';
+
+const ZOOM_API_TIMEOUT_MS = 15_000;
 
 const connectSchema = z.object({
   accountId: z.string().min(1),
@@ -126,46 +127,49 @@ export const POST = withAdminAuth(async (req: NextRequest, user: AuthUser) => {
       );
     }
 
-    // Verify credentials by trying to get user info
-    // For Server-to-Server, we need to get an access token first
-    const tokenResponse = await fetch('https://zoom.us/oauth/token', {
-      method: 'POST',
-      headers: {
-        Authorization: `Basic ${Buffer.from(`${parsed.data.clientId}:${parsed.data.clientSecret}`).toString('base64')}`,
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: new URLSearchParams({
-        grant_type: 'account_credentials',
-        account_id: parsed.data.accountId,
-      }),
+    const verificationResult = await circuitBreakers.zoom.execute(async () => {
+      const tokenResponse = await fetch('https://zoom.us/oauth/token', {
+        method: 'POST',
+        headers: {
+          Authorization: `Basic ${Buffer.from(`${parsed.data.clientId}:${parsed.data.clientSecret}`).toString('base64')}`,
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({
+          grant_type: 'account_credentials',
+          account_id: parsed.data.accountId,
+        }),
+        signal: AbortSignal.timeout(ZOOM_API_TIMEOUT_MS),
+      });
+
+      if (!tokenResponse.ok) {
+        const error = await tokenResponse.text();
+        logger.error('Zoom credential verification failed', { error });
+        return { error: 'Invalid Zoom credentials. Please check your Account ID, Client ID, and Client Secret.' };
+      }
+
+      const tokenData = await tokenResponse.json();
+
+      const userResponse = await fetch('https://api.zoom.us/v2/users/me', {
+        headers: { Authorization: `Bearer ${tokenData.access_token}` },
+        signal: AbortSignal.timeout(ZOOM_API_TIMEOUT_MS),
+      });
+
+      if (!userResponse.ok) {
+        return { error: 'Failed to verify Zoom account access' };
+      }
+
+      const userData = await userResponse.json();
+      return { tokenData, userData };
     });
 
-    if (!tokenResponse.ok) {
-      const error = await tokenResponse.text();
-      logger.error('Zoom credential verification failed', { error });
+    if ('error' in verificationResult) {
       return NextResponse.json(
-        {
-          error:
-            'Invalid Zoom credentials. Please check your Account ID, Client ID, and Client Secret.',
-        },
+        { error: verificationResult.error },
         { status: 400 }
       );
     }
 
-    const tokenData = await tokenResponse.json();
-
-    // Verify we can access the API
-    const userResponse = await fetch('https://api.zoom.us/v2/users/me', {
-      headers: {
-        Authorization: `Bearer ${tokenData.access_token}`,
-      },
-    });
-
-    if (!userResponse.ok) {
-      return NextResponse.json({ error: 'Failed to verify Zoom account access' }, { status: 400 });
-    }
-
-    const userData = await userResponse.json();
+    const { tokenData, userData } = verificationResult;
 
     // Save credentials
     await saveClinicZoomCredentials(user.clinicId, {

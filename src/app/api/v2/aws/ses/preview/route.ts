@@ -45,8 +45,7 @@ export async function POST(request: NextRequest) {
       html: rendered.html,
       text: rendered.text,
     });
-  } catch (error: any) {
-    // @ts-ignore
+  } catch (error: unknown) {
 
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('[SES Preview] Error:', error);

@@ -179,7 +179,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       loginHistory,
       stats: userStats,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('Error fetching user clinics', { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json(
       { error: error.message || 'Failed to fetch user clinics' },
@@ -204,9 +204,21 @@ async function handlePost(req: NextRequest, user: AuthUser) {
   try {
     const body = await req.json();
     const { clinicId, role, isPrimary } = body;
+    const normalizedRole = role ? String(role).toUpperCase() : null;
+    const allowedClinicRoles = new Set([
+      'ADMIN',
+      'PROVIDER',
+      'STAFF',
+      'SUPPORT',
+      'SALES_REP',
+      'PHARMACY_REP',
+    ]);
 
     if (!clinicId) {
       return NextResponse.json({ error: 'Clinic ID is required' }, { status: 400 });
+    }
+    if (normalizedRole && !allowedClinicRoles.has(normalizedRole)) {
+      return NextResponse.json({ error: 'Invalid clinic role' }, { status: 400 });
     }
 
     // Check if user exists
@@ -285,7 +297,7 @@ async function handlePost(req: NextRequest, user: AuthUser) {
         data: {
           userId,
           clinicId,
-          role: role || targetUser.role,
+          role: normalizedRole || targetUser.role,
           isPrimary: isPrimary || false,
           isActive: true,
         },
@@ -299,7 +311,7 @@ async function handlePost(req: NextRequest, user: AuthUser) {
           },
         },
       });
-    } catch (e: any) {
+    } catch (e: unknown) {
       logger.warn('Could not create UserClinic record', { error: e.message });
       // Fallback: update user's clinicId
       await prisma.user.update({
@@ -312,7 +324,7 @@ async function handlePost(req: NextRequest, user: AuthUser) {
       userClinic,
       message: `User added to ${clinic.name}`,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('Error adding user to clinic', { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json(
       { error: error.message || 'Failed to add user to clinic' },
@@ -364,7 +376,7 @@ async function handleDelete(req: NextRequest, user: AuthUser) {
       success: true,
       message: 'User removed from clinic',
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('Error removing user from clinic', { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json(
       { error: error.message || 'Failed to remove user from clinic' },

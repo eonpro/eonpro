@@ -26,13 +26,13 @@ import { logger } from '@/lib/logger';
 // ============================================================================
 
 /** Max failed auth attempts before blocking */
-const MAX_FAILURES = 15;
+const MAX_FAILURES = 30;
 
 /** Window for counting failures (seconds) */
 const FAILURE_WINDOW_SECONDS = 300; // 5 minutes
 
 /** Base block duration (seconds) — doubles each consecutive block */
-const BASE_BLOCK_SECONDS = 300; // 5 minutes
+const BASE_BLOCK_SECONDS = 120; // 2 minutes (was 5 — too aggressive for healthcare UX)
 
 /** Max block duration (seconds) */
 const MAX_BLOCK_SECONDS = 3600; // 1 hour

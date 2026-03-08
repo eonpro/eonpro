@@ -32,7 +32,7 @@ const getHandler = withAuth(async (request: NextRequest, user) => {
       await prisma.$queryRaw`SELECT 1`;
       results.tests.databaseConnection = { status: 'PASS', message: 'Database connected' };
       results.summary.passed++;
-    } catch (error: any) {
+    } catch (error: unknown) {
       results.tests.databaseConnection = { status: 'FAIL', message: error.message };
       results.summary.failed++;
     }
@@ -45,7 +45,7 @@ const getHandler = withAuth(async (request: NextRequest, user) => {
         message: `PatientWeightLog table accessible, ${count} total records`,
       };
       results.summary.passed++;
-    } catch (error: any) {
+    } catch (error: unknown) {
       results.tests.weightLogTable = { status: 'FAIL', message: error.message };
       results.summary.failed++;
     }
@@ -58,7 +58,7 @@ const getHandler = withAuth(async (request: NextRequest, user) => {
         message: `PatientMedicationReminder table accessible, ${count} total records`,
       };
       results.summary.passed++;
-    } catch (error: any) {
+    } catch (error: unknown) {
       results.tests.reminderTable = { status: 'FAIL', message: error.message };
       results.summary.failed++;
     }
@@ -87,7 +87,7 @@ const getHandler = withAuth(async (request: NextRequest, user) => {
           };
           results.summary.failed++;
         }
-      } catch (error: any) {
+      } catch (error: unknown) {
         results.tests.patientExists = { status: 'FAIL', message: error.message };
         results.summary.failed++;
       }
@@ -120,7 +120,7 @@ const getHandler = withAuth(async (request: NextRequest, user) => {
           ),
         };
         results.summary.passed++;
-      } catch (error: any) {
+      } catch (error: unknown) {
         results.tests.patientWeightLogs = { status: 'FAIL', message: error.message };
         results.summary.failed++;
       }
@@ -151,7 +151,7 @@ const getHandler = withAuth(async (request: NextRequest, user) => {
           ),
         };
         results.summary.passed++;
-      } catch (error: any) {
+      } catch (error: unknown) {
         results.tests.patientReminders = { status: 'FAIL', message: error.message };
         results.summary.failed++;
       }
@@ -185,7 +185,7 @@ const getHandler = withAuth(async (request: NextRequest, user) => {
           testId: testWeight.id,
         };
         results.summary.passed++;
-      } catch (error: any) {
+      } catch (error: unknown) {
         results.tests.weightLogCRUD = { status: 'FAIL', message: error.message };
         results.summary.failed++;
       }
@@ -214,7 +214,7 @@ const getHandler = withAuth(async (request: NextRequest, user) => {
           testId: testReminder.id,
         };
         results.summary.passed++;
-      } catch (error: any) {
+      } catch (error: unknown) {
         results.tests.reminderCRUD = { status: 'FAIL', message: error.message };
         results.summary.failed++;
       }

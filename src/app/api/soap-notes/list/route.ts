@@ -108,7 +108,7 @@ export const GET = withAuth(
           role: user.role,
         },
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       logger.error('[API] Error listing SOAP notes:', error);
       return NextResponse.json(

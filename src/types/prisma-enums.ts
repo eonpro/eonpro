@@ -208,7 +208,8 @@ export type UserRole =
   | 'PATIENT'
   | 'STAFF'
   | 'SUPPORT'
-  | 'SALES_REP';
+  | 'SALES_REP'
+  | 'PHARMACY_REP';
 
 export const UserRole = {
   SUPER_ADMIN: 'SUPER_ADMIN' as const,
@@ -220,6 +221,7 @@ export const UserRole = {
   STAFF: 'STAFF' as const,
   SUPPORT: 'SUPPORT' as const,
   SALES_REP: 'SALES_REP' as const,
+  PHARMACY_REP: 'PHARMACY_REP' as const,
 } as const;
 
 export type UserStatus =

@@ -101,7 +101,7 @@ export default function IntakeFormWizard() {
 
       // Success - redirect to intake forms page
       router.push('/intake-forms');
-    } catch (err: any) {
+    } catch (err: unknown) {
       logger.error('Failed to create template', err);
       alert('Failed to create template: ' + err.message);
     } finally {

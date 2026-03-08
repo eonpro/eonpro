@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { Fragment, useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   FileText,
@@ -35,6 +35,7 @@ interface ProviderSummary {
 
 interface DetailRow {
   orderId: number;
+  lifefileOrderId?: string | null;
   date: string;
   patientId: number;
   patientName: string;
@@ -43,6 +44,7 @@ interface DetailRow {
   clinicId: number;
   clinicName: string;
   medications: string;
+  vialBreakdown?: string[];
   status: string | null;
 }
 
@@ -139,6 +141,7 @@ export default function PrescriptionReportsPage() {
   const [exporting, setExporting] = useState<'csv' | 'pdf' | null>(null);
   const [clinics, setClinics] = useState<ClinicOption[]>([]);
   const [showDetails, setShowDetails] = useState(true);
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
 
   // Load clinic options
   useEffect(() => {
@@ -157,6 +160,10 @@ export default function PrescriptionReportsPage() {
       }
     })();
   }, []);
+
+  useEffect(() => {
+    setExpandedRows(new Set());
+  }, [data?.details]);
 
   const fetchReport = useCallback(
     async (p = page) => {
@@ -246,6 +253,17 @@ export default function PrescriptionReportsPage() {
   };
 
   const totalPages = data ? Math.ceil(data.pagination.total / limit) : 0;
+  const toggleRow = (rowKey: string) => {
+    setExpandedRows((prev) => {
+      const next = new Set(prev);
+      if (next.has(rowKey)) {
+        next.delete(rowKey);
+      } else {
+        next.add(rowKey);
+      }
+      return next;
+    });
+  };
 
   return (
     <div className="min-h-screen p-6 lg:p-8">
@@ -509,6 +527,9 @@ export default function PrescriptionReportsPage() {
                   <table className="w-full">
                     <thead className="bg-gray-50">
                       <tr>
+                        <th className="w-10 px-2 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                          <span className="sr-only">Expand</span>
+                        </th>
                         <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                           Date
                         </th>
@@ -533,31 +554,81 @@ export default function PrescriptionReportsPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
-                      {data.details.map((row) => (
-                        <tr key={row.orderId} className="hover:bg-gray-50">
-                          <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-900">
-                            {formatDateTime(row.date)}
-                          </td>
-                          <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-600">
-                            #{row.orderId}
-                          </td>
-                          <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-900">
-                            {row.patientName}
-                          </td>
-                          <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-600">
-                            {row.providerName}
-                          </td>
-                          <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-600">
-                            {row.clinicName}
-                          </td>
-                          <td className="max-w-xs truncate px-4 py-3 text-sm text-gray-600" title={row.medications}>
-                            {row.medications}
-                          </td>
-                          <td className="whitespace-nowrap px-4 py-3 text-sm">
-                            {statusBadge(row.status)}
-                          </td>
-                        </tr>
-                      ))}
+                      {data.details.map((row) => {
+                        const rowKey = `${row.orderId}-${row.date}`;
+                        const isExpanded = expandedRows.has(rowKey);
+                        const breakdown = row.vialBreakdown && row.vialBreakdown.length > 0
+                          ? row.vialBreakdown
+                          : [row.medications];
+
+                        return (
+                          <Fragment key={rowKey}>
+                            <tr className="hover:bg-gray-50">
+                              <td className="px-2 py-3 text-sm">
+                                <button
+                                  type="button"
+                                  aria-expanded={isExpanded}
+                                  onClick={() => toggleRow(rowKey)}
+                                  className="inline-flex items-center rounded p-1 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700"
+                                  title={isExpanded ? 'Collapse vial details' : 'Expand vial details'}
+                                >
+                                  {isExpanded ? (
+                                    <ChevronUp className="h-4 w-4" />
+                                  ) : (
+                                    <ChevronDown className="h-4 w-4" />
+                                  )}
+                                </button>
+                              </td>
+                              <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-900">
+                                {formatDateTime(row.date)}
+                              </td>
+                              <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-600">
+                                #{row.orderId}
+                              </td>
+                              <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-900">
+                                {row.patientName}
+                              </td>
+                              <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-600">
+                                {row.providerName}
+                              </td>
+                              <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-600">
+                                {row.clinicName}
+                              </td>
+                              <td className="max-w-xs truncate px-4 py-3 text-sm text-gray-600" title={row.medications}>
+                                {row.medications}
+                              </td>
+                              <td className="whitespace-nowrap px-4 py-3 text-sm">
+                                {statusBadge(row.status)}
+                              </td>
+                            </tr>
+                            {isExpanded && (
+                              <tr className="bg-[#f8fbf9]">
+                                <td colSpan={8} className="px-6 py-3">
+                                  <div className="flex flex-wrap items-center gap-3 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                    <span>Vial Breakdown</span>
+                                    <span className="rounded-full bg-white px-2 py-0.5 text-[11px] text-gray-600">
+                                      Order #{row.orderId}
+                                    </span>
+                                    <span className="rounded-full bg-white px-2 py-0.5 text-[11px] text-gray-600">
+                                      {row.lifefileOrderId
+                                        ? `Lifefile Rx #${row.lifefileOrderId}`
+                                        : 'Lifefile Rx: Not available'}
+                                    </span>
+                                  </div>
+                                  <ul className="mt-2 space-y-1 text-sm text-gray-700">
+                                    {breakdown.map((line, idx) => (
+                                      <li key={`${rowKey}-vial-${idx}`} className="flex items-start gap-2">
+                                        <span className="mt-[7px] h-1.5 w-1.5 rounded-full bg-[#4fa77e]" />
+                                        <span>{line}</span>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </td>
+                              </tr>
+                            )}
+                          </Fragment>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>

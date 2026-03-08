@@ -84,7 +84,7 @@ async function handleSend(req: NextRequest, user: AuthUser) {
           status: twilioMessage.status,
           dateCreated: twilioMessage.dateCreated,
         });
-      } catch (twilioError: any) {
+      } catch (twilioError: unknown) {
         logger.error('Twilio error sending message', { value: twilioError });
 
         // Return specific Twilio error
@@ -134,8 +134,8 @@ async function handleSend(req: NextRequest, user: AuthUser) {
       demo: true,
       notice: 'Twilio not configured - this is a demo message',
     });
-  } catch (error: any) {
-    logger.error('Failed to send message', { error: error.message });
+  } catch (error: unknown) {
+    logger.error('Failed to send message', { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json({ error: 'Failed to send message' }, { status: 500 });
   }
 }

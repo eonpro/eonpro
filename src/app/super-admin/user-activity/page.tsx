@@ -81,6 +81,7 @@ export default function UserActivityPage() {
   // Filters
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('all');
+  const [loginType, setLoginType] = useState('all');
   const [sortBy, setSortBy] = useState('lastLogin');
   const [sortOrder, setSortOrder] = useState('desc');
 
@@ -101,6 +102,7 @@ export default function UserActivityPage() {
         page: page.toString(),
         limit: '25',
         filter,
+        loginType,
         search,
         sortBy,
         sortOrder,
@@ -124,7 +126,7 @@ export default function UserActivityPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, filter, search, sortBy, sortOrder]);
+  }, [page, filter, loginType, search, sortBy, sortOrder]);
 
   useEffect(() => {
     fetchData();
@@ -330,6 +332,27 @@ export default function UserActivityPage() {
                 <option value="online">Online Now</option>
                 <option value="recent">Active (30 days)</option>
                 <option value="never">Never Logged In</option>
+              </select>
+
+              {/* Login Type */}
+              <select
+                value={loginType}
+                onChange={(e) => {
+                  setLoginType(e.target.value);
+                  setPage(1);
+                }}
+                className="rounded-lg border px-3 py-2 focus:ring-2 focus:ring-emerald-500"
+              >
+                <option value="all">All Login Types</option>
+                <option value="super_admin">Super Admin</option>
+                <option value="admin">Admin</option>
+                <option value="staff">Staff</option>
+                <option value="sales">Sales Rep</option>
+                <option value="affiliate">Affiliate</option>
+                <option value="pharmacy_staff">Pharmacy Staff</option>
+                <option value="provider">Provider</option>
+                <option value="support">Support</option>
+                <option value="patient">Patient</option>
               </select>
 
               {/* Sort */}

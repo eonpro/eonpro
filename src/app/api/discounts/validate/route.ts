@@ -169,7 +169,7 @@ async function handlePost(
       discountPercent,
       finalAmount,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('[Discount Validate API] Error:', error);
     return NextResponse.json({ error: 'Failed to validate discount code' }, { status: 500 });
   }

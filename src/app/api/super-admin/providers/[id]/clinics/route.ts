@@ -115,10 +115,10 @@ export const GET = withSuperAdminAuth(
         legacyClinicId: provider.clinicId,
         primaryClinicId: provider.primaryClinicId,
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error('[SUPER-ADMIN/PROVIDERS/CLINICS] Error fetching clinic assignments:', error);
       return NextResponse.json(
-        { error: 'Failed to fetch clinic assignments', details: error.message },
+        { error: 'Failed to fetch clinic assignments', details: error instanceof Error ? error.message : String(error) },
         { status: 500 }
       );
     }
@@ -204,10 +204,10 @@ export const POST = withSuperAdminAuth(
         assignment: result,
         clinic: clinic,
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error('[SUPER-ADMIN/PROVIDERS/CLINICS] Error assigning provider to clinic:', error);
       return NextResponse.json(
-        { error: error.message || 'Failed to assign provider to clinic' },
+        { error: error instanceof Error ? error.message : String(error) || 'Failed to assign provider to clinic' },
         { status: 500 }
       );
     }
@@ -298,10 +298,10 @@ export const PATCH = withSuperAdminAuth(
         message: 'Clinic assignment updated successfully',
         assignment: updated,
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error('[SUPER-ADMIN/PROVIDERS/CLINICS] Error updating clinic assignment:', error);
       return NextResponse.json(
-        { error: error.message || 'Failed to update clinic assignment' },
+        { error: error instanceof Error ? error.message : String(error) || 'Failed to update clinic assignment' },
         { status: 500 }
       );
     }
@@ -366,10 +366,10 @@ export const DELETE = withSuperAdminAuth(
       return NextResponse.json({
         message: 'Provider removed from clinic successfully',
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error('[SUPER-ADMIN/PROVIDERS/CLINICS] Error removing provider from clinic:', error);
       return NextResponse.json(
-        { error: error.message || 'Failed to remove provider from clinic' },
+        { error: error instanceof Error ? error.message : String(error) || 'Failed to remove provider from clinic' },
         { status: 500 }
       );
     }

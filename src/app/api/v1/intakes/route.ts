@@ -86,14 +86,18 @@ export async function POST(req: NextRequest) {
       patientId,
     });
 
+    const { encryptPatientPHI } = await import('@/lib/security/phi-encryption');
+    const phiData = encryptPatientPHI({
+      firstName: patientData.firstName || 'Unknown',
+      lastName: patientData.lastName || 'Patient',
+      email: patientData.email || `unknown-${Date.now()}@intake.local`,
+      phone: patientData.phone || '',
+      dob: patientData.dob || '1900-01-01',
+    });
     const patient = await prisma.patient.create({
       data: {
         patientId,
-        firstName: patientData.firstName || 'Unknown',
-        lastName: patientData.lastName || 'Patient',
-        email: patientData.email || `unknown-${Date.now()}@intake.local`,
-        phone: patientData.phone || '',
-        dob: patientData.dob || '1900-01-01',
+        ...phiData,
         gender: patientData.gender || 'Unknown',
         address1: patientData.address1 || '',
         city: patientData.city || '',

@@ -190,7 +190,7 @@ function OrderSetModal({
 
       onSaved();
       onClose();
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(err.message || 'Failed to save order set');
     } finally {
       setSaving(false);

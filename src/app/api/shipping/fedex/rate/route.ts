@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { withAuth, type AuthUser } from '@/lib/auth/middleware';
 import { prisma } from '@/lib/db';
 import { handleApiError } from '@/domains/shared/errors';
-import { resolveCredentials, getRateQuote } from '@/lib/fedex';
+import { resolveCredentialsWithAttribution, getRateQuote } from '@/lib/fedex';
 import { z } from 'zod';
+import { logger } from '@/lib/logger';
 
 const addressSchema = z.object({
   address1: z.string().min(1),
@@ -24,13 +25,61 @@ const rateRequestSchema = z.object({
   oneRate: z.boolean().default(false),
 });
 
+function classifyFedExRateError(error: unknown): { status: number; message: string } {
+  const raw = error instanceof Error ? error.message : String(error ?? '');
+  const normalized = raw.toLowerCase();
+
+  if (normalized.includes('temporarily unavailable') || normalized.includes('circuit')) {
+    return {
+      status: 503,
+      message: 'FedEx rating service is temporarily unavailable. Please try again shortly.',
+    };
+  }
+
+  // fedexRequest error shape: "FedEx API error: <status> - <body>"
+  const statusMatch = raw.match(/FedEx API error:\s*(\d{3})/i);
+  const upstreamStatus = statusMatch ? Number(statusMatch[1]) : null;
+  if (upstreamStatus === 400 || upstreamStatus === 404 || upstreamStatus === 422) {
+    return {
+      status: 422,
+      message:
+        'FedEx could not quote this shipment with the provided address/package details. Please review and try again.',
+    };
+  }
+
+  if (upstreamStatus === 401 || upstreamStatus === 403) {
+    return {
+      status: 503,
+      message: 'FedEx credentials are unavailable. Contact your administrator.',
+    };
+  }
+
+  if (normalized.includes('no rate quote returned')) {
+    return {
+      status: 422,
+      message:
+        'No FedEx rate quote is available for this shipment. Try a different service level or package configuration.',
+    };
+  }
+
+  return {
+    status: 502,
+    message: 'Failed to retrieve FedEx rate quote. Please try again.',
+  };
+}
+
 async function handleGetRate(req: NextRequest, user: AuthUser) {
   try {
-    const body = await req.json();
+    let body: unknown;
+    try {
+      body = await req.json();
+    } catch {
+      return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
+    }
     const parsed = rateRequestSchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json(
-        { error: 'Validation failed', details: parsed.error.flatten() },
+        { error: 'Validation failed' },
         { status: 400 },
       );
     }
@@ -53,6 +102,8 @@ async function handleGetRate(req: NextRequest, user: AuthUser) {
     const clinic = await prisma.clinic.findUnique({
       where: { id: patient.clinicId },
       select: {
+        id: true,
+        name: true,
         fedexClientId: true,
         fedexClientSecret: true,
         fedexAccountNumber: true,
@@ -60,9 +111,12 @@ async function handleGetRate(req: NextRequest, user: AuthUser) {
       },
     });
 
-    let credentials;
+    const allowEnvFallback = process.env.FEDEX_ALLOW_ENV_FALLBACK_FOR_CLINIC_SHIPPING === 'true';
+    let resolution;
     try {
-      credentials = resolveCredentials(clinic ?? undefined);
+      resolution = resolveCredentialsWithAttribution(clinic ?? undefined, {
+        allowEnvFallback,
+      });
     } catch {
       return NextResponse.json(
         { error: 'FedEx credentials not configured. Contact your administrator.' },
@@ -72,7 +126,7 @@ async function handleGetRate(req: NextRequest, user: AuthUser) {
 
     let rate;
     try {
-      rate = await getRateQuote(credentials, {
+      rate = await getRateQuote(resolution.credentials, {
         serviceType,
         packagingType,
         shipper: { personName: '', phoneNumber: '', ...origin },
@@ -80,17 +134,37 @@ async function handleGetRate(req: NextRequest, user: AuthUser) {
         packages: [{ weightLbs }],
         oneRate,
       });
-    } catch (fedexErr: any) {
-      const msg = fedexErr?.message || 'FedEx rate quote failed';
-      return NextResponse.json({ error: msg }, { status: 502 });
+    } catch (fedexErr: unknown) {
+      const classified = classifyFedExRateError(fedexErr);
+      logger.warn('[FedExRate] Quote request failed', {
+        patientId,
+        clinicId: patient.clinicId,
+        clinicName: clinic?.name || null,
+        status: classified.status,
+        credentialSource: resolution.source,
+        fedexEnvironment: resolution.environment,
+        accountFingerprint: resolution.accountFingerprint,
+        usedEnvFallback: resolution.usedEnvFallback,
+        error: fedexErr instanceof Error ? fedexErr.message : String(fedexErr),
+      });
+      return NextResponse.json({ error: classified.message }, { status: classified.status });
     }
 
-    return NextResponse.json(rate);
+    return NextResponse.json({
+      ...rate,
+      routing: {
+        clinicId: patient.clinicId,
+        credentialSource: resolution.source,
+        fedexEnvironment: resolution.environment,
+        accountFingerprint: resolution.accountFingerprint,
+        usedEnvFallback: resolution.usedEnvFallback,
+      },
+    });
   } catch (error) {
     return handleApiError(error, { route: 'POST /api/shipping/fedex/rate' });
   }
 }
 
 export const POST = withAuth(handleGetRate, {
-  roles: ['super_admin', 'admin'],
+  roles: ['super_admin', 'admin', 'pharmacy_rep'],
 });

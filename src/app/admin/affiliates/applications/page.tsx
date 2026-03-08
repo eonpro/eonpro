@@ -139,7 +139,7 @@ export default function UserClinicsPage() {
         }
       }
     } catch (error) {
-      console.error('Error fetching user clinics:', error);
+      process.env.NODE_ENV === 'development' && console.error('Error fetching user clinics:', error);
     } finally {
       setLoading(false);
     }
@@ -154,7 +154,7 @@ export default function UserClinicsPage() {
         setAllClinics(data.clinics || []);
       }
     } catch (error) {
-      console.error('Error fetching clinics:', error);
+      process.env.NODE_ENV === 'development' && console.error('Error fetching clinics:', error);
     }
   };
 
@@ -186,7 +186,7 @@ export default function UserClinicsPage() {
         alert(error.error || 'Failed to add user to clinic');
       }
     } catch (error) {
-      console.error('Error adding to clinic:', error);
+      process.env.NODE_ENV === 'development' && console.error('Error adding to clinic:', error);
       alert('Failed to add user to clinic');
     } finally {
       setAdding(false);
@@ -211,7 +211,7 @@ export default function UserClinicsPage() {
         alert(error.error || 'Failed to remove user from clinic');
       }
     } catch (error) {
-      console.error('Error removing from clinic:', error);
+      process.env.NODE_ENV === 'development' && console.error('Error removing from clinic:', error);
       alert('Failed to remove user from clinic');
     }
   };
@@ -232,7 +232,7 @@ export default function UserClinicsPage() {
         fetchUserClinics();
       }
     } catch (error) {
-      console.error('Error setting primary clinic:', error);
+      process.env.NODE_ENV === 'development' && console.error('Error setting primary clinic:', error);
     }
   };
 

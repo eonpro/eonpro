@@ -105,8 +105,7 @@ async function uploadHandler(request: NextRequest, user: AuthUser) {
     });
 
     return NextResponse.json(result);
-  } catch (error: any) {
-    // @ts-ignore
+  } catch (error: unknown) {
 
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('[S3 Upload] Error:', error);

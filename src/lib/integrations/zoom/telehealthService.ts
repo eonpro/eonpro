@@ -10,20 +10,19 @@ import { logger } from '@/lib/logger';
 import {
   createZoomMeeting,
   cancelZoomMeeting,
-  getZoomMeeting,
-  generateZoomSignature,
   ZoomMeetingResponse,
 } from './meetingService';
 import { isZoomEnabled, ZOOM_WEBHOOK_EVENTS } from './config';
 import { AppointmentModeType } from '@prisma/client';
 import { onAppointmentChange } from '@/lib/calendar-sync/calendar-sync.service';
 import {
-  getClinicZoomCredentials,
   createClinicZoomMeeting,
   cancelClinicZoomMeeting,
   isClinicZoomConfigured,
 } from '@/lib/clinic-zoom';
 import crypto from 'crypto';
+import { encrypt } from '@/lib/security/encryption';
+import { auditLog, AuditEventType } from '@/lib/audit/hipaa-audit';
 
 // Telehealth session status (matches Prisma enum once generated)
 type TelehealthSessionStatus =
@@ -186,54 +185,74 @@ export async function createTelehealthSession(
       });
     }
 
-    // Create telehealth session in database
-    const session = await prisma.telehealthSession.create({
-      data: {
-        clinicId: input.clinicId,
-        appointmentId: input.appointmentId,
-        patientId: input.patientId,
-        providerId: input.providerId,
-        meetingId: meeting.id.toString(),
-        meetingUuid: meeting.uuid,
-        joinUrl: meeting.joinUrl,
-        hostUrl: meeting.startUrl,
-        password: meeting.password,
-        topic: meeting.topic,
-        scheduledAt: input.scheduledAt,
-        duration,
-        status: 'SCHEDULED',
-        platform: 'zoom',
-        metadata: {
-          zoomResponse: meeting,
-          createdAt: new Date().toISOString(),
-        } as any,
-      },
-      include: {
-        patient: {
-          select: { id: true, firstName: true, lastName: true, email: true },
-        },
-        provider: {
-          select: { id: true, firstName: true, lastName: true },
-        },
-      },
-    });
-
-    // Update appointment with Zoom details if linked
-    if (input.appointmentId) {
-      await prisma.appointment.update({
-        where: { id: input.appointmentId },
+    // Create session + update appointment atomically
+    const session = await prisma.$transaction(async (tx) => {
+      const newSession = await tx.telehealthSession.create({
         data: {
-          zoomMeetingId: meeting.id.toString(),
-          zoomJoinUrl: meeting.joinUrl,
-          videoLink: meeting.joinUrl,
+          clinicId: input.clinicId,
+          appointmentId: input.appointmentId,
+          patientId: input.patientId,
+          providerId: input.providerId,
+          meetingId: meeting.id.toString(),
+          meetingUuid: meeting.uuid,
+          joinUrl: meeting.joinUrl,
+          hostUrl: meeting.startUrl,
+          password: meeting.password,
+          topic: meeting.topic,
+          scheduledAt: input.scheduledAt,
+          duration,
+          status: 'SCHEDULED',
+          platform: 'zoom',
+          metadata: {
+            zoomResponse: meeting,
+            createdAt: new Date().toISOString(),
+          } as any,
+        },
+        include: {
+          patient: {
+            select: { id: true, firstName: true, lastName: true, email: true },
+          },
+          provider: {
+            select: { id: true, firstName: true, lastName: true },
+          },
         },
       });
 
-      // Trigger calendar sync
-      if (input.clinicId) {
-        onAppointmentChange(input.providerId, input.clinicId, input.appointmentId, 'updated');
+      if (input.appointmentId) {
+        await tx.appointment.update({
+          where: { id: input.appointmentId },
+          data: {
+            zoomMeetingId: meeting.id.toString(),
+            zoomJoinUrl: meeting.joinUrl,
+            videoLink: meeting.joinUrl,
+          },
+        });
       }
+
+      return newSession;
+    });
+
+    // Calendar sync outside transaction (external side effect)
+    if (input.appointmentId && input.clinicId) {
+      onAppointmentChange(input.providerId, input.clinicId, input.appointmentId, 'updated');
     }
+
+    // HIPAA audit log
+    auditLog(null, {
+      eventType: AuditEventType.PHI_CREATE,
+      userId: input.providerId,
+      clinicId: input.clinicId,
+      resourceType: 'TelehealthSession',
+      resourceId: session.id,
+      patientId: input.patientId,
+      action: 'telehealth_session_created',
+      outcome: 'SUCCESS',
+      metadata: { meetingId: meeting.id, duration },
+    }).catch((err) => {
+      logger.error('Failed to write HIPAA audit for telehealth session creation', {
+        error: err instanceof Error ? err.message : 'Unknown error',
+      });
+    });
 
     logger.info('Telehealth session created', {
       sessionId: session.id,
@@ -302,6 +321,23 @@ export async function cancelTelehealthSession(
         },
       });
     }
+
+    auditLog(null, {
+      eventType: AuditEventType.PHI_UPDATE,
+      userId: 0,
+      clinicId: session.clinicId ?? undefined,
+      resourceType: 'TelehealthSession',
+      resourceId: sessionId,
+      patientId: session.patientId,
+      action: 'telehealth_session_cancelled',
+      outcome: 'SUCCESS',
+      reason,
+      metadata: { meetingId: session.meetingId },
+    }).catch((err) => {
+      logger.error('Failed to write HIPAA audit for telehealth session cancellation', {
+        error: err instanceof Error ? err.message : 'Unknown error',
+      });
+    });
 
     logger.info('Telehealth session cancelled', {
       sessionId,
@@ -385,8 +421,8 @@ export async function getJoinCredentials(
   credentials?: {
     meetingNumber: string;
     password: string;
-    signature: string;
     joinUrl: string;
+    hostUrl?: string;
   };
   error?: string;
 }> {
@@ -399,16 +435,13 @@ export async function getJoinCredentials(
       return { success: false, error: 'Session not found' };
     }
 
-    const roleCode = role === 'host' ? 1 : 0;
-    const signature = generateZoomSignature(session.meetingId, roleCode);
-
     return {
       success: true,
       credentials: {
         meetingNumber: session.meetingId,
         password: session.password || '',
-        signature,
-        joinUrl: role === 'host' ? session.hostUrl || session.joinUrl : session.joinUrl,
+        joinUrl: role === 'host' ? (session.hostUrl || session.joinUrl) : session.joinUrl,
+        hostUrl: session.hostUrl || undefined,
       },
     };
   } catch (error) {
@@ -436,7 +469,12 @@ export function verifyWebhookSignature(
     .update(message)
     .digest('hex')}`;
 
-  return crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSignature));
+  const sigBuffer = Buffer.from(signature);
+  const expectedBuffer = Buffer.from(expectedSignature);
+  if (sigBuffer.length !== expectedBuffer.length) {
+    return false;
+  }
+  return crypto.timingSafeEqual(sigBuffer, expectedBuffer);
 }
 
 /**
@@ -545,7 +583,7 @@ export async function handleParticipantJoined(payload: WebhookPayload): Promise<
       participantId: participant.user_id,
       name: participant.user_name || 'Unknown',
       email: participant.email,
-      role: participant.user_id === session.meetingId ? 'host' : 'participant',
+      role: participant.user_id === payload.payload.object.host_id ? 'host' : 'participant',
       joinedAt: participant.join_time ? new Date(participant.join_time) : new Date(),
     },
   });
@@ -665,12 +703,12 @@ export async function handleRecordingCompleted(payload: WebhookPayload): Promise
         r.recording_type === 'active_speaker'
     ) || recordings[0];
 
+  const rawUrl = mainRecording.play_url || mainRecording.download_url || '';
   await prisma.telehealthSession.update({
     where: { id: session.id },
     data: {
-      recordingUrl: mainRecording.play_url || mainRecording.download_url,
-      recordingPassword: mainRecording.password,
-      recordingDuration: mainRecording.file_size ? undefined : undefined,
+      recordingUrl: encrypt(rawUrl),
+      recordingPassword: mainRecording.password ? encrypt(mainRecording.password) : null,
       recordingSize: mainRecording.file_size ? BigInt(mainRecording.file_size) : undefined,
     },
   });

@@ -166,7 +166,7 @@ describe('Auth Middleware', () => {
         return 'Missing role claim';
       }
       
-      const validRoles = ['super_admin', 'admin', 'provider', 'influencer', 'patient', 'staff', 'support'];
+      const validRoles = ['super_admin', 'admin', 'provider', 'influencer', 'patient', 'staff', 'support', 'pharmacy_rep'];
       if (!validRoles.includes(payload.role)) {
         return 'Invalid role';
       }
@@ -199,7 +199,7 @@ describe('Auth Middleware', () => {
     });
 
     it('should accept all valid roles', () => {
-      const validRoles = ['super_admin', 'admin', 'provider', 'influencer', 'patient', 'staff', 'support'];
+      const validRoles = ['super_admin', 'admin', 'provider', 'influencer', 'patient', 'staff', 'support', 'pharmacy_rep'];
       
       validRoles.forEach(role => {
         const payload = { sub: 1, email: 'test@example.com', role };
@@ -283,7 +283,15 @@ describe('Auth Middleware', () => {
 });
 
 describe('User Roles', () => {
-  type UserRole = 'super_admin' | 'admin' | 'provider' | 'influencer' | 'patient' | 'staff' | 'support';
+  type UserRole =
+    | 'super_admin'
+    | 'admin'
+    | 'provider'
+    | 'influencer'
+    | 'patient'
+    | 'staff'
+    | 'support'
+    | 'pharmacy_rep';
 
   describe('Role Hierarchy', () => {
     const ROLE_HIERARCHY: Record<UserRole, number> = {
@@ -292,6 +300,7 @@ describe('User Roles', () => {
       provider: 70,
       staff: 60,
       support: 50,
+      pharmacy_rep: 45,
       influencer: 40,
       patient: 30,
     };

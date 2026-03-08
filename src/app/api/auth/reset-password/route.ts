@@ -5,6 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
+import { z } from 'zod';
 import { strictRateLimit } from '@/lib/rateLimit';
 import { logger } from '@/lib/logger';
 import { basePrisma as prisma } from '@/lib/db';
@@ -19,20 +20,58 @@ import {
 } from '@/lib/auth/verification';
 import { isEmailConfigured } from '@/lib/email';
 
+const resetRoleSchema = z.enum([
+  'patient',
+  'provider',
+  'admin',
+  'super_admin',
+  'affiliate',
+  'staff',
+  'support',
+  'sales_rep',
+  'pharmacy_rep',
+]);
+
+const requestResetSchema = z.object({
+  email: z.string().email('Valid email is required'),
+  role: resetRoleSchema.default('provider'),
+  clinicId: z.number().optional(),
+  method: z.enum(['email', 'sms']).default('email'),
+});
+
+const confirmResetSchema = z.object({
+  email: z.string().email('Valid email is required'),
+  code: z.string().trim().min(4, 'Reset code is required'),
+  newPassword: z.string().min(8, 'Password must be at least 8 characters long'),
+  role: resetRoleSchema.default('provider'),
+});
+
+function maskEmail(email: string): string {
+  const [local, domain] = email.toLowerCase().split('@');
+  if (!local || !domain) return '***';
+  const visible = local.slice(0, 2);
+  return `${visible}***@${domain}`;
+}
+
 /**
  * POST /api/auth/reset-password
  * Send password reset code to email
  */
 export const POST = strictRateLimit(async (req: NextRequest) => {
   try {
-    const body = await req.json();
-    const { email, role = 'provider', clinicId, method = 'email' } = body;
-
-    if (!email) {
-      return NextResponse.json({ error: 'Email is required' }, { status: 400 });
+    const parsed = requestResetSchema.safeParse(await req.json());
+    if (!parsed.success) {
+      return NextResponse.json({ error: 'Invalid reset request' }, { status: 400 });
     }
+    const { email, role, clinicId, method } = parsed.data;
 
     const viaSMS = method === 'sms';
+    if (viaSMS && role !== 'patient') {
+      return NextResponse.json(
+        { error: 'SMS reset is only available for patient accounts' },
+        { status: 400 }
+      );
+    }
 
     if (!viaSMS && !isEmailConfigured()) {
       logger.error('Email service not configured - cannot send password reset code');
@@ -68,9 +107,29 @@ export const POST = strictRateLimit(async (req: NextRequest) => {
         userExists = !!provider;
         break;
       }
-      case 'admin':
-        userExists = email.toLowerCase() === process.env.ADMIN_EMAIL?.toLowerCase();
+      case 'admin': {
+        const user = await prisma.user.findUnique({
+          where: { email: email.toLowerCase() },
+          select: { id: true, role: true },
+        });
+        userExists =
+          user?.role === 'admin' ||
+          email.toLowerCase() === process.env.ADMIN_EMAIL?.toLowerCase();
         break;
+      }
+      case 'super_admin':
+      case 'affiliate':
+      case 'staff':
+      case 'support':
+      case 'sales_rep':
+      case 'pharmacy_rep': {
+        const user = await prisma.user.findUnique({
+          where: { email: email.toLowerCase() },
+          select: { id: true, role: true },
+        });
+        userExists = user?.role === role;
+        break;
+      }
       default:
         return NextResponse.json({ error: 'Invalid role specified' }, { status: 400 });
     }
@@ -79,7 +138,7 @@ export const POST = strictRateLimit(async (req: NextRequest) => {
       const code = generateOTP();
       const stored = await storeVerificationCode(email.toLowerCase(), code, 'password_reset');
       if (!stored) {
-        logger.error('Failed to store password reset code', { email, role });
+        logger.error('Failed to store password reset code', { role });
         return NextResponse.json(
           { error: 'Unable to process reset request. Please try again in a few minutes.' },
           { status: 503 }
@@ -97,7 +156,7 @@ export const POST = strictRateLimit(async (req: NextRequest) => {
           clinicBranding?.clinicName
         );
         if (!smsSent) {
-          logger.error('Failed to send password reset SMS', { email, role });
+          logger.error('Failed to send password reset SMS', { role });
           return NextResponse.json(
             { error: 'We could not send the reset code via text. Please try again or use email.' },
             { status: 503 }
@@ -114,7 +173,7 @@ export const POST = strictRateLimit(async (req: NextRequest) => {
           clinic
         );
         if (!emailSent) {
-          logger.error('Failed to send password reset email', { email, role });
+          logger.error('Failed to send password reset email', { role });
           return NextResponse.json(
             {
               error:
@@ -125,9 +184,16 @@ export const POST = strictRateLimit(async (req: NextRequest) => {
         }
       }
 
-      logger.info(`Password reset requested for ${email} (${role}) via ${method}`);
+      logger.info('Password reset requested', {
+        role,
+        method,
+        email: maskEmail(email),
+      });
     } else {
-      logger.warn(`Password reset requested for non-existent user: ${email} (${role})`);
+      logger.warn('Password reset requested for non-existent user', {
+        role,
+        email: maskEmail(email),
+      });
     }
 
     const successMsg = viaSMS
@@ -163,23 +229,11 @@ export const POST = strictRateLimit(async (req: NextRequest) => {
  */
 export const PUT = strictRateLimit(async (req: NextRequest) => {
   try {
-    const body = await req.json();
-    const { email, code, newPassword, role = 'provider' } = body;
-
-    // Validate input
-    if (!email || !code || !newPassword) {
-      return NextResponse.json(
-        { error: 'Email, code, and new password are required' },
-        { status: 400 }
-      );
+    const parsed = confirmResetSchema.safeParse(await req.json());
+    if (!parsed.success) {
+      return NextResponse.json({ error: 'Invalid reset request' }, { status: 400 });
     }
-
-    if (newPassword.length < 8) {
-      return NextResponse.json(
-        { error: 'Password must be at least 8 characters long' },
-        { status: 400 }
-      );
-    }
+    const { email, code, newPassword, role } = parsed.data;
 
     // Verify the code
     const result = await verifyOTPCode(email.toLowerCase(), code, 'password_reset');
@@ -195,28 +249,24 @@ export const PUT = strictRateLimit(async (req: NextRequest) => {
     let updated = false;
 
     switch (role) {
-      case 'patient':
+      case 'patient': {
         const userToUpdate = await prisma.user.findUnique({
           where: { email: email.toLowerCase() },
+          select: { id: true, patientId: true },
         });
         if (userToUpdate) {
-          const updatedUser = await prisma.user
-            .update({
-              where: { id: userToUpdate.id },
-              data: { passwordHash },
-            })
-            .catch((err) => {
-              logger.warn('[ResetPassword] Failed to update patient password', { error: err instanceof Error ? err.message : String(err) });
-              return null;
-            });
+          const updatedUser = await prisma.user.update({
+            where: { id: userToUpdate.id },
+            data: { passwordHash },
+          });
           updated = !!updatedUser;
 
           // Create audit log for patient
-          if (updated) {
+          if (updated && userToUpdate.patientId) {
             await prisma.patientAudit
               .create({
                 data: {
-                  patientId: userToUpdate.patientId || 0,
+                  patientId: userToUpdate.patientId,
                   action: 'PASSWORD_RESET',
                   actorEmail: email.toLowerCase(),
                   diff: JSON.stringify({ timestamp: new Date().toISOString() }),
@@ -229,43 +279,73 @@ export const PUT = strictRateLimit(async (req: NextRequest) => {
           }
         }
         break;
+      }
 
-      case 'provider':
+      case 'provider': {
+        // Prefer unified user record when present
+        const unifiedUser = await prisma.user.findUnique({
+          where: { email: email.toLowerCase() },
+          select: { id: true },
+        });
+        if (unifiedUser) {
+          await prisma.user.update({
+            where: { id: unifiedUser.id },
+            data: { passwordHash },
+          });
+          updated = true;
+          break;
+        }
+
         const providerToUpdate = await prisma.provider.findFirst({
           where: { email: email.toLowerCase() },
         });
         if (providerToUpdate) {
-          const provider: any = await prisma.provider
-            .update({
-              where: { id: providerToUpdate.id },
-              data: { passwordHash },
-            })
-            .catch((err) => {
-              logger.warn('[ResetPassword] Failed to update provider password', { error: err instanceof Error ? err.message : String(err) });
-              return null;
-            });
+          const provider: any = await prisma.provider.update({
+            where: { id: providerToUpdate.id },
+            data: { passwordHash },
+          });
           updated = !!provider;
         }
         break;
+      }
 
-      case 'admin':
-        // Admin password is in environment variables, cannot be reset this way
-        if (email.toLowerCase() === process.env.ADMIN_EMAIL?.toLowerCase()) {
-          logger.warn('Attempt to reset admin password via API');
-          return NextResponse.json(
-            { error: 'Admin password cannot be reset via this method' },
-            { status: 403 }
-          );
+      case 'affiliate':
+      case 'staff':
+      case 'support':
+      case 'sales_rep':
+      case 'pharmacy_rep':
+      case 'super_admin':
+      case 'admin': {
+        const userToUpdate = await prisma.user.findUnique({
+          where: { email: email.toLowerCase() },
+          select: { id: true, role: true },
+        });
+        if (userToUpdate && userToUpdate.role === role) {
+          await prisma.user.update({
+            where: { id: userToUpdate.id },
+            data: { passwordHash },
+          });
+          updated = true;
         }
         break;
+      }
+
+      default:
+        return NextResponse.json({ error: 'Invalid role specified' }, { status: 400 });
     }
 
     if (!updated) {
-      return NextResponse.json({ error: 'Failed to update password' }, { status: 500 });
+      return NextResponse.json(
+        { error: 'Unable to complete password reset for this account' },
+        { status: 400 }
+      );
     }
 
     // Log password reset
-    logger.info(`Password reset successfully for ${email} (${role})`);
+    logger.info('Password reset successfully', {
+      role,
+      email: maskEmail(email),
+    });
 
     // Create audit log
     if (role === 'provider') {
@@ -273,14 +353,21 @@ export const PUT = strictRateLimit(async (req: NextRequest) => {
         where: { email: email.toLowerCase() },
       });
       if (providerUser) {
-        await prisma.providerAudit.create({
-          data: {
-            providerId: providerUser.id,
-            action: 'PASSWORD_RESET',
-            actorEmail: providerUser.email || email.toLowerCase(),
-            diff: JSON.stringify({ timestamp: new Date().toISOString() }),
-          },
-        });
+        await prisma.providerAudit
+          .create({
+            data: {
+              providerId: providerUser.id,
+              action: 'PASSWORD_RESET',
+              actorEmail: providerUser.email || email.toLowerCase(),
+              diff: JSON.stringify({ timestamp: new Date().toISOString() }),
+            },
+          })
+          .catch((err) => {
+            logger.warn('[ResetPassword] Failed to create provider audit log', {
+              error: err instanceof Error ? err.message : String(err),
+            });
+            return null;
+          });
       }
     }
 

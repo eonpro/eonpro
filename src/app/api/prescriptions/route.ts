@@ -1146,7 +1146,7 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
             errorMessage: errorMessage ?? 'Unknown Lifefile error',
           },
         });
-      } catch (dbErr: any) {
+      } catch (dbErr: unknown) {
         logger.error('Failed to update order error state:', { value: dbErr });
       }
       return NextResponse.json(
@@ -1158,7 +1158,7 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
         { status: 502 }
       );
     }
-  } catch (err: any) {
+  } catch (err: unknown) {
     const errorMessage = err instanceof Error ? err.message : 'Unknown error';
     logger.error('[PRESCRIPTIONS/POST] Unexpected error:', err);
     // P2024 / connection pool exhaustion: return 503 so client can retry (matches login, messages)

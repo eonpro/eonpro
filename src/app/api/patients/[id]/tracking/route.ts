@@ -90,78 +90,71 @@ export const GET = withAuthParams(
       if (ensureTenantResource(patientGet, clinicId ?? undefined)) return tenantNotFoundResponse();
 
       const result = await runWithClinicContext(clinicId, async () => {
-        const shippingUpdates = await prisma.patientShippingUpdate.findMany({
-          where: { patientId },
-          orderBy: { createdAt: 'desc' },
-          take: 100,
-          include: {
-            order: {
-              select: {
-                id: true,
-                lifefileOrderId: true,
-                createdAt: true,
-                primaryMedName: true,
-                primaryMedStrength: true,
+        const [shippingUpdates, orders, lastOrder, matchedShippingUpdateOrders] = await Promise.all([
+          prisma.patientShippingUpdate.findMany({
+            where: { patientId },
+            orderBy: { createdAt: 'desc' },
+            take: 100,
+            include: {
+              order: {
+                select: {
+                  id: true,
+                  lifefileOrderId: true,
+                  createdAt: true,
+                  primaryMedName: true,
+                  primaryMedStrength: true,
+                },
               },
             },
-          },
-        });
-
-        // Get orders with tracking (for legacy data)
-        const orders = await prisma.order.findMany({
-          where: {
-            patientId,
-            trackingNumber: { not: null },
-          },
-          orderBy: { createdAt: 'desc' },
-          take: 100,
-          select: {
-            id: true,
-            createdAt: true,
-            lifefileOrderId: true,
-            trackingNumber: true,
-            trackingUrl: true,
-            shippingStatus: true,
-            primaryMedName: true,
-            primaryMedStrength: true,
-            status: true,
-          },
-        });
-
-        // Get last prescription date with all medications
-        const lastOrder = await prisma.order.findFirst({
-          where: { patientId },
-          orderBy: { createdAt: 'desc' },
-          select: {
-            createdAt: true,
-            primaryMedName: true,
-            rxs: {
-              select: {
-                medName: true,
-                strength: true,
-                form: true,
-                quantity: true,
+          }),
+          prisma.order.findMany({
+            where: {
+              patientId,
+              trackingNumber: { not: null },
+            },
+            orderBy: { createdAt: 'desc' },
+            take: 100,
+            select: {
+              id: true,
+              createdAt: true,
+              lifefileOrderId: true,
+              trackingNumber: true,
+              trackingUrl: true,
+              shippingStatus: true,
+              primaryMedName: true,
+              primaryMedStrength: true,
+              status: true,
+            },
+          }),
+          prisma.order.findFirst({
+            where: { patientId },
+            orderBy: { createdAt: 'desc' },
+            select: {
+              createdAt: true,
+              primaryMedName: true,
+              rxs: {
+                select: {
+                  medName: true,
+                  strength: true,
+                  form: true,
+                  quantity: true,
+                },
               },
             },
-          },
-        });
-
-        // Orders already matched to tracking (have PatientShippingUpdate with orderId)
-        const matchedOrderIds = new Set(
-          (await prisma.patientShippingUpdate.findMany({
+          }),
+          prisma.patientShippingUpdate.findMany({
             where: { patientId, orderId: { not: null } },
             select: { orderId: true },
-          }))
+          }),
+        ]);
+
+        // Orders already matched to tracking (via shipping updates or legacy order-level tracking)
+        const matchedOrderIds = new Set(
+          matchedShippingUpdateOrders
             .map((s) => s.orderId)
             .filter((id): id is number => id != null)
         );
-
-        // Orders with tracking on the Order record itself are also "matched"
-        const ordersWithTracking = await prisma.order.findMany({
-          where: { patientId, trackingNumber: { not: null } },
-          select: { id: true },
-        });
-        ordersWithTracking.forEach((o) => matchedOrderIds.add(o.id));
+        orders.forEach((o) => matchedOrderIds.add(o.id));
 
         // Unmatched prescriptions: orders with rxs that have no tracking link
         const unmatchedOrders = await prisma.order.findMany({
@@ -337,7 +330,7 @@ export const POST = withAuthParams(
       }
 
       // Only providers and admins can add tracking
-      if (!['provider', 'admin', 'super_admin'].includes(user.role)) {
+      if (!['provider', 'admin', 'super_admin', 'pharmacy_rep'].includes(user.role)) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
       }
 
@@ -362,7 +355,7 @@ export const POST = withAuthParams(
 
       const patientForPost = await prisma.patient.findUnique({
         where: { id: patientId },
-        select: { id: true, clinicId: true, firstName: true, lastName: true, phone: true },
+        select: { id: true, clinicId: true, firstName: true, lastName: true, phone: true, email: true },
       });
       if (ensureTenantResource(patientForPost, clinicId ?? undefined)) return tenantNotFoundResponse();
       if (!patientForPost) return tenantNotFoundResponse();
@@ -497,6 +490,7 @@ export const POST = withAuthParams(
       sendTrackingNotificationSMS({
         patientId: patient.id,
         patientPhone: patient.phone,
+        patientEmail: patient.email,
         patientFirstName: patient.firstName,
         patientLastName: patient.lastName,
         clinicId: effectiveClinicId,
@@ -592,7 +586,7 @@ export const PUT = withAuthParams(
         return NextResponse.json({ error: 'Invalid patient ID' }, { status: 400 });
       }
 
-      if (!['provider', 'admin', 'super_admin'].includes(user.role)) {
+      if (!['provider', 'admin', 'super_admin', 'pharmacy_rep'].includes(user.role)) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
       }
 
@@ -695,7 +689,7 @@ export const DELETE = withAuthParams(
         return NextResponse.json({ error: 'Invalid patient ID' }, { status: 400 });
       }
 
-      if (!['provider', 'admin', 'super_admin'].includes(user.role)) {
+      if (!['provider', 'admin', 'super_admin', 'pharmacy_rep'].includes(user.role)) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
       }
 

@@ -241,9 +241,8 @@ class QueueManager {
         }
 
         logger.info('Webhook delivered successfully', { url, method });
-      } catch (error: any) {
-        // @ts-ignore
-
+      } catch (error: unknown) {
+        
         logger.error('Webhook delivery failed', { url, method, error });
         throw error;
       }
@@ -418,9 +417,8 @@ class QueueManager {
     for (const jobType of Object.values(JobType)) {
       try {
         statuses[jobType] = await this.getQueueStatus(jobType);
-      } catch (error: any) {
-        // @ts-ignore
-
+      } catch (error: unknown) {
+        
         statuses[jobType] = { error: 'Unable to fetch status' };
       }
     }

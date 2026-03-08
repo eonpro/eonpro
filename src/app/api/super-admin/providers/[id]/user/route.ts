@@ -87,10 +87,10 @@ export const GET = withSuperAdminAuth(
         user: provider.user,
         providerEmail: provider.email,
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error('[SUPER-ADMIN/PROVIDERS/USER] Error fetching user:', error);
       return NextResponse.json(
-        { error: 'Failed to fetch user', details: error.message },
+        { error: 'Failed to fetch user', details: error instanceof Error ? error.message : String(error) },
         { status: 500 }
       );
     }
@@ -293,10 +293,10 @@ export const POST = withSuperAdminAuth(
         user: result,
         message: 'User account created and linked to provider',
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error('[SUPER-ADMIN/PROVIDERS/USER] Error creating user:', error);
       return NextResponse.json(
-        { error: error.message || 'Failed to create user account' },
+        { error: error instanceof Error ? error.message : String(error) || 'Failed to create user account' },
         { status: 500 }
       );
     }
@@ -423,9 +423,9 @@ export const PUT = withSuperAdminAuth(
         user: result,
         message: 'User linked to provider',
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error('[SUPER-ADMIN/PROVIDERS/USER] Error linking user:', error);
-      return NextResponse.json({ error: error.message || 'Failed to link user' }, { status: 500 });
+      return NextResponse.json({ error: error instanceof Error ? error.message : String(error) || 'Failed to link user' }, { status: 500 });
     }
   }
 );
@@ -547,10 +547,10 @@ export const PATCH = withSuperAdminAuth(
         message: 'Password reset successfully',
         userId: provider.user.id,
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error('[SUPER-ADMIN/PROVIDERS/USER] Error resetting password:', error);
       return NextResponse.json(
-        { error: error.message || 'Failed to reset password' },
+        { error: error instanceof Error ? error.message : String(error) || 'Failed to reset password' },
         { status: 500 }
       );
     }
@@ -637,10 +637,10 @@ export const DELETE = withSuperAdminAuth(
         message: 'User unlinked from provider',
         unlinkedUserId: linkedUserId,
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error('[SUPER-ADMIN/PROVIDERS/USER] Error unlinking user:', error);
       return NextResponse.json(
-        { error: error.message || 'Failed to unlink user' },
+        { error: error instanceof Error ? error.message : String(error) || 'Failed to unlink user' },
         { status: 500 }
       );
     }

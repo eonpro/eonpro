@@ -179,7 +179,7 @@ async function handler(req: NextRequest, user: any): Promise<Response> {
         FROM "AffiliateTouch"
         WHERE "convertedAt" >= ${trendStart}
           AND "convertedAt" <= ${dateTo}
-          ${user.role !== 'super_admin' && user.clinicId ? prisma.$queryRaw`AND "clinicId" = ${user.clinicId}` : prisma.$queryRaw``}
+          ${user.role === 'super_admin' ? prisma.$queryRaw`` : prisma.$queryRaw`AND "clinicId" = ${user.clinicId!}`}
         GROUP BY DATE("convertedAt")
         ORDER BY date ASC
       ` as Promise<Array<{ date: Date; conversions: number }>>,
@@ -194,7 +194,7 @@ async function handler(req: NextRequest, user: any): Promise<Response> {
         WHERE "occurredAt" >= ${trendStart}
           AND "occurredAt" <= ${dateTo}
           AND "status" IN ('PENDING', 'APPROVED', 'PAID')
-          ${user.role !== 'super_admin' && user.clinicId ? prisma.$queryRaw`AND "clinicId" = ${user.clinicId}` : prisma.$queryRaw``}
+          ${user.role === 'super_admin' ? prisma.$queryRaw`` : prisma.$queryRaw`AND "clinicId" = ${user.clinicId!}`}
         GROUP BY DATE("occurredAt")
         ORDER BY date ASC
       ` as Promise<Array<{ date: Date; revenueCents: number; commissionCents: number }>>,

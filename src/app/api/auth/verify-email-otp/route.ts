@@ -21,7 +21,10 @@ import { hashRefreshToken } from '@/lib/auth/refresh-token-rotation';
 
 const verifyEmailOtpSchema = z.object({
   email: z.string().email().transform((v) => v.toLowerCase().trim()),
-  code: z.string().length(6, 'Code must be exactly 6 digits'),
+  code: z
+    .string()
+    .trim()
+    .regex(/^\d{6}$/, 'Code must be exactly 6 digits'),
   clinicId: z.number().positive().optional(),
 });
 
@@ -105,7 +108,10 @@ export const POST = standardRateLimit(async (req: NextRequest) => {
     }
 
     if (!user && !patient) {
-      return NextResponse.json({ error: 'Account not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Invalid or expired code. Please request a new one.' },
+        { status: 401 }
+      );
     }
 
     // Check if user account is active
@@ -246,21 +252,29 @@ export const POST = standardRateLimit(async (req: NextRequest) => {
     });
 
     // Audit log (non-blocking)
-    prisma.auditLog.create({
-      data: {
-        action: 'LOGIN',
-        userId: user?.id || 0,
-        details: {
-          method: 'email_otp',
-          isPatient: isPatientLogin,
-          sessionId,
-        },
-      },
-    }).catch((auditErr: unknown) => {
-      logger.warn('[VERIFY-EMAIL-OTP] Audit log creation failed', {
-        error: auditErr instanceof Error ? auditErr.message : 'Unknown error',
+    if (user?.id) {
+      prisma.auditLog
+        .create({
+          data: {
+            action: 'LOGIN',
+            userId: user.id,
+            details: {
+              method: 'email_otp',
+              isPatient: isPatientLogin,
+              sessionId,
+            },
+          },
+        })
+        .catch((auditErr: unknown) => {
+          logger.warn('[VERIFY-EMAIL-OTP] Audit log creation failed', {
+            error: auditErr instanceof Error ? auditErr.message : 'Unknown error',
+          });
+        });
+    } else {
+      logger.info('[VERIFY-EMAIL-OTP] Skipping user auditLog write for patient-only OTP login', {
+        patientId: patient?.id,
       });
-    });
+    }
 
     const userData =
       isPatientLogin && patient

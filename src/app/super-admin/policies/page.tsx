@@ -232,7 +232,7 @@ export default function PoliciesPage() {
 
       if (!response.ok) throw new Error(data.error || 'Failed to fetch policies');
       setPolicies(data.policies || []);
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(err.message);
     } finally {
       setLoading(false);
@@ -276,7 +276,7 @@ export default function PoliciesPage() {
 
       // Clear success message after 5 seconds
       setTimeout(() => setSuccessMessage(null), 5000);
-    } catch (err: any) {
+    } catch (err: unknown) {
       alert(`Error: ${err.message}`);
     } finally {
       setIsSubmitting(false);

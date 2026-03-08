@@ -125,12 +125,12 @@ async function handler(req: NextRequest) {
         'Test by logging in as Dr. Sigle and switching to Wellmedr',
       ],
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('[SETUP-WELLMEDR] Error:', error);
     return NextResponse.json(
       {
         success: false,
-        error: error.message,
+        error: error instanceof Error ? error.message : String(error),
       },
       { status: 500 }
     );

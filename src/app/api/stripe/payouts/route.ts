@@ -138,7 +138,7 @@ async function getPayoutsHandler(request: NextRequest, user: AuthUser) {
     } catch (error: unknown) {
       // Account settings might not be accessible
       logger.warn('[STRIPE PAYOUTS] Failed to fetch account settings', {
-        error: error instanceof Error ? error.message : 'Unknown error',
+        error: error instanceof Error ? error instanceof Error ? error.message : String(error) : 'Unknown error',
       });
     }
 
@@ -178,11 +178,11 @@ async function getPayoutsHandler(request: NextRequest, user: AuthUser) {
       },
       timestamp: new Date().toISOString(),
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('[STRIPE PAYOUTS] Error:', error);
 
     return NextResponse.json(
-      { error: error.message || 'Failed to fetch payouts' },
+      { error: error instanceof Error ? error.message : String(error) || 'Failed to fetch payouts' },
       { status: 500 }
     );
   }

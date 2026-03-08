@@ -72,11 +72,14 @@ export const GET = withAuth(async (req: NextRequest, user) => {
     const status = searchParams.get('status');
     const templates = searchParams.get('templates');
 
+    // Only super_admin may query another clinic's templates
+    const resolvedClinicId = (clinicId && user.role === 'super_admin')
+      ? parseInt(clinicId)
+      : user.clinicId ?? undefined;
+
     // Get available templates
     if (templates === 'true') {
-      const carePlanTemplates = await getCarePlanTemplates(
-        clinicId ? parseInt(clinicId) : undefined
-      );
+      const carePlanTemplates = await getCarePlanTemplates(resolvedClinicId);
       return NextResponse.json({ templates: carePlanTemplates });
     }
 

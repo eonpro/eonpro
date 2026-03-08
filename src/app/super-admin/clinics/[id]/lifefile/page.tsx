@@ -125,7 +125,7 @@ export default function ClinicLifefileSettingsPage() {
         lifefileInboundAllowedIPs: data.settings.lifefileInboundAllowedIPs || '',
         lifefileInboundEvents: data.settings.lifefileInboundEvents || [],
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
       logger.error('Error fetching Lifefile settings:', err);
       setError(err.message);
     } finally {
@@ -176,7 +176,7 @@ export default function ClinicLifefileSettingsPage() {
 
       setSuccess('Lifefile settings saved successfully!');
       fetchSettings(); // Refresh settings
-    } catch (err: any) {
+    } catch (err: unknown) {
       logger.error('Error saving Lifefile settings:', err);
       setError(err.message);
     } finally {
@@ -201,7 +201,7 @@ export default function ClinicLifefileSettingsPage() {
       }
 
       setSuccess('Connection test successful! Lifefile is configured correctly.');
-    } catch (err: any) {
+    } catch (err: unknown) {
       logger.error('Error testing Lifefile connection:', err);
       setError(`Connection test failed: ${err.message}`);
     } finally {

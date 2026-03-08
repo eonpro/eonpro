@@ -42,8 +42,8 @@ export async function GET(request: NextRequest) {
       await prisma.$queryRaw`SELECT 1`;
       results.tests.databaseConnection = { status: 'PASS', message: 'Database connected' };
       results.summary.passed++;
-    } catch (error: any) {
-      results.tests.databaseConnection = { status: 'FAIL', message: error.message };
+    } catch (error: unknown) {
+      results.tests.databaseConnection = { status: 'FAIL', message: error instanceof Error ? error.message : String(error) };
       results.summary.failed++;
     }
 
@@ -55,8 +55,8 @@ export async function GET(request: NextRequest) {
         message: `Clinic table accessible, ${clinicCount} clinics in system`,
       };
       results.summary.passed++;
-    } catch (error: any) {
-      results.tests.clinicTable = { status: 'FAIL', message: error.message };
+    } catch (error: unknown) {
+      results.tests.clinicTable = { status: 'FAIL', message: error instanceof Error ? error.message : String(error) };
       results.summary.failed++;
     }
 
@@ -95,8 +95,8 @@ export async function GET(request: NextRequest) {
         })),
       };
       results.summary.passed++;
-    } catch (error: any) {
-      results.tests.clinicList = { status: 'FAIL', message: error.message };
+    } catch (error: unknown) {
+      results.tests.clinicList = { status: 'FAIL', message: error instanceof Error ? error.message : String(error) };
       results.summary.failed++;
     }
 
@@ -279,8 +279,8 @@ export async function GET(request: NextRequest) {
           };
           results.summary.failed++;
         }
-      } catch (error: any) {
-        results.tests.clinicExists = { status: 'FAIL', message: error.message };
+      } catch (error: unknown) {
+        results.tests.clinicExists = { status: 'FAIL', message: error instanceof Error ? error.message : String(error) };
         results.summary.failed++;
       }
     }
@@ -291,11 +291,11 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(results, {
       status: results.summary.failed > 0 ? 500 : 200,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     return NextResponse.json(
       {
         error: 'White-label test endpoint failed',
-        message: error.message,
+        message: error instanceof Error ? error.message : String(error),
       },
       { status: 500 }
     );
@@ -372,9 +372,9 @@ export async function POST(request: NextRequest) {
         subdomain: clinic.subdomain,
       },
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     return NextResponse.json(
-      { error: 'Failed to create test clinic', message: error.message },
+      { error: 'Failed to create test clinic', message: error instanceof Error ? error.message : String(error) },
       { status: 500 }
     );
   }

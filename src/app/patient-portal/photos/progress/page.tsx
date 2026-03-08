@@ -119,6 +119,7 @@ export default function ProgressPhotosPage() {
     }
   );
   const [showSuccess, setShowSuccess] = useState(false);
+  const [photoWarning, setPhotoWarning] = useState<string | null>(null);
 
   // Fetch photos
   const fetchPhotos = useCallback(async () => {
@@ -137,6 +138,12 @@ export default function ProgressPhotosPage() {
         data !== null && typeof data === 'object' && 'photos' in data
           ? ((data as { photos?: Photo[] }).photos ?? [])
           : [];
+
+      if (data && typeof data === 'object' && 'warning' in data) {
+        setPhotoWarning((data as { warning?: string }).warning || null);
+      } else {
+        setPhotoWarning(null);
+      }
 
       // Filter to only progress photos
       const progressPhotos = allPhotos.filter((p) =>
@@ -346,6 +353,22 @@ export default function ProgressPhotosPage() {
       {/* Gallery View */}
       {viewMode === 'gallery' && (
         <div className="space-y-6">
+          {/* Warning Banner */}
+          {photoWarning && (
+            <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4">
+              <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-amber-600" />
+              <div>
+                <p className="text-sm font-medium text-amber-800">{photoWarning}</p>
+                <button
+                  onClick={fetchPhotos}
+                  className="mt-1 text-xs font-medium text-amber-700 underline hover:text-amber-900"
+                >
+                  Retry loading photos
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Stats Cards */}
           {stats && stats.total > 0 && (
             <div className="grid grid-cols-2 gap-3">

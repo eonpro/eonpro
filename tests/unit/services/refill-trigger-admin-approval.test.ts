@@ -120,17 +120,10 @@ describe('triggerRefillForSubscriptionPayment', () => {
     expect(createMock).toHaveBeenCalledTimes(1);
     const createArgs = createMock.mock.calls[0][0];
 
-    // Key assertions: status must be PENDING_ADMIN, not PENDING_PROVIDER
-    expect(createArgs.data.status).toBe('PENDING_ADMIN');
+    // STRIPE_AUTO payments are now auto-approved
+    expect(createArgs.data.status).toBe('APPROVED');
     expect(createArgs.data.paymentVerified).toBe(true);
     expect(createArgs.data.paymentMethod).toBe('STRIPE_AUTO');
-    expect(createArgs.data.adminApproved).toBe(false);
-
-    // Must NOT have auto-approval fields
-    expect(createArgs.data.adminApprovedAt).toBeUndefined();
-    expect(createArgs.data.adminApprovedBy).toBeUndefined();
-    expect(createArgs.data.adminNotes).toBeUndefined();
-    expect(createArgs.data.providerQueuedAt).toBeUndefined();
   });
 });
 

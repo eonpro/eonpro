@@ -13,6 +13,7 @@ import {
   sanitizeEventType,
   MAX_WEBHOOK_BODY_BYTES,
 } from '@/lib/webhooks/lifefile-payload';
+import { notifyPatientOnOrderTrackingUpdate } from '@/lib/shipping/tracking-sms';
 
 type RouteParams = { params: Promise<{ clinicSlug: string }> };
 
@@ -219,6 +220,15 @@ async function processShippingUpdate(
     },
   });
 
+  const nextTrackingNumber = trackingNumber || order.trackingNumber;
+  await notifyPatientOnOrderTrackingUpdate({
+    orderId: order.id,
+    previousTrackingNumber: order.trackingNumber,
+    trackingNumber: nextTrackingNumber,
+    carrier: deliveryService,
+    source: 'lifefile-inbound:shipping_update',
+  });
+
   // Create shipping update record (clinicId and carrier required; status must be enum)
   if (order.clinicId != null && trackingNumber) {
     try {
@@ -351,6 +361,17 @@ async function processPrescriptionStatus(
     data: updateData,
   });
 
+  await notifyPatientOnOrderTrackingUpdate({
+    orderId: order.id,
+    previousTrackingNumber: order.trackingNumber,
+    trackingNumber,
+    carrier:
+      (payload.deliveryService as string | undefined) ||
+      (payload.carrier as string | undefined) ||
+      null,
+    source: 'lifefile-inbound:prescription_status',
+  });
+
   // Create order event (sanitized note length)
   const prescriptionNote = `Prescription Status: ${status ?? ''}${rejectionReason ? ` - ${String(rejectionReason).slice(0, 100)}` : ''}`;
   await prisma.orderEvent.create({
@@ -463,6 +484,17 @@ async function processOrderStatus(
   await prisma.order.update({
     where: { id: order.id },
     data: updateData,
+  });
+
+  await notifyPatientOnOrderTrackingUpdate({
+    orderId: order.id,
+    previousTrackingNumber: order.trackingNumber,
+    trackingNumber,
+    carrier:
+      (orderData.deliveryService as string | undefined) ||
+      (orderData.carrier as string | undefined) ||
+      null,
+    source: 'lifefile-inbound:order_status',
   });
 
   // Create order event (sanitized eventType and note length)

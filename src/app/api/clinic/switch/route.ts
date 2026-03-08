@@ -31,6 +31,12 @@ async function handler(request: NextRequest, user: AuthUser) {
 
     // Verify user has access to this clinic (unless super_admin)
     if (user.role !== 'super_admin') {
+      const userData = await basePrisma.user.findUnique({
+        where: { id: user.id },
+        select: { clinicId: true },
+      });
+
+      const hasPrimaryAccess = userData?.clinicId === clinicId;
       const userClinic = await basePrisma.userClinic.findFirst({
         where: {
           userId: user.id,
@@ -39,7 +45,7 @@ async function handler(request: NextRequest, user: AuthUser) {
         },
       });
 
-      if (!userClinic) {
+      if (!userClinic && !hasPrimaryAccess) {
         logger.security('Unauthorized clinic switch attempt', {
           userId: user.id,
           targetClinicId: clinicId,

@@ -78,9 +78,8 @@ export default function DocumentManagementPage() {
         const data = await response.json();
         setDocuments(data);
       }
-    } catch (error: any) {
-      // @ts-ignore
-
+    } catch (error: unknown) {
+      
       logger.error('Failed to load documents:', error);
     } finally {
       setLoading(false);

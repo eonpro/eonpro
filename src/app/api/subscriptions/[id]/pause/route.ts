@@ -49,8 +49,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     }
 
     return NextResponse.json(updatedSubscription);
-  } catch (error: any) {
-    // @ts-ignore
+  } catch (error: unknown) {
 
     logger.error('Error pausing subscription:', error);
     return NextResponse.json({ error: 'Failed to pause subscription' }, { status: 500 });

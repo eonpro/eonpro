@@ -402,7 +402,7 @@ export async function POST(req: NextRequest) {
       `;
       await prisma.$executeRaw`CREATE INDEX IF NOT EXISTS "Product_clinicId_isActive_idx" ON "Product"("clinicId", "isActive")`;
       logger.info('[SEED PRODUCTS] Product table ensured');
-    } catch (tableError: any) {
+    } catch (tableError: unknown) {
       // Table might already exist, continue
       logger.info('[SEED PRODUCTS] Product table check:', tableError.message);
     }
@@ -462,10 +462,10 @@ export async function POST(req: NextRequest) {
         items: createdProducts,
       },
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('[SEED PRODUCTS] Error:', error);
     return NextResponse.json(
-      { error: error.message || 'Failed to seed products' },
+      { error: error instanceof Error ? error.message : String(error) || 'Failed to seed products' },
       { status: 500 }
     );
   }

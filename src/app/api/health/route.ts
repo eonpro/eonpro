@@ -104,7 +104,7 @@ async function checkDatabase(): Promise<HealthCheck> {
       message: 'Connected and responsive',
       details: { patientCount, latencyMs: healthResult.latencyMs },
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('Database health check failed', { error: error.message });
     return {
       name: 'Database',
@@ -167,7 +167,7 @@ async function checkConnectionPool(): Promise<HealthCheck> {
         poolManagerStatus: poolHealth.status,
       },
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     return {
       name: 'Connection Pool',
       status: 'degraded',
@@ -206,7 +206,7 @@ async function checkStripe(): Promise<HealthCheck> {
       responseTime: Date.now() - start,
       message: 'Connected and authenticated',
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('Stripe health check failed', { error: error.message });
     return {
       name: 'Stripe',
@@ -245,7 +245,7 @@ async function checkTwilio(): Promise<HealthCheck> {
       message: `Account status: ${account.status}`,
       details: { accountStatus: account.status },
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('Twilio health check failed', { error: error.message });
     return {
       name: 'Twilio',
@@ -286,7 +286,7 @@ async function checkCache(): Promise<HealthCheck> {
       responseTime: Date.now() - start,
       message: 'Connected and responsive',
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     return {
       name: 'Cache (Redis)',
       status: 'degraded',
@@ -323,7 +323,7 @@ async function checkOpenAI(): Promise<HealthCheck> {
       responseTime: Date.now() - start,
       message: 'Connected and authenticated',
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('OpenAI health check failed', { error: error.message });
     return {
       name: 'OpenAI',
@@ -360,7 +360,7 @@ async function checkLifefile(): Promise<HealthCheck> {
         locationId: process.env.LIFEFILE_LOCATION_ID ? 'Set' : 'Not set',
       },
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     return {
       name: 'Lifefile (Pharmacy)',
       status: 'degraded',
@@ -395,7 +395,7 @@ async function checkAuth(): Promise<HealthCheck> {
       message: 'JWT configured, user table accessible',
       details: { userCount },
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     return {
       name: 'Authentication',
       status: 'unhealthy',
@@ -435,7 +435,7 @@ async function checkAPIRoutes(): Promise<HealthCheck> {
       message: `${results.filter((r) => r.status === 'ok').length}/${results.length} routes operational`,
       details: results,
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     return {
       name: 'API Routes',
       status: 'unhealthy',
@@ -470,7 +470,7 @@ async function checkEncryption(): Promise<HealthCheck> {
       responseTime: Date.now() - start,
       message: isValidKeyLength ? 'AES-256-GCM configured' : 'Invalid key length',
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     return {
       name: 'PHI Encryption',
       status: 'unhealthy',
@@ -531,7 +531,7 @@ async function checkMigrations(): Promise<HealthCheck> {
         latestMigration: migrations[0]?.migration_name || 'none',
       },
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     // If table doesn't exist, migrations haven't been run
     if (error.message.includes('does not exist') || error.message.includes('_prisma_migrations')) {
       return {
@@ -657,7 +657,7 @@ async function checkAffiliateSystem(): Promise<HealthCheck> {
         attributionOrphans,
       },
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     return {
       name: 'Affiliate System',
       status: 'unhealthy',
@@ -698,7 +698,7 @@ async function checkReadReplica(): Promise<HealthCheck> {
       message: 'Connected and responsive',
       details: { latencyMs: result.latencyMs },
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     return {
       name: 'Read Replica',
       status: 'unhealthy',

@@ -26,14 +26,14 @@ const INTAKE_SUBMISSIONS_INCLUDE = {
     responses: {
       select: {
         id: true,
-        value: true,
+        answer: true,
         questionId: true,
         question: {
           select: {
             id: true,
-            label: true,
-            type: true,
-            sectionId: true,
+            questionText: true,
+            questionType: true,
+            section: true,
           },
         },
       },

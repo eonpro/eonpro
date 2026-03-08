@@ -59,7 +59,7 @@ export async function findPatientForShipping(
       where: { clinicId, email: patientEmail.toLowerCase() },
     });
     if (patient) {
-      logger.info(`[${webhookTag}] Matched patient by email → patient ${patient.id}`);
+      logger.info(`[${webhookTag}] Matched patient by email`, { patientId: patient.id });
     }
   }
 
@@ -68,7 +68,7 @@ export async function findPatientForShipping(
       where: { clinicId, patientId },
     });
     if (patient) {
-      logger.info(`[${webhookTag}] Matched patient by patientId → patient ${patient.id}`);
+      logger.info(`[${webhookTag}] Matched patient by patientId`, { patientId: patient.id });
     }
   }
 

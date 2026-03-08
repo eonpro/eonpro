@@ -236,6 +236,7 @@ function extractToken(req: NextRequest): string | null {
         'patient-token',
         'staff-token',
         'support-token',
+        'pharmacy_rep-token',
         'token',
         'SUPER_ADMIN-token',
       ]
@@ -247,6 +248,7 @@ function extractToken(req: NextRequest): string | null {
         'patient-token',
         'staff-token',
         'support-token',
+        'pharmacy_rep-token',
         'affiliate_session',
         'affiliate-token',
         'token',

@@ -137,7 +137,7 @@ export default function NewOrderPage() {
       setTimeout(() => {
         router.push('/admin/orders');
       }, 2000);
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(err.message);
     } finally {
       setSubmitting(false);

@@ -14,7 +14,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { logger } from '@/lib/logger';
-import { verifyCronAuth } from '@/lib/cron/tenant-isolation';
+import { verifyCronAuth, runCronPerTenant } from '@/lib/cron/tenant-isolation';
 import {
   processDueRefills,
   autoMatchPaymentForRefill,
@@ -30,9 +30,39 @@ export async function POST(req: NextRequest) {
   return runRefillScheduler(req);
 }
 
-async function runRefillScheduler(req: NextRequest) {
-  const startTime = Date.now();
+async function processRefillsForClinic(clinicId: number) {
+  const { processed, errors } = await processDueRefills();
 
+  let autoMatchedCount = 0;
+  let autoMatchErrors = 0;
+
+  const pendingRefills = await prisma.refillQueue.findMany({
+    where: {
+      status: 'PENDING_PAYMENT',
+      paymentVerified: false,
+    },
+    select: { id: true },
+    take: 100,
+  });
+
+  for (const refill of pendingRefills) {
+    try {
+      const matched = await autoMatchPaymentForRefill(refill.id);
+      if (matched) autoMatchedCount++;
+    } catch (err) {
+      autoMatchErrors++;
+      logger.error('[CRON refill-scheduler] Auto-match failed', {
+        refillId: refill.id,
+        clinicId,
+        error: err instanceof Error ? err.message : 'Unknown',
+      });
+    }
+  }
+
+  return { processed, processErrors: errors.length, autoMatchedCount, autoMatchErrors };
+}
+
+async function runRefillScheduler(req: NextRequest) {
   if (!verifyCronAuth(req)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
@@ -40,64 +70,28 @@ async function runRefillScheduler(req: NextRequest) {
   logger.info('[CRON refill-scheduler] Starting refill scheduler run');
 
   try {
-    // 1. Process due refills (SCHEDULED → PENDING_PAYMENT)
-    const { processed, errors } = await processDueRefills();
-
-    logger.info('[CRON refill-scheduler] Processed due refills', {
-      movedToPendingPayment: processed,
-      errors: errors.length,
+    const { results, totalDurationMs } = await runCronPerTenant({
+      jobName: 'refill-scheduler',
+      perClinic: processRefillsForClinic,
     });
 
-    // 2. Auto-match payments for PENDING_PAYMENT refills in Stripe-enabled clinics
-    let autoMatchedCount = 0;
-    let autoMatchErrors = 0;
-
-    const pendingRefills = await prisma.refillQueue.findMany({
-      where: {
-        status: 'PENDING_PAYMENT',
-        paymentVerified: false,
-      },
-      select: { id: true },
-      take: 100,
-    });
-
-    for (const refill of pendingRefills) {
-      try {
-        const matched = await autoMatchPaymentForRefill(refill.id);
-        if (matched) autoMatchedCount++;
-      } catch (err) {
-        autoMatchErrors++;
-        logger.error('[CRON refill-scheduler] Auto-match failed', {
-          refillId: refill.id,
-          error: err instanceof Error ? err.message : 'Unknown',
-        });
-      }
-    }
-
-    const duration = Date.now() - startTime;
+    const totalProcessed = results.reduce((sum, r) => sum + (r.data?.processed ?? 0), 0);
+    const totalAutoMatched = results.reduce((sum, r) => sum + (r.data?.autoMatchedCount ?? 0), 0);
+    const totalErrors = results.reduce((sum, r) => sum + (r.data?.processErrors ?? 0) + (r.data?.autoMatchErrors ?? 0), 0);
 
     const result = {
       success: true,
-      duration,
-      dueRefillsProcessed: processed,
-      dueRefillErrors: errors,
-      pendingPaymentChecked: pendingRefills.length,
-      autoMatched: autoMatchedCount,
-      autoMatchErrors,
+      duration: totalDurationMs,
+      clinicsProcessed: results.length,
+      dueRefillsProcessed: totalProcessed,
+      autoMatched: totalAutoMatched,
+      totalErrors,
     };
 
     logger.info('[CRON refill-scheduler] Completed', result);
 
     return NextResponse.json(result);
   } catch (error) {
-    const duration = Date.now() - startTime;
-    const message = error instanceof Error ? error.message : 'Unknown error';
-
-    logger.error('[CRON refill-scheduler] Fatal error', {
-      error: message,
-      duration,
-    });
-
     return handleApiError(error, { route: 'GET /api/cron/refill-scheduler' });
   }
 }

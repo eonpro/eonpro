@@ -59,9 +59,12 @@ export const GET = withAuth(
         ];
       }
 
-      // Clinic scope: only users who belong to this clinic (direct clinicId or via UserClinic)
-      if (clinicIdParam) {
-        const clinicId = parseInt(clinicIdParam, 10);
+      // Clinic scope: only super_admin may query a different clinic's users
+      const effectiveClinicIdParam = (clinicIdParam && user.role === 'super_admin')
+        ? clinicIdParam
+        : (user.clinicId ? String(user.clinicId) : clinicIdParam);
+      if (effectiveClinicIdParam) {
+        const clinicId = parseInt(effectiveClinicIdParam, 10);
         if (!isNaN(clinicId)) {
           where.AND = (where.AND || []).concat([
             {
@@ -136,8 +139,7 @@ export const GET = withAuth(
           totalPages: Math.ceil(total / limit),
         },
       });
-    } catch (error: any) {
-      // @ts-ignore
+    } catch (error: unknown) {
 
       logger.error('Error fetching users:', error);
       return NextResponse.json({ error: 'Failed to fetch users' }, { status: 500 });
@@ -272,7 +274,7 @@ export const PUT = withAuth(
         message: 'User updated successfully',
         user: updatedUser,
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error('User update error:', error);
 
       if (error.name === 'ZodError') {
@@ -392,8 +394,7 @@ export const DELETE = withAuth(
           message: 'User suspended successfully',
         });
       }
-    } catch (error: any) {
-      // @ts-ignore
+    } catch (error: unknown) {
 
       logger.error('User deletion error:', error);
       return NextResponse.json({ error: 'Failed to delete user' }, { status: 500 });

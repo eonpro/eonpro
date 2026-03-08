@@ -3,6 +3,7 @@ import { createHmac } from 'crypto';
 import { logger } from '@/lib/logger';
 import { AppError, ApiResponse } from '@/types/common';
 import { Patient, Provider, Order } from '@/types/models';
+import { notifyPatientOnOrderTrackingUpdate } from '@/lib/shipping/tracking-sms';
 
 const SIGNATURE_HEADER = 'x-lifefile-signature';
 
@@ -56,8 +57,7 @@ async function sendAlert(config: WebhookConfig, event: string, detail: Record<st
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ event, ...detail }),
     });
-  } catch (err: any) {
-    // @ts-ignore
+  } catch (err: unknown) {
 
     logger.error('[LIFEFILE WEBHOOK] Failed to notify alert URL', err);
   }
@@ -179,11 +179,17 @@ export async function POST(request: Request) {
     return Response.json({ error: 'Payload missing lifefile order identifiers' }, { status: 400 });
   }
 
-  const order: any = await // @ts-ignore
-  prisma.order.findFirst({
-    where: lifefileOrderId
-      ? { lifefileOrderId: String(lifefileOrderId) }
-      : { referenceId: String(referenceId) },
+  // Scope order lookup by clinic when configured (prevents cross-tenant order access)
+  const webhookClinicId = process.env.LIFEFILE_WEBHOOK_CLINIC_ID
+    ? parseInt(process.env.LIFEFILE_WEBHOOK_CLINIC_ID, 10)
+    : undefined;
+
+  const orderWhere = lifefileOrderId
+    ? { lifefileOrderId: String(lifefileOrderId), ...(webhookClinicId ? { clinicId: webhookClinicId } : {}) }
+    : { referenceId: String(referenceId), ...(webhookClinicId ? { clinicId: webhookClinicId } : {}) };
+
+  const order = await prisma.order.findFirst({
+    where: orderWhere,
   });
 
   if (!order) {
@@ -206,6 +212,17 @@ export async function POST(request: Request) {
   await prisma.order.update({
     where: { id: order.id },
     data: updateData,
+  });
+
+  await notifyPatientOnOrderTrackingUpdate({
+    orderId: order.id,
+    previousTrackingNumber: order.trackingNumber,
+    trackingNumber,
+    carrier:
+      (payload.deliveryService as string | undefined) ||
+      (payload.carrier as string | undefined) ||
+      null,
+    source: 'lifefile-webhook',
   });
 
   await prisma.orderEvent.create({

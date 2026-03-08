@@ -61,6 +61,62 @@ class RedisCache {
     return `${prefix}:${key}`;
   }
 
+  private getTenantKey(clinicId: number, key: string, namespace?: string): string {
+    const prefix = namespace || 'lifefile';
+    return `${prefix}:t${clinicId}:${key}`;
+  }
+
+  /**
+   * Tenant-scoped get — cache key automatically includes clinicId.
+   * Use this instead of raw get() for any tenant-specific data.
+   */
+  async tenantGet<T = unknown>(clinicId: number, key: string, options?: CacheOptions): Promise<T | null> {
+    if (!this.ready || !this.client) return null;
+    try {
+      const fullKey = this.getTenantKey(clinicId, key, options?.namespace);
+      const value = await this.client.get<T>(fullKey);
+      return value ?? null;
+    } catch (error) {
+      logger.error(`[RedisCache] tenantGet error`, { clinicId, key, error: error instanceof Error ? error.message : String(error) });
+      return null;
+    }
+  }
+
+  /**
+   * Tenant-scoped set — cache key automatically includes clinicId.
+   * Use this instead of raw set() for any tenant-specific data.
+   */
+  async tenantSet(clinicId: number, key: string, value: unknown, options?: CacheOptions): Promise<boolean> {
+    if (!this.ready || !this.client) return false;
+    try {
+      const fullKey = this.getTenantKey(clinicId, key, options?.namespace);
+      if (options?.ttl) {
+        await this.client.set(fullKey, JSON.stringify(value), { ex: options.ttl });
+      } else {
+        await this.client.set(fullKey, JSON.stringify(value));
+      }
+      return true;
+    } catch (error) {
+      logger.error(`[RedisCache] tenantSet error`, { clinicId, key, error: error instanceof Error ? error.message : String(error) });
+      return false;
+    }
+  }
+
+  /**
+   * Tenant-scoped delete — cache key automatically includes clinicId.
+   */
+  async tenantDelete(clinicId: number, key: string, options?: CacheOptions): Promise<boolean> {
+    if (!this.ready || !this.client) return false;
+    try {
+      const fullKey = this.getTenantKey(clinicId, key, options?.namespace);
+      const result = await this.client.del(fullKey);
+      return result === 1;
+    } catch (error) {
+      logger.error(`[RedisCache] tenantDelete error`, { clinicId, key, error: error instanceof Error ? error.message : String(error) });
+      return false;
+    }
+  }
+
   async get<T = unknown>(key: string, options?: CacheOptions): Promise<T | null> {
     if (!this.ready || !this.client) return null;
 
@@ -216,25 +272,26 @@ class RedisCache {
 // Singleton instance
 const cache = new RedisCache();
 
-// Cache decorators for common use cases
+/**
+ * @deprecated Do NOT use — this decorator generates cache keys WITHOUT tenant (clinicId) scoping,
+ * which can cause cross-tenant cache poisoning in a multi-tenant environment.
+ * Use FinanceCache, DashboardCache, or manually prefixed cache.get/set with clinicId in the key instead.
+ */
 export function cacheable(ttl: number = 300, namespace?: string) {
   return function (target: any, propertyName: string, descriptor: PropertyDescriptor) {
     const originalMethod = descriptor.value;
 
     descriptor.value = async function (...args: any[]) {
+      logger.warn(`[DEPRECATED] @cacheable used on ${propertyName} — lacks tenant scoping. Migrate to tenant-aware caching.`);
       const cacheKey = `${propertyName}:${JSON.stringify(args)}`;
 
-      // Try to get from cache
       const cachedResult = await cache.get(cacheKey, { namespace });
       if (cachedResult !== null) {
-        logger.debug(`Cache hit for ${propertyName}`);
         return cachedResult;
       }
 
-      // Execute original method
       const result = await originalMethod.apply(this, args);
 
-      // Store in cache
       await cache.set(cacheKey, result, { ttl, namespace });
 
       return result;

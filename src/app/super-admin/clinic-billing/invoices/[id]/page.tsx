@@ -121,7 +121,7 @@ export default function InvoiceDetailPage() {
         router.push('/super-admin/clinic-billing/invoices');
       }
     } catch (error) {
-      console.error('Failed to fetch invoice:', error);
+      process.env.NODE_ENV === 'development' && console.error('Failed to fetch invoice:', error);
     } finally {
       setLoading(false);
     }
@@ -149,7 +149,7 @@ export default function InvoiceDetailPage() {
         alert(error.error || `Failed to ${action.replace('_', ' ')}`);
       }
     } catch (error) {
-      console.error(`Failed to ${action}:`, error);
+      process.env.NODE_ENV === 'development' && console.error(`Failed to ${action}:`, error);
       alert(`Failed to ${action.replace('_', ' ')}`);
     } finally {
       setActionLoading(null);
@@ -176,7 +176,7 @@ export default function InvoiceDetailPage() {
         alert(error.error || 'Failed to delete invoice');
       }
     } catch (error) {
-      console.error('Failed to delete invoice:', error);
+      process.env.NODE_ENV === 'development' && console.error('Failed to delete invoice:', error);
       alert('Failed to delete invoice');
     } finally {
       setActionLoading(null);

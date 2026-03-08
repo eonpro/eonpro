@@ -178,7 +178,7 @@ export default function BeccaAIScribe({
           mediaRecorderRef.current.start();
         }
       }, 10000); // Every 10 seconds
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(err.message || 'Failed to start recording');
       console.error('Recording error:', err);
     }
@@ -215,7 +215,7 @@ export default function BeccaAIScribe({
       if (data.segments && data.segments.length > 0) {
         setSegments((prev) => [...prev, ...data.segments]);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Chunk processing error:', err);
       // Don't set error state for chunk failures - just log
     } finally {
@@ -287,7 +287,7 @@ export default function BeccaAIScribe({
       if (onSOAPGenerated) {
         onSOAPGenerated(data.soapNote);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(err.message || 'Failed to generate SOAP note');
     } finally {
       setIsGeneratingSOAP(false);

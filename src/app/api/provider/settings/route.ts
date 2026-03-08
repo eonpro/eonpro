@@ -120,8 +120,8 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       activeClinicId: userData.clinicId,
       hasMultipleClinics: clinics.length > 1,
     });
-  } catch (error: any) {
-    logger.error('Error fetching provider settings', { error: error.message, userId: user.id });
+  } catch (error: unknown) {
+    logger.error('Error fetching provider settings', { error: error instanceof Error ? error.message : String(error), userId: user.id });
     return NextResponse.json({ error: 'Failed to fetch settings' }, { status: 500 });
   }
 }
@@ -331,14 +331,14 @@ async function handlePut(req: NextRequest, user: AuthUser) {
       success: true,
       message: 'Settings updated successfully',
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('Error updating provider settings', {
-      error: error.message,
+      error: error instanceof Error ? error.message : String(error),
       userId: user.id,
       code: error.code,
     });
     return NextResponse.json(
-      { error: `Failed to update settings: ${error.message}` },
+      { error: `Failed to update settings: ${error instanceof Error ? error.message : String(error)}` },
       { status: 500 }
     );
   }

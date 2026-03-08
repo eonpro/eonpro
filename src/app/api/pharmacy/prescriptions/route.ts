@@ -78,7 +78,7 @@ export const GET = withProviderAuth(async (req: NextRequest) => {
       prescriptions: formattedPrescriptions,
       total: formattedPrescriptions.length,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     return NextResponse.json({ error: 'Failed to fetch prescriptions' }, { status: 500 });
   }
 });

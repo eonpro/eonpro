@@ -89,7 +89,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
     });
 
     return NextResponse.json({ discountCodes });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('[Discounts API] Error:', error);
     return NextResponse.json({ error: 'Failed to fetch discount codes' }, { status: 500 });
   }
@@ -155,7 +155,7 @@ async function handlePost(req: NextRequest, user: AuthUser) {
 
         const stripeCoupon = await stripe.coupons.create(couponParams);
         stripeCouponId = stripeCoupon.id;
-      } catch (stripeError: any) {
+      } catch (stripeError: unknown) {
         logger.warn('[Discounts API] Stripe coupon creation failed:', stripeError.message);
       }
     }
@@ -191,7 +191,7 @@ async function handlePost(req: NextRequest, user: AuthUser) {
     logger.info('[Discounts API] Created discount code', { code: validated.code, clinicId });
 
     return NextResponse.json({ discountCode });
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
         { error: 'Validation error', details: error.errors },

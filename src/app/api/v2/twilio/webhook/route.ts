@@ -32,8 +32,7 @@ async function validateTwilioWebhook(
     // Dynamically import twilio only on the server side
     const { default: twilio } = await import('twilio');
     return twilio.validateRequest(authToken, signature, url, params);
-  } catch (error: any) {
-    // @ts-ignore
+  } catch (error: unknown) {
 
     logger.error('[TWILIO_WEBHOOK] Failed to validate signature:', error);
     return false;
@@ -247,7 +246,7 @@ export async function POST(req: NextRequest) {
               });
             });
           }
-        } catch (chatError: any) {
+        } catch (chatError: unknown) {
           logger.error('[TWILIO_WEBHOOK] Failed to create PatientChatMessage', {
             error: chatError.message,
             patientId: resolvedPatientId,
@@ -264,7 +263,7 @@ export async function POST(req: NextRequest) {
         messageSid,
         patientId: resolvedPatientId,
       });
-    } catch (dbError: any) {
+    } catch (dbError: unknown) {
       logger.warn('[TWILIO_WEBHOOK] Failed to save incoming SMS to DB', {
         error: dbError.message,
       });
@@ -285,8 +284,7 @@ export async function POST(req: NextRequest) {
         'Content-Type': 'text/xml',
       },
     });
-  } catch (error: any) {
-    // @ts-ignore
+  } catch (error: unknown) {
 
     logger.error('[TWILIO_WEBHOOK_ERROR]', error);
 

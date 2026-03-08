@@ -99,20 +99,25 @@ type RefillWithRelations = RefillQueue & {
  * Get list of patients in the prescription processing queue
  *
  * Query params:
- * - limit: number of records (default 50)
+ * - limit: number of records (default 100, max 200)
  * - offset: pagination offset (default 0)
  */
 async function handleGet(req: NextRequest, user: AuthUser) {
   try {
     const { searchParams } = new URL(req.url);
-    const limit = parseInt(searchParams.get('limit') || '500', 10);
-    const offset = parseInt(searchParams.get('offset') || '0', 10);
+    const requestedLimit = Number.parseInt(searchParams.get('limit') || '100', 10);
+    const requestedOffset = Number.parseInt(searchParams.get('offset') || '0', 10);
+    const limit = Number.isFinite(requestedLimit) ? Math.min(Math.max(requestedLimit, 1), 200) : 100;
+    const offset = Number.isFinite(requestedOffset) ? Math.max(requestedOffset, 0) : 0;
 
     logger.info('[PRESCRIPTION-QUEUE] GET request', {
       userId: user.id,
       userEmail: user.email,
       providerId: user.providerId,
       clinicId: user.clinicId,
+      requestedLimit: searchParams.get('limit'),
+      effectiveLimit: limit,
+      offset,
     });
 
     // Use the current session's clinic context — providers must only see
@@ -880,7 +885,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
           },
           orderBy: { createdAt: 'desc' },
           distinct: ['patientId'],
-          take: 500,
+          take: allPatientIds.length,
           select: {
             id: true,
             patientId: true,
@@ -926,7 +931,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
           },
           orderBy: { createdAt: 'desc' },
           distinct: ['patientId'],
-          take: 500,
+          take: allPatientIds.length,
           select: {
             patientId: true,
             data: true,
@@ -1629,7 +1634,7 @@ async function handlePatch(req: NextRequest, user: AuthUser) {
           `UPDATE "Invoice" SET "prescriptionHoldReason" = $1, "prescriptionHeldAt" = NOW(), "prescriptionHeldBy" = $2 WHERE id = $3`,
           reason.trim(), providerId ?? user.id, invoiceId
         );
-      } catch (sqlErr: any) {
+      } catch (sqlErr: unknown) {
         logger.warn('[PRESCRIPTION-QUEUE] Hold columns missing - run migration 20260228120000', { error: sqlErr?.message?.substring(0, 100) });
         return NextResponse.json({ error: 'Hold feature requires a database migration. Please contact your administrator.' }, { status: 503 });
       }
@@ -1686,7 +1691,7 @@ async function handlePatch(req: NextRequest, user: AuthUser) {
           `UPDATE "Invoice" SET "prescriptionHoldReason" = NULL, "prescriptionHeldAt" = NULL, "prescriptionHeldBy" = NULL WHERE id = $1`,
           invoiceId
         );
-      } catch (sqlErr: any) {
+      } catch (sqlErr: unknown) {
         logger.warn('[PRESCRIPTION-QUEUE] Hold columns missing - run migration 20260228120000', { error: sqlErr?.message?.substring(0, 100) });
         return NextResponse.json({ error: 'Hold feature requires a database migration. Please contact your administrator.' }, { status: 503 });
       }

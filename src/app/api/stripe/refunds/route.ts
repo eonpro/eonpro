@@ -341,7 +341,7 @@ async function createRefundHandler(request: NextRequest, user: AuthUser) {
                 }
               }
             }
-          } catch (lookupError: any) {
+          } catch (lookupError: unknown) {
             logger.error('[Refunds] Failed to lookup charges', { error: lookupError.message });
           }
 
@@ -424,7 +424,7 @@ async function createRefundHandler(request: NextRequest, user: AuthUser) {
             },
           });
         }, { timeout: 15000 });
-      } catch (dbError: any) {
+      } catch (dbError: unknown) {
         // Log DB error but don't fail - the Stripe refund already succeeded
         logger.error('[Refunds] Database update failed after successful Stripe refund', {
           error: dbError.message,
@@ -454,7 +454,7 @@ async function createRefundHandler(request: NextRequest, user: AuthUser) {
         },
         dbUpdateSuccess, // Let frontend know if DB update failed
       });
-    } catch (stripeError: any) {
+    } catch (stripeError: unknown) {
       logger.error('[Refunds] Stripe error:', stripeError);
 
       return NextResponse.json(
@@ -465,7 +465,7 @@ async function createRefundHandler(request: NextRequest, user: AuthUser) {
         { status: 500 }
       );
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('[Refunds] Error processing refund:', error);
 
     if (error instanceof z.ZodError) {
@@ -476,7 +476,7 @@ async function createRefundHandler(request: NextRequest, user: AuthUser) {
     }
 
     return NextResponse.json(
-      { error: error.message || 'Failed to process refund' },
+      { error: error instanceof Error ? error.message : String(error) || 'Failed to process refund' },
       { status: 500 }
     );
   }
@@ -542,11 +542,11 @@ async function getRefundsHandler(request: NextRequest, user: AuthUser) {
         })
       ),
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('[Refunds] Error fetching refunds:', error);
 
     return NextResponse.json(
-      { error: error.message || 'Failed to fetch refunds' },
+      { error: error instanceof Error ? error.message : String(error) || 'Failed to fetch refunds' },
       { status: 500 }
     );
   }

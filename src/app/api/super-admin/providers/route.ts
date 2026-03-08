@@ -173,10 +173,10 @@ export const GET = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) =
         totalPages: Math.ceil(totalCount / limit),
       },
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('[SUPER-ADMIN/PROVIDERS] Error fetching providers:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch providers', details: error.message },
+      { error: 'Failed to fetch providers', details: error instanceof Error ? error.message : String(error) },
       { status: 500 }
     );
   }
@@ -251,23 +251,23 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) 
       provider,
       message: 'Provider created successfully',
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('[SUPER-ADMIN/PROVIDERS] Error creating provider:', error);
 
     // Handle specific error types
     if (error.code === 'CONFLICT') {
       return NextResponse.json(
-        { error: error.message || 'NPI already registered' },
+        { error: error instanceof Error ? error.message : String(error) || 'NPI already registered' },
         { status: 409 }
       );
     }
 
     if (error.code === 'VALIDATION_ERROR') {
-      return NextResponse.json({ error: error.message, details: error.details }, { status: 400 });
+      return NextResponse.json({ error: error instanceof Error ? error.message : String(error), details: error.details }, { status: 400 });
     }
 
     return NextResponse.json(
-      { error: error.message || 'Failed to create provider' },
+      { error: error instanceof Error ? error.message : String(error) || 'Failed to create provider' },
       { status: 500 }
     );
   }

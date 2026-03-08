@@ -123,9 +123,8 @@ class WebSocketService {
         (socket as any).user = user;
 
         next();
-      } catch (error: any) {
-        // @ts-ignore
-
+      } catch (error: unknown) {
+        
         logger.error('WebSocket authentication error:', error);
         next(new Error('Authentication failed'));
       }
@@ -283,9 +282,8 @@ class WebSocketService {
           message: 'Invalid token',
         });
       }
-    } catch (error: any) {
-      // @ts-ignore
-
+    } catch (error: unknown) {
+      
       logger.error('Authentication error:', error);
       socket.emit(EventType.UNAUTHORIZED, {
         message: 'Authentication failed',

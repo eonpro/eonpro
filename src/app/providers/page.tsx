@@ -257,7 +257,7 @@ export default function ProvidersPage() {
       }
 
       setClinics([]);
-    } catch (err: any) {
+    } catch (err: unknown) {
       logger.error('Failed to fetch clinics:', err);
       setClinics([]);
     }
@@ -270,7 +270,7 @@ export default function ProvidersPage() {
       const res = await apiFetch('/api/providers');
       const data = await res.json();
       setProviders(data.providers ?? []);
-    } catch (err: any) {
+    } catch (err: unknown) {
       logger.error(err);
       setError('Failed to load providers');
     } finally {
@@ -341,7 +341,7 @@ export default function ProvidersPage() {
       setStep(2);
       setSuccess('NPI verified successfully! Provider information loaded from NPPES.');
       setTimeout(() => setSuccess(null), 3000);
-    } catch (err: any) {
+    } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
       setError(errorMessage ?? 'Failed to lookup NPI');
     } finally {
@@ -389,7 +389,7 @@ export default function ProvidersPage() {
       setSuccess('Provider added successfully!');
       resetForm();
       fetchProviders();
-    } catch (err: any) {
+    } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
       setError(errorMessage ?? 'Failed to add provider');
     } finally {

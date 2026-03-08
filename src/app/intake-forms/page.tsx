@@ -183,7 +183,7 @@ export default function IntakeFormsPage() {
       const data = await res.json();
       setTemplates(data.templates || []);
       setError(null);
-    } catch (err: any) {
+    } catch (err: unknown) {
       logger.error('Failed to fetch templates', err);
       showNotification('error', err.message || 'Failed to load intake forms');
       setTemplates([]);
@@ -304,7 +304,7 @@ export default function IntakeFormsPage() {
       // Close modal and refresh
       setActiveModal(null);
       await fetchTemplates();
-    } catch (err: any) {
+    } catch (err: unknown) {
       logger.error('Failed to create form', err);
       showNotification('error', err.message || 'Failed to create form');
     } finally {
@@ -356,7 +356,7 @@ export default function IntakeFormsPage() {
         sendMethod: 'email',
       });
       setActiveModal(null);
-    } catch (err: any) {
+    } catch (err: unknown) {
       logger.error('Failed to send link', err);
       showNotification('error', err.message || 'Failed to send link');
     } finally {

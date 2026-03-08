@@ -102,6 +102,7 @@ export const GET = withAuth(
 
       // Get all webhooks
       const webhooks = await prisma.webhookConfig.findMany({
+        take: 200,
         include: {
           integration: {
             select: {
@@ -260,8 +261,7 @@ export const POST = withAuth(
         if (!response.ok) {
           logger.warn(`Webhook test failed for ${validated.url}: ${response.status}`);
         }
-      } catch (error: any) {
-        // @ts-ignore
+      } catch (error: unknown) {
 
         logger.error(`Webhook test failed for ${validated.url}:`, error);
 

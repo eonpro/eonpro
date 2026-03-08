@@ -247,7 +247,7 @@ export const GET = withAuthParams(
               'X-Frame-Options': 'DENY',
             },
           });
-        } catch (error: any) {
+        } catch (error: unknown) {
           logger.error('Error retrieving from external storage:', {
             error: error.message,
             externalUrl: document.externalUrl,
@@ -280,7 +280,7 @@ export const GET = withAuthParams(
         },
         { status: 404 }
       );
-    } catch (error: any) {
+    } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       logger.error('Error serving document:', error);
       return NextResponse.json(
@@ -363,7 +363,7 @@ export const DELETE = withAuthParams(
           } else {
             await deleteFile(document.externalUrl, patientId);
           }
-        } catch (error: any) {
+        } catch (error: unknown) {
           logger.error('Error deleting file from storage:', error);
           // Continue even if file deletion fails
         }
@@ -375,7 +375,7 @@ export const DELETE = withAuthParams(
       });
 
       return NextResponse.json({ success: true });
-    } catch (error: any) {
+    } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       logger.error('Error deleting document:', error);
       return NextResponse.json(

@@ -124,8 +124,7 @@ export const POST = withProviderAuth(async (req: NextRequest, user) => {
           `,
         });
         emailSent = true;
-      } catch (error: any) {
-        // @ts-ignore
+      } catch (error: unknown) {
 
         logger.error('Error sending email:', error);
         errors.push('Failed to send email');
@@ -144,10 +143,8 @@ export const POST = withProviderAuth(async (req: NextRequest, user) => {
           message: smsMessage
         });
         smsSent = true;
-      } catch (error: any) {
-    // @ts-ignore
-   
-        logger.error('Error sending SMS:', error);
+      } catch (error: unknown) {
+        logger.error('Error sending SMS:', error instanceof Error ? error : undefined);
         errors.push('Failed to send SMS');
       }
       */
@@ -179,8 +176,7 @@ export const POST = withProviderAuth(async (req: NextRequest, user) => {
         errors: errors.length > 0 ? errors : undefined,
       },
     });
-  } catch (error: any) {
-    // @ts-ignore
+  } catch (error: unknown) {
 
     logger.error('Error sending intake form:', error);
     return NextResponse.json({ error: 'Failed to send intake form' }, { status: 500 });

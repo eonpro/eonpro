@@ -59,7 +59,7 @@ export default function AccountPage() {
           setData(accountData);
         }
       } catch (error) {
-        console.error('Failed to fetch account:', error);
+        process.env.NODE_ENV === 'development' && console.error('Failed to fetch account:', error);
       } finally {
         setIsLoading(false);
       }
@@ -157,7 +157,7 @@ export default function AccountPage() {
         alert(data.error || 'Failed to update preference');
       }
     } catch (error) {
-      console.error('Failed to update preference:', error);
+      process.env.NODE_ENV === 'development' && console.error('Failed to update preference:', error);
       alert('Failed to update preference. Please try again.');
     } finally {
       setIsSavingPreferences(false);
@@ -176,7 +176,7 @@ export default function AccountPage() {
         setLeaderboardOptIn(!leaderboardOptIn);
       }
     } catch (error) {
-      console.error('Failed to update leaderboard opt-in:', error);
+      process.env.NODE_ENV === 'development' && console.error('Failed to update leaderboard opt-in:', error);
     } finally {
       setIsSavingLeaderboard(false);
     }
@@ -195,7 +195,7 @@ export default function AccountPage() {
         alert(data.error || 'Failed to save alias');
       }
     } catch (error) {
-      console.error('Failed to update leaderboard alias:', error);
+      process.env.NODE_ENV === 'development' && console.error('Failed to update leaderboard alias:', error);
     } finally {
       setIsSavingLeaderboard(false);
     }

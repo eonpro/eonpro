@@ -59,7 +59,7 @@ export default function AffiliateActivityPage() {
           setActivities(data.recentActivity || []);
         }
       } catch (error) {
-        console.error('Failed to fetch activity:', error);
+        process.env.NODE_ENV === 'development' && console.error('Failed to fetch activity:', error);
       } finally {
         setIsLoading(false);
       }

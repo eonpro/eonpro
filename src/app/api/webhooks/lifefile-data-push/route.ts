@@ -22,6 +22,7 @@ import {
   sanitizeEventType,
   MAX_WEBHOOK_BODY_BYTES,
 } from '@/lib/webhooks/lifefile-payload';
+import { notifyPatientOnOrderTrackingUpdate } from '@/lib/shipping/tracking-sms';
 
 /**
  * Safely decrypt a PHI field
@@ -106,16 +107,14 @@ async function findClinicByCredentials(authHeader: string | null): Promise<{
 
       try {
         decryptedPassword = decrypt(clinic.lifefileInboundPassword);
-        logger.info(
-          `[LIFEFILE DATA PUSH] Decrypted password for ${clinic.name}: length=${decryptedPassword?.length}`
-        );
-      } catch (e: any) {
-        logger.error(`[LIFEFILE DATA PUSH] Decryption failed for ${clinic.name}:`, e.message);
+        logger.info('[LIFEFILE DATA PUSH] Decrypted password', { clinicId: clinic.id, length: decryptedPassword?.length });
+      } catch (e: unknown) {
+        logger.error('[LIFEFILE DATA PUSH] Decryption failed', { clinicId: clinic.id, error: e.message });
         continue;
       }
 
       if (decryptedPassword && providedPassword === decryptedPassword) {
-        logger.info(`[LIFEFILE DATA PUSH] Authenticated as clinic: ${clinic.name}`);
+        logger.info('[LIFEFILE DATA PUSH] Authenticated', { clinicId: clinic.id });
         return { clinic, authenticated: true };
       }
     }
@@ -141,7 +140,7 @@ async function parseXmlPayload(xmlData: string): Promise<any> {
 
   try {
     return await parser.parseStringPromise(xmlData);
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('[LIFEFILE DATA PUSH] XML parsing error:', error);
     throw new Error('Invalid XML format');
   }
@@ -242,6 +241,17 @@ async function processOrderStatus(clinicId: number, data: any) {
       await prisma.order.update({
         where: { id: order.id },
         data: updateData,
+      });
+
+      await notifyPatientOnOrderTrackingUpdate({
+        orderId: order.id,
+        previousTrackingNumber: order.trackingNumber,
+        trackingNumber,
+        carrier:
+          (orderData.deliveryService as string | undefined) ||
+          (orderData.carrier as string | undefined) ||
+          null,
+        source: 'lifefile-data-push:order_status',
       });
 
       const orderEventNote = `Status: ${status ?? ''}${shippingStatus ? `, Shipping: ${String(shippingStatus).slice(0, 64)}` : ''}`;

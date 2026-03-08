@@ -6,13 +6,28 @@ import { prisma } from '@/lib/db';
  * DoseSpot Webhook Handler
  *
  * Receives notifications from DoseSpot (e.g., prescription status changes).
- * No auth wrapper -- uses its own verification.
+ * Verifies the Subscription-Key header against the configured key.
  * Feature-flagged: returns 404 if DoseSpot is globally disabled.
  */
 export async function POST(req: NextRequest) {
   try {
     if (process.env.NEXT_PUBLIC_ENABLE_DOSSPOT_EPRESCRIBING !== 'true') {
       return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    }
+
+    const expectedKey = process.env.DOSESPOT_SUBSCRIPTION_KEY;
+    if (expectedKey) {
+      const providedKey =
+        req.headers.get('subscription-key') ||
+        req.headers.get('x-subscription-key') ||
+        req.headers.get('x-api-key');
+      if (!providedKey || providedKey !== expectedKey) {
+        logger.warn('[DOSESPOT WEBHOOK] Invalid or missing Subscription-Key');
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      }
+    } else if (process.env.NODE_ENV === 'production') {
+      logger.error('[DOSESPOT WEBHOOK] DOSESPOT_SUBSCRIPTION_KEY not configured — rejecting in production');
+      return NextResponse.json({ error: 'Webhook not configured' }, { status: 503 });
     }
 
     const payload = await req.json();

@@ -79,10 +79,10 @@ export const GET = withSuperAdminAuth(
       }
 
       return NextResponse.json({ inviteCode });
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error('[SUPER-ADMIN/INVITE-CODES] Error getting invite code:', error);
       return NextResponse.json(
-        { error: 'Failed to get invite code', details: error.message },
+        { error: 'Failed to get invite code', details: error instanceof Error ? error.message : String(error) },
         { status: 500 }
       );
     }
@@ -165,10 +165,10 @@ export const PATCH = withSuperAdminAuth(
         message: 'Invite code updated successfully',
         inviteCode: updated,
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error('[SUPER-ADMIN/INVITE-CODES] Error updating invite code:', error);
       return NextResponse.json(
-        { error: 'Failed to update invite code', details: error.message },
+        { error: 'Failed to update invite code', details: error instanceof Error ? error.message : String(error) },
         { status: 500 }
       );
     }
@@ -222,10 +222,10 @@ export const DELETE = withSuperAdminAuth(
         message: 'Invite code deleted successfully',
         deletedCode: existing.code,
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error('[SUPER-ADMIN/INVITE-CODES] Error deleting invite code:', error);
       return NextResponse.json(
-        { error: 'Failed to delete invite code', details: error.message },
+        { error: 'Failed to delete invite code', details: error instanceof Error ? error.message : String(error) },
         { status: 500 }
       );
     }

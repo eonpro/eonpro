@@ -167,6 +167,7 @@ export const GET = withAuth(
       'staff',
       'support',
       'sales_rep',
+      'pharmacy_rep',
     ],
   }
 );

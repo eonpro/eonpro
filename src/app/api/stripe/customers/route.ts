@@ -100,7 +100,7 @@ async function getCustomersHandler(request: NextRequest, user: AuthUser) {
             // Charges might fail for some customers
             logger.warn('[STRIPE CUSTOMERS] Failed to fetch charges for customer', {
               customerId: customer.id,
-              error: error instanceof Error ? error.message : 'Unknown error',
+              error: error instanceof Error ? error instanceof Error ? error.message : String(error) : 'Unknown error',
             });
           }
         }
@@ -150,7 +150,7 @@ async function getCustomersHandler(request: NextRequest, user: AuthUser) {
             // Subscriptions might fail
             logger.warn('[STRIPE CUSTOMERS] Failed to fetch subscriptions for customer', {
               customerId: customer.id,
-              error: error instanceof Error ? error.message : 'Unknown error',
+              error: error instanceof Error ? error instanceof Error ? error.message : String(error) : 'Unknown error',
             });
           }
         }
@@ -257,11 +257,11 @@ async function getCustomersHandler(request: NextRequest, user: AuthUser) {
       },
       timestamp: new Date().toISOString(),
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('[STRIPE CUSTOMERS] Error:', error);
 
     return NextResponse.json(
-      { error: error.message || 'Failed to fetch customers' },
+      { error: error instanceof Error ? error.message : String(error) || 'Failed to fetch customers' },
       { status: 500 }
     );
   }

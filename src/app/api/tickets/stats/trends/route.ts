@@ -13,7 +13,11 @@ import { handleApiError } from '@/domains/shared/errors';
 export const GET = withAuth(async (request, user) => {
   try {
     const { searchParams } = new URL(request.url);
-    const clinicId = parseInt(searchParams.get('clinicId') || String(user.clinicId || ''), 10);
+    const clinicIdParam = searchParams.get('clinicId');
+    const clinicId = parseInt(
+      (clinicIdParam && user.role === 'super_admin') ? clinicIdParam : String(user.clinicId || ''),
+      10
+    );
     const days = Math.min(parseInt(searchParams.get('days') || '30', 10), 90);
 
     if (!clinicId) {

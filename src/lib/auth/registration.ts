@@ -384,7 +384,6 @@ export async function registerPatient(
 
         logger.info('Linked portal registration to existing intake patient', {
           patientId: patient.id,
-          email: normalizedEmail,
           clinicId: inviteCode.clinicId,
         });
       } else {
@@ -395,16 +394,20 @@ export async function registerPatient(
           email: normalizedEmail,
           phone: normalizedPhone,
         });
+        const { encryptPatientPHI } = await import('@/lib/security/phi-encryption');
+        const phiData = encryptPatientPHI({
+          firstName: firstName.trim(),
+          lastName: lastName.trim(),
+          email: normalizedEmail,
+          phone: normalizedPhone,
+          dob: normalizedDOB,
+        });
         patient = await tx.patient.create({
           data: {
             clinicId: inviteCode.clinicId,
-            firstName: firstName.trim(),
-            lastName: lastName.trim(),
-            email: normalizedEmail,
-            phone: normalizedPhone,
-            dob: normalizedDOB,
-            gender: 'other', // Will be updated in profile completion
-            address1: '', // Will be updated in profile completion
+            ...phiData,
+            gender: 'other',
+            address1: '',
             city: '',
             state: '',
             zip: '',
@@ -472,7 +475,7 @@ export async function registerPatient(
         patientId: result.patient.id,
         email: normalizedEmail,
       });
-    } catch (emailError: any) {
+    } catch (emailError: unknown) {
       // Log error but don't fail registration
       logger.error('Failed to send welcome email', {
         userId: result.user.id,
@@ -498,8 +501,8 @@ export async function registerPatient(
       userId: result.user.id,
       patientId: result.patient.id,
     };
-  } catch (error: any) {
-    logger.error('Patient registration failed', { error: error.message });
+  } catch (error: unknown) {
+    logger.error('Patient registration failed', { error: error instanceof Error ? error.message : String(error) });
     return {
       success: false,
       error: 'Registration failed. Please try again.',
@@ -636,7 +639,7 @@ export async function registerWithInviteToken(
           clinicName: clinic?.name || 'Your Clinic',
         },
       });
-    } catch (emailError: any) {
+    } catch (emailError: unknown) {
       logger.error('Failed to send welcome email after invite registration', {
         userId: result.user.id,
         error: emailError.message,
@@ -659,8 +662,8 @@ export async function registerWithInviteToken(
       patientId: invite.patientId,
       needsProfileCompletion,
     };
-  } catch (error: any) {
-    logger.error('Register with invite failed', { error: error.message });
+  } catch (error: unknown) {
+    logger.error('Register with invite failed', { error: error instanceof Error ? error.message : String(error) });
     return { success: false, error: 'Registration failed. Please try again.' };
   }
   }); // end withoutClinicFilter
@@ -731,8 +734,8 @@ export async function verifyEmail(token: string): Promise<RegistrationResult> {
       message: 'Email verified successfully. You can now log in.',
       userId: verificationRecord.userId,
     };
-  } catch (error: any) {
-    logger.error('Email verification failed', { error: error.message });
+  } catch (error: unknown) {
+    logger.error('Email verification failed', { error: error instanceof Error ? error.message : String(error) });
     return { success: false, error: 'Verification failed. Please try again.' };
   }
   }); // end withoutClinicFilter
@@ -804,8 +807,8 @@ export async function resendVerificationEmail(email: string): Promise<Registrati
     logger.info('Verification email resent', { userId: user.id, email: normalizedEmail });
 
     return { success: true, message: 'Verification email sent. Please check your inbox.' };
-  } catch (error: any) {
-    logger.error('Failed to resend verification email', { error: error.message, email });
+  } catch (error: unknown) {
+    logger.error('Failed to resend verification email', { error: error instanceof Error ? error.message : String(error), email });
     return { success: false, error: 'Failed to send email. Please try again.' };
   }
   }); // end withoutClinicFilter

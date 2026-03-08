@@ -126,6 +126,7 @@ export const AccessibleTextInput = forwardRef<HTMLInputElement, TextInputProps>(
               *
             </span>
           )}
+          {required && <span className="sr-only">(required)</span>}
         </label>
         <input
           ref={ref}

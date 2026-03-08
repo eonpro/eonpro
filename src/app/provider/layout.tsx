@@ -89,7 +89,7 @@ function ProviderLayoutInner({ children }: { children: React.ReactNode }) {
         setRxQueueCount(data.count || 0);
       }
     } catch (err) {
-      console.error('Error fetching queue count:', err);
+      process.env.NODE_ENV === 'development' && console.error('Error fetching queue count:', err);
     }
   }, []);
 

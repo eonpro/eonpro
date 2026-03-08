@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
         },
         mock: false,
       });
-    } catch (stripeError: any) {
+    } catch (stripeError: unknown) {
       const errorMessage = stripeError instanceof Error ? stripeError.message : 'Unknown error';
       // If subscription doesn't exist, treat as success (idempotent)
       if (stripeError.code === 'resource_missing') {
@@ -91,8 +91,7 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
-  } catch (error: any) {
-    // @ts-ignore
+  } catch (error: unknown) {
 
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('[STRIPE_TEST] Error:', error);

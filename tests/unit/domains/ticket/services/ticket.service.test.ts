@@ -61,6 +61,8 @@ vi.mock('@/lib/logger', () => ({
     warn: vi.fn(),
     error: vi.fn(),
     debug: vi.fn(),
+    security: vi.fn(),
+    requestSummary: vi.fn(),
   },
 }));
 

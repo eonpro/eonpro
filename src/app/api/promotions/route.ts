@@ -78,7 +78,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
     });
 
     return NextResponse.json({ promotions });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('[Promotions API] Error:', error);
     return NextResponse.json({ error: 'Failed to fetch promotions' }, { status: 500 });
   }
@@ -126,7 +126,7 @@ async function handlePost(req: NextRequest, user: AuthUser) {
     logger.info('[Promotions API] Created promotion', { name: validated.name, clinicId });
 
     return NextResponse.json({ promotion });
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
         { error: 'Validation error', details: error.errors },

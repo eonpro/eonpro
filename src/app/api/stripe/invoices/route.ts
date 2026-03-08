@@ -290,7 +290,7 @@ async function createInvoiceHandler(request: NextRequest, user: AuthUser) {
               },
             });
           }
-        } catch (itemError: any) {
+        } catch (itemError: unknown) {
           logger.warn('[API] Could not create InvoiceItem records (demo mode):', itemError.message);
         }
 
@@ -312,7 +312,7 @@ async function createInvoiceHandler(request: NextRequest, user: AuthUser) {
                 },
               },
             });
-          } catch (paymentError: any) {
+          } catch (paymentError: unknown) {
             logger.warn('[API] Could not create Payment record (demo mode):', paymentError.message);
           }
         }
@@ -396,7 +396,7 @@ async function createInvoiceHandler(request: NextRequest, user: AuthUser) {
                   },
                 });
               }
-            } catch (itemError: any) {
+            } catch (itemError: unknown) {
               logger.warn('[API] Could not create InvoiceItem records:', itemError.message);
             }
 
@@ -417,7 +417,7 @@ async function createInvoiceHandler(request: NextRequest, user: AuthUser) {
                   },
                 },
               });
-            } catch (paymentError: any) {
+            } catch (paymentError: unknown) {
               logger.warn('[API] Could not create Payment record:', paymentError.message);
             }
 
@@ -484,7 +484,7 @@ async function createInvoiceHandler(request: NextRequest, user: AuthUser) {
               },
             });
           }
-        } catch (itemError: any) {
+        } catch (itemError: unknown) {
           // InvoiceItem table might not exist - not critical for invoice creation
           logger.warn('[API] Could not create InvoiceItem records:', itemError.message);
         }
@@ -504,7 +504,7 @@ async function createInvoiceHandler(request: NextRequest, user: AuthUser) {
         stripeInvoiceUrl: result.stripeInvoice.hosted_invoice_url,
         willCreateSubscription: createSubscription,
       });
-    } catch (stripeError: any) {
+    } catch (stripeError: unknown) {
       logger.error('[API] Stripe service error:', {
         message: stripeError.message,
         code: stripeError.code,
@@ -703,7 +703,7 @@ async function getInvoicesHandler(request: NextRequest, user: AuthUser) {
       count: fullData?.length || 0,
       timestamp: new Date().toISOString(),
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     // Log and return detailed error
     const errorInfo = {
       error: 'Failed to fetch invoices',

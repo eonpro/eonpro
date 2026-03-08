@@ -377,11 +377,21 @@ export default function AppointmentsPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div
-          className="h-12 w-12 animate-spin rounded-full border-2 border-t-transparent"
-          style={{ borderColor: `${primaryColor} transparent ${primaryColor} ${primaryColor}` }}
-        />
+      <div className="min-h-[100dvh] px-4 py-6">
+        <div className="mb-6 flex items-start justify-between">
+          <div className="space-y-2">
+            <div className="h-9 w-48 animate-pulse rounded bg-gray-200" />
+            <div className="h-5 w-56 animate-pulse rounded bg-gray-100" />
+          </div>
+          <div className="h-12 w-40 animate-pulse rounded-2xl bg-gray-200" />
+        </div>
+
+        <div className="mb-6 h-14 animate-pulse rounded-2xl bg-gray-100" />
+
+        <div className="space-y-4">
+          <div className="h-44 animate-pulse rounded-3xl bg-white shadow-xl shadow-gray-200/50" />
+          <div className="h-44 animate-pulse rounded-3xl bg-white shadow-xl shadow-gray-200/50" />
+        </div>
       </div>
     );
   }

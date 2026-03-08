@@ -34,8 +34,7 @@ export async function POST(request: NextRequest) {
         verified: true, // In sandbox mode, only verified emails can receive
       },
     });
-  } catch (error: any) {
-    // @ts-ignore
+  } catch (error: unknown) {
 
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('[SES Validate] Error:', error);

@@ -64,8 +64,7 @@ export async function GET(request: NextRequest) {
         'Cache-Control': 'private, max-age=3600',
       },
     });
-  } catch (error: any) {
-    // @ts-ignore
+  } catch (error: unknown) {
 
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('[S3 Download] Error:', error);

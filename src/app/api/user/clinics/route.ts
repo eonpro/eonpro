@@ -1,6 +1,6 @@
 // API route for user's clinic management
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/db';
+import { basePrisma as prisma } from '@/lib/db';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
 
@@ -12,6 +12,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       where: { id: user.id },
       select: {
         clinicId: true,
+        activeClinicId: true,
         clinic: {
           select: {
             id: true,
@@ -90,14 +91,23 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       // UserClinic table might not exist, that's ok
     }
 
-    const activeClinicId = userData?.clinicId || clinics[0]?.id;
+    const selectedClinicCookie = req.cookies.get('selected-clinic')?.value;
+    const selectedClinicId = selectedClinicCookie ? parseInt(selectedClinicCookie, 10) : NaN;
+    const hasSelectedClinicAccess =
+      !isNaN(selectedClinicId) && clinics.some((clinic) => clinic.id === selectedClinicId);
+
+    const activeClinicId =
+      (hasSelectedClinicAccess ? selectedClinicId : undefined) ||
+      userData?.activeClinicId ||
+      userData?.clinicId ||
+      clinics[0]?.id;
 
     return NextResponse.json({
       clinics,
       activeClinicId,
       hasMultipleClinics: clinics.length > 1,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('Error fetching user clinics', { error: error.message, userId: user.id });
     return NextResponse.json({ error: 'Failed to fetch clinics' }, { status: 500 });
   }
@@ -152,11 +162,22 @@ async function handlePut(req: NextRequest, user: AuthUser) {
       },
     });
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       activeClinic: clinic,
       message: `Switched to ${clinic?.name}`,
     });
+
+    // Keep edge middleware clinic resolution in sync for all subsequent requests.
+    response.cookies.set('selected-clinic', String(clinicId), {
+      httpOnly: false,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 60 * 60 * 24 * 365,
+      path: '/',
+    });
+
+    return response;
   } catch (error) {
     logger.error('Error switching clinic', error instanceof Error ? error : undefined);
     return NextResponse.json({ error: 'Failed to switch clinic' }, { status: 500 });

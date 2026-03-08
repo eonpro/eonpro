@@ -149,9 +149,8 @@ export default function SMSComposer({
         setStatus('idle');
         setStatusMessage('');
       }, 3000);
-    } catch (error: any) {
-      // @ts-ignore
-
+    } catch (error: unknown) {
+      
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       setStatus('error');
       setStatusMessage(errorMessage || 'Failed to send message');

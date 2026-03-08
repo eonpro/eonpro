@@ -80,7 +80,7 @@ export async function GET(
       invoice,
       patientSummary,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('Failed to get invoice', error);
     return NextResponse.json({ error: error.message || 'Failed to get invoice' }, { status: 500 });
   }
@@ -120,7 +120,7 @@ export async function PUT(
       success: true,
       invoice,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
         { error: 'Invalid request', details: error.errors },
@@ -167,7 +167,7 @@ export async function DELETE(
       invoice,
       message: 'Invoice voided successfully',
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('Failed to void invoice', error);
     return NextResponse.json({ error: error.message || 'Failed to void invoice' }, { status: 500 });
   }
