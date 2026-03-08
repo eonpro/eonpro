@@ -172,6 +172,23 @@ export default async function PatientDetailPage({
             take: 1,
             select: { id: true, planName: true },
           },
+          // IntakeSubmissions loaded here (nested include) because the model
+          // doesn't have a clinicId column -- direct queries via prisma would
+          // inject a clinicId filter that fails. Nested includes bypass the filter.
+          ...(needsIntakeData
+            ? {
+                intakeSubmissions: {
+                  orderBy: { createdAt: 'desc' } as const,
+                  take: 10,
+                  include: {
+                    template: {
+                      select: { id: true, name: true, treatmentType: true, version: true },
+                    },
+                    responses: { include: { question: true } },
+                  },
+                },
+              }
+            : {}),
         },
       });
     } catch (dbError) {
@@ -205,7 +222,6 @@ export default async function PatientDetailPage({
     // total wait time and reduce connection pool pressure.
     let orders: any[] = [];
     let documents: any[] = [];
-    let intakeSubmissions: any[] = [];
     let auditEntries: any[] = [];
     let salesRepAssignments: any[] = [];
 
@@ -213,104 +229,93 @@ export default async function PatientDetailPage({
       const effectiveClinicId = isSuperAdmin ? (patient.clinicId ?? undefined) : clinicId;
 
       try {
-        const parallelQueries: Promise<void>[] = [];
+        // All Phase 2 queries run inside clinic context so the PrismaWithClinicFilter
+        // proxy automatically enforces tenant isolation (required in production).
+        const phase2 = runWithClinicContext(effectiveClinicId, async () => {
+          const parallelQueries: Promise<void>[] = [];
 
-        // Orders — needed for sidebar (always) and prescriptions tab
-        parallelQueries.push(
-          basePrisma.order.findMany({
-            where: { patientId: id, ...(effectiveClinicId ? { clinicId: effectiveClinicId } : {}) },
-            orderBy: { createdAt: 'desc' },
-            take: 50,
-            select: {
-              id: true,
-              createdAt: true,
-              primaryMedName: true,
-              primaryMedStrength: true,
-              trackingNumber: true,
-              status: true,
-              ...(needsDetailedOrders
-                ? {
-                    rxs: {
-                      select: {
-                        id: true, orderId: true, medicationKey: true, medName: true,
-                        strength: true, form: true, quantity: true, refills: true,
-                        sig: true, daysSupply: true,
-                      },
-                    },
-                    provider: {
-                      select: { id: true, firstName: true, lastName: true, email: true },
-                    },
-                    events: { orderBy: { createdAt: 'desc' } as const, take: 20 },
-                  }
-                : {}),
-            },
-          }).then((r) => { orders = r; })
-        );
-
-        // Documents — needed for profile (vitals extraction) and intake tab
-        if (needsIntakeData || requestedTab === 'documents') {
+          // Orders — needed for sidebar (always) and prescriptions tab
           parallelQueries.push(
-            basePrisma.patientDocument.findMany({
-              where: { patientId: id, ...(effectiveClinicId ? { clinicId: effectiveClinicId } : {}) },
+            prisma.order.findMany({
+              where: { patientId: id },
               orderBy: { createdAt: 'desc' },
-              take: 100,
+              take: 50,
               select: {
-                id: true, filename: true, mimeType: true, createdAt: true,
-                externalUrl: true, category: true, sourceSubmissionId: true,
+                id: true,
+                createdAt: true,
+                primaryMedName: true,
+                primaryMedStrength: true,
+                trackingNumber: true,
+                status: true,
+                ...(needsDetailedOrders
+                  ? {
+                      rxs: {
+                        select: {
+                          id: true, orderId: true, medicationKey: true, medName: true,
+                          strength: true, form: true, quantity: true, refills: true,
+                          sig: true, daysSupply: true,
+                        },
+                      },
+                      provider: {
+                        select: { id: true, firstName: true, lastName: true, email: true },
+                      },
+                      events: { orderBy: { createdAt: 'desc' } as const, take: 20 },
+                    }
+                  : {}),
               },
-            }).then((r) => { documents = r; })
+            }).then((r) => { orders = r; })
           );
-        }
 
-        // Intake submissions — only for profile/intake tabs
-        if (needsIntakeData) {
-          parallelQueries.push(
-            basePrisma.intakeFormSubmission.findMany({
-              where: { patientId: id },
-              orderBy: { createdAt: 'desc' },
-              take: 10,
-              include: {
-                template: {
-                  select: { id: true, name: true, treatmentType: true, version: true },
+          // Documents — needed for profile (vitals extraction) and intake tab
+          if (needsIntakeData || requestedTab === 'documents') {
+            parallelQueries.push(
+              prisma.patientDocument.findMany({
+                where: { patientId: id },
+                orderBy: { createdAt: 'desc' },
+                take: 100,
+                select: {
+                  id: true, filename: true, mimeType: true, createdAt: true,
+                  externalUrl: true, category: true, sourceSubmissionId: true,
                 },
-                responses: { include: { question: true } },
-              },
-            }).then((r) => { intakeSubmissions = r; })
-          );
-        }
+              }).then((r) => { documents = r; })
+            );
+          }
 
-        // Audit entries — only when admin view is requested
-        if (needsAuditEntries) {
-          parallelQueries.push(
-            basePrisma.patientAudit.findMany({
-              where: { patientId: id },
-              orderBy: { createdAt: 'desc' },
-              take: 10,
-            }).then((r) => { auditEntries = r; })
-          );
-        }
+          // Audit entries — only when admin view is requested
+          if (needsAuditEntries) {
+            parallelQueries.push(
+              basePrisma.patientAudit.findMany({
+                where: { patientId: id },
+                orderBy: { createdAt: 'desc' },
+                take: 10,
+              }).then((r) => { auditEntries = r; })
+            );
+          }
 
-        // Sales rep assignments
-        if (effectiveClinicId != null) {
-          parallelQueries.push(
-            basePrisma.patientSalesRepAssignment.findMany({
-              where: { patientId: id, isActive: true },
-              orderBy: { assignedAt: 'desc' },
-              take: 1,
-              include: {
-                salesRep: { select: { id: true, firstName: true, lastName: true } },
-              },
-            }).then((r) => { salesRepAssignments = r; })
-              .catch((err: unknown) => {
-                logger.warn('[PATIENT-DETAIL] Could not fetch sales rep assignments:', {
-                  patientId: id,
-                  error: err instanceof Error ? err.message : String(err),
-                });
-              })
-          );
-        }
+          // Sales rep assignments
+          if (effectiveClinicId != null) {
+            parallelQueries.push(
+              prisma.patientSalesRepAssignment.findMany({
+                where: { patientId: id, isActive: true },
+                orderBy: { assignedAt: 'desc' },
+                take: 1,
+                include: {
+                  salesRep: { select: { id: true, firstName: true, lastName: true } },
+                },
+              }).then((r) => { salesRepAssignments = r; })
+                .catch((err: unknown) => {
+                  logger.warn('[PATIENT-DETAIL] Could not fetch sales rep assignments:', {
+                    patientId: id,
+                    error: err instanceof Error ? err.message : String(err),
+                  });
+                })
+            );
+          }
 
-        await Promise.all(parallelQueries);
+          await Promise.all(parallelQueries);
+        });
+
+        await phase2;
 
         // For intake tab: fetch document binary data for MEDICAL_INTAKE_FORM docs
         if (needsIntakeData && documents.length > 0) {
@@ -319,10 +324,12 @@ export default async function PatientDetailPage({
             .map((d: any) => d.id);
 
           if (intakeDocIds.length > 0) {
-            const intakeDocsWithData = await basePrisma.patientDocument.findMany({
-              where: { id: { in: intakeDocIds } },
-              select: { id: true, data: true },
-            }).catch((err: unknown) => {
+            const intakeDocsWithData = await runWithClinicContext(effectiveClinicId, () =>
+              prisma.patientDocument.findMany({
+                where: { id: { in: intakeDocIds } },
+                select: { id: true, data: true },
+              })
+            ).catch((err: unknown) => {
               logger.warn('[PATIENT-DETAIL] Could not fetch intake document data:', {
                 patientId: id,
                 error: err instanceof Error ? err.message : String(err),
@@ -352,7 +359,6 @@ export default async function PatientDetailPage({
       // Attach fetched data to the patient object for downstream components
       (patient as any).orders = orders;
       (patient as any).documents = documents;
-      (patient as any).intakeSubmissions = intakeSubmissions;
       (patient as any).auditEntries = auditEntries;
     }
 
