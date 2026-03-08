@@ -1,10 +1,40 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { RefreshCw } from 'lucide-react';
+
+const TIMEOUT_MS = 15000;
+
 export default function PatientDetailLoading() {
+  const [timedOut, setTimedOut] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setTimedOut(true), TIMEOUT_MS);
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (timedOut) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center bg-[#efece7] p-6">
+        <div className="text-center">
+          <p className="mb-3 text-sm text-gray-600">This is taking longer than expected.</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="inline-flex items-center gap-2 rounded-lg bg-[#4fa77e] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#3f8660]"
+          >
+            <RefreshCw className="h-4 w-4" />
+            Refresh
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#efece7] p-6">
       <div className="flex gap-6">
         {/* Left Sidebar Skeleton */}
         <div className="w-[320px] flex-shrink-0 animate-pulse space-y-4">
-          {/* Patient avatar + name */}
           <div className="rounded-2xl border border-gray-200 bg-white p-6">
             <div className="mb-4 flex items-center gap-4">
               <div className="h-16 w-16 rounded-full bg-gray-200" />
@@ -13,7 +43,6 @@ export default function PatientDetailLoading() {
                 <div className="h-3 w-20 rounded bg-gray-100" />
               </div>
             </div>
-            {/* Contact info */}
             <div className="space-y-3 border-t border-gray-100 pt-4">
               <div className="h-3 w-48 rounded bg-gray-100" />
               <div className="h-3 w-40 rounded bg-gray-100" />
@@ -21,7 +50,6 @@ export default function PatientDetailLoading() {
               <div className="h-3 w-44 rounded bg-gray-100" />
             </div>
           </div>
-          {/* Nav tabs */}
           <div className="rounded-2xl border border-gray-200 bg-white p-4">
             <div className="space-y-2">
               {Array.from({ length: 8 }).map((_, i) => (
@@ -36,16 +64,9 @@ export default function PatientDetailLoading() {
 
         {/* Main Content Skeleton */}
         <div className="min-w-0 flex-1 animate-pulse space-y-4">
-          {/* Search bar */}
           <div className="h-11 w-full rounded-xl border border-gray-200 bg-white" />
-
-          {/* Page title */}
           <div className="h-7 w-48 rounded bg-gray-200" />
-
-          {/* Portal access block */}
           <div className="h-14 rounded-2xl border border-gray-200 bg-white" />
-
-          {/* Vitals grid */}
           <div className="rounded-2xl border border-gray-200 bg-white p-6">
             <div className="mb-4 h-5 w-16 rounded bg-gray-200" />
             <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
@@ -60,8 +81,6 @@ export default function PatientDetailLoading() {
               ))}
             </div>
           </div>
-
-          {/* Prescription summary */}
           <div className="rounded-2xl border border-gray-200 bg-white p-6">
             <div className="mb-4 h-5 w-48 rounded bg-gray-200" />
             <div className="space-y-3">
@@ -69,8 +88,6 @@ export default function PatientDetailLoading() {
               <div className="h-12 rounded-xl bg-gray-100" />
             </div>
           </div>
-
-          {/* Tags + Overview */}
           <div className="rounded-2xl border border-gray-200 bg-white p-6">
             <div className="mb-4 flex gap-2">
               <div className="h-6 w-16 rounded-full bg-gray-200" />

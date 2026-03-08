@@ -183,18 +183,12 @@ function ProviderLayoutInner({ children }: { children: React.ReactNode }) {
     setMobileNavOpen(false);
   }, [pathname]);
 
-  const showLoading = loading || brandingLoading;
+  const layoutReady = !loading && !brandingLoading;
 
   return (
     <div className="flex min-h-screen bg-[#efece7]">
-      {showLoading ? (
-        <div className="flex flex-1 items-center justify-center">
-          <img src={EONPRO_ICON} alt="Loading" className="h-12 w-12 animate-pulse object-contain" />
-        </div>
-      ) : (
-        <>
       {/* Mobile nav overlay */}
-      {mobileNavOpen && (
+      {layoutReady && mobileNavOpen && (
         <div
           className="fixed inset-0 z-[100] bg-black/40 md:hidden"
           aria-hidden
@@ -209,6 +203,8 @@ function ProviderLayoutInner({ children }: { children: React.ReactNode }) {
           ${mobileNavOpen ? 'translate-x-0 w-[280px]' : '-translate-x-full w-[280px] md:translate-x-0 md:w-20'}
           ${sidebarExpanded ? 'md:w-56' : 'md:w-20'}`}
       >
+        {layoutReady ? (
+          <>
         {/* Mobile: close button (below md) */}
         <div className="flex items-center justify-between px-4 pb-2 md:hidden">
           <Link href="/provider" onClick={() => setMobileNavOpen(false)}>
@@ -237,7 +233,6 @@ function ProviderLayoutInner({ children }: { children: React.ReactNode }) {
               <img src={clinicIcon} alt={clinicName} className="h-10 w-10 object-contain" />
             )}
           </Link>
-          {/* Powered by EONPRO - shown for white-labeled clinics */}
           {isWhiteLabeled && sidebarExpanded && (
             <span className="mt-1 flex items-center justify-center gap-1 text-[10px] text-gray-400">
               Powered by{' '}
@@ -268,21 +263,11 @@ function ProviderLayoutInner({ children }: { children: React.ReactNode }) {
             const showBadge = item.hasBadge && rxQueueCount > 0;
             const showLabels = sidebarExpanded || mobileNavOpen;
 
-            const handleNavClick = (e: React.MouseEvent) => {
-              e.preventDefault();
-              e.stopPropagation();
-              setMobileNavOpen(false);
-              if (pathname === item.path) {
-                window.location.reload();
-              } else {
-                window.location.href = item.path;
-              }
-            };
-
             return (
-              <button
+              <Link
                 key={item.path}
-                onClick={handleNavClick}
+                href={item.path}
+                onClick={() => setMobileNavOpen(false)}
                 title={
                   !showLabels
                     ? `${item.label}${showBadge ? ` (${rxQueueCount})` : ''}`
@@ -309,7 +294,7 @@ function ProviderLayoutInner({ children }: { children: React.ReactNode }) {
                     {rxQueueCount > 99 ? '99+' : rxQueueCount}
                   </span>
                 )}
-              </button>
+              </Link>
             );
           })}
 
@@ -323,16 +308,10 @@ function ProviderLayoutInner({ children }: { children: React.ReactNode }) {
                 const Icon = item.icon;
                 const active = isActive(item.path);
                 return (
-                  <button
+                  <Link
                     key={item.path}
-                    onClick={() => {
-                      setMobileNavOpen(false);
-                      if (active) {
-                        window.location.reload();
-                      } else {
-                        window.location.href = item.path;
-                      }
-                    }}
+                    href={item.path}
+                    onClick={() => setMobileNavOpen(false)}
                     className={`flex w-full min-h-[44px] items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-all touch-manipulation ${
                       active ? '' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
                     }`}
@@ -342,7 +321,7 @@ function ProviderLayoutInner({ children }: { children: React.ReactNode }) {
                   >
                     <Icon className="h-4 w-4 flex-shrink-0" />
                     <span className="whitespace-nowrap text-sm font-medium">{item.label}</span>
-                  </button>
+                  </Link>
                 );
               })}
             </div>
@@ -355,15 +334,9 @@ function ProviderLayoutInner({ children }: { children: React.ReactNode }) {
                 const Icon = item.icon;
                 const active = isActive(item.path);
                 return (
-                  <button
+                  <Link
                     key={item.path}
-                    onClick={() => {
-                      if (active) {
-                        window.location.reload();
-                      } else {
-                        window.location.href = item.path;
-                      }
-                    }}
+                    href={item.path}
                     title={item.label}
                     className={`flex w-full items-center justify-center rounded-xl p-2.5 transition-all ${
                       active ? '' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
@@ -373,7 +346,7 @@ function ProviderLayoutInner({ children }: { children: React.ReactNode }) {
                     }
                   >
                     <Icon className="h-4 w-4" />
-                  </button>
+                  </Link>
                 );
               })}
             </div>
@@ -400,38 +373,43 @@ function ProviderLayoutInner({ children }: { children: React.ReactNode }) {
             )}
           </button>
         </div>
+          </>
+        ) : (
+          <div className="flex flex-1 items-center justify-center">
+            <img src={EONPRO_ICON} alt="Loading" className="h-8 w-8 animate-pulse object-contain" />
+          </div>
+        )}
       </aside>
 
-      {/* Main Content - full width below md, sidebar margin on md+ */}
+      {/* Main Content - always rendered so page-level loading.tsx skeleton shows */}
       <main
         className={`flex-1 transition-all duration-300 ${sidebarExpanded ? 'md:ml-56' : 'md:ml-20'}`}
       >
-        {/* Top bar: hamburger below md, notifications */}
-        <div className="sticky top-0 z-40 flex items-center justify-between border-b border-gray-200/50 bg-[#efece7]/95 px-4 py-3 backdrop-blur-sm md:px-6" style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top))' }}>
-          <button
-            type="button"
-            onClick={() => setMobileNavOpen(true)}
-            className="flex h-11 w-11 touch-manipulation items-center justify-center rounded-xl text-gray-600 hover:bg-white/60 active:bg-white/80 md:hidden"
-            aria-label="Open menu"
-          >
-            <Menu className="h-6 w-6" />
-          </button>
-          <div className="flex flex-1 items-center justify-end gap-2 md:justify-start">
-            <NotificationCenter
-              notificationsPath="/provider/notifications"
-              dropdownPosition="left"
-            />
-            <span className="hidden text-sm font-medium text-gray-600 md:inline">Notifications</span>
+        {layoutReady && (
+          <div className="sticky top-0 z-40 flex items-center justify-between border-b border-gray-200/50 bg-[#efece7]/95 px-4 py-3 backdrop-blur-sm md:px-6" style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top))' }}>
+            <button
+              type="button"
+              onClick={() => setMobileNavOpen(true)}
+              className="flex h-11 w-11 touch-manipulation items-center justify-center rounded-xl text-gray-600 hover:bg-white/60 active:bg-white/80 md:hidden"
+              aria-label="Open menu"
+            >
+              <Menu className="h-6 w-6" />
+            </button>
+            <div className="flex flex-1 items-center justify-end gap-2 md:justify-start">
+              <NotificationCenter
+                notificationsPath="/provider/notifications"
+                dropdownPosition="left"
+              />
+              <span className="hidden text-sm font-medium text-gray-600 md:inline">Notifications</span>
+            </div>
           </div>
-        </div>
+        )}
 
         {children}
       </main>
 
       {/* Internal Team Chat */}
-      {userId && <InternalChat currentUserId={userId} currentUserRole="provider" />}
-        </>
-      )}
+      {layoutReady && userId && <InternalChat currentUserId={userId} currentUserRole="provider" />}
     </div>
   );
 }

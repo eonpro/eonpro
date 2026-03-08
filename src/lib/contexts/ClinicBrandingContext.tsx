@@ -291,13 +291,70 @@ function hexToRgb(hex: string): string {
   return '79, 167, 126'; // Default green
 }
 
+/**
+ * Synchronously resolve initial branding from localStorage to avoid a loading
+ * flash on every client-side navigation. Returns cached branding + isLoading=false
+ * when a valid cache hit is found, otherwise falls back to the async path.
+ */
+function getInitialBrandingState(
+  initialBranding: ClinicBranding | null | undefined,
+  clinicId: number | undefined
+): { branding: ClinicBranding | null; isLoading: boolean } {
+  if (initialBranding) return { branding: initialBranding, isLoading: false };
+
+  if (!isBrowser) return { branding: null, isLoading: true };
+
+  const domain = window.location.hostname;
+  const isMainDomain =
+    domain.includes('app.eonpro.io') ||
+    domain === 'app.eonpro.io' ||
+    domain === 'localhost' ||
+    domain.startsWith('localhost:') ||
+    domain.endsWith('.vercel.app');
+
+  if (isMainDomain) {
+    return { branding: defaultBranding, isLoading: false };
+  }
+
+  // On subdomains, try to serve from localStorage cache synchronously
+  let cId = clinicId;
+  if (!cId) {
+    const cacheKey = `clinic-resolve:${domain}`;
+    const cached = getLocalStorageItem(cacheKey);
+    if (cached) {
+      try {
+        const cachedData = JSON.parse(cached);
+        if (cachedData.clinicId && cachedData.ts && Date.now() - cachedData.ts < 3600_000) {
+          cId = cachedData.clinicId;
+        }
+      } catch { /* ignore */ }
+    }
+  }
+
+  if (cId) {
+    const raw = getLocalStorageItem(`clinic-branding:${cId}`);
+    if (raw) {
+      try {
+        const cached = JSON.parse(raw);
+        if (cached.data && cached.ts && Date.now() - cached.ts < 60 * 60 * 1000) {
+          const merged = { ...defaultBranding, ...cached.data, features: { ...defaultFeatures, ...cached.data.features } };
+          return { branding: merged, isLoading: false };
+        }
+      } catch { /* ignore */ }
+    }
+  }
+
+  return { branding: null, isLoading: true };
+}
+
 export function ClinicBrandingProvider({
   children,
   clinicId,
   initialBranding,
 }: ClinicBrandingProviderProps) {
-  const [branding, setBranding] = useState<ClinicBranding | null>(initialBranding || null);
-  const [isLoading, setIsLoading] = useState(!initialBranding);
+  const [initial] = useState(() => getInitialBrandingState(initialBranding, clinicId));
+  const [branding, setBranding] = useState<ClinicBranding | null>(initial.branding);
+  const [isLoading, setIsLoading] = useState(initial.isLoading);
   const [error, setError] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
 

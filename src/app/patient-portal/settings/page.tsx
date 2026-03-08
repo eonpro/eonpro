@@ -44,7 +44,16 @@ import {
   LogOut,
   Check,
   Languages,
+  Camera,
+  Loader2,
+  Trash2,
+  AlertCircle,
 } from 'lucide-react';
+import { EditableAvatar } from '@/components/UserAvatar';
+import {
+  ACCEPTED_IMAGE_MIME_TYPES,
+  ACCEPTED_IMAGE_LABEL,
+} from '@/lib/config/upload-formats';
 
 interface UserProfile {
   id: number;
@@ -53,6 +62,7 @@ interface UserProfile {
   lastName: string;
   phone: string;
   dateOfBirth?: string;
+  avatarUrl?: string | null;
   address?: {
     street: string;
     city: string;
@@ -172,6 +182,82 @@ export default function SettingsPage() {
 
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
+  // Profile picture state
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const [avatarError, setAvatarError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Load profile picture
+  useEffect(() => {
+    let cancelled = false;
+    portalFetch('/api/user/profile-picture')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!cancelled && data?.avatarUrl) setAvatarUrl(data.avatarUrl);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+
+  const handleAvatarSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    // Reset input so the same file can be re-selected
+    e.target.value = '';
+
+    const accepted = ACCEPTED_IMAGE_MIME_TYPES as readonly string[];
+    if (!accepted.includes(file.type.toLowerCase())) {
+      setAvatarError(`Please use ${ACCEPTED_IMAGE_LABEL} format.`);
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setAvatarError('Photo must be under 5 MB.');
+      return;
+    }
+
+    setAvatarError(null);
+    setAvatarUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await portalFetch('/api/user/profile-picture', {
+        method: 'POST',
+        body: formData,
+      });
+      if (!res.ok) {
+        const body = await safeParseJson(res);
+        throw new Error(
+          body && typeof body === 'object' && 'error' in body
+            ? String((body as { error?: unknown }).error)
+            : 'Upload failed',
+        );
+      }
+      const data = await res.json();
+      setAvatarUrl(data.avatarUrl || null);
+      toast.success('Profile picture updated');
+    } catch (err) {
+      setAvatarError(err instanceof Error ? err.message : 'Upload failed');
+    } finally {
+      setAvatarUploading(false);
+    }
+  };
+
+  const handleAvatarDelete = async () => {
+    setAvatarUploading(true);
+    setAvatarError(null);
+    try {
+      const res = await portalFetch('/api/user/profile-picture', { method: 'DELETE' });
+      if (!res.ok) throw new Error('Failed to remove picture');
+      setAvatarUrl(null);
+      toast.success('Profile picture removed');
+    } catch (err) {
+      setAvatarError(err instanceof Error ? err.message : 'Delete failed');
+    } finally {
+      setAvatarUploading(false);
+    }
+  };
+
   useEffect(() => {
     let cancelled = false;
     const loadProfile = async () => {
@@ -197,6 +283,7 @@ export default function SettingsPage() {
             email: data.email || '',
             phone: data.phone || '',
             dateOfBirth: data.dateOfBirth || '',
+            avatarUrl: data.avatarUrl || null,
             address: data.address || undefined,
           });
         } else {
@@ -447,6 +534,57 @@ export default function SettingsPage() {
           {activeSection === 'profile' && profile && (
             <div role="tabpanel" className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm sm:p-6">
               <h2 className="mb-6 text-lg font-semibold text-gray-900">{t('personalInfo')}</h2>
+
+              {/* Profile Picture */}
+              <div className="mb-8 flex flex-col items-center gap-4 sm:flex-row sm:items-start">
+                <EditableAvatar
+                  avatarUrl={avatarUrl}
+                  firstName={profile.firstName}
+                  lastName={profile.lastName}
+                  size="2xl"
+                  onEdit={() => fileInputRef.current?.click()}
+                  isLoading={avatarUploading}
+                />
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept={[...ACCEPTED_IMAGE_MIME_TYPES].map((t) => `.${t.split('/')[1]}`).join(',')}
+                  className="hidden"
+                  onChange={handleAvatarSelect}
+                />
+                <div className="flex flex-col items-center gap-2 sm:items-start sm:pt-2">
+                  <p className="text-sm font-medium text-gray-900">Profile Picture</p>
+                  <p className="text-xs text-gray-500">{ACCEPTED_IMAGE_LABEL} — Max 5 MB</p>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={avatarUploading}
+                      className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50"
+                    >
+                      <Camera className="h-3.5 w-3.5" />
+                      {avatarUrl ? 'Change' : 'Upload'}
+                    </button>
+                    {avatarUrl && (
+                      <button
+                        type="button"
+                        onClick={handleAvatarDelete}
+                        disabled={avatarUploading}
+                        className="flex items-center gap-1.5 rounded-lg border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 transition-colors hover:bg-red-50 disabled:opacity-50"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                  {avatarError && (
+                    <div className="flex items-center gap-1.5 text-xs text-red-600">
+                      <AlertCircle className="h-3.5 w-3.5 flex-shrink-0" />
+                      {avatarError}
+                    </div>
+                  )}
+                </div>
+              </div>
 
               <div className="mb-6 grid gap-4 md:grid-cols-2">
                 <div>

@@ -36,6 +36,7 @@ import {
   usePortalFeatures,
 } from '@/lib/contexts/ClinicBrandingContext';
 import { logger } from '@/lib/logger';
+import { UserAvatar } from '@/components/UserAvatar';
 import {
   PatientPortalLanguageProvider,
   usePatientPortalLanguage,
@@ -117,6 +118,7 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
   const [portalMode, setPortalMode] = useState<PortalMode>('patient');
   const [profileCompletionBanner, setProfileCompletionBanner] = useState<{ show: boolean; missingFields: string[] }>({ show: false, missingFields: [] });
   const [bannerDismissed, setBannerDismissed] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
   // Build nav from registry (single source of truth; clinic features + treatment gate visibility)
   const enabledNavIds = getEnabledNavModuleIds(features, branding?.primaryTreatment);
@@ -230,6 +232,19 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
     return () => {
       cancelled = true;
     };
+  }, [userData?.id]);
+
+  // Fetch profile picture for avatar display
+  useEffect(() => {
+    if (!userData) return;
+    let cancelled = false;
+    portalFetch('/api/user/profile-picture')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!cancelled && data?.avatarUrl) setAvatarUrl(data.avatarUrl);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
   }, [userData?.id]);
 
   // Detect portal mode (lead vs patient) based on profile status
@@ -393,14 +408,28 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
         </nav>
 
         <div className="space-y-2 border-t border-gray-100 px-3 pt-4">
-          {sidebarExpanded && userData && (
-            <div className="truncate px-3 py-2 text-xs text-gray-500">
-              {displayName
-                ? `${displayName.firstName} ${displayName.lastName}`.trim() || 'Patient'
-                : (userData.firstName || userData.lastName)
-                  ? `${userData.firstName ?? ''} ${userData.lastName ?? ''}`.trim()
-                  : 'Patient'}
-            </div>
+          {userData && (
+            <Link
+              href={`${PATIENT_PORTAL_PATH}/settings`}
+              className="flex items-center gap-3 rounded-xl px-3 py-2 transition-all hover:bg-gray-50"
+              title={sidebarExpanded ? undefined : 'Profile'}
+            >
+              <UserAvatar
+                avatarUrl={avatarUrl}
+                firstName={displayName?.firstName || userData.firstName || ''}
+                lastName={displayName?.lastName || userData.lastName || ''}
+                size="sm"
+              />
+              {sidebarExpanded && (
+                <span className="min-w-0 truncate text-xs font-medium text-gray-700">
+                  {displayName
+                    ? `${displayName.firstName} ${displayName.lastName}`.trim() || 'Patient'
+                    : (userData.firstName || userData.lastName)
+                      ? `${userData.firstName ?? ''} ${userData.lastName ?? ''}`.trim()
+                      : 'Patient'}
+                </span>
+              )}
+            </Link>
           )}
           <button
             type="button"
@@ -442,12 +471,23 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
                 </span>
               )}
             </button>
-            {/* Menu Button - 44x44 touch target */}
+            {/* Avatar / Menu toggle - 44x44 touch target */}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               className="flex h-11 w-11 items-center justify-center rounded-xl text-gray-600 active:bg-gray-100"
             >
-              {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+              {mobileMenuOpen ? (
+                <X className="h-6 w-6" />
+              ) : avatarUrl || displayName || userData?.firstName ? (
+                <UserAvatar
+                  avatarUrl={avatarUrl}
+                  firstName={displayName?.firstName || userData?.firstName || ''}
+                  lastName={displayName?.lastName || userData?.lastName || ''}
+                  size="sm"
+                />
+              ) : (
+                <Menu className="h-6 w-6" />
+              )}
             </button>
           </div>
         </div>

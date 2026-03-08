@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { Trash2, GitMerge, Link2, X, Check, Loader2, Unlink, Truck, Download } from 'lucide-react';
 import EditPatientModal from './EditPatientModal';
 import DeletePatientModal from './DeletePatientModal';
@@ -896,7 +897,6 @@ export default function PatientSidebar({
           </div>
         )}
 
-        {/* Navigation - use native <a> tags for reliability (router.push/Link had issues with searchParams) */}
         <nav className="mb-6 space-y-1">
           {(showLabsTab === false ? navItems.filter((i) => i.id !== 'lab') : navItems)
             .filter((item) => !isPharmacyRep || ['profile', 'prescriptions'].includes(item.id))
@@ -904,7 +904,7 @@ export default function PatientSidebar({
             const isActive = currentTab === item.id;
             const href = `${patientDetailBasePath}/${patient.id}?tab=${item.id}`;
             return (
-              <a
+              <Link
                 key={item.id}
                 href={href}
                 className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 transition-colors ${
@@ -925,7 +925,7 @@ export default function PatientSidebar({
                 >
                   {item.label}
                 </span>
-              </a>
+              </Link>
             );
           })}
         </nav>
