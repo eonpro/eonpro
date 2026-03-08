@@ -153,6 +153,52 @@ model SalesRepProductCommission {
   @@index([productBundleId])
 }
 
+// Commission event ledger — records each commission earned by a sales rep.
+// HIPAA-COMPLIANT: stores only financial data and IDs, never patient-identifiable information.
+model SalesRepCommissionEvent {
+  id                    Int      @id @default(autoincrement())
+  createdAt             DateTime @default(now())
+  clinicId              Int
+  clinic                Clinic   @relation(fields: [clinicId], references: [id])
+  salesRepId            Int
+  salesRep              User     @relation("SalesRepCommissionEvents", fields: [salesRepId], references: [id])
+
+  stripeEventId         String?
+  stripeObjectId        String?
+  stripeEventType       String?
+
+  eventAmountCents      Int
+  commissionAmountCents Int
+  baseCommissionCents   Int      @default(0)
+  volumeTierBonusCents  Int      @default(0)
+  productBonusCents     Int      @default(0)
+  multiItemBonusCents   Int      @default(0)
+
+  commissionPlanId      Int?
+  patientId             Int?
+
+  isRecurring           Boolean  @default(false)
+  recurringMonth        Int?
+
+  status                CommissionEventStatus @default(PENDING)
+  occurredAt            DateTime
+  holdUntil             DateTime?
+  approvedAt            DateTime?
+  paidAt                DateTime?
+  reversedAt            DateTime?
+  reversalReason        String?
+
+  isManual              Boolean  @default(false)
+  notes                 String?
+  metadata              Json?
+
+  @@unique([clinicId, stripeEventId])
+  @@index([salesRepId, status])
+  @@index([clinicId, occurredAt])
+  @@index([status, holdUntil])
+  @@index([salesRepId, occurredAt])
+}
+
 // Per-plan, volume-based commission tiers for a weekly/reporting period.
 // If retroactive is enabled on the plan, once a rep reaches a tier, that tier amount applies to all sales in that period.
 model SalesRepVolumeCommissionTier {

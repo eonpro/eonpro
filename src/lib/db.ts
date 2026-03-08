@@ -134,6 +134,7 @@ export const CLINIC_ISOLATED_MODELS: readonly string[] = [
   'patientphoto',
   'patientprescriptioncycle',
   'patientsalesrepassignment',
+  'salesrepcommissionevent',
   'salesrepcommissionplan',
   'salesrepplanassignment',
   'patientshippingupdate',
@@ -882,6 +883,9 @@ class PrismaWithClinicFilter {
   }
   get salesRepPlanAssignment() {
     return this.createModelProxy('salesRepPlanAssignment');
+  }
+  get salesRepCommissionEvent() {
+    return this.createModelProxy('salesRepCommissionEvent');
   }
 
   // ============================================================================

@@ -136,6 +136,9 @@ export async function POST(request: NextRequest) {
     const { processPaymentForCommission, reverseCommissionForRefund, checkIfFirstPayment } =
       await import('@/services/affiliate/affiliateCommissionService');
 
+    const { processPaymentForSalesRepCommission, reverseSalesRepCommission, checkIfFirstPaymentForSalesRep } =
+      await import('@/services/sales-rep/salesRepCommissionService');
+
     const { autoMatchPendingRefillsForPatient } =
       await import('@/services/refill/refillQueueService');
 
@@ -150,6 +153,9 @@ export async function POST(request: NextRequest) {
         processPaymentForCommission,
         reverseCommissionForRefund,
         checkIfFirstPayment,
+        processPaymentForSalesRepCommission,
+        reverseSalesRepCommission,
+        checkIfFirstPaymentForSalesRep,
         autoMatchPendingRefillsForPatient,
       })
     );
@@ -222,6 +228,9 @@ interface ProcessingServices {
   processPaymentForCommission?: any;
   reverseCommissionForRefund?: any;
   checkIfFirstPayment?: any;
+  processPaymentForSalesRepCommission?: any;
+  reverseSalesRepCommission?: any;
+  checkIfFirstPaymentForSalesRep?: any;
   autoMatchPendingRefillsForPatient?: any;
 }
 
@@ -244,6 +253,9 @@ async function processOTWebhookEvent(
     processPaymentForCommission,
     reverseCommissionForRefund,
     checkIfFirstPayment,
+    processPaymentForSalesRepCommission,
+    reverseSalesRepCommission,
+    checkIfFirstPaymentForSalesRep,
     autoMatchPendingRefillsForPatient,
   } = services;
 
@@ -314,6 +326,29 @@ async function processOTWebhookEvent(
             }
           } catch (e) {
             logger.warn('[OT STRIPE WEBHOOK] Failed to process affiliate commission', {
+              error: e instanceof Error ? e.message : 'Unknown error',
+              patientId: result.patient.id,
+            });
+          }
+        }
+
+        if (result.patient?.id && processPaymentForSalesRepCommission) {
+          try {
+            const isFirst = checkIfFirstPaymentForSalesRep
+              ? await checkIfFirstPaymentForSalesRep(result.patient.id, paymentIntent.id)
+              : true;
+            await processPaymentForSalesRepCommission({
+              clinicId,
+              patientId: result.patient.id,
+              stripeEventId: event.id,
+              stripeObjectId: paymentIntent.id,
+              stripeEventType: event.type,
+              amountCents: paymentIntent.amount,
+              occurredAt: new Date(paymentIntent.created * 1000),
+              isFirstPayment: isFirst,
+            });
+          } catch (e) {
+            logger.warn('[OT STRIPE WEBHOOK] Failed to process sales rep commission', {
               error: e instanceof Error ? e.message : 'Unknown error',
               patientId: result.patient.id,
             });
@@ -410,6 +445,29 @@ async function processOTWebhookEvent(
           }
         }
 
+        if (result.patient?.id && processPaymentForSalesRepCommission) {
+          try {
+            const isFirst = checkIfFirstPaymentForSalesRep
+              ? await checkIfFirstPaymentForSalesRep(result.patient.id, charge.id)
+              : true;
+            await processPaymentForSalesRepCommission({
+              clinicId,
+              patientId: result.patient.id,
+              stripeEventId: event.id,
+              stripeObjectId: charge.id,
+              stripeEventType: event.type,
+              amountCents: charge.amount,
+              occurredAt: new Date(charge.created * 1000),
+              isFirstPayment: isFirst,
+            });
+          } catch (e) {
+            logger.warn('[OT STRIPE WEBHOOK] Failed to process sales rep commission', {
+              error: e instanceof Error ? e.message : 'Unknown error',
+              patientId: result.patient.id,
+            });
+          }
+        }
+
         // Auto-match pending refills
         let refillsMatched: number[] = [];
         if (result.patient?.id && autoMatchPendingRefillsForPatient) {
@@ -496,6 +554,29 @@ async function processOTWebhookEvent(
             });
           } catch (e) {
             logger.warn('[OT STRIPE WEBHOOK] Failed to process affiliate commission', {
+              error: e instanceof Error ? e.message : 'Unknown error',
+              patientId: result.patient.id,
+            });
+          }
+        }
+
+        if (result.patient?.id && processPaymentForSalesRepCommission) {
+          try {
+            const isFirst = checkIfFirstPaymentForSalesRep
+              ? await checkIfFirstPaymentForSalesRep(result.patient.id)
+              : true;
+            await processPaymentForSalesRepCommission({
+              clinicId,
+              patientId: result.patient.id,
+              stripeEventId: event.id,
+              stripeObjectId: session.id,
+              stripeEventType: event.type,
+              amountCents: session.amount_total || 0,
+              occurredAt: new Date(session.created * 1000),
+              isFirstPayment: isFirst,
+            });
+          } catch (e) {
+            logger.warn('[OT STRIPE WEBHOOK] Failed to process sales rep commission', {
               error: e instanceof Error ? e.message : 'Unknown error',
               patientId: result.patient.id,
             });
@@ -693,6 +774,41 @@ async function processOTWebhookEvent(
           }
         }
 
+        let salesRepCommResult = null;
+        if (wasPaid && wasNotPaidBefore && dbInvoice.patientId && processPaymentForSalesRepCommission) {
+          try {
+            const amountPaidCents = invoice.amount_paid || 0;
+            if (amountPaidCents > 0) {
+              const paymentIntentId =
+                typeof (invoice as any).payment_intent === 'string'
+                  ? (invoice as any).payment_intent
+                  : (invoice as any).payment_intent?.id;
+              const isFirst = checkIfFirstPaymentForSalesRep
+                ? await checkIfFirstPaymentForSalesRep(dbInvoice.patientId, paymentIntentId || undefined)
+                : true;
+              salesRepCommResult = await processPaymentForSalesRepCommission({
+                clinicId,
+                patientId: dbInvoice.patientId,
+                stripeEventId: event.id,
+                stripeObjectId: invoice.id,
+                stripeEventType: event.type,
+                amountCents: amountPaidCents,
+                occurredAt: invoice.status_transitions?.paid_at
+                  ? new Date(invoice.status_transitions.paid_at * 1000)
+                  : new Date(),
+                isFirstPayment: isFirst,
+                isRecurring: false,
+              });
+            }
+          } catch (e) {
+            logger.warn('[OT STRIPE WEBHOOK] Failed to process sales rep commission for invoice', {
+              error: e instanceof Error ? e.message : 'Unknown error',
+              invoiceId: dbInvoice.id,
+              patientId: dbInvoice.patientId,
+            });
+          }
+        }
+
         return {
           success: true,
           details: {
@@ -701,6 +817,7 @@ async function processOTWebhookEvent(
             status: invoice.status,
             clinicId,
             commissionCreated: !!commissionResult?.commissionEventId,
+            salesRepCommissionCreated: !!salesRepCommResult?.commissionEventId,
           },
         };
       }

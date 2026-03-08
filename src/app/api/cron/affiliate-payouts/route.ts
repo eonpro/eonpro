@@ -100,6 +100,29 @@ async function processClinicPayouts(clinicId: number): Promise<PayoutScheduleRes
       result.approvedCommissions = approved.count;
     }
 
+    // Approve pending SALES REP commissions for this clinic (hold period elapsed)
+    try {
+      const salesRepApproved = await prisma.salesRepCommissionEvent.updateMany({
+        where: {
+          clinicId,
+          status: 'PENDING',
+          OR: [{ holdUntil: null }, { holdUntil: { lte: now } }],
+        },
+        data: { status: 'APPROVED', approvedAt: now },
+      });
+      if (salesRepApproved.count > 0) {
+        logger.info('[PayoutCron] Approved sales rep commissions', {
+          clinicId,
+          count: salesRepApproved.count,
+        });
+      }
+    } catch (e) {
+      logger.warn('[PayoutCron] Failed to approve sales rep commissions', {
+        clinicId,
+        error: e instanceof Error ? e.message : 'Unknown',
+      });
+    }
+
     const program = await prisma.affiliateProgram.findUnique({
       where: { clinicId },
       select: { isActive: true, minimumPayout: true, payoutFrequency: true },

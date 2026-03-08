@@ -155,7 +155,8 @@ async function handler(req: NextRequest): Promise<Response> {
       return NextResponse.json({
         summary: {
           totalReps: 0, activeReps: 0, totalPatients: 0,
-          totalClicks: 0, totalConversions: 0, avgConversionRate: 0,
+          totalClicks: 0, totalConversions: 0, totalCommissionCents: 0,
+          totalRevenueCents: 0, avgConversionRate: 0,
         },
         reps: [],
         dateRange: { startDate: startDate.toISOString(), endDate: endDate.toISOString() },
@@ -164,8 +165,8 @@ async function handler(req: NextRequest): Promise<Response> {
 
     const repIds = salesReps.map((r) => r.id);
 
-    // Parallel: clicks, conversions, patient assignments in the period
-    const [clicksByRep, conversionsByRep, patientsByRep] = await Promise.all([
+    // Parallel: clicks, conversions, patient assignments, commissions in the period
+    const [clicksByRep, conversionsByRep, patientsByRep, commissionsByRep] = await Promise.all([
       prisma.salesRepTouch.groupBy({
         by: ['salesRepId'],
         where: {
@@ -192,17 +193,31 @@ async function handler(req: NextRequest): Promise<Response> {
         },
         _count: true,
       }),
+      prisma.salesRepCommissionEvent.groupBy({
+        by: ['salesRepId'],
+        where: {
+          salesRepId: { in: repIds },
+          occurredAt: { gte: startDate, lte: endDate },
+          status: { in: ['PENDING', 'APPROVED', 'PAID'] },
+        },
+        _sum: { commissionAmountCents: true, eventAmountCents: true },
+      }),
     ]);
 
     const clicksMap = new Map(clicksByRep.map((r) => [r.salesRepId, r._count]));
     const conversionsMap = new Map(conversionsByRep.map((r) => [r.salesRepId, r._count]));
     const patientsMap = new Map(patientsByRep.map((r) => [r.salesRepId, r._count]));
+    const commissionMap = new Map(commissionsByRep.map((r) => [r.salesRepId, {
+      commissionCents: r._sum?.commissionAmountCents || 0,
+      revenueCents: r._sum?.eventAmountCents || 0,
+    }]));
 
     type RepRow = (typeof salesReps)[number];
 
     const reps = salesReps.map((r: RepRow) => {
       const clicks = clicksMap.get(r.id) || 0;
       const conversions = conversionsMap.get(r.id) || 0;
+      const comm = commissionMap.get(r.id) || { commissionCents: 0, revenueCents: 0 };
       return {
         id: r.id,
         name: `${r.firstName || ''} ${r.lastName || ''}`.trim() || r.email,
@@ -215,6 +230,8 @@ async function handler(req: NextRequest): Promise<Response> {
         totalConversions: conversions,
         patientsAssigned: patientsMap.get(r.id) || 0,
         conversionRate: clicks > 0 ? (conversions / clicks) * 100 : 0,
+        commissionEarnedCents: comm.commissionCents,
+        revenueCents: comm.revenueCents,
         refCodes: r.salesRepRefCodes.map((c) => c.refCode),
       };
     });
@@ -224,6 +241,8 @@ async function handler(req: NextRequest): Promise<Response> {
     const activeReps = reps.filter((r) => r.status === 'ACTIVE').length;
     const totalClicks = reps.reduce((s, r) => s + r.totalClicks, 0);
     const totalConversions = reps.reduce((s, r) => s + r.totalConversions, 0);
+    const totalCommissionCents = reps.reduce((s, r) => s + r.commissionEarnedCents, 0);
+    const totalRevenueCents = reps.reduce((s, r) => s + r.revenueCents, 0);
 
     return NextResponse.json({
       summary: {
@@ -232,6 +251,8 @@ async function handler(req: NextRequest): Promise<Response> {
         totalPatients: reps.reduce((s, r) => s + r.patientsAssigned, 0),
         totalClicks,
         totalConversions,
+        totalCommissionCents,
+        totalRevenueCents,
         avgConversionRate: totalClicks > 0 ? (totalConversions / totalClicks) * 100 : 0,
       },
       reps,

@@ -156,6 +156,7 @@ async function handler(
       totalClicks,
       totalConversions,
       totalPatientsAssigned,
+      commissionAgg,
       dailyClicks,
       dailyConversions,
     ] = await Promise.all([
@@ -201,6 +202,15 @@ async function handler(
           isActive: true,
           assignedAt: { gte: startDate, lte: endDate },
         },
+      }),
+      prisma.salesRepCommissionEvent.aggregate({
+        where: {
+          salesRepId: userId,
+          occurredAt: { gte: startDate, lte: endDate },
+          status: { in: ['PENDING', 'APPROVED', 'PAID'] },
+        },
+        _sum: { commissionAmountCents: true, eventAmountCents: true },
+        _count: true,
       }),
       prisma.$queryRaw<Array<{ date: Date; count: number }>>`
         SELECT DATE("createdAt") as date, COUNT(*)::int as count
@@ -305,6 +315,9 @@ async function handler(
         totalClicks,
         totalConversions,
         patientsAssigned: totalPatientsAssigned,
+        commissionEarnedCents: commissionAgg._sum.commissionAmountCents || 0,
+        revenueCents: commissionAgg._sum.eventAmountCents || 0,
+        commissionEvents: commissionAgg._count,
         conversionRate: totalClicks > 0 ? (totalConversions / totalClicks) * 100 : 0,
       },
       dailyBreakdown,

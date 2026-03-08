@@ -66,6 +66,10 @@ export async function POST(request: NextRequest) {
     const { processPaymentForCommission, reverseCommissionForRefund, checkIfFirstPayment } =
       await import('@/services/affiliate/affiliateCommissionService');
 
+    // Import sales rep commission service
+    const { processPaymentForSalesRepCommission, reverseSalesRepCommission, checkIfFirstPaymentForSalesRep } =
+      await import('@/services/sales-rep/salesRepCommissionService');
+
     // Import refill queue service for payment auto-matching
     const { autoMatchPendingRefillsForPatient } =
       await import('@/services/refill/refillQueueService');
@@ -211,6 +215,9 @@ export async function POST(request: NextRequest) {
         processPaymentForCommission,
         reverseCommissionForRefund,
         checkIfFirstPayment,
+        processPaymentForSalesRepCommission,
+        reverseSalesRepCommission,
+        checkIfFirstPaymentForSalesRep,
         autoMatchPendingRefillsForPatient,
         isConnectEvent,
       })
@@ -333,6 +340,9 @@ interface ProcessingServices {
   processPaymentForCommission?: (data: import('@/services/affiliate/affiliateCommissionService').PaymentEventData) => Promise<import('@/services/affiliate/affiliateCommissionService').CommissionResult>;
   reverseCommissionForRefund?: (data: import('@/services/affiliate/affiliateCommissionService').RefundEventData) => Promise<import('@/services/affiliate/affiliateCommissionService').CommissionResult>;
   checkIfFirstPayment?: (patientId: number, currentPaymentId?: string) => Promise<boolean>;
+  processPaymentForSalesRepCommission?: (data: import('@/services/sales-rep/salesRepCommissionService').SalesRepPaymentEventData) => Promise<import('@/services/sales-rep/salesRepCommissionService').SalesRepCommissionResult>;
+  reverseSalesRepCommission?: (data: import('@/services/sales-rep/salesRepCommissionService').SalesRepRefundEventData) => Promise<import('@/services/sales-rep/salesRepCommissionService').SalesRepCommissionResult>;
+  checkIfFirstPaymentForSalesRep?: (patientId: number, currentPaymentId?: string) => Promise<boolean>;
   autoMatchPendingRefillsForPatient?: (patientId: number, clinicId: number, stripePaymentId?: string, invoiceId?: number) => Promise<number[]>;
   isConnectEvent?: boolean;
 }
@@ -358,6 +368,9 @@ async function processWebhookEvent(
     processPaymentForCommission,
     reverseCommissionForRefund,
     checkIfFirstPayment,
+    processPaymentForSalesRepCommission,
+    reverseSalesRepCommission,
+    checkIfFirstPaymentForSalesRep,
     autoMatchPendingRefillsForPatient,
     isConnectEvent,
   } = services;
@@ -586,6 +599,29 @@ async function processWebhookEvent(
             });
           } catch (e) {
             logger.warn('[STRIPE WEBHOOK] Failed to process affiliate commission', {
+              error: e instanceof Error ? e.message : 'Unknown error',
+              patientId: result.patient.id,
+            });
+          }
+        }
+
+        if (result.patient?.id && result.patient?.clinicId && processPaymentForSalesRepCommission) {
+          try {
+            const isFirst = checkIfFirstPaymentForSalesRep
+              ? await checkIfFirstPaymentForSalesRep(result.patient.id, paymentIntent.id)
+              : true;
+            await processPaymentForSalesRepCommission({
+              clinicId: result.patient.clinicId,
+              patientId: result.patient.id,
+              stripeEventId: event.id,
+              stripeObjectId: paymentIntent.id,
+              stripeEventType: event.type,
+              amountCents: paymentIntent.amount,
+              occurredAt: new Date(paymentIntent.created * 1000),
+              isFirstPayment: isFirst,
+            });
+          } catch (e) {
+            logger.warn('[STRIPE WEBHOOK] Failed to process sales rep commission', {
               error: e instanceof Error ? e.message : 'Unknown error',
               patientId: result.patient.id,
             });
@@ -832,6 +868,29 @@ async function processWebhookEvent(
             });
           } catch (e) {
             logger.warn('[STRIPE WEBHOOK] Failed to process affiliate commission', {
+              error: e instanceof Error ? e.message : 'Unknown error',
+              patientId: result.patient.id,
+            });
+          }
+        }
+
+        if (result.patient?.id && result.patient?.clinicId && processPaymentForSalesRepCommission) {
+          try {
+            const isFirst = checkIfFirstPaymentForSalesRep
+              ? await checkIfFirstPaymentForSalesRep(result.patient.id)
+              : true;
+            await processPaymentForSalesRepCommission({
+              clinicId: result.patient.clinicId,
+              patientId: result.patient.id,
+              stripeEventId: event.id,
+              stripeObjectId: session.id,
+              stripeEventType: event.type,
+              amountCents: session.amount_total || 0,
+              occurredAt: new Date(session.created * 1000),
+              isFirstPayment: isFirst,
+            });
+          } catch (e) {
+            logger.warn('[STRIPE WEBHOOK] Failed to process sales rep commission', {
               error: e instanceof Error ? e.message : 'Unknown error',
               patientId: result.patient.id,
             });

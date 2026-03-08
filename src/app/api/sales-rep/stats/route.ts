@@ -26,20 +26,23 @@ export const GET = withAuth(
       const salesRepId = user.id;
 
       const result = await runWithClinicContext(clinicId, async () => {
-        const assignedPatientCount = await prisma.patientSalesRepAssignment.count({
-          where: {
-            salesRepId,
-            clinicId,
-            isActive: true,
-          },
-        });
-
-        // Commission tracking for sales reps is Phase 4; until then return 0
-        const commissionsEarnedCents = 0;
+        const [assignedPatientCount, commissionAgg] = await Promise.all([
+          prisma.patientSalesRepAssignment.count({
+            where: { salesRepId, clinicId, isActive: true },
+          }),
+          prisma.salesRepCommissionEvent.aggregate({
+            where: {
+              salesRepId,
+              clinicId,
+              status: { in: ['PENDING', 'APPROVED', 'PAID'] },
+            },
+            _sum: { commissionAmountCents: true },
+          }),
+        ]);
 
         return {
           assignedPatientCount,
-          commissionsEarnedCents,
+          commissionsEarnedCents: commissionAgg._sum.commissionAmountCents || 0,
         };
       });
 
