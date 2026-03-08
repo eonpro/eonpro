@@ -12,7 +12,6 @@ import { safeParseJsonString } from '@/lib/utils/safe-json';
 export default function ProviderTelehealthPage() {
   const [userName, setUserName] = useState('');
   const [userEmail, setUserEmail] = useState('');
-  const [userId, setUserId] = useState<number | undefined>();
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -36,8 +35,6 @@ export default function ProviderTelehealthPage() {
 
       setUserName(displayName.trim());
       setUserEmail(parsed.email ?? '');
-      const provId = parsed.providerId ?? parsed.id;
-      if (provId) setUserId(Number(provId));
       setLoading(false);
     } catch {
       setLoading(false);
@@ -77,7 +74,6 @@ export default function ProviderTelehealthPage() {
       <TelehealthDashboard
         userName={userName}
         userEmail={userEmail}
-        userId={userId}
         onPhaseChange={handlePhaseChange}
       />
     </Feature>

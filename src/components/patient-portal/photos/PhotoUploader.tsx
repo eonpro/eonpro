@@ -31,7 +31,12 @@ import { useDropzone } from 'react-dropzone';
 import { PatientPhotoType } from '@/types/prisma-enums';
 import { getAuthHeaders } from '@/lib/utils/auth-token';
 import { apiFetch } from '@/lib/api/fetch';
-import { ACCEPTED_IMAGE_MIME_TYPES, ACCEPTED_IMAGE_LABEL } from '@/lib/config/upload-formats';
+import {
+  ACCEPTED_IMAGE_MIME_TYPES,
+  ACCEPTED_IMAGE_LABEL,
+  ACCEPTED_IMAGE_DROPZONE_ACCEPT,
+} from '@/lib/config/upload-formats';
+import type { FileRejection } from 'react-dropzone';
 
 // =============================================================================
 // Types
@@ -400,15 +405,51 @@ export function PhotoUploader({
     [photoType, category, onUploadComplete, onUploadError]
   );
 
-  // Handle file selection
-  const processFiles = useCallback(
-    async (files: File[]) => {
+  // Check if a file is accepted by MIME type or by extension fallback
+  const isAcceptedFile = useCallback(
+    (file: File): boolean => {
+      if (acceptedTypes.includes(file.type)) return true;
+      // Browsers often report HEIC/HEIF with empty MIME — fall back to extension
+      const ext = file.name.split('.').pop()?.toLowerCase();
+      if (ext && ['.heic', '.heif', '.jpg', '.jpeg', '.png', '.webp'].some((e) => e === `.${ext}`)) {
+        return true;
+      }
+      return false;
+    },
+    [acceptedTypes],
+  );
+
+  // Handle file selection (called by dropzone with accepted files + rejections)
+  const handleDrop = useCallback(
+    async (accepted: File[], rejections: FileRejection[]) => {
+      // Surface any rejections from dropzone so the patient always sees feedback
+      if (rejections.length > 0 && accepted.length === 0) {
+        const first = rejections[0];
+        const reason = first.errors?.[0]?.code;
+        if (reason === 'file-too-many') {
+          showFormatError(`You can only upload ${maxPhotos - photos.length} more photo${maxPhotos - photos.length !== 1 ? 's' : ''}.`);
+        } else {
+          const name = first.file?.name || 'Selected file';
+          showFormatError(`"${name}" could not be uploaded. Please use ${ACCEPTED_IMAGE_LABEL} images only.`);
+        }
+        onUploadError?.(`File rejected: ${rejections[0].errors?.[0]?.message || 'unsupported format'}`);
+        return;
+      }
+
       const remainingSlots = maxPhotos - photos.length;
-      const filesToProcess = files.slice(0, remainingSlots);
+      const filesToProcess = accepted.slice(0, remainingSlots);
+
+      // Show error for any files that were rejected alongside accepted ones
+      if (rejections.length > 0) {
+        const names = rejections.map((r) => r.file?.name).filter(Boolean);
+        showFormatError(
+          `${names.length} file${names.length !== 1 ? 's were' : ' was'} not accepted. Please use ${ACCEPTED_IMAGE_LABEL} format.`,
+        );
+      }
 
       const newPhotos: UploadingPhoto[] = filesToProcess
         .filter((file) => {
-          if (!acceptedTypes.includes(file.type)) {
+          if (!isAcceptedFile(file)) {
             const msg = `"${file.name}" is not a supported format. Please use ${ACCEPTED_IMAGE_LABEL} images only.`;
             showFormatError(msg);
             onUploadError?.(msg);
@@ -434,18 +475,35 @@ export function PhotoUploader({
 
       setPhotos((prev) => [...prev, ...newPhotos]);
 
-      // Start uploading each photo
       for (const photo of newPhotos) {
         await uploadPhoto(photo);
       }
     },
-    [photos.length, maxPhotos, acceptedTypes, maxSizeBytes, maxSizeMB, onUploadError, uploadPhoto, showFormatError]
+    [photos.length, maxPhotos, maxSizeBytes, maxSizeMB, onUploadError, uploadPhoto, showFormatError, isAcceptedFile],
   );
 
-  // Dropzone configuration
+  // Handle files that dropzone rejects outright (wrong type via file picker)
+  const handleDropRejected = useCallback(
+    (rejections: FileRejection[]) => {
+      if (rejections.length === 0) return;
+      const first = rejections[0];
+      const name = first.file?.name || 'Selected file';
+      const reason = first.errors?.[0]?.code;
+      if (reason === 'too-many-files') {
+        showFormatError(`You can only upload ${maxPhotos - photos.length} more photo${maxPhotos - photos.length !== 1 ? 's' : ''}.`);
+      } else {
+        showFormatError(`"${name}" could not be uploaded. Please use ${ACCEPTED_IMAGE_LABEL} images only.`);
+      }
+      onUploadError?.(`File rejected: ${first.errors?.[0]?.message || 'unsupported format'}`);
+    },
+    [showFormatError, onUploadError, maxPhotos, photos.length],
+  );
+
+  // Dropzone configuration — extensions included so HEIC with empty MIME type is accepted
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop: processFiles,
-    accept: acceptedTypes.reduce((acc, type) => ({ ...acc, [type]: [] }), {}),
+    onDrop: handleDrop,
+    onDropRejected: handleDropRejected,
+    accept: ACCEPTED_IMAGE_DROPZONE_ACCEPT,
     maxFiles: maxPhotos - photos.length,
     disabled: photos.length >= maxPhotos,
   });
@@ -497,7 +555,7 @@ export function PhotoUploader({
       (blob) => {
         if (blob) {
           const file = new File([blob], `capture-${Date.now()}.jpg`, { type: 'image/jpeg' });
-          processFiles([file]);
+          handleDrop([file], []);
         }
       },
       'image/jpeg',

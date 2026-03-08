@@ -121,6 +121,8 @@ export const orderService = {
       hasTrackingNumber?: boolean;
       awaitingFulfillment?: boolean;
       search?: string;
+      dateFrom?: Date;
+      dateTo?: Date;
     } = {}
   ): Promise<ListOrdersResult> {
     logger.info('[OrderService] listOrders', {
@@ -178,6 +180,14 @@ export const orderService = {
           filters.dateFrom = new Date(now.getTime() - value * 24 * 60 * 60 * 1000);
         }
       }
+    }
+
+    // Explicit date range (overrides `recent` if both provided)
+    if (options.dateFrom) {
+      filters.dateFrom = options.dateFrom;
+    }
+    if (options.dateTo) {
+      filters.dateTo = options.dateTo;
     }
 
     // Tracking number filter

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { decodeHtmlEntities } from '@/lib/utils';
 import {
   MessageSquare,
@@ -42,6 +42,7 @@ export default function ProviderMessagesPage() {
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Fetch conversations from API
   useEffect(() => {
@@ -101,6 +102,10 @@ export default function ProviderMessagesPage() {
     fetchThread();
   }, [selectedPatientId]);
 
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [chatMessages]);
+
   const filteredMessages = messages.filter((msg) => {
     const matchesSearch = normalizedIncludes(msg.patientName, searchTerm);
     const matchesFilter =
@@ -113,12 +118,15 @@ export default function ProviderMessagesPage() {
   const handleSendMessage = async () => {
     if (!messageContent.trim() || !selectedMessage) return;
 
+    const content = messageContent.trim();
+    setMessageContent('');
+
     try {
       const response = await apiFetch(`/api/messages/send`, {
         method: 'POST',
         body: JSON.stringify({
           patientId: selectedMessage.patientId,
-          content: messageContent,
+          content,
         }),
       });
 
@@ -127,10 +135,29 @@ export default function ProviderMessagesPage() {
         throw new Error(errorData.error || 'Failed to send message');
       }
 
-      setMessageContent('');
-      // Refresh thread
-      // ... would refetch here
+      const data = await response.json();
+
+      if (data.message) {
+        setChatMessages((prev) => [...prev, data.message]);
+      } else {
+        // Fallback: refetch the full thread
+        const threadRes = await apiFetch(`/api/messages/conversations/${selectedMessage.patientId}`);
+        if (threadRes.ok) {
+          const threadData = await threadRes.json();
+          setChatMessages(threadData.messages || []);
+        }
+      }
+
+      // Update the conversation sidebar preview
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.patientId === selectedMessage.patientId
+            ? { ...m, lastMessage: content, timestamp: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) }
+            : m
+        )
+      );
     } catch (err) {
+      setMessageContent(content);
       process.env.NODE_ENV === 'development' && console.error('Failed to send message:', err);
       alert(err instanceof Error ? err.message : 'Failed to send message. Please try again.');
     }
@@ -139,10 +166,10 @@ export default function ProviderMessagesPage() {
   const unreadCount = messages.filter((m) => m.unread).length;
 
   return (
-    <div className="h-[calc(100vh-12rem)]">
-      <div className="flex h-full rounded-lg bg-white shadow">
+    <div className="mx-4 h-[calc(100vh-12rem)] max-w-full overflow-hidden md:mx-6 lg:mx-8">
+      <div className="flex h-full min-w-0 rounded-lg bg-white shadow">
         {/* Messages List */}
-        <div className="flex w-1/3 flex-col border-r">
+        <div className="flex w-1/3 min-w-0 flex-col border-r">
           <div className="border-b p-4">
             <h2 className="mb-3 text-lg font-semibold">Messages</h2>
             <div className="relative mb-3">
@@ -250,7 +277,7 @@ export default function ProviderMessagesPage() {
         </div>
 
         {/* Message Thread */}
-        <div className="flex flex-1 flex-col">
+        <div className="flex min-w-0 flex-1 flex-col">
           {selectedMessage ? (
             <>
               {/* Thread Header */}
@@ -297,7 +324,7 @@ export default function ProviderMessagesPage() {
                             : 'bg-gray-100 text-gray-900'
                         }`}
                       >
-                        <p>{decodeHtmlEntities(msg.content)}</p>
+                        <p className="whitespace-pre-wrap break-words">{decodeHtmlEntities(msg.content)}</p>
                         <p
                           className={`mt-1 text-xs ${
                             msg.sender === 'provider' ? 'text-[var(--brand-primary)]' : 'text-gray-500'
@@ -309,11 +336,12 @@ export default function ProviderMessagesPage() {
                     </div>
                   ))
                 )}
+                <div ref={messagesEndRef} />
               </div>
 
               {/* Message Input */}
-              <div className="border-t p-4">
-                <div className="flex gap-2">
+              <div className="min-w-0 border-t p-4">
+                <div className="flex min-w-0 gap-2">
                   <button className="rounded p-2 text-gray-600 hover:bg-gray-100">
                     <Paperclip className="h-5 w-5" />
                   </button>
@@ -323,7 +351,7 @@ export default function ProviderMessagesPage() {
                     onChange={(e) => setMessageContent(e.target.value)}
                     onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
                     placeholder="Type a message..."
-                    className="flex-1 rounded-lg border px-4 py-2 focus:ring-2 focus:ring-[var(--brand-primary)]"
+                    className="min-w-0 flex-1 rounded-lg border px-4 py-2 focus:ring-2 focus:ring-[var(--brand-primary)]"
                   />
                   <button
                     onClick={handleSendMessage}

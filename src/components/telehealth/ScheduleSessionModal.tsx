@@ -23,12 +23,11 @@ interface Patient {
 }
 
 interface ScheduleSessionModalProps {
-  providerId?: number;
   onClose: () => void;
   onCreated: () => void;
 }
 
-export default function ScheduleSessionModal({ providerId, onClose, onCreated }: ScheduleSessionModalProps) {
+export default function ScheduleSessionModal({ onClose, onCreated }: ScheduleSessionModalProps) {
   const [patients, setPatients] = useState<Patient[]>([]);
   const [patientsLoading, setPatientsLoading] = useState(false);
   const [patientSearch, setPatientSearch] = useState('');
@@ -87,7 +86,6 @@ export default function ScheduleSessionModal({ providerId, onClose, onCreated }:
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           patientId: selectedPatient.id,
-          ...(providerId ? { providerId } : {}),
           title: topic,
           type: 'VIDEO',
           startTime: scheduledAt.toISOString(),

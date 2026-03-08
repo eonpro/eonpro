@@ -14,7 +14,6 @@ import { type TelehealthSessionData, type TelehealthPhase, type PostCallData } f
 interface TelehealthDashboardProps {
   userName: string;
   userEmail?: string;
-  userId?: number;
   onPhaseChange?: (phase: TelehealthPhase) => void;
 }
 
@@ -27,7 +26,6 @@ const pageVariants = {
 export default function TelehealthDashboard({
   userName,
   userEmail,
-  userId,
   onPhaseChange,
 }: TelehealthDashboardProps) {
   const [phase, setPhase] = useState<TelehealthPhase>('queue');
@@ -127,7 +125,6 @@ export default function TelehealthDashboard({
 
       {showScheduleModal && (
         <ScheduleSessionModal
-          providerId={userId}
           onClose={() => setShowScheduleModal(false)}
           onCreated={handleSessionCreated}
         />

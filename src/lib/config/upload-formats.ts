@@ -26,7 +26,19 @@ export const ACCEPTED_IMAGE_EXTENSIONS = [
   '.heif',
 ] as const;
 
-export const ACCEPTED_IMAGE_LABEL = 'JPG, PNG, or WebP';
+export const ACCEPTED_IMAGE_LABEL = 'JPG, PNG, WebP, or HEIC';
+
+/**
+ * MIME-to-extension mapping for react-dropzone `accept` config.
+ * Extensions are required so browsers that report HEIC as "" still match by filename.
+ */
+export const ACCEPTED_IMAGE_DROPZONE_ACCEPT: Record<string, string[]> = {
+  'image/jpeg': ['.jpg', '.jpeg'],
+  'image/png': ['.png'],
+  'image/webp': ['.webp'],
+  'image/heic': ['.heic'],
+  'image/heif': ['.heif'],
+};
 
 // ---------------------------------------------------------------------------
 // Document formats accepted for the patient-portal documents section

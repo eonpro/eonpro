@@ -24,7 +24,7 @@ import { AppointmentModeType, AppointmentStatus } from '@prisma/client';
 const createAppointmentSchema = z.object({
   clinicId: z.number().optional(),
   patientId: z.number(),
-  providerId: z.number(),
+  providerId: z.number().optional(),
   appointmentTypeId: z.number().optional(),
   title: z.string().optional(),
   startTime: z.string().datetime(),
@@ -169,10 +169,19 @@ export const POST = withProviderAuth(async (req: NextRequest, user) => {
       ? (parsed.data.clinicId || user.clinicId)
       : user.clinicId;
 
+    // Resolve providerId: use explicit value, fall back to auth token's providerId
+    const resolvedProviderId = parsed.data.providerId ?? user.providerId;
+    if (!resolvedProviderId) {
+      return NextResponse.json(
+        { error: 'Provider ID is required. Please select a provider or log in as a provider.' },
+        { status: 400 }
+      );
+    }
+
     const result = await createAppointment({
       clinicId: apptClinicId!,
       patientId: parsed.data.patientId,
-      providerId: parsed.data.providerId,
+      providerId: resolvedProviderId,
       appointmentTypeId: parsed.data.appointmentTypeId,
       title: parsed.data.title,
       startTime: new Date(parsed.data.startTime),

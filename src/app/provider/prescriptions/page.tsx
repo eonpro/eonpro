@@ -17,6 +17,8 @@ import {
   ChevronDown,
   ChevronUp,
   User,
+  Calendar,
+  X,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api/fetch';
 
@@ -73,6 +75,39 @@ interface PatientGroup {
   latestDate: string;
 }
 
+type DatePeriod =
+  | 'all'
+  | 'today'
+  | 'yesterday'
+  | 'this_week'
+  | 'last_week'
+  | 'this_month'
+  | 'last_month'
+  | 'this_quarter'
+  | 'last_quarter'
+  | 'this_semester'
+  | 'last_semester'
+  | 'this_year'
+  | 'last_year'
+  | 'custom';
+
+const DATE_PERIOD_OPTIONS: { value: DatePeriod; label: string }[] = [
+  { value: 'all', label: 'All Time' },
+  { value: 'today', label: 'Today' },
+  { value: 'yesterday', label: 'Yesterday' },
+  { value: 'this_week', label: 'This Week' },
+  { value: 'last_week', label: 'Last Week' },
+  { value: 'this_month', label: 'This Month' },
+  { value: 'last_month', label: 'Last Month' },
+  { value: 'this_quarter', label: 'This Quarter' },
+  { value: 'last_quarter', label: 'Last Quarter' },
+  { value: 'this_semester', label: 'This Semester' },
+  { value: 'last_semester', label: 'Last Semester' },
+  { value: 'this_year', label: 'This Year' },
+  { value: 'last_year', label: 'Last Year' },
+  { value: 'custom', label: 'Custom Range' },
+];
+
 const PAGE_SIZE = 50;
 
 export default function ProviderPrescriptionsPage() {
@@ -80,6 +115,9 @@ export default function ProviderPrescriptionsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [datePeriod, setDatePeriod] = useState<DatePeriod>('all');
+  const [customStartDate, setCustomStartDate] = useState('');
+  const [customEndDate, setCustomEndDate] = useState('');
   const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
@@ -109,7 +147,22 @@ export default function ProviderPrescriptionsPage() {
     };
   }, []);
 
-  const fetchPrescriptions = useCallback(async (page: number, search: string) => {
+  const handlePeriodChange = useCallback((value: DatePeriod) => {
+    setDatePeriod(value);
+    if (value !== 'custom') {
+      setCustomStartDate('');
+      setCustomEndDate('');
+    }
+    setCurrentPage(1);
+  }, []);
+
+  const fetchPrescriptions = useCallback(async (
+    page: number,
+    search: string,
+    period: DatePeriod,
+    startDate: string,
+    endDate: string,
+  ) => {
     setLoading(true);
     try {
       const offset = (page - 1) * PAGE_SIZE;
@@ -119,6 +172,15 @@ export default function ProviderPrescriptionsPage() {
       });
       if (search.trim()) {
         params.set('search', search.trim());
+      }
+      if (period !== 'all') {
+        params.set('period', period);
+        if (period === 'custom' && startDate) {
+          params.set('startDate', startDate);
+        }
+        if (period === 'custom' && endDate) {
+          params.set('endDate', endDate);
+        }
       }
       const response = await apiFetch(`/api/orders?${params.toString()}`);
 
@@ -182,8 +244,8 @@ export default function ProviderPrescriptionsPage() {
   }, []);
 
   useEffect(() => {
-    fetchPrescriptions(currentPage, debouncedSearch);
-  }, [currentPage, debouncedSearch, fetchPrescriptions]);
+    fetchPrescriptions(currentPage, debouncedSearch, datePeriod, customStartDate, customEndDate);
+  }, [currentPage, debouncedSearch, datePeriod, customStartDate, customEndDate, fetchPrescriptions]);
 
   const mapOrderStatus = (
     status: string
@@ -353,28 +415,80 @@ export default function ProviderPrescriptionsPage() {
             </button>
           </div>
 
-          {/* Search and Filter */}
-          <div className="flex gap-3">
-            <div className="relative flex-1">
-              <input
-                type="text"
-                placeholder="Search by patient or medication..."
-                value={searchTerm}
-                onChange={(e) => handleSearchChange(e.target.value)}
-                className="w-full rounded-lg border py-1.5 pl-4 pr-3 text-sm focus:ring-2 focus:ring-[var(--brand-primary)]"
-              />
+          {/* Search and Filters */}
+          <div className="space-y-3">
+            <div className="flex gap-3">
+              <div className="relative flex-1">
+                <input
+                  type="text"
+                  placeholder="Search by patient or medication..."
+                  value={searchTerm}
+                  onChange={(e) => handleSearchChange(e.target.value)}
+                  className="w-full rounded-lg border py-1.5 pl-4 pr-3 text-sm focus:ring-2 focus:ring-[var(--brand-primary)]"
+                />
+              </div>
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+                className="rounded-lg border px-3 py-1.5 text-sm focus:ring-2 focus:ring-[var(--brand-primary)]"
+              >
+                <option value="all">All Prescriptions</option>
+                <option value="active">Active</option>
+                <option value="refill-requested">Refill Requested</option>
+                <option value="expired">Expired</option>
+                <option value="discontinued">Discontinued</option>
+              </select>
             </div>
-            <select
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-              className="rounded-lg border px-3 py-1.5 text-sm focus:ring-2 focus:ring-[var(--brand-primary)]"
-            >
-              <option value="all">All Prescriptions</option>
-              <option value="active">Active</option>
-              <option value="refill-requested">Refill Requested</option>
-              <option value="expired">Expired</option>
-              <option value="discontinued">Discontinued</option>
-            </select>
+
+            {/* Date Range Filter */}
+            <div className="flex flex-wrap items-center gap-2">
+              <Calendar className="h-4 w-4 text-gray-400" />
+              <select
+                value={datePeriod}
+                onChange={(e) => handlePeriodChange(e.target.value as DatePeriod)}
+                className="rounded-lg border px-3 py-1.5 text-sm focus:ring-2 focus:ring-[var(--brand-primary)]"
+              >
+                {DATE_PERIOD_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+
+              {datePeriod === 'custom' && (
+                <>
+                  <input
+                    type="date"
+                    value={customStartDate}
+                    onChange={(e) => {
+                      setCustomStartDate(e.target.value);
+                      setCurrentPage(1);
+                    }}
+                    className="rounded-lg border px-3 py-1.5 text-sm focus:ring-2 focus:ring-[var(--brand-primary)]"
+                  />
+                  <span className="text-sm text-gray-400">to</span>
+                  <input
+                    type="date"
+                    value={customEndDate}
+                    onChange={(e) => {
+                      setCustomEndDate(e.target.value);
+                      setCurrentPage(1);
+                    }}
+                    className="rounded-lg border px-3 py-1.5 text-sm focus:ring-2 focus:ring-[var(--brand-primary)]"
+                  />
+                </>
+              )}
+
+              {datePeriod !== 'all' && (
+                <button
+                  onClick={() => handlePeriodChange('all')}
+                  className="inline-flex items-center gap-1 rounded-md bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-200"
+                >
+                  <X className="h-3 w-3" />
+                  Clear dates
+                </button>
+              )}
+            </div>
           </div>
         </div>
 
@@ -410,23 +524,26 @@ export default function ProviderPrescriptionsPage() {
             <div className="px-4 py-10 text-center">
               <Pill className="mx-auto mb-3 h-10 w-10 text-gray-300" />
               <p className="text-sm text-gray-500">
-                {debouncedSearch ? 'No prescriptions match your search' : 'No prescriptions yet'}
+                {debouncedSearch || datePeriod !== 'all'
+                  ? 'No prescriptions match your filters'
+                  : 'No prescriptions yet'}
               </p>
               <p className="mt-1 text-xs text-gray-400">
-                {debouncedSearch
-                  ? 'Try a different search term or clear your search.'
+                {debouncedSearch || datePeriod !== 'all'
+                  ? 'Try adjusting your search, date range, or status filter.'
                   : 'Prescriptions will appear here when you create orders for patients.'}
               </p>
-              {debouncedSearch && (
+              {(debouncedSearch || datePeriod !== 'all') && (
                 <button
                   onClick={() => {
                     setSearchTerm('');
                     setDebouncedSearch('');
+                    handlePeriodChange('all');
                     setCurrentPage(1);
                   }}
                   className="mt-2 text-sm font-medium text-[var(--brand-primary)] hover:underline"
                 >
-                  Clear search
+                  Clear all filters
                 </button>
               )}
             </div>
