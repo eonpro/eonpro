@@ -379,6 +379,7 @@ export default function PrescriptionQueuePage() {
   const [error, setError] = useState('');
   const [fetchFailed, setFetchFailed] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
+  const [successLifefileId, setSuccessLifefileId] = useState<string | null>(null);
   const [total, setTotal] = useState(0);
 
   // Expanded patient details
@@ -584,6 +585,7 @@ export default function PrescriptionQueuePage() {
           )
         );
         setSuccessMessage(`SOAP note generated for ${item.patientName}`);
+        setSuccessLifefileId(null);
         setTimeout(() => setSuccessMessage(''), 4000);
 
         // Refresh patient details if expanded
@@ -645,6 +647,7 @@ export default function PrescriptionQueuePage() {
           )
         );
         setSuccessMessage(`SOAP note approved for ${item.patientName}`);
+        setSuccessLifefileId(null);
         setTimeout(() => setSuccessMessage(''), 4000);
 
         // Refresh patient details if expanded
@@ -684,11 +687,12 @@ export default function PrescriptionQueuePage() {
       });
       const data = await res.json();
       if (res.ok && data.success) {
+        const lifefileId = data?.order?.lifefileOrderId ?? null;
         setQueueItems((prev) => prev.filter((i) => (i as QueueItem).orderId !== orderId));
         setTotal((prev) => Math.max(0, prev - 1));
         setPrescriptionPanel(null);
         setSuccessMessage(`Prescription for ${patientName} approved and sent to pharmacy.`);
-        setTimeout(() => setSuccessMessage(''), 5000);
+        setSuccessLifefileId(lifefileId ? String(lifefileId) : null);
       } else {
         setError(data.error || data.details || 'Failed to send to pharmacy');
       }
@@ -720,6 +724,7 @@ export default function PrescriptionQueuePage() {
         setDeclineReason('');
         setExpandedOrderId(null);
         setSuccessMessage(`Prescription for ${patientName} declined.`);
+        setSuccessLifefileId(null);
         setTimeout(() => setSuccessMessage(''), 5000);
       } else {
         setError(data.error || 'Failed to decline order');
@@ -1045,6 +1050,9 @@ export default function PrescriptionQueuePage() {
       }
 
       if (response.ok) {
+        const successData = await response.json();
+        const lifefileId = successData?.order?.lifefileOrderId ?? null;
+
         // Remove item from queue immediately (backend auto-marks invoice as processed)
         // Handle all queue types: invoice, refill, queued_order
         if (item.queueType === 'refill' && item.refillId) {
@@ -1056,10 +1064,8 @@ export default function PrescriptionQueuePage() {
 
         setPrescriptionPanel(null);
         setShowConfirmation(false);
-        setSuccessMessage(
-          `Prescription for ${item.patientName} sent to Lifefile successfully!`
-        );
-        setTimeout(() => setSuccessMessage(''), 5000);
+        setSuccessMessage(`Prescription for ${item.patientName} sent to pharmacy successfully!`);
+        setSuccessLifefileId(lifefileId ? String(lifefileId) : null);
       } else {
         const errorData = await response.json();
         // Build a message that includes the reason so the user can correct it
@@ -1130,6 +1136,7 @@ export default function PrescriptionQueuePage() {
         setTotal((prev) => Math.max(0, prev - 1));
         if (showMessage) {
           setSuccessMessage(`Prescription for ${item.patientName} marked as processed`);
+          setSuccessLifefileId(null);
           setTimeout(() => setSuccessMessage(''), 3000);
         }
       } else {
@@ -1176,6 +1183,7 @@ export default function PrescriptionQueuePage() {
         );
         setTotal((prev) => prev - 1);
         setSuccessMessage(`Prescription for ${declineModal.item.patientName} has been declined`);
+        setSuccessLifefileId(null);
         setTimeout(() => setSuccessMessage(''), 4000);
         setDeclineModal(null);
         setDeclineReason('');
@@ -1237,6 +1245,7 @@ export default function PrescriptionQueuePage() {
           })
         );
         setSuccessMessage(`${item.patientName} moved to Needs Info`);
+        setSuccessLifefileId(null);
         setTimeout(() => setSuccessMessage(''), 4000);
         setActiveTab('needs_info');
       } else {
@@ -1281,6 +1290,7 @@ export default function PrescriptionQueuePage() {
           })
         );
         setSuccessMessage(`${item.patientName} returned to Ready queue`);
+        setSuccessLifefileId(null);
         setTimeout(() => setSuccessMessage(''), 4000);
       } else {
         const errorData = await response.json();
@@ -1403,11 +1413,27 @@ export default function PrescriptionQueuePage() {
       <div className="mx-auto max-w-7xl space-y-4 px-4 py-6 pb-28 sm:px-6 sm:pb-6 lg:px-8">
         {/* Success/Error Messages */}
         {successMessage && (
-          <div className="animate-in slide-in-from-top flex items-center gap-3 rounded-xl border border-green-200 bg-green-50 p-4 duration-300">
-            <div className="rounded-full bg-green-100 p-1.5">
-              <CheckIcon className="h-4 w-4 text-green-600" />
+          <div className="animate-in slide-in-from-top flex items-center justify-between gap-3 rounded-xl border border-green-200 bg-green-50 p-4 duration-300">
+            <div className="flex items-center gap-3">
+              <div className="rounded-full bg-green-100 p-1.5">
+                <CheckIcon className="h-4 w-4 text-green-600" />
+              </div>
+              <div>
+                <span className="font-medium text-green-800">{successMessage}</span>
+                {successLifefileId && (
+                  <span className="ml-2 inline-flex items-center gap-1 rounded-md bg-green-600 px-2.5 py-0.5 text-sm font-semibold text-white">
+                    Lifefile Order #{successLifefileId}
+                  </span>
+                )}
+              </div>
             </div>
-            <span className="font-medium text-green-800">{successMessage}</span>
+            <button
+              onClick={() => { setSuccessMessage(''); setSuccessLifefileId(null); }}
+              className="ml-2 rounded-lg p-1 text-green-600 hover:bg-green-100 hover:text-green-800"
+              aria-label="Dismiss"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
+            </button>
           </div>
         )}
 
