@@ -2,7 +2,6 @@
 
 import { useState, useCallback, useEffect, useRef, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { Trash2, GitMerge, Link2, X, Check, Loader2, Unlink, Truck, Download } from 'lucide-react';
 import EditPatientModal from './EditPatientModal';
 import DeletePatientModal from './DeletePatientModal';
@@ -914,7 +913,7 @@ export default function PatientSidebar({
             const isActive = currentTab === item.id;
             const href = `${patientDetailBasePath}/${patient.id}?tab=${item.id}`;
             return (
-              <Link
+              <a
                 key={item.id}
                 href={href}
                 className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 transition-colors ${
@@ -935,7 +934,7 @@ export default function PatientSidebar({
                 >
                   {item.label}
                 </span>
-              </Link>
+              </a>
             );
           })}
         </nav>
