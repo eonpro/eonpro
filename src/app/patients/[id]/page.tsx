@@ -140,6 +140,9 @@ export default async function PatientDetailPage({
       );
     }
 
+    const needsIntakeData = requestedTab === 'intake' || requestedTab === 'profile';
+    const needsAuditEntries = resolvedSearchParams?.admin === 'true';
+
     const patientInclude: Record<string, unknown> = {
       user: { select: { id: true } },
       clinic: {
@@ -181,6 +184,7 @@ export default async function PatientDetailPage({
       },
       documents: {
         orderBy: { createdAt: 'desc' } as const,
+        take: 100,
         select: {
           id: true,
           filename: true,
@@ -191,20 +195,28 @@ export default async function PatientDetailPage({
           sourceSubmissionId: true,
         },
       },
-      intakeSubmissions: {
-        orderBy: { createdAt: 'desc' } as const,
-        take: 20,
-        include: {
-          template: {
-            select: { id: true, name: true, treatmentType: true, version: true },
-          },
-          responses: { include: { question: true } },
-        },
-      },
-      auditEntries: {
-        orderBy: { createdAt: 'desc' } as const,
-        take: 10,
-      },
+      ...(needsIntakeData
+        ? {
+            intakeSubmissions: {
+              orderBy: { createdAt: 'desc' } as const,
+              take: 10,
+              include: {
+                template: {
+                  select: { id: true, name: true, treatmentType: true, version: true },
+                },
+                responses: { include: { question: { select: { id: true, text: true, label: true, questionText: true } } } },
+              },
+            },
+          }
+        : {}),
+      ...(needsAuditEntries
+        ? {
+            auditEntries: {
+              orderBy: { createdAt: 'desc' } as const,
+              take: 10,
+            },
+          }
+        : {}),
       attributionAffiliate: {
         select: { id: true, displayName: true, status: true },
       },
@@ -312,8 +324,8 @@ export default async function PatientDetailPage({
     }
 
     if (!patient) {
-      // Patient not found or not in user's clinic - log access attempt
-      await auditLog(headersList, {
+      // Patient not found or not in user's clinic - log access attempt (non-blocking)
+      auditLog(headersList, {
         userId: user.id,
         userEmail: user.email,
         userRole: user.role,
@@ -325,7 +337,7 @@ export default async function PatientDetailPage({
         action: 'VIEW_PATIENT_DENIED',
         outcome: 'FAILURE',
         reason: 'Patient not found or access denied',
-      });
+      }).catch(() => {});
 
       return (
         <div className="p-10">
@@ -346,8 +358,8 @@ export default async function PatientDetailPage({
       );
     }
 
-    // HIPAA Audit: Log successful PHI access
-    await auditLog(headersList, {
+    // HIPAA Audit: Log successful PHI access (non-blocking to avoid delaying page render)
+    auditLog(headersList, {
       userId: user.id,
       userEmail: user.email,
       userRole: user.role,
@@ -358,6 +370,11 @@ export default async function PatientDetailPage({
       patientId: id,
       action: 'VIEW_PATIENT_RECORD',
       outcome: 'SUCCESS',
+    }).catch((auditErr: unknown) => {
+      logger.error('[PATIENT-DETAIL] HIPAA audit log failed (non-blocking):', {
+        patientId: id,
+        error: auditErr instanceof Error ? auditErr.message : String(auditErr),
+      });
     });
 
     // Decrypt PHI fields for display (with error handling)
@@ -532,25 +549,23 @@ export default async function PatientDetailPage({
     const shouldResolveDoseSpotPrescriber = requestedTab === 'prescriptions' && doseSpotEnabled;
     let doseSpotPrescriberId: number | undefined = undefined;
     if (clinicProviderWhere && shouldResolveDoseSpotPrescriber) {
-      const validUserProvider = user.providerId
-        ? await basePrisma.provider.findFirst({
-            where: {
-              id: user.providerId,
-              ...clinicProviderWhere,
-            },
-            select: { id: true },
-          })
-        : null;
+      const [validUserProvider, defaultClinicProvider] = await Promise.all([
+        user.providerId
+          ? basePrisma.provider.findFirst({
+              where: { id: user.providerId, ...clinicProviderWhere },
+              select: { id: true },
+            })
+          : null,
+        basePrisma.provider.findFirst({
+          where: clinicProviderWhere,
+          select: { id: true },
+          orderBy: { id: 'asc' },
+        }),
+      ]);
 
       const recentOrderProviderId = (patientWithDecryptedPHI.orders ?? []).find(
         (order: any) => typeof order?.provider?.id === 'number'
       )?.provider?.id as number | undefined;
-
-      const defaultClinicProvider = await basePrisma.provider.findFirst({
-        where: clinicProviderWhere,
-        select: { id: true },
-        orderBy: { id: 'asc' },
-      });
 
       doseSpotPrescriberId =
         validUserProvider?.id ?? recentOrderProviderId ?? defaultClinicProvider?.id ?? undefined;
@@ -1049,11 +1064,11 @@ export default async function PatientDetailPage({
                         Admin Only
                       </span>
                     </div>
-                    {patientWithDecryptedPHI.auditEntries.length === 0 ? (
+                    {(patientWithDecryptedPHI.auditEntries ?? []).length === 0 ? (
                       <p className="text-sm text-gray-500">No edits recorded yet.</p>
                     ) : (
                       <div className="space-y-3 text-sm">
-                        {patientWithDecryptedPHI.auditEntries.map((entry: any) => (
+                        {(patientWithDecryptedPHI.auditEntries ?? []).map((entry: any) => (
                           <div key={entry.id} className="rounded-lg border bg-[#efece7] p-3">
                             <div className="mb-2 flex justify-between text-xs text-gray-500">
                               <span>{entry.actorEmail ?? 'Unknown actor'}</span>
