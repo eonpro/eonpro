@@ -363,7 +363,10 @@ export function ClinicBrandingProvider({
             domain.endsWith('.vercel.app');
 
           if (isMainDomain) {
-            if (!cancelled) setBranding(defaultBranding);
+            if (!cancelled) {
+              setBranding(defaultBranding);
+              setIsLoading(false);
+            }
             return;
           }
 
@@ -443,7 +446,10 @@ export function ClinicBrandingProvider({
         }
 
         if (!cId) {
-          if (!cancelled) setBranding(defaultBranding);
+          if (!cancelled) {
+            setBranding(defaultBranding);
+            setIsLoading(false);
+          }
           return;
         }
 
