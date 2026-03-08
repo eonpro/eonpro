@@ -97,12 +97,19 @@ export function getServerlessConfig(): ServerlessPoolConfig {
     connectionLimit = 5;
   }
 
+  const explicitPoolTimeout = process.env.DATABASE_POOL_TIMEOUT
+    ? parseInt(process.env.DATABASE_POOL_TIMEOUT, 10)
+    : undefined;
+  const explicitIdleTimeout = process.env.DATABASE_IDLE_TIMEOUT
+    ? parseInt(process.env.DATABASE_IDLE_TIMEOUT, 10)
+    : undefined;
+
   return {
     connectionLimit,
-    poolTimeout: hasExternalPooler ? 30 : (isVercel ? 20 : 30),
+    poolTimeout: explicitPoolTimeout || (hasExternalPooler ? 30 : (isVercel ? 20 : 30)),
     connectTimeout: 10,
-    idleTimeout: isVercel ? 10 : 60, // Release idle connections quickly on serverless
-    statementTimeout: 30000, // 30s statement timeout
+    idleTimeout: explicitIdleTimeout || (isVercel ? 20 : 60),
+    statementTimeout: 30000,
     useRdsProxy,
     usePgBouncer,
   };

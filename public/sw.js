@@ -76,9 +76,13 @@ self.addEventListener('fetch', (event) => {
     return;
   }
   
-  // API requests - network first, cache fallback
+  // API requests - only cache patient-portal endpoints; skip all others
+  // so provider/admin API calls are never served from stale SW cache
   if (url.pathname.startsWith('/api/')) {
-    event.respondWith(networkFirst(request));
+    const shouldCache = API_CACHE_ROUTES.some((route) => url.pathname.startsWith(route));
+    if (shouldCache) {
+      event.respondWith(networkFirst(request));
+    }
     return;
   }
   

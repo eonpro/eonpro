@@ -14,6 +14,7 @@ import { withClinicalAuth } from '@/lib/auth/middleware';
 import { relaxedRateLimit, standardRateLimit } from '@/lib/rateLimit';
 import { patientService, type UserContext, type ListPatientsOptions } from '@/domains/patient';
 import { handleApiError } from '@/domains/shared/errors';
+import { createServerTiming } from '@/lib/observability/server-timing';
 
 // Zod schema for patient creation
 const createPatientSchema = z.object({
@@ -59,16 +60,16 @@ const createPatientSchema = z.object({
  * - includeContact: Include email/phone/address (default: false)
  */
 const getPatientsHandler = withClinicalAuth(async (req: NextRequest, user) => {
+  const timing = createServerTiming();
+
   try {
     const { searchParams } = new URL(req.url);
 
-    // Parse query parameters
     const rawLimit = parseInt(searchParams.get('limit') || '100', 10);
     const limit = isNaN(rawLimit) || rawLimit <= 0 ? 100 : Math.min(rawLimit, 500);
     const rawOffset = parseInt(searchParams.get('offset') || '0', 10);
     const offset = isNaN(rawOffset) || rawOffset < 0 ? 0 : rawOffset;
 
-    // HIPAA: Only include contact info if explicitly requested
     const includeContact = searchParams.get('includeContact') === 'true';
 
     const options: ListPatientsOptions = {
@@ -80,7 +81,6 @@ const getPatientsHandler = withClinicalAuth(async (req: NextRequest, user) => {
       tags: searchParams.get('tags')?.split(',').filter(Boolean) || undefined,
     };
 
-    // Convert auth user to service UserContext
     const userContext: UserContext = {
       id: user.id,
       email: user.email,
@@ -89,17 +89,13 @@ const getPatientsHandler = withClinicalAuth(async (req: NextRequest, user) => {
       patientId: user.patientId,
     };
 
-    // Use patient service - handles clinic isolation, PHI decryption
-    const result = await patientService.listPatients(userContext, options);
+    const result = await timing.measure('db', () =>
+      patientService.listPatients(userContext, options)
+    );
 
-    // Skip the extra countPatients query during search to halve DB load.
-    // The UI can fall back to result.total when totalInSystem is absent.
     const totalInSystem: number | undefined = undefined;
 
-    // Transform to dashboard-friendly format
-    // HIPAA: Minimize PHI in list responses
     const patients = result.data.map((patient) => {
-      // Base fields (minimal PHI)
       const baseData: Record<string, any> = {
         id: patient.id,
         patientId: patient.patientId,
@@ -114,7 +110,6 @@ const getPatientsHandler = withClinicalAuth(async (req: NextRequest, user) => {
         identityVerified: patient.identityVerified ?? false,
       };
 
-      // HIPAA: Only include contact info if explicitly requested
       if (includeContact) {
         const addressParts = [
           patient.address1,
@@ -145,7 +140,7 @@ const getPatientsHandler = withClinicalAuth(async (req: NextRequest, user) => {
         filters: { limit, offset, recent: options.recent, search: options.search },
         includeContact,
       },
-    });
+    }, { headers: timing.headers() });
   } catch (error) {
     return handleApiError(error, {
       context: { route: 'GET /api/patients' },

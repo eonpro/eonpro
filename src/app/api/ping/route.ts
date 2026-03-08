@@ -27,25 +27,32 @@ export async function GET(request: NextRequest) {
     // fallback
   }
 
-  // Optional DB diagnostic (add ?db=true to test)
+  // Always warm the DB connection pool on every ping.
+  // The Vercel cron hits this every 5 minutes, keeping the serverless function
+  // and its DB connection alive so subsequent user requests avoid cold starts.
   let dbStatus: Record<string, unknown> = {};
+  const dbStart = Date.now();
+  try {
+    await basePrisma.$queryRaw`SELECT 1 as ok`;
+    dbStatus = { warm: true, latencyMs: Date.now() - dbStart };
+  } catch (err: unknown) {
+    dbStatus = {
+      warm: false,
+      latencyMs: Date.now() - dbStart,
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
+
   const url = new URL(request.url);
   if (url.searchParams.get('db') === 'true') {
-    const start = Date.now();
     try {
-      await basePrisma.$queryRaw`SELECT 1 as ok`;
       const clinicCount = await basePrisma.clinic.count();
-      dbStatus = {
-        connected: true,
-        latencyMs: Date.now() - start,
-        clinicCount,
-      };
+      dbStatus = { ...dbStatus, connected: true, clinicCount };
     } catch (err: unknown) {
       dbStatus = {
+        ...dbStatus,
         connected: false,
-        latencyMs: Date.now() - start,
         error: err instanceof Error ? err.message : String(err),
-        errorName: err instanceof Error ? err.constructor.name : 'Unknown',
       };
     }
   }

@@ -1,5 +1,16 @@
 {
   "buildCommand": "npm run vercel-build",
+  "functions": {
+    "src/app/api/**/*.ts": {
+      "maxDuration": 30
+    },
+    "src/app/patients/**/*.tsx": {
+      "maxDuration": 30
+    },
+    "src/app/provider/**/*.tsx": {
+      "maxDuration": 30
+    }
+  },
   "crons": [
     {"path": "/api/ping", "schedule": "*/5 * * * *"},
     {"path": "/api/cron/health-monitor", "schedule": "*/5 * * * *"},
