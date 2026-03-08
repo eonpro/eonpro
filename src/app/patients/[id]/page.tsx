@@ -143,169 +143,41 @@ export default async function PatientDetailPage({
     const needsIntakeData = requestedTab === 'intake' || requestedTab === 'profile';
     const needsAuditEntries = resolvedSearchParams?.admin === 'true';
 
-    const patientInclude: Record<string, unknown> = {
-      user: { select: { id: true } },
-      clinic: {
-        select: { id: true, subdomain: true, name: true, features: true, address: true, phone: true },
-      },
-      orders: {
-        orderBy: { createdAt: 'desc' } as const,
-        take: 50,
-        select: {
-          id: true,
-          createdAt: true,
-          primaryMedName: true,
-          primaryMedStrength: true,
-          trackingNumber: true,
-          status: true,
-          ...(needsDetailedOrders
-            ? {
-                rxs: {
-                  select: {
-                    id: true,
-                    orderId: true,
-                    medicationKey: true,
-                    medName: true,
-                    strength: true,
-                    form: true,
-                    quantity: true,
-                    refills: true,
-                    sig: true,
-                    daysSupply: true,
-                  },
-                },
-                provider: {
-                  select: { id: true, firstName: true, lastName: true, email: true },
-                },
-                events: { orderBy: { createdAt: 'desc' } as const, take: 20 },
-              }
-            : {}),
-        },
-      },
-      documents: {
-        orderBy: { createdAt: 'desc' } as const,
-        take: 100,
-        select: {
-          id: true,
-          filename: true,
-          mimeType: true,
-          createdAt: true,
-          externalUrl: true,
-          category: true,
-          sourceSubmissionId: true,
-        },
-      },
-      ...(needsIntakeData
-        ? {
-            intakeSubmissions: {
-              orderBy: { createdAt: 'desc' } as const,
-              take: 10,
-              include: {
-                template: {
-                  select: { id: true, name: true, treatmentType: true, version: true },
-                },
-                responses: { include: { question: true } },
-              },
-            },
-          }
-        : {}),
-      ...(needsAuditEntries
-        ? {
-            auditEntries: {
-              orderBy: { createdAt: 'desc' } as const,
-              take: 10,
-            },
-          }
-        : {}),
-      attributionAffiliate: {
-        select: { id: true, displayName: true, status: true },
-      },
-      portalInvites: {
-        orderBy: { createdAt: 'desc' } as const,
-        take: 1,
-        select: { id: true, createdAt: true, trigger: true, usedAt: true, expiresAt: true },
-      },
-      subscriptions: {
-        where: { status: 'ACTIVE' },
-        take: 1,
-        select: { id: true, planName: true },
-      },
-    };
-
-    let patient;
-    let salesRepAssignments: any[] = [];
+    // ─── PHASE 1: Lightweight core patient query ───────────────────────
+    // Uses basePrisma directly (bypasses PrismaWithClinicFilter proxy overhead).
+    // We enforce clinic isolation manually below.
+    let patient: any;
     try {
-      if (isSuperAdmin) {
-        // Super admin: bypass clinic filter (basePrisma allows patient in allowlist)
-        patient = await basePrisma.patient.findUnique({
-          where: { id },
-          include: patientInclude,
-        });
-      } else {
-        patient = await runWithClinicContext(clinicId ?? undefined, async () => {
-          return prisma.patient.findUnique({
-            where: { id },
-            include: patientInclude,
-          });
-        });
+      const coreWhere: any = { id };
+      if (!isSuperAdmin && clinicId) {
+        coreWhere.clinicId = clinicId;
       }
-
-      // Fetch intake doc data + sales rep assignments in parallel (both depend on patient, not each other)
-      if (patient) {
-        const effectiveClinicId = isSuperAdmin ? (patient.clinicId ?? undefined) : clinicId;
-
-        const intakeDocIds = ((patient as any).documents as any[] ?? [])
-          .filter((d: any) => d.category === 'MEDICAL_INTAKE_FORM')
-          .map((d: any) => d.id);
-
-        const [intakeDocsWithData, fetchedSalesReps] = await Promise.all([
-          intakeDocIds.length > 0
-            ? runWithClinicContext(effectiveClinicId, () =>
-                prisma.patientDocument.findMany({
-                  where: { id: { in: intakeDocIds } },
-                  select: { id: true, data: true },
-                })
-              ).catch((err: unknown) => {
-                logger.warn('[PATIENT-DETAIL] Could not fetch intake document data:', {
-                  patientId: id,
-                  error: err instanceof Error ? err.message : String(err),
-                });
-                return [] as any[];
-              })
-            : Promise.resolve([] as any[]),
-          effectiveClinicId != null
-            ? runWithClinicContext(effectiveClinicId, () =>
-                prisma.patientSalesRepAssignment.findMany({
-                  where: { patientId: id, isActive: true },
-                  orderBy: { assignedAt: 'desc' },
-                  take: 1,
-                  include: {
-                    salesRep: { select: { id: true, firstName: true, lastName: true } },
-                  },
-                })
-              ).catch((err: unknown) => {
-                logger.warn('[PATIENT-DETAIL] Could not fetch sales rep assignments:', {
-                  patientId: id,
-                  error: err instanceof Error ? err.message : String(err),
-                });
-                return [] as any[];
-              })
-            : Promise.resolve([] as any[]),
-        ]);
-
-        if (intakeDocsWithData.length > 0) {
-          const dataMap = new Map(intakeDocsWithData.map((d: any) => [d.id, d.data]));
-          (patient as any).documents = ((patient as any).documents as any[]).map((doc: any) => ({
-            ...doc,
-            data: dataMap.get(doc.id) ?? null,
-          }));
-        }
-        salesRepAssignments = fetchedSalesReps;
-      }
+      patient = await basePrisma.patient.findFirst({
+        where: coreWhere,
+        include: {
+          user: { select: { id: true } },
+          clinic: {
+            select: { id: true, subdomain: true, name: true, features: true, address: true, phone: true },
+          },
+          attributionAffiliate: {
+            select: { id: true, displayName: true, status: true },
+          },
+          portalInvites: {
+            orderBy: { createdAt: 'desc' } as const,
+            take: 1,
+            select: { id: true, createdAt: true, trigger: true, usedAt: true, expiresAt: true },
+          },
+          subscriptions: {
+            where: { status: 'ACTIVE' },
+            take: 1,
+            select: { id: true, planName: true },
+          },
+        },
+      });
     } catch (dbError) {
-      logger.error('Database error fetching patient:', {
+      logger.error('Database error fetching patient core:', {
         patientId: id,
-        clinicId: clinicId,
+        clinicId,
         userId: user.id,
         error: dbError instanceof Error ? dbError.message : String(dbError),
       });
@@ -321,6 +193,167 @@ export default async function PatientDetailPage({
           </Link>
         </div>
       );
+    }
+
+    // Clinic isolation: non-super-admin can only see patients in their clinic
+    if (patient && !isSuperAdmin && clinicId && patient.clinicId !== clinicId) {
+      patient = null;
+    }
+
+    // ─── PHASE 2: Parallel tab-specific data ───────────────────────────
+    // Each query is independent and lightweight. Runs in parallel to minimize
+    // total wait time and reduce connection pool pressure.
+    let orders: any[] = [];
+    let documents: any[] = [];
+    let intakeSubmissions: any[] = [];
+    let auditEntries: any[] = [];
+    let salesRepAssignments: any[] = [];
+
+    if (patient) {
+      const effectiveClinicId = isSuperAdmin ? (patient.clinicId ?? undefined) : clinicId;
+
+      try {
+        const parallelQueries: Promise<void>[] = [];
+
+        // Orders — needed for sidebar (always) and prescriptions tab
+        parallelQueries.push(
+          basePrisma.order.findMany({
+            where: { patientId: id, ...(effectiveClinicId ? { clinicId: effectiveClinicId } : {}) },
+            orderBy: { createdAt: 'desc' },
+            take: 50,
+            select: {
+              id: true,
+              createdAt: true,
+              primaryMedName: true,
+              primaryMedStrength: true,
+              trackingNumber: true,
+              status: true,
+              ...(needsDetailedOrders
+                ? {
+                    rxs: {
+                      select: {
+                        id: true, orderId: true, medicationKey: true, medName: true,
+                        strength: true, form: true, quantity: true, refills: true,
+                        sig: true, daysSupply: true,
+                      },
+                    },
+                    provider: {
+                      select: { id: true, firstName: true, lastName: true, email: true },
+                    },
+                    events: { orderBy: { createdAt: 'desc' } as const, take: 20 },
+                  }
+                : {}),
+            },
+          }).then((r) => { orders = r; })
+        );
+
+        // Documents — needed for profile (vitals extraction) and intake tab
+        if (needsIntakeData || requestedTab === 'documents') {
+          parallelQueries.push(
+            basePrisma.patientDocument.findMany({
+              where: { patientId: id, ...(effectiveClinicId ? { clinicId: effectiveClinicId } : {}) },
+              orderBy: { createdAt: 'desc' },
+              take: 100,
+              select: {
+                id: true, filename: true, mimeType: true, createdAt: true,
+                externalUrl: true, category: true, sourceSubmissionId: true,
+              },
+            }).then((r) => { documents = r; })
+          );
+        }
+
+        // Intake submissions — only for profile/intake tabs
+        if (needsIntakeData) {
+          parallelQueries.push(
+            basePrisma.intakeFormSubmission.findMany({
+              where: { patientId: id },
+              orderBy: { createdAt: 'desc' },
+              take: 10,
+              include: {
+                template: {
+                  select: { id: true, name: true, treatmentType: true, version: true },
+                },
+                responses: { include: { question: true } },
+              },
+            }).then((r) => { intakeSubmissions = r; })
+          );
+        }
+
+        // Audit entries — only when admin view is requested
+        if (needsAuditEntries) {
+          parallelQueries.push(
+            basePrisma.patientAudit.findMany({
+              where: { patientId: id },
+              orderBy: { createdAt: 'desc' },
+              take: 10,
+            }).then((r) => { auditEntries = r; })
+          );
+        }
+
+        // Sales rep assignments
+        if (effectiveClinicId != null) {
+          parallelQueries.push(
+            basePrisma.patientSalesRepAssignment.findMany({
+              where: { patientId: id, isActive: true },
+              orderBy: { assignedAt: 'desc' },
+              take: 1,
+              include: {
+                salesRep: { select: { id: true, firstName: true, lastName: true } },
+              },
+            }).then((r) => { salesRepAssignments = r; })
+              .catch((err: unknown) => {
+                logger.warn('[PATIENT-DETAIL] Could not fetch sales rep assignments:', {
+                  patientId: id,
+                  error: err instanceof Error ? err.message : String(err),
+                });
+              })
+          );
+        }
+
+        await Promise.all(parallelQueries);
+
+        // For intake tab: fetch document binary data for MEDICAL_INTAKE_FORM docs
+        if (needsIntakeData && documents.length > 0) {
+          const intakeDocIds = documents
+            .filter((d: any) => d.category === 'MEDICAL_INTAKE_FORM')
+            .map((d: any) => d.id);
+
+          if (intakeDocIds.length > 0) {
+            const intakeDocsWithData = await basePrisma.patientDocument.findMany({
+              where: { id: { in: intakeDocIds } },
+              select: { id: true, data: true },
+            }).catch((err: unknown) => {
+              logger.warn('[PATIENT-DETAIL] Could not fetch intake document data:', {
+                patientId: id,
+                error: err instanceof Error ? err.message : String(err),
+              });
+              return [] as any[];
+            });
+
+            if (intakeDocsWithData.length > 0) {
+              const dataMap = new Map(intakeDocsWithData.map((d: any) => [d.id, d.data]));
+              documents = documents.map((doc: any) => ({
+                ...doc,
+                data: dataMap.get(doc.id) ?? null,
+              }));
+            }
+          }
+        }
+      } catch (dbError) {
+        logger.error('Database error fetching patient related data:', {
+          patientId: id,
+          clinicId,
+          userId: user.id,
+          error: dbError instanceof Error ? dbError.message : String(dbError),
+        });
+        // Continue with whatever data we have — partial render is better than error
+      }
+
+      // Attach fetched data to the patient object for downstream components
+      (patient as any).orders = orders;
+      (patient as any).documents = documents;
+      (patient as any).intakeSubmissions = intakeSubmissions;
+      (patient as any).auditEntries = auditEntries;
     }
 
     if (!patient) {
@@ -1041,7 +1074,7 @@ export default async function PatientDetailPage({
                   <div>
                     <h3 className="mb-2 text-lg font-semibold text-gray-900">Overview</h3>
                     <p className="text-sm text-gray-600">
-                      Total prescriptions: {patientWithDecryptedPHI.orders.length}
+                      Total prescriptions: {(patientWithDecryptedPHI.orders ?? []).length}
                     </p>
                     <p className="mt-1 text-sm text-gray-500" suppressHydrationWarning>
                       Last updated: {new Date(patientWithDecryptedPHI.createdAt).toLocaleString()}
