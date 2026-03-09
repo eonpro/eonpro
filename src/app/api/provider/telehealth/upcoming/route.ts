@@ -15,11 +15,23 @@ import { decryptPatientPHI } from '@/lib/security/phi-encryption';
 
 export const GET = withProviderAuth(async (req: NextRequest, user: AuthUser) => {
   try {
-    const provider = user.providerId
+    // Resolve provider with multiple fallback strategies
+    let provider = user.providerId
       ? await prisma.provider.findUnique({ where: { id: user.providerId } })
-      : await prisma.provider.findFirst({
-          where: { OR: [{ email: user.email }, { user: { id: user.id } }] },
-        });
+      : null;
+
+    if (!provider) {
+      provider = await prisma.provider.findFirst({
+        where: { OR: [{ email: user.email }, { user: { id: user.id } }] },
+      });
+    }
+
+    // Last resort: check if there's a provider with matching email (case-insensitive)
+    if (!provider && user.email) {
+      provider = await prisma.provider.findFirst({
+        where: { email: { equals: user.email, mode: 'insensitive' } },
+      });
+    }
 
     if (!provider) {
       logger.warn('Telehealth: Provider not found for user', {
@@ -27,10 +39,51 @@ export const GET = withProviderAuth(async (req: NextRequest, user: AuthUser) => 
         email: user.email,
         providerId: user.providerId,
       });
-      return NextResponse.json(
-        { sessions: [], totalCount: 0, zoomEnabled: false, debug: { reason: 'provider_not_found', userId: user.id } },
-        { status: 200 }
-      );
+      // Even without a provider match, try to show VIDEO appointments
+      // created by this user (createdById field)
+      const fallbackAppointments = await prisma.appointment.findMany({
+        where: {
+          type: 'VIDEO',
+          startTime: { gte: now, lte: endDate },
+          status: { in: ['SCHEDULED', 'CONFIRMED', 'IN_PROGRESS'] },
+          OR: [
+            { createdById: user.id },
+            ...(user.providerId ? [{ providerId: user.providerId }] : []),
+          ],
+        },
+        include: {
+          patient: { select: { id: true, firstName: true, lastName: true } },
+        },
+        orderBy: { startTime: 'asc' },
+        take: 20,
+      });
+
+      const fallbackSessions = fallbackAppointments.map((apt) => {
+        const patient = apt.patient
+          ? decryptPatientPHI(apt.patient, ['firstName', 'lastName'])
+          : null;
+        return {
+          id: apt.id,
+          topic: apt.title ?? apt.reason ?? 'Video Consultation',
+          scheduledAt: apt.startTime.toISOString(),
+          duration: apt.duration ?? 30,
+          status: apt.status === 'CONFIRMED' ? 'SCHEDULED' : apt.status,
+          joinUrl: apt.zoomJoinUrl ?? apt.videoLink ?? '',
+          hostUrl: null,
+          meetingId: apt.zoomMeetingId,
+          password: null,
+          patient,
+          appointment: { id: apt.id, title: apt.title, reason: apt.reason },
+          source: 'fallback',
+        };
+      });
+
+      return NextResponse.json({
+        sessions: fallbackSessions,
+        totalCount: fallbackSessions.length,
+        zoomEnabled: isZoomEnabled(),
+        debug: { reason: 'provider_not_found_using_fallback', userId: user.id, fallbackCount: fallbackSessions.length },
+      });
     }
 
     const now = new Date();
