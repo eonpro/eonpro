@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Link from 'next/link';
 import { getAuthHeaders } from '@/lib/utils/auth-token';
 import { TrendingDown, TrendingUp, Scale, BarChart3 } from 'lucide-react';
 
@@ -74,14 +73,14 @@ export default function WeightProgressSummary({ patientId, basePath = '/patients
   if (!loading && weightData.length === 0) {
     return (
       <div className="mt-6 flex h-48 items-center justify-center rounded-xl bg-[#efece7] p-4">
-        <Link
+        <a
           href={`${basePath}/${patientId}?tab=progress`}
           className="group text-center text-gray-500 transition-colors"
         >
           <BarChart3 className="mx-auto mb-2 h-8 w-8 opacity-50 transition-opacity group-hover:opacity-80" />
           <p className="text-sm font-medium group-hover:text-gray-700">Weight Progress Tracking</p>
           <p className="text-xs">No weight data yet. View Progress tab to add entries →</p>
-        </Link>
+        </a>
       </div>
     );
   }
@@ -113,12 +112,12 @@ export default function WeightProgressSummary({ patientId, basePath = '/patients
           <Scale className="h-4 w-4 text-gray-600" />
           <h3 className="text-sm font-semibold text-gray-700">Weight Progress</h3>
         </div>
-        <Link
+        <a
           href={`${basePath}/${patientId}?tab=progress`}
           className="text-xs text-gray-500 transition-colors hover:text-gray-700"
         >
           View full chart →
-        </Link>
+        </a>
       </div>
 
       {/* Progress percentage badge */}

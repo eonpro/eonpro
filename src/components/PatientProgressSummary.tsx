@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Link from 'next/link';
 import { getAuthHeaders } from '@/lib/utils/auth-token';
 import { Droplets, Dumbbell, Moon, Utensils } from 'lucide-react';
 import { logger } from '@/lib/logger';
@@ -115,12 +114,12 @@ export default function PatientProgressSummary({ patientId, basePath = '/patient
     <div className="mt-4 rounded-xl bg-[#efece7] p-4">
       <div className="mb-3 flex items-center justify-between">
         <h3 className="text-sm font-semibold text-gray-700">Activity Summary</h3>
-        <Link
+        <a
           href={`${basePath}/${patientId}?tab=progress`}
           className="text-xs text-gray-500 transition-colors hover:text-gray-700"
         >
           View all →
-        </Link>
+        </a>
       </div>
 
       <div className="grid grid-cols-4 gap-3">
