@@ -27,6 +27,20 @@ export const dynamic = 'force-dynamic';
 // Allow up to 30s for heavy patient data queries on Vercel
 export const maxDuration = 30;
 
+/**
+ * Race a promise against a timeout. If the promise doesn't resolve within `ms`,
+ * the returned promise rejects with a descriptive error so the page can render
+ * an actionable error state instead of hanging indefinitely.
+ */
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error(`[PATIENT-DETAIL] ${label} timed out after ${ms}ms`)), ms)
+    ),
+  ]);
+}
+
 type Params = {
   params: { id: string };
 };
@@ -156,28 +170,32 @@ export default async function PatientDetailPage({
       if (!isSuperAdmin && clinicId) {
         coreWhere.clinicId = clinicId;
       }
-      patient = await basePrisma.patient.findFirst({
-        where: coreWhere,
-        include: {
-          user: { select: { id: true, avatarUrl: true } },
-          clinic: {
-            select: { id: true, subdomain: true, name: true, features: true, address: true, phone: true },
+      patient = await withTimeout(
+        basePrisma.patient.findFirst({
+          where: coreWhere,
+          include: {
+            user: { select: { id: true, avatarUrl: true } },
+            clinic: {
+              select: { id: true, subdomain: true, name: true, features: true, address: true, phone: true },
+            },
+            attributionAffiliate: {
+              select: { id: true, displayName: true, status: true },
+            },
+            portalInvites: {
+              orderBy: { createdAt: 'desc' } as const,
+              take: 1,
+              select: { id: true, createdAt: true, trigger: true, usedAt: true, expiresAt: true },
+            },
+            subscriptions: {
+              where: { status: 'ACTIVE' },
+              take: 1,
+              select: { id: true, planName: true },
+            },
           },
-          attributionAffiliate: {
-            select: { id: true, displayName: true, status: true },
-          },
-          portalInvites: {
-            orderBy: { createdAt: 'desc' } as const,
-            take: 1,
-            select: { id: true, createdAt: true, trigger: true, usedAt: true, expiresAt: true },
-          },
-          subscriptions: {
-            where: { status: 'ACTIVE' },
-            take: 1,
-            select: { id: true, planName: true },
-          },
-        },
-      });
+        }),
+        8000,
+        'Phase 1 core patient query',
+      );
       logger.info('[PATIENT-DETAIL] Phase 1 (core):', { patientId: id, durationMs: Date.now() - t0 });
     } catch (dbError) {
       logger.error('Database error fetching patient core:', {
@@ -335,7 +353,7 @@ export default async function PatientDetailPage({
           await Promise.all(parallelQueries);
         });
 
-        await phase2;
+        await withTimeout(phase2, 12000, 'Phase 2 parallel queries');
 
         // For intake tab: fetch document binary data for MEDICAL_INTAKE_FORM docs
         if (needsIntakeData && documents.length > 0) {
@@ -907,7 +925,11 @@ export default async function PatientDetailPage({
         if (rawAvatarKey.startsWith('http')) {
           patientAvatarUrl = rawAvatarKey;
         } else if (isS3Enabled()) {
-          patientAvatarUrl = await generateSignedUrl(rawAvatarKey, 'GET', 3600);
+          patientAvatarUrl = await withTimeout(
+            generateSignedUrl(rawAvatarKey, 'GET', 3600),
+            5000,
+            'S3 avatar signed URL',
+          );
         }
       } catch {
         patientAvatarUrl = null;
