@@ -20,6 +20,7 @@ import {
   markNoShow,
 } from '@/lib/scheduling/scheduling.service';
 import { AppointmentModeType, AppointmentStatus } from '@prisma/client';
+import { prisma } from '@/lib/db';
 
 const createAppointmentSchema = z.object({
   clinicId: z.number().optional(),
@@ -169,11 +170,18 @@ export const POST = withProviderAuth(async (req: NextRequest, user) => {
       ? (parsed.data.clinicId || user.clinicId)
       : user.clinicId;
 
-    // Resolve providerId: use explicit value, fall back to auth token's providerId
-    const resolvedProviderId = parsed.data.providerId ?? user.providerId;
+    // Resolve providerId: explicit value → JWT token → database lookup
+    let resolvedProviderId = parsed.data.providerId ?? user.providerId;
+    if (!resolvedProviderId) {
+      const provider = await prisma.provider.findFirst({
+        where: { OR: [{ email: user.email }, { user: { id: user.id } }] },
+        select: { id: true },
+      });
+      resolvedProviderId = provider?.id;
+    }
     if (!resolvedProviderId) {
       return NextResponse.json(
-        { error: 'Provider ID is required. Please select a provider or log in as a provider.' },
+        { error: 'Provider ID could not be resolved. Please contact support.' },
         { status: 400 }
       );
     }
