@@ -477,7 +477,7 @@ export default function PatientSidebar({
   orders = [],
 }: PatientSidebarProps) {
   const router = useRouter();
-  const [isPending, startTransition] = useTransition();
+  const [, startTransition] = useTransition();
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showMergeModal, setShowMergeModal] = useState(false);
@@ -916,16 +916,9 @@ export default function PatientSidebar({
               <a
                 key={item.id}
                 href={href}
-                onClick={(e) => {
-                  e.preventDefault();
-                  if (isActive) return;
-                  startTransition(() => {
-                    router.push(href);
-                  });
-                }}
                 className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 transition-colors ${
                   isActive ? 'bg-gray-100' : 'hover:bg-gray-50'
-                } ${isPending && !isActive ? 'pointer-events-none opacity-60' : ''}`}
+                }`}
               >
                 <div
                   className="flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold"
@@ -944,12 +937,6 @@ export default function PatientSidebar({
               </a>
             );
           })}
-          {isPending && (
-            <div className="flex items-center justify-center py-2">
-              <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
-              <span className="ml-2 text-xs text-gray-400">Loading...</span>
-            </div>
-          )}
         </nav>
 
         {/* Actions */}
