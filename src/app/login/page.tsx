@@ -1251,7 +1251,7 @@ function LoginContent() {
           {branding && !isMainApp && !isProviderLogin && !isLogosRxExperience && step === 'identifier' && (
             <a
               href="/patient-login"
-              className="mb-8 flex w-full max-w-md items-center justify-between rounded-2xl border border-gray-200 bg-white/80 p-4 transition-all hover:bg-white hover:shadow-md"
+              className="mb-8 flex w-full max-w-md items-center justify-between rounded-2xl border border-gray-200 bg-white/80 p-4 transition-colors hover:bg-white hover:shadow-md"
             >
               <div>
                 <p className="text-sm font-semibold text-gray-900">Are you a patient?</p>
@@ -1279,7 +1279,7 @@ function LoginContent() {
                     type="text"
                     value={identifier}
                     onChange={(e) => setIdentifier(e.target.value)}
-                    className="min-h-[48px] w-full touch-manipulation rounded-2xl border border-gray-200 bg-white py-4 pr-4 text-base text-gray-900 placeholder-gray-400 transition-all focus:border-transparent focus:outline-none focus:ring-2"
+                    className="min-h-[48px] w-full touch-manipulation rounded-2xl border border-gray-200 bg-white py-4 pr-4 text-base text-gray-900 placeholder-gray-400 transition-colors focus:border-transparent focus:outline-none focus:ring-2"
                     style={{ paddingLeft: '3.5rem', '--tw-ring-color': primaryColor } as React.CSSProperties}
                     placeholder="Email or phone number"
                     required
@@ -1303,7 +1303,7 @@ function LoginContent() {
                 <button
                   type="submit"
                   disabled={loading || systemUnavailable}
-                  className={`flex min-h-[48px] w-full touch-manipulation items-center justify-center gap-2 rounded-2xl px-6 py-4 text-base font-semibold transition-all ${
+                  className={`flex min-h-[48px] w-full touch-manipulation items-center justify-center gap-2 rounded-2xl px-6 py-4 text-base font-semibold transition-colors ${
                     loading || systemUnavailable ? 'cursor-not-allowed opacity-50' : 'hover:opacity-90 active:opacity-95'
                   }`}
                   style={{
@@ -1379,7 +1379,7 @@ function LoginContent() {
                     type={showPassword ? 'text' : 'password'}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="min-h-[48px] w-full touch-manipulation rounded-2xl border border-gray-200 bg-white px-4 py-4 pr-12 text-base text-gray-900 placeholder-gray-400 transition-all focus:border-transparent focus:outline-none focus:ring-2"
+                    className="min-h-[48px] w-full touch-manipulation rounded-2xl border border-gray-200 bg-white px-4 py-4 pr-12 text-base text-gray-900 placeholder-gray-400 transition-colors focus:border-transparent focus:outline-none focus:ring-2"
                     style={{ '--tw-ring-color': primaryColor } as React.CSSProperties}
                     placeholder="Password"
                     required
@@ -1404,7 +1404,7 @@ function LoginContent() {
                           type="button"
                           onClick={sendEmailOtp}
                           disabled={loading}
-                          className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition-all hover:bg-emerald-700 disabled:opacity-50"
+                          className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
                         >
                           Unlock via email code
                         </button>
@@ -1434,7 +1434,7 @@ function LoginContent() {
                             }
                           }}
                           disabled={loading}
-                          className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-all hover:opacity-90 disabled:opacity-50"
+                          className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-colors hover:opacity-90 disabled:opacity-50"
                           style={{ backgroundColor: primaryColor, color: buttonTextColor }}
                         >
                           <Mail className="h-4 w-4" />
@@ -1457,7 +1457,7 @@ function LoginContent() {
                             handlePasswordLogin(e, selectedClinicId ?? undefined);
                           }}
                           disabled={loading}
-                          className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-all hover:opacity-90 disabled:opacity-50"
+                          className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-colors hover:opacity-90 disabled:opacity-50"
                           style={{ backgroundColor: primaryColor, color: buttonTextColor }}
                         >
                           <RefreshCw className="h-4 w-4" />
@@ -1469,7 +1469,7 @@ function LoginContent() {
                       <div className="text-center">
                         <a
                           href={wrongClinicRedirectUrl}
-                          className="inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-semibold transition-all hover:opacity-90"
+                          className="inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-semibold transition-colors hover:opacity-90"
                           style={{
                             backgroundColor: primaryColor,
                             color: buttonTextColor,
@@ -1485,7 +1485,7 @@ function LoginContent() {
                 <button
                   type="submit"
                   disabled={loading || retryAfterCountdown > 0 || systemUnavailable}
-                  className={`flex min-h-[48px] w-full touch-manipulation items-center justify-center gap-2 rounded-2xl px-6 py-4 text-base font-semibold transition-all ${
+                  className={`flex min-h-[48px] w-full touch-manipulation items-center justify-center gap-2 rounded-2xl px-6 py-4 text-base font-semibold transition-colors ${
                     loading || retryAfterCountdown > 0 || systemUnavailable
                       ? 'cursor-not-allowed opacity-50'
                       : 'hover:opacity-90 active:opacity-95'
@@ -1515,7 +1515,7 @@ function LoginContent() {
                 <button
                   type="button"
                   disabled={loading}
-                  className="min-h-[48px] w-full touch-manipulation rounded-2xl border border-gray-200 bg-white px-6 py-4 text-base font-semibold text-gray-900 transition-all hover:bg-gray-50 active:bg-gray-100 disabled:opacity-50"
+                  className="min-h-[48px] w-full touch-manipulation rounded-2xl border border-gray-200 bg-white px-6 py-4 text-base font-semibold text-gray-900 transition-colors hover:bg-gray-50 active:bg-gray-100 disabled:opacity-50"
                   onClick={sendEmailOtp}
                 >
                   Email me a login code
@@ -1590,7 +1590,7 @@ function LoginContent() {
                       onChange={(e) => handleOtpChange(index, e.target.value)}
                       onKeyDown={(e) => handleOtpKeyDown(index, e)}
                       onPaste={index === 0 ? handleOtpPaste : undefined}
-                      className="h-14 w-12 rounded-xl border border-gray-200 bg-white text-center text-2xl font-semibold transition-all focus:border-transparent focus:outline-none focus:ring-2"
+                      className="h-14 w-12 rounded-xl border border-gray-200 bg-white text-center text-2xl font-semibold transition-colors focus:border-transparent focus:outline-none focus:ring-2"
                       style={{ '--tw-ring-color': primaryColor } as React.CSSProperties}
                       autoFocus={index === 0}
                     />
@@ -1691,7 +1691,7 @@ function LoginContent() {
                       onChange={(e) => handleEmailOtpChange(index, e.target.value)}
                       onKeyDown={(e) => handleEmailOtpKeyDown(index, e)}
                       onPaste={index === 0 ? handleEmailOtpPaste : undefined}
-                      className="h-14 w-12 rounded-xl border border-gray-200 bg-white text-center text-2xl font-semibold transition-all focus:border-transparent focus:outline-none focus:ring-2"
+                      className="h-14 w-12 rounded-xl border border-gray-200 bg-white text-center text-2xl font-semibold transition-colors focus:border-transparent focus:outline-none focus:ring-2"
                       style={{ '--tw-ring-color': primaryColor } as React.CSSProperties}
                       autoFocus={index === 0}
                     />
@@ -1807,7 +1807,7 @@ function LoginContent() {
                       onChange={(e) => handleResetCodeChange(index, e.target.value)}
                       onKeyDown={(e) => handleResetCodeKeyDown(index, e)}
                       onPaste={index === 0 ? handleResetCodePaste : undefined}
-                      className="h-14 w-12 rounded-xl border border-gray-200 bg-white text-center text-2xl font-semibold transition-all focus:border-transparent focus:outline-none focus:ring-2"
+                      className="h-14 w-12 rounded-xl border border-gray-200 bg-white text-center text-2xl font-semibold transition-colors focus:border-transparent focus:outline-none focus:ring-2"
                       style={{ '--tw-ring-color': primaryColor } as React.CSSProperties}
                       autoFocus={index === 0}
                     />
@@ -1878,7 +1878,7 @@ function LoginContent() {
                     type={showNewPassword ? 'text' : 'password'}
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
-                    className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-4 pr-12 transition-all focus:border-transparent focus:outline-none focus:ring-2"
+                    className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-4 pr-12 transition-colors focus:border-transparent focus:outline-none focus:ring-2"
                     style={{ '--tw-ring-color': primaryColor } as React.CSSProperties}
                     placeholder="New password"
                     required
@@ -1900,7 +1900,7 @@ function LoginContent() {
                     type={showNewPassword ? 'text' : 'password'}
                     value={confirmNewPassword}
                     onChange={(e) => setConfirmNewPassword(e.target.value)}
-                    className={`w-full rounded-2xl border bg-white px-4 py-4 transition-all focus:border-transparent focus:outline-none focus:ring-2 ${
+                    className={`w-full rounded-2xl border bg-white px-4 py-4 transition-colors focus:border-transparent focus:outline-none focus:ring-2 ${
                       confirmNewPassword && newPassword !== confirmNewPassword
                         ? 'border-red-300'
                         : 'border-gray-200'
@@ -1926,7 +1926,7 @@ function LoginContent() {
                 <button
                   type="submit"
                   disabled={loading || !newPassword || !confirmNewPassword}
-                  className={`flex w-full items-center justify-center gap-2 rounded-2xl px-6 py-4 font-semibold transition-all ${
+                  className={`flex w-full items-center justify-center gap-2 rounded-2xl px-6 py-4 font-semibold transition-colors ${
                     loading || !newPassword || !confirmNewPassword
                       ? 'cursor-not-allowed opacity-50'
                       : 'hover:opacity-90'
@@ -1996,7 +1996,7 @@ function LoginContent() {
                       key={clinic.id}
                       onClick={() => handleClinicSelect(clinic.id)}
                       disabled={loading || retryAfterCountdown > 0 || systemUnavailable}
-                      className={`w-full rounded-2xl border-2 p-4 text-left transition-all ${
+                      className={`w-full rounded-2xl border-2 p-4 text-left transition-colors ${
                         loading || retryAfterCountdown > 0 || systemUnavailable
                           ? 'cursor-not-allowed opacity-50'
                           : ''
@@ -2068,7 +2068,7 @@ function LoginContent() {
                             handleClinicSelect(selectedClinicId);
                           }}
                           disabled={loading}
-                          className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-all hover:opacity-90 disabled:opacity-50"
+                          className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-colors hover:opacity-90 disabled:opacity-50"
                           style={{ backgroundColor: primaryColor, color: buttonTextColor }}
                         >
                           <RefreshCw className="h-4 w-4" />

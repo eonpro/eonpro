@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { isBrowser } from '@/lib/utils/ssr-safe';
 import Link from 'next/link';
 import {
   Eye,
@@ -49,7 +50,17 @@ export default function RegisterPage() {
   // UI state
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [inviteValidating, setInviteValidating] = useState(true);
+  // Synchronous init: only show validating spinner when URL actually has an invite token.
+  // Previously inviteValidating=true on every load caused CLS (spinner → form shift).
+  const [inviteValidating, setInviteValidating] = useState(() => {
+    if (!isBrowser) return false;
+    try {
+      const invite = new URLSearchParams(window.location.search).get('invite');
+      return !!invite && invite.length >= 32;
+    } catch {
+      return false;
+    }
+  });
   const [agreedToTerms, setAgreedToTerms] = useState(false);
 
   // Prefill from invite link (?invite=TOKEN)
@@ -248,7 +259,7 @@ export default function RegisterPage() {
 
   if (inviteValidating) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#efece7] p-4">
+      <div className="flex min-h-[100dvh] items-center justify-center bg-[#efece7] p-4">
         <div className="text-center">
           <div className="inline-block h-10 w-10 animate-spin rounded-full border-2 border-emerald-600 border-t-transparent" />
           <p className="mt-4 text-gray-600">Validating your invite link…</p>
@@ -258,7 +269,7 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#efece7] p-4">
+    <div className="flex min-h-[100dvh] items-center justify-center bg-[#efece7] p-4">
       <div className="w-full max-w-md">
         {/* Logo/Header */}
         <div className="mb-8 text-center">
@@ -293,7 +304,7 @@ export default function RegisterPage() {
         )}
 
         {/* Form Card */}
-        <div className="overflow-hidden rounded-3xl border border-gray-100 bg-white/80 shadow-xl backdrop-blur-sm">
+        <div className="overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-xl">
           <div className="p-8">
             {/* STEP 1: Clinic Code */}
             {step === 'clinic' && (
@@ -319,7 +330,7 @@ export default function RegisterPage() {
                     value={clinicCode}
                     onChange={(e) => setClinicCode(e.target.value.toUpperCase())}
                     placeholder="e.g., CLINIC123"
-                    className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 font-mono text-lg uppercase tracking-wider transition-all focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 font-mono text-lg uppercase tracking-wider transition-colors focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500"
                     autoFocus
                     required
                   />
@@ -335,7 +346,7 @@ export default function RegisterPage() {
                 <button
                   type="submit"
                   disabled={loading || !clinicCode.trim()}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 px-4 py-3 font-semibold text-white transition-all hover:from-emerald-700 hover:to-teal-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 px-4 py-3 font-semibold text-white transition-colors hover:from-emerald-700 hover:to-teal-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {loading ? (
                     <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
@@ -400,7 +411,7 @@ export default function RegisterPage() {
                       type={showPassword ? 'text' : 'password'}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-12 pr-12 transition-all focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-12 pr-12 transition-colors focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500"
                       required
                     />
                     <button
@@ -442,7 +453,7 @@ export default function RegisterPage() {
                       type={showConfirmPassword ? 'text' : 'password'}
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
-                      className={`w-full rounded-xl border bg-white py-2.5 pl-12 pr-12 transition-all focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500 ${
+                      className={`w-full rounded-xl border bg-white py-2.5 pl-12 pr-12 transition-colors focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500 ${
                         confirmPassword && !passwordsMatch ? 'border-red-300' : 'border-gray-200'
                       }`}
                       required
@@ -473,7 +484,7 @@ export default function RegisterPage() {
                       aria-label="I agree to the Terms of Service and Privacy Policy"
                     />
                     <span
-                      className={`flex h-6 w-6 items-center justify-center rounded border-2 transition-all ${
+                      className={`flex h-6 w-6 items-center justify-center rounded border-2 transition-colors ${
                         agreedToTerms
                           ? 'border-emerald-600 bg-emerald-600'
                           : 'border-gray-300 bg-white'
@@ -516,7 +527,7 @@ export default function RegisterPage() {
                 <button
                   type="submit"
                   disabled={loading || !isPasswordValid || !passwordsMatch || !agreedToTerms}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 px-4 py-3 font-semibold text-white transition-all hover:from-emerald-700 hover:to-teal-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 px-4 py-3 font-semibold text-white transition-colors hover:from-emerald-700 hover:to-teal-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {loading ? (
                     <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
@@ -580,7 +591,7 @@ export default function RegisterPage() {
                         value={firstName}
                         onChange={inviteToken ? undefined : (e) => setFirstName(e.target.value)}
                         readOnly={!!inviteToken}
-                        className={`w-full rounded-xl border border-gray-200 py-2.5 pl-12 pr-4 transition-all focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500 ${inviteToken ? 'cursor-not-allowed bg-gray-100' : 'bg-white'}`}
+                        className={`w-full rounded-xl border border-gray-200 py-2.5 pl-12 pr-4 transition-colors focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500 ${inviteToken ? 'cursor-not-allowed bg-gray-100' : 'bg-white'}`}
                         required
                       />
                     </div>
@@ -598,7 +609,7 @@ export default function RegisterPage() {
                       value={lastName}
                       onChange={inviteToken ? undefined : (e) => setLastName(e.target.value)}
                       readOnly={!!inviteToken}
-                      className={`w-full rounded-xl border border-gray-200 px-4 py-2.5 transition-all focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500 ${inviteToken ? 'cursor-not-allowed bg-gray-100' : 'bg-white'}`}
+                      className={`w-full rounded-xl border border-gray-200 px-4 py-2.5 transition-colors focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500 ${inviteToken ? 'cursor-not-allowed bg-gray-100' : 'bg-white'}`}
                       required
                     />
                   </div>
@@ -617,7 +628,7 @@ export default function RegisterPage() {
                       value={email}
                       onChange={inviteToken ? undefined : (e) => setEmail(e.target.value)}
                       readOnly={!!inviteToken}
-                      className={`w-full rounded-xl border border-gray-200 py-2.5 pl-12 pr-4 transition-all focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500 ${inviteToken ? 'cursor-not-allowed bg-gray-100' : 'bg-white'}`}
+                      className={`w-full rounded-xl border border-gray-200 py-2.5 pl-12 pr-4 transition-colors focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500 ${inviteToken ? 'cursor-not-allowed bg-gray-100' : 'bg-white'}`}
                       required
                     />
                   </div>
@@ -637,7 +648,7 @@ export default function RegisterPage() {
                       onChange={inviteToken ? undefined : handlePhoneChange}
                       placeholder="(555) 555-5555"
                       readOnly={!!inviteToken}
-                      className={`w-full rounded-xl border border-gray-200 py-2.5 pl-12 pr-4 transition-all focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500 ${inviteToken ? 'cursor-not-allowed bg-gray-100' : 'bg-white'}`}
+                      className={`w-full rounded-xl border border-gray-200 py-2.5 pl-12 pr-4 transition-colors focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500 ${inviteToken ? 'cursor-not-allowed bg-gray-100' : 'bg-white'}`}
                       required
                     />
                   </div>
@@ -656,7 +667,7 @@ export default function RegisterPage() {
                       value={dob}
                       onChange={inviteToken ? undefined : (e) => setDob(e.target.value)}
                       readOnly={!!inviteToken}
-                      className={`w-full rounded-xl border border-gray-200 py-2.5 pl-12 pr-4 transition-all focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500 ${inviteToken ? 'cursor-not-allowed bg-gray-100' : 'bg-white'}`}
+                      className={`w-full rounded-xl border border-gray-200 py-2.5 pl-12 pr-4 transition-colors focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500 ${inviteToken ? 'cursor-not-allowed bg-gray-100' : 'bg-white'}`}
                       required
                     />
                   </div>
@@ -677,7 +688,7 @@ export default function RegisterPage() {
                       type={showPassword ? 'text' : 'password'}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-12 pr-12 transition-all focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-12 pr-12 transition-colors focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500"
                       required
                     />
                     <button
@@ -723,7 +734,7 @@ export default function RegisterPage() {
                       type={showConfirmPassword ? 'text' : 'password'}
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
-                      className={`w-full rounded-xl border bg-white py-2.5 pl-12 pr-12 transition-all focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500 ${
+                      className={`w-full rounded-xl border bg-white py-2.5 pl-12 pr-12 transition-colors focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500 ${
                         confirmPassword && !passwordsMatch ? 'border-red-300' : 'border-gray-200'
                       }`}
                       required
@@ -760,7 +771,7 @@ export default function RegisterPage() {
                       aria-label="I agree to the Terms of Service and Privacy Policy"
                     />
                     <span
-                      className={`flex h-6 w-6 items-center justify-center rounded border-2 transition-all ${
+                      className={`flex h-6 w-6 items-center justify-center rounded border-2 transition-colors ${
                         agreedToTerms
                           ? 'border-emerald-600 bg-emerald-600'
                           : 'border-gray-300 bg-white'
@@ -820,7 +831,7 @@ export default function RegisterPage() {
                     <button
                       type="button"
                       onClick={handleBack}
-                      className="flex items-center gap-2 rounded-xl border border-gray-200 px-4 py-3 font-medium text-gray-700 transition-all hover:bg-gray-50"
+                      className="flex items-center gap-2 rounded-xl border border-gray-200 px-4 py-3 font-medium text-gray-700 transition-colors hover:bg-gray-50"
                     >
                       <ArrowLeft className="h-4 w-4" />
                       Back
@@ -829,7 +840,7 @@ export default function RegisterPage() {
                   <button
                     type="submit"
                     disabled={loading || !isPasswordValid || !passwordsMatch || !agreedToTerms}
-                    className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 px-4 py-3 font-semibold text-white transition-all hover:from-emerald-700 hover:to-teal-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 px-4 py-3 font-semibold text-white transition-colors hover:from-emerald-700 hover:to-teal-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {loading ? (
                       <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
@@ -885,7 +896,7 @@ export default function RegisterPage() {
 
                 <Link
                   href="/login"
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 px-4 py-3 font-semibold text-white transition-all hover:from-emerald-700 hover:to-teal-700"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 px-4 py-3 font-semibold text-white transition-colors hover:from-emerald-700 hover:to-teal-700"
                 >
                   Go to Login
                   <ArrowRight className="h-5 w-5" />
