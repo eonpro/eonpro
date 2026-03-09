@@ -22,8 +22,13 @@ export const GET = withProviderAuth(async (req: NextRequest, user: AuthUser) => 
         });
 
     if (!provider) {
+      logger.warn('Telehealth: Provider not found for user', {
+        userId: user.id,
+        email: user.email,
+        providerId: user.providerId,
+      });
       return NextResponse.json(
-        { sessions: [], totalCount: 0, zoomEnabled: false },
+        { sessions: [], totalCount: 0, zoomEnabled: false, debug: { reason: 'provider_not_found', userId: user.id } },
         { status: 200 }
       );
     }
@@ -137,6 +142,13 @@ export const GET = withProviderAuth(async (req: NextRequest, user: AuthUser) => 
       sessions: sessionResults.slice(0, 20),
       totalCount: sessionResults.length,
       zoomEnabled: isZoomEnabled(),
+      debug: {
+        providerId: provider.id,
+        zoomConfigured: isZoomEnabled(),
+        telehealthSessionCount: seenAppointmentIds.size,
+        videoAppointmentCount: videoAppointments.length,
+        dateRange: { from: now.toISOString(), to: endDate.toISOString() },
+      },
     });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
