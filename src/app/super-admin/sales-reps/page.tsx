@@ -228,7 +228,10 @@ export default function SalesRepsPage() {
           <h1 className="text-2xl font-bold text-gray-900">Sales Reps</h1>
           <p className="text-gray-500">Performance & commission reporting for payroll</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <button onClick={() => { window.location.href = '/super-admin/sales-reps/commission-plans'; }} className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
+            <BadgeDollarSign className="h-4 w-4" /> Commission Plans
+          </button>
           <button onClick={fetchData} disabled={loading} className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50">
             <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /> Refresh
           </button>
