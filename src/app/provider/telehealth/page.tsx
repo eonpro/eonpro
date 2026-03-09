@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 
 import { Video, Loader2 } from 'lucide-react';
 
@@ -9,7 +9,7 @@ import TelehealthDashboard from '@/components/telehealth/TelehealthDashboard';
 import { type TelehealthPhase } from '@/components/telehealth/types';
 import { safeParseJsonString } from '@/lib/utils/safe-json';
 
-export default function ProviderTelehealthPage() {
+function TelehealthContent() {
   const [userName, setUserName] = useState('');
   const [userEmail, setUserEmail] = useState('');
   const [loading, setLoading] = useState(true);
@@ -77,5 +77,19 @@ export default function ProviderTelehealthPage() {
         onPhaseChange={handlePhaseChange}
       />
     </Feature>
+  );
+}
+
+export default function ProviderTelehealthPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-[60vh] items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+        </div>
+      }
+    >
+      <TelehealthContent />
+    </Suspense>
   );
 }

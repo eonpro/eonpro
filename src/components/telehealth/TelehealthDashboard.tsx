@@ -1,9 +1,11 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 
 import { AnimatePresence, motion } from 'framer-motion';
 
+import { apiFetch } from '@/lib/api/fetch';
 import ActiveCallView from './ActiveCallView';
 import PostCallSummary from './PostCallSummary';
 import ScheduleSessionModal from './ScheduleSessionModal';
@@ -28,12 +30,43 @@ export default function TelehealthDashboard({
   userEmail,
   onPhaseChange,
 }: TelehealthDashboardProps) {
+  const searchParams = useSearchParams();
   const [phase, setPhase] = useState<TelehealthPhase>('queue');
   const [selectedSession, setSelectedSession] = useState<TelehealthSessionData | null>(null);
   const [postCallData, setPostCallData] = useState<PostCallData | null>(null);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [scribeEnabled, setScribeEnabled] = useState(true);
+
+  // Auto-open lobby when navigated with ?consultationId=X (from consultations page)
+  useEffect(() => {
+    const consultationId = searchParams.get('consultationId');
+    if (!consultationId || selectedSession) return;
+
+    const loadSession = async () => {
+      try {
+        const res = await apiFetch('/api/provider/telehealth/upcoming');
+        if (!res.ok) return;
+        const data = await res.json();
+        const sessions: TelehealthSessionData[] = data.sessions ?? [];
+
+        // Match by appointment ID
+        const match = sessions.find(
+          (s) => s.appointment?.id === Number(consultationId) || s.id === Number(consultationId)
+        );
+
+        if (match) {
+          setSelectedSession(match);
+          setPhase('lobby');
+          onPhaseChange?.('lobby');
+        }
+      } catch {
+        // Fall through to queue view
+      }
+    };
+
+    void loadSession();
+  }, [searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const changePhase = useCallback(
     (newPhase: TelehealthPhase) => {
