@@ -42,52 +42,45 @@ export const GET = withProviderAuth(async (req: NextRequest, user: AuthUser) => 
         providerId: user.providerId,
       });
 
-      // Fallback: show VIDEO appointments in the user's clinic
+      // Fallback: use raw SQL to avoid Prisma client initialization issues
       try {
-        const where: Record<string, unknown> = {
-          type: 'VIDEO',
-          startTime: { gte: now, lte: endDate },
-          status: { in: ['SCHEDULED', 'CONFIRMED', 'IN_PROGRESS'] },
-        };
-        // Scope by clinic if available
-        if (user.clinicId) {
-          where.clinicId = user.clinicId;
-        }
+        const clinicFilter = user.clinicId ? `AND a."clinicId" = ${user.clinicId}` : '';
+        const rows = await prisma.$queryRawUnsafe<any[]>(`
+          SELECT a.id, a.title, a.reason, a."startTime", a.duration, a.status,
+                 a."zoomJoinUrl", a."videoLink", a."zoomMeetingId",
+                 p.id as "patientId", p."firstName", p."lastName"
+          FROM "Appointment" a
+          LEFT JOIN "Patient" p ON a."patientId" = p.id
+          WHERE a.type = 'VIDEO'
+            AND a."startTime" >= NOW()
+            AND a."startTime" <= NOW() + INTERVAL '7 days'
+            AND a.status IN ('SCHEDULED', 'CONFIRMED', 'IN_PROGRESS')
+            ${clinicFilter}
+          ORDER BY a."startTime" ASC
+          LIMIT 20
+        `);
 
-        const fallbackAppointments = await prisma.appointment.findMany({
-          where,
-          include: {
-            patient: { select: { id: true, firstName: true, lastName: true } },
-          },
-          orderBy: { startTime: 'asc' },
-          take: 20,
-        });
-
-        const fallbackSessions = fallbackAppointments.map((apt: any) => {
-          // Skip decryption in fallback to avoid circular import issues
-          const patient = apt.patient ?? null;
-          return {
-            id: apt.id,
-            topic: apt.title ?? apt.reason ?? 'Video Consultation',
-            scheduledAt: apt.startTime.toISOString(),
-            duration: apt.duration ?? 30,
-            status: apt.status === 'CONFIRMED' ? 'SCHEDULED' : apt.status,
-            joinUrl: apt.zoomJoinUrl ?? apt.videoLink ?? '',
-            hostUrl: null,
-            meetingId: apt.zoomMeetingId,
-            password: null,
-            patient,
-            appointment: { id: apt.id, title: apt.title, reason: apt.reason },
-            source: 'fallback',
-          };
-        });
+        const fallbackSessions = rows.map((r: any) => ({
+          id: r.id,
+          topic: r.title ?? r.reason ?? 'Video Consultation',
+          scheduledAt: new Date(r.startTime).toISOString(),
+          duration: r.duration ?? 30,
+          status: r.status === 'CONFIRMED' ? 'SCHEDULED' : r.status,
+          joinUrl: r.zoomJoinUrl ?? r.videoLink ?? '',
+          hostUrl: null,
+          meetingId: r.zoomMeetingId,
+          password: null,
+          patient: r.patientId ? { id: r.patientId, firstName: r.firstName ?? '', lastName: r.lastName ?? '' } : null,
+          appointment: { id: r.id, title: r.title, reason: r.reason },
+          source: 'fallback',
+        }));
 
         return NextResponse.json({
           sessions: fallbackSessions,
           totalCount: fallbackSessions.length,
           zoomEnabled: isZoomEnabled(),
           debug: {
-            reason: 'provider_not_found_using_clinic_fallback',
+            reason: 'provider_not_found_using_raw_fallback',
             userId: user.id,
             clinicId: user.clinicId,
             fallbackCount: fallbackSessions.length,
@@ -95,12 +88,12 @@ export const GET = withProviderAuth(async (req: NextRequest, user: AuthUser) => 
         });
       } catch (fallbackErr) {
         const fbMsg = fallbackErr instanceof Error ? fallbackErr.message : 'Unknown';
-        logger.error('Fallback appointment query failed', { error: fbMsg });
+        logger.error('Fallback raw query failed', { error: fbMsg });
         return NextResponse.json({
           sessions: [],
           totalCount: 0,
           zoomEnabled: isZoomEnabled(),
-          debug: { reason: 'fallback_failed', userId: user.id, error: fbMsg },
+          debug: { reason: 'raw_fallback_failed', userId: user.id, error: fbMsg },
         });
       }
     }
