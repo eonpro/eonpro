@@ -248,6 +248,9 @@ model Clinic {
   // FedEx Shipping Labels
   shipmentLabels ShipmentLabel[]
 
+  // Package photos taken by pharmacy reps
+  packagePhotos PackagePhoto[]
+
   // Medication Beyond Use Date Configuration
   defaultBudDays Int @default(90) // Default Beyond Use Date in days for multi-shipment scheduling
 

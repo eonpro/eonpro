@@ -123,6 +123,7 @@ export const CLINIC_ISOLATED_MODELS: readonly string[] = [
   'loginaudit',
   'notification',
   'order',
+  'packagephoto',
   'patient',
   'patientchatmessage',
   'patientcounter',

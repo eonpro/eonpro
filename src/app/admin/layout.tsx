@@ -30,6 +30,7 @@ import {
   FileText,
   MessageSquare,
   Link as LinkIcon,
+  Camera,
 } from 'lucide-react';
 import InternalChat from '@/components/InternalChat';
 import {
@@ -134,6 +135,7 @@ const adminNavIconMap = {
   FileText,
   MessageSquare,
   Link: LinkIcon,
+  Camera,
 } as const;
 
 function AdminLayoutInner({ children }: { children: React.ReactNode }) {

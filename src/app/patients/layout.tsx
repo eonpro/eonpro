@@ -25,6 +25,7 @@ import {
   ClipboardCheck,
   FileText,
   MessageSquare,
+  Camera,
 } from 'lucide-react';
 import { ClinicBrandingProvider, useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
 import { getStoredUserRole } from '@/lib/auth/stored-role';
@@ -53,6 +54,7 @@ const adminNavIconMap = {
   ClipboardList,
   FileText,
   MessageSquare,
+  Camera,
 } as const;
 
 function navConfigToItems(config: { path: string; label: string; iconKey: string }[]) {

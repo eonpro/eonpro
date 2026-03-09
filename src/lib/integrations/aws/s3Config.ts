@@ -66,6 +66,7 @@ export enum FileCategory {
   BRANDING = 'branding', // Clinic branding assets (logo, icon, favicon)
   PROFILE_PICTURES = 'profile-pictures', // User profile pictures
   PATIENT_PHOTOS = 'patient-photos', // Patient progress/ID/medical photos
+  PACKAGE_PHOTOS = 'package-photos', // Pharmacy rep package verification photos
   OTHER = 'other',
 }
 
@@ -127,6 +128,7 @@ export const STORAGE_CONFIG = {
     BRANDING: 'branding',
     PROFILE_PICTURES: 'profile-pictures',
     PATIENT_PHOTOS: 'patient-photos',
+    PACKAGE_PHOTOS: 'package-photos',
     TEMP: 'temp',
     ARCHIVES: 'archives',
   },

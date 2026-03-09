@@ -139,6 +139,9 @@ model User {
   // FedEx Shipping Labels
   shipmentLabels ShipmentLabel[]
 
+  // Package photos captured by this user (pharmacy reps)
+  packagePhotosCaptured PackagePhoto[] @relation("PackagePhotosCaptured")
+
   // Patient profile notes created by this user
   patientNotesCreated PatientNote[]
 

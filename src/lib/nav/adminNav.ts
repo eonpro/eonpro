@@ -91,6 +91,7 @@ export const pharmacyRepNavConfig: AdminNavItemConfig[] = [
   { path: '/admin', label: 'Home', iconKey: 'Home' },
   { path: '/admin/patients', label: 'Patients', iconKey: 'Users' },
   { path: '/admin/shipping', label: 'Shipping', iconKey: 'Truck' },
+  { path: '/admin/package-photos', label: 'Package Photos', iconKey: 'Camera' },
   { path: '/admin/clinics', label: 'Switch Clinic', iconKey: 'Building2' },
 ];
 

@@ -26,64 +26,66 @@ export const GET = withProviderAuth(async (req: NextRequest, user: AuthUser) => 
       });
     }
 
-    // Last resort: check if there's a provider with matching email (case-insensitive)
-    if (!provider && user.email) {
-      provider = await prisma.provider.findFirst({
-        where: { email: { equals: user.email, mode: 'insensitive' } },
-      });
-    }
-
     if (!provider) {
       logger.warn('Telehealth: Provider not found for user', {
         userId: user.id,
         email: user.email,
         providerId: user.providerId,
       });
-      // Even without a provider match, try to show VIDEO appointments
-      // created by this user (createdById field)
-      const fallbackAppointments = await prisma.appointment.findMany({
-        where: {
-          type: 'VIDEO',
-          startTime: { gte: now, lte: endDate },
-          status: { in: ['SCHEDULED', 'CONFIRMED', 'IN_PROGRESS'] },
-          OR: [
-            { createdById: user.id },
-            ...(user.providerId ? [{ providerId: user.providerId }] : []),
-          ],
-        },
-        include: {
-          patient: { select: { id: true, firstName: true, lastName: true } },
-        },
-        orderBy: { startTime: 'asc' },
-        take: 20,
-      });
 
-      const fallbackSessions = fallbackAppointments.map((apt) => {
-        const patient = apt.patient
-          ? decryptPatientPHI(apt.patient, ['firstName', 'lastName'])
-          : null;
-        return {
-          id: apt.id,
-          topic: apt.title ?? apt.reason ?? 'Video Consultation',
-          scheduledAt: apt.startTime.toISOString(),
-          duration: apt.duration ?? 30,
-          status: apt.status === 'CONFIRMED' ? 'SCHEDULED' : apt.status,
-          joinUrl: apt.zoomJoinUrl ?? apt.videoLink ?? '',
-          hostUrl: null,
-          meetingId: apt.zoomMeetingId,
-          password: null,
-          patient,
-          appointment: { id: apt.id, title: apt.title, reason: apt.reason },
-          source: 'fallback',
-        };
-      });
+      // Fallback: show VIDEO appointments created by this user
+      try {
+        const fallbackAppointments = await prisma.appointment.findMany({
+          where: {
+            type: 'VIDEO',
+            startTime: { gte: now, lte: endDate },
+            status: { in: ['SCHEDULED', 'CONFIRMED', 'IN_PROGRESS'] },
+            createdById: user.id,
+          },
+          include: {
+            patient: { select: { id: true, firstName: true, lastName: true } },
+          },
+          orderBy: { startTime: 'asc' },
+          take: 20,
+        });
 
-      return NextResponse.json({
-        sessions: fallbackSessions,
-        totalCount: fallbackSessions.length,
-        zoomEnabled: isZoomEnabled(),
-        debug: { reason: 'provider_not_found_using_fallback', userId: user.id, fallbackCount: fallbackSessions.length },
-      });
+        const fallbackSessions = fallbackAppointments.map((apt) => {
+          const patient = apt.patient
+            ? decryptPatientPHI(apt.patient, ['firstName', 'lastName'])
+            : null;
+          return {
+            id: apt.id,
+            topic: apt.title ?? apt.reason ?? 'Video Consultation',
+            scheduledAt: apt.startTime.toISOString(),
+            duration: apt.duration ?? 30,
+            status: apt.status === 'CONFIRMED' ? 'SCHEDULED' : apt.status,
+            joinUrl: apt.zoomJoinUrl ?? apt.videoLink ?? '',
+            hostUrl: null,
+            meetingId: apt.zoomMeetingId,
+            password: null,
+            patient,
+            appointment: { id: apt.id, title: apt.title, reason: apt.reason },
+            source: 'fallback',
+          };
+        });
+
+        return NextResponse.json({
+          sessions: fallbackSessions,
+          totalCount: fallbackSessions.length,
+          zoomEnabled: isZoomEnabled(),
+          debug: { reason: 'provider_not_found_using_fallback', userId: user.id, fallbackCount: fallbackSessions.length },
+        });
+      } catch (fallbackErr) {
+        logger.error('Fallback appointment query failed', {
+          error: fallbackErr instanceof Error ? fallbackErr.message : 'Unknown',
+        });
+        return NextResponse.json({
+          sessions: [],
+          totalCount: 0,
+          zoomEnabled: isZoomEnabled(),
+          debug: { reason: 'provider_not_found_fallback_failed', userId: user.id },
+        });
+      }
     }
 
     const now = new Date();
@@ -142,8 +144,9 @@ export const GET = withProviderAuth(async (req: NextRequest, user: AuthUser) => 
     }
 
     // 2. Also fetch VIDEO appointments that don't have a TelehealthSession
-    //    This handles the case where Zoom isn't configured or migration is pending
-    const videoAppointments = await prisma.appointment.findMany({
+    let videoAppointments: any[] = [];
+    try {
+    videoAppointments = await prisma.appointment.findMany({
       where: {
         providerId: provider.id,
         type: 'VIDEO',
@@ -185,6 +188,12 @@ export const GET = withProviderAuth(async (req: NextRequest, user: AuthUser) => 
         source: 'appointment',
       });
     }
+    } catch (aptErr) {
+      logger.error('Error querying video appointments', {
+        error: aptErr instanceof Error ? aptErr.message : 'Unknown',
+        providerId: provider.id,
+      });
+    }
 
     // Sort combined results by scheduled time
     sessionResults.sort(
@@ -206,6 +215,9 @@ export const GET = withProviderAuth(async (req: NextRequest, user: AuthUser) => 
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('Failed to fetch upcoming telehealth sessions', { error: errorMessage });
-    return NextResponse.json({ error: 'Failed to fetch sessions' }, { status: 500 });
+    return NextResponse.json({
+      error: 'Failed to fetch sessions',
+      debug: { message: errorMessage },
+    }, { status: 500 });
   }
 });

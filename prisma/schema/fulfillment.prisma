@@ -131,6 +131,50 @@ model ShipmentLabel {
   @@index([clinicId, createdAt])
 }
 
+// Package photos taken by pharmacy reps when shipping orders
+// Linked to patient profile when LifeFile ID matches an existing order
+model PackagePhoto {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+
+  // Multi-tenant isolation
+  clinicId Int
+  clinic   Clinic @relation(fields: [clinicId], references: [id])
+
+  // LifeFile ID entered by the rep (always stored)
+  lifefileId String
+
+  // Patient/order association (set when lifefileId matches an order)
+  patientId Int?
+  patient   Patient? @relation(fields: [patientId], references: [id])
+  orderId   Int?
+  order     Order? @relation(fields: [orderId], references: [id])
+
+  // Photo storage
+  s3Key       String
+  s3Url       String?
+  contentType String  @default("image/jpeg")
+  fileSize    Int?
+
+  // Who took the photo
+  capturedById Int
+  capturedBy   User @relation("PackagePhotosCaptured", fields: [capturedById], references: [id])
+
+  // Match metadata
+  matched       Boolean @default(false)
+  matchedAt     DateTime?
+  matchStrategy String? // "lifefileOrderId", "patientLifefileId"
+
+  // Optional notes from the rep
+  notes String?
+
+  @@index([clinicId, createdAt(sort: Desc)])
+  @@index([lifefileId])
+  @@index([patientId])
+  @@index([capturedById])
+  @@index([matched])
+}
+
 // Status flow for prescription refills
 enum RefillStatus {
   SCHEDULED // Future refill, not yet due

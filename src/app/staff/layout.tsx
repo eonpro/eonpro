@@ -14,6 +14,7 @@ import {
   ChevronRight,
   Ticket,
   MessageSquare,
+  Camera,
 } from 'lucide-react';
 import {
   NotificationProvider,
@@ -34,6 +35,7 @@ const staffNavIconMap = {
   Settings,
   Ticket,
   MessageSquare,
+  Camera,
 } as const;
 
 function StaffLayoutInner({ children }: { children: React.ReactNode }) {

@@ -34,6 +34,7 @@ import {
   Zap,
   BookOpen,
   Clock,
+  Camera,
 } from 'lucide-react';
 import InternalChat from '@/components/InternalChat';
 import {
@@ -69,6 +70,7 @@ const adminNavIconMap = {
   Settings,
   Building2,
   MessageSquare,
+  Camera,
 } as const;
 
 // Fallback UI for ticket errors (used by ErrorBoundary - reports to Sentry)

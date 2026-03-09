@@ -103,6 +103,9 @@ model Patient {
   // Profile-level notes (staff/admin/provider) with author attribution
   profileNotes PatientNote[]
 
+  // PHARMACY: Package photos taken by pharmacy reps for shipped orders
+  packagePhotos PackagePhoto[]
+
   // DoseSpot E-Prescribing: patient ID in DoseSpot system (set on first external Rx sync)
   doseSpotPatientId Int?
 
