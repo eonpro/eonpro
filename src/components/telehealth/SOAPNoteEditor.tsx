@@ -54,7 +54,7 @@ export default function SOAPNoteEditor({
     onUpdate({ ...soapNote, [key]: value });
   };
 
-  const handleSave = async () => {
+  const handleSave = async (): Promise<number | undefined> => {
     setSaving(true);
     try {
       if (soapNote.id) {
@@ -69,52 +69,56 @@ export default function SOAPNoteEditor({
             medicalNecessity: soapNote.medicalNecessity,
           }),
         });
-      } else {
-        const res = await apiFetch('/api/soap-notes', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            patientId,
-            appointmentId,
-            subjective: soapNote.subjective,
-            objective: soapNote.objective,
-            assessment: soapNote.assessment,
-            plan: soapNote.plan,
-            medicalNecessity: soapNote.medicalNecessity,
-            sourceType: 'AI_GENERATED',
-            generatedByAI: true,
-          }),
-        });
-        if (res.ok) {
-          const data = await res.json();
-          if (data.id) {
-            onUpdate({ ...soapNote, id: data.id });
-          }
+        setLastSaved(new Date());
+        return soapNote.id;
+      }
+
+      const res = await apiFetch('/api/soap-notes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          patientId,
+          appointmentId,
+          subjective: soapNote.subjective,
+          objective: soapNote.objective,
+          assessment: soapNote.assessment,
+          plan: soapNote.plan,
+          medicalNecessity: soapNote.medicalNecessity,
+          sourceType: 'AI_GENERATED',
+          generatedByAI: true,
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.id) {
+          onUpdate({ ...soapNote, id: data.id });
+          setLastSaved(new Date());
+          return data.id as number;
         }
       }
-      setLastSaved(new Date());
     } catch {
       // Silently fail — user can retry
     } finally {
       setSaving(false);
     }
+    return undefined;
   };
 
   const handleSign = async () => {
-    if (!soapNote.id) {
-      await handleSave();
+    let noteId = soapNote.id;
+    if (!noteId) {
+      noteId = await handleSave();
     }
+    if (!noteId) return;
 
     setSigning(true);
     try {
-      if (soapNote.id) {
-        const res = await apiFetch(`/api/soap-notes/${soapNote.id}/sign`, {
-          method: 'POST',
-        });
-        if (res.ok) {
-          onUpdate({ ...soapNote, status: 'APPROVED' });
-          onSign();
-        }
+      const res = await apiFetch(`/api/soap-notes/${noteId}/sign`, {
+        method: 'POST',
+      });
+      if (res.ok) {
+        onUpdate({ ...soapNote, id: noteId, status: 'APPROVED' });
+        onSign();
       }
     } catch {
       // Silently fail

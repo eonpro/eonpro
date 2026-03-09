@@ -29,6 +29,7 @@ interface SessionLobbyProps {
 
 export default function SessionLobby({ session, userName, onJoinCall, onBack }: SessionLobbyProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
   const [devices, setDevices] = useState<DeviceStatus>({
     camera: 'pending',
     microphone: 'pending',
@@ -42,6 +43,7 @@ export default function SessionLobby({ session, userName, onJoinCall, onBack }: 
     setChecking(true);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      streamRef.current = stream;
 
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
@@ -70,9 +72,8 @@ export default function SessionLobby({ session, userName, onJoinCall, onBack }: 
     void checkDevices();
 
     return () => {
-      if (devices.cameraStream) {
-        devices.cameraStream.getTracks().forEach((track) => track.stop());
-      }
+      streamRef.current?.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -98,19 +99,20 @@ export default function SessionLobby({ session, userName, onJoinCall, onBack }: 
     setShowConsentModal(true);
   };
 
+  const stopStream = () => {
+    streamRef.current?.getTracks().forEach((track) => track.stop());
+    streamRef.current = null;
+  };
+
   const handleConsentGiven = () => {
     setShowConsentModal(false);
-    if (devices.cameraStream) {
-      devices.cameraStream.getTracks().forEach((track) => track.stop());
-    }
+    stopStream();
     onJoinCall(true);
   };
 
   const handleConsentDeclined = () => {
     setShowConsentModal(false);
-    if (devices.cameraStream) {
-      devices.cameraStream.getTracks().forEach((track) => track.stop());
-    }
+    stopStream();
     onJoinCall(false);
   };
 

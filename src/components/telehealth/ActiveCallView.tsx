@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 
 import dynamic from 'next/dynamic';
 
@@ -12,6 +12,7 @@ import {
   Shield,
 } from 'lucide-react';
 
+import { safeParseJsonString } from '@/lib/utils/safe-json';
 import CallTimer from './CallTimer';
 import ScribePanel from './ScribePanel';
 import { type TelehealthSessionData, type PostCallData } from './types';
@@ -40,28 +41,45 @@ export default function ActiveCallView({
   const [callActive, setCallActive] = useState(false);
   const [callStartTime, setCallStartTime] = useState<Date | null>(null);
   const [copied, setCopied] = useState(false);
+  const [providerId, setProviderId] = useState<number | undefined>();
   const transcriptRef = useRef('');
+  const callStartRef = useRef<Date | null>(null);
+  const onCallEndRef = useRef(onCallEnd);
+  onCallEndRef.current = onCallEnd;
+
+  // Resolve providerId from auth context for the AI Scribe
+  useEffect(() => {
+    try {
+      const user = localStorage.getItem('user');
+      if (user) {
+        const parsed = safeParseJsonString(user);
+        if (parsed?.providerId) setProviderId(Number(parsed.providerId));
+      }
+    } catch { /* ignore */ }
+  }, []);
 
   const handleMeetingStart = useCallback(() => {
     setCallActive(true);
-    setCallStartTime(new Date());
+    const now = new Date();
+    callStartRef.current = now;
+    setCallStartTime(now);
   }, []);
 
-  // eslint-disable-next-line no-unused-vars -- reserved for future use
   const handleMeetingEnd = useCallback(
-    (_reason?: string) => {
+    () => {
       setCallActive(false);
-      const duration = callStartTime
-        ? Math.floor((Date.now() - callStartTime.getTime()) / 1000)
+      const start = callStartRef.current;
+      const duration = start
+        ? Math.floor((Date.now() - start.getTime()) / 1000)
         : 0;
 
-      onCallEnd({
+      onCallEndRef.current({
         session,
         duration,
         transcript: transcriptRef.current ?? undefined,
       });
     },
-    [session, callStartTime, onCallEnd]
+    [session]
   );
 
   const handleTranscriptUpdate = useCallback((transcript: string) => {
@@ -162,7 +180,7 @@ export default function ActiveCallView({
             <ScribePanel
               appointmentId={session.appointment?.id}
               patientId={session.patient.id}
-              providerId={undefined}
+              providerId={providerId}
               isCallActive={callActive}
               collapsed={scribeCollapsed}
               onToggle={() => setScribeCollapsed(!scribeCollapsed)}
