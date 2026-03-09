@@ -28,32 +28,84 @@ const SESSION_ACTIVITY_THROTTLE_TTL = 60; // 1 minute
 const CACHE_NAMESPACE = 'mw'; // short namespace for middleware caches
 
 // ============================================================================
+// Env Map: SUBDOMAIN_CLINIC_ID_MAP (parsed once, cached in-memory)
+// ============================================================================
+
+let _envMapParsed = false;
+let _envMap: Map<string, number> | null = null;
+
+/**
+ * Parse SUBDOMAIN_CLINIC_ID_MAP env var into a Map (once per process).
+ * Format: "sub1:1,sub2:2,sub3:3"
+ * Returns null if the env var is not set.
+ */
+function getSubdomainEnvMap(): Map<string, number> | null {
+  if (_envMapParsed) return _envMap;
+  _envMapParsed = true;
+
+  const raw = process.env.SUBDOMAIN_CLINIC_ID_MAP;
+  if (!raw) return null;
+
+  _envMap = new Map();
+  for (const pair of raw.split(',')) {
+    const [k, v] = pair.split(':').map((s) => s.trim());
+    if (k && v) {
+      const id = parseInt(v, 10);
+      if (!isNaN(id)) _envMap.set(k.toLowerCase(), id);
+    }
+  }
+  return _envMap;
+}
+
+// ============================================================================
 // Subdomain → Clinic ID Resolution (Redis-backed)
 // ============================================================================
 
 /**
- * Resolve subdomain to clinicId using Redis cache with DB fallback.
- * Eliminates the basePrisma.clinic.findFirst call on every request.
+ * Resolve subdomain to clinicId using a three-tier cache-first strategy:
+ *
+ *   1. SUBDOMAIN_CLINIC_ID_MAP env var  (in-process, zero latency)
+ *   2. Redis cache                       (Upstash HTTP, ~1-3 ms)
+ *   3. Database lookup                   (Prisma → PostgreSQL, ~5-50 ms)
+ *
+ * Successful DB lookups are cached in Redis for 5 minutes.
+ * If Redis is unavailable, the DB fallback is always preserved.
  *
  * Cache key: mw:subdomain:<subdomain> → clinicId (number) or -1 (not found)
  *
  * @returns clinicId or null if subdomain doesn't map to an active clinic
  */
 export async function resolveSubdomainClinicId(subdomain: string): Promise<number | null> {
-  const key = `subdomain:${subdomain.toLowerCase()}`;
+  const sub = subdomain.toLowerCase();
 
-  try {
-    // Check Redis first
-    const cached = await cache.get<number>(key, { namespace: CACHE_NAMESPACE });
-    if (cached !== null) {
-      // -1 sentinel means "known not to exist" — avoid repeated DB lookups
-      return cached === -1 ? null : cached;
+  // ── Tier 1: In-process env map (free — no I/O) ──────────────────────
+  const envMap = getSubdomainEnvMap();
+  if (envMap) {
+    const envId = envMap.get(sub);
+    if (envId !== undefined) {
+      logger.debug('[MiddlewareCache] Subdomain resolved via env map', { subdomain: sub, clinicId: envId });
+      return envId;
     }
-  } catch {
-    // Redis unavailable — fall through to DB
   }
 
-  // DB fallback
+  // ── Tier 2: Redis cache ──────────────────────────────────────────────
+  const cacheKey = `subdomain:${sub}`;
+  try {
+    const cached = await cache.get<number>(cacheKey, { namespace: CACHE_NAMESPACE });
+    if (cached !== null) {
+      if (cached === -1) {
+        logger.debug('[MiddlewareCache] Subdomain resolved via Redis (negative cache)', { subdomain: sub });
+        return null;
+      }
+      logger.debug('[MiddlewareCache] Subdomain resolved via Redis', { subdomain: sub, clinicId: cached });
+      return cached;
+    }
+    logger.debug('[MiddlewareCache] Subdomain cache miss — falling back to DB', { subdomain: sub });
+  } catch {
+    logger.debug('[MiddlewareCache] Redis unavailable for subdomain lookup — falling back to DB', { subdomain: sub });
+  }
+
+  // ── Tier 3: Database fallback ────────────────────────────────────────
   try {
     const clinic = await basePrisma.clinic.findFirst({
       where: {
@@ -65,20 +117,25 @@ export async function resolveSubdomainClinicId(subdomain: string): Promise<numbe
 
     const clinicId = clinic?.id ?? null;
 
+    logger.debug('[MiddlewareCache] Subdomain resolved via DB', {
+      subdomain: sub,
+      clinicId,
+    });
+
     // Cache result (even null as -1 sentinel to prevent repeated DB misses)
     try {
-      await cache.set(key, clinicId ?? -1, {
+      await cache.set(cacheKey, clinicId ?? -1, {
         ttl: SUBDOMAIN_CACHE_TTL,
         namespace: CACHE_NAMESPACE,
       });
     } catch {
-      // Cache write failure is non-critical
+      // Cache write failure is non-critical — next request retries
     }
 
     return clinicId;
   } catch (err) {
-    logger.warn('[MiddlewareCache] Subdomain clinic lookup failed', {
-      subdomain,
+    logger.warn('[MiddlewareCache] Subdomain DB lookup failed — returning null', {
+      subdomain: sub,
       error: err instanceof Error ? err.message : String(err),
     });
     return null;

@@ -42,6 +42,10 @@ const SESSION_NAMESPACE = 'session';
 // Session TTL (8 hours in seconds - matches max session duration)
 const SESSION_TTL_SECONDS = 8 * 60 * 60;
 
+// Throttle session.lastActivity writes to once per 60s per session.
+// The idle timeout is 4 hours, so 60s staleness is <0.5% drift.
+const ACTIVITY_WRITE_THROTTLE_MS = 60_000;
+
 // In-memory fallback for development/testing
 const localSessions = new Map<string, SessionState>();
 
@@ -382,9 +386,16 @@ export async function validateSession(
       };
     }
 
-    // Update last activity
-    session.lastActivity = now;
-    await saveSession(sessionId, session);
+    // Throttle lastActivity writes to reduce Redis write pressure.
+    // Only persist when 60+ seconds have elapsed since the last saved value.
+    // Idle timeout is 4 hours, so ≤60s of staleness is negligible (<0.5%).
+    const elapsed = now - session.lastActivity;
+    if (elapsed >= ACTIVITY_WRITE_THROTTLE_MS) {
+      session.lastActivity = now;
+      await saveSession(sessionId, session);
+    }
+    // If throttled, skip the write — the existing lastActivity in Redis
+    // is recent enough for idle-timeout checks on subsequent requests.
 
     return {
       valid: true,
