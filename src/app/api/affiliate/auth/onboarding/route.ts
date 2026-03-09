@@ -34,6 +34,7 @@ import { JWT_SECRET } from '@/lib/auth/config';
 import { validatePasswordStrength } from '@/lib/auth/password-reset';
 import { sendEmail } from '@/lib/email';
 import { createRateLimiter } from '@/lib/security/rate-limiter-redis';
+import { createSessionRecord } from '@/lib/auth/session-manager';
 
 // ============================================================================
 // Helpers
@@ -463,7 +464,15 @@ async function handlePost(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to complete setup' }, { status: 500 });
     }
 
-    // Create JWT for auto-login
+    // Create session record so validateSession() succeeds in auth middleware
+    const { sessionId } = await createSessionRecord(
+      resetToken.userId.toString(),
+      'affiliate',
+      affiliate.clinicId,
+      request
+    );
+
+    // Create JWT for auto-login with sessionId for auth middleware validation
     const jwtToken = await new SignJWT({
       id: affiliate.id,
       affiliateId: affiliate.id,
@@ -472,6 +481,7 @@ async function handlePost(request: NextRequest) {
       email: resetToken.user.email,
       name: displayName || affiliate.displayName,
       role: 'affiliate',
+      sessionId,
     })
       .setProtectedHeader({ alg: 'HS256' })
       .setIssuedAt()

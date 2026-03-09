@@ -12,6 +12,7 @@ import { SignJWT } from 'jose';
 import { cookies } from 'next/headers';
 import { JWT_SECRET } from '@/lib/auth/config';
 import { otpRateLimiter } from '@/lib/security/rate-limiter-redis';
+import { createSessionRecord } from '@/lib/auth/session-manager';
 
 const verifyCodeSchema = z.object({
   phone: z.string().min(1, 'Phone is required'),
@@ -107,12 +108,24 @@ async function handler(request: NextRequest) {
       where: { affiliateId: affiliate.id },
     });
 
-    // Create JWT token
+    // Create session record so validateSession() succeeds in auth middleware
+    const { sessionId } = await createSessionRecord(
+      affiliate.user.id.toString(),
+      'affiliate',
+      affiliate.clinicId,
+      request
+    );
+
+    // Create JWT token with sessionId for auth middleware validation
     const token = await new SignJWT({
       sub: affiliate.user.id.toString(),
+      id: affiliate.id,
       affiliateId: affiliate.id,
+      userId: affiliate.user.id,
       clinicId: affiliate.clinicId,
+      email: affiliate.user.email,
       role: 'affiliate',
+      sessionId,
     })
       .setProtectedHeader({ alg: 'HS256' })
       .setIssuedAt()

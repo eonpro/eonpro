@@ -17,6 +17,7 @@ import { logger } from '@/lib/logger';
 import { SignJWT } from 'jose';
 import bcrypt from 'bcryptjs';
 import { JWT_SECRET } from '@/lib/auth/config';
+import { createSessionRecord } from '@/lib/auth/session-manager';
 
 const loginSchema = z.object({
   email: z.string().email('Invalid email format'),
@@ -138,7 +139,15 @@ async function loginHandler(request: NextRequest) {
         return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 });
       }
 
-      // Create JWT token
+      // Create session record so validateSession() succeeds in auth middleware
+      const { sessionId } = await createSessionRecord(
+        affiliate.user.id.toString(),
+        'affiliate',
+        affiliate.clinicId,
+        request
+      );
+
+      // Create JWT token with sessionId for auth middleware validation
       const token = await new SignJWT({
         id: affiliate.id,
         affiliateId: affiliate.id,
@@ -147,6 +156,7 @@ async function loginHandler(request: NextRequest) {
         email: affiliate.user.email,
         name: affiliate.displayName,
         role: 'affiliate',
+        sessionId,
       })
         .setProtectedHeader({ alg: 'HS256' })
         .setIssuedAt()
