@@ -31,6 +31,8 @@ import {
   MessageSquare,
   Link as LinkIcon,
   Camera,
+  Truck,
+  Shield,
 } from 'lucide-react';
 import InternalChat from '@/components/InternalChat';
 import {
@@ -136,6 +138,8 @@ const adminNavIconMap = {
   MessageSquare,
   Link: LinkIcon,
   Camera,
+  Truck,
+  Shield,
 } as const;
 
 function AdminLayoutInner({ children }: { children: React.ReactNode }) {
@@ -192,7 +196,7 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
       const parsedUser = safeParseJsonString(user);
       if (!parsedUser) { router.push('/login'); return; }
       const role = parsedUser.role?.toLowerCase();
-      const allowedAdminRoles = ['admin', 'super_admin', 'sales_rep', 'provider', 'staff'];
+      const allowedAdminRoles = ['admin', 'super_admin', 'sales_rep', 'provider', 'staff', 'pharmacy_rep'];
       if (!role || !allowedAdminRoles.includes(role)) {
         router.push('/login');
         return;

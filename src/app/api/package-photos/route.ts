@@ -11,7 +11,74 @@ const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/heic', 'image/heif'];
 
 // ---------------------------------------------------------------------------
-// POST — Upload a package photo with LifeFile ID lookup
+// Tracking Resolution — check Order, ShippingUpdate, ShipmentLabel
+// ---------------------------------------------------------------------------
+
+interface TrackingInfo {
+  trackingNumber: string;
+  trackingSource: string;
+}
+
+async function resolveTracking(
+  orderId: number | null,
+  lifefileId: string,
+  patientId: number | null,
+): Promise<TrackingInfo | null> {
+  // 1. Order.trackingNumber (set by LifeFile or manually)
+  if (orderId) {
+    const order = await prisma.order.findUnique({
+      where: { id: orderId },
+      select: { trackingNumber: true },
+    });
+    if (order?.trackingNumber) {
+      return { trackingNumber: order.trackingNumber, trackingSource: 'order' };
+    }
+  }
+
+  // 2. PatientShippingUpdate — LifeFile webhook or manual shipping entries
+  const shippingUpdate = await prisma.patientShippingUpdate.findFirst({
+    where: {
+      OR: [
+        { lifefileOrderId: lifefileId },
+        ...(orderId ? [{ orderId }] : []),
+      ],
+    },
+    orderBy: { createdAt: 'desc' },
+    select: { trackingNumber: true, source: true },
+  });
+  if (shippingUpdate?.trackingNumber) {
+    return {
+      trackingNumber: shippingUpdate.trackingNumber,
+      trackingSource: shippingUpdate.source === 'lifefile' ? 'lifefile_webhook' : 'shipping_update',
+    };
+  }
+
+  // 3. ShipmentLabel — FedEx integration labels
+  if (patientId && orderId) {
+    const label = await prisma.shipmentLabel.findFirst({
+      where: { patientId, orderId },
+      orderBy: { createdAt: 'desc' },
+      select: { trackingNumber: true },
+    });
+    if (label?.trackingNumber) {
+      return { trackingNumber: label.trackingNumber, trackingSource: 'fedex_label' };
+    }
+  } else if (patientId) {
+    const label = await prisma.shipmentLabel.findFirst({
+      where: { patientId },
+      orderBy: { createdAt: 'desc' },
+      select: { trackingNumber: true },
+    });
+    if (label?.trackingNumber) {
+      return { trackingNumber: label.trackingNumber, trackingSource: 'fedex_label' };
+    }
+  }
+
+  return null;
+}
+
+// ---------------------------------------------------------------------------
+// POST — Upload a package photo with LifeFile ID lookup + tracking resolution
 // ---------------------------------------------------------------------------
 
 async function postHandler(req: NextRequest, user: AuthUser) {
@@ -20,6 +87,7 @@ async function postHandler(req: NextRequest, user: AuthUser) {
     const lifefileId = formData.get('lifefileId') as string | null;
     const photo = formData.get('photo') as File | null;
     const notes = formData.get('notes') as string | null;
+    const manualTracking = formData.get('trackingNumber') as string | null;
 
     if (!lifefileId || !lifefileId.trim()) {
       return NextResponse.json({ error: 'LifeFile ID is required' }, { status: 400 });
@@ -45,13 +113,12 @@ async function postHandler(req: NextRequest, user: AuthUser) {
 
     const trimmedId = lifefileId.trim();
 
-    // Try to match LifeFile ID to an existing order
+    // --- Match LifeFile ID ---
     const matchedOrder = await prisma.order.findFirst({
       where: { lifefileOrderId: trimmedId },
-      select: { id: true, patientId: true, clinicId: true },
+      select: { id: true, patientId: true, clinicId: true, trackingNumber: true },
     });
 
-    // Also check if the lifefileId matches a patient's lifefileId field directly
     let matchedPatientId = matchedOrder?.patientId ?? null;
     let matchStrategy: string | null = null;
 
@@ -68,7 +135,26 @@ async function postHandler(req: NextRequest, user: AuthUser) {
       }
     }
 
-    // Upload photo to S3
+    // --- Resolve tracking number ---
+    let trackingNumber: string | null = null;
+    let trackingSource: string | null = null;
+
+    if (manualTracking?.trim()) {
+      trackingNumber = manualTracking.trim();
+      trackingSource = 'manual';
+    } else {
+      const resolved = await resolveTracking(
+        matchedOrder?.id ?? null,
+        trimmedId,
+        matchedPatientId,
+      );
+      if (resolved) {
+        trackingNumber = resolved.trackingNumber;
+        trackingSource = resolved.trackingSource;
+      }
+    }
+
+    // --- Upload photo to S3 ---
     const buffer = Buffer.from(await photo.arrayBuffer());
     const s3Result = await uploadToS3({
       file: buffer,
@@ -79,15 +165,16 @@ async function postHandler(req: NextRequest, user: AuthUser) {
       metadata: {
         lifefileId: trimmedId,
         capturedById: String(user.id),
-        capturedByEmail: user.email,
       },
     });
 
-    // Create database record
+    // --- Create database record ---
     const packagePhoto = await prisma.packagePhoto.create({
       data: {
         clinicId: user.clinicId!,
         lifefileId: trimmedId,
+        trackingNumber,
+        trackingSource,
         patientId: matchedPatientId,
         orderId: matchedOrder?.id ?? null,
         s3Key: s3Result.key,
@@ -105,6 +192,8 @@ async function postHandler(req: NextRequest, user: AuthUser) {
     logger.info('[PackagePhoto] Photo captured', {
       packagePhotoId: packagePhoto.id,
       lifefileId: trimmedId,
+      trackingNumber: trackingNumber ?? 'none',
+      trackingSource: trackingSource ?? 'none',
       matched: !!matchedPatientId,
       matchStrategy,
       capturedById: user.id,
@@ -116,6 +205,8 @@ async function postHandler(req: NextRequest, user: AuthUser) {
       data: {
         id: packagePhoto.id,
         lifefileId: trimmedId,
+        trackingNumber,
+        trackingSource,
         matched: !!matchedPatientId,
         matchStrategy,
         patientId: matchedPatientId,
@@ -153,7 +244,10 @@ async function getHandler(req: NextRequest, user: AuthUser) {
     const where: Record<string, unknown> = {};
 
     if (search) {
-      where.lifefileId = { contains: search, mode: 'insensitive' };
+      where.OR = [
+        { lifefileId: { contains: search, mode: 'insensitive' } },
+        { trackingNumber: { contains: search, mode: 'insensitive' } },
+      ];
     }
 
     if (matched === 'true') {
@@ -168,7 +262,7 @@ async function getHandler(req: NextRequest, user: AuthUser) {
         include: {
           capturedBy: { select: { id: true, firstName: true, lastName: true, email: true } },
           patient: { select: { id: true, firstName: true, lastName: true } },
-          order: { select: { id: true, lifefileOrderId: true, status: true } },
+          order: { select: { id: true, lifefileOrderId: true, status: true, trackingNumber: true } },
         },
         orderBy: { [sortBy]: sortOrder },
         skip: (page - 1) * limit,

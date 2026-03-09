@@ -16,6 +16,8 @@ import {
   Image as ImageIcon,
   RefreshCw,
   Filter,
+  Truck,
+  ExternalLink,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api/fetch';
 
@@ -26,6 +28,8 @@ import { apiFetch } from '@/lib/api/fetch';
 interface PackagePhotoRecord {
   id: number;
   lifefileId: string;
+  trackingNumber: string | null;
+  trackingSource: string | null;
   matched: boolean;
   matchStrategy: string | null;
   s3Url: string | null;
@@ -35,12 +39,14 @@ interface PackagePhotoRecord {
   createdAt: string;
   capturedBy: { id: number; firstName: string; lastName: string; email: string };
   patient: { id: number; firstName: string; lastName: string } | null;
-  order: { id: number; lifefileOrderId: string | null; status: string | null } | null;
+  order: { id: number; lifefileOrderId: string | null; status: string | null; trackingNumber: string | null } | null;
 }
 
 interface UploadResult {
   id: number;
   lifefileId: string;
+  trackingNumber: string | null;
+  trackingSource: string | null;
   matched: boolean;
   matchStrategy: string | null;
   patientId: number | null;
@@ -48,6 +54,14 @@ interface UploadResult {
   s3Url: string;
   createdAt: string;
 }
+
+const TRACKING_SOURCE_LABELS: Record<string, string> = {
+  order: 'Order Record',
+  lifefile_webhook: 'LifeFile Webhook',
+  shipping_update: 'Shipping Update',
+  fedex_label: 'FedEx Label',
+  manual: 'Manual Entry',
+};
 
 type CaptureStep = 'input' | 'camera' | 'preview' | 'uploading' | 'success';
 
@@ -113,6 +127,7 @@ export default function PackagePhotosPage() {
 function CaptureFlow() {
   const [step, setStep] = useState<CaptureStep>('input');
   const [lifefileId, setLifefileId] = useState('');
+  const [trackingNumber, setTrackingNumber] = useState('');
   const [notes, setNotes] = useState('');
   const [capturedImage, setCapturedImage] = useState<Blob | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -122,6 +137,7 @@ function CaptureFlow() {
   const reset = useCallback(() => {
     setStep('input');
     setLifefileId('');
+    setTrackingNumber('');
     setNotes('');
     setCapturedImage(null);
     if (previewUrl) URL.revokeObjectURL(previewUrl);
@@ -154,6 +170,7 @@ function CaptureFlow() {
       const formData = new FormData();
       formData.append('lifefileId', lifefileId.trim());
       formData.append('photo', capturedImage, `package-${lifefileId.trim()}.jpg`);
+      if (trackingNumber.trim()) formData.append('trackingNumber', trackingNumber.trim());
       if (notes.trim()) formData.append('notes', notes.trim());
 
       const res = await fetch('/api/package-photos', {
@@ -207,6 +224,20 @@ function CaptureFlow() {
                 placeholder="e.g. 123456"
                 autoFocus
                 className="w-full rounded-lg border border-gray-300 px-4 py-3 text-lg font-mono tracking-wider placeholder:text-gray-400 focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="trackingNumber" className="mb-1.5 block text-sm font-medium text-gray-700">
+                Tracking Number <span className="font-normal text-gray-400">(optional — auto-detected if on file)</span>
+              </label>
+              <input
+                id="trackingNumber"
+                type="text"
+                value={trackingNumber}
+                onChange={(e) => setTrackingNumber(e.target.value)}
+                placeholder="Leave blank to auto-detect from system"
+                className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-mono placeholder:font-sans placeholder:text-gray-400 focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
               />
             </div>
 
@@ -309,6 +340,23 @@ function CaptureFlow() {
               <span className="text-gray-500">LifeFile ID</span>
               <span className="font-mono font-medium text-gray-900">{uploadResult.lifefileId}</span>
             </div>
+            {uploadResult.trackingNumber && (
+              <div className="flex items-center justify-between text-sm">
+                <span className="flex items-center gap-1.5 text-gray-500">
+                  <Truck className="h-3.5 w-3.5" />
+                  Tracking
+                </span>
+                <span className="font-mono text-xs font-medium text-gray-900">{uploadResult.trackingNumber}</span>
+              </div>
+            )}
+            {uploadResult.trackingSource && (
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500">Tracking Source</span>
+                <span className="text-gray-700">
+                  {TRACKING_SOURCE_LABELS[uploadResult.trackingSource] || uploadResult.trackingSource}
+                </span>
+              </div>
+            )}
             <div className="flex items-center justify-between text-sm">
               <span className="text-gray-500">Match Status</span>
               {uploadResult.matched ? (
@@ -319,18 +367,10 @@ function CaptureFlow() {
               ) : (
                 <span className="flex items-center gap-1.5 font-medium text-amber-600">
                   <XCircle className="h-3.5 w-3.5" />
-                  No Match Found
+                  No Match Found — Stored for Search
                 </span>
               )}
             </div>
-            {uploadResult.matchStrategy && (
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-500">Matched via</span>
-                <span className="text-gray-700">
-                  {uploadResult.matchStrategy === 'lifefileOrderId' ? 'Order ID' : 'Patient LifeFile ID'}
-                </span>
-              </div>
-            )}
             {uploadResult.orderId && (
               <div className="flex justify-between text-sm">
                 <span className="text-gray-500">Order</span>
@@ -576,7 +616,7 @@ function PhotoGallery() {
             type="text"
             value={search}
             onChange={(e) => handleSearchChange(e.target.value)}
-            placeholder="Search by LifeFile ID..."
+            placeholder="Search by LifeFile ID or tracking number..."
             className="w-full rounded-lg border border-gray-300 py-2.5 pl-10 pr-4 text-sm placeholder:text-gray-400 focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
           />
         </div>
@@ -656,6 +696,12 @@ function PhotoGallery() {
                 </div>
               </div>
               <p className="font-mono text-sm font-semibold text-gray-900">{photo.lifefileId}</p>
+              {photo.trackingNumber && (
+                <p className="mt-0.5 flex items-center gap-1 truncate font-mono text-[11px] text-blue-600">
+                  <Truck className="h-3 w-3 flex-shrink-0" />
+                  {photo.trackingNumber}
+                </p>
+              )}
               <p className="mt-0.5 text-xs text-gray-500">
                 {new Date(photo.createdAt).toLocaleDateString(undefined, {
                   month: 'short',
@@ -771,6 +817,24 @@ function PhotoDetailModal({
 
         {/* Details */}
         <div className="space-y-3 px-5 py-4">
+          {/* Tracking — prominent display */}
+          {photo.trackingNumber && (
+            <div className="flex items-center justify-between rounded-lg bg-blue-50 px-3 py-2.5 text-sm">
+              <span className="flex items-center gap-1.5 font-medium text-blue-700">
+                <Truck className="h-4 w-4" />
+                Tracking
+              </span>
+              <span className="font-mono text-xs font-semibold text-blue-900">{photo.trackingNumber}</span>
+            </div>
+          )}
+          {photo.trackingSource && (
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-gray-500">Tracking Source</span>
+              <span className="text-gray-900">
+                {TRACKING_SOURCE_LABELS[photo.trackingSource] || photo.trackingSource}
+              </span>
+            </div>
+          )}
           <div className="flex items-center justify-between text-sm">
             <span className="text-gray-500">Captured by</span>
             <span className="flex items-center gap-1.5 font-medium text-gray-900">
@@ -779,7 +843,7 @@ function PhotoDetailModal({
             </span>
           </div>
           <div className="flex items-center justify-between text-sm">
-            <span className="text-gray-500">Date</span>
+            <span className="text-gray-500">Date &amp; Time</span>
             <span className="text-gray-900">
               {new Date(photo.createdAt).toLocaleDateString(undefined, {
                 year: 'numeric',
@@ -787,6 +851,7 @@ function PhotoDetailModal({
                 day: 'numeric',
                 hour: 'numeric',
                 minute: '2-digit',
+                second: '2-digit',
               })}
             </span>
           </div>

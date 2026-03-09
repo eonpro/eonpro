@@ -11,7 +11,16 @@ import { withProviderAuth, AuthUser } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
 import { prisma } from '@/lib/db';
 import { isZoomEnabled } from '@/lib/integrations/zoom/config';
-import { decryptPatientPHI } from '@/lib/security/phi-encryption';
+
+// Dynamic import to avoid circular dependency in production builds
+async function safeDecryptPatient(patient: any): Promise<any> {
+  try {
+    const { decryptPatientPHI } = await import('@/lib/security/phi-encryption');
+    return decryptPatientPHI(patient, ['firstName', 'lastName']);
+  } catch {
+    return patient;
+  }
+}
 
 export const GET = withProviderAuth(async (req: NextRequest, user: AuthUser) => {
   try {
@@ -126,7 +135,7 @@ export const GET = withProviderAuth(async (req: NextRequest, user: AuthUser) => 
       for (const s of telehealthSessions) {
         if (s.appointmentId) seenAppointmentIds.add(s.appointmentId);
         const patient = s.patient
-          ? decryptPatientPHI(s.patient, ['firstName', 'lastName'])
+          ? await safeDecryptPatient(s.patient)
           : s.patient;
         sessionResults.push({
           id: s.id,
@@ -175,7 +184,7 @@ export const GET = withProviderAuth(async (req: NextRequest, user: AuthUser) => 
 
     for (const apt of videoAppointments) {
       const patient = apt.patient
-        ? decryptPatientPHI(apt.patient, ['firstName', 'lastName'])
+        ? await safeDecryptPatient(apt.patient)
         : null;
       sessionResults.push({
         id: apt.id,

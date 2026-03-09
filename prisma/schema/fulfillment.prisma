@@ -132,7 +132,8 @@ model ShipmentLabel {
 }
 
 // Package photos taken by pharmacy reps when shipping orders
-// Linked to patient profile when LifeFile ID matches an existing order
+// Four key fields: date/time (createdAt), LifeFile Order ID, picture (s3Key), tracking number
+// Linked to patient profile when LifeFile ID matches an existing order or patient
 model PackagePhoto {
   id        Int      @id @default(autoincrement())
   createdAt DateTime @default(now())
@@ -141,8 +142,12 @@ model PackagePhoto {
   clinicId Int
   clinic   Clinic @relation(fields: [clinicId], references: [id])
 
-  // LifeFile ID entered by the rep (always stored)
+  // LifeFile Order ID entered by the rep (always stored)
   lifefileId String
+
+  // Tracking number — auto-resolved from Order/ShippingUpdate/ShipmentLabel or manual entry
+  trackingNumber String?
+  trackingSource String? // "order", "lifefile_webhook", "fedex_label", "manual"
 
   // Patient/order association (set when lifefileId matches an order)
   patientId Int?
@@ -170,6 +175,7 @@ model PackagePhoto {
 
   @@index([clinicId, createdAt(sort: Desc)])
   @@index([lifefileId])
+  @@index([trackingNumber])
   @@index([patientId])
   @@index([capturedById])
   @@index([matched])
