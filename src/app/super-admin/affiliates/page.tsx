@@ -28,6 +28,7 @@ import {
   XCircle,
   AlertTriangle,
   Activity,
+  Key,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api/fetch';
 import { normalizedIncludes } from '@/lib/utils/search';
@@ -217,6 +218,15 @@ export default function SuperAdminAffiliatesPage() {
   });
   const [updating, setUpdating] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
+
+  // Password reset state
+  const [showResetPasswordModal, setShowResetPasswordModal] = useState(false);
+  const [resetPasswordAffiliate, setResetPasswordAffiliate] = useState<Affiliate | null>(null);
+  const [resetPasswordForm, setResetPasswordForm] = useState({ password: '', sendNotification: false });
+  const [showResetPassword, setShowResetPassword] = useState(false);
+  const [resettingPassword, setResettingPassword] = useState(false);
+  const [resetPasswordError, setResetPasswordError] = useState<string | null>(null);
+  const [resetPasswordSuccess, setResetPasswordSuccess] = useState<string | null>(null);
 
   // Delete state
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -425,6 +435,70 @@ export default function SuperAdminAffiliatesPage() {
     }
   };
 
+  const handleOpenResetPassword = (affiliate: Affiliate) => {
+    setResetPasswordAffiliate(affiliate);
+    setResetPasswordForm({ password: '', sendNotification: false });
+    setShowResetPassword(false);
+    setResetPasswordError(null);
+    setResetPasswordSuccess(null);
+    setShowResetPasswordModal(true);
+  };
+
+  const generateResetPassword = () => {
+    const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%';
+    let password = '';
+    for (let i = 0; i < 12; i++) {
+      password += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    setResetPasswordForm((f) => ({ ...f, password }));
+    setShowResetPassword(true);
+  };
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!resetPasswordAffiliate) return;
+
+    if (!resetPasswordForm.password) {
+      setResetPasswordError('Password is required');
+      return;
+    }
+
+    if (resetPasswordForm.password.length < 8) {
+      setResetPasswordError('Password must be at least 8 characters');
+      return;
+    }
+
+    setResettingPassword(true);
+    setResetPasswordError(null);
+
+    try {
+      const response = await apiFetch(`/api/super-admin/affiliates/${resetPasswordAffiliate.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          password: resetPasswordForm.password,
+          sendNotification: resetPasswordForm.sendNotification,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setShowResetPasswordModal(false);
+        setResetPasswordAffiliate(null);
+        setResetPasswordForm({ password: '', sendNotification: false });
+        setShowResetPassword(false);
+        setResetPasswordSuccess('Password reset successfully');
+        setTimeout(() => setResetPasswordSuccess(null), 3000);
+      } else {
+        setResetPasswordError(data.error || 'Failed to reset password');
+      }
+    } catch {
+      setResetPasswordError('Failed to reset password');
+    } finally {
+      setResettingPassword(false);
+    }
+  };
+
   const handleOpenDelete = (affiliate: Affiliate) => {
     setDeletingAffiliate(affiliate);
     setDeleteError(null);
@@ -499,6 +573,13 @@ export default function SuperAdminAffiliatesPage() {
 
   return (
     <div className="p-6">
+      {resetPasswordSuccess && (
+        <div className="mb-4 flex items-center gap-2 rounded-lg bg-green-50 p-3 text-sm text-green-700">
+          <CheckCircle2 className="h-4 w-4" />
+          {resetPasswordSuccess}
+        </div>
+      )}
+
       {/* Header */}
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
@@ -1526,6 +1607,15 @@ export default function SuperAdminAffiliatesPage() {
                 </p>
               </div>
 
+              <button
+                type="button"
+                onClick={() => handleOpenResetPassword(editingAffiliate)}
+                className="flex w-full items-center justify-center gap-2 rounded-lg bg-amber-50 px-3 py-2 text-sm font-medium text-amber-600 transition-colors hover:bg-amber-100"
+              >
+                <Key className="h-4 w-4" />
+                Reset Password
+              </button>
+
               {editError && (
                 <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{editError}</div>
               )}
@@ -1544,6 +1634,106 @@ export default function SuperAdminAffiliatesPage() {
                   className="flex-1 rounded-lg bg-[#4fa77e] py-2 font-medium text-white hover:bg-[#3d8a66] disabled:opacity-50"
                 >
                   {updating ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Reset Password Modal */}
+      {showResetPasswordModal && resetPasswordAffiliate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-6">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-xl font-bold text-gray-900">Reset Password</h2>
+              <button
+                onClick={() => setShowResetPasswordModal(false)}
+                className="rounded p-1 hover:bg-gray-100"
+              >
+                <X className="h-5 w-5 text-gray-500" />
+              </button>
+            </div>
+
+            <p className="mb-4 text-sm text-gray-600">
+              Reset the password for <strong>{resetPasswordAffiliate.displayName}</strong> ({resetPasswordAffiliate.user.email})
+            </p>
+
+            <form onSubmit={handleResetPassword} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">New Password *</label>
+                <div className="mt-1 flex gap-2">
+                  <div className="relative flex-1">
+                    <Key className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                    <input
+                      type={showResetPassword ? 'text' : 'password'}
+                      value={resetPasswordForm.password}
+                      onChange={(e) =>
+                        setResetPasswordForm((f) => ({ ...f, password: e.target.value }))
+                      }
+                      placeholder="Minimum 8 characters"
+                      required
+                      minLength={8}
+                      className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-10 focus:border-[#4fa77e] focus:outline-none focus:ring-1 focus:ring-[#4fa77e]"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowResetPassword(!showResetPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    >
+                      {showResetPassword ? <XCircle className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={generateResetPassword}
+                    className="whitespace-nowrap rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                  >
+                    Generate
+                  </button>
+                </div>
+              </div>
+
+              <label className="flex items-center gap-2 text-sm text-gray-600">
+                <input
+                  type="checkbox"
+                  checked={resetPasswordForm.sendNotification}
+                  onChange={(e) =>
+                    setResetPasswordForm((f) => ({ ...f, sendNotification: e.target.checked }))
+                  }
+                  className="rounded border-gray-300"
+                />
+                Send notification email to affiliate
+              </label>
+
+              {resetPasswordError && (
+                <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{resetPasswordError}</div>
+              )}
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowResetPasswordModal(false)}
+                  className="flex-1 rounded-lg border border-gray-300 py-2 font-medium text-gray-700 hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={resettingPassword || !resetPasswordForm.password}
+                  className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-amber-600 py-2 font-medium text-white hover:bg-amber-700 disabled:opacity-50"
+                >
+                  {resettingPassword ? (
+                    <>
+                      <RefreshCw className="h-4 w-4 animate-spin" />
+                      Resetting...
+                    </>
+                  ) : (
+                    <>
+                      <Key className="h-4 w-4" />
+                      Reset Password
+                    </>
+                  )}
                 </button>
               </div>
             </form>

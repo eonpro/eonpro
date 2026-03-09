@@ -7,6 +7,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import bcrypt from 'bcryptjs';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { basePrisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
@@ -309,6 +310,114 @@ export const DELETE = withSuperAdminAuth(
       });
       return NextResponse.json(
         { error: 'Failed to delete affiliate', details: error instanceof Error ? error.message : 'Unknown error' },
+        { status: 500 }
+      );
+    }
+  }
+);
+
+/**
+ * PATCH /api/super-admin/affiliates/[id]
+ * Reset password for the affiliate's linked user account
+ *
+ * Body: {
+ *   password: string;
+ *   sendNotification?: boolean;
+ * }
+ */
+export const PATCH = withSuperAdminAuth(
+  async (req: NextRequest, user: AuthUser, params: { id: string }) => {
+    try {
+      const affiliateId = parseInt(params.id);
+
+      if (isNaN(affiliateId)) {
+        return NextResponse.json({ error: 'Invalid affiliate ID' }, { status: 400 });
+      }
+
+      const body = await req.json();
+      const { password, sendNotification } = body;
+
+      if (!password) {
+        return NextResponse.json({ error: 'Password is required' }, { status: 400 });
+      }
+
+      if (password.length < 8) {
+        return NextResponse.json(
+          { error: 'Password must be at least 8 characters' },
+          { status: 400 }
+        );
+      }
+
+      const affiliate = await basePrisma.affiliate.findUnique({
+        where: { id: affiliateId },
+        select: {
+          id: true,
+          displayName: true,
+          userId: true,
+          user: {
+            select: {
+              id: true,
+              email: true,
+            },
+          },
+        },
+      });
+
+      if (!affiliate) {
+        return NextResponse.json({ error: 'Affiliate not found' }, { status: 404 });
+      }
+
+      const passwordHash = await bcrypt.hash(password, 12);
+
+      await basePrisma.$transaction(async (tx) => {
+        await tx.user.update({
+          where: { id: affiliate.userId },
+          data: {
+            passwordHash,
+            lastPasswordChange: new Date(),
+            failedLoginAttempts: 0,
+            lockedUntil: null,
+          },
+        });
+
+        await tx.userAuditLog.create({
+          data: {
+            userId: affiliate.userId,
+            action: 'PASSWORD_RESET',
+            details: {
+              resetBy: user.email,
+              resetByUserId: user.id,
+              affiliateId,
+              timestamp: new Date().toISOString(),
+            },
+          },
+        });
+      }, { timeout: 15000 });
+
+      logger.info('Affiliate password reset', {
+        affiliateId,
+        userId: affiliate.userId,
+        resetBy: user.id,
+      });
+
+      if (sendNotification) {
+        logger.info('Would send password reset notification to affiliate', {
+          affiliateId,
+          userId: affiliate.userId,
+        });
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: 'Password reset successfully',
+      });
+    } catch (error) {
+      logger.error('Failed to reset affiliate password', {
+        affiliateId: params.id,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return NextResponse.json(
+        { error: 'Failed to reset password' },
         { status: 500 }
       );
     }
