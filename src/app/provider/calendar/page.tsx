@@ -374,15 +374,24 @@ function ProviderCalendarContent() {
 
             {/* Quick Actions */}
             <div className="mt-6 space-y-2 border-t pt-4">
-              <button className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-gray-50">
+              <button
+                onClick={() => { window.location.href = '/provider/patients'; }}
+                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-gray-50"
+              >
                 <Users className="h-4 w-4 text-gray-500" />
                 <span>Manage Patients</span>
               </button>
-              <button className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-gray-50">
+              <button
+                onClick={() => { window.location.href = '/provider/settings'; }}
+                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-gray-50"
+              >
                 <Bell className="h-4 w-4 text-gray-500" />
                 <span>Notification Settings</span>
               </button>
-              <button className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-gray-50">
+              <button
+                onClick={() => { window.location.href = '/provider/telehealth'; }}
+                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-gray-50"
+              >
                 <Video className="h-4 w-4 text-gray-500" />
                 <span>Zoom Settings</span>
               </button>
