@@ -33,15 +33,20 @@ export const GET = withProviderAuth(async (req: NextRequest, user: AuthUser) => 
         providerId: user.providerId,
       });
 
-      // Fallback: show VIDEO appointments created by this user
+      // Fallback: show VIDEO appointments in the user's clinic
       try {
+        const where: Record<string, unknown> = {
+          type: 'VIDEO',
+          startTime: { gte: now, lte: endDate },
+          status: { in: ['SCHEDULED', 'CONFIRMED', 'IN_PROGRESS'] },
+        };
+        // Scope by clinic if available
+        if (user.clinicId) {
+          where.clinicId = user.clinicId;
+        }
+
         const fallbackAppointments = await prisma.appointment.findMany({
-          where: {
-            type: 'VIDEO',
-            startTime: { gte: now, lte: endDate },
-            status: { in: ['SCHEDULED', 'CONFIRMED', 'IN_PROGRESS'] },
-            createdById: user.id,
-          },
+          where,
           include: {
             patient: { select: { id: true, firstName: true, lastName: true } },
           },
@@ -49,7 +54,7 @@ export const GET = withProviderAuth(async (req: NextRequest, user: AuthUser) => 
           take: 20,
         });
 
-        const fallbackSessions = fallbackAppointments.map((apt) => {
+        const fallbackSessions = fallbackAppointments.map((apt: any) => {
           const patient = apt.patient
             ? decryptPatientPHI(apt.patient, ['firstName', 'lastName'])
             : null;
@@ -73,17 +78,21 @@ export const GET = withProviderAuth(async (req: NextRequest, user: AuthUser) => 
           sessions: fallbackSessions,
           totalCount: fallbackSessions.length,
           zoomEnabled: isZoomEnabled(),
-          debug: { reason: 'provider_not_found_using_fallback', userId: user.id, fallbackCount: fallbackSessions.length },
+          debug: {
+            reason: 'provider_not_found_using_clinic_fallback',
+            userId: user.id,
+            clinicId: user.clinicId,
+            fallbackCount: fallbackSessions.length,
+          },
         });
       } catch (fallbackErr) {
-        logger.error('Fallback appointment query failed', {
-          error: fallbackErr instanceof Error ? fallbackErr.message : 'Unknown',
-        });
+        const fbMsg = fallbackErr instanceof Error ? fallbackErr.message : 'Unknown';
+        logger.error('Fallback appointment query failed', { error: fbMsg });
         return NextResponse.json({
           sessions: [],
           totalCount: 0,
           zoomEnabled: isZoomEnabled(),
-          debug: { reason: 'provider_not_found_fallback_failed', userId: user.id },
+          debug: { reason: 'fallback_failed', userId: user.id, error: fbMsg },
         });
       }
     }
