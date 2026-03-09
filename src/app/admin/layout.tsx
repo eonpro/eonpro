@@ -159,8 +159,10 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
   const [switchError, setSwitchError] = useState('');
   const [switching, setSwitching] = useState(false);
 
-  // Get branding colors with fallbacks
-  const primaryColor = branding?.primaryColor || '#4fa77e';
+  const isPharmacyRep = userRole === 'pharmacy_rep';
+
+  // Pharmacy reps use the violet theme; other roles use clinic branding
+  const primaryColor = isPharmacyRep ? '#7C3AED' : (branding?.primaryColor || '#4fa77e');
   const clinicLogo = branding?.logoUrl || EONPRO_LOGO;
   const clinicIcon = branding?.iconUrl || EONPRO_ICON;
   const clinicName = branding?.clinicName || 'EONPRO';
@@ -317,7 +319,8 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
       localStorage.getItem('super_admin-token') ||
       localStorage.getItem('provider-token') ||
       localStorage.getItem('staff-token') ||
-      localStorage.getItem('sales_rep-token');
+      localStorage.getItem('sales_rep-token') ||
+      localStorage.getItem('pharmacy_rep-token');
     if (token)
       fetch('/api/auth/logout', {
         method: 'POST',
@@ -342,6 +345,8 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
       'staff-token',
       'support-token',
       'affiliate-token',
+      'sales_rep-token',
+      'pharmacy_rep-token',
       'selected-clinic',
     ].forEach((name) => {
       // Clear on current hostname (e.g. ot.eonpro.io)

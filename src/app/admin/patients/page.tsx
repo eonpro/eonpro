@@ -331,10 +331,10 @@ export default function AdminPatientsPage() {
     <div className="mx-auto max-w-7xl p-6">
       <div className="mb-8 flex items-center justify-between">
         <div>
-          <h1 className={`text-2xl font-bold ${isPharmacyExperience ? 'text-white' : 'text-gray-900'}`}>
+          <h1 className="text-2xl font-bold text-gray-900">
             Patients
           </h1>
-          <p className={`mt-1 ${isPharmacyExperience ? 'text-white/85' : 'text-gray-600'}`}>
+          <p className="mt-1 text-gray-600">
             Patients who have an invoice or a prescription placed
           </p>
         </div>
@@ -359,8 +359,8 @@ export default function AdminPatientsPage() {
         style={
           isPharmacyExperience
             ? {
-                backgroundColor: 'rgba(255, 255, 255, 0.08)',
-                borderColor: 'rgba(255, 255, 255, 0.35)',
+                backgroundColor: 'rgba(124, 58, 237, 0.08)',
+                borderColor: 'rgba(124, 58, 237, 0.3)',
               }
             : {
                 backgroundColor: 'var(--brand-primary-light, rgba(79, 167, 126, 0.1))',
@@ -370,18 +370,16 @@ export default function AdminPatientsPage() {
       >
         <div className="flex items-start gap-3">
           <Users
-            className={`mt-0.5 h-5 w-5 ${isPharmacyExperience ? 'text-white/90' : ''}`}
-            style={!isPharmacyExperience ? { color: 'var(--brand-primary, #4fa77e)' } : undefined}
+            className="mt-0.5 h-5 w-5"
+            style={{ color: isPharmacyExperience ? '#7C3AED' : 'var(--brand-primary, #4fa77e)' }}
           />
           <div>
-            <p
-              className={`text-sm font-medium ${isPharmacyExperience ? 'text-white' : 'text-gray-800'}`}
-            >
+            <p className="text-sm font-medium text-gray-800">
               This list shows patients with an invoice or prescription history
             </p>
             <p
-              className={`mt-1 text-xs ${isPharmacyExperience ? 'text-white/80' : ''}`}
-              style={!isPharmacyExperience ? { color: 'var(--brand-primary, #4fa77e)' } : undefined}
+              className="mt-1 text-xs"
+              style={{ color: isPharmacyExperience ? '#7C3AED' : 'var(--brand-primary, #4fa77e)' }}
             >
               The Intakes tab shows every patient profile in the system
             </p>
@@ -501,7 +499,7 @@ export default function AdminPatientsPage() {
       {/* Results summary */}
       {!loading && (
         <div className="mb-4 flex items-center justify-between">
-          <p className={`text-sm ${isPharmacyExperience ? 'text-white/85' : 'text-gray-600'}`}>
+          <p className="text-sm text-gray-600">
             {isSearching ? (
               <>
                 Found <span className="font-medium">{filteredPatients.length}</span> patient

@@ -1,0 +1,88 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { withPharmacyAccessAuth, type AuthUser } from '@/lib/auth/middleware';
+import { prisma } from '@/lib/db';
+import { handleApiError } from '@/domains/shared/errors';
+import { logger } from '@/lib/logger';
+import { z } from 'zod';
+
+const patchSchema = z.object({
+  trackingNumber: z.string().min(1).max(100).optional(),
+  notes: z.string().max(500).optional(),
+});
+
+async function patchHandler(
+  req: NextRequest,
+  user: AuthUser,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  try {
+    const { id } = await params;
+    const photoId = parseInt(id, 10);
+    if (isNaN(photoId)) {
+      return NextResponse.json({ error: 'Invalid photo ID' }, { status: 400 });
+    }
+
+    const body = await req.json();
+    const validated = patchSchema.parse(body);
+
+    const existing = await prisma.packagePhoto.findUnique({
+      where: { id: photoId },
+      select: { id: true, clinicId: true, trackingNumber: true },
+    });
+
+    if (!existing) {
+      return NextResponse.json({ error: 'Package photo not found' }, { status: 404 });
+    }
+
+    if (user.role !== 'super_admin' && existing.clinicId !== user.clinicId) {
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+    }
+
+    const updateData: Record<string, unknown> = {};
+
+    if (validated.trackingNumber !== undefined) {
+      updateData.trackingNumber = validated.trackingNumber.trim();
+      updateData.trackingSource = 'manual';
+    }
+
+    if (validated.notes !== undefined) {
+      updateData.notes = validated.notes.trim() || null;
+    }
+
+    if (Object.keys(updateData).length === 0) {
+      return NextResponse.json({ error: 'No fields to update' }, { status: 400 });
+    }
+
+    const updated = await prisma.packagePhoto.update({
+      where: { id: photoId },
+      data: updateData,
+      select: {
+        id: true,
+        lifefileId: true,
+        trackingNumber: true,
+        trackingSource: true,
+        matched: true,
+        matchStrategy: true,
+        patientId: true,
+        orderId: true,
+        s3Url: true,
+        notes: true,
+        createdAt: true,
+      },
+    });
+
+    logger.info('[PackagePhoto] Updated', {
+      packagePhotoId: updated.id,
+      lifefileId: updated.lifefileId,
+      fieldsUpdated: Object.keys(updateData),
+      updatedById: user.id,
+      clinicId: user.clinicId,
+    });
+
+    return NextResponse.json({ success: true, data: updated });
+  } catch (error: unknown) {
+    return handleApiError(error, { context: { route: 'PATCH /api/package-photos/[id]' } });
+  }
+}
+
+export const PATCH = withPharmacyAccessAuth(patchHandler);

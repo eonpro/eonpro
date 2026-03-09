@@ -288,76 +288,86 @@ export default function AdminPage() {
 
   if (isPharmacyExperience) {
     return (
-      <div className="p-8 text-white">
-        <h1 className="mb-5 text-3xl font-semibold text-white">
-          Welcome, <span className="text-white">{displayName}</span>
-        </h1>
-        <div className="mb-6 flex flex-wrap gap-3">
-          <button
-            type="button"
-            onClick={() => {
-              window.location.href = '/admin/patients';
-            }}
-            className="rounded-xl bg-[#D22D8A] px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#bb257b]"
-          >
-            Search patients
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              window.location.href = '/admin/shipping';
-            }}
-            className="rounded-xl border border-white/35 bg-white/10 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/20"
-          >
-            Open shipping
-          </button>
-        </div>
-        {pharmacyClinics.length > 0 && (
-          <div>
-            <p className="mb-3 text-sm font-medium text-white/85">Quick clinic switch</p>
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-              {pharmacyClinics.map((clinic) => (
-                <button
-                  key={clinic.id}
-                  type="button"
-                  disabled={switchingClinicId === clinic.id}
-                  onClick={async () => {
-                    try {
-                      setSwitchingClinicId(clinic.id);
-                      const switchRes = await apiFetch('/api/clinic/switch', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ clinicId: clinic.id }),
-                      });
-                      if (!switchRes.ok) return;
-
-                      // Best effort: persist active clinic reference for UI defaults.
-                      await apiFetch('/api/user/clinics', {
-                        method: 'PUT',
-                        body: JSON.stringify({ clinicId: clinic.id }),
-                      }).catch(() => {});
-
-                      setActiveClinicId(clinic.id);
-                      localStorage.setItem('activeClinicId', String(clinic.id));
-                      document.cookie = `selected-clinic=${clinic.id}; path=/; max-age=31536000`;
-                      window.location.reload();
-                    } finally {
-                      setSwitchingClinicId(null);
-                    }
-                  }}
-                  className={`rounded-2xl border p-4 text-left transition-colors ${
-                    activeClinicId === clinic.id
-                      ? 'border-[#D22D8A] bg-[#D22D8A]/20'
-                      : 'border-white/25 bg-white/10 hover:bg-white/20'
-                  }`}
-                >
-                  <p className="text-sm font-semibold text-white">{clinic.name}</p>
-                  <p className="mt-1 text-xs text-white/70">{clinic.subdomain || 'clinic'}</p>
-                </button>
-              ))}
-            </div>
+      <div className="p-6 sm:p-8">
+        <div className="rounded-2xl bg-gradient-to-br from-violet-600 to-purple-700 p-6 shadow-lg sm:p-8">
+          <h1 className="mb-5 text-3xl font-semibold text-white">
+            Welcome, <span className="text-white">{displayName}</span>
+          </h1>
+          <div className="mb-6 flex flex-wrap gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                window.location.href = '/admin/patients';
+              }}
+              className="rounded-xl bg-white px-5 py-3 text-sm font-semibold text-violet-700 transition-colors hover:bg-violet-50"
+            >
+              Search patients
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                window.location.href = '/admin/shipping';
+              }}
+              className="rounded-xl border border-white/35 bg-white/10 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/20"
+            >
+              Open shipping
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                window.location.href = '/admin/package-photos';
+              }}
+              className="rounded-xl border border-white/35 bg-white/10 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/20"
+            >
+              Package photos
+            </button>
           </div>
-        )}
+          {pharmacyClinics.length > 0 && (
+            <div>
+              <p className="mb-3 text-sm font-medium text-white/85">Quick clinic switch</p>
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                {pharmacyClinics.map((clinic) => (
+                  <button
+                    key={clinic.id}
+                    type="button"
+                    disabled={switchingClinicId === clinic.id}
+                    onClick={async () => {
+                      try {
+                        setSwitchingClinicId(clinic.id);
+                        const switchRes = await apiFetch('/api/clinic/switch', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ clinicId: clinic.id }),
+                        });
+                        if (!switchRes.ok) return;
+
+                        await apiFetch('/api/user/clinics', {
+                          method: 'PUT',
+                          body: JSON.stringify({ clinicId: clinic.id }),
+                        }).catch(() => {});
+
+                        setActiveClinicId(clinic.id);
+                        localStorage.setItem('activeClinicId', String(clinic.id));
+                        document.cookie = `selected-clinic=${clinic.id}; path=/; max-age=31536000`;
+                        window.location.reload();
+                      } finally {
+                        setSwitchingClinicId(null);
+                      }
+                    }}
+                    className={`rounded-2xl border p-4 text-left transition-colors ${
+                      activeClinicId === clinic.id
+                        ? 'border-white bg-white/20'
+                        : 'border-white/25 bg-white/10 hover:bg-white/20'
+                    }`}
+                  >
+                    <p className="text-sm font-semibold text-white">{clinic.name}</p>
+                    <p className="mt-1 text-xs text-white/70">{clinic.subdomain || 'clinic'}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     );
   }

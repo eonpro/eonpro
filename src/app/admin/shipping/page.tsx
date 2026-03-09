@@ -136,7 +136,6 @@ const SOURCE_OPTIONS = [
 ];
 
 export default function AdminShippingPage() {
-  const [isPharmacyExperience, setIsPharmacyExperience] = useState(false);
   const [records, setRecords] = useState<ShippingRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -168,21 +167,6 @@ export default function AdminShippingPage() {
     return () => { if (debounceTimer.current) clearTimeout(debounceTimer.current); };
   }, []);
 
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const isLogosRxHost = window.location.hostname.toLowerCase() === 'logosrx.eonpro.io';
-    let isPharmacyRepRole = false;
-    try {
-      const rawUser = window.localStorage.getItem('user');
-      if (rawUser) {
-        const parsed = JSON.parse(rawUser) as { role?: string };
-        isPharmacyRepRole = parsed?.role?.toLowerCase?.() === 'pharmacy_rep';
-      }
-    } catch {
-      isPharmacyRepRole = false;
-    }
-    setIsPharmacyExperience(isLogosRxHost || isPharmacyRepRole);
-  }, []);
 
   useEffect(() => {
     setPage(1);
@@ -271,10 +255,10 @@ export default function AdminShippingPage() {
     <div className="mx-auto w-full max-w-[1600px] p-6">
       {/* Header */}
       <div className="mb-6">
-        <h1 className={`text-2xl font-bold ${isPharmacyExperience ? 'text-white' : 'text-gray-900'}`}>
+        <h1 className="text-2xl font-bold text-gray-900">
           Shipping & Labels
         </h1>
-        <p className={`mt-1 ${isPharmacyExperience ? 'text-white/85' : 'text-gray-600'}`}>
+        <p className="mt-1 text-gray-600">
           All tracking numbers and shipping labels across patients
         </p>
       </div>
@@ -465,9 +449,7 @@ export default function AdminShippingPage() {
       {/* Pagination */}
       {!loading && total > 0 && (
         <div className="mt-4 flex items-center justify-between">
-          <div
-            className={`flex items-center gap-3 text-sm ${isPharmacyExperience ? 'text-white/85' : 'text-gray-600'}`}
-          >
+          <div className="flex items-center gap-3 text-sm text-gray-600">
             <span>
               {startIdx}–{endIdx} of {total}
             </span>
@@ -485,26 +467,18 @@ export default function AdminShippingPage() {
             <button
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={page === 1}
-              className={`inline-flex items-center gap-1 rounded-lg border px-3 py-1.5 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${
-                isPharmacyExperience
-                  ? 'border-white/35 text-white hover:bg-white/10'
-                  : 'text-gray-700 hover:bg-gray-50'
-              }`}
+              className="inline-flex items-center gap-1 rounded-lg border px-3 py-1.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <ChevronLeft className="h-4 w-4" />
               Previous
             </button>
-            <span className={`text-sm ${isPharmacyExperience ? 'text-white/75' : 'text-gray-500'}`}>
+            <span className="text-sm text-gray-500">
               Page {page}
             </span>
             <button
               onClick={() => setPage((p) => p + 1)}
               disabled={!hasMore}
-              className={`inline-flex items-center gap-1 rounded-lg border px-3 py-1.5 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${
-                isPharmacyExperience
-                  ? 'border-white/35 text-white hover:bg-white/10'
-                  : 'text-gray-700 hover:bg-gray-50'
-              }`}
+              className="inline-flex items-center gap-1 rounded-lg border px-3 py-1.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
             >
               Next
               <ChevronRight className="h-4 w-4" />

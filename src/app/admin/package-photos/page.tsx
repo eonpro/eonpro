@@ -63,7 +63,68 @@ const TRACKING_SOURCE_LABELS: Record<string, string> = {
   manual: 'Manual Entry',
 };
 
-type CaptureStep = 'input' | 'camera' | 'preview' | 'uploading' | 'success';
+type CaptureStep = 'lifefileId' | 'camera' | 'preview' | 'uploading' | 'tracking' | 'success';
+
+const STEP_LABELS = [
+  { key: 'lifefileId', label: 'LifeFile ID', icon: Package },
+  { key: 'camera', label: 'Take Photo', icon: Camera },
+  { key: 'tracking', label: 'Tracking', icon: Truck },
+] as const;
+
+function getActiveStepIndex(step: CaptureStep): number {
+  if (step === 'lifefileId') return 0;
+  if (step === 'camera' || step === 'preview' || step === 'uploading') return 1;
+  return 2;
+}
+
+function StepIndicator({ currentStep }: { currentStep: CaptureStep }) {
+  const activeIdx = getActiveStepIndex(currentStep);
+
+  return (
+    <div className="mb-6 flex items-center justify-center gap-2">
+      {STEP_LABELS.map((s, i) => {
+        const Icon = s.icon;
+        const isComplete = i < activeIdx;
+        const isActive = i === activeIdx;
+        return (
+          <div key={s.key} className="flex items-center gap-2">
+            {i > 0 && (
+              <div
+                className={`h-0.5 w-8 rounded-full transition-colors ${
+                  i <= activeIdx ? 'bg-violet-500' : 'bg-gray-200'
+                }`}
+              />
+            )}
+            <div className="flex items-center gap-1.5">
+              <div
+                className={`flex h-7 w-7 items-center justify-center rounded-full transition-colors ${
+                  isComplete
+                    ? 'bg-violet-600 text-white'
+                    : isActive
+                      ? 'bg-violet-100 text-violet-700 ring-2 ring-violet-500'
+                      : 'bg-gray-100 text-gray-400'
+                }`}
+              >
+                {isComplete ? (
+                  <CheckCircle className="h-4 w-4" />
+                ) : (
+                  <Icon className="h-3.5 w-3.5" />
+                )}
+              </div>
+              <span
+                className={`hidden text-xs font-medium sm:inline ${
+                  isActive ? 'text-violet-700' : isComplete ? 'text-violet-600' : 'text-gray-400'
+                }`}
+              >
+                {s.label}
+              </span>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 // ---------------------------------------------------------------------------
 // Main Page Component
@@ -125,25 +186,25 @@ export default function PackagePhotosPage() {
 // ---------------------------------------------------------------------------
 
 function CaptureFlow() {
-  const [step, setStep] = useState<CaptureStep>('input');
+  const [step, setStep] = useState<CaptureStep>('lifefileId');
   const [lifefileId, setLifefileId] = useState('');
   const [trackingNumber, setTrackingNumber] = useState('');
-  const [notes, setNotes] = useState('');
   const [capturedImage, setCapturedImage] = useState<Blob | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [uploadResult, setUploadResult] = useState<UploadResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [trackingSaving, setTrackingSaving] = useState(false);
 
   const reset = useCallback(() => {
-    setStep('input');
+    setStep('lifefileId');
     setLifefileId('');
     setTrackingNumber('');
-    setNotes('');
     setCapturedImage(null);
     if (previewUrl) URL.revokeObjectURL(previewUrl);
     setPreviewUrl(null);
     setUploadResult(null);
     setError(null);
+    setTrackingSaving(false);
   }, [previewUrl]);
 
   const handleCapture = useCallback((blob: Blob) => {
@@ -170,8 +231,6 @@ function CaptureFlow() {
       const formData = new FormData();
       formData.append('lifefileId', lifefileId.trim());
       formData.append('photo', capturedImage, `package-${lifefileId.trim()}.jpg`);
-      if (trackingNumber.trim()) formData.append('trackingNumber', trackingNumber.trim());
-      if (notes.trim()) formData.append('notes', notes.trim());
 
       const res = await fetch('/api/package-photos', {
         method: 'POST',
@@ -188,23 +247,69 @@ function CaptureFlow() {
 
       const json = await res.json();
       setUploadResult(json.data);
-      setStep('success');
+
+      if (json.data.trackingNumber) {
+        setTrackingNumber(json.data.trackingNumber);
+      }
+
+      setStep('tracking');
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Upload failed. Please try again.');
       setStep('preview');
     }
-  }, [capturedImage, lifefileId, notes]);
+  }, [capturedImage, lifefileId]);
+
+  const handleSaveTracking = useCallback(async () => {
+    if (!uploadResult || !trackingNumber.trim()) return;
+
+    setTrackingSaving(true);
+    setError(null);
+
+    try {
+      const res = await fetch(`/api/package-photos/${uploadResult.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${localStorage.getItem('auth-token') || localStorage.getItem('pharmacy_rep-token') || ''}`,
+        },
+        body: JSON.stringify({ trackingNumber: trackingNumber.trim() }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'Failed to save tracking' }));
+        throw new Error(err.error || 'Failed to save tracking');
+      }
+
+      const json = await res.json();
+      setUploadResult((prev) =>
+        prev
+          ? {
+              ...prev,
+              trackingNumber: json.data.trackingNumber,
+              trackingSource: json.data.trackingSource,
+            }
+          : prev,
+      );
+      setStep('success');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to save tracking.');
+    } finally {
+      setTrackingSaving(false);
+    }
+  }, [uploadResult, trackingNumber]);
 
   return (
     <div className="mx-auto max-w-lg">
-      {/* Step: LifeFile ID Input */}
-      {step === 'input' && (
+      <StepIndicator currentStep={step} />
+
+      {/* Step 1: LifeFile ID */}
+      {step === 'lifefileId' && (
         <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
           <div className="mb-6 text-center">
             <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-violet-50">
               <Package className="h-7 w-7 text-violet-600" />
             </div>
-            <h2 className="text-lg font-semibold text-gray-900">Scan Package</h2>
+            <h2 className="text-lg font-semibold text-gray-900">Identify Package</h2>
             <p className="mt-1 text-sm text-gray-500">Enter the LifeFile ID from the package label</p>
           </div>
 
@@ -227,56 +332,28 @@ function CaptureFlow() {
               />
             </div>
 
-            <div>
-              <label htmlFor="trackingNumber" className="mb-1.5 block text-sm font-medium text-gray-700">
-                Tracking Number <span className="font-normal text-gray-400">(optional — auto-detected if on file)</span>
-              </label>
-              <input
-                id="trackingNumber"
-                type="text"
-                value={trackingNumber}
-                onChange={(e) => setTrackingNumber(e.target.value)}
-                placeholder="Leave blank to auto-detect from system"
-                className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-mono placeholder:font-sans placeholder:text-gray-400 focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
-              />
-            </div>
-
-            <div>
-              <label htmlFor="notes" className="mb-1.5 block text-sm font-medium text-gray-700">
-                Notes <span className="font-normal text-gray-400">(optional)</span>
-              </label>
-              <input
-                id="notes"
-                type="text"
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="e.g. 2 vials, cold pack included"
-                className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm placeholder:text-gray-400 focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
-              />
-            </div>
-
             <button
               onClick={() => setStep('camera')}
               disabled={!lifefileId.trim()}
               className="flex w-full items-center justify-center gap-2 rounded-lg bg-violet-600 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-violet-700 disabled:cursor-not-allowed disabled:bg-gray-300"
             >
               <Camera className="h-5 w-5" />
-              Open Camera
+              Next — Take Photo
             </button>
           </div>
         </div>
       )}
 
-      {/* Step: Camera */}
+      {/* Step 2a: Camera */}
       {step === 'camera' && (
         <CameraCapture
           onCapture={handleCapture}
-          onCancel={() => setStep('input')}
+          onCancel={() => setStep('lifefileId')}
           lifefileId={lifefileId}
         />
       )}
 
-      {/* Step: Preview */}
+      {/* Step 2b: Preview */}
       {step === 'preview' && previewUrl && (
         <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
           <div className="mb-4 flex items-center justify-between">
@@ -311,13 +388,13 @@ function CaptureFlow() {
               className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-violet-600 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-violet-700"
             >
               <CheckCircle className="h-4 w-4" />
-              Upload
+              Upload Photo
             </button>
           </div>
         </div>
       )}
 
-      {/* Step: Uploading */}
+      {/* Step 2c: Uploading */}
       {step === 'uploading' && (
         <div className="rounded-2xl border border-gray-200 bg-white p-10 text-center shadow-sm">
           <Loader2 className="mx-auto h-10 w-10 animate-spin text-violet-600" />
@@ -325,14 +402,116 @@ function CaptureFlow() {
         </div>
       )}
 
-      {/* Step: Success */}
+      {/* Step 3: Tracking Number */}
+      {step === 'tracking' && uploadResult && (
+        <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+          <div className="mb-5 text-center">
+            <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-green-50">
+              <CheckCircle className="h-7 w-7 text-green-600" />
+            </div>
+            <h2 className="text-lg font-semibold text-gray-900">Photo Saved</h2>
+            <p className="mt-1 text-sm text-gray-500">
+              Now add a tracking number, or skip to add it later
+            </p>
+          </div>
+
+          <div className="mb-4 rounded-xl bg-gray-50 p-4">
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-500">LifeFile ID</span>
+              <span className="font-mono font-medium text-gray-900">{uploadResult.lifefileId}</span>
+            </div>
+            <div className="mt-2 flex items-center justify-between text-sm">
+              <span className="text-gray-500">Match Status</span>
+              {uploadResult.matched ? (
+                <span className="flex items-center gap-1.5 font-medium text-green-700">
+                  <CheckCircle className="h-3.5 w-3.5" />
+                  Matched
+                </span>
+              ) : (
+                <span className="flex items-center gap-1.5 font-medium text-amber-600">
+                  <XCircle className="h-3.5 w-3.5" />
+                  No Match
+                </span>
+              )}
+            </div>
+          </div>
+
+          {uploadResult.trackingNumber ? (
+            <div className="mb-4 flex items-center justify-between rounded-lg bg-blue-50 px-4 py-3 text-sm">
+              <span className="flex items-center gap-1.5 font-medium text-blue-700">
+                <Truck className="h-4 w-4" />
+                Auto-detected Tracking
+              </span>
+              <span className="font-mono text-xs font-semibold text-blue-900">
+                {uploadResult.trackingNumber}
+              </span>
+            </div>
+          ) : (
+            <div className="mb-4 space-y-3">
+              <div>
+                <label htmlFor="trackingStep" className="mb-1.5 block text-sm font-medium text-gray-700">
+                  Tracking Number <span className="font-normal text-gray-400">(optional)</span>
+                </label>
+                <input
+                  id="trackingStep"
+                  type="text"
+                  value={trackingNumber}
+                  onChange={(e) => setTrackingNumber(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && trackingNumber.trim()) handleSaveTracking();
+                  }}
+                  placeholder="Enter tracking number"
+                  autoFocus
+                  className="w-full rounded-lg border border-gray-300 px-4 py-3 font-mono text-sm tracking-wider placeholder:font-sans placeholder:text-gray-400 focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
+                />
+              </div>
+
+              {error && (
+                <div className="flex items-center gap-2 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
+                  <XCircle className="h-4 w-4 flex-shrink-0" />
+                  {error}
+                </div>
+              )}
+
+              {trackingNumber.trim() && (
+                <button
+                  onClick={handleSaveTracking}
+                  disabled={trackingSaving}
+                  className="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-blue-700 disabled:opacity-60"
+                >
+                  {trackingSaving ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Truck className="h-4 w-4" />
+                  )}
+                  Save Tracking Number
+                </button>
+              )}
+            </div>
+          )}
+
+          <button
+            onClick={() => setStep('success')}
+            className={`flex w-full items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-semibold transition-colors ${
+              uploadResult.trackingNumber || trackingNumber.trim()
+                ? 'bg-violet-600 text-white hover:bg-violet-700'
+                : 'border border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+            }`}
+          >
+            {uploadResult.trackingNumber ? 'Continue' : 'Skip — Add Later'}
+            <ChevronRight className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
+      {/* Done */}
       {step === 'success' && uploadResult && (
         <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
           <div className="mb-5 text-center">
             <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-green-50">
               <CheckCircle className="h-7 w-7 text-green-600" />
             </div>
-            <h2 className="text-lg font-semibold text-gray-900">Photo Uploaded</h2>
+            <h2 className="text-lg font-semibold text-gray-900">All Done</h2>
           </div>
 
           <div className="mb-5 space-y-3 rounded-xl bg-gray-50 p-4">
