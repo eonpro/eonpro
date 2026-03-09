@@ -620,10 +620,58 @@ export function parseQuestText(fullText: string): QuestParsedResult {
 const MAX_PDF_BYTES = 15 * 1024 * 1024;
 /** Parse timeout (ms). Prevents unbounded hang in request lifecycle. */
 const PARSE_TIMEOUT_MS = 45000;
+/** Minimum extracted text length to consider a successful extraction. */
+const MIN_TEXT_LENGTH = 100;
+
+/**
+ * Try extracting text with unpdf (PDF.js wrapper). Returns empty string on failure.
+ */
+async function extractWithUnpdf(arrayBuffer: ArrayBuffer, timeout: number): Promise<string> {
+  try {
+    const mod = await import('unpdf');
+    const extractText = mod.extractText as unknown as (
+      src: ArrayBuffer
+    ) => Promise<{ totalPages: number; text: string }>;
+    if (typeof extractText !== 'function') return '';
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error('timeout')), timeout);
+    });
+    const result = await Promise.race([extractText(arrayBuffer), timeoutPromise]);
+    return result?.text ?? '';
+  } catch (e) {
+    logger.warn('unpdf extraction failed, will try fallback', {
+      error: e instanceof Error ? e.message : String(e),
+    });
+    return '';
+  }
+}
+
+/**
+ * Try extracting text with pdf-parse v2 (fallback). Returns empty string on failure.
+ */
+async function extractWithPdfParse(buffer: Buffer, timeout: number): Promise<string> {
+  try {
+    const { PDFParse } = await import('pdf-parse');
+    if (typeof PDFParse !== 'function') return '';
+    const parser = new PDFParse({ data: buffer });
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error('timeout')), timeout);
+    });
+    const result = await Promise.race([parser.getText(), timeoutPromise]);
+    const text = result?.text ?? '';
+    await parser.destroy().catch(() => {});
+    return text;
+  } catch (e) {
+    logger.warn('pdf-parse extraction failed', {
+      error: e instanceof Error ? e.message : String(e),
+    });
+    return '';
+  }
+}
 
 /**
  * Extract text from PDF buffer and parse as Quest report.
- * Uses unpdf (serverless-compatible PDF.js wrapper) for text extraction.
+ * Uses unpdf as primary extractor with pdf-parse as fallback.
  * Guardrails: max size, timeout.
  */
 export async function parseQuestBloodworkPdf(buffer: Buffer): Promise<QuestParsedResult> {
@@ -634,36 +682,38 @@ export async function parseQuestBloodworkPdf(buffer: Buffer): Promise<QuestParse
     throw new Error('PDF file is empty.');
   }
 
-  let extractText: (src: ArrayBuffer) => Promise<{ totalPages: number; text: string }>;
-  try {
-    const mod = await import('unpdf');
-    extractText = mod.extractText as unknown as typeof extractText;
-    if (typeof extractText !== 'function') {
-      throw new Error('PDF text extraction function not available');
+  const arrayBuffer = buffer.buffer.slice(
+    buffer.byteOffset,
+    buffer.byteOffset + buffer.byteLength
+  ) as ArrayBuffer;
+
+  let text = await extractWithUnpdf(arrayBuffer, PARSE_TIMEOUT_MS);
+
+  if (text.length < MIN_TEXT_LENGTH) {
+    logger.info('unpdf extracted insufficient text, trying pdf-parse fallback', {
+      unpdfLength: text.length,
+    });
+    const fallbackText = await extractWithPdfParse(buffer, PARSE_TIMEOUT_MS);
+    if (fallbackText.length > text.length) {
+      text = fallbackText;
+      logger.info('pdf-parse fallback succeeded', { textLength: text.length });
     }
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    logger.error('Failed to load unpdf', { error: msg });
-    throw new Error('PDF parsing library not available. Please contact your administrator.');
   }
 
-  const timeoutPromise = new Promise<never>((_, reject) => {
-    setTimeout(() => reject(new Error('PDF parsing timed out. The file may be too large or complex.')), PARSE_TIMEOUT_MS);
-  });
+  if (!text || text.length < MIN_TEXT_LENGTH) {
+    logger.error('Both PDF extractors produced insufficient text', {
+      textLength: text.length,
+    });
+    throw new Error(
+      'PDF produced no or too little text. Ensure the file is a Quest Diagnostics lab report (not a scan/image-only PDF).'
+    );
+  }
 
   try {
-    const arrayBuffer = buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength) as ArrayBuffer;
-    const result = await Promise.race([extractText(arrayBuffer), timeoutPromise]);
-    const text = result?.text ?? '';
-    if (!text || text.length < 100) {
-      throw new Error(
-        'PDF produced no or too little text. Ensure the file is a Quest Diagnostics lab report (not a scan/image-only PDF).'
-      );
-    }
     return parseQuestText(text);
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'Unknown error';
-    logger.error('Quest PDF parse failed', { error: msg });
+    logger.error('Quest PDF text parsing failed', { error: msg, textLength: text.length });
     throw new Error(
       msg.includes('PDF') || msg.includes('timed out') || msg.includes('maximum size') || msg.includes('empty')
         ? msg

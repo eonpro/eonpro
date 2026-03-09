@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
-import Link from 'next/link';
 import {
   BadgeDollarSign,
   Users,
@@ -306,9 +305,9 @@ export default function SalesRepsPage() {
                 </thead>
                 <tbody className="divide-y divide-gray-200 bg-white">
                   {filteredReps.map((rep, i) => (
-                    <tr key={rep.id} className="hover:bg-gray-50">
+                    <tr key={rep.id} className="cursor-pointer hover:bg-gray-50" onClick={() => { window.location.href = `/super-admin/sales-reps/${rep.id}`; }}>
                       <td className="whitespace-nowrap px-3 py-3 text-sm text-gray-500">{i + 1}</td>
-                      <td className="whitespace-nowrap px-3 py-3"><p className="font-medium text-gray-900">{rep.name}</p><p className="text-xs text-gray-500">{rep.email}</p></td>
+                      <td className="whitespace-nowrap px-3 py-3"><p className="font-medium text-[var(--brand-primary)] hover:underline">{rep.name}</p><p className="text-xs text-gray-500">{rep.email}</p></td>
                       <td className="whitespace-nowrap px-3 py-3"><div className="flex items-center gap-1.5"><Building2 className="h-3.5 w-3.5 text-gray-400" /><span className="text-sm text-gray-700">{rep.clinicName || '—'}</span></div></td>
                       <td className="whitespace-nowrap px-3 py-3"><span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${rep.status === 'ACTIVE' ? 'bg-green-100 text-green-800' : rep.status === 'SUSPENDED' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800'}`}>{rep.status}</span></td>
                       <td className="whitespace-nowrap px-3 py-3 text-right text-sm font-medium text-gray-900">{rep.totalConversions.toLocaleString()}</td>
@@ -317,7 +316,7 @@ export default function SalesRepsPage() {
                       <td className="whitespace-nowrap px-3 py-3 text-right text-sm font-semibold text-emerald-600">{fmtUSD(rep.commissionEarnedCents)}</td>
                       <td className="whitespace-nowrap px-3 py-3 text-right text-sm text-gray-900">{fmtPct(rep.conversionRate)}</td>
                       <td className="px-3 py-3"><div className="flex flex-wrap gap-1">{rep.refCodes.slice(0, 2).map((code) => (<span key={code} className="inline-flex rounded bg-gray-100 px-1.5 py-0.5 font-mono text-xs text-gray-700">{code}</span>))}{rep.refCodes.length > 2 && <span className="text-xs text-gray-400">+{rep.refCodes.length - 2}</span>}</div></td>
-                      <td className="whitespace-nowrap px-3 py-3 text-right"><Link href={`/super-admin/sales-reps/${rep.id}`} className="rounded p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600" title="View details"><Eye className="inline h-4 w-4" /></Link></td>
+                      <td className="whitespace-nowrap px-3 py-3 text-right"><button onClick={(e) => { e.stopPropagation(); window.location.href = `/super-admin/sales-reps/${rep.id}`; }} className="rounded p-1.5 text-gray-400 hover:bg-gray-100 hover:text-[var(--brand-primary)]" title="View details"><Eye className="inline h-4 w-4" /></button></td>
                     </tr>
                   ))}
                 </tbody>
