@@ -136,22 +136,40 @@ export default function AppointmentModal({
 
   useEffect(() => {
     if (appointment) {
-      // Load existing appointment data
-      setFormData({
-        ...formData,
+      const firstName = appointment.patientName?.split(' ')[0] ?? '';
+      const lastName = appointment.patientName?.split(' ').slice(1).join(' ') ?? '';
+
+      setFormData((prev) => ({
+        ...prev,
         date: appointment.date,
         time: appointment.date.toLocaleTimeString('en-US', {
           hour12: false,
           hour: '2-digit',
           minute: '2-digit',
         }),
-        duration: appointment.duration?.toString() || '30',
-        type: appointment.type || 'telehealth',
-        patientFirstName: appointment.patientName?.split(' ')[0] || '',
-        patientLastName: appointment.patientName?.split(' ')[1] || '',
-        patientEmail: appointment.patientEmail || '',
-        patientPhone: appointment.patientPhone || '',
-      });
+        duration: appointment.duration?.toString() ?? '30',
+        type: appointment.type ?? 'telehealth',
+        reason: appointment.reason ?? prev.reason,
+        notes: appointment.notes ?? prev.notes,
+        patientFirstName: firstName,
+        patientLastName: lastName,
+        patientEmail: appointment.patientEmail ?? '',
+        patientPhone: appointment.patientPhone ?? '',
+      }));
+
+      // Pre-select the patient so step 2 doesn't ask again
+      if (appointment.patientId && firstName) {
+        setSelectedPatient({
+          id: appointment.patientId,
+          firstName,
+          lastName,
+          email: appointment.patientEmail ?? '',
+          phone: appointment.patientPhone ?? '',
+          dob: appointment.patientDob ?? '',
+        });
+        setPatientMode('existing');
+        setSearchQuery(`${firstName} ${lastName}`.trim());
+      }
     }
   }, [appointment]);
 
@@ -261,7 +279,7 @@ export default function AppointmentModal({
       const appointmentPayload = {
         clinicId: clinicId,
         patientId: patientId,
-        providerId: providerId || 1, // Fallback for testing
+        ...(providerId ? { providerId } : {}),
         startTime: appointmentDate.toISOString(),
         endTime: endTime.toISOString(),
         duration: parseInt(formData.duration),

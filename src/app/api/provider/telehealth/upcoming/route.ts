@@ -2,6 +2,8 @@
  * Provider Upcoming Telehealth Sessions API
  *
  * Returns upcoming video consultations for the authenticated provider.
+ * Combines TelehealthSession records with VIDEO appointments that
+ * don't have a session yet (e.g. when Zoom isn't fully configured).
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -9,24 +11,10 @@ import { withProviderAuth, AuthUser } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
 import { prisma } from '@/lib/db';
 import { isZoomEnabled } from '@/lib/integrations/zoom/config';
+import { decryptPatientPHI } from '@/lib/security/phi-encryption';
 
-// Telehealth session status (matches Prisma enum once generated)
-type TelehealthSessionStatus =
-  | 'SCHEDULED'
-  | 'WAITING'
-  | 'IN_PROGRESS'
-  | 'COMPLETED'
-  | 'CANCELLED'
-  | 'NO_SHOW'
-  | 'TECHNICAL_ISSUES';
-
-/**
- * GET /api/provider/telehealth/upcoming
- * Get upcoming telehealth sessions for the authenticated provider
- */
 export const GET = withProviderAuth(async (req: NextRequest, user: AuthUser) => {
   try {
-    // Resolve provider: prefer providerId from JWT, fallback to email/user lookup
     const provider = user.providerId
       ? await prisma.provider.findUnique({ where: { id: user.providerId } })
       : await prisma.provider.findFirst({
@@ -40,84 +28,119 @@ export const GET = withProviderAuth(async (req: NextRequest, user: AuthUser) => 
       );
     }
 
-    // Get upcoming sessions (next 7 days)
     const now = new Date();
     const endDate = new Date();
     endDate.setDate(endDate.getDate() + 7);
 
-    const sessions = await prisma.telehealthSession.findMany({
+    const sessionResults: any[] = [];
+    const seenAppointmentIds = new Set<number>();
+
+    // 1. Try TelehealthSession records first (full Zoom integration)
+    try {
+      const telehealthSessions = await prisma.telehealthSession.findMany({
+        where: {
+          providerId: provider.id,
+          scheduledAt: { gte: now, lte: endDate },
+          status: { in: ['SCHEDULED', 'WAITING', 'IN_PROGRESS'] },
+        },
+        include: {
+          patient: {
+            select: { id: true, firstName: true, lastName: true },
+          },
+          appointment: {
+            select: { id: true, title: true, reason: true },
+          },
+        },
+        orderBy: { scheduledAt: 'asc' },
+        take: 20,
+      });
+
+      for (const s of telehealthSessions) {
+        if (s.appointmentId) seenAppointmentIds.add(s.appointmentId);
+        const patient = s.patient
+          ? decryptPatientPHI(s.patient, ['firstName', 'lastName'])
+          : s.patient;
+        sessionResults.push({
+          id: s.id,
+          topic: s.topic,
+          scheduledAt: s.scheduledAt.toISOString(),
+          duration: s.duration,
+          status: s.status,
+          joinUrl: s.hostUrl ?? s.joinUrl,
+          hostUrl: s.hostUrl,
+          meetingId: s.meetingId,
+          password: s.password,
+          patient,
+          appointment: s.appointment,
+        });
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : '';
+      if (msg.includes('does not exist') || msg.includes('relation')) {
+        logger.warn('TelehealthSession table not found — using appointments fallback');
+      } else {
+        logger.error('Error querying telehealth sessions', { error: msg });
+      }
+    }
+
+    // 2. Also fetch VIDEO appointments that don't have a TelehealthSession
+    //    This handles the case where Zoom isn't configured or migration is pending
+    const videoAppointments = await prisma.appointment.findMany({
       where: {
         providerId: provider.id,
-        scheduledAt: {
-          gte: now,
-          lte: endDate,
-        },
-        status: {
-          in: ['SCHEDULED', 'WAITING'] as TelehealthSessionStatus[],
-        },
+        type: 'VIDEO',
+        startTime: { gte: now, lte: endDate },
+        status: { in: ['SCHEDULED', 'CONFIRMED', 'IN_PROGRESS'] },
+        ...(seenAppointmentIds.size > 0
+          ? { id: { notIn: Array.from(seenAppointmentIds) } }
+          : {}),
       },
       include: {
         patient: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-          },
-        },
-        appointment: {
-          select: {
-            id: true,
-            title: true,
-            reason: true,
-          },
+          select: { id: true, firstName: true, lastName: true },
         },
       },
-      orderBy: { scheduledAt: 'asc' },
-      take: 10,
+      orderBy: { startTime: 'asc' },
+      take: 20,
     });
 
-    // Also get count of all upcoming
-    const totalCount = await prisma.telehealthSession.count({
-      where: {
-        providerId: provider.id,
-        scheduledAt: { gte: now },
-        status: {
-          in: ['SCHEDULED', 'WAITING'] as TelehealthSessionStatus[],
+    for (const apt of videoAppointments) {
+      const patient = apt.patient
+        ? decryptPatientPHI(apt.patient, ['firstName', 'lastName'])
+        : null;
+      sessionResults.push({
+        id: apt.id,
+        topic: apt.title ?? apt.reason ?? 'Video Consultation',
+        scheduledAt: apt.startTime.toISOString(),
+        duration: apt.duration ?? 30,
+        status: apt.status === 'CONFIRMED' ? 'SCHEDULED' : apt.status,
+        joinUrl: apt.zoomJoinUrl ?? apt.videoLink ?? '',
+        hostUrl: null,
+        meetingId: apt.zoomMeetingId,
+        password: null,
+        patient,
+        appointment: {
+          id: apt.id,
+          title: apt.title,
+          reason: apt.reason,
         },
-      },
-    });
+        source: 'appointment',
+      });
+    }
+
+    // Sort combined results by scheduled time
+    sessionResults.sort(
+      (a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime()
+    );
 
     return NextResponse.json({
-      sessions: sessions.map((s: any) => ({
-        id: s.id,
-        topic: s.topic,
-        scheduledAt: s.scheduledAt.toISOString(),
-        duration: s.duration,
-        status: s.status,
-        joinUrl: s.hostUrl || s.joinUrl, // Providers use host URL
-        patient: s.patient,
-        appointment: s.appointment,
-      })),
-      totalCount,
+      sessions: sessionResults.slice(0, 20),
+      totalCount: sessionResults.length,
       zoomEnabled: isZoomEnabled(),
     });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    // Gracefully handle missing table (migration not yet applied)
-    if (errorMessage.includes('does not exist') || errorMessage.includes('relation')) {
-      logger.warn('TelehealthSession table not found — migration may be pending', {
-        error: errorMessage,
-      });
-      return NextResponse.json({
-        sessions: [],
-        totalCount: 0,
-        zoomEnabled: false,
-        migrationPending: true,
-      });
-    }
-    logger.error('Failed to fetch upcoming telehealth sessions', {
-      error: errorMessage,
-    });
+    logger.error('Failed to fetch upcoming telehealth sessions', { error: errorMessage });
     return NextResponse.json({ error: 'Failed to fetch sessions' }, { status: 500 });
   }
 });

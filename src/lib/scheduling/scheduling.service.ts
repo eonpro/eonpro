@@ -800,7 +800,7 @@ export async function getAppointments(options: {
     where.status = { in: options.status };
   }
 
-  return prisma.appointment.findMany({
+  const appointments = await prisma.appointment.findMany({
     where,
     include: {
       patient: {
@@ -823,6 +823,15 @@ export async function getAppointments(options: {
     },
     orderBy: { startTime: 'asc' },
   });
+
+  // Decrypt patient PHI fields before returning
+  const { decryptPatientPHI } = await import('@/lib/security/phi-encryption');
+  return appointments.map((apt) => ({
+    ...apt,
+    patient: apt.patient
+      ? decryptPatientPHI(apt.patient, ['firstName', 'lastName', 'email', 'phone'])
+      : apt.patient,
+  }));
 }
 
 /**
