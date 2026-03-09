@@ -46,9 +46,19 @@ export default function SessionExpirationHandler() {
     };
   }, [isPublicPage]);
 
-  // Countdown timer when expired
+  // Reset expired state when navigating to a public page (e.g. /affiliate → /affiliate/login).
+  // The SESSION_EXPIRED event may fire on the dashboard before the redirect to login completes;
+  // without this reset the countdown would keep running and redirect away from the login page.
   useEffect(() => {
-    if (!isExpired) return;
+    if (isPublicPage && isExpired) {
+      setIsExpired(false);
+      setCountdown(10);
+    }
+  }, [isPublicPage, isExpired]);
+
+  // Countdown timer when expired (only on non-public pages)
+  useEffect(() => {
+    if (!isExpired || isPublicPage) return;
 
     const interval = setInterval(() => {
       setCountdown((prev) => {
@@ -61,7 +71,7 @@ export default function SessionExpirationHandler() {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [isExpired, handleLogout]);
+  }, [isExpired, isPublicPage, handleLogout]);
 
   // Periodically check if token is still valid (skip on public pages)
   useEffect(() => {

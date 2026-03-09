@@ -139,9 +139,11 @@ export default function AffiliateDashboardLayout({ children }: { children: React
     let cancelled = false;
 
     const init = async () => {
-      // 1. Check auth
+      // 1. Check auth — use plain fetch (not apiFetch) to avoid triggering the
+      //    global SessionExpirationHandler countdown, which would redirect the
+      //    user away from /affiliate/login before they can enter credentials.
       try {
-        const res = await apiFetch('/api/affiliate/auth/me', {
+        const res = await fetch('/api/affiliate/auth/me', {
           credentials: 'include',
         });
         if (!res.ok) {
