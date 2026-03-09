@@ -1,29 +1,37 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { RefreshCw } from 'lucide-react';
 
-const TIMEOUT_MS = 15000;
+const TIMEOUT_MS = 8000;
 
 export default function PatientDetailLoading() {
   const [timedOut, setTimedOut] = useState(false);
+  const [retrying, setRetrying] = useState(false);
 
   useEffect(() => {
     const timer = setTimeout(() => setTimedOut(true), TIMEOUT_MS);
     return () => clearTimeout(timer);
   }, []);
 
+  const handleRetry = useCallback(() => {
+    setRetrying(true);
+    window.location.reload();
+  }, []);
+
   if (timedOut) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center bg-[#efece7] p-6">
         <div className="text-center">
-          <p className="mb-3 text-sm text-gray-600">This is taking longer than expected.</p>
+          <p className="mb-2 text-base font-medium text-gray-700">Page took too long to load</p>
+          <p className="mb-4 text-sm text-gray-500">This can happen during high traffic. Please try again.</p>
           <button
-            onClick={() => window.location.reload()}
-            className="inline-flex items-center gap-2 rounded-lg bg-[#4fa77e] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#3f8660]"
+            onClick={handleRetry}
+            disabled={retrying}
+            className="inline-flex items-center gap-2 rounded-lg bg-[#4fa77e] px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-[#3f8660] disabled:opacity-60"
           >
-            <RefreshCw className="h-4 w-4" />
-            Refresh
+            <RefreshCw className={`h-4 w-4 ${retrying ? 'animate-spin' : ''}`} />
+            {retrying ? 'Reloading...' : 'Reload Page'}
           </button>
         </div>
       </div>

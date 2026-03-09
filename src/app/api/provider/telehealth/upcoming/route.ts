@@ -55,9 +55,8 @@ export const GET = withProviderAuth(async (req: NextRequest, user: AuthUser) => 
         });
 
         const fallbackSessions = fallbackAppointments.map((apt: any) => {
-          const patient = apt.patient
-            ? decryptPatientPHI(apt.patient, ['firstName', 'lastName'])
-            : null;
+          // Skip decryption in fallback to avoid circular import issues
+          const patient = apt.patient ?? null;
           return {
             id: apt.id,
             topic: apt.title ?? apt.reason ?? 'Video Consultation',
