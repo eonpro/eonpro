@@ -15,6 +15,7 @@ import { logger } from '@/lib/logger';
 import { auditLog, AuditEventType } from '@/lib/audit/hipaa-audit';
 import { getClinicDoseSpotClient } from '@/lib/clinic-dosespot';
 import { prisma } from '@/lib/db';
+import { BadRequestError, ForbiddenError, NotFoundError } from '@/domains/shared/errors/AppError';
 import type {
   DoseSpotAllergy,
   DoseSpotPrescription,
@@ -63,10 +64,10 @@ async function getDoseSpotPatientId(patientId: number, clinicId: number): Promis
     select: { doseSpotPatientId: true, clinicId: true },
   });
 
-  if (!patient) throw new Error(`Patient ${patientId} not found`);
-  if (patient.clinicId !== clinicId) throw new Error('Cross-clinic access not allowed');
+  if (!patient) throw new NotFoundError('Patient', patientId);
+  if (patient.clinicId !== clinicId) throw new ForbiddenError('Cross-clinic patient access is not allowed');
   if (!patient.doseSpotPatientId) {
-    throw new Error(`Patient ${patientId} is not synced to DoseSpot. Sync first.`);
+    throw new BadRequestError('This patient has not been synced to DoseSpot yet. Open the prescriber to sync automatically.');
   }
 
   return String(patient.doseSpotPatientId);

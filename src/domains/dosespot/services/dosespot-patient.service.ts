@@ -16,6 +16,7 @@ import { logger } from '@/lib/logger';
 import { decryptPHI } from '@/lib/security/phi-encryption';
 import { auditLog, AuditEventType } from '@/lib/audit/hipaa-audit';
 import { getClinicDoseSpotClient } from '@/lib/clinic-dosespot';
+import { BadRequestError, ForbiddenError, NotFoundError } from '@/domains/shared/errors/AppError';
 import type { DoseSpotPatientPayload } from '@/lib/dosespot';
 import type { PatientSyncResult } from '../types';
 import { mapGender, mapPhoneType } from '../types';
@@ -51,11 +52,11 @@ export function createDoseSpotPatientService(): DoseSpotPatientService {
       });
 
       if (!patient) {
-        throw new Error(`Patient ${patientId} not found`);
+        throw new NotFoundError('Patient', patientId);
       }
 
       if (patient.clinicId !== clinicId) {
-        throw new Error('Cross-clinic patient sync not allowed');
+        throw new ForbiddenError('Cross-clinic patient access is not allowed');
       }
 
       const client = await getClinicDoseSpotClient(clinicId);
@@ -75,8 +76,8 @@ export function createDoseSpotPatientService(): DoseSpotPatientService {
       if (!lastName) missingFields.push('last name');
       if (!dob) missingFields.push('date of birth');
       if (missingFields.length > 0) {
-        throw new Error(
-          `Patient ${patientId} is missing required fields for DoseSpot: ${missingFields.join(', ')}. Please update the patient profile.`
+        throw new BadRequestError(
+          `Patient is missing required fields for DoseSpot: ${missingFields.join(', ')}. Please update the patient profile.`
         );
       }
 

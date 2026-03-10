@@ -12,6 +12,7 @@ import { logger } from '@/lib/logger';
 import { auditLog, AuditEventType } from '@/lib/audit/hipaa-audit';
 import { getClinicDoseSpotCredentials } from '@/lib/clinic-dosespot';
 import { generateSSOUrlForPatient, generateSSOUrlForPrescriber } from '@/lib/dosespot';
+import { ServiceUnavailableError } from '@/domains/shared/errors/AppError';
 import type { SSOUrlResult } from '../types';
 import { doseSpotPatientService } from './dosespot-patient.service';
 import { doseSpotProviderService } from './dosespot-provider.service';
@@ -43,7 +44,10 @@ export function createDoseSpotSSOService(): DoseSpotSSOService {
 
       const credentials = await getClinicDoseSpotCredentials(clinicId);
       if (!credentials) {
-        throw new Error(`DoseSpot not configured for clinic ${clinicId}`);
+        throw new ServiceUnavailableError(
+          'DoseSpot e-prescribing is not configured for this clinic. Contact your administrator.',
+          undefined
+        );
       }
       logger.info('[DOSESPOT] Credentials resolved', { clinicId, hasBaseUrl: !!credentials.baseUrl });
 
@@ -117,7 +121,10 @@ export function createDoseSpotSSOService(): DoseSpotSSOService {
 
       const credentials = await getClinicDoseSpotCredentials(clinicId);
       if (!credentials) {
-        throw new Error(`DoseSpot not configured for clinic ${clinicId}`);
+        throw new ServiceUnavailableError(
+          'DoseSpot e-prescribing is not configured for this clinic. Contact your administrator.',
+          undefined
+        );
       }
       logger.info('[DOSESPOT] Credentials resolved', { clinicId, hasBaseUrl: !!credentials.baseUrl });
 

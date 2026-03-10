@@ -12,6 +12,7 @@ import { basePrisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { auditLog, AuditEventType } from '@/lib/audit/hipaa-audit';
 import { getClinicDoseSpotClient } from '@/lib/clinic-dosespot';
+import { BadRequestError, ForbiddenError, NotFoundError } from '@/domains/shared/errors/AppError';
 import type { DoseSpotProviderPayload, ClinicianRoleType } from '@/lib/dosespot';
 import type { ProviderSyncResult } from '../types';
 
@@ -56,7 +57,7 @@ export function createDoseSpotProviderService(): DoseSpotProviderService {
       });
 
       if (!provider) {
-        throw new Error(`Provider ${providerId} not found`);
+        throw new NotFoundError('Provider', providerId);
       }
 
       const hasClinicAccess =
@@ -65,18 +66,18 @@ export function createDoseSpotProviderService(): DoseSpotProviderService {
         provider.user?.clinicId === clinicId ||
         (provider.user?.userClinics?.length ?? 0) > 0;
       if (!hasClinicAccess) {
-        throw new Error(`Provider ${providerId} not assigned to clinic ${clinicId}`);
+        throw new ForbiddenError(`Provider ${providerId} is not assigned to this clinic`);
       }
 
       if (!provider.npi || provider.npi.trim().length === 0) {
-        throw new Error(
-          `Provider ${providerId} is missing an NPI number. An NPI is required for DoseSpot e-prescribing.`
+        throw new BadRequestError(
+          `Provider is missing an NPI number. An NPI is required for DoseSpot e-prescribing.`
         );
       }
 
       if (!provider.firstName || !provider.lastName) {
-        throw new Error(
-          `Provider ${providerId} is missing first or last name. Both are required for DoseSpot registration.`
+        throw new BadRequestError(
+          `Provider is missing first or last name. Both are required for DoseSpot registration.`
         );
       }
 

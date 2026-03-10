@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import crypto from 'crypto';
 import { logger } from '@/lib/logger';
 import { basePrisma } from '@/lib/db';
 
@@ -21,8 +22,14 @@ export async function POST(req: NextRequest) {
         req.headers.get('subscription-key') ||
         req.headers.get('x-subscription-key') ||
         req.headers.get('x-api-key');
-      if (!providedKey || providedKey !== expectedKey) {
-        logger.warn('[DOSESPOT WEBHOOK] Invalid or missing Subscription-Key');
+      if (!providedKey) {
+        logger.warn('[DOSESPOT WEBHOOK] Missing Subscription-Key header');
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      }
+      const expectedBuf = Buffer.from(expectedKey);
+      const providedBuf = Buffer.from(providedKey);
+      if (expectedBuf.length !== providedBuf.length || !crypto.timingSafeEqual(expectedBuf, providedBuf)) {
+        logger.warn('[DOSESPOT WEBHOOK] Invalid Subscription-Key');
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
       }
     } else if (process.env.NODE_ENV === 'production') {
