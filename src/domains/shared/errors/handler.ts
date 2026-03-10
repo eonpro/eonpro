@@ -21,6 +21,7 @@ import {
   BadRequestError,
   ConflictError,
   DatabaseError,
+  ExternalServiceError,
   ForbiddenError,
   InternalError,
   isAppError,
@@ -29,6 +30,7 @@ import {
   ValidationError,
   type ValidationErrorDetail,
 } from './AppError';
+import { DoseSpotError } from '@/lib/dosespot';
 import { TenantContextRequiredError } from '@/lib/tenant-context-errors';
 
 // ============================================================================
@@ -143,6 +145,18 @@ function normalizeError(error: unknown): AppError {
     return new ForbiddenError(
       'Clinic context is required. Please log in again.'
     );
+  }
+
+  // DoseSpot API errors carry their own statusCode (400, 409, etc.)
+  if (error instanceof DoseSpotError) {
+    const status = error.statusCode;
+    if (status === 409) {
+      return new ConflictError(error.message);
+    }
+    if (status >= 400 && status < 500) {
+      return new BadRequestError(error.message);
+    }
+    return new ExternalServiceError('DoseSpot', error.message, { code: error.code });
   }
 
   // Zod validation errors

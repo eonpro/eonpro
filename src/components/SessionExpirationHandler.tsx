@@ -78,23 +78,21 @@ export default function SessionExpirationHandler() {
     if (isPublicPage) return;
 
     const checkTokenValidity = async () => {
-      // Skip if already showing expired modal
       if (isExpired) return;
 
-      // Check if we have any tokens
-      const hasToken =
+      // Check localStorage tokens (cross-origin auth) OR rely on httpOnly cookies
+      // (same-origin auth). apiFetch uses credentials:'include' which sends httpOnly
+      // cookies automatically — so we ping even without localStorage tokens to keep
+      // the server-side Redis session alive during tab-based navigation.
+      const localToken =
         localStorage.getItem('auth-token') ||
         localStorage.getItem('patient-token') ||
         localStorage.getItem('access_token') ||
         localStorage.getItem('admin-token');
 
-      if (!hasToken) return;
-
       try {
         const response = await apiFetch('/api/auth/verify', {
-          headers: {
-            Authorization: `Bearer ${hasToken}`,
-          },
+          ...(localToken ? { headers: { Authorization: `Bearer ${localToken}` } } : {}),
         });
 
         if (response.status === 401 || response.status === 403) {
@@ -102,6 +100,11 @@ export default function SessionExpirationHandler() {
           setReason('Your session has expired due to inactivity');
         }
       } catch (error) {
+        if ((error as any)?.isAuthError) {
+          setIsExpired(true);
+          setReason((error as Error).message || 'Your session has expired');
+          return;
+        }
         // Network error - don't show expired modal for network issues
         console.warn('Token verification failed:', error);
       }

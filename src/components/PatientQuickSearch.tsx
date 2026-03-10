@@ -50,7 +50,6 @@ export default function PatientQuickSearch({
 
   const searchPatients = useCallback(
     async (searchQuery: string) => {
-      // Cancel any in-flight request so it releases its DB connection
       abortRef.current?.abort();
 
       const trimmed = searchQuery.trim();
@@ -67,17 +66,46 @@ export default function PatientQuickSearch({
       setIsLoading(true);
       setSearchError(null);
       try {
-        const response = await fetch(
-          `/api/patients?search=${encodeURIComponent(trimmed)}&limit=10&includeContact=true`,
-          { signal: controller.signal }
-        );
+        const url = `/api/patients?search=${encodeURIComponent(trimmed)}&limit=10&includeContact=true`;
+        let response = await fetch(url, {
+          signal: controller.signal,
+          credentials: 'include',
+        });
+
+        // On 401, the GlobalFetchInterceptor may have already retried with a
+        // refreshed token. If it still failed, try one more explicit retry after
+        // a short delay — the interceptor's async refresh may have completed
+        // between the original response and now.
+        if (response.status === 401 && !controller.signal.aborted) {
+          await new Promise((r) => setTimeout(r, 500));
+          if (controller.signal.aborted) return;
+          response = await fetch(url, {
+            signal: controller.signal,
+            credentials: 'include',
+          });
+        }
 
         if (!response.ok) {
           const status = response.status;
           if (status === 401 || status === 403) {
-            setSearchError('Session expired — please refresh the page');
+            let errorCode = '';
+            try {
+              const errBody = await response.clone().json();
+              errorCode = errBody.code || '';
+            } catch { /* ignore */ }
+
+            const isPermission =
+              errorCode === 'FORBIDDEN' ||
+              errorCode === 'CLINIC_REQUIRED' ||
+              errorCode === 'CLINIC_SUBDOMAIN_MISMATCH';
+
+            if (isPermission) {
+              setSearchError('You don\u2019t have permission to search patients');
+            } else {
+              setSearchError('Session expired \u2014 please refresh the page');
+            }
           } else {
-            setSearchError('Search unavailable — try again');
+            setSearchError('Search unavailable \u2014 try again');
           }
           setResults([]);
           setIsOpen(true);
@@ -96,7 +124,7 @@ export default function PatientQuickSearch({
       } catch (error) {
         if ((error as Error).name === 'AbortError') return;
         console.error('Patient search failed:', error);
-        setSearchError('Network error — check your connection');
+        setSearchError('Network error \u2014 check your connection');
         setResults([]);
         setIsOpen(true);
       } finally {

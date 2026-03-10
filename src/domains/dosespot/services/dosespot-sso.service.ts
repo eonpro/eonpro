@@ -39,29 +39,48 @@ export function createDoseSpotSSOService(): DoseSpotSSOService {
       clinicId: number,
       userId: number
     ): Promise<SSOUrlResult> {
+      logger.info('[DOSESPOT] SSO patient flow starting', { patientId, providerId, clinicId, userId });
+
       const credentials = await getClinicDoseSpotCredentials(clinicId);
       if (!credentials) {
         throw new Error(`DoseSpot not configured for clinic ${clinicId}`);
       }
+      logger.info('[DOSESPOT] Credentials resolved', { clinicId, hasBaseUrl: !!credentials.baseUrl });
 
-      const providerSync = await doseSpotProviderService.syncProvider(
-        providerId,
-        clinicId,
-        userId
-      );
+      let providerSync;
+      try {
+        providerSync = await doseSpotProviderService.syncProvider(providerId, clinicId, userId);
+      } catch (err) {
+        logger.error('[DOSESPOT] Provider sync failed', {
+          providerId, clinicId,
+          error: err instanceof Error ? err.message : String(err),
+        });
+        throw err;
+      }
+      logger.info('[DOSESPOT] Provider synced', {
+        providerId, doseSpotClinicianId: providerSync.doseSpotClinicianId, action: providerSync.action,
+      });
 
-      const patientSync = await doseSpotPatientService.syncPatient(
-        patientId,
-        clinicId,
-        userId
-      );
+      let patientSync;
+      try {
+        patientSync = await doseSpotPatientService.syncPatient(patientId, clinicId, userId);
+      } catch (err) {
+        logger.error('[DOSESPOT] Patient sync failed', {
+          patientId, clinicId,
+          error: err instanceof Error ? err.message : String(err),
+        });
+        throw err;
+      }
+      logger.info('[DOSESPOT] Patient synced', {
+        patientId, doseSpotPatientId: patientSync.doseSpotPatientId, action: patientSync.action,
+      });
 
       const prescriberUserId = String(providerSync.doseSpotClinicianId);
       const patientUserId = String(patientSync.doseSpotPatientId);
 
       const url = generateSSOUrlForPatient(credentials, prescriberUserId, patientUserId);
 
-      await auditLog(null, {
+      auditLog(null, {
         eventType: AuditEventType.SYSTEM_ACCESS,
         userId,
         resourceType: 'Patient',
@@ -74,6 +93,10 @@ export function createDoseSpotSSOService(): DoseSpotSSOService {
           doseSpotClinicianId: providerSync.doseSpotClinicianId,
           doseSpotPatientId: patientSync.doseSpotPatientId,
         },
+      }).catch((err) => {
+        logger.error('[DOSESPOT] Audit log failed (non-blocking)', {
+          error: err instanceof Error ? err.message : String(err),
+        });
       });
 
       logger.info('[DOSESPOT] SSO URL generated for patient', {
@@ -90,21 +113,32 @@ export function createDoseSpotSSOService(): DoseSpotSSOService {
       clinicId: number,
       userId: number
     ): Promise<SSOUrlResult> {
+      logger.info('[DOSESPOT] SSO prescriber flow starting', { providerId, clinicId, userId });
+
       const credentials = await getClinicDoseSpotCredentials(clinicId);
       if (!credentials) {
         throw new Error(`DoseSpot not configured for clinic ${clinicId}`);
       }
+      logger.info('[DOSESPOT] Credentials resolved', { clinicId, hasBaseUrl: !!credentials.baseUrl });
 
-      const providerSync = await doseSpotProviderService.syncProvider(
-        providerId,
-        clinicId,
-        userId
-      );
+      let providerSync;
+      try {
+        providerSync = await doseSpotProviderService.syncProvider(providerId, clinicId, userId);
+      } catch (err) {
+        logger.error('[DOSESPOT] Provider sync failed', {
+          providerId, clinicId,
+          error: err instanceof Error ? err.message : String(err),
+        });
+        throw err;
+      }
+      logger.info('[DOSESPOT] Provider synced', {
+        providerId, doseSpotClinicianId: providerSync.doseSpotClinicianId, action: providerSync.action,
+      });
 
       const prescriberUserId = String(providerSync.doseSpotClinicianId);
       const url = generateSSOUrlForPrescriber(credentials, prescriberUserId);
 
-      await auditLog(null, {
+      auditLog(null, {
         eventType: AuditEventType.SYSTEM_ACCESS,
         userId,
         resourceType: 'Provider',
@@ -115,6 +149,10 @@ export function createDoseSpotSSOService(): DoseSpotSSOService {
         metadata: {
           doseSpotClinicianId: providerSync.doseSpotClinicianId,
         },
+      }).catch((err) => {
+        logger.error('[DOSESPOT] Audit log failed (non-blocking)', {
+          error: err instanceof Error ? err.message : String(err),
+        });
       });
 
       logger.info('[DOSESPOT] SSO URL generated for prescriber', {

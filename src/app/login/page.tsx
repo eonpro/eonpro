@@ -1983,8 +1983,8 @@ function LoginContent() {
                 {/* Clinic Selection Instructions */}
                 <div className="text-center">
                   <Building2 className="mx-auto mb-4 h-12 w-12" style={{ color: primaryColor }} />
-                  <h2 className="mb-2 text-xl font-semibold text-gray-900">Select a Clinic</h2>
-                  <p className="text-gray-600">
+                  <h2 className="mb-2 text-xl font-semibold text-white">Select a Clinic</h2>
+                  <p className="text-white">
                     You have access to multiple clinics. Choose which one to access now.
                   </p>
                 </div>

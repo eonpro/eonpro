@@ -157,6 +157,19 @@ export default function PatientsPage() {
           setError('Please log in to view patients');
           return;
         }
+        if (res.status === 403) {
+          let detail = '';
+          try {
+            const body = await res.json();
+            detail = body?.error ?? '';
+          } catch { /* ignore */ }
+          setError(
+            detail.toLowerCase().includes('permission')
+              ? 'You do not have permission to view patients. Please contact your administrator.'
+              : 'Access denied. Please log in again or contact your administrator.',
+          );
+          return;
+        }
         throw new Error('Failed to fetch patients');
       }
 
@@ -165,8 +178,11 @@ export default function PatientsPage() {
       setPatients(patientData);
       setFilteredPatients(patientData);
     } catch (err: unknown) {
-      logger.error(err);
-      setError('Failed to load patients');
+      if ((err as any)?.isAuthError) {
+        setError('Your session has expired. Please log in again.');
+      } else {
+        setError('Failed to load patients');
+      }
     } finally {
       setLoading(false);
     }

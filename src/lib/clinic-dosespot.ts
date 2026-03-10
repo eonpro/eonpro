@@ -71,25 +71,37 @@ export async function getClinicDoseSpotCredentials(
       try {
         if (clinicKey.includes(':')) {
           const decrypted = decrypt(clinicKey);
-          if (decrypted) clinicKey = decrypted;
+          if (decrypted) {
+            clinicKey = decrypted;
+          } else {
+            logger.error(`[CLINIC-DOSESPOT] clinicKey decryption returned empty for clinic ${clinicId}`);
+            return null;
+          }
         }
       } catch (e) {
         logger.error(`[CLINIC-DOSESPOT] Failed to decrypt clinicKey for clinic ${clinicId}`, {
           error: e instanceof Error ? e.message : String(e),
         });
+        return null;
       }
 
       let subscriptionKey = clinic.doseSpotSubscriptionKey;
       try {
         if (subscriptionKey.includes(':')) {
           const decrypted = decrypt(subscriptionKey);
-          if (decrypted) subscriptionKey = decrypted;
+          if (decrypted) {
+            subscriptionKey = decrypted;
+          } else {
+            logger.error(`[CLINIC-DOSESPOT] subscriptionKey decryption returned empty for clinic ${clinicId}`);
+            return null;
+          }
         }
       } catch (e) {
         logger.error(
           `[CLINIC-DOSESPOT] Failed to decrypt subscriptionKey for clinic ${clinicId}`,
           { error: e instanceof Error ? e.message : String(e) }
         );
+        return null;
       }
 
       return {

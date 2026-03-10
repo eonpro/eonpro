@@ -410,7 +410,12 @@ async function callDoseSpot<T>(
         }
       }
 
-      throw new Error(`[DoseSpot:${context}] ${status ?? 'unknown'} ${detail}`);
+      const httpStatus = typeof status === 'number' ? status : 500;
+      throw new DoseSpotError(
+        `[DoseSpot:${context}] ${status ?? 'unknown'} ${detail}`,
+        'DOSESPOT_API_ERROR',
+        httpStatus >= 400 && httpStatus < 600 ? httpStatus : 502
+      );
     }
   });
 }

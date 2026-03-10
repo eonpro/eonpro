@@ -5,6 +5,7 @@ import { isClinicDoseSpotConfigured } from '@/lib/clinic-dosespot';
 import { getProviderIdForUser } from '@/lib/auth/get-provider-for-user';
 import { doseSpotSSOService } from '@/domains/dosespot';
 import { handleApiError } from '@/domains/shared/errors';
+import { logger } from '@/lib/logger';
 
 async function handler(req: NextRequest, user: AuthUser) {
   try {
@@ -241,7 +242,15 @@ async function handler(req: NextRequest, user: AuthUser) {
 
     return NextResponse.json({ success: true, data: result });
   } catch (error) {
-    return handleApiError(error, { context: { route: 'GET /api/dosespot/sso-url' } });
+    logger.error('[DOSESPOT] SSO URL route failed', {
+      clinicId: user.clinicId,
+      userId: user.id,
+      role: user.role,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return handleApiError(error, {
+      context: { route: 'GET /api/dosespot/sso-url', clinicId: user.clinicId },
+    });
   }
 }
 
