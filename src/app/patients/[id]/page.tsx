@@ -20,6 +20,7 @@ import { getUserFromCookies } from '@/lib/auth/session';
 import { auditLog, AuditEventType } from '@/lib/audit/hipaa-audit';
 import { generateSignedUrl } from '@/lib/integrations/aws/s3Service';
 import { isS3Enabled } from '@/lib/integrations/aws/s3Config';
+import { resolveSubdomainClinicId, hasClinicAccess } from '@/lib/auth/middleware-cache';
 
 // Force dynamic rendering to ensure fresh data after intake edits
 export const dynamic = 'force-dynamic';
@@ -138,7 +139,49 @@ export default async function PatientDetailPage({
     // Fetch patient with clinic context for proper isolation
     // Super admins can access any clinic (use basePrisma to bypass filter); others restricted to their clinic
     const isSuperAdmin = user.role === 'super_admin';
-    const clinicId = isSuperAdmin ? undefined : user.clinicId ?? undefined;
+    let clinicId = isSuperAdmin ? undefined : user.clinicId ?? undefined;
+
+    // Subdomain-based clinic override: when on a clinic subdomain (e.g. wellmedr.eonpro.io),
+    // resolve the clinic from the host header. This is needed because:
+    // 1. The edge clinic middleware may be disabled (NEXT_PUBLIC_ENABLE_MULTI_CLINIC not set)
+    // 2. getUserFromCookies() may have returned a JWT clinicId that doesn't match the subdomain
+    if (!isSuperAdmin) {
+      try {
+        const host =
+          headersList.get('x-forwarded-host')?.split(',')[0]?.trim() ??
+          headersList.get('host') ??
+          '';
+        const hostname = host ? host.split(':')[0] ?? '' : '';
+        if (hostname.includes('.')) {
+          const parts = hostname.split('.');
+          const isLocalhostWithSub = hostname.includes('localhost') && parts.length >= 2;
+          const sub = parts.length >= 3 || isLocalhostWithSub ? parts[0] ?? null : null;
+          const reserved = ['www', 'app', 'api', 'admin', 'staging'];
+          if (sub && !reserved.includes(sub.toLowerCase())) {
+            const subdomainClinic = await resolveSubdomainClinicId(sub);
+            if (subdomainClinic != null && subdomainClinic > 0 && subdomainClinic !== clinicId) {
+              const userHasAccess =
+                user.clinicId === subdomainClinic ||
+                (await hasClinicAccess(user.id, subdomainClinic, user.providerId));
+              if (userHasAccess) {
+                clinicId = subdomainClinic;
+                logger.info('[PATIENT-DETAIL] Clinic override from subdomain', {
+                  subdomain: sub,
+                  jwtClinicId: user.clinicId,
+                  effectiveClinicId: subdomainClinic,
+                  userId: user.id,
+                });
+              }
+            }
+          }
+        }
+      } catch (subErr) {
+        logger.warn('[PATIENT-DETAIL] Subdomain clinic resolution failed', {
+          error: subErr instanceof Error ? subErr.message : String(subErr),
+          userId: user.id,
+        });
+      }
+    }
 
     // Non-super-admin must have clinic assignment
     if (!isSuperAdmin && clinicId == null) {
@@ -405,6 +448,15 @@ export default async function PatientDetailPage({
 
     if (!patient) {
       // Patient not found or not in user's clinic - log access attempt (non-blocking)
+      const host = headersList.get('x-forwarded-host')?.split(',')[0]?.trim() ?? headersList.get('host') ?? '';
+      logger.warn('[PATIENT-DETAIL] Patient not found / access denied', {
+        patientId: id,
+        userId: user.id,
+        userRole: user.role,
+        jwtClinicId: user.clinicId ?? null,
+        effectiveClinicId: clinicId ?? null,
+        host,
+      });
       auditLog(headersList, {
         userId: user.id,
         userEmail: user.email,
@@ -416,16 +468,20 @@ export default async function PatientDetailPage({
         patientId: id,
         action: 'VIEW_PATIENT_DENIED',
         outcome: 'FAILURE',
-        reason: 'Patient not found or access denied',
+        reason: `Patient not found or access denied (effectiveClinicId=${clinicId}, jwtClinicId=${user.clinicId})`,
       }).catch(() => {});
 
       return (
         <div className="p-10">
           <p className="text-red-600">
-            Patient not found or you don't have access to this patient.
+            Patient not found or you don&apos;t have access to this patient.
           </p>
           <p className="mt-2 text-sm text-gray-600">
             If you are a clinic admin, this patient may belong to a different clinic.
+          </p>
+          {/* Diagnostic: helps identify clinic mismatch without exposing PHI */}
+          <p className="mt-1 text-xs text-gray-400">
+            Clinic context: {clinicId ?? 'none'} | Role: {user.role}
           </p>
           <Link
             href={PATIENTS_LIST_PATH}
