@@ -12,6 +12,7 @@ import { JWT_SECRET } from './config';
 import { logger } from '@/lib/logger';
 import cache from '@/lib/cache/redis';
 import { basePrisma } from '@/lib/db';
+import { resolveSubdomainClinicId, hasClinicAccess } from './middleware-cache';
 
 // User session type
 export interface UserSession {
@@ -87,14 +88,37 @@ export async function getUserFromCookies(): Promise<UserSession | null> {
     const selectedClinicCookie = cookieStore.get('selected-clinic')?.value;
     const selectedClinicId = selectedClinicCookie ? parseInt(selectedClinicCookie, 10) : NaN;
 
-    // Read x-clinic-id header set by edge middleware (authoritative for subdomain requests).
-    // This ensures server components respect the subdomain's clinic context, matching
-    // what the API auth middleware does for API routes.
+    // Resolve subdomain → clinicId directly from the host header.
+    // The edge clinic middleware may be disabled (NEXT_PUBLIC_ENABLE_MULTI_CLINIC !== 'true')
+    // so we cannot rely on the x-clinic-id header. The API auth middleware has its own
+    // subdomain resolution, but server components only call this function — so it must
+    // resolve the subdomain itself.
+    let subdomainClinicId: number | null = null;
     let edgeClinicId = NaN;
     try {
       const headerStore = await headers();
+
+      // Try x-clinic-id first (set by edge clinic middleware when enabled)
       const edgeHeader = headerStore.get('x-clinic-id');
       if (edgeHeader) edgeClinicId = parseInt(edgeHeader, 10);
+
+      // Parse subdomain from host header (always available, regardless of middleware)
+      if (!Number.isFinite(edgeClinicId) || edgeClinicId <= 0) {
+        const host =
+          headerStore.get('x-forwarded-host')?.split(',')[0]?.trim() ??
+          headerStore.get('host') ??
+          '';
+        const hostname = host ? host.split(':')[0] ?? '' : '';
+        if (hostname.includes('.')) {
+          const parts = hostname.split('.');
+          const isLocalhostWithSub = hostname.includes('localhost') && parts.length >= 2;
+          const sub = parts.length >= 3 || isLocalhostWithSub ? parts[0] ?? null : null;
+          const reserved = ['www', 'app', 'api', 'admin', 'staging'];
+          if (sub && !reserved.includes(sub.toLowerCase())) {
+            subdomainClinicId = await resolveSubdomainClinicId(sub);
+          }
+        }
+      }
     } catch {
       // headers() may throw outside of request context (e.g. during build)
     }
@@ -118,30 +142,22 @@ export async function getUserFromCookies(): Promise<UserSession | null> {
         if (user) {
           if (user.role !== 'super_admin') {
             // Determine the target clinic ID.
-            // Priority: edge middleware header (subdomain-authoritative) > selected-clinic cookie
-            const targetClinicId = Number.isFinite(edgeClinicId) && edgeClinicId > 0
-              ? edgeClinicId
-              : Number.isFinite(selectedClinicId) && selectedClinicId > 0
-                ? selectedClinicId
-                : NaN;
+            // Priority: subdomain (authoritative) > edge header > selected-clinic cookie
+            const targetClinicId =
+              subdomainClinicId != null && subdomainClinicId > 0
+                ? subdomainClinicId
+                : Number.isFinite(edgeClinicId) && edgeClinicId > 0
+                  ? edgeClinicId
+                  : Number.isFinite(selectedClinicId) && selectedClinicId > 0
+                    ? selectedClinicId
+                    : NaN;
 
             if (Number.isFinite(targetClinicId) && targetClinicId > 0 && user.clinicId !== targetClinicId) {
-              const hasPrimaryAccess = user.clinicId === targetClinicId;
-              let hasAssignedAccess = false;
+              const userHasAccess =
+                user.clinicId === targetClinicId ||
+                (await hasClinicAccess(user.id, targetClinicId, user.providerId));
 
-              if (!hasPrimaryAccess) {
-                const userClinic = await basePrisma.userClinic.findFirst({
-                  where: {
-                    userId: user.id,
-                    clinicId: targetClinicId,
-                    isActive: true,
-                  },
-                  select: { id: true },
-                });
-                hasAssignedAccess = Boolean(userClinic);
-              }
-
-              if (hasPrimaryAccess || hasAssignedAccess) {
+              if (userHasAccess) {
                 user.clinicId = targetClinicId;
               }
             }
