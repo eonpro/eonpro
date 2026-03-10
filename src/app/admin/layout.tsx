@@ -51,6 +51,7 @@ import { safeParseJsonString } from '@/lib/utils/safe-json';
 
 const LOGOSRX_LOGO = 'https://static.wixstatic.com/shapes/c49a9b_ed88aadf7f9b426f990b60e1965c329b.svg';
 const LOGOSRX_ICON = 'https://static.wixstatic.com/shapes/c49a9b_70a8d7f88d384ab9956055674c2632a7.svg';
+const LOGOSRX_BG = '#1E2F8A';
 const LOGOSRX_PRIMARY = '#7C3AED';
 
 // Error Boundary to catch and recover from React errors
@@ -371,7 +372,7 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
   };
 
   const isActive = (path: string) => {
-    if (path === '/') return pathname === '/';
+    if (path === '/' || path === '/admin') return pathname === path;
     return pathname === path || pathname?.startsWith(path + '/');
   };
 
@@ -392,27 +393,33 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
         }`}
       >
         {/* Logo */}
-        <div className="mb-6 flex flex-col items-center px-4">
-          <Link href="/">
-            {sidebarExpanded ? (
-              <img
-                src={clinicLogo}
-                alt={clinicName}
-                className="h-10 w-auto max-w-[140px] object-contain"
-              />
-            ) : (
-              <img src={clinicIcon} alt={clinicName} className="h-10 w-10 object-contain" />
-            )}
-          </Link>
-          {/* Powered by EONPRO - shown for white-labeled clinics */}
+        <div className="mb-6 flex flex-col items-center px-3">
+          {isPharmacyExperience ? (
+            <div
+              className={`flex w-full flex-col items-center rounded-xl py-3 ${sidebarExpanded ? 'px-3' : 'px-1'}`}
+              style={{ backgroundColor: LOGOSRX_BG }}
+            >
+              <Link href="/admin">
+                {sidebarExpanded ? (
+                  <img src={clinicLogo} alt={clinicName} className="h-8 w-auto max-w-[120px] object-contain" />
+                ) : (
+                  <img src={clinicIcon} alt={clinicName} className="h-8 w-8 object-contain" />
+                )}
+              </Link>
+            </div>
+          ) : (
+            <Link href="/">
+              {sidebarExpanded ? (
+                <img src={clinicLogo} alt={clinicName} className="h-10 w-auto max-w-[140px] object-contain" />
+              ) : (
+                <img src={clinicIcon} alt={clinicName} className="h-10 w-10 object-contain" />
+              )}
+            </Link>
+          )}
           {isWhiteLabeled && sidebarExpanded && (
-            <span className="mt-1 flex items-center justify-center gap-1 text-[10px] text-gray-400">
+            <span className="mt-1.5 flex items-center justify-center gap-1 text-[10px] text-gray-400">
               Powered by{' '}
-              <img
-                src={EONPRO_LOGO}
-                alt="EONPRO"
-                className="h-[21px] w-auto"
-              />
+              <img src={EONPRO_LOGO} alt="EONPRO" className="h-[21px] w-auto" />
             </span>
           )}
         </div>
