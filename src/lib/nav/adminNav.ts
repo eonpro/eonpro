@@ -58,13 +58,24 @@ export const salesRepLinksNavConfig: AdminNavItemConfig = {
 };
 
 /**
- * Nav for sales reps: only Home, My Patients (assigned), and My Intake Links.
- * No intake-templates, orders, products, analytics, affiliates, finance, stripe, registration codes.
+ * Nav for sales reps: near-admin access minus company-level tabs
+ * (affiliates, finance, sales rep commissions, products, analytics, stripe,
+ * pending profiles, registration codes).
  */
 export const salesRepNavConfig: AdminNavItemConfig[] = [
   { path: '/', label: 'Home', iconKey: 'Home' },
-  { path: '/admin/patients', label: 'My Patients', iconKey: 'Users' },
+  { path: '/admin/intakes', label: 'Intakes', iconKey: 'UserPlus' },
+  { path: '/admin/intake-templates', label: 'Form Templates', iconKey: 'FileText' },
+  { path: '/admin/patients', label: 'Patients', iconKey: 'Users' },
+  { path: '/admin/verification-queue', label: 'ID Verification', iconKey: 'Shield' },
+  { path: '/admin/messages', label: 'Messages', iconKey: 'MessageSquare' },
+  { path: '/admin/refill-queue', label: 'Membership / Refills', iconKey: 'RefreshCw' },
+  { path: '/admin/subscription-renewals', label: 'Renewals', iconKey: 'CreditCard' },
+  { path: '/admin/orders', label: 'Orders', iconKey: 'ShoppingCart' },
+  { path: '/admin/shipping', label: 'Shipping', iconKey: 'Truck' },
+  { path: '/tickets', label: 'Tickets', iconKey: 'Ticket' },
   salesRepLinksNavConfig,
+  { path: '/admin/settings', label: 'Settings', iconKey: 'Settings' },
 ];
 
 /**

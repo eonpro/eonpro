@@ -221,14 +221,20 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
         router.push('/super-admin');
         return;
       }
-      // Sales rep must not access intake-templates or orders (assigned patients only)
+      // Sales rep restricted routes: company-level pages only
       if (role === 'sales_rep') {
-        if (pathname === '/admin/intake-templates' || pathname?.startsWith('/admin/intake-templates/')) {
-          window.location.href = '/';
-          return;
-        }
-        if (pathname === '/admin/orders' || pathname?.startsWith('/admin/orders/')) {
-          window.location.href = '/';
+        const restrictedPaths = [
+          '/admin/affiliates',
+          '/admin/finance',
+          '/admin/products',
+          '/admin/analytics',
+          '/admin/stripe-dashboard',
+          '/admin/finance/pending-profiles',
+          '/admin/registration-codes',
+          '/admin/sales-rep/commission-plans',
+        ];
+        if (restrictedPaths.some((p) => pathname === p || pathname?.startsWith(p + '/'))) {
+          window.location.href = '/admin';
           return;
         }
       }
@@ -248,15 +254,21 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
     }
   }, [router]);
 
-  // Redirect sales rep away from restricted routes (e.g. direct URL or client nav)
+  // Redirect sales rep away from company-level routes (e.g. direct URL or client nav)
   useEffect(() => {
     if (loading || userRole !== 'sales_rep') return;
-    if (pathname === '/admin/intake-templates' || pathname?.startsWith('/admin/intake-templates/')) {
-      window.location.href = '/';
-      return;
-    }
-    if (pathname === '/admin/orders' || pathname?.startsWith('/admin/orders/')) {
-      window.location.href = '/';
+    const restrictedPaths = [
+      '/admin/affiliates',
+      '/admin/finance',
+      '/admin/products',
+      '/admin/analytics',
+      '/admin/stripe-dashboard',
+      '/admin/finance/pending-profiles',
+      '/admin/registration-codes',
+      '/admin/sales-rep/commission-plans',
+    ];
+    if (restrictedPaths.some((p) => pathname === p || pathname?.startsWith(p + '/'))) {
+      window.location.href = '/admin';
       return;
     }
   }, [loading, userRole, pathname]);

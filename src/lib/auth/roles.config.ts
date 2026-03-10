@@ -683,81 +683,74 @@ export const AFFILIATE_CONFIG: RoleConfig = {
   ],
 };
 
-// SALES_REP - Sales representatives managing patient relationships
+// SALES_REP - Near-admin access for patient operations, no company-level financial/analytics tabs
 export const SALES_REP_CONFIG: RoleConfig = {
   role: 'sales_rep',
   displayName: 'Sales Representative',
-  description: 'Manage assigned patient relationships and track conversions',
-  defaultPath: '/sales',
+  description: 'Near-admin patient management without company-level financial access',
+  defaultPath: '/admin',
   theme: {
-    primaryColor: '#0EA5E9', // Sky blue
+    primaryColor: '#0EA5E9',
     secondaryColor: '#0284C7',
     iconColor: '#7DD3FC',
     bgGradient: 'from-sky-500 to-blue-600',
   },
   features: {
-    viewAllPatients: false, // Only assigned patients
-    editPatients: true, // Can edit assigned patients
-    deletePatients: false,
-    viewPatientPHI: false, // Limited PHI access
-    exportPatientData: false,
+    viewAllPatients: true,
+    editPatients: true,
+    deletePatients: true,
+    viewPatientPHI: true,
+    exportPatientData: true,
     createSoapNotes: false,
     prescribeRx: false,
     orderLabs: false,
-    viewMedicalRecords: false,
-    uploadDocuments: false,
+    viewMedicalRecords: true,
+    uploadDocuments: true,
     manageUsers: false,
     manageClinics: false,
-    viewAnalytics: true, // Own performance metrics
+    viewAnalytics: false,
     viewFinancials: false,
-    manageSubscriptions: false,
+    manageSubscriptions: true,
     internalMessaging: true,
-    patientMessaging: true, // Can message assigned patients
-    ticketManagement: false,
+    patientMessaging: true,
+    ticketManagement: true,
     supportTickets: true,
     systemSettings: false,
     auditLogs: false,
     apiAccess: false,
     bulkOperations: false,
-    manageOrders: false,
+    manageOrders: true,
     processPayments: false,
     manageInventory: false,
-    viewCommissions: true, // View own commissions/performance
-    mergePatients: false,
+    viewCommissions: false,
+    mergePatients: true,
   },
   navigation: {
     primary: [
-      { label: 'Dashboard', path: '/sales', icon: 'Home' },
-      { label: 'My Patients', path: '/sales/patients', icon: 'Users' },
-      { label: 'Performance', path: '/sales/performance', icon: 'TrendingUp' },
+      { label: 'Dashboard', path: '/admin', icon: 'Home' },
+      { label: 'Patients', path: '/admin/patients', icon: 'Users' },
+      { label: 'Orders', path: '/admin/orders', icon: 'ShoppingCart' },
       { label: 'Tickets', path: '/tickets', icon: 'Ticket', badge: 'count' },
-      { label: 'Messages', path: '/sales/messages', icon: 'MessageSquare' },
-      { label: 'Support', path: '/sales/support', icon: 'HelpCircle' },
+      { label: 'Messages', path: '/admin/messages', icon: 'MessageSquare' },
+      { label: 'Shipping', path: '/admin/shipping', icon: 'Truck' },
+      { label: 'Settings', path: '/admin/settings', icon: 'Settings' },
     ],
     quick: [
-      { label: 'View Patient', action: 'view-patient', icon: 'User', color: 'blue' },
+      { label: 'Add Patient', action: 'add-patient', icon: 'UserPlus', color: 'blue' },
       { label: 'Create Ticket', action: 'create-ticket', icon: 'Ticket', color: 'orange' },
       { label: 'Send Message', action: 'send-message', icon: 'MessageSquare', color: 'green' },
     ],
   },
   widgets: [
-    { id: 'patient-overview', title: 'My Patients', type: 'stat', size: 'large', position: 1 },
+    { id: 'patient-overview', title: 'All Patients', type: 'stat', size: 'large', position: 1 },
     { id: 'open-tickets', title: 'Open Tickets', type: 'list', size: 'medium', position: 2 },
     { id: 'recent-activity', title: 'Recent Activity', type: 'list', size: 'medium', position: 3 },
-    {
-      id: 'conversion-stats',
-      title: 'Conversion Stats',
-      type: 'chart',
-      size: 'medium',
-      position: 4,
-    },
-    { id: 'messages', title: 'Unread Messages', type: 'list', size: 'small', position: 5 },
+    { id: 'messages', title: 'Unread Messages', type: 'list', size: 'small', position: 4 },
   ],
   restrictions: [
-    'Only view assigned patients',
-    'Cannot access medical records',
+    'No access to affiliates, finance, analytics, products, or stripe',
     'Cannot prescribe or order tests',
-    'Cannot view financial data',
+    'Cannot manage users or system settings',
   ],
 };
 
