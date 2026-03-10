@@ -83,6 +83,22 @@ const nextConfig = {
     };
   },
 
+  // Admin routes must not be ISR/statically cached — they require auth and
+  // show dynamic, role-specific content.  Setting s-maxage=0 tells Vercel's
+  // CDN edge to never serve stale HTML for these paths.
+  async headers() {
+    return [
+      {
+        source: '/admin/:path*',
+        headers: [
+          { key: 'Cache-Control', value: 'private, no-cache, no-store, must-revalidate' },
+          { key: 'CDN-Cache-Control', value: 'no-store' },
+          { key: 'Vercel-CDN-Cache-Control', value: 'no-store' },
+        ],
+      },
+    ];
+  },
+
   // Security headers are set in src/middleware.ts (single authoritative source).
   // Do NOT duplicate them here — next.config.js headers can conflict with middleware
   // (e.g. middleware sets X-Frame-Options: SAMEORIGIN while config set DENY).
