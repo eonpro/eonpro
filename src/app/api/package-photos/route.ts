@@ -229,6 +229,7 @@ export const POST = withPharmacyAccessAuth(postHandler);
 const searchSchema = z.object({
   search: z.string().optional(),
   matched: z.enum(['true', 'false', 'all']).optional().default('all'),
+  period: z.enum(['today', 'week', 'month', 'all']).optional().default('all'),
   page: z.coerce.number().int().positive().optional().default(1),
   limit: z.coerce.number().int().min(1).max(100).optional().default(25),
   sortBy: z.enum(['createdAt', 'lifefileId']).optional().default('createdAt'),
@@ -238,8 +239,36 @@ const searchSchema = z.object({
 async function getHandler(req: NextRequest, user: AuthUser) {
   try {
     const url = new URL(req.url);
+
+    // Stats mode — aggregate counts for the audit dashboard
+    if (url.searchParams.get('stats') === 'true') {
+      const now = new Date();
+      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const weekStart = new Date(todayStart);
+      weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+
+      const [today, thisWeek, matched, total] = await Promise.all([
+        prisma.packagePhoto.count({ where: { createdAt: { gte: todayStart } } }),
+        prisma.packagePhoto.count({ where: { createdAt: { gte: weekStart } } }),
+        prisma.packagePhoto.count({ where: { matched: true } }),
+        prisma.packagePhoto.count(),
+      ]);
+
+      return NextResponse.json({
+        success: true,
+        data: {
+          today,
+          thisWeek,
+          matched,
+          total,
+          matchRate: total > 0 ? Math.round((matched / total) * 100) : 0,
+          unmatched: total - matched,
+        },
+      });
+    }
+
     const params = searchSchema.parse(Object.fromEntries(url.searchParams));
-    const { search, matched, page, limit, sortBy, sortOrder } = params;
+    const { search, matched, period, page, limit, sortBy, sortOrder } = params;
 
     const where: Record<string, unknown> = {};
 
@@ -254,6 +283,20 @@ async function getHandler(req: NextRequest, user: AuthUser) {
       where.matched = true;
     } else if (matched === 'false') {
       where.matched = false;
+    }
+
+    if (period !== 'all') {
+      const now = new Date();
+      let periodStart: Date;
+      if (period === 'today') {
+        periodStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      } else if (period === 'week') {
+        periodStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        periodStart.setDate(periodStart.getDate() - periodStart.getDay());
+      } else {
+        periodStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      }
+      where.createdAt = { gte: periodStart };
     }
 
     const [photos, total] = await Promise.all([

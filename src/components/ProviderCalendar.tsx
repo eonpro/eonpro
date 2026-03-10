@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, Video, Clock } from 'lucide-react';
 
 interface Appointment {
@@ -23,8 +23,10 @@ export default function ProviderCalendar({
   onDateClick,
   onAppointmentClick,
 }: ProviderCalendarProps) {
-  const [currentDate, setCurrentDate] = useState(new Date());
+  const [currentDate, setCurrentDate] = useState<Date | null>(null);
   const [view, setView] = useState<'month' | 'week' | 'day'>('month');
+
+  useEffect(() => { setCurrentDate(new Date()); }, []);
 
   const monthNames = [
     'January',
@@ -50,6 +52,7 @@ export default function ProviderCalendar({
   };
 
   const navigateMonth = (direction: number) => {
+    if (!currentDate) return;
     setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + direction, 1));
   };
 
@@ -215,6 +218,10 @@ export default function ProviderCalendar({
       </div>
     );
   };
+
+  if (!currentDate) {
+    return <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm h-96 animate-pulse" />;
+  }
 
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">

@@ -15,9 +15,13 @@ import {
   SwitchCamera,
   Image as ImageIcon,
   RefreshCw,
-  Filter,
   Truck,
   ExternalLink,
+  Copy,
+  Clock,
+  Calendar,
+  ArrowUpDown,
+  Shield,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api/fetch';
 
@@ -55,6 +59,19 @@ interface UploadResult {
   createdAt: string;
 }
 
+interface AuditStats {
+  today: number;
+  thisWeek: number;
+  matched: number;
+  total: number;
+  matchRate: number;
+  unmatched: number;
+}
+
+// ---------------------------------------------------------------------------
+// Constants & Helpers
+// ---------------------------------------------------------------------------
+
 const TRACKING_SOURCE_LABELS: Record<string, string> = {
   order: 'Order Record',
   lifefile_webhook: 'LifeFile Webhook',
@@ -63,59 +80,100 @@ const TRACKING_SOURCE_LABELS: Record<string, string> = {
   manual: 'Manual Entry',
 };
 
-type CaptureStep = 'lifefileId' | 'camera' | 'preview' | 'uploading' | 'tracking' | 'success';
+type CaptureStep = 'lifefileId' | 'camera' | 'preview' | 'uploading' | 'done';
 
-const STEP_LABELS = [
-  { key: 'lifefileId', label: 'LifeFile ID', icon: Package },
-  { key: 'camera', label: 'Take Photo', icon: Camera },
-  { key: 'tracking', label: 'Tracking', icon: Truck },
+function relativeTime(dateStr: string): string {
+  const diffMs = Date.now() - new Date(dateStr).getTime();
+  const min = Math.floor(diffMs / 60000);
+  const hr = Math.floor(diffMs / 3600000);
+  const day = Math.floor(diffMs / 86400000);
+  if (min < 1) return 'just now';
+  if (min < 60) return `${min}m ago`;
+  if (hr < 24) return `${hr}h ago`;
+  if (day < 7) return `${day}d ago`;
+  return new Date(dateStr).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
+function formatTimestamp(dateStr: string): string {
+  return new Date(dateStr).toLocaleString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    second: '2-digit',
+  });
+}
+
+function getAuthToken(): string {
+  return localStorage.getItem('auth-token') || localStorage.getItem('pharmacy_rep-token') || '';
+}
+
+// ---------------------------------------------------------------------------
+// Shared: Copy Button
+// ---------------------------------------------------------------------------
+
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      onClick={(e) => {
+        e.stopPropagation();
+        navigator.clipboard.writeText(text).then(() => {
+          setCopied(true);
+          setTimeout(() => setCopied(false), 1500);
+        });
+      }}
+      className="ml-1.5 inline-flex items-center rounded p-0.5 text-gray-400 transition-colors hover:text-violet-600"
+      title={copied ? 'Copied!' : 'Copy'}
+    >
+      {copied ? <CheckCircle className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
+    </button>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Shared: Step Indicator
+// ---------------------------------------------------------------------------
+
+const STEPS = [
+  { key: 'lifefileId', label: 'Scan ID', icon: Package },
+  { key: 'camera', label: 'Photograph', icon: Camera },
+  { key: 'done', label: 'Confirm', icon: CheckCircle },
 ] as const;
 
-function getActiveStepIndex(step: CaptureStep): number {
+function getStepIndex(step: CaptureStep): number {
   if (step === 'lifefileId') return 0;
   if (step === 'camera' || step === 'preview' || step === 'uploading') return 1;
   return 2;
 }
 
-function StepIndicator({ currentStep }: { currentStep: CaptureStep }) {
-  const activeIdx = getActiveStepIndex(currentStep);
-
+function StepIndicator({ step }: { step: CaptureStep }) {
+  const activeIdx = getStepIndex(step);
   return (
-    <div className="mb-6 flex items-center justify-center gap-2">
-      {STEP_LABELS.map((s, i) => {
+    <div className="mb-6 flex items-center justify-center">
+      {STEPS.map((s, i) => {
         const Icon = s.icon;
-        const isComplete = i < activeIdx;
-        const isActive = i === activeIdx;
+        const done = i < activeIdx;
+        const active = i === activeIdx;
         return (
-          <div key={s.key} className="flex items-center gap-2">
+          <div key={s.key} className="flex items-center">
             {i > 0 && (
-              <div
-                className={`h-0.5 w-8 rounded-full transition-colors ${
-                  i <= activeIdx ? 'bg-violet-500' : 'bg-gray-200'
-                }`}
-              />
+              <div className={`mx-1.5 h-px w-10 transition-colors sm:mx-2 sm:w-14 ${i <= activeIdx ? 'bg-violet-400' : 'bg-gray-200'}`} />
             )}
-            <div className="flex items-center gap-1.5">
+            <div className="flex flex-col items-center gap-1">
               <div
-                className={`flex h-7 w-7 items-center justify-center rounded-full transition-colors ${
-                  isComplete
-                    ? 'bg-violet-600 text-white'
-                    : isActive
-                      ? 'bg-violet-100 text-violet-700 ring-2 ring-violet-500'
-                      : 'bg-gray-100 text-gray-400'
+                className={`flex h-9 w-9 items-center justify-center rounded-full transition-all ${
+                  done
+                    ? 'bg-violet-600 text-white shadow-sm'
+                    : active
+                      ? 'bg-violet-100 text-violet-700 ring-2 ring-violet-500 ring-offset-1'
+                      : 'bg-gray-100 text-gray-300'
                 }`}
               >
-                {isComplete ? (
-                  <CheckCircle className="h-4 w-4" />
-                ) : (
-                  <Icon className="h-3.5 w-3.5" />
-                )}
+                {done ? <CheckCircle className="h-4.5 w-4.5" /> : <Icon className="h-4 w-4" />}
               </div>
-              <span
-                className={`hidden text-xs font-medium sm:inline ${
-                  isActive ? 'text-violet-700' : isComplete ? 'text-violet-600' : 'text-gray-400'
-                }`}
-              >
+              <span className={`text-[10px] font-semibold tracking-wide ${active ? 'text-violet-700' : done ? 'text-violet-500' : 'text-gray-300'}`}>
                 {s.label}
               </span>
             </div>
@@ -127,65 +185,78 @@ function StepIndicator({ currentStep }: { currentStep: CaptureStep }) {
 }
 
 // ---------------------------------------------------------------------------
-// Main Page Component
+// Main Page
 // ---------------------------------------------------------------------------
 
 export default function PackagePhotosPage() {
-  const [activeTab, setActiveTab] = useState<'capture' | 'gallery'>('capture');
+  const [mode, setMode] = useState<'capture' | 'audit'>('capture');
+  const [sessionCount, setSessionCount] = useState(0);
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6">
-        {/* Header */}
-        <div className="mb-6">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-100">
-              <Package className="h-5 w-5 text-violet-600" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Package Photos</h1>
-              <p className="text-sm text-gray-500">Capture and track package photos for outgoing shipments</p>
-            </div>
+    <div className="mx-auto max-w-6xl px-4 py-5 sm:px-6">
+      {/* Top bar */}
+      <div className="mb-5 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-100">
+            <Package className="h-5 w-5 text-violet-600" />
+          </div>
+          <div>
+            <h1 className="text-xl font-bold text-gray-900">
+              {mode === 'capture' ? 'Package Photos' : 'Audit Log'}
+            </h1>
+            <p className="text-xs text-gray-500">
+              {mode === 'capture'
+                ? 'Scan, photograph, and track outgoing packages'
+                : 'Search and investigate package records'}
+            </p>
           </div>
         </div>
 
-        {/* Tabs */}
-        <div className="mb-6 flex gap-1 rounded-lg bg-gray-100 p-1">
+        <div className="flex items-center gap-2.5">
+          {mode === 'capture' && sessionCount > 0 && (
+            <span className="hidden rounded-full bg-violet-50 px-3 py-1 text-xs font-semibold text-violet-700 sm:inline-flex">
+              {sessionCount} scanned
+            </span>
+          )}
           <button
-            onClick={() => setActiveTab('capture')}
-            className={`flex-1 rounded-md px-4 py-2.5 text-sm font-medium transition-colors ${
-              activeTab === 'capture'
-                ? 'bg-white text-violet-700 shadow-sm'
-                : 'text-gray-600 hover:text-gray-900'
-            }`}
+            onClick={() => setMode(mode === 'capture' ? 'audit' : 'capture')}
+            className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-700 shadow-sm transition-colors hover:bg-gray-50"
           >
-            <Camera className="mr-2 inline-block h-4 w-4" />
-            Capture Photo
-          </button>
-          <button
-            onClick={() => setActiveTab('gallery')}
-            className={`flex-1 rounded-md px-4 py-2.5 text-sm font-medium transition-colors ${
-              activeTab === 'gallery'
-                ? 'bg-white text-violet-700 shadow-sm'
-                : 'text-gray-600 hover:text-gray-900'
-            }`}
-          >
-            <ImageIcon className="mr-2 inline-block h-4 w-4" />
-            Photo Gallery
+            {mode === 'capture' ? (
+              <>
+                <Search className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Audit Log</span>
+              </>
+            ) : (
+              <>
+                <Camera className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Capture</span>
+              </>
+            )}
           </button>
         </div>
-
-        {activeTab === 'capture' ? <CaptureFlow /> : <PhotoGallery />}
       </div>
+
+      {mode === 'capture' ? (
+        <CaptureFlow sessionCount={sessionCount} onCaptured={() => setSessionCount((c) => c + 1)} />
+      ) : (
+        <AuditLog />
+      )}
     </div>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Capture Flow — Input → Camera → Preview → Upload → Success
+// Capture Flow — 3-step: Scan ID → Photograph → Confirm
 // ---------------------------------------------------------------------------
 
-function CaptureFlow() {
+function CaptureFlow({
+  sessionCount,
+  onCaptured,
+}: {
+  sessionCount: number;
+  onCaptured: () => void;
+}) {
   const [step, setStep] = useState<CaptureStep>('lifefileId');
   const [lifefileId, setLifefileId] = useState('');
   const [trackingNumber, setTrackingNumber] = useState('');
@@ -194,6 +265,8 @@ function CaptureFlow() {
   const [uploadResult, setUploadResult] = useState<UploadResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [trackingSaving, setTrackingSaving] = useState(false);
+  const [trackingSaved, setTrackingSaved] = useState(false);
+  const idInputRef = useRef<HTMLInputElement>(null);
 
   const reset = useCallback(() => {
     setStep('lifefileId');
@@ -205,12 +278,13 @@ function CaptureFlow() {
     setUploadResult(null);
     setError(null);
     setTrackingSaving(false);
+    setTrackingSaved(false);
+    setTimeout(() => idInputRef.current?.focus(), 50);
   }, [previewUrl]);
 
   const handleCapture = useCallback((blob: Blob) => {
     setCapturedImage(blob);
-    const url = URL.createObjectURL(blob);
-    setPreviewUrl(url);
+    setPreviewUrl(URL.createObjectURL(blob));
     setStep('preview');
   }, []);
 
@@ -223,7 +297,6 @@ function CaptureFlow() {
 
   const handleUpload = useCallback(async () => {
     if (!capturedImage || !lifefileId.trim()) return;
-
     setStep('uploading');
     setError(null);
 
@@ -235,9 +308,7 @@ function CaptureFlow() {
       const res = await fetch('/api/package-photos', {
         method: 'POST',
         body: formData,
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('auth-token') || localStorage.getItem('pharmacy_rep-token') || ''}`,
-        },
+        headers: { Authorization: `Bearer ${getAuthToken()}` },
       });
 
       if (!res.ok) {
@@ -247,50 +318,37 @@ function CaptureFlow() {
 
       const json = await res.json();
       setUploadResult(json.data);
-
-      if (json.data.trackingNumber) {
-        setTrackingNumber(json.data.trackingNumber);
-      }
-
-      setStep('tracking');
+      if (json.data.trackingNumber) setTrackingNumber(json.data.trackingNumber);
+      onCaptured();
+      setStep('done');
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Upload failed. Please try again.');
       setStep('preview');
     }
-  }, [capturedImage, lifefileId]);
+  }, [capturedImage, lifefileId, onCaptured]);
 
   const handleSaveTracking = useCallback(async () => {
     if (!uploadResult || !trackingNumber.trim()) return;
-
     setTrackingSaving(true);
     setError(null);
 
     try {
       const res = await fetch(`/api/package-photos/${uploadResult.id}`, {
         method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('auth-token') || localStorage.getItem('pharmacy_rep-token') || ''}`,
-        },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getAuthToken()}` },
         body: JSON.stringify({ trackingNumber: trackingNumber.trim() }),
       });
 
       if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: 'Failed to save tracking' }));
-        throw new Error(err.error || 'Failed to save tracking');
+        const err = await res.json().catch(() => ({ error: 'Failed to save' }));
+        throw new Error(err.error || 'Failed to save');
       }
 
       const json = await res.json();
       setUploadResult((prev) =>
-        prev
-          ? {
-              ...prev,
-              trackingNumber: json.data.trackingNumber,
-              trackingSource: json.data.trackingSource,
-            }
-          : prev,
+        prev ? { ...prev, trackingNumber: json.data.trackingNumber, trackingSource: json.data.trackingSource } : prev,
       );
-      setStep('success');
+      setTrackingSaved(true);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to save tracking.');
     } finally {
@@ -298,94 +356,87 @@ function CaptureFlow() {
     }
   }, [uploadResult, trackingNumber]);
 
+  const captureTimestamp = uploadResult ? formatTimestamp(uploadResult.createdAt) : '';
+
   return (
     <div className="mx-auto max-w-lg">
-      <StepIndicator currentStep={step} />
+      <StepIndicator step={step} />
 
-      {/* Step 1: LifeFile ID */}
+      {/* ── Step 1: Scan LifeFile ID ─────────────────────────── */}
       {step === 'lifefileId' && (
-        <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-          <div className="mb-6 text-center">
-            <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-violet-50">
-              <Package className="h-7 w-7 text-violet-600" />
-            </div>
-            <h2 className="text-lg font-semibold text-gray-900">Identify Package</h2>
-            <p className="mt-1 text-sm text-gray-500">Enter the LifeFile ID from the package label</p>
-          </div>
-
-          <div className="space-y-4">
-            <div>
-              <label htmlFor="lifefileId" className="mb-1.5 block text-sm font-medium text-gray-700">
-                LifeFile ID
-              </label>
-              <input
-                id="lifefileId"
-                type="text"
-                value={lifefileId}
-                onChange={(e) => setLifefileId(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && lifefileId.trim()) setStep('camera');
-                }}
-                placeholder="e.g. 123456"
-                autoFocus
-                className="w-full rounded-lg border border-gray-300 px-4 py-3 text-lg font-mono tracking-wider placeholder:text-gray-400 focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
-              />
-            </div>
-
-            <button
-              onClick={() => setStep('camera')}
-              disabled={!lifefileId.trim()}
-              className="flex w-full items-center justify-center gap-2 rounded-lg bg-violet-600 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-violet-700 disabled:cursor-not-allowed disabled:bg-gray-300"
-            >
-              <Camera className="h-5 w-5" />
-              Next — Take Photo
-            </button>
-          </div>
+        <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6">
+          <label htmlFor="lifefileId" className="mb-2 block text-sm font-semibold text-gray-900">
+            LifeFile ID
+          </label>
+          <input
+            ref={idInputRef}
+            id="lifefileId"
+            type="text"
+            inputMode="text"
+            value={lifefileId}
+            onChange={(e) => setLifefileId(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter' && lifefileId.trim()) setStep('camera'); }}
+            placeholder="Scan or type the package ID"
+            autoFocus
+            autoComplete="off"
+            className="mb-4 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-4 text-center font-mono text-2xl font-bold tracking-widest text-gray-900 placeholder:text-sm placeholder:font-normal placeholder:tracking-normal placeholder:text-gray-400 focus:border-violet-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-violet-500/20"
+          />
+          <button
+            onClick={() => setStep('camera')}
+            disabled={!lifefileId.trim()}
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-violet-600 px-4 py-4 text-sm font-bold text-white shadow-sm transition-all hover:bg-violet-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-400 disabled:shadow-none"
+          >
+            <Camera className="h-5 w-5" />
+            Take Photo
+          </button>
+          {sessionCount > 0 && (
+            <p className="mt-3 text-center text-xs text-gray-400">
+              {sessionCount} package{sessionCount !== 1 ? 's' : ''} scanned this session
+            </p>
+          )}
         </div>
       )}
 
-      {/* Step 2a: Camera */}
+      {/* ── Step 2a: Camera ──────────────────────────────────── */}
       {step === 'camera' && (
-        <CameraCapture
-          onCapture={handleCapture}
-          onCancel={() => setStep('lifefileId')}
-          lifefileId={lifefileId}
-        />
+        <CameraCapture onCapture={handleCapture} onCancel={() => setStep('lifefileId')} lifefileId={lifefileId} />
       )}
 
-      {/* Step 2b: Preview */}
+      {/* ── Step 2b: Preview ─────────────────────────────────── */}
       {step === 'preview' && previewUrl && (
-        <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-gray-900">Review Photo</h2>
-            <span className="rounded-full bg-violet-100 px-3 py-1 font-mono text-sm font-medium text-violet-700">
-              ID: {lifefileId}
-            </span>
+        <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+          <div className="relative">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={previewUrl} alt="Package preview" className="w-full" />
+            {/* Metadata stamp overlay */}
+            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent px-4 pb-3 pt-10">
+              <div className="flex items-end justify-between text-white">
+                <span className="font-mono text-sm font-bold tracking-wide">ID: {lifefileId}</span>
+                <span className="text-[11px] opacity-80">
+                  {new Date().toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+                </span>
+              </div>
+            </div>
           </div>
 
           {error && (
-            <div className="mb-4 flex items-center gap-2 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
-              <XCircle className="h-4 w-4 flex-shrink-0" />
+            <div className="mx-4 mt-4 flex items-center gap-2 rounded-lg bg-red-50 px-3 py-2.5 text-xs font-medium text-red-700">
+              <XCircle className="h-3.5 w-3.5 flex-shrink-0" />
               {error}
             </div>
           )}
 
-          <div className="mb-4 overflow-hidden rounded-xl border border-gray-200">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={previewUrl} alt="Package preview" className="w-full" />
-          </div>
-
-          <div className="flex gap-3">
+          <div className="flex gap-3 p-4">
             <button
               onClick={handleRetake}
-              className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+              className="flex items-center justify-center gap-1.5 rounded-xl border border-gray-200 bg-white px-4 py-3 text-xs font-semibold text-gray-600 transition-colors hover:bg-gray-50"
             >
-              <RefreshCw className="h-4 w-4" />
+              <RefreshCw className="h-3.5 w-3.5" />
               Retake
             </button>
             <button
               onClick={handleUpload}
-              className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-violet-600 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-violet-700"
+              className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-violet-600 py-3 text-sm font-bold text-white shadow-sm transition-all hover:bg-violet-700 active:scale-[0.98]"
             >
               <CheckCircle className="h-4 w-4" />
               Upload Photo
@@ -394,177 +445,114 @@ function CaptureFlow() {
         </div>
       )}
 
-      {/* Step 2c: Uploading */}
+      {/* ── Step 2c: Uploading ───────────────────────────────── */}
       {step === 'uploading' && (
-        <div className="rounded-2xl border border-gray-200 bg-white p-10 text-center shadow-sm">
-          <Loader2 className="mx-auto h-10 w-10 animate-spin text-violet-600" />
-          <p className="mt-4 text-sm font-medium text-gray-600">Uploading photo...</p>
+        <div className="flex flex-col items-center rounded-2xl border border-gray-200 bg-white py-16 shadow-sm">
+          <Loader2 className="h-10 w-10 animate-spin text-violet-500" />
+          <p className="mt-4 text-sm font-medium text-gray-500">Uploading&hellip;</p>
         </div>
       )}
 
-      {/* Step 3: Tracking Number */}
-      {step === 'tracking' && uploadResult && (
-        <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-          <div className="mb-5 text-center">
-            <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-green-50">
-              <CheckCircle className="h-7 w-7 text-green-600" />
-            </div>
-            <h2 className="text-lg font-semibold text-gray-900">Photo Saved</h2>
-            <p className="mt-1 text-sm text-gray-500">
-              Now add a tracking number, or skip to add it later
-            </p>
-          </div>
-
-          <div className="mb-4 rounded-xl bg-gray-50 p-4">
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-500">LifeFile ID</span>
-              <span className="font-mono font-medium text-gray-900">{uploadResult.lifefileId}</span>
-            </div>
-            <div className="mt-2 flex items-center justify-between text-sm">
-              <span className="text-gray-500">Match Status</span>
-              {uploadResult.matched ? (
-                <span className="flex items-center gap-1.5 font-medium text-green-700">
-                  <CheckCircle className="h-3.5 w-3.5" />
-                  Matched
-                </span>
-              ) : (
-                <span className="flex items-center gap-1.5 font-medium text-amber-600">
-                  <XCircle className="h-3.5 w-3.5" />
-                  No Match
-                </span>
-              )}
-            </div>
-          </div>
-
-          {uploadResult.trackingNumber ? (
-            <div className="mb-4 flex items-center justify-between rounded-lg bg-blue-50 px-4 py-3 text-sm">
-              <span className="flex items-center gap-1.5 font-medium text-blue-700">
-                <Truck className="h-4 w-4" />
-                Auto-detected Tracking
-              </span>
-              <span className="font-mono text-xs font-semibold text-blue-900">
-                {uploadResult.trackingNumber}
-              </span>
-            </div>
-          ) : (
-            <div className="mb-4 space-y-3">
+      {/* ── Step 3: Done — Tracking + Confirmation ───────────── */}
+      {step === 'done' && uploadResult && (
+        <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+          {/* Success header */}
+          <div className="bg-gradient-to-r from-emerald-500 to-emerald-600 px-5 py-4 text-white">
+            <div className="flex items-center gap-2.5">
+              <Shield className="h-5 w-5" />
               <div>
-                <label htmlFor="trackingStep" className="mb-1.5 block text-sm font-medium text-gray-700">
-                  Tracking Number <span className="font-normal text-gray-400">(optional)</span>
-                </label>
-                <input
-                  id="trackingStep"
-                  type="text"
-                  value={trackingNumber}
-                  onChange={(e) => setTrackingNumber(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && trackingNumber.trim()) handleSaveTracking();
-                  }}
-                  placeholder="Enter tracking number"
-                  autoFocus
-                  className="w-full rounded-lg border border-gray-300 px-4 py-3 font-mono text-sm tracking-wider placeholder:font-sans placeholder:text-gray-400 focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
-                />
+                <p className="text-sm font-bold">Photo Recorded</p>
+                <p className="text-[11px] opacity-85">{captureTimestamp}</p>
               </div>
+            </div>
+          </div>
 
-              {error && (
-                <div className="flex items-center gap-2 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
-                  <XCircle className="h-4 w-4 flex-shrink-0" />
-                  {error}
+          <div className="p-5">
+            {/* Audit summary */}
+            <div className="mb-4 space-y-2.5 rounded-xl bg-gray-50 p-4">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-500">LifeFile ID</span>
+                <span className="flex items-center font-mono font-bold text-gray-900">
+                  {uploadResult.lifefileId}
+                  <CopyButton text={uploadResult.lifefileId} />
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-500">Match</span>
+                {uploadResult.matched ? (
+                  <span className="flex items-center gap-1 text-xs font-semibold text-emerald-700">
+                    <CheckCircle className="h-3.5 w-3.5" />
+                    Linked to Patient
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-1 text-xs font-semibold text-amber-600">
+                    <XCircle className="h-3.5 w-3.5" />
+                    No Match — Stored
+                  </span>
+                )}
+              </div>
+              {uploadResult.orderId && (
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-gray-500">Order</span>
+                  <span className="font-medium text-gray-900">#{uploadResult.orderId}</span>
                 </div>
               )}
-
-              {trackingNumber.trim() && (
-                <button
-                  onClick={handleSaveTracking}
-                  disabled={trackingSaving}
-                  className="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-blue-700 disabled:opacity-60"
-                >
-                  {trackingSaving ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Truck className="h-4 w-4" />
-                  )}
-                  Save Tracking Number
-                </button>
-              )}
             </div>
-          )}
 
-          <button
-            onClick={() => setStep('success')}
-            className={`flex w-full items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-semibold transition-colors ${
-              uploadResult.trackingNumber || trackingNumber.trim()
-                ? 'bg-violet-600 text-white hover:bg-violet-700'
-                : 'border border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
-            }`}
-          >
-            {uploadResult.trackingNumber ? 'Continue' : 'Skip — Add Later'}
-            <ChevronRight className="h-4 w-4" />
-          </button>
-        </div>
-      )}
+            {/* Tracking section */}
+            {uploadResult.trackingNumber || trackingSaved ? (
+              <div className="mb-4 flex items-center justify-between rounded-xl bg-blue-50 px-4 py-3">
+                <span className="flex items-center gap-1.5 text-xs font-semibold text-blue-700">
+                  <Truck className="h-4 w-4" />
+                  {uploadResult.trackingSource === 'manual' ? 'Tracking' : 'Auto-detected'}
+                </span>
+                <span className="flex items-center font-mono text-xs font-bold text-blue-900">
+                  {uploadResult.trackingNumber}
+                  <CopyButton text={uploadResult.trackingNumber!} />
+                </span>
+              </div>
+            ) : (
+              <div className="mb-4 rounded-xl border border-dashed border-gray-200 p-4">
+                <label htmlFor="trackingDone" className="mb-1.5 block text-xs font-semibold text-gray-700">
+                  Tracking Number <span className="font-normal text-gray-400">(optional)</span>
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    id="trackingDone"
+                    type="text"
+                    value={trackingNumber}
+                    onChange={(e) => setTrackingNumber(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter' && trackingNumber.trim()) handleSaveTracking(); }}
+                    placeholder="Enter tracking number"
+                    autoFocus
+                    className="min-w-0 flex-1 rounded-lg border border-gray-200 px-3 py-2.5 font-mono text-sm tracking-wider placeholder:font-sans placeholder:text-xs placeholder:tracking-normal placeholder:text-gray-400 focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
+                  />
+                  <button
+                    onClick={handleSaveTracking}
+                    disabled={!trackingNumber.trim() || trackingSaving}
+                    className="rounded-lg bg-blue-600 px-4 py-2.5 text-xs font-bold text-white transition-colors hover:bg-blue-700 disabled:bg-gray-200 disabled:text-gray-400"
+                  >
+                    {trackingSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save'}
+                  </button>
+                </div>
+                {error && (
+                  <p className="mt-2 text-xs text-red-600">{error}</p>
+                )}
+                <p className="mt-2 text-[11px] text-gray-400">
+                  You can add tracking later from the audit log
+                </p>
+              </div>
+            )}
 
-      {/* Done */}
-      {step === 'success' && uploadResult && (
-        <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-          <div className="mb-5 text-center">
-            <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-green-50">
-              <CheckCircle className="h-7 w-7 text-green-600" />
-            </div>
-            <h2 className="text-lg font-semibold text-gray-900">All Done</h2>
+            {/* Primary CTA */}
+            <button
+              onClick={reset}
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-violet-600 py-4 text-sm font-bold text-white shadow-sm transition-all hover:bg-violet-700 active:scale-[0.98]"
+            >
+              <Camera className="h-5 w-5" />
+              Scan Next Package
+            </button>
           </div>
-
-          <div className="mb-5 space-y-3 rounded-xl bg-gray-50 p-4">
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-500">LifeFile ID</span>
-              <span className="font-mono font-medium text-gray-900">{uploadResult.lifefileId}</span>
-            </div>
-            {uploadResult.trackingNumber && (
-              <div className="flex items-center justify-between text-sm">
-                <span className="flex items-center gap-1.5 text-gray-500">
-                  <Truck className="h-3.5 w-3.5" />
-                  Tracking
-                </span>
-                <span className="font-mono text-xs font-medium text-gray-900">{uploadResult.trackingNumber}</span>
-              </div>
-            )}
-            {uploadResult.trackingSource && (
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-500">Tracking Source</span>
-                <span className="text-gray-700">
-                  {TRACKING_SOURCE_LABELS[uploadResult.trackingSource] || uploadResult.trackingSource}
-                </span>
-              </div>
-            )}
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-gray-500">Match Status</span>
-              {uploadResult.matched ? (
-                <span className="flex items-center gap-1.5 font-medium text-green-700">
-                  <CheckCircle className="h-3.5 w-3.5" />
-                  Matched — Linked to Patient
-                </span>
-              ) : (
-                <span className="flex items-center gap-1.5 font-medium text-amber-600">
-                  <XCircle className="h-3.5 w-3.5" />
-                  No Match Found — Stored for Search
-                </span>
-              )}
-            </div>
-            {uploadResult.orderId && (
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-500">Order</span>
-                <span className="font-medium text-gray-700">#{uploadResult.orderId}</span>
-              </div>
-            )}
-          </div>
-
-          <button
-            onClick={reset}
-            className="flex w-full items-center justify-center gap-2 rounded-lg bg-violet-600 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-violet-700"
-          >
-            <Camera className="h-5 w-5" />
-            Scan Next Package
-          </button>
         </div>
       )}
     </div>
@@ -572,7 +560,7 @@ function CaptureFlow() {
 }
 
 // ---------------------------------------------------------------------------
-// Camera Capture Component
+// Camera Capture — Portrait viewfinder with frame overlay
 // ---------------------------------------------------------------------------
 
 function CameraCapture({
@@ -590,19 +578,19 @@ function CameraCapture({
   const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment');
   const [cameraReady, setCameraReady] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
+  const [showFlash, setShowFlash] = useState(false);
 
   const startCamera = useCallback(async (facing: 'environment' | 'user') => {
     setCameraReady(false);
     setCameraError(null);
 
-    // Stop previous stream
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((t) => t.stop());
     }
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: facing, width: { ideal: 1920 }, height: { ideal: 1080 } },
+        video: { facingMode: facing, width: { ideal: 1080 }, height: { ideal: 1920 } },
         audio: false,
       });
       streamRef.current = stream;
@@ -612,17 +600,13 @@ function CameraCapture({
         setCameraReady(true);
       }
     } catch {
-      setCameraError('Unable to access camera. Please grant camera permissions and try again.');
+      setCameraError('Camera access denied. Please allow camera permissions.');
     }
   }, []);
 
   useEffect(() => {
     startCamera(facingMode);
-    return () => {
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach((t) => t.stop());
-      }
-    };
+    return () => { streamRef.current?.getTracks().forEach((t) => t.stop()); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -642,13 +626,13 @@ function CameraCapture({
     if (!ctx) return;
     ctx.drawImage(video, 0, 0);
 
+    setShowFlash(true);
+    setTimeout(() => setShowFlash(false), 200);
+
     canvas.toBlob(
       (blob) => {
         if (blob) {
-          // Stop camera after capture
-          if (streamRef.current) {
-            streamRef.current.getTracks().forEach((t) => t.stop());
-          }
+          streamRef.current?.getTracks().forEach((t) => t.stop());
           onCapture(blob);
         }
       },
@@ -658,53 +642,52 @@ function CameraCapture({
   }, [onCapture]);
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-gray-200 bg-black shadow-sm">
-      {/* Camera header bar */}
-      <div className="flex items-center justify-between bg-gray-900/90 px-4 py-3">
+    <div className="overflow-hidden rounded-2xl bg-black shadow-lg">
+      {/* Header bar */}
+      <div className="relative z-10 flex items-center justify-between bg-black/60 px-4 py-3 backdrop-blur-sm">
         <button
-          onClick={() => {
-            if (streamRef.current) streamRef.current.getTracks().forEach((t) => t.stop());
-            onCancel();
-          }}
-          className="flex items-center gap-1.5 text-sm text-gray-300 hover:text-white"
+          onClick={() => { streamRef.current?.getTracks().forEach((t) => t.stop()); onCancel(); }}
+          className="flex items-center gap-1.5 text-sm font-medium text-gray-300 transition-colors hover:text-white"
         >
-          <X className="h-4 w-4" />
-          Cancel
+          <ChevronLeft className="h-4 w-4" />
+          Back
         </button>
-        <span className="rounded-full bg-violet-600/80 px-3 py-1 font-mono text-xs font-medium text-white">
-          ID: {lifefileId}
+        <span className="rounded-full bg-violet-600/90 px-3 py-1 font-mono text-xs font-bold text-white shadow-sm">
+          {lifefileId}
         </span>
         <button
           onClick={switchCamera}
-          className="flex items-center gap-1.5 text-sm text-gray-300 hover:text-white"
+          className="flex items-center gap-1.5 text-sm text-gray-300 transition-colors hover:text-white"
         >
           <SwitchCamera className="h-4 w-4" />
-          Flip
         </button>
       </div>
 
-      {/* Video feed */}
-      <div className="relative aspect-[4/3] w-full bg-black">
+      {/* Viewfinder */}
+      <div className="relative aspect-[3/4] w-full bg-black">
         {cameraError ? (
           <div className="flex h-full flex-col items-center justify-center px-6 text-center">
-            <Camera className="mb-3 h-10 w-10 text-gray-500" />
-            <p className="text-sm text-gray-400">{cameraError}</p>
-            <button
-              onClick={() => startCamera(facingMode)}
-              className="mt-3 text-sm font-medium text-violet-400 hover:text-violet-300"
-            >
+            <Camera className="mb-3 h-12 w-12 text-gray-600" />
+            <p className="mb-3 text-sm text-gray-400">{cameraError}</p>
+            <button onClick={() => startCamera(facingMode)} className="text-sm font-semibold text-violet-400 hover:text-violet-300">
               Try Again
             </button>
           </div>
         ) : (
           <>
-            <video
-              ref={videoRef}
-              autoPlay
-              playsInline
-              muted
-              className="h-full w-full object-cover"
-            />
+            <video ref={videoRef} autoPlay playsInline muted className="h-full w-full object-cover" />
+
+            {/* Frame corner marks */}
+            <div className="pointer-events-none absolute inset-0">
+              <div className="absolute left-[10%] top-[6%] h-10 w-10 border-l-[3px] border-t-[3px] border-white/40 rounded-tl-xl" />
+              <div className="absolute right-[10%] top-[6%] h-10 w-10 border-r-[3px] border-t-[3px] border-white/40 rounded-tr-xl" />
+              <div className="absolute bottom-[6%] left-[10%] h-10 w-10 border-b-[3px] border-l-[3px] border-white/40 rounded-bl-xl" />
+              <div className="absolute bottom-[6%] right-[10%] h-10 w-10 border-b-[3px] border-r-[3px] border-white/40 rounded-br-xl" />
+            </div>
+
+            {/* Flash overlay */}
+            <div className={`pointer-events-none absolute inset-0 bg-white transition-opacity duration-200 ${showFlash ? 'opacity-70' : 'opacity-0'}`} />
+
             {!cameraReady && (
               <div className="absolute inset-0 flex items-center justify-center bg-black/60">
                 <Loader2 className="h-8 w-8 animate-spin text-white" />
@@ -715,14 +698,14 @@ function CameraCapture({
       </div>
 
       {/* Capture button */}
-      <div className="flex items-center justify-center bg-gray-900/90 py-5">
+      <div className="flex items-center justify-center bg-black/60 py-6 backdrop-blur-sm">
         <button
           onClick={capturePhoto}
           disabled={!cameraReady}
-          className="flex h-16 w-16 items-center justify-center rounded-full border-4 border-white bg-white/20 transition-transform hover:scale-105 active:scale-95 disabled:opacity-50"
+          className="flex h-20 w-20 items-center justify-center rounded-full border-[5px] border-white/80 shadow-lg transition-transform hover:scale-105 active:scale-90 disabled:opacity-40"
           aria-label="Capture photo"
         >
-          <div className="h-12 w-12 rounded-full bg-white" />
+          <div className="h-[60px] w-[60px] rounded-full bg-white" />
         </button>
       </div>
 
@@ -732,46 +715,65 @@ function CameraCapture({
 }
 
 // ---------------------------------------------------------------------------
-// Photo Gallery — Search & browse all package photos
+// Audit Log — Stats + Table + Detail Modal
 // ---------------------------------------------------------------------------
 
-function PhotoGallery() {
+function AuditLog() {
   const [photos, setPhotos] = useState<PackagePhotoRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [matchFilter, setMatchFilter] = useState<'all' | 'true' | 'false'>('all');
+  const [periodFilter, setPeriodFilter] = useState<'all' | 'today' | 'week' | 'month'>('all');
+  const [sortBy, setSortBy] = useState<'createdAt' | 'lifefileId'>('createdAt');
+  const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
   const [selectedPhoto, setSelectedPhoto] = useState<PackagePhotoRecord | null>(null);
+  const [stats, setStats] = useState<AuditStats | null>(null);
   const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const fetchPhotos = useCallback(async (searchVal: string, matchVal: string, pageVal: number) => {
-    setLoading(true);
+  const fetchStats = useCallback(async () => {
     try {
-      const params = new URLSearchParams();
-      if (searchVal) params.set('search', searchVal);
-      if (matchVal !== 'all') params.set('matched', matchVal);
-      params.set('page', String(pageVal));
-      params.set('limit', '20');
-
-      const res = await apiFetch(`/api/package-photos?${params.toString()}`);
+      const res = await apiFetch('/api/package-photos?stats=true');
       if (res.ok) {
         const json = await res.json();
-        setPhotos(json.data);
-        setTotalPages(json.meta.totalPages);
-        setTotal(json.meta.total);
+        setStats(json.data);
       }
-    } catch {
-      // Error handled silently; photos remain empty
-    } finally {
-      setLoading(false);
-    }
+    } catch { /* non-critical */ }
   }, []);
 
+  const fetchPhotos = useCallback(
+    async (searchVal: string, matchVal: string, periodVal: string, sortByVal: string, sortOrderVal: string, pageVal: number) => {
+      setLoading(true);
+      try {
+        const params = new URLSearchParams();
+        if (searchVal) params.set('search', searchVal);
+        if (matchVal !== 'all') params.set('matched', matchVal);
+        if (periodVal !== 'all') params.set('period', periodVal);
+        params.set('sortBy', sortByVal);
+        params.set('sortOrder', sortOrderVal);
+        params.set('page', String(pageVal));
+        params.set('limit', '20');
+
+        const res = await apiFetch(`/api/package-photos?${params.toString()}`);
+        if (res.ok) {
+          const json = await res.json();
+          setPhotos(json.data);
+          setTotalPages(json.meta.totalPages);
+          setTotal(json.meta.total);
+        }
+      } catch { /* silent */ }
+      finally { setLoading(false); }
+    },
+    [],
+  );
+
+  useEffect(() => { fetchStats(); }, [fetchStats]);
+
   useEffect(() => {
-    fetchPhotos(search, matchFilter, page);
-  }, [fetchPhotos, matchFilter, page]); // eslint-disable-line react-hooks/exhaustive-deps
+    fetchPhotos(search, matchFilter, periodFilter, sortBy, sortOrder, page);
+  }, [fetchPhotos, matchFilter, periodFilter, sortBy, sortOrder, page]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSearchChange = useCallback(
     (value: string) => {
@@ -779,162 +781,263 @@ function PhotoGallery() {
       if (searchTimeout.current) clearTimeout(searchTimeout.current);
       searchTimeout.current = setTimeout(() => {
         setPage(1);
-        fetchPhotos(value, matchFilter, 1);
-      }, 400);
+        fetchPhotos(value, matchFilter, periodFilter, sortBy, sortOrder, 1);
+      }, 350);
     },
-    [fetchPhotos, matchFilter],
+    [fetchPhotos, matchFilter, periodFilter, sortBy, sortOrder],
   );
+
+  const toggleSort = (col: 'createdAt' | 'lifefileId') => {
+    if (sortBy === col) {
+      setSortOrder((o) => (o === 'desc' ? 'asc' : 'desc'));
+    } else {
+      setSortBy(col);
+      setSortOrder('desc');
+    }
+    setPage(1);
+  };
 
   return (
     <div>
+      {/* Stats banner */}
+      {stats && (
+        <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div className="rounded-xl border border-gray-200 bg-white px-4 py-3">
+            <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+              <Camera className="h-3.5 w-3.5" /> Today
+            </p>
+            <p className="mt-1 text-2xl font-bold text-gray-900">{stats.today}</p>
+          </div>
+          <div className="rounded-xl border border-gray-200 bg-white px-4 py-3">
+            <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+              <Calendar className="h-3.5 w-3.5" /> This Week
+            </p>
+            <p className="mt-1 text-2xl font-bold text-gray-900">{stats.thisWeek}</p>
+          </div>
+          <div className="rounded-xl border border-gray-200 bg-white px-4 py-3">
+            <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+              <CheckCircle className="h-3.5 w-3.5" /> Match Rate
+            </p>
+            <p className="mt-1 text-2xl font-bold text-emerald-600">{stats.matchRate}%</p>
+          </div>
+          <div className="rounded-xl border border-gray-200 bg-white px-4 py-3">
+            <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+              <XCircle className="h-3.5 w-3.5" /> Unmatched
+            </p>
+            <p className="mt-1 text-2xl font-bold text-amber-600">{stats.unmatched}</p>
+          </div>
+        </div>
+      )}
+
       {/* Search + Filters */}
-      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center">
+      <div className="mb-4 flex flex-col gap-2.5 sm:flex-row sm:items-center">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
           <input
             type="text"
             value={search}
             onChange={(e) => handleSearchChange(e.target.value)}
-            placeholder="Search by LifeFile ID or tracking number..."
-            className="w-full rounded-lg border border-gray-300 py-2.5 pl-10 pr-4 text-sm placeholder:text-gray-400 focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
+            placeholder="Search by LifeFile ID, tracking, or patient..."
+            className="w-full rounded-lg border border-gray-200 bg-white py-2.5 pl-10 pr-4 text-sm placeholder:text-gray-400 focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
           />
         </div>
-        <div className="flex items-center gap-2">
-          <Filter className="h-4 w-4 text-gray-400" />
+        <div className="flex gap-2">
           <select
             value={matchFilter}
-            onChange={(e) => {
-              setMatchFilter(e.target.value as 'all' | 'true' | 'false');
-              setPage(1);
-            }}
-            className="rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-700 focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
+            onChange={(e) => { setMatchFilter(e.target.value as 'all' | 'true' | 'false'); setPage(1); }}
+            className="rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-xs font-medium text-gray-700 focus:border-violet-500 focus:outline-none"
           >
-            <option value="all">All Photos</option>
-            <option value="true">Matched Only</option>
-            <option value="false">Unmatched Only</option>
+            <option value="all">All Status</option>
+            <option value="true">Matched</option>
+            <option value="false">Unmatched</option>
+          </select>
+          <select
+            value={periodFilter}
+            onChange={(e) => { setPeriodFilter(e.target.value as 'all' | 'today' | 'week' | 'month'); setPage(1); }}
+            className="rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-xs font-medium text-gray-700 focus:border-violet-500 focus:outline-none"
+          >
+            <option value="all">All Time</option>
+            <option value="today">Today</option>
+            <option value="week">This Week</option>
+            <option value="month">This Month</option>
           </select>
         </div>
       </div>
 
       {/* Results count */}
-      <div className="mb-4 text-sm text-gray-500">
-        {loading ? 'Loading...' : `${total} photo${total !== 1 ? 's' : ''} found`}
+      <div className="mb-3 text-xs font-medium text-gray-400">
+        {loading ? 'Loading...' : `${total} record${total !== 1 ? 's' : ''}`}
       </div>
 
-      {/* Photo grid */}
-      {loading ? (
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-          {Array.from({ length: 8 }).map((_, i) => (
-            <div key={i} className="animate-pulse rounded-xl border border-gray-200 bg-white p-3">
-              <div className="mb-3 aspect-square rounded-lg bg-gray-200" />
-              <div className="mb-2 h-4 w-2/3 rounded bg-gray-200" />
-              <div className="h-3 w-1/2 rounded bg-gray-200" />
-            </div>
-          ))}
-        </div>
-      ) : photos.length === 0 ? (
-        <div className="rounded-2xl border border-gray-200 bg-white py-16 text-center">
-          <ImageIcon className="mx-auto mb-3 h-10 w-10 text-gray-300" />
-          <p className="text-sm font-medium text-gray-500">No package photos found</p>
-          <p className="mt-1 text-xs text-gray-400">
-            {search ? 'Try a different LifeFile ID' : 'Photos will appear here after capture'}
-          </p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-          {photos.map((photo) => (
-            <button
-              key={photo.id}
-              onClick={() => setSelectedPhoto(photo)}
-              className="group rounded-xl border border-gray-200 bg-white p-3 text-left transition-shadow hover:shadow-md"
-            >
-              <div className="relative mb-3 aspect-square overflow-hidden rounded-lg bg-gray-100">
-                {photo.s3Url ? (
-                  /* eslint-disable-next-line @next/next/no-img-element */
-                  <img
-                    src={photo.s3Url}
-                    alt={`Package ${photo.lifefileId}`}
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  <div className="flex h-full items-center justify-center">
-                    <ImageIcon className="h-8 w-8 text-gray-300" />
-                  </div>
-                )}
-                <div className="absolute right-1.5 top-1.5">
-                  {photo.matched ? (
-                    <span className="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-medium text-green-700">
-                      <CheckCircle className="mr-0.5 h-3 w-3" />
-                      Matched
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-700">
-                      Unmatched
-                    </span>
-                  )}
+      {/* Table */}
+      <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+        {loading ? (
+          <div className="divide-y divide-gray-100">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="flex animate-pulse items-center gap-4 px-4 py-3">
+                <div className="h-12 w-12 rounded-lg bg-gray-100" />
+                <div className="flex-1 space-y-2">
+                  <div className="h-4 w-24 rounded bg-gray-100" />
+                  <div className="h-3 w-36 rounded bg-gray-100" />
                 </div>
               </div>
-              <p className="font-mono text-sm font-semibold text-gray-900">{photo.lifefileId}</p>
-              {photo.trackingNumber && (
-                <p className="mt-0.5 flex items-center gap-1 truncate font-mono text-[11px] text-blue-600">
-                  <Truck className="h-3 w-3 flex-shrink-0" />
-                  {photo.trackingNumber}
-                </p>
-              )}
-              <p className="mt-0.5 text-xs text-gray-500">
-                {new Date(photo.createdAt).toLocaleDateString(undefined, {
-                  month: 'short',
-                  day: 'numeric',
-                  hour: 'numeric',
-                  minute: '2-digit',
-                })}
-              </p>
-              <p className="mt-0.5 truncate text-xs text-gray-400">
-                by {photo.capturedBy.firstName} {photo.capturedBy.lastName}
-              </p>
-            </button>
-          ))}
-        </div>
-      )}
+            ))}
+          </div>
+        ) : photos.length === 0 ? (
+          <div className="py-20 text-center">
+            <ImageIcon className="mx-auto mb-3 h-10 w-10 text-gray-200" />
+            <p className="text-sm font-medium text-gray-400">No records found</p>
+            <p className="mt-1 text-xs text-gray-300">
+              {search ? 'Try a different search term' : 'Package photos will appear here after capture'}
+            </p>
+          </div>
+        ) : (
+          <>
+            {/* Column headers (desktop) */}
+            <div className="hidden border-b border-gray-100 bg-gray-50/50 px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-gray-400 md:flex md:items-center md:gap-4">
+              <div className="w-12" />
+              <button onClick={() => toggleSort('lifefileId')} className="flex w-28 items-center gap-1 hover:text-gray-600">
+                LifeFile ID <ArrowUpDown className="h-3 w-3" />
+              </button>
+              <button onClick={() => toggleSort('createdAt')} className="flex w-40 items-center gap-1 hover:text-gray-600">
+                Date & Time <ArrowUpDown className="h-3 w-3" />
+              </button>
+              <div className="w-28">Rep</div>
+              <div className="flex-1">Tracking</div>
+              <div className="w-24 text-right">Status</div>
+            </div>
+
+            {/* Rows */}
+            <div className="divide-y divide-gray-100">
+              {photos.map((photo) => (
+                <button
+                  key={photo.id}
+                  onClick={() => setSelectedPhoto(photo)}
+                  className="flex w-full items-center gap-4 px-4 py-3 text-left transition-colors hover:bg-violet-50/30"
+                >
+                  {/* Thumbnail */}
+                  <div className="h-12 w-12 flex-shrink-0 overflow-hidden rounded-lg bg-gray-100">
+                    {photo.s3Url ? (
+                      /* eslint-disable-next-line @next/next/no-img-element */
+                      <img src={photo.s3Url} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center">
+                        <ImageIcon className="h-5 w-5 text-gray-300" />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Mobile: stacked layout */}
+                  <div className="min-w-0 flex-1 md:hidden">
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono text-sm font-bold text-gray-900">{photo.lifefileId}</span>
+                      {photo.matched ? (
+                        <span className="inline-flex items-center gap-0.5 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
+                          <CheckCircle className="h-3 w-3" /> Matched
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
+                          Unmatched
+                        </span>
+                      )}
+                    </div>
+                    <div className="mt-0.5 flex items-center gap-2 text-[11px] text-gray-400">
+                      <span>{relativeTime(photo.createdAt)}</span>
+                      <span>&middot;</span>
+                      <span>{photo.capturedBy.firstName} {photo.capturedBy.lastName[0]}.</span>
+                      {photo.trackingNumber && (
+                        <>
+                          <span>&middot;</span>
+                          <span className="flex items-center gap-0.5 font-mono text-blue-600">
+                            <Truck className="h-3 w-3" />
+                            {photo.trackingNumber.slice(0, 12)}{photo.trackingNumber.length > 12 ? '...' : ''}
+                          </span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Desktop: table columns */}
+                  <div className="hidden w-28 md:block">
+                    <span className="font-mono text-sm font-bold text-gray-900">{photo.lifefileId}</span>
+                  </div>
+                  <div className="hidden w-40 md:block">
+                    <p className="text-sm text-gray-700">
+                      {new Date(photo.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+                    </p>
+                    <p className="text-[11px] text-gray-400">{relativeTime(photo.createdAt)}</p>
+                  </div>
+                  <div className="hidden w-28 md:block">
+                    <p className="truncate text-sm text-gray-700">{photo.capturedBy.firstName} {photo.capturedBy.lastName[0]}.</p>
+                  </div>
+                  <div className="hidden min-w-0 flex-1 md:block">
+                    {photo.trackingNumber ? (
+                      <span className="flex items-center gap-1 font-mono text-xs text-blue-600">
+                        <Truck className="h-3 w-3 flex-shrink-0" />
+                        <span className="truncate">{photo.trackingNumber}</span>
+                      </span>
+                    ) : (
+                      <span className="text-xs text-gray-300">&mdash;</span>
+                    )}
+                  </div>
+                  <div className="hidden w-24 text-right md:block">
+                    {photo.matched ? (
+                      <span className="inline-flex items-center gap-0.5 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
+                        <CheckCircle className="h-3 w-3" /> Matched
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
+                        Unmatched
+                      </span>
+                    )}
+                  </div>
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div className="mt-6 flex items-center justify-center gap-4">
-          <button
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-            disabled={page === 1}
-            className="flex items-center gap-1 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-          >
-            <ChevronLeft className="h-4 w-4" />
-            Prev
-          </button>
-          <span className="text-sm text-gray-600">
+        <div className="mt-4 flex items-center justify-between">
+          <span className="text-xs text-gray-400">
             Page {page} of {totalPages}
           </span>
-          <button
-            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-            disabled={page === totalPages}
-            className="flex items-center gap-1 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-          >
-            Next
-            <ChevronRight className="h-4 w-4" />
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page === 1}
+              className="inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-40"
+            >
+              <ChevronLeft className="h-3.5 w-3.5" />
+              Prev
+            </button>
+            <button
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={page === totalPages}
+              className="inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-40"
+            >
+              Next
+              <ChevronRight className="h-3.5 w-3.5" />
+            </button>
+          </div>
         </div>
       )}
 
-      {/* Photo Detail Modal */}
+      {/* Detail modal */}
       {selectedPhoto && (
-        <PhotoDetailModal photo={selectedPhoto} onClose={() => setSelectedPhoto(null)} />
+        <AuditDetailModal photo={selectedPhoto} onClose={() => setSelectedPhoto(null)} />
       )}
     </div>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Photo Detail Modal
+// Audit Detail Modal — Full audit card
 // ---------------------------------------------------------------------------
 
-function PhotoDetailModal({
+function AuditDetailModal({
   photo,
   onClose,
 }: {
@@ -942,129 +1045,166 @@ function PhotoDetailModal({
   onClose: () => void;
 }) {
   useEffect(() => {
-    const handleEsc = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
+    const handleEsc = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     document.addEventListener('keydown', handleEsc);
     return () => document.removeEventListener('keydown', handleEsc);
   }, [onClose]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-4" onClick={onClose}>
       <div
-        className="w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-xl"
+        className="w-full max-w-lg overflow-hidden rounded-t-2xl bg-white shadow-2xl sm:max-h-[90vh] sm:overflow-y-auto sm:rounded-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
-          <div className="flex items-center gap-3">
-            <span className="rounded-full bg-violet-100 px-3 py-1 font-mono text-sm font-medium text-violet-700">
-              ID: {photo.lifefileId}
-            </span>
-            {photo.matched ? (
-              <span className="inline-flex items-center gap-1 text-xs font-medium text-green-700">
-                <CheckCircle className="h-3.5 w-3.5" />
-                Matched
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-600">
-                <XCircle className="h-3.5 w-3.5" />
-                Unmatched
-              </span>
-            )}
+        {/* Photo with metadata stamp */}
+        <div className="relative bg-gray-900">
+          {photo.s3Url ? (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img src={photo.s3Url} alt={`Package ${photo.lifefileId}`} className="w-full" />
+          ) : (
+            <div className="flex aspect-video items-center justify-center bg-gray-800">
+              <ImageIcon className="h-12 w-12 text-gray-600" />
+            </div>
+          )}
+          {/* Metadata stamp overlay */}
+          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent px-4 pb-3 pt-12">
+            <div className="flex items-end justify-between text-white">
+              <div>
+                <p className="font-mono text-lg font-bold">{photo.lifefileId}</p>
+                <p className="text-[11px] opacity-75">
+                  {photo.capturedBy.firstName} {photo.capturedBy.lastName}
+                </p>
+              </div>
+              <p className="text-[11px] opacity-75">
+                {new Date(photo.createdAt).toLocaleDateString(undefined, {
+                  month: 'short',
+                  day: 'numeric',
+                  hour: 'numeric',
+                  minute: '2-digit',
+                })}
+              </p>
+            </div>
           </div>
-          <button onClick={onClose} className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600">
+
+          {/* Close button */}
+          <button
+            onClick={onClose}
+            className="absolute right-3 top-3 rounded-full bg-black/40 p-1.5 text-white/80 backdrop-blur-sm transition-colors hover:bg-black/60 hover:text-white"
+          >
             <X className="h-5 w-5" />
           </button>
         </div>
 
-        {/* Photo */}
-        <div className="bg-gray-50 px-5 py-4">
-          {photo.s3Url ? (
-            /* eslint-disable-next-line @next/next/no-img-element */
-            <img
-              src={photo.s3Url}
-              alt={`Package ${photo.lifefileId}`}
-              className="w-full rounded-xl"
-            />
-          ) : (
-            <div className="flex aspect-video items-center justify-center rounded-xl bg-gray-200">
-              <ImageIcon className="h-10 w-10 text-gray-400" />
-            </div>
-          )}
-        </div>
-
         {/* Details */}
-        <div className="space-y-3 px-5 py-4">
-          {/* Tracking — prominent display */}
+        <div className="p-5">
+          {/* Status bar */}
+          <div className="mb-4 flex items-center justify-between">
+            {photo.matched ? (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
+                <CheckCircle className="h-3.5 w-3.5" />
+                Matched to Patient
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700">
+                <XCircle className="h-3.5 w-3.5" />
+                Unmatched — Stored for Search
+              </span>
+            )}
+            <span className="text-xs text-gray-400">#{photo.id}</span>
+          </div>
+
+          {/* Tracking */}
           {photo.trackingNumber && (
-            <div className="flex items-center justify-between rounded-lg bg-blue-50 px-3 py-2.5 text-sm">
-              <span className="flex items-center gap-1.5 font-medium text-blue-700">
+            <div className="mb-4 flex items-center justify-between rounded-xl bg-blue-50 px-4 py-3">
+              <span className="flex items-center gap-1.5 text-xs font-semibold text-blue-700">
                 <Truck className="h-4 w-4" />
-                Tracking
+                {TRACKING_SOURCE_LABELS[photo.trackingSource || ''] || 'Tracking'}
               </span>
-              <span className="font-mono text-xs font-semibold text-blue-900">{photo.trackingNumber}</span>
+              <span className="flex items-center font-mono text-xs font-bold text-blue-900">
+                {photo.trackingNumber}
+                <CopyButton text={photo.trackingNumber} />
+              </span>
             </div>
           )}
-          {photo.trackingSource && (
+
+          {/* Audit fields */}
+          <div className="space-y-3">
+            {/* Chain of custody */}
+            <div className="rounded-xl bg-gray-50 p-4">
+              <p className="mb-1 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+                <Shield className="h-3 w-3" /> Chain of Custody
+              </p>
+              <p className="text-sm text-gray-900">
+                Captured by <span className="font-semibold">{photo.capturedBy.firstName} {photo.capturedBy.lastName}</span>
+              </p>
+              <p className="flex items-center gap-1.5 text-xs text-gray-500">
+                <Clock className="h-3 w-3" />
+                {formatTimestamp(photo.createdAt)}
+              </p>
+            </div>
+
+            {/* LifeFile ID */}
             <div className="flex items-center justify-between text-sm">
-              <span className="text-gray-500">Tracking Source</span>
-              <span className="text-gray-900">
-                {TRACKING_SOURCE_LABELS[photo.trackingSource] || photo.trackingSource}
+              <span className="text-gray-500">LifeFile ID</span>
+              <span className="flex items-center font-mono font-bold text-gray-900">
+                {photo.lifefileId}
+                <CopyButton text={photo.lifefileId} />
               </span>
             </div>
-          )}
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-gray-500">Captured by</span>
-            <span className="flex items-center gap-1.5 font-medium text-gray-900">
-              <User className="h-3.5 w-3.5 text-gray-400" />
-              {photo.capturedBy.firstName} {photo.capturedBy.lastName}
-            </span>
+
+            {/* Patient */}
+            {photo.patient && (
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-500">Patient</span>
+                <span className="flex items-center gap-1.5 font-medium text-gray-900">
+                  <User className="h-3.5 w-3.5 text-gray-400" />
+                  {photo.patient.firstName} {photo.patient.lastName}
+                </span>
+              </div>
+            )}
+
+            {/* Order */}
+            {photo.order && (
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-500">Order</span>
+                <span className="font-medium text-gray-900">
+                  #{photo.order.id}
+                  {photo.order.lifefileOrderId && (
+                    <span className="ml-1 text-xs text-gray-400">(LF: {photo.order.lifefileOrderId})</span>
+                  )}
+                </span>
+              </div>
+            )}
+
+            {/* Match strategy */}
+            {photo.matchStrategy && (
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-500">Matched via</span>
+                <span className="text-gray-700">
+                  {photo.matchStrategy === 'lifefileOrderId' ? 'LifeFile Order ID' : 'Patient LifeFile ID'}
+                </span>
+              </div>
+            )}
+
+            {/* Notes */}
+            {photo.notes && (
+              <div className="text-sm">
+                <span className="text-gray-500">Notes</span>
+                <p className="mt-1 rounded-lg bg-gray-50 px-3 py-2 text-gray-900">{photo.notes}</p>
+              </div>
+            )}
+
+            {/* Patient profile link */}
+            {photo.patient && (
+              <a
+                href={`/patients/${photo.patient.id}`}
+                className="mt-2 flex items-center justify-center gap-1.5 rounded-xl border border-violet-200 bg-violet-50 py-2.5 text-xs font-semibold text-violet-700 transition-colors hover:bg-violet-100"
+              >
+                <ExternalLink className="h-3.5 w-3.5" />
+                View Patient Profile
+              </a>
+            )}
           </div>
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-gray-500">Date &amp; Time</span>
-            <span className="text-gray-900">
-              {new Date(photo.createdAt).toLocaleDateString(undefined, {
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric',
-                hour: 'numeric',
-                minute: '2-digit',
-                second: '2-digit',
-              })}
-            </span>
-          </div>
-          {photo.patient && (
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-gray-500">Patient</span>
-              <span className="font-medium text-gray-900">
-                {photo.patient.firstName} {photo.patient.lastName}
-              </span>
-            </div>
-          )}
-          {photo.order && (
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-gray-500">Order</span>
-              <span className="text-gray-900">
-                #{photo.order.id}
-                {photo.order.lifefileOrderId && ` (Lifefile: ${photo.order.lifefileOrderId})`}
-              </span>
-            </div>
-          )}
-          {photo.matchStrategy && (
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-gray-500">Matched via</span>
-              <span className="text-gray-900">
-                {photo.matchStrategy === 'lifefileOrderId' ? 'LifeFile Order ID' : 'Patient LifeFile ID'}
-              </span>
-            </div>
-          )}
-          {photo.notes && (
-            <div className="text-sm">
-              <span className="text-gray-500">Notes</span>
-              <p className="mt-1 text-gray-900">{photo.notes}</p>
-            </div>
-          )}
         </div>
       </div>
     </div>

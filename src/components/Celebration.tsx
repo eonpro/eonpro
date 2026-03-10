@@ -17,6 +17,8 @@ interface ConfettiPiece {
   color: string;
   size: number;
   velocity: { x: number; y: number };
+  animDuration: number;
+  animDelay: number;
 }
 
 /**
@@ -58,6 +60,8 @@ export function Confetti({
           x: (Math.random() - 0.5) * 4,
           y: 2 + Math.random() * 3,
         },
+        animDuration: 2 + Math.random(),
+        animDelay: Math.random() * 0.5,
       });
     }
     setPieces(newPieces);
@@ -86,8 +90,8 @@ export function Confetti({
             height: piece.size * 0.6,
             backgroundColor: piece.color,
             transform: `rotate(${piece.rotation}deg)`,
-            animation: `confetti-fall ${2 + Math.random()}s linear forwards`,
-            animationDelay: `${Math.random() * 0.5}s`,
+            animation: `confetti-fall ${piece.animDuration}s linear forwards`,
+            animationDelay: `${piece.animDelay}s`,
           }}
         />
       ))}

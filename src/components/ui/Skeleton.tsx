@@ -236,11 +236,11 @@ export function ChartSkeleton({ type = 'bar', height = 300, className }: ChartSk
       <div className="relative h-[calc(100%-60px)]">
         {type === 'bar' && (
           <div className="flex h-full items-end justify-around gap-2">
-            {Array.from({ length: 7 }).map((_, i) => (
+            {[65, 45, 80, 55, 70, 40, 75].map((h, i) => (
               <Skeleton
                 key={i}
                 className="flex-1 rounded-t"
-                style={{ height: `${30 + Math.random() * 60}%` }}
+                style={{ height: `${h}%` }}
               />
             ))}
           </div>

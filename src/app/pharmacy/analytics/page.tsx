@@ -18,6 +18,8 @@ interface Analytics {
 export default function PharmacyAnalyticsPage() {
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
   const [loading, setLoading] = useState(true);
+  const [origin, setOrigin] = useState('');
+  useEffect(() => { setOrigin(window.location.origin); }, []);
 
   useEffect(() => {
     fetchAnalytics();
@@ -123,8 +125,7 @@ export default function PharmacyAnalyticsPage() {
         <div className="rounded bg-white p-4 font-mono text-xs">
           <p className="mb-2 font-semibold">Webhook Endpoint:</p>
           <code className="block rounded bg-gray-100 p-2">
-            {typeof window !== 'undefined' ? window.location.origin : ''}
-            /api/webhooks/lifefile/prescription-status
+            {origin}/api/webhooks/lifefile/prescription-status
           </code>
         </div>
       </div>

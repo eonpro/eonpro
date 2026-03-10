@@ -49,6 +49,10 @@ import { apiFetch } from '@/lib/api/fetch';
 import { EONPRO_LOGO, EONPRO_ICON } from '@/lib/constants/brand-assets';
 import { safeParseJsonString } from '@/lib/utils/safe-json';
 
+const LOGOSRX_LOGO = 'https://static.wixstatic.com/shapes/c49a9b_ed88aadf7f9b426f990b60e1965c329b.svg';
+const LOGOSRX_ICON = 'https://static.wixstatic.com/shapes/c49a9b_70a8d7f88d384ab9956055674c2632a7.svg';
+const LOGOSRX_PRIMARY = '#7C3AED';
+
 // Error Boundary to catch and recover from React errors
 interface ErrorBoundaryState {
   hasError: boolean;
@@ -160,13 +164,22 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
   const [switching, setSwitching] = useState(false);
 
   const isPharmacyRep = userRole === 'pharmacy_rep';
+  const [isLogosRxHost, setIsLogosRxHost] = useState(false);
 
-  // Pharmacy reps use the violet theme; other roles use clinic branding
-  const primaryColor = isPharmacyRep ? '#7C3AED' : (branding?.primaryColor || '#4fa77e');
-  const clinicLogo = branding?.logoUrl || EONPRO_LOGO;
-  const clinicIcon = branding?.iconUrl || EONPRO_ICON;
-  const clinicName = branding?.clinicName || 'EONPRO';
-  const isWhiteLabeled = branding?.clinicName && branding.clinicName !== 'EONPRO';
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setIsLogosRxHost(window.location.hostname.toLowerCase() === 'logosrx.eonpro.io');
+    }
+  }, []);
+
+  const isPharmacyExperience = isPharmacyRep || isLogosRxHost;
+
+  // LogosRx pharmacy reps always see LogosRx branding, regardless of active clinic
+  const primaryColor = isPharmacyExperience ? LOGOSRX_PRIMARY : (branding?.primaryColor || '#4fa77e');
+  const clinicLogo = isPharmacyExperience ? LOGOSRX_LOGO : (branding?.logoUrl || EONPRO_LOGO);
+  const clinicIcon = isPharmacyExperience ? LOGOSRX_ICON : (branding?.iconUrl || EONPRO_ICON);
+  const clinicName = isPharmacyExperience ? 'LogosRx' : (branding?.clinicName || 'EONPRO');
+  const isWhiteLabeled = isPharmacyExperience || (branding?.clinicName && branding.clinicName !== 'EONPRO');
 
   // Fetch user's clinic assignments
   const fetchUserClinics = async () => {

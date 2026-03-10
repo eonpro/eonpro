@@ -36,6 +36,8 @@ export default function SalesRepLinksPage() {
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState('');
   const [createError, setCreateError] = useState<string | null>(null);
+  const [clientOrigin, setClientOrigin] = useState('');
+  useEffect(() => { setClientOrigin(window.location.origin); }, []);
 
   const fetchLinks = useCallback(async () => {
     try {
@@ -58,7 +60,7 @@ export default function SalesRepLinksPage() {
   }, [fetchLinks]);
 
   const copyLink = async (code: string, id: string) => {
-    const base = data?.baseUrl || (typeof window !== 'undefined' ? window.location.origin : '');
+    const base = data?.baseUrl || clientOrigin;
     const url = `${base}/intake?rep=${encodeURIComponent(code)}`;
     try {
       await navigator.clipboard.writeText(url);
@@ -112,7 +114,7 @@ export default function SalesRepLinksPage() {
   }
 
   const refCodes = data?.refCodes ?? [];
-  const baseUrl = data?.baseUrl || (typeof window !== 'undefined' ? window.location.origin : '');
+  const baseUrl = data?.baseUrl || clientOrigin;
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-6">

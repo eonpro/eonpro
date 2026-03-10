@@ -24,9 +24,10 @@ import { normalizedIncludes } from '@/lib/utils/search';
 // Landing Page URL Builder — resolved per clinic from the current hostname
 // ============================================================================
 
-function buildLandingPageUrl(refCode: string): string {
-  const origin = typeof window !== 'undefined' ? window.location.origin : '';
-  return `${origin}/affiliate/${encodeURIComponent(refCode)}`;
+function useLandingPageUrl() {
+  const [origin, setOrigin] = useState('');
+  useEffect(() => { setOrigin(window.location.origin); }, []);
+  return (refCode: string) => `${origin}/affiliate/${encodeURIComponent(refCode)}`;
 }
 
 interface Affiliate {
@@ -93,6 +94,7 @@ function formatPercent(bps: number): string {
 }
 
 export default function AdminAffiliatesPage() {
+  const buildLandingPageUrl = useLandingPageUrl();
   const [affiliates, setAffiliates] = useState<Affiliate[]>([]);
   const [plans, setPlans] = useState<CommissionPlan[]>([]);
   const [loading, setLoading] = useState(true);

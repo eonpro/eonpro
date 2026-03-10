@@ -99,7 +99,7 @@ function HomePageInner() {
   const [loading, setLoading] = useState(true);
   const [userData, setUserData] = useState<any>(null);
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
-  const [currentTime, setCurrentTime] = useState(new Date());
+  const [currentTime, setCurrentTime] = useState<Date | null>(null);
   const [systemStatus] = useState<'healthy' | 'warning' | 'error'>('healthy');
   const [searchQuery, setSearchQuery] = useState('');
   const [recentIntakes, setRecentIntakes] = useState<PatientIntake[]>([]);
@@ -129,6 +129,7 @@ function HomePageInner() {
   const isWhiteLabeled = branding?.clinicName && branding.clinicName !== 'EONPRO';
 
   useEffect(() => {
+    setCurrentTime(new Date());
     const timer = setInterval(() => setCurrentTime(new Date()), 60000);
     return () => clearInterval(timer);
   }, []);
@@ -601,17 +602,17 @@ function HomePageInner() {
                   SYSTEM: {systemStatus.toUpperCase()}
                 </span>
               </div>
-              <p className="text-sm text-gray-800">
-                {currentTime.toLocaleDateString('en-US', {
+              <p className="text-sm text-gray-800" suppressHydrationWarning>
+                {currentTime?.toLocaleDateString('en-US', {
                   weekday: 'long',
                   month: 'long',
                   day: 'numeric',
-                })}
+                }) ?? '\u00A0'}
               </p>
-              <p className="text-sm text-gray-600">
+              <p className="text-sm text-gray-600" suppressHydrationWarning>
                 {currentTime
-                  .toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
-                  .toLowerCase()}
+                  ?.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
+                  .toLowerCase() ?? '\u00A0'}
               </p>
             </div>
 

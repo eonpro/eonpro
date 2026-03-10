@@ -58,11 +58,11 @@ export default function AdminDashboard({ userName }: AdminDashboardProps) {
   const [loading, setLoading] = useState(true);
   const [displayName, setDisplayName] = useState(userName || 'there');
   const [searchQuery, setSearchQuery] = useState('');
-  const [currentTime, setCurrentTime] = useState(new Date());
+  const [currentTime, setCurrentTime] = useState<Date | null>(null);
   const [systemStatus, setSystemStatus] = useState<'healthy' | 'warning' | 'error'>('healthy');
 
-  // Update time every minute
   useEffect(() => {
+    setCurrentTime(new Date());
     const timer = setInterval(() => setCurrentTime(new Date()), 60000);
     return () => clearInterval(timer);
   }, []);
@@ -179,17 +179,17 @@ export default function AdminDashboard({ userName }: AdminDashboardProps) {
           </div>
 
           {/* Date and Time - Same font size */}
-          <p className="text-sm text-gray-800">
-            {currentTime.toLocaleDateString('en-US', {
+          <p className="text-sm text-gray-800" suppressHydrationWarning>
+            {currentTime?.toLocaleDateString('en-US', {
               weekday: 'long',
               month: 'long',
               day: 'numeric',
-            })}
+            }) ?? '\u00A0'}
           </p>
-          <p className="text-sm text-gray-600">
+          <p className="text-sm text-gray-600" suppressHydrationWarning>
             {currentTime
-              .toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
-              .toLowerCase()}
+              ?.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
+              .toLowerCase() ?? '\u00A0'}
           </p>
         </div>
 

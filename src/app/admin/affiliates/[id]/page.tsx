@@ -31,9 +31,10 @@ import { apiFetch } from '@/lib/api/fetch';
 // Landing Page URL Builder — resolved per clinic from the current hostname
 // ============================================================================
 
-function buildLandingPageUrl(refCode: string): string {
-  const origin = typeof window !== 'undefined' ? window.location.origin : '';
-  return `${origin}/affiliate/${encodeURIComponent(refCode)}`;
+function useLandingPageUrl() {
+  const [origin, setOrigin] = useState('');
+  useEffect(() => { setOrigin(window.location.origin); }, []);
+  return (refCode: string) => `${origin}/affiliate/${encodeURIComponent(refCode)}`;
 }
 
 interface AffiliateDetail {
@@ -117,6 +118,7 @@ function formatDateTime(dateStr: string): string {
 }
 
 export default function AffiliateDetailPage() {
+  const buildLandingPageUrl = useLandingPageUrl();
   const params = useParams();
   const affiliateId = params.id as string;
 

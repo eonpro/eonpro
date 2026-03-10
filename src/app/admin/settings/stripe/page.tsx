@@ -63,6 +63,8 @@ function StripeSettingsContent() {
   const [clinicId, setClinicId] = useState<number | null>(null);
   const [showDisconnectConfirm, setShowDisconnectConfirm] = useState(false);
   const [oauthSupported, setOauthSupported] = useState(true);
+  const [origin, setOrigin] = useState('');
+  useEffect(() => { setOrigin(window.location.origin); }, []);
 
   // Check for return from Stripe OAuth/onboarding
   useEffect(() => {
@@ -736,9 +738,7 @@ function StripeSettingsContent() {
               contact your platform administrator to add the following redirect URI:
             </p>
             <div className="break-all rounded-lg bg-amber-100 p-3 font-mono text-sm text-amber-900">
-              {typeof window !== 'undefined'
-                ? `${window.location.origin}/api/stripe/connect/oauth/callback`
-                : 'https://[your-domain]/api/stripe/connect/oauth/callback'}
+              {origin ? `${origin}/api/stripe/connect/oauth/callback` : 'https://[your-domain]/api/stripe/connect/oauth/callback'}
             </div>
             <p className="mt-3 text-xs text-amber-700">
               This URI must be added in Stripe Dashboard → Connect → Settings → OAuth settings →
