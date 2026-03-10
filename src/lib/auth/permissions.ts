@@ -565,7 +565,8 @@ export const ROLE_PERMISSIONS = {
   ],
 
   SALES_REP: [
-    // Patient Management (assigned patients only)
+    // Patient Management
+    PERMISSIONS.PATIENT_CREATE,
     PERMISSIONS.PATIENT_READ,
     PERMISSIONS.PATIENT_UPDATE,
 
@@ -679,6 +680,7 @@ export const ROLE_PERMISSIONS = {
   ],
   patient: [PERMISSIONS.ORDER_READ, PERMISSIONS.BILLING_VIEW],
   sales_rep: [
+    PERMISSIONS.PATIENT_CREATE,
     PERMISSIONS.PATIENT_READ,
     PERMISSIONS.PATIENT_UPDATE,
     PERMISSIONS.BILLING_VIEW,

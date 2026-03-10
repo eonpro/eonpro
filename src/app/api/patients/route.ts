@@ -10,7 +10,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { withClinicalAuth } from '@/lib/auth/middleware';
+import { withAuth, withClinicalAuth } from '@/lib/auth/middleware';
 import { relaxedRateLimit, standardRateLimit } from '@/lib/rateLimit';
 import { patientService, type UserContext, type ListPatientsOptions } from '@/domains/patient';
 import { handleApiError } from '@/domains/shared/errors';
@@ -162,7 +162,7 @@ export const GET = relaxedRateLimit(getPatientsHandler);
  * - Audit logging
  * - Duplicate email detection
  */
-const createPatientHandler = withClinicalAuth(async (req: NextRequest, user) => {
+const createPatientHandler = withAuth(async (req: NextRequest, user) => {
   try {
     const body = await req.json();
 
@@ -196,7 +196,7 @@ const createPatientHandler = withClinicalAuth(async (req: NextRequest, user) => 
       context: { route: 'POST /api/patients' },
     });
   }
-});
+}, { roles: ['super_admin', 'admin', 'provider', 'staff', 'sales_rep'] });
 
 // Apply rate limiting to POST endpoint
 export const POST = standardRateLimit(createPatientHandler);
