@@ -23,7 +23,7 @@ import { decryptPHI } from '@/lib/security/phi-encryption';
 import { parseTakeFromParams } from '@/lib/pagination';
 import { splitSearchTerms, buildPatientSearchWhere, buildPatientSearchIndex, buildIncompleteSearchIndexWhere } from '@/lib/utils/search';
 import { Prisma, PrismaClient } from '@prisma/client';
-import { PERMISSIONS } from '@/lib/auth/permissions';
+import { PERMISSIONS, hasPermission as hasRolePermission } from '@/lib/auth/permissions';
 
 const SALES_REP_VIEW_ALL_PATIENTS = PERMISSIONS.SALES_REP_VIEW_ALL_PATIENTS;
 
@@ -85,10 +85,11 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       whereClause.clinicId = clinicId;
     }
 
-    // Sales rep: only assigned patients unless admin granted "view all patients"
-    const salesRepCanViewAll = Boolean(
-      user.permissions && user.permissions.includes(SALES_REP_VIEW_ALL_PATIENTS)
-    );
+    // Sales rep: only assigned patients unless they have "view all patients"
+    // Check both JWT claims and role defaults (JWT may be stale after permission updates)
+    const salesRepCanViewAll =
+      (user.permissions && user.permissions.includes(SALES_REP_VIEW_ALL_PATIENTS)) ||
+      hasRolePermission(user.role, SALES_REP_VIEW_ALL_PATIENTS);
     if (user.role === 'sales_rep' && !salesRepCanViewAll) {
       whereClause.salesRepAssignments = {
         some: {
