@@ -24,6 +24,7 @@ import {
   Calendar,
   ArrowUpDown,
   Shield,
+  Download,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api/fetch';
 
@@ -1206,9 +1207,54 @@ function AuditDetailModal({
                 View Patient Profile
               </a>
             )}
+
+            {/* Download PDF */}
+            <DownloadPdfButton photoId={photo.id} lifefileId={photo.lifefileId} />
           </div>
         </div>
       </div>
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Download PDF Button
+// ---------------------------------------------------------------------------
+
+function DownloadPdfButton({ photoId, lifefileId }: { photoId: number; lifefileId: string }) {
+  const [downloading, setDownloading] = useState(false);
+
+  const handleDownload = async () => {
+    setDownloading(true);
+    try {
+      const res = await fetch(`/api/package-photos/${photoId}/pdf`, {
+        headers: { Authorization: `Bearer ${getAuthToken()}` },
+      });
+      if (!res.ok) throw new Error('Failed to generate PDF');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `package-audit-${lifefileId}-${photoId}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch {
+      alert('Failed to download PDF. Please try again.');
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  return (
+    <button
+      onClick={handleDownload}
+      disabled={downloading}
+      className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-xl border border-gray-200 bg-white py-2.5 text-xs font-semibold text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50"
+    >
+      {downloading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+      {downloading ? 'Generating PDF...' : 'Download Audit PDF'}
+    </button>
   );
 }

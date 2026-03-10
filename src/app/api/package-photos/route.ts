@@ -5,6 +5,7 @@ import { handleApiError } from '@/domains/shared/errors';
 import { uploadToS3 } from '@/lib/integrations/aws/s3Service';
 import { FileCategory } from '@/lib/integrations/aws/s3Config';
 import { logger } from '@/lib/logger';
+import { decryptPHI } from '@/lib/security/phi-encryption';
 import { z } from 'zod';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
@@ -314,9 +315,20 @@ async function getHandler(req: NextRequest, user: AuthUser) {
       prisma.packagePhoto.count({ where }),
     ]);
 
+    const decryptedPhotos = photos.map((photo) => ({
+      ...photo,
+      patient: photo.patient
+        ? {
+            ...photo.patient,
+            firstName: decryptPHI(photo.patient.firstName) || photo.patient.firstName,
+            lastName: decryptPHI(photo.patient.lastName) || photo.patient.lastName,
+          }
+        : null,
+    }));
+
     return NextResponse.json({
       success: true,
-      data: photos,
+      data: decryptedPhotos,
       meta: {
         total,
         page,
