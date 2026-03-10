@@ -65,7 +65,7 @@ function navConfigToItems(config: { path: string; label: string; iconKey: string
 }
 
 // Roles allowed to access patient pages
-const ALLOWED_ROLES = ['admin', 'super_admin', 'provider', 'staff', 'support'];
+const ALLOWED_ROLES = ['admin', 'super_admin', 'provider', 'staff', 'support', 'sales_rep'];
 
 function PatientsLayoutInner({ children }: { children: React.ReactNode }) {
   const router = useRouter();
