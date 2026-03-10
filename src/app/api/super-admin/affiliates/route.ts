@@ -124,38 +124,55 @@ export const GET = superAdminRateLimit(withSuperAdminAuth(async (req: NextReques
 
     const [affiliates, plans, totalCount] = dbResult.data!;
 
-    // Get aggregated commission stats per affiliate in a single query
     const affiliateIds = affiliates.map(a => a.id);
-    const commissionStats = affiliateIds.length > 0
-      ? await basePrisma.affiliateCommissionEvent.groupBy({
-          by: ['affiliateId'],
-          where: { affiliateId: { in: affiliateIds } },
-          _sum: {
-            eventAmountCents: true,
-            commissionAmountCents: true,
-          },
-          _count: true,
-        })
-      : [];
 
-    // Also get paid/approved commission totals
-    const paidCommissionStats = affiliateIds.length > 0
-      ? await basePrisma.affiliateCommissionEvent.groupBy({
-          by: ['affiliateId'],
-          where: {
-            affiliateId: { in: affiliateIds },
-            status: { in: ['PAID', 'APPROVED'] },
-          },
-          _sum: { commissionAmountCents: true },
-        })
-      : [];
+    const [conversionStats, revenueStats, paidCommissionStats, clickStats] = affiliateIds.length > 0
+      ? await Promise.all([
+          // Conversions: count converted touches (same source as clinic analytics)
+          basePrisma.affiliateTouch.groupBy({
+            by: ['affiliateId'],
+            where: {
+              affiliateId: { in: affiliateIds },
+              convertedAt: { not: null },
+            },
+            _count: true,
+          }),
+          // Revenue: only active statuses (excludes REVERSED), matches clinic analytics
+          basePrisma.affiliateCommissionEvent.groupBy({
+            by: ['affiliateId'],
+            where: {
+              affiliateId: { in: affiliateIds },
+              status: { in: ['PENDING', 'APPROVED', 'PAID'] },
+            },
+            _sum: { eventAmountCents: true },
+          }),
+          // Earned commissions: paid/approved only
+          basePrisma.affiliateCommissionEvent.groupBy({
+            by: ['affiliateId'],
+            where: {
+              affiliateId: { in: affiliateIds },
+              status: { in: ['PAID', 'APPROVED'] },
+            },
+            _sum: { commissionAmountCents: true },
+          }),
+          // Clicks: for conversion rate display
+          basePrisma.affiliateTouch.groupBy({
+            by: ['affiliateId'],
+            where: {
+              affiliateId: { in: affiliateIds },
+              touchType: 'CLICK',
+            },
+            _count: true,
+          }),
+        ])
+      : [[], [], [], []];
 
-    const statsMap = new Map(commissionStats.map(s => [s.affiliateId, s]));
+    const conversionMap = new Map(conversionStats.map(s => [s.affiliateId, s._count]));
+    const revenueMap = new Map(revenueStats.map(s => [s.affiliateId, s._sum.eventAmountCents || 0]));
     const paidMap = new Map(paidCommissionStats.map(s => [s.affiliateId, s._sum.commissionAmountCents || 0]));
+    const clicksMap = new Map(clickStats.map(s => [s.affiliateId, s._count]));
 
-    // Transform data using aggregated stats
     const transformedAffiliates = affiliates.map((affiliate) => {
-      const aggStats = statsMap.get(affiliate.id);
       return {
         id: affiliate.id,
         displayName: affiliate.displayName,
@@ -167,9 +184,10 @@ export const GET = superAdminRateLimit(withSuperAdminAuth(async (req: NextReques
         refCodes: affiliate.refCodes,
         currentPlan: affiliate.planAssignments[0]?.commissionPlan || null,
         stats: {
-          totalConversions: aggStats?._count || 0,
-          totalRevenueCents: aggStats?._sum.eventAmountCents || 0,
+          totalConversions: conversionMap.get(affiliate.id) || 0,
+          totalRevenueCents: revenueMap.get(affiliate.id) || 0,
           totalCommissionCents: paidMap.get(affiliate.id) || 0,
+          totalClicks: clicksMap.get(affiliate.id) || 0,
         },
       };
     });

@@ -77,6 +77,7 @@ interface Affiliate {
     totalConversions: number;
     totalRevenueCents: number;
     totalCommissionCents: number;
+    totalClicks: number;
   };
 }
 
@@ -556,10 +557,10 @@ export default function SuperAdminAffiliatesPage() {
     INACTIVE: 'bg-gray-100 text-gray-800',
   };
 
-  // Calculate totals
   const totals = {
     affiliates: filteredAffiliates.length,
     conversions: filteredAffiliates.reduce((sum, a) => sum + a.stats.totalConversions, 0),
+    revenue: filteredAffiliates.reduce((sum, a) => sum + a.stats.totalRevenueCents, 0),
     commissions: filteredAffiliates.reduce((sum, a) => sum + a.stats.totalCommissionCents, 0),
   };
 
@@ -1046,7 +1047,7 @@ export default function SuperAdminAffiliatesPage() {
       </div>
 
       {/* Stats Summary */}
-      <div className="mb-6 grid gap-4 sm:grid-cols-3">
+      <div className="mb-6 grid gap-4 sm:grid-cols-4">
         <div className="rounded-xl bg-white p-4 shadow-sm">
           <div className="flex items-center gap-3">
             <div className="rounded-lg bg-[#4fa77e]/10 p-2 text-[#4fa77e]">
@@ -1066,6 +1067,19 @@ export default function SuperAdminAffiliatesPage() {
             <div>
               <p className="text-2xl font-bold text-gray-900">{totals.conversions}</p>
               <p className="text-sm text-gray-500">Total Conversions</p>
+            </div>
+          </div>
+        </div>
+        <div className="rounded-xl bg-white p-4 shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="rounded-lg bg-yellow-100 p-2 text-yellow-600">
+              <DollarSign className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-gray-900">
+                {formatCurrency(totals.revenue)}
+              </p>
+              <p className="text-sm text-gray-500">Total Revenue</p>
             </div>
           </div>
         </div>
@@ -1231,9 +1245,16 @@ export default function SuperAdminAffiliatesPage() {
                 </td>
                 <td className="whitespace-nowrap px-6 py-4">
                   <div className="text-sm">
-                    <p className="text-gray-900">{affiliate.stats.totalConversions} conversions</p>
+                    <p className="text-gray-900">
+                      {affiliate.stats.totalConversions} conversions
+                      {affiliate.stats.totalClicks > 0 && (
+                        <span className="ml-1 text-xs text-gray-400">
+                          ({((affiliate.stats.totalConversions / affiliate.stats.totalClicks) * 100).toFixed(1)}%)
+                        </span>
+                      )}
+                    </p>
                     <p className="text-gray-500">
-                      {formatCurrency(affiliate.stats.totalCommissionCents)} earned
+                      {formatCurrency(affiliate.stats.totalRevenueCents)} rev · {formatCurrency(affiliate.stats.totalCommissionCents)} earned
                     </p>
                   </div>
                 </td>
