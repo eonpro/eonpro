@@ -30,15 +30,8 @@ function getSubdomain(host: string): string | null {
 }
 
 async function resolveClinic(request: NextRequest): Promise<number | null> {
-  const c = request.cookies.get('selected-clinic');
-  if (c) { const id = parseInt(c.value); if (!isNaN(id)) return id; }
-  const token = request.headers.get('authorization')?.replace('Bearer ', '') || request.cookies.get('auth-token')?.value;
-  if (token) {
-    try {
-      const { payload } = await jwtVerify(token, new TextEncoder().encode(process.env.JWT_SECRET || ''));
-      if (payload.clinicId && typeof payload.clinicId === 'number') return payload.clinicId;
-    } catch { /* ignore */ }
-  }
+  // Subdomain is AUTHORITATIVE when present — prevents cross-tenant leaks from
+  // shared selected-clinic cookies (domain=.eonpro.io).
   const host = getHost(request);
   const sub = getSubdomain(host);
   if (sub && !['www', 'app', 'api', 'admin'].includes(sub)) {
@@ -47,7 +40,16 @@ async function resolveClinic(request: NextRequest): Promise<number | null> {
       const [k, v] = pair.split(':').map((s) => s.trim());
       if (k?.toLowerCase() === sub.toLowerCase() && v) { const id = parseInt(v, 10); if (!isNaN(id)) return id; break; }
     }
-    return null;
+  }
+
+  const c = request.cookies.get('selected-clinic');
+  if (c) { const id = parseInt(c.value); if (!isNaN(id)) return id; }
+  const token = request.headers.get('authorization')?.replace('Bearer ', '') || request.cookies.get('auth-token')?.value;
+  if (token) {
+    try {
+      const { payload } = await jwtVerify(token, new TextEncoder().encode(process.env.JWT_SECRET || ''));
+      if (payload.clinicId && typeof payload.clinicId === 'number') return payload.clinicId;
+    } catch { /* ignore */ }
   }
   return null;
 }

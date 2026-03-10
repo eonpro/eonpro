@@ -6,7 +6,7 @@
 
 import { AsyncLocalStorage } from 'async_hooks';
 import crypto from 'crypto';
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import { jwtVerify } from 'jose';
 import { JWT_SECRET } from './config';
 import { logger } from '@/lib/logger';
@@ -87,6 +87,18 @@ export async function getUserFromCookies(): Promise<UserSession | null> {
     const selectedClinicCookie = cookieStore.get('selected-clinic')?.value;
     const selectedClinicId = selectedClinicCookie ? parseInt(selectedClinicCookie, 10) : NaN;
 
+    // Read x-clinic-id header set by edge middleware (authoritative for subdomain requests).
+    // This ensures server components respect the subdomain's clinic context, matching
+    // what the API auth middleware does for API routes.
+    let edgeClinicId = NaN;
+    try {
+      const headerStore = await headers();
+      const edgeHeader = headerStore.get('x-clinic-id');
+      if (edgeHeader) edgeClinicId = parseInt(edgeHeader, 10);
+    } catch {
+      // headers() may throw outside of request context (e.g. during build)
+    }
+
     // Check various token cookies
     const tokenNames = [
       'auth-token',
@@ -104,31 +116,34 @@ export async function getUserFromCookies(): Promise<UserSession | null> {
       if (token) {
         const user = await verifyToken(token.value);
         if (user) {
-          // Align server-component user context with selected clinic cookie
-          // so pages using getUserFromCookies() respect clinic switching.
-          if (
-            user.role !== 'super_admin' &&
-            Number.isFinite(selectedClinicId) &&
-            selectedClinicId > 0 &&
-            user.clinicId !== selectedClinicId
-          ) {
-            const hasPrimaryAccess = user.clinicId === selectedClinicId;
-            let hasAssignedAccess = false;
+          if (user.role !== 'super_admin') {
+            // Determine the target clinic ID.
+            // Priority: edge middleware header (subdomain-authoritative) > selected-clinic cookie
+            const targetClinicId = Number.isFinite(edgeClinicId) && edgeClinicId > 0
+              ? edgeClinicId
+              : Number.isFinite(selectedClinicId) && selectedClinicId > 0
+                ? selectedClinicId
+                : NaN;
 
-            if (!hasPrimaryAccess) {
-              const userClinic = await basePrisma.userClinic.findFirst({
-                where: {
-                  userId: user.id,
-                  clinicId: selectedClinicId,
-                  isActive: true,
-                },
-                select: { id: true },
-              });
-              hasAssignedAccess = Boolean(userClinic);
-            }
+            if (Number.isFinite(targetClinicId) && targetClinicId > 0 && user.clinicId !== targetClinicId) {
+              const hasPrimaryAccess = user.clinicId === targetClinicId;
+              let hasAssignedAccess = false;
 
-            if (hasPrimaryAccess || hasAssignedAccess) {
-              user.clinicId = selectedClinicId;
+              if (!hasPrimaryAccess) {
+                const userClinic = await basePrisma.userClinic.findFirst({
+                  where: {
+                    userId: user.id,
+                    clinicId: targetClinicId,
+                    isActive: true,
+                  },
+                  select: { id: true },
+                });
+                hasAssignedAccess = Boolean(userClinic);
+              }
+
+              if (hasPrimaryAccess || hasAssignedAccess) {
+                user.clinicId = targetClinicId;
+              }
             }
           }
           return user;
