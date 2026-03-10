@@ -50,7 +50,7 @@ import { EONPRO_LOGO, EONPRO_ICON } from '@/lib/constants/brand-assets';
 import { safeParseJsonString } from '@/lib/utils/safe-json';
 
 const LOGOSRX_LOGO = 'https://static.wixstatic.com/shapes/c49a9b_70a8d7f88d384ab9956055674c2632a7.svg';
-const LOGOSRX_ICON = 'https://static.wixstatic.com/shapes/c49a9b_70a8d7f88d384ab9956055674c2632a7.svg';
+const LOGOSRX_ICON = 'https://static.wixstatic.com/shapes/c49a9b_3ec136783b554ea3af0db59751e8c37d.svg';
 const LOGOSRX_PRIMARY = '#7C3AED';
 
 // Error Boundary to catch and recover from React errors
