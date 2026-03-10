@@ -186,6 +186,15 @@ function normalizeError(error: unknown): AppError {
       return new AppError(error.message, 'FORBIDDEN', 403);
     }
 
+    // Circuit breaker open or timeout — return 503 with the user-facing message
+    if (
+      message.includes('circuit breaker') ||
+      message.includes('temporarily unavailable') ||
+      message.includes('timeout after')
+    ) {
+      return new ServiceUnavailableError(error.message, 10);
+    }
+
     // P2024 / connection pool - return 503 so clients can retry instead of treating as 500
     if (
       message.includes('p2024') ||

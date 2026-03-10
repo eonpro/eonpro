@@ -79,7 +79,7 @@ export function createDoseSpotPrescriptionService(): DoseSpotPrescriptionService
       const client = await getClinicDoseSpotClient(clinicId);
       const result = await client.getPatientAllergies(dsPatientId, page, size);
 
-      await auditLog(null, {
+      auditLog(null, {
         eventType: AuditEventType.PHI_VIEW,
         userId,
         resourceType: 'Patient',
@@ -88,6 +88,8 @@ export function createDoseSpotPrescriptionService(): DoseSpotPrescriptionService
         action: 'DOSESPOT_VIEW_ALLERGIES',
         outcome: 'SUCCESS',
         metadata: { externalSystem: 'DoseSpot', dataType: 'allergies' },
+      }).catch((err) => {
+        logger.error('[DOSESPOT] Audit log failed (non-blocking)', { error: err instanceof Error ? err.message : String(err) });
       });
 
       return result;
@@ -98,7 +100,7 @@ export function createDoseSpotPrescriptionService(): DoseSpotPrescriptionService
       const client = await getClinicDoseSpotClient(clinicId);
       const result = await client.getPatientPrescriptions(dsPatientId, page, size);
 
-      await auditLog(null, {
+      auditLog(null, {
         eventType: AuditEventType.PHI_VIEW,
         userId,
         resourceType: 'Patient',
@@ -107,6 +109,8 @@ export function createDoseSpotPrescriptionService(): DoseSpotPrescriptionService
         action: 'DOSESPOT_VIEW_PRESCRIPTIONS',
         outcome: 'SUCCESS',
         metadata: { externalSystem: 'DoseSpot', dataType: 'prescriptions' },
+      }).catch((err) => {
+        logger.error('[DOSESPOT] Audit log failed (non-blocking)', { error: err instanceof Error ? err.message : String(err) });
       });
 
       return result;
@@ -117,7 +121,7 @@ export function createDoseSpotPrescriptionService(): DoseSpotPrescriptionService
       const client = await getClinicDoseSpotClient(clinicId);
       const result = await client.getSelfReportedMedications(dsPatientId, page, size);
 
-      await auditLog(null, {
+      auditLog(null, {
         eventType: AuditEventType.PHI_VIEW,
         userId,
         resourceType: 'Patient',
@@ -126,6 +130,8 @@ export function createDoseSpotPrescriptionService(): DoseSpotPrescriptionService
         action: 'DOSESPOT_VIEW_SELF_REPORTED_MEDS',
         outcome: 'SUCCESS',
         metadata: { externalSystem: 'DoseSpot', dataType: 'selfReportedMedications' },
+      }).catch((err) => {
+        logger.error('[DOSESPOT] Audit log failed (non-blocking)', { error: err instanceof Error ? err.message : String(err) });
       });
 
       return result;

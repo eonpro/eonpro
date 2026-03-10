@@ -70,10 +70,20 @@ export function createDoseSpotPatientService(): DoseSpotPatientService {
       const state = await decryptPHI(patient.state);
       const zip = await decryptPHI(patient.zip);
 
+      const missingFields: string[] = [];
+      if (!firstName) missingFields.push('first name');
+      if (!lastName) missingFields.push('last name');
+      if (!dob) missingFields.push('date of birth');
+      if (missingFields.length > 0) {
+        throw new Error(
+          `Patient ${patientId} is missing required fields for DoseSpot: ${missingFields.join(', ')}. Please update the patient profile.`
+        );
+      }
+
       const payload: DoseSpotPatientPayload = {
-        FirstName: firstName || '',
-        LastName: lastName || '',
-        DateOfBirth: dob || '',
+        FirstName: firstName!,
+        LastName: lastName!,
+        DateOfBirth: dob!,
         Gender: mapGender(patient.gender || ''),
         Email: email || '',
         Address1: address1 || '',

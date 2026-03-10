@@ -68,6 +68,18 @@ export function createDoseSpotProviderService(): DoseSpotProviderService {
         throw new Error(`Provider ${providerId} not assigned to clinic ${clinicId}`);
       }
 
+      if (!provider.npi || provider.npi.trim().length === 0) {
+        throw new Error(
+          `Provider ${providerId} is missing an NPI number. An NPI is required for DoseSpot e-prescribing.`
+        );
+      }
+
+      if (!provider.firstName || !provider.lastName) {
+        throw new Error(
+          `Provider ${providerId} is missing first or last name. Both are required for DoseSpot registration.`
+        );
+      }
+
       const client = await getClinicDoseSpotClient(clinicId);
 
       if (provider.doseSpotClinicianId) {

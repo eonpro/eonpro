@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { logger } from '@/lib/logger';
-import { prisma } from '@/lib/db';
+import { basePrisma } from '@/lib/db';
 
 /**
  * DoseSpot Webhook Handler
@@ -34,19 +34,38 @@ export async function POST(req: NextRequest) {
 
     logger.info('[DOSESPOT WEBHOOK] Received', {
       payloadKeys: Object.keys(payload),
+      eventType: payload.EventType,
+      prescriptionId: payload.PrescriptionId,
+      patientId: payload.PatientId,
     });
 
-    // Store as OrderEvent for audit trail
-    // DoseSpot webhook payloads vary -- store the raw payload
     if (payload.PrescriptionId || payload.PatientId) {
-      await prisma.orderEvent.create({
-        data: {
-          orderId: 0, // Placeholder -- linked via DoseSpot IDs in post-processing
-          eventType: 'DOSESPOT_WEBHOOK',
-          payload: JSON.parse(JSON.stringify(payload)),
-          note: `DoseSpot webhook: ${payload.EventType || 'unknown'}`,
-        },
-      });
+      // Try to find the matching order by doseSpotPrescriptionId
+      let linkedOrderId: number | null = null;
+      if (payload.PrescriptionId) {
+        const matchingOrder = await basePrisma.order.findFirst({
+          where: { doseSpotPrescriptionId: Number(payload.PrescriptionId) },
+          select: { id: true },
+        });
+        linkedOrderId = matchingOrder?.id ?? null;
+      }
+
+      if (linkedOrderId) {
+        await basePrisma.orderEvent.create({
+          data: {
+            orderId: linkedOrderId,
+            eventType: 'DOSESPOT_WEBHOOK',
+            payload: JSON.parse(JSON.stringify(payload)),
+            note: `DoseSpot webhook: ${payload.EventType || 'unknown'}`,
+          },
+        });
+      } else {
+        logger.warn('[DOSESPOT WEBHOOK] No matching order found, payload logged only', {
+          prescriptionId: payload.PrescriptionId,
+          patientId: payload.PatientId,
+          eventType: payload.EventType,
+        });
+      }
     }
 
     return NextResponse.json({ success: true, received: true });

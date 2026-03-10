@@ -178,7 +178,7 @@ export const PUT = withAuth(
           : null;
       }
 
-      if (data.doseSpotEnabled) {
+      if (data.doseSpotEnabled !== undefined) {
         const features = (
           await prisma.clinic.findUnique({
             where: { id: clinicId },
@@ -188,7 +188,7 @@ export const PUT = withAuth(
 
         updateData.features = {
           ...(features || {}),
-          DOSESPOT: true,
+          DOSESPOT: data.doseSpotEnabled,
         };
       }
 
