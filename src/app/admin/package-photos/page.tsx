@@ -250,18 +250,18 @@ export default function PackagePhotosPage() {
   const [sessionCount, setSessionCount] = useState(0);
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-5 sm:px-6">
+    <div className="mx-auto max-w-6xl px-3 py-3 sm:px-6 sm:py-5">
       {/* Top bar */}
-      <div className="mb-5 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-100">
-            <Package className="h-5 w-5 text-violet-600" />
+      <div className="mb-4 flex items-center justify-between sm:mb-5">
+        <div className="flex items-center gap-2.5 sm:gap-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-violet-100 sm:h-10 sm:w-10">
+            <Package className="h-4.5 w-4.5 text-violet-600 sm:h-5 sm:w-5" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-gray-900">
+            <h1 className="text-lg font-bold text-gray-900 sm:text-xl">
               {mode === 'capture' ? 'Package Photos' : 'Audit Log'}
             </h1>
-            <p className="text-xs text-gray-500">
+            <p className="hidden text-xs text-gray-500 sm:block">
               {mode === 'capture'
                 ? 'Scan, photograph, and track outgoing packages'
                 : 'Search and investigate package records'}
@@ -277,17 +277,17 @@ export default function PackagePhotosPage() {
           )}
           <button
             onClick={() => setMode(mode === 'capture' ? 'audit' : 'capture')}
-            className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-700 shadow-sm transition-colors hover:bg-gray-50"
+            className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-xs font-semibold text-gray-700 shadow-sm transition-colors hover:bg-gray-50 active:bg-gray-100 sm:py-2"
           >
             {mode === 'capture' ? (
               <>
-                <Search className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">Audit Log</span>
+                <Search className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
+                <span>Audit Log</span>
               </>
             ) : (
               <>
-                <Camera className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">Capture</span>
+                <Camera className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
+                <span>Capture</span>
               </>
             )}
           </button>
@@ -415,12 +415,12 @@ function CaptureFlow({
   const captureTimestamp = uploadResult ? formatTimestamp(uploadResult.createdAt) : '';
 
   return (
-    <div className="mx-auto max-w-lg">
+    <div className="mx-auto sm:max-w-lg">
       <StepIndicator step={step} />
 
       {/* ── Step 1: Scan LifeFile ID ─────────────────────────── */}
       {step === 'lifefileId' && (
-        <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6">
+        <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm sm:p-6">
           <label htmlFor="lifefileId" className="mb-2 block text-sm font-semibold text-gray-900">
             LifeFile ID
           </label>
@@ -435,14 +435,14 @@ function CaptureFlow({
             placeholder="Scan or type the package ID"
             autoFocus
             autoComplete="off"
-            className="mb-4 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-4 text-center font-mono text-2xl font-bold tracking-widest text-gray-900 placeholder:text-sm placeholder:font-normal placeholder:tracking-normal placeholder:text-gray-400 focus:border-violet-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-violet-500/20"
+            className="mb-4 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-5 text-center font-mono text-2xl font-bold tracking-widest text-gray-900 placeholder:text-sm placeholder:font-normal placeholder:tracking-normal placeholder:text-gray-400 focus:border-violet-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-violet-500/20 sm:py-4"
           />
           <button
             onClick={() => setStep('camera')}
             disabled={!lifefileId.trim()}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-violet-600 px-4 py-4 text-sm font-bold text-white shadow-sm transition-all hover:bg-violet-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-400 disabled:shadow-none"
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-violet-600 px-4 py-5 text-base font-bold text-white shadow-sm transition-all hover:bg-violet-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-400 disabled:shadow-none sm:py-4 sm:text-sm"
           >
-            <Camera className="h-5 w-5" />
+            <Camera className="h-6 w-6 sm:h-5 sm:w-5" />
             Take Photo
           </button>
           {sessionCount > 0 && (
@@ -485,16 +485,16 @@ function CaptureFlow({
           <div className="flex gap-3 p-4">
             <button
               onClick={handleRetake}
-              className="flex items-center justify-center gap-1.5 rounded-xl border border-gray-200 bg-white px-4 py-3 text-xs font-semibold text-gray-600 transition-colors hover:bg-gray-50"
+              className="flex items-center justify-center gap-1.5 rounded-xl border border-gray-200 bg-white px-4 py-4 text-sm font-semibold text-gray-600 transition-colors hover:bg-gray-50 active:bg-gray-100 sm:py-3 sm:text-xs"
             >
-              <RefreshCw className="h-3.5 w-3.5" />
+              <RefreshCw className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
               Retake
             </button>
             <button
               onClick={handleUpload}
-              className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-violet-600 py-3 text-sm font-bold text-white shadow-sm transition-all hover:bg-violet-700 active:scale-[0.98]"
+              className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-violet-600 py-4 text-base font-bold text-white shadow-sm transition-all hover:bg-violet-700 active:scale-[0.98] sm:py-3 sm:text-sm"
             >
-              <CheckCircle className="h-4 w-4" />
+              <CheckCircle className="h-5 w-5 sm:h-4 sm:w-4" />
               Upload Photo
             </button>
           </div>
@@ -603,9 +603,9 @@ function CaptureFlow({
             {/* Primary CTA */}
             <button
               onClick={reset}
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-violet-600 py-4 text-sm font-bold text-white shadow-sm transition-all hover:bg-violet-700 active:scale-[0.98]"
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-violet-600 py-5 text-base font-bold text-white shadow-sm transition-all hover:bg-violet-700 active:scale-[0.98] sm:py-4 sm:text-sm"
             >
-              <Camera className="h-5 w-5" />
+              <Camera className="h-6 w-6 sm:h-5 sm:w-5" />
               Scan Next Package
             </button>
           </div>
@@ -616,7 +616,7 @@ function CaptureFlow({
 }
 
 // ---------------------------------------------------------------------------
-// Camera Capture — Portrait viewfinder with frame overlay
+// Camera Capture — Full-screen on mobile, wider viewfinder for packages
 // ---------------------------------------------------------------------------
 
 function CameraCapture({
@@ -646,7 +646,7 @@ function CameraCapture({
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: facing, width: { ideal: 1080 }, height: { ideal: 1920 } },
+        video: { facingMode: facing, width: { ideal: 1920 }, height: { ideal: 1440 } },
         audio: false,
       });
       streamRef.current = stream;
@@ -698,34 +698,34 @@ function CameraCapture({
   }, [onCapture]);
 
   return (
-    <div className="overflow-hidden rounded-2xl bg-black shadow-lg">
+    <div className="fixed inset-0 z-[60] flex flex-col bg-black md:static md:z-auto md:overflow-hidden md:rounded-2xl md:shadow-lg">
       {/* Header bar */}
-      <div className="relative z-10 flex items-center justify-between bg-black/60 px-4 py-3 backdrop-blur-sm">
+      <div className="relative z-10 flex items-center justify-between bg-black/60 px-5 py-4 backdrop-blur-sm md:px-4 md:py-3">
         <button
           onClick={() => { streamRef.current?.getTracks().forEach((t) => t.stop()); onCancel(); }}
-          className="flex items-center gap-1.5 text-sm font-medium text-gray-300 transition-colors hover:text-white"
+          className="flex items-center gap-1.5 rounded-lg px-2 py-2 text-base font-medium text-gray-300 transition-colors hover:text-white active:bg-white/10 md:px-0 md:py-0 md:text-sm"
         >
-          <ChevronLeft className="h-4 w-4" />
+          <ChevronLeft className="h-5 w-5 md:h-4 md:w-4" />
           Back
         </button>
-        <span className="rounded-full bg-violet-600/90 px-3 py-1 font-mono text-xs font-bold text-white shadow-sm">
+        <span className="rounded-full bg-violet-600/90 px-4 py-1.5 font-mono text-sm font-bold text-white shadow-sm md:px-3 md:py-1 md:text-xs">
           {lifefileId}
         </span>
         <button
           onClick={switchCamera}
-          className="flex items-center gap-1.5 text-sm text-gray-300 transition-colors hover:text-white"
+          className="rounded-lg p-2.5 text-gray-300 transition-colors hover:text-white active:bg-white/10 md:p-0"
         >
-          <SwitchCamera className="h-4 w-4" />
+          <SwitchCamera className="h-6 w-6 md:h-4 md:w-4" />
         </button>
       </div>
 
-      {/* Viewfinder */}
-      <div className="relative aspect-[3/4] w-full bg-black">
+      {/* Viewfinder — fills available space on mobile, fixed aspect on desktop */}
+      <div className="relative flex-1 bg-black md:aspect-[4/3] md:flex-none">
         {cameraError ? (
           <div className="flex h-full flex-col items-center justify-center px-6 text-center">
             <Camera className="mb-3 h-12 w-12 text-gray-600" />
-            <p className="mb-3 text-sm text-gray-400">{cameraError}</p>
-            <button onClick={() => startCamera(facingMode)} className="text-sm font-semibold text-violet-400 hover:text-violet-300">
+            <p className="mb-3 text-base text-gray-400 md:text-sm">{cameraError}</p>
+            <button onClick={() => startCamera(facingMode)} className="rounded-lg px-4 py-2 text-base font-semibold text-violet-400 hover:text-violet-300 active:bg-white/10 md:text-sm">
               Try Again
             </button>
           </div>
@@ -733,12 +733,12 @@ function CameraCapture({
           <>
             <video ref={videoRef} autoPlay playsInline muted className="h-full w-full object-cover" />
 
-            {/* Frame corner marks */}
+            {/* Frame corner marks — wider spread for packages */}
             <div className="pointer-events-none absolute inset-0">
-              <div className="absolute left-[10%] top-[6%] h-10 w-10 border-l-[3px] border-t-[3px] border-white/40 rounded-tl-xl" />
-              <div className="absolute right-[10%] top-[6%] h-10 w-10 border-r-[3px] border-t-[3px] border-white/40 rounded-tr-xl" />
-              <div className="absolute bottom-[6%] left-[10%] h-10 w-10 border-b-[3px] border-l-[3px] border-white/40 rounded-bl-xl" />
-              <div className="absolute bottom-[6%] right-[10%] h-10 w-10 border-b-[3px] border-r-[3px] border-white/40 rounded-br-xl" />
+              <div className="absolute left-[5%] top-[5%] h-12 w-12 rounded-tl-2xl border-l-[3px] border-t-[3px] border-white/50 md:left-[10%] md:top-[6%] md:h-10 md:w-10" />
+              <div className="absolute right-[5%] top-[5%] h-12 w-12 rounded-tr-2xl border-r-[3px] border-t-[3px] border-white/50 md:right-[10%] md:top-[6%] md:h-10 md:w-10" />
+              <div className="absolute bottom-[5%] left-[5%] h-12 w-12 rounded-bl-2xl border-b-[3px] border-l-[3px] border-white/50 md:bottom-[6%] md:left-[10%] md:h-10 md:w-10" />
+              <div className="absolute bottom-[5%] right-[5%] h-12 w-12 rounded-br-2xl border-b-[3px] border-r-[3px] border-white/50 md:bottom-[6%] md:right-[10%] md:h-10 md:w-10" />
             </div>
 
             {/* Flash overlay */}
@@ -746,22 +746,22 @@ function CameraCapture({
 
             {!cameraReady && (
               <div className="absolute inset-0 flex items-center justify-center bg-black/60">
-                <Loader2 className="h-8 w-8 animate-spin text-white" />
+                <Loader2 className="h-10 w-10 animate-spin text-white md:h-8 md:w-8" />
               </div>
             )}
           </>
         )}
       </div>
 
-      {/* Capture button */}
-      <div className="flex items-center justify-center bg-black/60 py-6 backdrop-blur-sm">
+      {/* Capture button — larger on mobile */}
+      <div className="flex items-center justify-center bg-black/60 py-8 backdrop-blur-sm md:py-6">
         <button
           onClick={capturePhoto}
           disabled={!cameraReady}
-          className="flex h-20 w-20 items-center justify-center rounded-full border-[5px] border-white/80 shadow-lg transition-transform hover:scale-105 active:scale-90 disabled:opacity-40"
+          className="flex h-24 w-24 items-center justify-center rounded-full border-[5px] border-white/80 shadow-lg transition-transform hover:scale-105 active:scale-90 disabled:opacity-40 md:h-20 md:w-20"
           aria-label="Capture photo"
         >
-          <div className="h-[60px] w-[60px] rounded-full bg-white" />
+          <div className="h-[72px] w-[72px] rounded-full bg-white md:h-[60px] md:w-[60px]" />
         </button>
       </div>
 
@@ -886,7 +886,7 @@ function AuditLog() {
       )}
 
       {/* Search + Filters */}
-      <div className="mb-4 flex flex-col gap-2.5 sm:flex-row sm:items-center">
+      <div className="mb-3 flex flex-col gap-2 sm:mb-4 sm:flex-row sm:items-center sm:gap-2.5">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
           <input
@@ -894,14 +894,14 @@ function AuditLog() {
             value={search}
             onChange={(e) => handleSearchChange(e.target.value)}
             placeholder="Search by LifeFile ID or tracking number..."
-            className="w-full rounded-lg border border-gray-200 bg-white py-2.5 pl-10 pr-4 text-sm placeholder:text-gray-400 focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
+            className="w-full rounded-lg border border-gray-200 bg-white py-3 pl-10 pr-4 text-base placeholder:text-gray-400 focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/20 sm:py-2.5 sm:text-sm"
           />
         </div>
         <div className="flex gap-2">
           <select
             value={matchFilter}
             onChange={(e) => { setMatchFilter(e.target.value as 'all' | 'true' | 'false'); setPage(1); }}
-            className="rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-xs font-medium text-gray-700 focus:border-violet-500 focus:outline-none"
+            className="flex-1 rounded-lg border border-gray-200 bg-white px-3 py-3 text-sm font-medium text-gray-700 focus:border-violet-500 focus:outline-none sm:flex-none sm:py-2.5 sm:text-xs"
           >
             <option value="all">All Status</option>
             <option value="true">Matched</option>
@@ -910,7 +910,7 @@ function AuditLog() {
           <select
             value={periodFilter}
             onChange={(e) => { setPeriodFilter(e.target.value as 'all' | 'today' | 'week' | 'month'); setPage(1); }}
-            className="rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-xs font-medium text-gray-700 focus:border-violet-500 focus:outline-none"
+            className="flex-1 rounded-lg border border-gray-200 bg-white px-3 py-3 text-sm font-medium text-gray-700 focus:border-violet-500 focus:outline-none sm:flex-none sm:py-2.5 sm:text-xs"
           >
             <option value="all">All Time</option>
             <option value="today">Today</option>
@@ -969,7 +969,7 @@ function AuditLog() {
                 <button
                   key={photo.id}
                   onClick={() => setSelectedPhoto(photo)}
-                  className="flex w-full items-center gap-4 px-4 py-3 text-left transition-colors hover:bg-violet-50/30"
+                  className="flex w-full items-center gap-3 px-3 py-4 text-left transition-colors hover:bg-violet-50/30 active:bg-violet-50/50 sm:gap-4 sm:px-4 sm:py-3"
                 >
                   {/* Thumbnail */}
                   <PhotoThumbnail photoId={photo.id} s3Key={photo.s3Key} size="sm" />
@@ -1055,15 +1055,15 @@ function AuditLog() {
             <button
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={page === 1}
-              className="inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-40"
+              className="inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 active:bg-gray-100 disabled:opacity-40 sm:px-3 sm:py-1.5 sm:text-xs"
             >
-              <ChevronLeft className="h-3.5 w-3.5" />
+              <ChevronLeft className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
               Prev
             </button>
             <button
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               disabled={page === totalPages}
-              className="inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-40"
+              className="inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 active:bg-gray-100 disabled:opacity-40 sm:px-3 sm:py-1.5 sm:text-xs"
             >
               Next
               <ChevronRight className="h-3.5 w-3.5" />
