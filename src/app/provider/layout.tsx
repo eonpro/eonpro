@@ -267,27 +267,17 @@ function ProviderLayoutInner({ children }: { children: React.ReactNode }) {
             const showBadge = item.hasBadge && rxQueueCount > 0;
             const showLabels = sidebarExpanded || mobileNavOpen;
 
-            const handleNavClick = (e: React.MouseEvent) => {
-              e.preventDefault();
-              e.stopPropagation();
-              setMobileNavOpen(false);
-              if (pathname === item.path) {
-                router.refresh();
-              } else {
-                router.push(item.path);
-              }
-            };
-
             return (
-              <button
+              <Link
                 key={item.path}
-                onClick={handleNavClick}
+                href={item.path}
+                onClick={() => setMobileNavOpen(false)}
                 title={
                   !showLabels
                     ? `${item.label}${showBadge ? ` (${rxQueueCount})` : ''}`
                     : undefined
                 }
-                className={`relative flex w-full min-h-[44px] items-center gap-3 rounded-xl px-3 py-3 text-left transition-all touch-manipulation ${
+                className={`relative flex w-full min-h-[44px] items-center gap-3 rounded-xl px-3 py-3 text-left transition-colors touch-manipulation ${
                   active ? '' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600 active:bg-gray-100'
                 }`}
                 style={active ? { backgroundColor: `${primaryColor}15`, color: primaryColor } : {}}
@@ -308,7 +298,7 @@ function ProviderLayoutInner({ children }: { children: React.ReactNode }) {
                     {rxQueueCount > 99 ? '99+' : rxQueueCount}
                   </span>
                 )}
-              </button>
+              </Link>
             );
           })}
 
@@ -322,17 +312,11 @@ function ProviderLayoutInner({ children }: { children: React.ReactNode }) {
                 const Icon = item.icon;
                 const active = isActive(item.path);
                 return (
-                  <button
+                  <Link
                     key={item.path}
-                    onClick={() => {
-                      setMobileNavOpen(false);
-                      if (active) {
-                        router.refresh();
-                      } else {
-                        router.push(item.path);
-                      }
-                    }}
-                    className={`flex w-full min-h-[44px] items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-all touch-manipulation ${
+                    href={item.path}
+                    onClick={() => setMobileNavOpen(false)}
+                    className={`flex w-full min-h-[44px] items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors touch-manipulation ${
                       active ? '' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
                     }`}
                     style={
@@ -341,7 +325,7 @@ function ProviderLayoutInner({ children }: { children: React.ReactNode }) {
                   >
                     <Icon className="h-4 w-4 flex-shrink-0" />
                     <span className="whitespace-nowrap text-sm font-medium">{item.label}</span>
-                  </button>
+                  </Link>
                 );
               })}
             </div>
@@ -354,17 +338,11 @@ function ProviderLayoutInner({ children }: { children: React.ReactNode }) {
                 const Icon = item.icon;
                 const active = isActive(item.path);
                 return (
-                  <button
+                  <Link
                     key={item.path}
-                    onClick={() => {
-                      if (active) {
-                        router.refresh();
-                      } else {
-                        router.push(item.path);
-                      }
-                    }}
+                    href={item.path}
                     title={item.label}
-                    className={`flex w-full items-center justify-center rounded-xl p-2.5 transition-all ${
+                    className={`flex w-full items-center justify-center rounded-xl p-2.5 transition-colors ${
                       active ? '' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
                     }`}
                     style={
@@ -372,7 +350,7 @@ function ProviderLayoutInner({ children }: { children: React.ReactNode }) {
                     }
                   >
                     <Icon className="h-4 w-4" />
-                  </button>
+                  </Link>
                 );
               })}
             </div>

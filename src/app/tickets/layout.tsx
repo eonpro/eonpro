@@ -309,23 +309,12 @@ function TicketsLayoutInner({ children }: { children: React.ReactNode }) {
             const Icon = item.icon;
             const active = isActive(item.path);
 
-            const handleNavClick = (e: React.MouseEvent) => {
-              e.preventDefault();
-              e.stopPropagation();
-
-              if (pathname === item.path) {
-                router.refresh();
-              } else {
-                router.push(item.path);
-              }
-            };
-
             return (
-              <button
+              <Link
                 key={item.path}
-                onClick={handleNavClick}
+                href={item.path}
                 title={!sidebarExpanded ? item.label : undefined}
-                className={`flex w-full cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-all ${
+                className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors ${
                   active ? '' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
                 }`}
                 style={active ? { backgroundColor: `${primaryColor}15`, color: primaryColor } : {}}
@@ -334,7 +323,7 @@ function TicketsLayoutInner({ children }: { children: React.ReactNode }) {
                 {sidebarExpanded && (
                   <span className="whitespace-nowrap text-sm font-medium">{item.label}</span>
                 )}
-              </button>
+              </Link>
             );
           })}
         </nav>
@@ -390,12 +379,9 @@ function TicketsLayoutInner({ children }: { children: React.ReactNode }) {
                 ? pathname === item.path
                 : pathname === item.path || pathname?.startsWith(item.path + '/');
               return (
-                <button
+                <Link
                   key={item.path}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    router.push(item.path);
-                  }}
+                  href={item.path}
                   className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
                     active
                       ? 'bg-gray-900 text-white'
@@ -404,7 +390,7 @@ function TicketsLayoutInner({ children }: { children: React.ReactNode }) {
                 >
                   <Icon className="h-4 w-4" />
                   {item.label}
-                </button>
+                </Link>
               );
             })}
           </nav>

@@ -439,46 +439,39 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
             const Icon = item.icon;
             const active = isActive(item.path);
             const isClinicsTab = item.path === '/admin/clinics';
+            const isClinicSwitch = isClinicsTab && hasMultipleClinics && userRole !== 'super_admin';
 
-            const handleNavClick = (e: React.MouseEvent) => {
-              e.preventDefault();
-              e.stopPropagation();
-
-              if (
-                item.path === '/admin/clinics' &&
-                hasMultipleClinics &&
-                userRole !== 'super_admin'
-              ) {
-                setShowClinicSwitchModal(true);
-                return;
-              }
-
-              if (pathname === item.path) {
-                router.refresh();
-              } else {
-                router.push(item.path);
-              }
-            };
+            if (isClinicSwitch) {
+              return (
+                <button
+                  key={item.path}
+                  onClick={() => setShowClinicSwitchModal(true)}
+                  title={!sidebarExpanded ? 'Switch Clinic' : undefined}
+                  className="flex w-full cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                >
+                  <Icon className="h-5 w-5 flex-shrink-0" />
+                  {sidebarExpanded && (
+                    <span className="whitespace-nowrap text-sm font-medium">Switch Clinic</span>
+                  )}
+                </button>
+              );
+            }
 
             return (
-              <button
+              <Link
                 key={item.path}
-                onClick={handleNavClick}
+                href={item.path}
                 title={!sidebarExpanded ? item.label : undefined}
-                className={`flex w-full cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-all ${
+                className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors ${
                   active ? '' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
                 }`}
                 style={active ? { backgroundColor: `${primaryColor}15`, color: primaryColor } : {}}
               >
                 <Icon className="h-5 w-5 flex-shrink-0" />
                 {sidebarExpanded && (
-                  <span className="whitespace-nowrap text-sm font-medium">
-                    {isClinicsTab && hasMultipleClinics && userRole !== 'super_admin'
-                      ? 'Switch Clinic'
-                      : item.label}
-                  </span>
+                  <span className="whitespace-nowrap text-sm font-medium">{item.label}</span>
                 )}
-              </button>
+              </Link>
             );
           })}
         </nav>
