@@ -120,10 +120,74 @@ async function handler(req: NextRequest): Promise<Response> {
         else s.stripeCount++;
       }
 
+      // Fetch override commission events for the same period
+      const overrideWhere: Record<string, any> = {
+        occurredAt: { gte: startDate, lte: endDate },
+      };
+      if (clinicIdParam) overrideWhere.clinicId = parseInt(clinicIdParam, 10);
+      if (salesRepIdParam) overrideWhere.overrideRepId = parseInt(salesRepIdParam, 10);
+      if (statusFilter) {
+        overrideWhere.status = statusFilter;
+      } else {
+        overrideWhere.status = { in: ['PENDING', 'APPROVED', 'PAID'] };
+      }
+
+      const overrideEvents = await prisma.salesRepOverrideCommissionEvent.findMany({
+        where: overrideWhere,
+        orderBy: [{ overrideRepId: 'asc' }, { occurredAt: 'asc' }],
+        include: {
+          overrideRep: { select: { id: true, firstName: true, lastName: true, email: true } },
+          clinic: { select: { id: true, name: true } },
+        },
+      });
+
+      const overrideRepSummaries = new Map<number, {
+        name: string;
+        email: string;
+        clinicName: string;
+        totalOverrideEvents: number;
+        totalOverrideRevenueCents: number;
+        totalOverrideCommissionCents: number;
+      }>();
+
+      for (const ov of overrideEvents) {
+        const repId = ov.overrideRepId;
+        if (!overrideRepSummaries.has(repId)) {
+          overrideRepSummaries.set(repId, {
+            name: `${ov.overrideRep?.firstName || ''} ${ov.overrideRep?.lastName || ''}`.trim() || ov.overrideRep?.email || `Rep #${repId}`,
+            email: ov.overrideRep?.email || '',
+            clinicName: ov.clinic?.name || '',
+            totalOverrideEvents: 0,
+            totalOverrideRevenueCents: 0,
+            totalOverrideCommissionCents: 0,
+          });
+        }
+        const os = overrideRepSummaries.get(repId)!;
+        os.totalOverrideEvents++;
+        os.totalOverrideRevenueCents += ov.eventAmountCents;
+        os.totalOverrideCommissionCents += ov.commissionAmountCents;
+      }
+
+      for (const [repId, os] of overrideRepSummaries) {
+        const existing = repSummaries.get(repId);
+        if (existing) {
+          (existing as any).totalOverrideCommissionCents = os.totalOverrideCommissionCents;
+          (existing as any).totalOverrideEvents = os.totalOverrideEvents;
+        }
+      }
+
+      const overrideGrandTotal = {
+        events: overrideEvents.length,
+        commissionCents: overrideEvents.reduce((a, e) => a + e.commissionAmountCents, 0),
+      };
+
       const grandTotal = {
         events: events.length,
         revenueCents: events.reduce((a, e) => a + e.eventAmountCents, 0),
         commissionCents: events.reduce((a, e) => a + e.commissionAmountCents, 0),
+        overrideEvents: overrideGrandTotal.events,
+        overrideCommissionCents: overrideGrandTotal.commissionCents,
+        combinedCommissionCents: events.reduce((a, e) => a + e.commissionAmountCents, 0) + overrideGrandTotal.commissionCents,
       };
 
       if (format === 'csv') {
@@ -148,6 +212,26 @@ async function handler(req: NextRequest): Promise<Response> {
           csv += `${ev.occurredAt.toISOString().slice(0, 10)},"${repName}","${ev.salesRep?.email || ''}","${ev.clinic?.name || ''}",${ev.status},${ev.isManual ? 'Manual' : 'Stripe'},${ev.stripeEventId || ''},${(ev.eventAmountCents / 100).toFixed(2)},${(ev.baseCommissionCents / 100).toFixed(2)},${(ev.volumeTierBonusCents / 100).toFixed(2)},${(ev.productBonusCents / 100).toFixed(2)},${(ev.multiItemBonusCents / 100).toFixed(2)},${(ev.commissionAmountCents / 100).toFixed(2)},"${meta.planName || ''}","${(ev.notes || '').replace(/"/g, '""')}"\n`;
         }
 
+        if (overrideEvents.length > 0) {
+          csv += `\n=== OVERRIDE COMMISSION SUMMARY ===\n`;
+          csv += `Override Rep,Email,Clinic,Override Events,Subordinate Revenue,Override Commission\n`;
+          for (const [, os] of overrideRepSummaries) {
+            csv += `"${os.name}","${os.email}","${os.clinicName}",${os.totalOverrideEvents},${(os.totalOverrideRevenueCents / 100).toFixed(2)},${(os.totalOverrideCommissionCents / 100).toFixed(2)}\n`;
+          }
+          csv += `\nOverride Grand Total,,,${overrideGrandTotal.events},,${(overrideGrandTotal.commissionCents / 100).toFixed(2)}\n`;
+
+          csv += `\n=== OVERRIDE EVENT DETAIL ===\n`;
+          csv += `Date,Override Rep,Email,Clinic,Status,Subordinate Revenue,Override Rate,Override Commission,Stripe Event\n`;
+          for (const ov of overrideEvents) {
+            const repName = `${ov.overrideRep?.firstName || ''} ${ov.overrideRep?.lastName || ''}`.trim() || ov.overrideRep?.email || '';
+            csv += `${ov.occurredAt.toISOString().slice(0, 10)},"${repName}","${ov.overrideRep?.email || ''}","${ov.clinic?.name || ''}",${ov.status},${(ov.eventAmountCents / 100).toFixed(2)},${(ov.overridePercentBps / 100).toFixed(2)}%,${(ov.commissionAmountCents / 100).toFixed(2)},${ov.stripeEventId || ''}\n`;
+          }
+
+          csv += `\n=== COMBINED TOTALS ===\n`;
+          csv += `Direct Commission,Override Commission,Combined Total\n`;
+          csv += `${(grandTotal.commissionCents / 100).toFixed(2)},${(overrideGrandTotal.commissionCents / 100).toFixed(2)},${(grandTotal.combinedCommissionCents / 100).toFixed(2)}\n`;
+        }
+
         return new Response(csv, {
           headers: {
             'Content-Type': 'text/csv; charset=utf-8',
@@ -160,6 +244,10 @@ async function handler(req: NextRequest): Promise<Response> {
         dateRange: { startDate: startDate.toISOString(), endDate: endDate.toISOString() },
         grandTotal,
         repSummaries: Array.from(repSummaries.entries()).map(([repId, s]) => ({
+          salesRepId: repId,
+          ...s,
+        })),
+        overrideRepSummaries: Array.from(overrideRepSummaries.entries()).map(([repId, s]) => ({
           salesRepId: repId,
           ...s,
         })),
@@ -181,6 +269,20 @@ async function handler(req: NextRequest): Promise<Response> {
           multiItemBonusCents: ev.multiItemBonusCents,
           planName: (ev.metadata as any)?.planName || null,
           notes: ev.notes,
+        })),
+        overrideEvents: overrideEvents.map((ov) => ({
+          id: ov.id,
+          occurredAt: ov.occurredAt,
+          overrideRepId: ov.overrideRepId,
+          overrideRepName: `${ov.overrideRep?.firstName || ''} ${ov.overrideRep?.lastName || ''}`.trim(),
+          overrideRepEmail: ov.overrideRep?.email,
+          subordinateRepId: ov.subordinateRepId,
+          clinicName: ov.clinic?.name,
+          status: ov.status,
+          eventAmountCents: ov.eventAmountCents,
+          overridePercentBps: ov.overridePercentBps,
+          commissionAmountCents: ov.commissionAmountCents,
+          stripeEventId: ov.stripeEventId,
         })),
       });
     });

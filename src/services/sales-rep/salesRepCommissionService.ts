@@ -8,6 +8,7 @@
  * - Volume-based weekly tiers (retroactive and non-retroactive)
  * - Product/bundle-specific commission overrides
  * - Multi-item bonus logic
+ * - Override commissions (manager earns % of subordinate's gross revenue)
  * - Idempotent event processing
  * - Refund/chargeback reversals
  * - Approval of pending commissions past hold period
@@ -627,6 +628,14 @@ export async function processPaymentForSalesRepCommission(
       stripeEventId,
     });
 
+    // Process override commissions for any manager reps above this rep
+    await processOverrideCommissions(
+      salesRepId,
+      clinicId,
+      { amountCents, stripeEventId, patientId, occurredAt },
+      commissionEvent.id
+    );
+
     return {
       success: true,
       commissionEventId: commissionEvent.id,
@@ -684,17 +693,20 @@ export async function reverseSalesRepCommission(
       }
     }
 
+    const now = new Date();
+    const reversalData = {
+      status: 'REVERSED' as const,
+      reversedAt: now,
+      reversalReason: reason || stripeEventType,
+    };
+
     const result = await prisma.salesRepCommissionEvent.updateMany({
       where: {
         id: commissionEvent.id,
         status: { in: ['PENDING', 'APPROVED'] },
         reversedAt: null,
       },
-      data: {
-        status: 'REVERSED',
-        reversedAt: new Date(),
-        reversalReason: reason || stripeEventType,
-      },
+      data: reversalData,
     });
 
     if (result.count === 0) {
@@ -706,9 +718,20 @@ export async function reverseSalesRepCommission(
       };
     }
 
+    // Also reverse any linked override commission events
+    const overrideReversal = await prisma.salesRepOverrideCommissionEvent.updateMany({
+      where: {
+        sourceCommissionEventId: commissionEvent.id,
+        status: { in: ['PENDING', 'APPROVED'] },
+        reversedAt: null,
+      },
+      data: reversalData,
+    });
+
     logger.info('[SalesRepCommission] Commission reversed', {
       commissionEventId: commissionEvent.id,
       salesRepId: commissionEvent.salesRepId,
+      overrideEventsReversed: overrideReversal.count,
       reason,
     });
 
@@ -730,32 +753,143 @@ export async function reverseSalesRepCommission(
 
 export async function approvePendingSalesRepCommissions(): Promise<{
   approved: number;
+  overrideApproved: number;
   errors: number;
 }> {
   const now = new Date();
+  const approvalWhere = {
+    status: 'PENDING' as const,
+    OR: [{ holdUntil: null }, { holdUntil: { lte: now } }],
+  };
+  const approvalData = {
+    status: 'APPROVED' as const,
+    approvedAt: now,
+  };
 
   try {
-    const result = await prisma.salesRepCommissionEvent.updateMany({
-      where: {
-        status: 'PENDING',
-        OR: [{ holdUntil: null }, { holdUntil: { lte: now } }],
-      },
-      data: {
-        status: 'APPROVED',
-        approvedAt: now,
-      },
-    });
+    const [directResult, overrideResult] = await Promise.all([
+      prisma.salesRepCommissionEvent.updateMany({
+        where: approvalWhere,
+        data: approvalData,
+      }),
+      prisma.salesRepOverrideCommissionEvent.updateMany({
+        where: approvalWhere,
+        data: approvalData,
+      }),
+    ]);
 
     logger.info('[SalesRepCommission] Approved pending commissions', {
-      count: result.count,
+      directApproved: directResult.count,
+      overrideApproved: overrideResult.count,
     });
 
-    return { approved: result.count, errors: 0 };
+    return {
+      approved: directResult.count,
+      overrideApproved: overrideResult.count,
+      errors: 0,
+    };
   } catch (error) {
     logger.error('[SalesRepCommission] Error approving commissions', {
       error: error instanceof Error ? error.message : 'Unknown error',
     });
-    return { approved: 0, errors: 1 };
+    return { approved: 0, overrideApproved: 0, errors: 1 };
+  }
+}
+
+// ============================================================================
+// Override Commissions (manager earns % of subordinate's gross revenue)
+// ============================================================================
+
+interface OverridePaymentData {
+  amountCents: number;
+  stripeEventId: string;
+  patientId: number;
+  occurredAt: Date;
+}
+
+/**
+ * After a direct commission event is created for a subordinate rep, check if any
+ * override (manager) reps are assigned and create override commission events for each.
+ * Idempotent via unique constraint on (clinicId, stripeEventId, overrideRepId).
+ */
+async function processOverrideCommissions(
+  subordinateRepId: number,
+  clinicId: number,
+  paymentData: OverridePaymentData,
+  sourceCommissionEventId: number
+): Promise<void> {
+  try {
+    const overrides = await prisma.salesRepOverrideAssignment.findMany({
+      where: {
+        subordinateRepId,
+        clinicId,
+        isActive: true,
+        effectiveFrom: { lte: paymentData.occurredAt },
+        OR: [{ effectiveTo: null }, { effectiveTo: { gte: paymentData.occurredAt } }],
+      },
+    });
+
+    if (overrides.length === 0) return;
+
+    for (const override of overrides) {
+      const existing = await prisma.salesRepOverrideCommissionEvent.findFirst({
+        where: {
+          clinicId,
+          stripeEventId: paymentData.stripeEventId,
+          overrideRepId: override.overrideRepId,
+        },
+      });
+      if (existing) continue;
+
+      const overrideAmountCents = Math.round(
+        (paymentData.amountCents * override.overridePercentBps) / 10000
+      );
+      if (overrideAmountCents <= 0) continue;
+
+      try {
+        await prisma.salesRepOverrideCommissionEvent.create({
+          data: {
+            clinicId,
+            overrideRepId: override.overrideRepId,
+            subordinateRepId,
+            sourceCommissionEventId,
+            overrideAssignmentId: override.id,
+            eventAmountCents: paymentData.amountCents,
+            overridePercentBps: override.overridePercentBps,
+            commissionAmountCents: overrideAmountCents,
+            patientId: paymentData.patientId,
+            stripeEventId: paymentData.stripeEventId,
+            status: 'PENDING',
+            occurredAt: paymentData.occurredAt,
+          },
+        });
+
+        logger.info('[SalesRepCommission] Override commission created', {
+          overrideRepId: override.overrideRepId,
+          subordinateRepId,
+          overrideAmountCents,
+          overridePercentBps: override.overridePercentBps,
+          clinicId,
+          sourceCommissionEventId,
+        });
+      } catch (createErr: unknown) {
+        if (
+          createErr &&
+          typeof createErr === 'object' &&
+          'code' in createErr &&
+          (createErr as { code: string }).code === 'P2002'
+        ) {
+          continue;
+        }
+        throw createErr;
+      }
+    }
+  } catch (error) {
+    logger.error('[SalesRepCommission] Error processing override commissions', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      subordinateRepId,
+      clinicId,
+    });
   }
 }
 
