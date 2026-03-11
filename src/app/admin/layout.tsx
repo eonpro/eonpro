@@ -33,6 +33,7 @@ import {
   Camera,
   Truck,
   Shield,
+  Menu,
 } from 'lucide-react';
 import InternalChat from '@/components/InternalChat';
 import {
@@ -151,6 +152,7 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { branding, isLoading: brandingLoading } = useClinicBranding();
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<number | null>(null);
   const [userRole, setUserRole] = useState<string>('admin');
@@ -276,6 +278,11 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
     }
   }, [loading, userRole, pathname, router]);
 
+  // Close mobile nav on route change
+  useEffect(() => {
+    setMobileNavOpen(false);
+  }, [pathname]);
+
   // Build navigation items from shared config (same as patients layout for consistency)
   const navItems = useMemo(() => {
     const config = getAdminNavConfig(userRole);
@@ -390,18 +397,45 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
     return pathname === path || pathname?.startsWith(path + '/');
   };
 
+  const showLabels = sidebarExpanded || mobileNavOpen;
+
   return (
     <div className="flex min-h-screen bg-[#efece7]">
-      {/* Sidebar — hidden on mobile, visible on md+ */}
+      {/* Mobile nav overlay */}
+      {!loading && mobileNavOpen && (
+        <div
+          className="fixed inset-0 z-[100] bg-black/40 md:hidden"
+          aria-hidden
+          onClick={() => setMobileNavOpen(false)}
+        />
+      )}
+
+      {/* Sidebar — drawer on mobile, fixed sidebar on md+ */}
       <aside
-        className={`fixed bottom-0 left-0 top-0 z-50 hidden flex-col border-r border-gray-200 bg-white py-4 transition-all duration-300 md:flex ${
-          sidebarExpanded ? 'w-56' : 'w-20'
-        }`}
+        className={`fixed bottom-0 left-0 top-0 z-[101] flex flex-col border-r border-gray-200 bg-white py-4 transition-all duration-300
+          md:translate-x-0
+          ${mobileNavOpen ? 'translate-x-0 w-[280px]' : '-translate-x-full w-[280px] md:translate-x-0 md:w-20'}
+          ${sidebarExpanded ? 'md:w-56' : 'md:w-20'}`}
       >
         {!loading ? (
           <>
-            {/* Logo */}
-            <div className="mb-6 flex flex-col items-center px-4">
+            {/* Mobile: close button + logo (below md) */}
+            <div className="flex items-center justify-between px-4 pb-2 md:hidden">
+              <a href={isPharmacyExperience ? '/admin' : '/'} onClick={() => setMobileNavOpen(false)}>
+                <img src={clinicLogo} alt={clinicName} className="h-9 w-auto max-w-[140px] object-contain" />
+              </a>
+              <button
+                type="button"
+                onClick={() => setMobileNavOpen(false)}
+                className="flex h-11 w-11 items-center justify-center rounded-xl text-gray-500 hover:bg-gray-100"
+                aria-label="Close menu"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+
+            {/* Logo — desktop (md+) */}
+            <div className="mb-6 hidden flex-col items-center px-4 md:flex">
               <a href={isPharmacyExperience ? '/admin' : '/'}>
                 {sidebarExpanded ? (
                   <img src={clinicLogo} alt={clinicName} className="h-10 w-auto max-w-[140px] object-contain" />
@@ -417,10 +451,10 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
               )}
             </div>
 
-            {/* Expand Button */}
+            {/* Expand Button — desktop only */}
             <button
               onClick={() => setSidebarExpanded(!sidebarExpanded)}
-              className={`absolute -right-3 top-20 flex h-6 w-6 items-center justify-center rounded-full border border-gray-200 bg-white shadow-sm transition-all hover:bg-gray-50 focus:outline-none ${
+              className={`absolute -right-3 top-20 hidden h-6 w-6 items-center justify-center rounded-full border border-gray-200 bg-white shadow-sm transition-all hover:bg-gray-50 focus:outline-none md:flex ${
                 sidebarExpanded ? 'rotate-180' : ''
               }`}
             >
@@ -438,12 +472,15 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
                   return (
                     <button
                       key={item.path}
-                      onClick={() => setShowClinicSwitchModal(true)}
-                      title={!sidebarExpanded ? 'Switch Clinic' : undefined}
-                      className="flex w-full cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                      onClick={() => {
+                        setMobileNavOpen(false);
+                        setShowClinicSwitchModal(true);
+                      }}
+                      title={!showLabels ? 'Switch Clinic' : undefined}
+                      className="flex min-h-[44px] w-full cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors touch-manipulation text-gray-400 hover:bg-gray-100 hover:text-gray-600 active:bg-gray-100"
                     >
                       <Icon className="h-5 w-5 flex-shrink-0" />
-                      {sidebarExpanded && (
+                      {showLabels && (
                         <span className="whitespace-nowrap text-sm font-medium">Switch Clinic</span>
                       )}
                     </button>
@@ -454,14 +491,15 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
                   <a
                     key={item.path}
                     href={item.path}
-                    title={!sidebarExpanded ? item.label : undefined}
-                    className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left no-underline transition-colors ${
-                      active ? '' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
+                    onClick={() => setMobileNavOpen(false)}
+                    title={!showLabels ? item.label : undefined}
+                    className={`flex min-h-[44px] w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left no-underline transition-colors touch-manipulation ${
+                      active ? '' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600 active:bg-gray-100'
                     }`}
                     style={active ? { backgroundColor: `${primaryColor}15`, color: primaryColor } : {}}
                   >
                     <Icon className="h-5 w-5 flex-shrink-0" />
-                    {sidebarExpanded && (
+                    {showLabels && (
                       <span className="whitespace-nowrap text-sm font-medium">{item.label}</span>
                     )}
                   </a>
@@ -473,13 +511,16 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
             <div className="space-y-2 border-t border-gray-100 px-3 pt-4">
               <button
                 type="button"
-                onClick={handleLogout}
-                title={!sidebarExpanded ? 'Logout' : undefined}
-                className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-gray-400 transition-all hover:bg-gray-100 hover:text-gray-600"
+                onClick={(e) => {
+                  setMobileNavOpen(false);
+                  handleLogout(e);
+                }}
+                title={!showLabels ? 'Logout' : undefined}
+                className="flex min-h-[44px] w-full items-center gap-3 rounded-xl px-3 py-2.5 text-gray-400 transition-all touch-manipulation hover:bg-red-50 hover:text-red-600 active:bg-red-50"
               >
                 <LogOut className="h-5 w-5 flex-shrink-0" />
-                {sidebarExpanded && (
-                  <span className="whitespace-nowrap text-sm font-medium">Logout</span>
+                {showLabels && (
+                  <span className="whitespace-nowrap text-sm font-medium">Sign Out</span>
                 )}
               </button>
             </div>
@@ -493,10 +534,18 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
 
       {/* Main Content */}
       <main className={`flex-1 pb-20 transition-all duration-300 md:pb-0 ${sidebarExpanded ? 'md:ml-56' : 'md:ml-20'}`}>
-        {/* Top Notification Bar */}
-        <div className="sticky top-0 z-40 border-b border-gray-200/50 bg-[#efece7]/95 px-4 py-2.5 backdrop-blur-sm md:px-6 md:py-3">
+        {/* Top Bar — hamburger on mobile + notifications */}
+        <div className="sticky top-0 z-40 border-b border-gray-200/50 bg-[#efece7]/95 px-4 py-2.5 backdrop-blur-sm md:px-6 md:py-3" style={{ paddingTop: 'max(0.625rem, env(safe-area-inset-top))' }}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setMobileNavOpen(true)}
+                className="flex h-11 w-11 touch-manipulation items-center justify-center rounded-xl text-gray-600 hover:bg-white/60 active:bg-white/80 md:hidden"
+                aria-label="Open menu"
+              >
+                <Menu className="h-6 w-6" />
+              </button>
               <NotificationCenter
                 notificationsPath="/admin/notifications"
                 dropdownPosition="left"
@@ -509,10 +558,10 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
         {children}
       </main>
 
-      {/* Mobile Bottom Navigation — visible only on small screens */}
+      {/* Mobile Bottom Navigation — quick-access tabs on small screens */}
       <nav className="fixed bottom-0 left-0 right-0 z-[55] border-t border-gray-200 bg-white pb-[env(safe-area-inset-bottom)] md:hidden">
         <div className="flex">
-          {navItems.slice(0, 5).map((item) => {
+          {navItems.slice(0, 4).map((item) => {
             const Icon = item.icon;
             const active = isActive(item.path);
             const isClinicsTab = item.path === '/admin/clinics';
@@ -548,11 +597,11 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
           })}
           <button
             type="button"
-            onClick={handleLogout}
+            onClick={() => setMobileNavOpen(true)}
             className="flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 py-3 text-gray-400 transition-colors active:text-gray-600"
           >
-            <LogOut className="h-5 w-5 flex-shrink-0" />
-            <span className="text-[10px] font-medium leading-tight">Logout</span>
+            <Menu className="h-5 w-5 flex-shrink-0" />
+            <span className="text-[10px] font-medium leading-tight">More</span>
           </button>
         </div>
       </nav>
