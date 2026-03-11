@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState, ReactNode, useMemo } from 'react';
+import { createContext, useContext, useEffect, useState, useRef, ReactNode, useMemo } from 'react';
 import { isBrowser, getLocalStorageItem, setLocalStorageItem } from '@/lib/utils/ssr-safe';
 import { LOGOSRX } from '@/lib/constants/brand-assets';
 
@@ -385,11 +385,25 @@ export function ClinicBrandingProvider({
   clinicId,
   initialBranding,
 }: ClinicBrandingProviderProps) {
-  const [initial] = useState(() => getInitialBrandingState(initialBranding, clinicId));
-  const [branding, setBranding] = useState<ClinicBranding | null>(initial.branding);
-  const [isLoading, setIsLoading] = useState(initial.isLoading);
+  // Always start with server-safe defaults to avoid hydration mismatch (React #418).
+  // The localStorage/window reads happen in the useEffect below, not during render.
+  const [branding, setBranding] = useState<ClinicBranding | null>(initialBranding ?? null);
+  const [isLoading, setIsLoading] = useState(!initialBranding);
   const [error, setError] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+
+  // Synchronously resolve cached branding on first client mount to minimize flash.
+  // This runs after hydration so it won't cause a mismatch.
+  const hasMountedRef = useRef(false);
+  useEffect(() => {
+    if (hasMountedRef.current || initialBranding) return;
+    hasMountedRef.current = true;
+    const cached = getInitialBrandingState(initialBranding, clinicId);
+    if (cached.branding) {
+      setBranding(cached.branding);
+      setIsLoading(cached.isLoading);
+    }
+  }, [initialBranding, clinicId]);
 
   useEffect(() => {
     if (initialBranding) return;
