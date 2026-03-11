@@ -43,18 +43,7 @@ function StaffLayoutInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { branding, isLoading: brandingLoading } = useClinicBranding();
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
-  const [loading, setLoading] = useState(() => {
-    if (typeof window === 'undefined') return true;
-    try {
-      const user = localStorage.getItem('user');
-      const token = localStorage.getItem('auth-token') || localStorage.getItem('staff-token');
-      if (!user || !token) return true;
-      const data = safeParseJsonString(user);
-      return !data || data.role?.toLowerCase() !== 'staff';
-    } catch {
-      return true;
-    }
-  });
+  const [loading, setLoading] = useState(true);
 
   const primaryColor = branding?.primaryColor || '#4fa77e';
   const clinicLogo = branding?.logoUrl || EONPRO_LOGO;

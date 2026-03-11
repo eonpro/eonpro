@@ -66,18 +66,7 @@ function ProviderLayoutInner({ children }: { children: React.ReactNode }) {
   const { branding, isLoading: brandingLoading } = useClinicBranding();
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
-  const [loading, setLoading] = useState(() => {
-    if (typeof window === 'undefined') return true;
-    try {
-      const user = localStorage.getItem('user');
-      const token = localStorage.getItem('auth-token') || localStorage.getItem('provider-token');
-      if (!user || !token) return true;
-      const data = safeParseJsonString(user);
-      return !data || data.role?.toLowerCase() !== 'provider';
-    } catch {
-      return true;
-    }
-  });
+  const [loading, setLoading] = useState(true);
   const [userName, setUserName] = useState('');
   const [userId, setUserId] = useState<number | null>(null);
   const [rxQueueCount, setRxQueueCount] = useState(0);

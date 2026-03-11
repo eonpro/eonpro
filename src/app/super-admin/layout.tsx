@@ -48,18 +48,7 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
   const router = useRouter();
   const pathname = usePathname();
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
-  const [loading, setLoading] = useState(() => {
-    if (typeof window === 'undefined') return true;
-    try {
-      const user = localStorage.getItem('user');
-      const token = localStorage.getItem('auth-token') || localStorage.getItem('super_admin-token');
-      if (!user || !token) return true;
-      const data = safeParseJsonString(user);
-      return !data || data.role?.toLowerCase() !== 'super_admin';
-    } catch {
-      return true;
-    }
-  });
+  const [loading, setLoading] = useState(true);
   const [userName, setUserName] = useState('');
   const [userId, setUserId] = useState<number | null>(null);
 

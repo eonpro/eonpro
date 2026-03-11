@@ -132,21 +132,7 @@ function TicketsLayoutInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { branding, isLoading: brandingLoading } = useClinicBranding();
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
-  const [loading, setLoading] = useState(() => {
-    if (typeof window === 'undefined') return true;
-    try {
-      const user = localStorage.getItem('user');
-      const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token') || localStorage.getItem('super_admin-token') || localStorage.getItem('provider-token') || localStorage.getItem('staff-token');
-      if (!user || !token) return true;
-      const data = safeParseJsonString(user);
-      if (!data) return true;
-      const role = data.role?.toLowerCase();
-      const allowed = ['admin', 'super_admin', 'provider', 'staff', 'support'];
-      return !role || !allowed.includes(role);
-    } catch {
-      return true;
-    }
-  });
+  const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<number | null>(null);
   const [userRole, setUserRole] = useState<string>(() => getStoredUserRole(TICKETS_ALLOWED_ROLES) ?? 'admin');
 
