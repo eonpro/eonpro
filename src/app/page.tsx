@@ -136,11 +136,13 @@ function HomePageInner() {
 
   useEffect(() => {
     const checkAuthAndRedirect = async () => {
-      // Step 1: Try the server-side session first (cookie auth).
-      // This is the source of truth and prevents stale localStorage data
-      // (e.g. an old affiliate session) from hijacking the redirect.
+      // Step 1: Try the authenticated session (Bearer from localStorage + httpOnly cookies).
+      // apiFetch sends both the Bearer header and credentials:'include', and automatically
+      // refreshes expired access tokens via the refresh token. This avoids spurious 401s
+      // when the httpOnly cookie expires but the localStorage/refresh token is still valid.
+      // Stale affiliate session detection still works via the x-auth-token-source header.
       try {
-        const meRes = await fetch('/api/auth/me', { credentials: 'include' });
+        const meRes = await apiFetch('/api/auth/me');
         if (meRes.ok) {
           const meData = await meRes.json();
           const serverRole = meData.user?.role?.toLowerCase();

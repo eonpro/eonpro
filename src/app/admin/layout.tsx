@@ -390,10 +390,10 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
     return pathname === path || pathname?.startsWith(path + '/');
   };
 
-  if (loading && !brandingLoading) {
+  if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#efece7]">
-        <img src={clinicIcon} alt="Loading" className="h-12 w-12 animate-pulse object-contain" />
+        <img src={EONPRO_ICON} alt="Loading" className="h-12 w-12 animate-pulse object-contain" />
       </div>
     );
   }
