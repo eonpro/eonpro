@@ -26,11 +26,14 @@ type PatientPrescriptionPanelProps = {
     zip: string | null;
   };
   onSuccess?: () => void;
+  /** Base path for patient detail routes (e.g. '/admin/patients'). Defaults to '/patients'. */
+  patientBasePath?: string;
 };
 
 export default function PatientPrescriptionPanel({
   patient,
   onSuccess,
+  patientBasePath = '/patients',
 }: PatientPrescriptionPanelProps) {
   const patientContext = useMemo(
     () => ({
@@ -53,7 +56,8 @@ export default function PatientPrescriptionPanel({
   return (
     <PrescriptionForm
       patientContext={patientContext}
-      redirectPath={onSuccess ? undefined : `/patients/${patient.id}?tab=prescriptions&submitted=1`}
+      redirectPath={onSuccess ? undefined : `${patientBasePath}/${patient.id}?tab=prescriptions&submitted=1`}
+      patientBasePath={patientBasePath}
       onSuccess={onSuccess}
     />
   );

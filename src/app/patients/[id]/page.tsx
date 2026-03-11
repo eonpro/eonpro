@@ -1299,6 +1299,7 @@ export default async function PatientDetailPage({
               <PatientDocumentsView
                 patientId={patientWithDecryptedPHI.id}
                 patientName={`${patientWithDecryptedPHI.firstName} ${patientWithDecryptedPHI.lastName}`}
+                patientBasePath={PATIENTS_LIST_PATH}
               />
             ) : currentTab === 'chat' ? (
               <PatientChatView patient={patientCore} />

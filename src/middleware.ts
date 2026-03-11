@@ -147,9 +147,11 @@ export async function middleware(request: NextRequest) {
     const hasSuperAdminToken = request.cookies.get('super_admin-token')?.value;
     const hasProviderToken = request.cookies.get('provider-token')?.value;
     const hasStaffToken = request.cookies.get('staff-token')?.value;
+    const hasPharmacyRepToken = request.cookies.get('pharmacy_rep-token')?.value;
+    const hasSalesRepToken = request.cookies.get('sales_rep-token')?.value;
     const hasAffiliateSession = request.cookies.get('affiliate_session')?.value;
 
-    const hasPrimarySession = hasAuthToken || hasAdminToken || hasSuperAdminToken || hasProviderToken || hasStaffToken;
+    const hasPrimarySession = hasAuthToken || hasAdminToken || hasSuperAdminToken || hasProviderToken || hasStaffToken || hasPharmacyRepToken || hasSalesRepToken;
 
     if (!hasPrimarySession && hasAffiliateSession) {
       // Stale affiliate session detected: admin session expired, affiliate cookie remains

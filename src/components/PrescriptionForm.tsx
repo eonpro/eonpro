@@ -133,6 +133,8 @@ type PrescriptionFormProps = {
   };
   redirectPath?: string;
   onSuccess?: () => void;
+  /** Base path for patient detail routes (e.g. '/admin/patients'). Defaults to '/patients'. */
+  patientBasePath?: string;
 };
 
 const EMPTY_PATIENT = {
@@ -160,6 +162,7 @@ export default function PrescriptionForm({
   patientContext,
   redirectPath,
   onSuccess,
+  patientBasePath = '/patients',
 }: PrescriptionFormProps = {}) {
   const router = useRouter();
   const [showConfirmation, setShowConfirmation] = useState(false);
@@ -615,9 +618,9 @@ export default function PrescriptionForm({
       if (data.queuedForProvider) {
         if (onSuccess) onSuccess();
         else if (selectedPatientId)
-          window.location.href = `/patients/${selectedPatientId}?tab=prescriptions&queued=1`;
+          window.location.href = `${patientBasePath}/${selectedPatientId}?tab=prescriptions&queued=1`;
         else if (data.patientId)
-          window.location.href = `/patients/${data.patientId}?tab=prescriptions&queued=1`;
+          window.location.href = `${patientBasePath}/${data.patientId}?tab=prescriptions&queued=1`;
         else window.location.href = '/orders/dashboard?queued=1';
         return;
       }
@@ -627,9 +630,9 @@ export default function PrescriptionForm({
       } else if (redirectPath) {
         window.location.href = redirectPath;
       } else if (selectedPatientId) {
-        window.location.href = `/patients/${selectedPatientId}?tab=prescriptions&submitted=1`;
+        window.location.href = `${patientBasePath}/${selectedPatientId}?tab=prescriptions&submitted=1`;
       } else if (data.patientId) {
-        window.location.href = `/patients/${data.patientId}?tab=prescriptions&submitted=1`;
+        window.location.href = `${patientBasePath}/${data.patientId}?tab=prescriptions&submitted=1`;
       } else {
         window.location.href = '/orders/dashboard?submitted=1';
       }

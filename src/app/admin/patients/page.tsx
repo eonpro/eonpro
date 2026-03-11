@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { formatPatientDisplayId } from '@/lib/utils/formatPatientDisplayId';
+import { isLogosRxHost as checkIsLogosRxHost } from '@/lib/constants/brand-assets';
 import {
   Search,
   Plus,
@@ -141,7 +142,7 @@ export default function AdminPatientsPage() {
   // Debounce search input
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const isLogosRxHost = window.location.hostname.toLowerCase() === 'logosrx.eonpro.io';
+    const isLogosRxHost = checkIsLogosRxHost();
     let isPharmacyRepRole = false;
     try {
       const rawUser = window.localStorage.getItem('user');

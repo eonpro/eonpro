@@ -133,6 +133,8 @@ export async function getUserFromCookies(): Promise<UserSession | null> {
       'patient-token',
       'staff-token',
       'support-token',
+      'pharmacy_rep-token',
+      'sales_rep-token',
     ];
 
     for (const tokenName of tokenNames) {

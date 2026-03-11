@@ -42,6 +42,25 @@ export const BRAND = {
 export const EONPRO_LOGO = BRAND.logos.eonproLogo;
 export const EONPRO_ICON = BRAND.logos.eonproIcon;
 
+/**
+ * LogosRx (pharmacy) brand constants.
+ * Single source of truth — import from here instead of defining per-file.
+ */
+export const LOGOSRX = {
+  HOST: 'logosrx.eonpro.io',
+  PRIMARY: '#7C3AED',
+  LOGO: 'https://static.wixstatic.com/shapes/c49a9b_70a8d7f88d384ab9956055674c2632a7.svg',
+  ICON: 'https://static.wixstatic.com/shapes/c49a9b_3ec136783b554ea3af0db59751e8c37d.svg',
+  WHITE_LOGO: 'https://static.wixstatic.com/shapes/c49a9b_ed88aadf7f9b426f990b60e1965c329b.svg',
+  NAME: 'LogosRx',
+} as const;
+
+/** Returns true when running on the LogosRx pharmacy hostname. */
+export function isLogosRxHost(): boolean {
+  if (typeof window === 'undefined') return false;
+  return window.location.hostname.toLowerCase() === LOGOSRX.HOST;
+}
+
 /** Resolves a Stripe/stored card brand string to a local logo path, or null if unknown. */
 export function getCardNetworkLogo(brand: string): string | null {
   const key = brand.toLowerCase().replace(/[\s-_]/g, '') as string;

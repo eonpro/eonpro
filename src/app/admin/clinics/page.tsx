@@ -67,8 +67,7 @@ export default function ClinicsAdminPage() {
         setUserRole(role);
 
         if (role !== 'super_admin') {
-          // Redirect non-super-admins to dashboard
-          router.replace('/');
+          router.replace('/admin');
           return;
         }
 

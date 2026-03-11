@@ -19,11 +19,14 @@ interface Document {
 interface PatientDocumentsViewProps {
   patientId: number;
   patientName: string;
+  /** Base path for patient detail routes (e.g. '/admin/patients'). Defaults to '/patients'. */
+  patientBasePath?: string;
 }
 
 export default function PatientDocumentsView({
   patientId,
   patientName,
+  patientBasePath = '/patients',
 }: PatientDocumentsViewProps) {
   const [documents, setDocuments] = useState<Document[]>([]);
   const [isUploading, setIsUploading] = useState(false);
@@ -270,7 +273,7 @@ export default function PatientDocumentsView({
       <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
         <strong>ID pictures, insurance, consent forms,</strong> and similar documents go here.{' '}
         <strong>Lab results (Quest PDFs):</strong> Use the{' '}
-        <Link href={`/patients/${patientId}?tab=lab`} className="font-medium underline">
+        <Link href={`${patientBasePath}/${patientId}?tab=lab`} className="font-medium underline">
           Labs
         </Link>{' '}
         tab to upload and view parsed bloodwork.

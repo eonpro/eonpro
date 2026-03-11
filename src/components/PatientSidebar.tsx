@@ -1065,7 +1065,7 @@ export default function PatientSidebar({
           onClose={() => setShowMergeModal(false)}
           onMergeComplete={(mergedPatientId) => {
             setShowMergeModal(false);
-            window.location.href = `/patients/${mergedPatientId}`;
+            window.location.href = `${patientDetailBasePath}/${mergedPatientId}`;
           }}
         />
       )}

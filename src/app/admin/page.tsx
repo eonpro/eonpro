@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 import dynamic_import from 'next/dynamic';
 import Link from 'next/link';
 import { formatPatientDisplayId } from '@/lib/utils/formatPatientDisplayId';
+import { isLogosRxHost as checkIsLogosRxHost } from '@/lib/constants/brand-assets';
 import { normalizedIncludes } from '@/lib/utils/search';
 import {
   Clock,
@@ -104,9 +105,7 @@ export default function AdminPage() {
   }, []);
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      setIsLogosRxHost(window.location.hostname.toLowerCase() === 'logosrx.eonpro.io');
-    }
+    setIsLogosRxHost(checkIsLogosRxHost());
   }, []);
 
   useEffect(() => {
@@ -597,7 +596,7 @@ export default function AdminPage() {
                     <tr
                       key={patient.id}
                       className="cursor-pointer transition-colors hover:bg-gray-50/50"
-                      onClick={() => (window.location.href = `/patients/${patient.id}`)}
+                      onClick={() => (window.location.href = `/admin/patients/${patient.id}`)}
                     >
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
@@ -610,7 +609,7 @@ export default function AdminPage() {
                           />
                           <div>
                             <Link
-                              href={`/patients/${patient.id}`}
+                              href={`/admin/patients/${patient.id}`}
                               className="font-medium text-gray-900 hover:text-[#4fa77e]"
                               onClick={(e) => e.stopPropagation()}
                             >
@@ -638,7 +637,7 @@ export default function AdminPage() {
                       </td>
                       <td className="px-6 py-4">
                         <Link
-                          href={`/patients/${patient.id}`}
+                          href={`/admin/patients/${patient.id}`}
                           className="text-sm font-medium text-[#4fa77e] hover:text-[#3d8a66]"
                           onClick={(e) => e.stopPropagation()}
                         >

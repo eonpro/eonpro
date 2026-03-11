@@ -46,12 +46,12 @@ import { getAdminNavConfig } from '@/lib/nav/adminNav';
 import { logger } from '@/lib/logger';
 import * as Sentry from '@sentry/nextjs';
 import { apiFetch } from '@/lib/api/fetch';
-import { EONPRO_LOGO, EONPRO_ICON } from '@/lib/constants/brand-assets';
+import { EONPRO_LOGO, EONPRO_ICON, LOGOSRX, isLogosRxHost } from '@/lib/constants/brand-assets';
 import { safeParseJsonString } from '@/lib/utils/safe-json';
 
-const LOGOSRX_LOGO = 'https://static.wixstatic.com/shapes/c49a9b_70a8d7f88d384ab9956055674c2632a7.svg';
-const LOGOSRX_ICON = 'https://static.wixstatic.com/shapes/c49a9b_3ec136783b554ea3af0db59751e8c37d.svg';
-const LOGOSRX_PRIMARY = '#7C3AED';
+const LOGOSRX_LOGO = LOGOSRX.LOGO;
+const LOGOSRX_ICON = LOGOSRX.ICON;
+const LOGOSRX_PRIMARY = LOGOSRX.PRIMARY;
 
 // Error Boundary to catch and recover from React errors
 interface ErrorBoundaryState {
@@ -167,9 +167,7 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
   const [isLogosRxHost, setIsLogosRxHost] = useState(false);
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      setIsLogosRxHost(window.location.hostname.toLowerCase() === 'logosrx.eonpro.io');
-    }
+    setIsLogosRxHost(isLogosRxHost());
   }, []);
 
   const isPharmacyExperience = isPharmacyRep || isLogosRxHost;

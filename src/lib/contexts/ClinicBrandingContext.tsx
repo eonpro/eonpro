@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useState, ReactNode, useMemo } from 'react';
 import { isBrowser, getLocalStorageItem, setLocalStorageItem } from '@/lib/utils/ssr-safe';
+import { LOGOSRX } from '@/lib/constants/brand-assets';
 
 // Treatment types supported by clinics
 export type TreatmentType =
@@ -155,6 +156,33 @@ const defaultFeatures = {
   showDevices: false,
 };
 
+const logosRxBranding: ClinicBranding = {
+  clinicId: 0,
+  clinicName: LOGOSRX.NAME,
+  subdomain: 'logosrx',
+  logoUrl: LOGOSRX.LOGO,
+  iconUrl: LOGOSRX.ICON,
+  faviconUrl: LOGOSRX.ICON,
+  primaryColor: LOGOSRX.PRIMARY,
+  secondaryColor: '#3B82F6',
+  accentColor: '#d3f931',
+  buttonTextColor: 'auto',
+  customCss: null,
+  treatmentTypes: ['weight_loss'],
+  primaryTreatment: 'weight_loss',
+  treatmentProtocols: [],
+  medicationCategories: ['glp1'],
+  features: defaultFeatures,
+  welcomeMessage: null,
+  dashboardMessage: null,
+  resourceVideos: [],
+  dietaryPlans: [],
+  supportEmail: null,
+  supportPhone: null,
+  supportHours: null,
+  emergencyContact: null,
+};
+
 const defaultBranding: ClinicBranding = {
   clinicId: 0,
   clinicName: 'EONPRO',
@@ -305,6 +333,11 @@ function getInitialBrandingState(
   if (!isBrowser) return { branding: null, isLoading: true };
 
   const domain = window.location.hostname;
+
+  if (domain.toLowerCase() === LOGOSRX.HOST) {
+    return { branding: logosRxBranding, isLoading: false };
+  }
+
   const isMainDomain =
     domain.includes('app.eonpro.io') ||
     domain === 'app.eonpro.io' ||
@@ -420,6 +453,15 @@ export function ClinicBrandingProvider({
 
         if (isBrowser) {
           const domain = window.location.hostname;
+
+          if (domain.toLowerCase() === LOGOSRX.HOST) {
+            if (!cancelled) {
+              setBranding(logosRxBranding);
+              setIsLoading(false);
+            }
+            return;
+          }
+
           const isMainDomain =
             domain.includes('app.eonpro.io') ||
             domain === 'app.eonpro.io' ||

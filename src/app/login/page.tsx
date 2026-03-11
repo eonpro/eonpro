@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Eye, EyeOff, X, Mail, Phone, ArrowRight, RefreshCw, Building2, Check } from 'lucide-react';
 import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
-import { EONPRO_LOGO } from '@/lib/constants/brand-assets';
+import { EONPRO_LOGO, LOGOSRX } from '@/lib/constants/brand-assets';
 import { isBrowser } from '@/lib/utils/ssr-safe';
 
 type LoginStep = 'identifier' | 'password' | 'otp' | 'email-otp' | 'clinic' | 'forgot' | 'reset';
@@ -35,8 +35,8 @@ interface ClinicBranding {
   backgroundColor?: string;
 }
 
-const LOGOSRX_HOST = 'logosrx.eonpro.io';
-const LOGOSRX_WHITE_LOGO = 'https://static.wixstatic.com/shapes/c49a9b_ed88aadf7f9b426f990b60e1965c329b.svg';
+const LOGOSRX_HOST = LOGOSRX.HOST;
+const LOGOSRX_WHITE_LOGO = LOGOSRX.WHITE_LOGO;
 const LOGOSRX_BG = '#1E2F8A';
 const LOGOSRX_PRIMARY = '#D22D8A';
 
