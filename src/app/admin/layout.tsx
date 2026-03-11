@@ -433,7 +433,7 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
           <ChevronRight className="h-3 w-3 text-gray-400" />
         </button>
 
-        {/* Navigation Icons */}
+        {/* Navigation Icons — plain <a> tags for guaranteed navigation even if React hydration fails */}
         <nav className="flex min-h-0 flex-1 flex-col space-y-1 overflow-y-auto px-3">
           {navItems.map((item) => {
             const Icon = item.icon;
@@ -458,11 +458,11 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
             }
 
             return (
-              <Link
+              <a
                 key={item.path}
                 href={item.path}
                 title={!sidebarExpanded ? item.label : undefined}
-                className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors ${
+                className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left no-underline transition-colors ${
                   active ? '' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
                 }`}
                 style={active ? { backgroundColor: `${primaryColor}15`, color: primaryColor } : {}}
@@ -471,7 +471,7 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
                 {sidebarExpanded && (
                   <span className="whitespace-nowrap text-sm font-medium">{item.label}</span>
                 )}
-              </Link>
+              </a>
             );
           })}
         </nav>

@@ -310,11 +310,11 @@ function TicketsLayoutInner({ children }: { children: React.ReactNode }) {
             const active = isActive(item.path);
 
             return (
-              <Link
+              <a
                 key={item.path}
                 href={item.path}
                 title={!sidebarExpanded ? item.label : undefined}
-                className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors ${
+                className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left no-underline transition-colors ${
                   active ? '' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
                 }`}
                 style={active ? { backgroundColor: `${primaryColor}15`, color: primaryColor } : {}}
@@ -323,7 +323,7 @@ function TicketsLayoutInner({ children }: { children: React.ReactNode }) {
                 {sidebarExpanded && (
                   <span className="whitespace-nowrap text-sm font-medium">{item.label}</span>
                 )}
-              </Link>
+              </a>
             );
           })}
         </nav>
@@ -379,10 +379,10 @@ function TicketsLayoutInner({ children }: { children: React.ReactNode }) {
                 ? pathname === item.path
                 : pathname === item.path || pathname?.startsWith(item.path + '/');
               return (
-                <Link
+                <a
                   key={item.path}
                   href={item.path}
-                  className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                  className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium no-underline transition-colors ${
                     active
                       ? 'bg-gray-900 text-white'
                       : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
@@ -390,7 +390,7 @@ function TicketsLayoutInner({ children }: { children: React.ReactNode }) {
                 >
                   <Icon className="h-4 w-4" />
                   {item.label}
-                </Link>
+                </a>
               );
             })}
           </nav>

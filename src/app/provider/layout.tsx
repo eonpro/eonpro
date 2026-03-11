@@ -259,7 +259,7 @@ function ProviderLayoutInner({ children }: { children: React.ReactNode }) {
           <ChevronRight className="h-3 w-3 text-gray-400" />
         </button>
 
-        {/* Main Navigation - mobile: always show labels and touch-friendly (min 44px) */}
+        {/* Main Navigation — plain <a> tags for guaranteed navigation even if React hydration fails */}
         <nav className="flex flex-1 flex-col space-y-1 overflow-y-auto px-3">
           {mainNavItems.map((item) => {
             const Icon = item.icon;
@@ -268,7 +268,7 @@ function ProviderLayoutInner({ children }: { children: React.ReactNode }) {
             const showLabels = sidebarExpanded || mobileNavOpen;
 
             return (
-              <Link
+              <a
                 key={item.path}
                 href={item.path}
                 onClick={() => setMobileNavOpen(false)}
@@ -277,7 +277,7 @@ function ProviderLayoutInner({ children }: { children: React.ReactNode }) {
                     ? `${item.label}${showBadge ? ` (${rxQueueCount})` : ''}`
                     : undefined
                 }
-                className={`relative flex w-full min-h-[44px] items-center gap-3 rounded-xl px-3 py-3 text-left transition-colors touch-manipulation ${
+                className={`relative flex w-full min-h-[44px] items-center gap-3 rounded-xl px-3 py-3 text-left no-underline transition-colors touch-manipulation ${
                   active ? '' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600 active:bg-gray-100'
                 }`}
                 style={active ? { backgroundColor: `${primaryColor}15`, color: primaryColor } : {}}
@@ -298,7 +298,7 @@ function ProviderLayoutInner({ children }: { children: React.ReactNode }) {
                     {rxQueueCount > 99 ? '99+' : rxQueueCount}
                   </span>
                 )}
-              </Link>
+              </a>
             );
           })}
 
@@ -312,11 +312,11 @@ function ProviderLayoutInner({ children }: { children: React.ReactNode }) {
                 const Icon = item.icon;
                 const active = isActive(item.path);
                 return (
-                  <Link
+                  <a
                     key={item.path}
                     href={item.path}
                     onClick={() => setMobileNavOpen(false)}
-                    className={`flex w-full min-h-[44px] items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors touch-manipulation ${
+                    className={`flex w-full min-h-[44px] items-center gap-3 rounded-xl px-3 py-2.5 text-left no-underline transition-colors touch-manipulation ${
                       active ? '' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
                     }`}
                     style={
@@ -325,7 +325,7 @@ function ProviderLayoutInner({ children }: { children: React.ReactNode }) {
                   >
                     <Icon className="h-4 w-4 flex-shrink-0" />
                     <span className="whitespace-nowrap text-sm font-medium">{item.label}</span>
-                  </Link>
+                  </a>
                 );
               })}
             </div>
@@ -338,11 +338,11 @@ function ProviderLayoutInner({ children }: { children: React.ReactNode }) {
                 const Icon = item.icon;
                 const active = isActive(item.path);
                 return (
-                  <Link
+                  <a
                     key={item.path}
                     href={item.path}
                     title={item.label}
-                    className={`flex w-full items-center justify-center rounded-xl p-2.5 transition-colors ${
+                    className={`flex w-full items-center justify-center rounded-xl p-2.5 no-underline transition-colors ${
                       active ? '' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
                     }`}
                     style={
@@ -350,7 +350,7 @@ function ProviderLayoutInner({ children }: { children: React.ReactNode }) {
                     }
                   >
                     <Icon className="h-4 w-4" />
-                  </Link>
+                  </a>
                 );
               })}
             </div>
