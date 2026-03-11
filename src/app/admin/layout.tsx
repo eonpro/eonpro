@@ -46,7 +46,7 @@ import { getAdminNavConfig } from '@/lib/nav/adminNav';
 import { logger } from '@/lib/logger';
 import * as Sentry from '@sentry/nextjs';
 import { apiFetch } from '@/lib/api/fetch';
-import { EONPRO_LOGO, EONPRO_ICON, LOGOSRX, isLogosRxHost } from '@/lib/constants/brand-assets';
+import { EONPRO_LOGO, EONPRO_ICON, LOGOSRX, isLogosRxHost as checkIsLogosRxHost } from '@/lib/constants/brand-assets';
 import { safeParseJsonString } from '@/lib/utils/safe-json';
 
 const LOGOSRX_LOGO = LOGOSRX.LOGO;
@@ -164,13 +164,13 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
   const [switching, setSwitching] = useState(false);
 
   const isPharmacyRep = userRole === 'pharmacy_rep';
-  const [isLogosRxHost, setIsLogosRxHost] = useState(false);
+  const [isLogosRx, setIsLogosRx] = useState(false);
 
   useEffect(() => {
-    setIsLogosRxHost(isLogosRxHost());
+    setIsLogosRx(checkIsLogosRxHost());
   }, []);
 
-  const isPharmacyExperience = isPharmacyRep || isLogosRxHost;
+  const isPharmacyExperience = isPharmacyRep || isLogosRx;
 
   // LogosRx pharmacy reps always see LogosRx branding, regardless of active clinic
   const primaryColor = isPharmacyExperience ? LOGOSRX_PRIMARY : (branding?.primaryColor || '#4fa77e');

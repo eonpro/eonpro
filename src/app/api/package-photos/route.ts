@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withPharmacyAccessAuth, type AuthUser } from '@/lib/auth/middleware';
-import { prisma } from '@/lib/db';
+import { prisma, withoutClinicFilter } from '@/lib/db';
 import { handleApiError } from '@/domains/shared/errors';
-import { uploadToS3 } from '@/lib/integrations/aws/s3Service';
+import { uploadToS3, generateSignedUrl } from '@/lib/integrations/aws/s3Service';
 import { FileCategory } from '@/lib/integrations/aws/s3Config';
 import { logger } from '@/lib/logger';
 import { decryptPHI } from '@/lib/security/phi-encryption';
@@ -25,57 +25,59 @@ async function resolveTracking(
   lifefileId: string,
   patientId: number | null,
 ): Promise<TrackingInfo | null> {
-  // 1. Order.trackingNumber (set by LifeFile or manually)
-  if (orderId) {
-    const order = await prisma.order.findUnique({
-      where: { id: orderId },
-      select: { trackingNumber: true },
-    });
-    if (order?.trackingNumber) {
-      return { trackingNumber: order.trackingNumber, trackingSource: 'order' };
+  return withoutClinicFilter(async () => {
+    // 1. Order.trackingNumber (set by LifeFile or manually)
+    if (orderId) {
+      const order = await prisma.order.findUnique({
+        where: { id: orderId },
+        select: { trackingNumber: true },
+      });
+      if (order?.trackingNumber) {
+        return { trackingNumber: order.trackingNumber, trackingSource: 'order' };
+      }
     }
-  }
 
-  // 2. PatientShippingUpdate — LifeFile webhook or manual shipping entries
-  const shippingUpdate = await prisma.patientShippingUpdate.findFirst({
-    where: {
-      OR: [
-        { lifefileOrderId: lifefileId },
-        ...(orderId ? [{ orderId }] : []),
-      ],
-    },
-    orderBy: { createdAt: 'desc' },
-    select: { trackingNumber: true, source: true },
+    // 2. PatientShippingUpdate — LifeFile webhook or manual shipping entries
+    const shippingUpdate = await prisma.patientShippingUpdate.findFirst({
+      where: {
+        OR: [
+          { lifefileOrderId: lifefileId },
+          ...(orderId ? [{ orderId }] : []),
+        ],
+      },
+      orderBy: { createdAt: 'desc' },
+      select: { trackingNumber: true, source: true },
+    });
+    if (shippingUpdate?.trackingNumber) {
+      return {
+        trackingNumber: shippingUpdate.trackingNumber,
+        trackingSource: shippingUpdate.source === 'lifefile' ? 'lifefile_webhook' : 'shipping_update',
+      };
+    }
+
+    // 3. ShipmentLabel — FedEx integration labels
+    if (patientId && orderId) {
+      const label = await prisma.shipmentLabel.findFirst({
+        where: { patientId, orderId },
+        orderBy: { createdAt: 'desc' },
+        select: { trackingNumber: true },
+      });
+      if (label?.trackingNumber) {
+        return { trackingNumber: label.trackingNumber, trackingSource: 'fedex_label' };
+      }
+    } else if (patientId) {
+      const label = await prisma.shipmentLabel.findFirst({
+        where: { patientId },
+        orderBy: { createdAt: 'desc' },
+        select: { trackingNumber: true },
+      });
+      if (label?.trackingNumber) {
+        return { trackingNumber: label.trackingNumber, trackingSource: 'fedex_label' };
+      }
+    }
+
+    return null;
   });
-  if (shippingUpdate?.trackingNumber) {
-    return {
-      trackingNumber: shippingUpdate.trackingNumber,
-      trackingSource: shippingUpdate.source === 'lifefile' ? 'lifefile_webhook' : 'shipping_update',
-    };
-  }
-
-  // 3. ShipmentLabel — FedEx integration labels
-  if (patientId && orderId) {
-    const label = await prisma.shipmentLabel.findFirst({
-      where: { patientId, orderId },
-      orderBy: { createdAt: 'desc' },
-      select: { trackingNumber: true },
-    });
-    if (label?.trackingNumber) {
-      return { trackingNumber: label.trackingNumber, trackingSource: 'fedex_label' };
-    }
-  } else if (patientId) {
-    const label = await prisma.shipmentLabel.findFirst({
-      where: { patientId },
-      orderBy: { createdAt: 'desc' },
-      select: { trackingNumber: true },
-    });
-    if (label?.trackingNumber) {
-      return { trackingNumber: label.trackingNumber, trackingSource: 'fedex_label' };
-    }
-  }
-
-  return null;
 }
 
 // ---------------------------------------------------------------------------
@@ -89,6 +91,10 @@ async function postHandler(req: NextRequest, user: AuthUser) {
     const photo = formData.get('photo') as File | null;
     const notes = formData.get('notes') as string | null;
     const manualTracking = formData.get('trackingNumber') as string | null;
+
+    if (!user.clinicId) {
+      return NextResponse.json({ error: 'Clinic context required. Please select a clinic.' }, { status: 400 });
+    }
 
     if (!lifefileId || !lifefileId.trim()) {
       return NextResponse.json({ error: 'LifeFile ID is required' }, { status: 400 });
@@ -114,27 +120,32 @@ async function postHandler(req: NextRequest, user: AuthUser) {
 
     const trimmedId = lifefileId.trim();
 
-    // --- Match LifeFile ID ---
-    const matchedOrder = await prisma.order.findFirst({
-      where: { lifefileOrderId: trimmedId },
-      select: { id: true, patientId: true, clinicId: true, trackingNumber: true },
-    });
+    // --- Match LifeFile ID globally across all clinics ---
+    const { matchedOrder, matchedPatientId: resolvedPatientId, matchStrategy: resolvedStrategy } =
+      await withoutClinicFilter(async () => {
+        const order = await prisma.order.findFirst({
+          where: { lifefileOrderId: trimmedId },
+          select: { id: true, patientId: true, clinicId: true, trackingNumber: true },
+        });
 
-    let matchedPatientId = matchedOrder?.patientId ?? null;
-    let matchStrategy: string | null = null;
+        if (order) {
+          return { matchedOrder: order, matchedPatientId: order.patientId, matchStrategy: 'lifefileOrderId' as const };
+        }
 
-    if (matchedOrder) {
-      matchStrategy = 'lifefileOrderId';
-    } else {
-      const matchedPatient = await prisma.patient.findFirst({
-        where: { lifefileId: trimmedId },
-        select: { id: true },
+        const patient = await prisma.patient.findFirst({
+          where: { lifefileId: trimmedId },
+          select: { id: true },
+        });
+
+        if (patient) {
+          return { matchedOrder: null, matchedPatientId: patient.id, matchStrategy: 'patientLifefileId' as const };
+        }
+
+        return { matchedOrder: null, matchedPatientId: null, matchStrategy: null };
       });
-      if (matchedPatient) {
-        matchedPatientId = matchedPatient.id;
-        matchStrategy = 'patientLifefileId';
-      }
-    }
+
+    let matchedPatientId = resolvedPatientId;
+    let matchStrategy: string | null = resolvedStrategy;
 
     // --- Resolve tracking number ---
     let trackingNumber: string | null = null;
@@ -172,7 +183,7 @@ async function postHandler(req: NextRequest, user: AuthUser) {
     // --- Create database record ---
     const packagePhoto = await prisma.packagePhoto.create({
       data: {
-        clinicId: user.clinicId!,
+        clinicId: user.clinicId,
         lifefileId: trimmedId,
         trackingNumber,
         trackingSource,
@@ -315,16 +326,30 @@ async function getHandler(req: NextRequest, user: AuthUser) {
       prisma.packagePhoto.count({ where }),
     ]);
 
-    const decryptedPhotos = photos.map((photo) => ({
-      ...photo,
-      patient: photo.patient
-        ? {
-            ...photo.patient,
-            firstName: decryptPHI(photo.patient.firstName) || photo.patient.firstName,
-            lastName: decryptPHI(photo.patient.lastName) || photo.patient.lastName,
+    // Generate fresh signed URLs (stored URLs expire after 1 hour)
+    const decryptedPhotos = await Promise.all(
+      photos.map(async (photo) => {
+        let freshUrl = photo.s3Url;
+        if (photo.s3Key) {
+          try {
+            freshUrl = await generateSignedUrl(photo.s3Key, 'GET', 3600);
+          } catch {
+            logger.warn('[PackagePhoto] Failed to generate signed URL', { photoId: photo.id, s3Key: photo.s3Key });
           }
-        : null,
-    }));
+        }
+        return {
+          ...photo,
+          s3Url: freshUrl,
+          patient: photo.patient
+            ? {
+                ...photo.patient,
+                firstName: decryptPHI(photo.patient.firstName) || photo.patient.firstName,
+                lastName: decryptPHI(photo.patient.lastName) || photo.patient.lastName,
+              }
+            : null,
+        };
+      }),
+    );
 
     return NextResponse.json({
       success: true,

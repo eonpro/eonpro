@@ -34,10 +34,6 @@ async function patchHandler(
       return NextResponse.json({ error: 'Package photo not found' }, { status: 404 });
     }
 
-    if (user.role !== 'super_admin' && existing.clinicId !== user.clinicId) {
-      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
-    }
-
     const updateData: Record<string, unknown> = {};
 
     if (validated.trackingNumber !== undefined) {

@@ -3,6 +3,7 @@ import { withPharmacyAccessAuth, type AuthUser } from '@/lib/auth/middleware';
 import { prisma } from '@/lib/db';
 import { handleApiError } from '@/domains/shared/errors';
 import { decryptPHI } from '@/lib/security/phi-encryption';
+import { generateSignedUrl } from '@/lib/integrations/aws/s3Service';
 import { logger } from '@/lib/logger';
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 
@@ -39,8 +40,14 @@ async function getHandler(
       return NextResponse.json({ error: 'Package photo not found' }, { status: 404 });
     }
 
-    if (user.role !== 'super_admin' && photo.clinicId !== user.clinicId) {
-      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+    // Generate fresh signed URL for the image (stored URL may have expired)
+    let imageUrl = photo.s3Url;
+    if (photo.s3Key) {
+      try {
+        imageUrl = await generateSignedUrl(photo.s3Key, 'GET', 3600);
+      } catch {
+        logger.warn('[PackagePhoto PDF] Failed to generate signed URL', { photoId: photo.id });
+      }
     }
 
     const patientName = photo.patient
@@ -106,12 +113,16 @@ async function getHandler(
 
     // -- Photo --
     let photoBottom = y;
-    if (photo.s3Url) {
+    if (imageUrl) {
       try {
-        const imgRes = await fetch(photo.s3Url);
+        const imgRes = await fetch(imageUrl);
         if (imgRes.ok) {
           const imgBytes = new Uint8Array(await imgRes.arrayBuffer());
           const isJpeg = photo.contentType.includes('jpeg') || photo.contentType.includes('jpg');
+          const isPng = photo.contentType.includes('png');
+          if (!isJpeg && !isPng) {
+            throw new Error(`Unsupported image format for PDF: ${photo.contentType}`);
+          }
           const image = isJpeg
             ? await pdfDoc.embedJpg(imgBytes)
             : await pdfDoc.embedPng(imgBytes);

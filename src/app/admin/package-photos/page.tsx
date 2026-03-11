@@ -112,6 +112,21 @@ function getAuthToken(): string {
   return localStorage.getItem('auth-token') || localStorage.getItem('pharmacy_rep-token') || '';
 }
 
+async function authenticatedFetch(url: string, options: RequestInit = {}): Promise<Response> {
+  try {
+    return await apiFetch(url, options);
+  } catch {
+    return await fetch(url, {
+      ...options,
+      credentials: 'include',
+      headers: {
+        ...options.headers,
+        Authorization: `Bearer ${getAuthToken()}`,
+      },
+    });
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Shared: Copy Button
 // ---------------------------------------------------------------------------
@@ -308,10 +323,9 @@ function CaptureFlow({
       formData.append('lifefileId', lifefileId.trim());
       formData.append('photo', capturedImage, `package-${lifefileId.trim()}.jpg`);
 
-      const res = await fetch('/api/package-photos', {
+      const res = await authenticatedFetch('/api/package-photos', {
         method: 'POST',
         body: formData,
-        headers: { Authorization: `Bearer ${getAuthToken()}` },
       });
 
       if (!res.ok) {
@@ -336,9 +350,9 @@ function CaptureFlow({
     setError(null);
 
     try {
-      const res = await fetch(`/api/package-photos/${uploadResult.id}`, {
+      const res = await authenticatedFetch(`/api/package-photos/${uploadResult.id}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getAuthToken()}` },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ trackingNumber: trackingNumber.trim() }),
       });
 
@@ -840,7 +854,7 @@ function AuditLog() {
             type="text"
             value={search}
             onChange={(e) => handleSearchChange(e.target.value)}
-            placeholder="Search by LifeFile ID, tracking, or patient..."
+            placeholder="Search by LifeFile ID or tracking number..."
             className="w-full rounded-lg border border-gray-200 bg-white py-2.5 pl-10 pr-4 text-sm placeholder:text-gray-400 focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
           />
         </div>
@@ -1227,9 +1241,7 @@ function DownloadPdfButton({ photoId, lifefileId }: { photoId: number; lifefileI
   const handleDownload = async () => {
     setDownloading(true);
     try {
-      const res = await fetch(`/api/package-photos/${photoId}/pdf`, {
-        headers: { Authorization: `Bearer ${getAuthToken()}` },
-      });
+      const res = await authenticatedFetch(`/api/package-photos/${photoId}/pdf`, {});
       if (!res.ok) throw new Error('Failed to generate PDF');
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);

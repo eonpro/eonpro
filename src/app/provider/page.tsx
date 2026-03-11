@@ -179,14 +179,14 @@ export default function ProviderDashboard() {
   }, []);
 
   const navigateToPatient = (patientId: number) => {
-    window.location.href = `/provider/patients/${patientId}`;
+    router.push(`/provider/patients/${patientId}`);
   };
 
   const navigateToPatients = (search?: string) => {
     const url = search
       ? `/provider/patients?search=${encodeURIComponent(search)}`
       : '/provider/patients';
-    window.location.href = url;
+    router.push(url);
   };
 
   if (loading) {
@@ -307,7 +307,7 @@ export default function ProviderDashboard() {
         </button>
 
         <button
-          onClick={() => { window.location.href = '/provider/soap-notes'; }}
+          onClick={() => router.push('/provider/soap-notes')}
           className="rounded-2xl border border-gray-100 bg-white p-5 text-left shadow-sm transition-colors hover:border-blue-200"
         >
           <div className="flex items-center justify-between">
@@ -322,7 +322,7 @@ export default function ProviderDashboard() {
         </button>
 
         <button
-          onClick={() => { window.location.href = '/provider/prescriptions'; }}
+          onClick={() => router.push('/provider/prescriptions')}
           className="rounded-2xl border border-gray-100 bg-white p-5 text-left shadow-sm transition-colors hover:border-[var(--brand-primary-medium)]"
         >
           <div className="flex items-center justify-between">
@@ -337,7 +337,7 @@ export default function ProviderDashboard() {
         </button>
 
         <button
-          onClick={() => { window.location.href = '/provider/calendar'; }}
+          onClick={() => router.push('/provider/calendar')}
           className="rounded-2xl border border-gray-100 bg-white p-5 text-left shadow-sm transition-colors hover:border-cyan-200"
         >
           <div className="flex items-center justify-between">
@@ -358,7 +358,7 @@ export default function ProviderDashboard() {
           <div className="flex items-center justify-between border-b border-gray-100 px-6 py-5">
             <h2 className="text-lg font-semibold text-gray-900">Today's Schedule</h2>
             <button
-              onClick={() => { window.location.href = '/provider/calendar'; }}
+              onClick={() => router.push('/provider/calendar')}
               className="text-sm text-[#4fa77e] hover:underline"
             >
               View all
@@ -370,7 +370,7 @@ export default function ProviderDashboard() {
                 <Calendar className="mx-auto mb-3 h-10 w-10 text-gray-300" />
                 <p className="text-sm text-gray-500">No appointments scheduled for today</p>
                 <button
-                  onClick={() => { window.location.href = '/provider/calendar'; }}
+                  onClick={() => router.push('/provider/calendar')}
                   className="mt-3 inline-block text-sm text-[#4fa77e] hover:underline"
                 >
                   Schedule an appointment

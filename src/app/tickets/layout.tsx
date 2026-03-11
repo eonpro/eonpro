@@ -251,7 +251,7 @@ function TicketsLayoutInner({ children }: { children: React.ReactNode }) {
     return pathname === path || pathname?.startsWith(path + '/');
   };
 
-  if (loading || brandingLoading) {
+  if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#efece7]">
         <img src={EONPRO_ICON} alt="Loading" className="h-12 w-12 animate-pulse object-contain" />
@@ -314,9 +314,9 @@ function TicketsLayoutInner({ children }: { children: React.ReactNode }) {
               e.stopPropagation();
 
               if (pathname === item.path) {
-                window.location.reload();
+                router.refresh();
               } else {
-                window.location.href = item.path;
+                router.push(item.path);
               }
             };
 
@@ -394,7 +394,7 @@ function TicketsLayoutInner({ children }: { children: React.ReactNode }) {
                   key={item.path}
                   onClick={(e) => {
                     e.preventDefault();
-                    window.location.href = item.path;
+                    router.push(item.path);
                   }}
                   className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
                     active
