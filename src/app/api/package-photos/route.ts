@@ -3,7 +3,7 @@ import { withPharmacyAccessAuth, type AuthUser } from '@/lib/auth/middleware';
 import { prisma, withoutClinicFilter } from '@/lib/db';
 import { handleApiError } from '@/domains/shared/errors';
 import { uploadToS3, generateSignedUrl } from '@/lib/integrations/aws/s3Service';
-import { FileCategory } from '@/lib/integrations/aws/s3Config';
+import { FileCategory, isS3Enabled } from '@/lib/integrations/aws/s3Config';
 import { logger } from '@/lib/logger';
 import { decryptPHI } from '@/lib/security/phi-encryption';
 import { z } from 'zod';
@@ -327,16 +327,27 @@ async function getHandler(req: NextRequest, user: AuthUser) {
     ]);
 
     // Generate fresh signed URLs (stored URLs expire after 1 hour)
+    const s3Active = isS3Enabled();
+    if (!s3Active && photos.length > 0) {
+      logger.warn('[PackagePhoto] S3 is NOT enabled — photos are stored in mock mode. Set NEXT_PUBLIC_ENABLE_AWS_S3_STORAGE=true in env vars.');
+    }
     const decryptedPhotos = await Promise.all(
       photos.map(async (photo) => {
-        let freshUrl = photo.s3Url;
-        if (photo.s3Key) {
+        let freshUrl: string | null = photo.s3Url;
+
+        if (s3Active && photo.s3Key) {
           try {
             freshUrl = await generateSignedUrl(photo.s3Key, 'GET', 3600);
           } catch {
             logger.warn('[PackagePhoto] Failed to generate signed URL', { photoId: photo.id, s3Key: photo.s3Key });
           }
         }
+
+        // Don't send mock URLs to the client — they'll show broken images
+        if (freshUrl?.includes('mock-s3')) {
+          freshUrl = null;
+        }
+
         return {
           ...photo,
           s3Url: freshUrl,

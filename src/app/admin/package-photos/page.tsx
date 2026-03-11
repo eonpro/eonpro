@@ -934,14 +934,18 @@ function AuditLog() {
                 >
                   {/* Thumbnail */}
                   <div className="h-12 w-12 flex-shrink-0 overflow-hidden rounded-lg bg-gray-100">
-                    {photo.s3Url ? (
+                    {photo.s3Url && !photo.s3Url.includes('mock-s3') ? (
                       /* eslint-disable-next-line @next/next/no-img-element */
-                      <img src={photo.s3Url} alt="" className="h-full w-full object-cover" />
-                    ) : (
-                      <div className="flex h-full w-full items-center justify-center">
-                        <ImageIcon className="h-5 w-5 text-gray-300" />
-                      </div>
-                    )}
+                      <img
+                        src={photo.s3Url}
+                        alt=""
+                        className="h-full w-full object-cover"
+                        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; (e.target as HTMLImageElement).parentElement!.querySelector('.img-fallback')?.classList.remove('hidden'); }}
+                      />
+                    ) : null}
+                    <div className={`img-fallback flex h-full w-full items-center justify-center ${photo.s3Url && !photo.s3Url.includes('mock-s3') ? 'hidden' : ''}`}>
+                      <ImageIcon className="h-5 w-5 text-gray-300" />
+                    </div>
                   </div>
 
                   {/* Mobile: stacked layout */}
@@ -1075,14 +1079,21 @@ function AuditDetailModal({
       >
         {/* Photo with metadata stamp */}
         <div className="relative bg-gray-900">
-          {photo.s3Url ? (
+          {photo.s3Url && !photo.s3Url.includes('mock-s3') ? (
             /* eslint-disable-next-line @next/next/no-img-element */
-            <img src={photo.s3Url} alt={`Package ${photo.lifefileId}`} className="w-full" />
-          ) : (
-            <div className="flex aspect-video items-center justify-center bg-gray-800">
-              <ImageIcon className="h-12 w-12 text-gray-600" />
+            <img
+              src={photo.s3Url}
+              alt={`Package ${photo.lifefileId}`}
+              className="w-full"
+              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden'); }}
+            />
+          ) : null}
+          <div className={`flex aspect-video items-center justify-center bg-gray-800 ${photo.s3Url && !photo.s3Url.includes('mock-s3') ? 'hidden' : ''}`}>
+            <div className="text-center">
+              <ImageIcon className="mx-auto h-12 w-12 text-gray-600" />
+              <p className="mt-2 text-xs text-gray-500">Photo not available</p>
             </div>
-          )}
+          </div>
           {/* Metadata stamp overlay */}
           <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent px-4 pb-3 pt-12">
             <div className="flex items-end justify-between text-white">
