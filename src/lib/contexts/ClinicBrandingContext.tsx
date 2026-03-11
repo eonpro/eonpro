@@ -365,8 +365,16 @@ export function ClinicBrandingProvider({
 
     const BRANDING_CACHE_TTL = 10 * 60 * 1000; // 10 minutes fresh
     const BRANDING_CACHE_STALE_TTL = 60 * 60 * 1000; // 1 hour max stale
-    const RESOLVE_TIMEOUT = 8000;
-    const BRANDING_TIMEOUT = 15000;
+    const RESOLVE_TIMEOUT = 5000;
+    const BRANDING_TIMEOUT = 8000;
+
+    // Safety timeout: never leave isLoading=true for more than 10s
+    const safetyTimer = setTimeout(() => {
+      if (!cancelled) {
+        setBranding((prev) => prev ?? defaultBranding);
+        setIsLoading(false);
+      }
+    }, 10_000);
 
     function getBrandingCacheKey(id: number) {
       return `clinic-branding:${id}`;
@@ -577,7 +585,10 @@ export function ClinicBrandingProvider({
 
     fetchBranding();
 
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      clearTimeout(safetyTimer);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clinicId, initialBranding, refreshKey]);
 

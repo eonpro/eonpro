@@ -204,24 +204,29 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
     try {
       const user = localStorage.getItem('user');
       if (!user) {
+        setLoading(false);
         router.push('/login');
         return;
       }
 
       const parsedUser = safeParseJsonString(user);
-      if (!parsedUser) { router.push('/login'); return; }
-      const role = parsedUser.role?.toLowerCase();
-      const allowedAdminRoles = ['admin', 'super_admin', 'sales_rep', 'provider', 'staff', 'pharmacy_rep'];
-      if (!role || !allowedAdminRoles.includes(role)) {
+      if (!parsedUser) {
+        setLoading(false);
         router.push('/login');
         return;
       }
-      // Super admin has a dedicated layout at /super-admin — redirect from /admin dashboard
+      const role = parsedUser.role?.toLowerCase();
+      const allowedAdminRoles = ['admin', 'super_admin', 'sales_rep', 'provider', 'staff', 'pharmacy_rep'];
+      if (!role || !allowedAdminRoles.includes(role)) {
+        setLoading(false);
+        router.push('/login');
+        return;
+      }
       if (role === 'super_admin' && pathname === '/admin') {
+        setLoading(false);
         router.push('/super-admin');
         return;
       }
-      // Sales rep restricted routes: company-level pages only
       if (role === 'sales_rep') {
         const restrictedPaths = [
           '/admin/affiliates',
@@ -234,22 +239,22 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
           '/admin/sales-rep/commission-plans',
         ];
         if (restrictedPaths.some((p) => pathname === p || pathname?.startsWith(p + '/'))) {
-          window.location.href = '/admin';
+          setLoading(false);
+          router.replace('/admin');
           return;
         }
       }
-      // Ensure userId is always a number (might be string from localStorage)
       setUserId(parsedUser.id ? Number(parsedUser.id) : null);
       setUserRole(role);
       setLoading(false);
 
-      // Fetch user's clinics for multi-clinic support (non-blocking)
       fetchUserClinics().catch((err) => {
         console.error('Error fetching user clinics:', err);
       });
     } catch (error) {
       console.error('Error initializing admin layout:', error);
       localStorage.removeItem('user');
+      setLoading(false);
       router.push('/login');
     }
   }, [router]);
@@ -268,10 +273,10 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
       '/admin/sales-rep/commission-plans',
     ];
     if (restrictedPaths.some((p) => pathname === p || pathname?.startsWith(p + '/'))) {
-      window.location.href = '/admin';
+      router.replace('/admin');
       return;
     }
-  }, [loading, userRole, pathname]);
+  }, [loading, userRole, pathname, router]);
 
   // Build navigation items from shared config (same as patients layout for consistency)
   const navItems = useMemo(() => {
@@ -387,7 +392,7 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
     return pathname === path || pathname?.startsWith(path + '/');
   };
 
-  if (loading) {
+  if (loading && !brandingLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#efece7]">
         <img src={clinicIcon} alt="Loading" className="h-12 w-12 animate-pulse object-contain" />
@@ -451,9 +456,9 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
               }
 
               if (pathname === item.path) {
-                window.location.reload();
+                router.refresh();
               } else {
-                window.location.href = item.path;
+                router.push(item.path);
               }
             };
 

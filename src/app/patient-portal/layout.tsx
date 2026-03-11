@@ -192,8 +192,8 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
     const user = localStorage.getItem('user');
     const token = localStorage.getItem('auth-token') || localStorage.getItem('patient-token');
 
-    // Security: Redirect to login if no valid session
     if (!user || !token) {
+      setLoading(false);
       router.push(`/patient-login?redirect=${encodeURIComponent(PATIENT_PORTAL_PATH)}&reason=no_session`);
       return;
     }
@@ -203,6 +203,7 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
       localStorage.removeItem('user');
       localStorage.removeItem('auth-token');
       localStorage.removeItem('patient-token');
+      setLoading(false);
       router.push(
         `/patient-login?redirect=${encodeURIComponent(PATIENT_PORTAL_PATH)}&reason=invalid_session`
       );
@@ -210,8 +211,8 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
     }
 
     try {
-      // Verify user has patient role
       if (data.role?.toLowerCase() !== 'patient') {
+        setLoading(false);
         router.push(
           `/patient-login?redirect=${encodeURIComponent(PATIENT_PORTAL_PATH)}&reason=invalid_role`
         );
@@ -219,11 +220,11 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
       }
 
       setUserData(data);
-    } catch (e) {
-      // Invalid user data in localStorage
+    } catch {
       localStorage.removeItem('user');
       localStorage.removeItem('auth-token');
       localStorage.removeItem('patient-token');
+      setLoading(false);
       router.push(
         `/patient-login?redirect=${encodeURIComponent(PATIENT_PORTAL_PATH)}&reason=invalid_session`
       );
@@ -378,7 +379,7 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
   const primaryColor = branding?.primaryColor || '#4fa77e';
   const accentColor = branding?.accentColor || '#d3f931';
 
-  if (loading || brandingLoading) {
+  if (loading) {
     return (
       <div className="flex min-h-[100dvh] overflow-x-hidden bg-white lg:bg-[#efece7]">
         {/* Desktop sidebar skeleton */}

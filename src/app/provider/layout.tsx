@@ -98,32 +98,36 @@ function ProviderLayoutInner({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const user = localStorage.getItem('user');
     if (!user) {
+      setLoading(false);
       router.push('/login');
       return;
     }
 
     try {
       const parsedUser = safeParseJsonString(user);
-      if (!parsedUser) { router.push('/login'); return; }
-      const role = parsedUser.role?.toLowerCase();
-      if (role !== 'provider') {
+      if (!parsedUser) {
+        setLoading(false);
         router.push('/login');
         return;
       }
-      // Build display name from firstName/lastName or fallback to name field
+      const role = parsedUser.role?.toLowerCase();
+      if (role !== 'provider') {
+        setLoading(false);
+        router.push('/login');
+        return;
+      }
       const displayName =
         parsedUser.firstName && parsedUser.lastName
           ? `${parsedUser.firstName} ${parsedUser.lastName}`
           : parsedUser.name || parsedUser.email?.split('@')[0] || '';
       setUserName(`Dr. ${displayName}`.trim());
-      // Ensure userId is always a number (might be string from localStorage)
       setUserId(parsedUser.id ? Number(parsedUser.id) : null);
       setLoading(false);
 
-      // Fetch queue count after auth check
       fetchQueueCount();
     } catch {
       localStorage.removeItem('user');
+      setLoading(false);
       router.push('/login');
     }
   }, [router, fetchQueueCount]);
@@ -183,7 +187,7 @@ function ProviderLayoutInner({ children }: { children: React.ReactNode }) {
     setMobileNavOpen(false);
   }, [pathname]);
 
-  const layoutReady = !loading && !brandingLoading;
+  const layoutReady = !loading;
 
   return (
     <div className="flex min-h-screen bg-[#efece7]">
@@ -268,9 +272,9 @@ function ProviderLayoutInner({ children }: { children: React.ReactNode }) {
               e.stopPropagation();
               setMobileNavOpen(false);
               if (pathname === item.path) {
-                window.location.reload();
+                router.refresh();
               } else {
-                window.location.href = item.path;
+                router.push(item.path);
               }
             };
 
@@ -323,9 +327,9 @@ function ProviderLayoutInner({ children }: { children: React.ReactNode }) {
                     onClick={() => {
                       setMobileNavOpen(false);
                       if (active) {
-                        window.location.reload();
+                        router.refresh();
                       } else {
-                        window.location.href = item.path;
+                        router.push(item.path);
                       }
                     }}
                     className={`flex w-full min-h-[44px] items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-all touch-manipulation ${
@@ -354,9 +358,9 @@ function ProviderLayoutInner({ children }: { children: React.ReactNode }) {
                     key={item.path}
                     onClick={() => {
                       if (active) {
-                        window.location.reload();
+                        router.refresh();
                       } else {
-                        window.location.href = item.path;
+                        router.push(item.path);
                       }
                     }}
                     title={item.label}

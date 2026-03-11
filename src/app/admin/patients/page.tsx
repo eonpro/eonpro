@@ -467,7 +467,7 @@ export default function AdminPatientsPage() {
           onMergeComplete={(mergedPatientId) => {
             setMergePatient(null);
             fetchPatients(currentPage, debouncedSearch);
-            window.location.href = `/patients/${mergedPatientId}`;
+            window.location.href = `/admin/patients/${mergedPatientId}`;
           }}
         />
       )}
@@ -624,8 +624,8 @@ export default function AdminPatientsPage() {
                     className="cursor-pointer transition-colors hover:bg-gray-50 focus:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-emerald-500"
                     tabIndex={0}
                     role="link"
-                    onClick={() => (window.location.href = `/patients/${patient.id}`)}
-                    onKeyDown={(e) => { if (e.key === 'Enter') window.location.href = `/patients/${patient.id}`; }}
+                    onClick={() => (window.location.href = `/admin/patients/${patient.id}`)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') window.location.href = `/admin/patients/${patient.id}`; }}
                   >
                     <td className="whitespace-nowrap px-6 py-4">
                       <div className="flex items-center">
@@ -810,7 +810,7 @@ export default function AdminPatientsPage() {
                     >
                       <div className="flex items-center gap-2">
                         <button
-                          onClick={() => (window.location.href = `/patients/${patient.id}`)}
+                          onClick={() => (window.location.href = `/admin/patients/${patient.id}`)}
                           className="rounded-lg p-2 text-gray-600 transition-colors"
                           onMouseEnter={(e) => {
                             e.currentTarget.style.color = 'var(--brand-primary, #4fa77e)';
@@ -826,7 +826,7 @@ export default function AdminPatientsPage() {
                           <Eye className="h-4 w-4" />
                         </button>
                         <button
-                          onClick={() => (window.location.href = `/patients/${patient.id}`)}
+                          onClick={() => (window.location.href = `/admin/patients/${patient.id}`)}
                           className="rounded-lg p-2 text-gray-600 transition-colors hover:bg-blue-50 hover:text-blue-600"
                           title="Edit"
                         >

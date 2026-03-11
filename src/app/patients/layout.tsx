@@ -65,7 +65,7 @@ function navConfigToItems(config: { path: string; label: string; iconKey: string
 }
 
 // Roles allowed to access patient pages
-const ALLOWED_ROLES = ['admin', 'super_admin', 'provider', 'staff', 'support', 'sales_rep'];
+const ALLOWED_ROLES = ['admin', 'super_admin', 'provider', 'staff', 'support', 'sales_rep', 'pharmacy_rep'];
 
 function PatientsLayoutInner({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -116,6 +116,15 @@ function PatientsLayoutInner({ children }: { children: React.ReactNode }) {
         const query = typeof window !== 'undefined' ? window.location.search : '';
         setLoading(false);
         router.replace(`/provider/patients/${patientId}${query}`);
+        return;
+      }
+      // Admin-side roles should use /admin/patients/[id] for consistent AdminLayout context
+      const adminRoles = ['admin', 'super_admin', 'staff', 'sales_rep', 'pharmacy_rep'];
+      if (adminRoles.includes(role) && pathname?.startsWith('/patients/') && !pathname.startsWith('/admin/patients/')) {
+        const patientId = pathname.replace(/^\/patients\//, '').split('?')[0];
+        const query = typeof window !== 'undefined' ? window.location.search : '';
+        setLoading(false);
+        router.replace(`/admin/patients/${patientId}${query}`);
         return;
       }
       setLoading(false);

@@ -55,19 +55,26 @@ function StaffLayoutInner({ children }: { children: React.ReactNode }) {
     try {
       const user = localStorage.getItem('user');
       if (!user) {
+        setLoading(false);
         router.push('/login');
         return;
       }
       const parsedUser = safeParseJsonString(user);
-      if (!parsedUser) { router.push('/login'); return; }
+      if (!parsedUser) {
+        setLoading(false);
+        router.push('/login');
+        return;
+      }
       const role = parsedUser.role?.toLowerCase();
       if (role !== 'staff') {
+        setLoading(false);
         router.push('/login');
         return;
       }
       setLoading(false);
     } catch {
       localStorage.removeItem('user');
+      setLoading(false);
       router.push('/login');
     }
   }, [router]);
@@ -115,7 +122,7 @@ function StaffLayoutInner({ children }: { children: React.ReactNode }) {
     return pathname === path || pathname?.startsWith(path + '/');
   };
 
-  if (loading || brandingLoading) {
+  if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#efece7]">
         <img src={EONPRO_ICON} alt="Loading" className="h-12 w-12 animate-pulse object-contain" />
@@ -172,9 +179,9 @@ function StaffLayoutInner({ children }: { children: React.ReactNode }) {
               e.preventDefault();
               e.stopPropagation();
               if (pathname === item.path) {
-                window.location.reload();
+                router.refresh();
               } else {
-                window.location.href = item.path;
+                router.push(item.path);
               }
             };
 
