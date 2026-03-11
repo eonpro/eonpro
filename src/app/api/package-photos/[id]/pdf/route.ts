@@ -3,7 +3,7 @@ import { withPharmacyAccessAuth, type AuthUser } from '@/lib/auth/middleware';
 import { prisma } from '@/lib/db';
 import { handleApiError } from '@/domains/shared/errors';
 import { decryptPHI } from '@/lib/security/phi-encryption';
-import { generateSignedUrl } from '@/lib/integrations/aws/s3Service';
+import { downloadFromS3 } from '@/lib/integrations/aws/s3Service';
 import { logger } from '@/lib/logger';
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 
@@ -38,16 +38,6 @@ async function getHandler(
 
     if (!photo) {
       return NextResponse.json({ error: 'Package photo not found' }, { status: 404 });
-    }
-
-    // Generate fresh signed URL for the image (stored URL may have expired)
-    let imageUrl = photo.s3Url;
-    if (photo.s3Key) {
-      try {
-        imageUrl = await generateSignedUrl(photo.s3Key, 'GET', 3600);
-      } catch {
-        logger.warn('[PackagePhoto PDF] Failed to generate signed URL', { photoId: photo.id });
-      }
     }
 
     const patientName = photo.patient
@@ -113,66 +103,63 @@ async function getHandler(
 
     // -- Photo --
     let photoBottom = y;
-    if (imageUrl) {
+    if (photo.s3Key) {
       try {
-        const imgRes = await fetch(imageUrl);
-        if (imgRes.ok) {
-          const imgBytes = new Uint8Array(await imgRes.arrayBuffer());
-          const isJpeg = photo.contentType.includes('jpeg') || photo.contentType.includes('jpg');
-          const isPng = photo.contentType.includes('png');
-          if (!isJpeg && !isPng) {
-            throw new Error(`Unsupported image format for PDF: ${photo.contentType}`);
-          }
-          const image = isJpeg
-            ? await pdfDoc.embedJpg(imgBytes)
-            : await pdfDoc.embedPng(imgBytes);
-
-          const imgAspect = image.width / image.height;
-          let drawWidth = contentWidth;
-          let drawHeight = drawWidth / imgAspect;
-          const maxImgHeight = 300;
-          if (drawHeight > maxImgHeight) {
-            drawHeight = maxImgHeight;
-            drawWidth = drawHeight * imgAspect;
-          }
-
-          const imgX = margin + (contentWidth - drawWidth) / 2;
-          const imgY = y - drawHeight;
-          page.drawImage(image, { x: imgX, y: imgY, width: drawWidth, height: drawHeight });
-
-          // Watermark overlay at bottom of photo
-          page.drawRectangle({
-            x: imgX,
-            y: imgY,
-            width: drawWidth,
-            height: 28,
-            color: rgb(0, 0, 0),
-            opacity: 0.6,
-          });
-          page.drawText(`ID: ${photo.lifefileId}`, {
-            x: imgX + 8,
-            y: imgY + 9,
-            size: 11,
-            font: monoBold,
-            color: white,
-          });
-          const tsShort = new Date(photo.createdAt).toLocaleString('en-US', {
-            month: 'short',
-            day: 'numeric',
-            hour: 'numeric',
-            minute: '2-digit',
-          });
-          const tsWidth = font.widthOfTextAtSize(tsShort, 8);
-          page.drawText(tsShort, {
-            x: imgX + drawWidth - tsWidth - 8,
-            y: imgY + 11,
-            size: 8,
-            font,
-            color: rgb(0.85, 0.85, 0.85),
-          });
-
-          photoBottom = imgY - 15;
+        const imgBuffer = await downloadFromS3(photo.s3Key);
+        const imgBytes = new Uint8Array(imgBuffer);
+        const isJpeg = photo.contentType.includes('jpeg') || photo.contentType.includes('jpg');
+        const isPng = photo.contentType.includes('png');
+        if (!isJpeg && !isPng) {
+          throw new Error(`Unsupported image format for PDF: ${photo.contentType}`);
         }
+        const image = isJpeg
+          ? await pdfDoc.embedJpg(imgBytes)
+          : await pdfDoc.embedPng(imgBytes);
+
+        const imgAspect = image.width / image.height;
+        let drawWidth = contentWidth;
+        let drawHeight = drawWidth / imgAspect;
+        const maxImgHeight = 300;
+        if (drawHeight > maxImgHeight) {
+          drawHeight = maxImgHeight;
+          drawWidth = drawHeight * imgAspect;
+        }
+
+        const imgX = margin + (contentWidth - drawWidth) / 2;
+        const imgY = y - drawHeight;
+        page.drawImage(image, { x: imgX, y: imgY, width: drawWidth, height: drawHeight });
+
+        page.drawRectangle({
+          x: imgX,
+          y: imgY,
+          width: drawWidth,
+          height: 28,
+          color: rgb(0, 0, 0),
+          opacity: 0.6,
+        });
+        page.drawText(`ID: ${photo.lifefileId}`, {
+          x: imgX + 8,
+          y: imgY + 9,
+          size: 11,
+          font: monoBold,
+          color: white,
+        });
+        const tsShort = new Date(photo.createdAt).toLocaleString('en-US', {
+          month: 'short',
+          day: 'numeric',
+          hour: 'numeric',
+          minute: '2-digit',
+        });
+        const tsWidth = font.widthOfTextAtSize(tsShort, 8);
+        page.drawText(tsShort, {
+          x: imgX + drawWidth - tsWidth - 8,
+          y: imgY + 11,
+          size: 8,
+          font,
+          color: rgb(0.85, 0.85, 0.85),
+        });
+
+        photoBottom = imgY - 15;
       } catch (imgErr) {
         logger.warn('[PackagePhoto PDF] Failed to embed image', {
           photoId: photo.id,

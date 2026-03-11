@@ -128,6 +128,47 @@ async function authenticatedFetch(url: string, options: RequestInit = {}): Promi
 }
 
 // ---------------------------------------------------------------------------
+// Shared: Photo Thumbnail — uses server-side proxy to avoid S3/CloudFront URL issues
+// ---------------------------------------------------------------------------
+
+function PhotoThumbnail({ photoId, s3Key, size }: { photoId: number; s3Key: string; size: 'sm' | 'full' }) {
+  const [failed, setFailed] = useState(false);
+  const src = s3Key ? `/api/package-photos/${photoId}/image` : '';
+
+  if (!s3Key || failed) {
+    if (size === 'sm') {
+      return (
+        <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg bg-gray-100">
+          <ImageIcon className="h-5 w-5 text-gray-300" />
+        </div>
+      );
+    }
+    return (
+      <div className="flex aspect-video items-center justify-center bg-gray-800">
+        <div className="text-center">
+          <ImageIcon className="mx-auto h-12 w-12 text-gray-600" />
+          <p className="mt-2 text-xs text-gray-500">Photo not available</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (size === 'sm') {
+    return (
+      <div className="h-12 w-12 flex-shrink-0 overflow-hidden rounded-lg bg-gray-100">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={src} alt="" className="h-full w-full object-cover" onError={() => setFailed(true)} loading="lazy" />
+      </div>
+    );
+  }
+
+  return (
+    /* eslint-disable-next-line @next/next/no-img-element */
+    <img src={src} alt={`Package photo #${photoId}`} className="w-full" onError={() => setFailed(true)} />
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Shared: Copy Button
 // ---------------------------------------------------------------------------
 
@@ -933,20 +974,7 @@ function AuditLog() {
                   className="flex w-full items-center gap-4 px-4 py-3 text-left transition-colors hover:bg-violet-50/30"
                 >
                   {/* Thumbnail */}
-                  <div className="h-12 w-12 flex-shrink-0 overflow-hidden rounded-lg bg-gray-100">
-                    {photo.s3Url && !photo.s3Url.includes('mock-s3') ? (
-                      /* eslint-disable-next-line @next/next/no-img-element */
-                      <img
-                        src={photo.s3Url}
-                        alt=""
-                        className="h-full w-full object-cover"
-                        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; (e.target as HTMLImageElement).parentElement!.querySelector('.img-fallback')?.classList.remove('hidden'); }}
-                      />
-                    ) : null}
-                    <div className={`img-fallback flex h-full w-full items-center justify-center ${photo.s3Url && !photo.s3Url.includes('mock-s3') ? 'hidden' : ''}`}>
-                      <ImageIcon className="h-5 w-5 text-gray-300" />
-                    </div>
-                  </div>
+                  <PhotoThumbnail photoId={photo.id} s3Key={photo.s3Key} size="sm" />
 
                   {/* Mobile: stacked layout */}
                   <div className="min-w-0 flex-1 md:hidden">
@@ -1079,21 +1107,7 @@ function AuditDetailModal({
       >
         {/* Photo with metadata stamp */}
         <div className="relative bg-gray-900">
-          {photo.s3Url && !photo.s3Url.includes('mock-s3') ? (
-            /* eslint-disable-next-line @next/next/no-img-element */
-            <img
-              src={photo.s3Url}
-              alt={`Package ${photo.lifefileId}`}
-              className="w-full"
-              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden'); }}
-            />
-          ) : null}
-          <div className={`flex aspect-video items-center justify-center bg-gray-800 ${photo.s3Url && !photo.s3Url.includes('mock-s3') ? 'hidden' : ''}`}>
-            <div className="text-center">
-              <ImageIcon className="mx-auto h-12 w-12 text-gray-600" />
-              <p className="mt-2 text-xs text-gray-500">Photo not available</p>
-            </div>
-          </div>
+          <PhotoThumbnail photoId={photo.id} s3Key={photo.s3Key} size="full" />
           {/* Metadata stamp overlay */}
           <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent px-4 pb-3 pt-12">
             <div className="flex items-end justify-between text-white">
