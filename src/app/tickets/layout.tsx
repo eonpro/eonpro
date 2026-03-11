@@ -132,7 +132,21 @@ function TicketsLayoutInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { branding, isLoading: brandingLoading } = useClinicBranding();
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => {
+    if (typeof window === 'undefined') return true;
+    try {
+      const user = localStorage.getItem('user');
+      const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token') || localStorage.getItem('super_admin-token') || localStorage.getItem('provider-token') || localStorage.getItem('staff-token');
+      if (!user || !token) return true;
+      const data = safeParseJsonString(user);
+      if (!data) return true;
+      const role = data.role?.toLowerCase();
+      const allowed = ['admin', 'super_admin', 'provider', 'staff', 'support'];
+      return !role || !allowed.includes(role);
+    } catch {
+      return true;
+    }
+  });
   const [userId, setUserId] = useState<number | null>(null);
   const [userRole, setUserRole] = useState<string>(() => getStoredUserRole(TICKETS_ALLOWED_ROLES) ?? 'admin');
 
@@ -310,7 +324,7 @@ function TicketsLayoutInner({ children }: { children: React.ReactNode }) {
             const active = isActive(item.path);
 
             return (
-              <a
+              <Link
                 key={item.path}
                 href={item.path}
                 title={!sidebarExpanded ? item.label : undefined}
@@ -323,7 +337,7 @@ function TicketsLayoutInner({ children }: { children: React.ReactNode }) {
                 {sidebarExpanded && (
                   <span className="whitespace-nowrap text-sm font-medium">{item.label}</span>
                 )}
-              </a>
+              </Link>
             );
           })}
         </nav>
@@ -379,7 +393,7 @@ function TicketsLayoutInner({ children }: { children: React.ReactNode }) {
                 ? pathname === item.path
                 : pathname === item.path || pathname?.startsWith(item.path + '/');
               return (
-                <a
+                <Link
                   key={item.path}
                   href={item.path}
                   className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium no-underline transition-colors ${
@@ -390,7 +404,7 @@ function TicketsLayoutInner({ children }: { children: React.ReactNode }) {
                 >
                   <Icon className="h-4 w-4" />
                   {item.label}
-                </a>
+                </Link>
               );
             })}
           </nav>

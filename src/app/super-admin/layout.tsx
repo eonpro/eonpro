@@ -48,7 +48,18 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
   const router = useRouter();
   const pathname = usePathname();
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => {
+    if (typeof window === 'undefined') return true;
+    try {
+      const user = localStorage.getItem('user');
+      const token = localStorage.getItem('auth-token') || localStorage.getItem('super_admin-token');
+      if (!user || !token) return true;
+      const data = safeParseJsonString(user);
+      return !data || data.role?.toLowerCase() !== 'super_admin';
+    } catch {
+      return true;
+    }
+  });
   const [userName, setUserName] = useState('');
   const [userId, setUserId] = useState<number | null>(null);
 
@@ -162,23 +173,12 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
                 const Icon = item.icon;
                 const active = isActive(item.path, item.exact);
 
-                const handleNavClick = (e: React.MouseEvent) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-
-                  if (pathname === item.path) {
-                    window.location.reload();
-                  } else {
-                    window.location.href = item.path;
-                  }
-                };
-
                 return (
-                  <button
+                  <Link
                     key={item.path}
-                    onClick={handleNavClick}
+                    href={item.path}
                     title={!sidebarExpanded ? item.label : undefined}
-                    className={`flex w-full cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-all ${
+                    className={`flex w-full cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 text-left no-underline transition-all ${
                       active
                         ? 'bg-[#4fa77e]/10 text-[#4fa77e]'
                         : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
@@ -188,7 +188,7 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
                     {sidebarExpanded && (
                       <span className="whitespace-nowrap text-sm font-medium">{item.label}</span>
                     )}
-                  </button>
+                  </Link>
                 );
               })}
             </nav>

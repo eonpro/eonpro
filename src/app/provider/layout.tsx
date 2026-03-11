@@ -66,7 +66,18 @@ function ProviderLayoutInner({ children }: { children: React.ReactNode }) {
   const { branding, isLoading: brandingLoading } = useClinicBranding();
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => {
+    if (typeof window === 'undefined') return true;
+    try {
+      const user = localStorage.getItem('user');
+      const token = localStorage.getItem('auth-token') || localStorage.getItem('provider-token');
+      if (!user || !token) return true;
+      const data = safeParseJsonString(user);
+      return !data || data.role?.toLowerCase() !== 'provider';
+    } catch {
+      return true;
+    }
+  });
   const [userName, setUserName] = useState('');
   const [userId, setUserId] = useState<number | null>(null);
   const [rxQueueCount, setRxQueueCount] = useState(0);
@@ -259,7 +270,6 @@ function ProviderLayoutInner({ children }: { children: React.ReactNode }) {
           <ChevronRight className="h-3 w-3 text-gray-400" />
         </button>
 
-        {/* Main Navigation — plain <a> tags for guaranteed navigation even if React hydration fails */}
         <nav className="flex flex-1 flex-col space-y-1 overflow-y-auto px-3">
           {mainNavItems.map((item) => {
             const Icon = item.icon;
@@ -268,7 +278,7 @@ function ProviderLayoutInner({ children }: { children: React.ReactNode }) {
             const showLabels = sidebarExpanded || mobileNavOpen;
 
             return (
-              <a
+              <Link
                 key={item.path}
                 href={item.path}
                 onClick={() => setMobileNavOpen(false)}
@@ -298,7 +308,7 @@ function ProviderLayoutInner({ children }: { children: React.ReactNode }) {
                     {rxQueueCount > 99 ? '99+' : rxQueueCount}
                   </span>
                 )}
-              </a>
+              </Link>
             );
           })}
 
@@ -312,7 +322,7 @@ function ProviderLayoutInner({ children }: { children: React.ReactNode }) {
                 const Icon = item.icon;
                 const active = isActive(item.path);
                 return (
-                  <a
+                  <Link
                     key={item.path}
                     href={item.path}
                     onClick={() => setMobileNavOpen(false)}
@@ -325,7 +335,7 @@ function ProviderLayoutInner({ children }: { children: React.ReactNode }) {
                   >
                     <Icon className="h-4 w-4 flex-shrink-0" />
                     <span className="whitespace-nowrap text-sm font-medium">{item.label}</span>
-                  </a>
+                  </Link>
                 );
               })}
             </div>
@@ -338,7 +348,7 @@ function ProviderLayoutInner({ children }: { children: React.ReactNode }) {
                 const Icon = item.icon;
                 const active = isActive(item.path);
                 return (
-                  <a
+                  <Link
                     key={item.path}
                     href={item.path}
                     title={item.label}
@@ -350,7 +360,7 @@ function ProviderLayoutInner({ children }: { children: React.ReactNode }) {
                     }
                   >
                     <Icon className="h-4 w-4" />
-                  </a>
+                  </Link>
                 );
               })}
             </div>

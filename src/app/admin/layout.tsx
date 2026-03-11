@@ -151,7 +151,21 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { branding, isLoading: brandingLoading } = useClinicBranding();
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => {
+    if (typeof window === 'undefined') return true;
+    try {
+      const user = localStorage.getItem('user');
+      const token = localStorage.getItem('auth-token') || localStorage.getItem('admin-token');
+      if (!user || !token) return true;
+      const data = safeParseJsonString(user);
+      if (!data) return true;
+      const role = data.role?.toLowerCase();
+      const allowed = ['admin', 'super_admin', 'sales_rep', 'provider', 'staff', 'pharmacy_rep'];
+      return !role || !allowed.includes(role);
+    } catch {
+      return true;
+    }
+  });
   const [userId, setUserId] = useState<number | null>(null);
   const [userRole, setUserRole] = useState<string>('admin');
   const [userClinics, setUserClinics] = useState<UserClinic[]>([]);
@@ -433,7 +447,6 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
           <ChevronRight className="h-3 w-3 text-gray-400" />
         </button>
 
-        {/* Navigation Icons — plain <a> tags for guaranteed navigation even if React hydration fails */}
         <nav className="flex min-h-0 flex-1 flex-col space-y-1 overflow-y-auto px-3">
           {navItems.map((item) => {
             const Icon = item.icon;
@@ -458,7 +471,7 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
             }
 
             return (
-              <a
+              <Link
                 key={item.path}
                 href={item.path}
                 title={!sidebarExpanded ? item.label : undefined}
@@ -471,7 +484,7 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
                 {sidebarExpanded && (
                   <span className="whitespace-nowrap text-sm font-medium">{item.label}</span>
                 )}
-              </a>
+              </Link>
             );
           })}
         </nav>
