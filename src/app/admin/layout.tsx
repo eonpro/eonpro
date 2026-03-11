@@ -412,7 +412,7 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
 
       {/* Sidebar — drawer on mobile, fixed sidebar on md+ */}
       <aside
-        className={`fixed bottom-0 left-0 top-0 z-[101] flex flex-col border-r border-gray-200 bg-white py-4 transition-all duration-300
+        className={`fixed bottom-0 left-0 top-0 z-[101] flex flex-col border-r border-gray-200 bg-white py-4 transition-[transform,width] duration-300
           md:translate-x-0
           ${mobileNavOpen ? 'translate-x-0 w-[280px]' : '-translate-x-full w-[280px] md:translate-x-0 md:w-20'}
           ${sidebarExpanded ? 'md:w-56' : 'md:w-20'}`}
@@ -491,7 +491,6 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
                   <a
                     key={item.path}
                     href={item.path}
-                    onClick={() => setMobileNavOpen(false)}
                     title={!showLabels ? item.label : undefined}
                     className={`flex min-h-[44px] w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left no-underline transition-colors touch-manipulation ${
                       active ? '' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600 active:bg-gray-100'
