@@ -3,13 +3,17 @@
 import { useEffect, useState } from 'react';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 import { apiFetch } from '@/lib/api/fetch';
+import { useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
 
 /**
  * When the user is on a clinic subdomain (e.g. ot.eonpro.io) but their session
  * is for a different clinic, show a banner offering to switch to the subdomain's clinic.
- * Backup for server-side subdomain override (auth middleware).
+ *
+ * Uses the already-resolved clinic ID from ClinicBrandingContext to avoid a
+ * duplicate /api/clinic/resolve call.
  */
 export function SubdomainClinicBanner() {
+  const { branding, isLoading: brandingLoading } = useClinicBranding();
   const [banner, setBanner] = useState<{
     subdomainName: string;
     subdomainClinicId: number;
@@ -18,52 +22,41 @@ export function SubdomainClinicBanner() {
   const [dismissed, setDismissed] = useState(false);
 
   useEffect(() => {
-    if (typeof window === 'undefined' || dismissed) return;
+    if (typeof window === 'undefined' || dismissed || brandingLoading) return;
+
+    const subdomainClinicId = branding?.clinicId;
+    if (!subdomainClinicId || subdomainClinicId === 0) return;
+
+    const hostname = window.location.hostname;
+    if (
+      hostname === 'localhost' ||
+      hostname.startsWith('localhost:') ||
+      hostname === 'app.eonpro.io' ||
+      hostname.endsWith('.vercel.app')
+    ) {
+      return;
+    }
 
     let cancelled = false;
     (async () => {
-      const hostname = window.location.hostname;
-      // Only run on *.eonpro.io (or similar) - skip main app and localhost
-      if (
-        hostname === 'localhost' ||
-        hostname.startsWith('localhost:') ||
-        hostname === 'app.eonpro.io' ||
-        hostname.endsWith('.vercel.app')
-      ) {
-        return;
-      }
-
       try {
-        const [resolveRes, currentRes] = await Promise.all([
-          apiFetch(`/api/clinic/resolve?domain=${encodeURIComponent(hostname)}`, {
-            cache: 'no-store',
-          }),
-          apiFetch('/api/clinic/current'),
-        ]);
+        const currentRes = await apiFetch('/api/clinic/current');
+        if (cancelled || !currentRes.ok) return;
 
-        if (cancelled) return;
-        if (!resolveRes.ok || !currentRes.ok) return;
-
-        const resolveData = await resolveRes.json();
         const currentData = await currentRes.json();
-
-        if (resolveData.isMainApp || resolveData.clinicId == null) return;
         const currentId = currentData?.id ?? currentData?.clinicId;
-        if (currentId == null) return;
-        if (resolveData.clinicId === currentId) return;
+        if (currentId == null || subdomainClinicId === currentId) return;
 
         setBanner({
-          subdomainName: resolveData.name || 'this clinic',
-          subdomainClinicId: resolveData.clinicId,
+          subdomainName: branding?.clinicName || 'this clinic',
+          subdomainClinicId,
         });
       } catch {
         // Non-blocking
       }
     })();
-    return () => {
-      cancelled = true;
-    };
-  }, [dismissed]);
+    return () => { cancelled = true; };
+  }, [dismissed, brandingLoading, branding?.clinicId, branding?.clinicName]);
 
   const handleSwitch = async () => {
     if (!banner || switching) return;

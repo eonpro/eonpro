@@ -267,7 +267,7 @@ function ProviderLayoutInner({ children }: { children: React.ReactNode }) {
             const showLabels = sidebarExpanded || mobileNavOpen;
 
             return (
-              <a
+              <Link
                 key={item.path}
                 href={item.path}
                 onClick={() => setMobileNavOpen(false)}
@@ -297,7 +297,7 @@ function ProviderLayoutInner({ children }: { children: React.ReactNode }) {
                     {rxQueueCount > 99 ? '99+' : rxQueueCount}
                   </span>
                 )}
-              </a>
+              </Link>
             );
           })}
 
@@ -311,7 +311,7 @@ function ProviderLayoutInner({ children }: { children: React.ReactNode }) {
                 const Icon = item.icon;
                 const active = isActive(item.path);
                 return (
-                  <a
+                  <Link
                     key={item.path}
                     href={item.path}
                     onClick={() => setMobileNavOpen(false)}
@@ -324,7 +324,7 @@ function ProviderLayoutInner({ children }: { children: React.ReactNode }) {
                   >
                     <Icon className="h-4 w-4 flex-shrink-0" />
                     <span className="whitespace-nowrap text-sm font-medium">{item.label}</span>
-                  </a>
+                  </Link>
                 );
               })}
             </div>
@@ -337,7 +337,7 @@ function ProviderLayoutInner({ children }: { children: React.ReactNode }) {
                 const Icon = item.icon;
                 const active = isActive(item.path);
                 return (
-                  <a
+                  <Link
                     key={item.path}
                     href={item.path}
                     title={item.label}
@@ -349,7 +349,7 @@ function ProviderLayoutInner({ children }: { children: React.ReactNode }) {
                     }
                   >
                     <Icon className="h-4 w-4" />
-                  </a>
+                  </Link>
                 );
               })}
             </div>

@@ -217,19 +217,7 @@ interface NotificationProviderProps {
 }
 
 export function NotificationProvider({ children }: NotificationProviderProps) {
-  // Load preferences from local storage first (for immediate UI)
-  const [preferences, setPreferences] = useState<NotificationPreferences>(() => {
-    if (typeof window === 'undefined') return defaultPreferences;
-    const stored = getLocalStorageItem(PREFERENCES_STORAGE_KEY);
-    if (stored) {
-      try {
-        return { ...defaultPreferences, ...JSON.parse(stored) };
-      } catch {
-        return defaultPreferences;
-      }
-    }
-    return defaultPreferences;
-  });
+  const [preferences, setPreferences] = useState<NotificationPreferences>(defaultPreferences);
 
   // Track if we've synced with the server
   const hasSyncedRef = useRef(false);
@@ -238,6 +226,17 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
   // Toast state
   const [toasts, setToasts] = useState<ToastNotification[]>([]);
   const toastIdRef = useRef(0);
+
+  // Hydrate preferences from localStorage after mount (hydration-safe)
+  useEffect(() => {
+    if (!isBrowser) return;
+    const stored = getLocalStorageItem(PREFERENCES_STORAGE_KEY);
+    if (stored) {
+      try {
+        setPreferences((prev) => ({ ...prev, ...JSON.parse(stored) }));
+      } catch { /* ignore corrupt data */ }
+    }
+  }, []);
 
   // Fetch preferences from API on mount (if authenticated)
   useEffect(() => {

@@ -173,7 +173,7 @@ function PatientsLayoutInner({ children }: { children: React.ReactNode }) {
     return pathname === path || pathname?.startsWith(path + '/');
   };
 
-  const layoutReady = !loading && !brandingLoading;
+  const layoutReady = !loading;
 
   return (
     <div className="flex min-h-screen bg-[#efece7]">

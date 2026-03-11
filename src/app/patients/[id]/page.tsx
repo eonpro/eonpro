@@ -286,12 +286,12 @@ export default async function PatientDetailPage({
         const phase2 = runWithClinicContext(effectiveClinicId, async () => {
           const parallelQueries: Promise<void>[] = [];
 
-          // Orders — needed for sidebar (always) and prescriptions tab
+          // Orders — sidebar needs recent 10; prescriptions tab needs 50 with relations
           parallelQueries.push(
             prisma.order.findMany({
               where: { patientId: id },
               orderBy: { createdAt: 'desc' },
-              take: 50,
+              take: needsDetailedOrders ? 50 : 10,
               select: {
                 id: true,
                 createdAt: true,
@@ -973,7 +973,7 @@ export default async function PatientDetailPage({
       ...patientCore
     } = patientWithDecryptedPHI;
 
-    // Resolve patient avatar URL from their linked User record
+    // Resolve patient avatar URL from their linked User record (local HMAC, no network)
     let patientAvatarUrl: string | null = null;
     const rawAvatarKey = patientWithDecryptedPHI.user?.avatarUrl;
     if (rawAvatarKey) {
@@ -983,7 +983,7 @@ export default async function PatientDetailPage({
         } else if (isS3Enabled()) {
           patientAvatarUrl = await withTimeout(
             generateSignedUrl(rawAvatarKey, 'GET', 3600),
-            5000,
+            2000,
             'S3 avatar signed URL',
           );
         }

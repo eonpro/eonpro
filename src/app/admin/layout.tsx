@@ -451,7 +451,7 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
                 }
 
                 return (
-                  <a
+                  <Link
                     key={item.path}
                     href={item.path}
                     title={!sidebarExpanded ? item.label : undefined}
@@ -464,7 +464,7 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
                     {sidebarExpanded && (
                       <span className="whitespace-nowrap text-sm font-medium">{item.label}</span>
                     )}
-                  </a>
+                  </Link>
                 );
               })}
             </nav>
