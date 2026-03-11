@@ -1,9 +1,8 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { MapPin, Search, X } from 'lucide-react';
+import { MapPin, X } from 'lucide-react';
 
-// US States for dropdown
 export const US_STATES = [
   { code: 'AL', name: 'Alabama' },
   { code: 'AK', name: 'Alaska' },
@@ -69,50 +68,48 @@ export interface AddressData {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// Shared helpers for the new Places API (AutocompleteSuggestion)
-// Google Maps types are accessed dynamically; we use `any` to avoid a
-// hard dependency on @types/google.maps.
+// Legacy Places Autocomplete helpers
+// Uses google.maps.places.Autocomplete widget which works with the standard
+// "Places API" (not "Places API New").
 // ────────────────────────────────────────────────────────────────────────────
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-interface PlaceSuggestion {
-  placePrediction?: {
-    text?: { text?: string };
-    toPlace: () => any;
-  };
+const AUTOCOMPLETE_OPTIONS = {
+  componentRestrictions: { country: 'us' },
+  fields: ['address_components', 'formatted_address'],
+  types: ['address'],
+};
+
+function isGoogleReady(): boolean {
+  return (
+    typeof window !== 'undefined' &&
+    !!(window as any).google?.maps?.places?.Autocomplete
+  );
 }
 
-function getPlacesLib(): any {
-  if (typeof window !== 'undefined' && (window as any).google?.maps?.places) {
-    return (window as any).google.maps.places;
-  }
-  return null;
-}
-
-function useGooglePlaces() {
-  const [loaded, setLoaded] = useState(() => !!getPlacesLib());
+function useGooglePlacesReady() {
+  const [ready, setReady] = useState(isGoogleReady);
 
   useEffect(() => {
-    if (loaded) return;
+    if (ready) return;
     const interval = setInterval(() => {
-      if (getPlacesLib()) {
-        setLoaded(true);
+      if (isGoogleReady()) {
+        setReady(true);
         clearInterval(interval);
       }
     }, 500);
-    const timeout = setTimeout(() => clearInterval(interval), 10_000);
-    return () => { clearInterval(interval); clearTimeout(timeout); };
-  }, [loaded]);
+    const timeout = setTimeout(() => clearInterval(interval), 15_000);
+    return () => {
+      clearInterval(interval);
+      clearTimeout(timeout);
+    };
+  }, [ready]);
 
-  return loaded;
+  return ready;
 }
 
-/**
- * Parse addressComponents from the new Place class into our AddressData format.
- * New API uses `longText` / `shortText` instead of legacy `long_name` / `short_name`.
- */
-function parseNewAddressComponents(
+function parseAddressComponents(
   components: any[],
   preserveAddress2?: string,
 ): AddressData {
@@ -125,16 +122,13 @@ function parseNewAddressComponents(
 
   for (const c of components) {
     const types: string[] = c.types ?? [];
-    const longText: string = c.longText ?? c.long_name ?? '';
-    const shortText: string = c.shortText ?? c.short_name ?? '';
-
-    if (types.includes('street_number')) streetNumber = longText;
-    if (types.includes('route')) streetName = longText;
-    if (types.includes('locality')) city = longText;
-    if (types.includes('sublocality_level_1') && !city) city = longText;
-    if (types.includes('administrative_area_level_1')) state = shortText;
-    if (types.includes('postal_code')) zip = longText;
-    if (types.includes('country')) country = shortText;
+    if (types.includes('street_number')) streetNumber = c.long_name ?? '';
+    if (types.includes('route')) streetName = c.long_name ?? '';
+    if (types.includes('locality')) city = c.long_name ?? '';
+    if (types.includes('sublocality_level_1') && !city) city = c.long_name ?? '';
+    if (types.includes('administrative_area_level_1')) state = c.short_name ?? '';
+    if (types.includes('postal_code')) zip = c.long_name ?? '';
+    if (types.includes('country')) country = c.short_name ?? '';
   }
 
   return {
@@ -147,47 +141,40 @@ function parseNewAddressComponents(
   };
 }
 
-/** Suggestions dropdown used by both components. */
-function SuggestionsDropdown({
-  suggestions,
-  onSelect,
-  highlightIndex,
-}: {
-  suggestions: PlaceSuggestion[];
-  onSelect: (s: PlaceSuggestion) => void;
-  highlightIndex: number;
-}) {
-  if (suggestions.length === 0) return null;
+/**
+ * Attach the legacy google.maps.places.Autocomplete widget to an input element.
+ * Returns a cleanup function that removes the listener and widget.
+ */
+function attachAutocomplete(
+  input: HTMLInputElement,
+  onPlaceChanged: (parsed: AddressData, formatted: string) => void,
+): () => void {
+  if (!isGoogleReady()) return () => {};
 
-  return (
-    <ul
-      role="listbox"
-      className="absolute left-0 right-0 top-full z-50 mt-1 max-h-60 overflow-auto rounded-lg border border-gray-200 bg-white shadow-lg"
-    >
-      {suggestions.map((s, i) => {
-        const text = s.placePrediction?.text?.text ?? '';
-        return (
-          <li
-            key={text + i}
-            role="option"
-            aria-selected={i === highlightIndex}
-            onMouseDown={(e) => { e.preventDefault(); onSelect(s); }}
-            className={`cursor-pointer px-4 py-2 text-sm ${
-              i === highlightIndex ? 'bg-teal-50 text-teal-700' : 'text-gray-700 hover:bg-gray-50'
-            }`}
-          >
-            <div className="flex items-center gap-2">
-              <MapPin className="h-3.5 w-3.5 flex-shrink-0 text-gray-400" />
-              <span>{text}</span>
-            </div>
-          </li>
-        );
-      })}
-      <li className="px-4 py-1.5 text-right text-[10px] text-gray-400">
-        Powered by Google
-      </li>
-    </ul>
+  const autocomplete = new (window as any).google.maps.places.Autocomplete(
+    input,
+    AUTOCOMPLETE_OPTIONS,
   );
+
+  const listener = autocomplete.addListener('place_changed', () => {
+    const place = autocomplete.getPlace();
+    if (!place?.address_components) return;
+
+    const parsed = parseAddressComponents(place.address_components);
+    parsed.formattedAddress = place.formatted_address ?? '';
+    onPlaceChanged(parsed, place.formatted_address ?? '');
+  });
+
+  return () => {
+    if ((window as any).google?.maps?.event?.removeListener) {
+      (window as any).google.maps.event.removeListener(listener);
+    }
+    // Remove the pac-container the widget injected
+    const pacContainers = document.querySelectorAll('.pac-container');
+    pacContainers.forEach((el) => {
+      if (el.parentNode) el.parentNode.removeChild(el);
+    });
+  };
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -215,107 +202,26 @@ export default function AddressAutocomplete({
   className = '',
   compact = false,
 }: AddressAutocompleteProps) {
-  const isGoogleLoaded = useGooglePlaces();
-  const [suggestions, setSuggestions] = useState<PlaceSuggestion[]>([]);
-  const [showDropdown, setShowDropdown] = useState(false);
-  const [highlightIndex, setHighlightIndex] = useState(-1);
-  const sessionTokenRef = useRef<any>(null);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
+  const googleReady = useGooglePlacesReady();
+  const inputRef = useRef<HTMLInputElement>(null);
+  const cleanupRef = useRef<(() => void) | null>(null);
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
+  const valueRef = useRef(value);
+  valueRef.current = value;
 
-  const getSessionToken = useCallback(() => {
-    const lib = getPlacesLib();
-    if (!lib) return undefined;
-    if (!sessionTokenRef.current) {
-      sessionTokenRef.current = new lib.AutocompleteSessionToken();
-    }
-    return sessionTokenRef.current;
-  }, []);
-
-  const resetSessionToken = useCallback(() => { sessionTokenRef.current = null; }, []);
-
-  const fetchSuggestions = useCallback(async (input: string) => {
-    const lib = getPlacesLib();
-    if (!lib || !input || input.length < 3) {
-      setSuggestions([]);
-      return;
-    }
-    try {
-      const { suggestions: results } =
-        await lib.AutocompleteSuggestion.fetchAutocompleteSuggestions({
-          input,
-          includedRegionCodes: ['us'],
-          includedPrimaryTypes: ['address'],
-          sessionToken: getSessionToken(),
-        });
-      setSuggestions(results ?? []);
-      setShowDropdown(true);
-      setHighlightIndex(-1);
-    } catch {
-      setSuggestions([]);
-    }
-  }, [getSessionToken]);
-
-  const handleAddressInputChange = useCallback((newValue: string) => {
-    onChange({ ...value, address1: newValue });
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => fetchSuggestions(newValue), 300);
-  }, [value, onChange, fetchSuggestions]);
-
-  const handleSelect = useCallback(async (suggestion: PlaceSuggestion) => {
-    setShowDropdown(false);
-    setSuggestions([]);
-    const prediction = suggestion.placePrediction;
-    if (!prediction) return;
-
-    try {
-      const place = prediction.toPlace();
-      await place.fetchFields({ fields: ['addressComponents', 'formattedAddress'] });
-
-      const components = place.addressComponents;
-      if (components) {
-        const parsed = parseNewAddressComponents(components, value.address2);
-        parsed.formattedAddress = place.formattedAddress ?? '';
-        onChange(parsed);
-      }
-    } catch {
-      // Fallback: use the prediction text as address1
-      const text = prediction.text?.text ?? '';
-      onChange({ ...value, address1: text });
-    }
-    resetSessionToken();
-  }, [value, onChange, resetSessionToken]);
-
-  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (!showDropdown || suggestions.length === 0) return;
-    if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      setHighlightIndex((i) => Math.min(i + 1, suggestions.length - 1));
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      setHighlightIndex((i) => Math.max(i - 1, 0));
-    } else if (e.key === 'Enter' && highlightIndex >= 0) {
-      e.preventDefault();
-      handleSelect(suggestions[highlightIndex]);
-    } else if (e.key === 'Escape') {
-      setShowDropdown(false);
-    }
-  }, [showDropdown, suggestions, highlightIndex, handleSelect]);
-
-  // Close dropdown on outside click
   useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setShowDropdown(false);
-      }
+    if (!googleReady || !inputRef.current) return;
+    cleanupRef.current?.();
+    cleanupRef.current = attachAutocomplete(inputRef.current, (parsed) => {
+      parsed.address2 = valueRef.current.address2;
+      onChangeRef.current(parsed);
+    });
+    return () => {
+      cleanupRef.current?.();
+      cleanupRef.current = null;
     };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
-
-  useEffect(() => {
-    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
-  }, []);
+  }, [googleReady]);
 
   const handleFieldChange = (field: keyof AddressData, newValue: string) => {
     onChange({ ...value, [field]: newValue });
@@ -327,30 +233,29 @@ export default function AddressAutocomplete({
 
   if (compact) {
     return (
-      <div className={className} ref={containerRef}>
+      <div className={className}>
         {label && (
           <label className="mb-1 block text-sm font-medium text-gray-700">
             {label} {required && <span className="text-red-500">*</span>}
           </label>
         )}
         <div className="relative">
-          <MapPin data-input-icon className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 transition-opacity duration-200" />
+          <MapPin
+            data-input-icon
+            className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 transition-opacity duration-200"
+          />
           <input
+            ref={inputRef}
             type="text"
             required={required}
             disabled={disabled}
-            value={
+            defaultValue={
               value.formattedAddress ||
               `${value.address1}${value.city ? `, ${value.city}` : ''}${value.state ? `, ${value.state}` : ''} ${value.zip}`.trim()
             }
-            onChange={(e) => handleAddressInputChange(e.target.value)}
-            onFocus={() => { if (suggestions.length > 0) setShowDropdown(true); }}
-            onKeyDown={handleKeyDown}
+            onChange={(e) => handleFieldChange('address1', e.target.value)}
             placeholder="Start typing an address..."
             className="w-full rounded-lg border border-gray-300 py-2 pl-12 pr-10 focus:border-teal-500 focus:ring-2 focus:ring-teal-500 disabled:cursor-not-allowed disabled:bg-gray-100"
-            role="combobox"
-            aria-expanded={showDropdown}
-            aria-autocomplete="list"
             autoComplete="off"
           />
           {(value.address1 || value.city) && (
@@ -362,17 +267,7 @@ export default function AddressAutocomplete({
               <X className="h-4 w-4" />
             </button>
           )}
-          {showDropdown && (
-            <SuggestionsDropdown
-              suggestions={suggestions}
-              onSelect={handleSelect}
-              highlightIndex={highlightIndex}
-            />
-          )}
         </div>
-        {!isGoogleLoaded && (
-          <p className="mt-1 text-xs text-amber-600">Loading address autocomplete...</p>
-        )}
       </div>
     );
   }
@@ -385,41 +280,28 @@ export default function AddressAutocomplete({
         </label>
       )}
 
-      <div ref={containerRef}>
+      <div>
         <label className="mb-1 block text-sm font-medium text-gray-700">
-          Street Address {required && <span className="text-red-500">*</span>}
+          Street Address{' '}
+          {required && <span className="text-red-500">*</span>}
         </label>
         <div className="relative">
-          <MapPin data-input-icon className={`absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 transition-opacity duration-200 ${value.address1 ? 'opacity-0' : 'opacity-100'}`} />
+          <MapPin
+            data-input-icon
+            className={`absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 transition-opacity duration-200 ${value.address1 ? 'opacity-0' : 'opacity-100'}`}
+          />
           <input
+            ref={inputRef}
             type="text"
             required={required}
             disabled={disabled}
-            value={value.address1}
-            onChange={(e) => handleAddressInputChange(e.target.value)}
-            onFocus={() => { if (suggestions.length > 0) setShowDropdown(true); }}
-            onKeyDown={handleKeyDown}
+            defaultValue={value.address1}
+            onChange={(e) => handleFieldChange('address1', e.target.value)}
             placeholder="Start typing an address..."
             className="w-full rounded-lg border border-gray-300 py-2 pl-12 pr-4 focus:border-teal-500 focus:ring-2 focus:ring-teal-500 disabled:cursor-not-allowed disabled:bg-gray-100"
-            role="combobox"
-            aria-expanded={showDropdown}
-            aria-autocomplete="list"
             autoComplete="off"
           />
-          {showDropdown && (
-            <SuggestionsDropdown
-              suggestions={suggestions}
-              onSelect={handleSelect}
-              highlightIndex={highlightIndex}
-            />
-          )}
         </div>
-        {!isGoogleLoaded && (
-          <p className="mt-1 flex items-center gap-1 text-xs text-amber-600">
-            <Search className="h-3 w-3 animate-pulse" />
-            Loading address autocomplete...
-          </p>
-        )}
       </div>
 
       {showAddress2 && (
@@ -466,9 +348,9 @@ export default function AddressAutocomplete({
             className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-teal-500 focus:ring-2 focus:ring-teal-500 disabled:cursor-not-allowed disabled:bg-gray-100"
           >
             <option value="">--</option>
-            {US_STATES.map((state) => (
-              <option key={state.code} value={state.code}>
-                {state.code}
+            {US_STATES.map((s) => (
+              <option key={s.code} value={s.code}>
+                {s.code}
               </option>
             ))}
           </select>
@@ -484,7 +366,10 @@ export default function AddressAutocomplete({
             disabled={disabled}
             value={value.zip}
             onChange={(e) =>
-              handleFieldChange('zip', e.target.value.replace(/\D/g, '').slice(0, 5))
+              handleFieldChange(
+                'zip',
+                e.target.value.replace(/\D/g, '').slice(0, 5),
+              )
             }
             placeholder="12345"
             maxLength={5}
@@ -498,7 +383,7 @@ export default function AddressAutocomplete({
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// Simpler inline AddressInput
+// Simpler inline AddressInput — uses legacy Autocomplete widget
 // ────────────────────────────────────────────────────────────────────────────
 
 export function AddressInput({
@@ -516,134 +401,50 @@ export function AddressInput({
   disabled?: boolean;
   className?: string;
 }) {
-  // Kick off polling so getPlacesLib() returns a value on future keystrokes
-  useGooglePlaces();
-
-  const [suggestions, setSuggestions] = useState<PlaceSuggestion[]>([]);
-  const [showDropdown, setShowDropdown] = useState(false);
-  const [highlightIndex, setHighlightIndex] = useState(-1);
-  const sessionTokenRef = useRef<any>(null);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  const getSessionToken = useCallback(() => {
-    const lib = getPlacesLib();
-    if (!lib) return undefined;
-    if (!sessionTokenRef.current) {
-      sessionTokenRef.current = new lib.AutocompleteSessionToken();
-    }
-    return sessionTokenRef.current;
-  }, []);
-
-  const resetSessionToken = useCallback(() => { sessionTokenRef.current = null; }, []);
-
-  const fetchSuggestions = useCallback(async (input: string) => {
-    const lib = getPlacesLib();
-    if (!lib || !input || input.length < 3) {
-      setSuggestions([]);
-      return;
-    }
-    try {
-      const { suggestions: results } =
-        await lib.AutocompleteSuggestion.fetchAutocompleteSuggestions({
-          input,
-          includedRegionCodes: ['us'],
-          includedPrimaryTypes: ['address'],
-          sessionToken: getSessionToken(),
-        });
-      setSuggestions(results ?? []);
-      setShowDropdown(true);
-      setHighlightIndex(-1);
-    } catch {
-      setSuggestions([]);
-    }
-  }, [getSessionToken]);
-
-  const handleInputChange = useCallback((newValue: string) => {
-    onChange(newValue);
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => fetchSuggestions(newValue), 300);
-  }, [onChange, fetchSuggestions]);
-
-  const handleSelect = useCallback(async (suggestion: PlaceSuggestion) => {
-    setShowDropdown(false);
-    setSuggestions([]);
-    const prediction = suggestion.placePrediction;
-    if (!prediction) return;
-
-    try {
-      const place = prediction.toPlace();
-      await place.fetchFields({ fields: ['addressComponents', 'formattedAddress'] });
-
-      const components = place.addressComponents;
-      if (components) {
-        const parsed = parseNewAddressComponents(components);
-        parsed.formattedAddress = place.formattedAddress ?? '';
-        onChange(place.formattedAddress ?? '', parsed);
-      } else {
-        onChange(prediction.text?.text ?? '');
-      }
-    } catch {
-      onChange(prediction.text?.text ?? '');
-    }
-    resetSessionToken();
-  }, [onChange, resetSessionToken]);
-
-  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (!showDropdown || suggestions.length === 0) return;
-    if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      setHighlightIndex((i) => Math.min(i + 1, suggestions.length - 1));
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      setHighlightIndex((i) => Math.max(i - 1, 0));
-    } else if (e.key === 'Enter' && highlightIndex >= 0) {
-      e.preventDefault();
-      handleSelect(suggestions[highlightIndex]);
-    } else if (e.key === 'Escape') {
-      setShowDropdown(false);
-    }
-  }, [showDropdown, suggestions, highlightIndex, handleSelect]);
+  const googleReady = useGooglePlacesReady();
+  const inputRef = useRef<HTMLInputElement>(null);
+  const cleanupRef = useRef<(() => void) | null>(null);
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
 
   useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setShowDropdown(false);
-      }
+    if (!googleReady || !inputRef.current) return;
+    cleanupRef.current?.();
+    cleanupRef.current = attachAutocomplete(
+      inputRef.current,
+      (parsed, formatted) => {
+        onChangeRef.current(formatted || parsed.address1, parsed);
+      },
+    );
+    return () => {
+      cleanupRef.current?.();
+      cleanupRef.current = null;
     };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
+  }, [googleReady]);
 
-  useEffect(() => {
-    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
-  }, []);
+  const handleInputChange = useCallback(
+    (newValue: string) => {
+      onChange(newValue);
+    },
+    [onChange],
+  );
 
   return (
-    <div ref={containerRef} className={`relative ${className}`}>
-      <MapPin className={`absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 transition-opacity duration-200 ${value ? 'opacity-0' : 'opacity-100'}`} />
+    <div className={`relative ${className}`}>
+      <MapPin
+        className={`absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 transition-opacity duration-200 ${value ? 'opacity-0' : 'opacity-100'}`}
+      />
       <input
+        ref={inputRef}
         type="text"
         value={value}
         onChange={(e) => handleInputChange(e.target.value)}
-        onFocus={() => { if (suggestions.length > 0) setShowDropdown(true); }}
-        onKeyDown={handleKeyDown}
         placeholder={placeholder}
         required={required}
         disabled={disabled}
         className="w-full rounded-lg border border-gray-300 py-2 pl-12 pr-4 focus:border-teal-500 focus:ring-2 focus:ring-teal-500 disabled:bg-gray-100"
-        role="combobox"
-        aria-expanded={showDropdown}
-        aria-autocomplete="list"
         autoComplete="off"
       />
-      {showDropdown && (
-        <SuggestionsDropdown
-          suggestions={suggestions}
-          onSelect={handleSelect}
-          highlightIndex={highlightIndex}
-        />
-      )}
     </div>
   );
 }
