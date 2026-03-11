@@ -126,7 +126,7 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
               <>
                 {/* Logo */}
                 <div className="mb-6 flex items-center justify-center px-4">
-                  <Link href="/super-admin">
+                  <a href="/super-admin">
                     <img
                       src={EONPRO_LOGO}
                       alt="EONPRO"
@@ -137,7 +137,7 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
                       alt="EONPRO"
                       className={`h-10 w-10 object-contain ${sidebarExpanded ? 'hidden' : 'block'}`}
                     />
-                  </Link>
+                  </a>
                 </div>
 
                 {/* Expand Button */}
@@ -157,7 +157,7 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
                     const active = isActive(item.path, item.exact);
 
                     return (
-                      <Link
+                      <a
                         key={item.path}
                         href={item.path}
                         title={!sidebarExpanded ? item.label : undefined}
@@ -171,7 +171,7 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
                         {sidebarExpanded && (
                           <span className="whitespace-nowrap text-sm font-medium">{item.label}</span>
                         )}
-                      </Link>
+                      </a>
                     );
                   })}
                 </nav>

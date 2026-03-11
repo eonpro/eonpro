@@ -263,7 +263,7 @@ function TicketsLayoutInner({ children }: { children: React.ReactNode }) {
           <>
             {/* Logo */}
             <div className="mb-6 flex flex-col items-center px-4">
-              <Link href={navItems[0]?.path || '/admin'}>
+              <a href={navItems[0]?.path || '/admin'}>
                 {sidebarExpanded ? (
                   <img
                     src={clinicLogo}
@@ -273,7 +273,7 @@ function TicketsLayoutInner({ children }: { children: React.ReactNode }) {
                 ) : (
                   <img src={clinicIcon} alt={clinicName} className="h-10 w-10 object-contain" />
                 )}
-              </Link>
+              </a>
               {isWhiteLabeled && sidebarExpanded && (
                 <span className="mt-1 flex items-center justify-center gap-1 text-[10px] text-gray-400">
                   Powered by{' '}
@@ -303,7 +303,7 @@ function TicketsLayoutInner({ children }: { children: React.ReactNode }) {
                 const active = isActive(item.path);
 
                 return (
-                  <Link
+                  <a
                     key={item.path}
                     href={item.path}
                     title={!sidebarExpanded ? item.label : undefined}
@@ -316,7 +316,7 @@ function TicketsLayoutInner({ children }: { children: React.ReactNode }) {
                     {sidebarExpanded && (
                       <span className="whitespace-nowrap text-sm font-medium">{item.label}</span>
                     )}
-                  </Link>
+                  </a>
                 );
               })}
             </nav>
@@ -378,7 +378,7 @@ function TicketsLayoutInner({ children }: { children: React.ReactNode }) {
                 ? pathname === item.path
                 : pathname === item.path || pathname?.startsWith(item.path + '/');
               return (
-                <Link
+                <a
                   key={item.path}
                   href={item.path}
                   className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium no-underline transition-colors ${
@@ -389,7 +389,7 @@ function TicketsLayoutInner({ children }: { children: React.ReactNode }) {
                 >
                   <Icon className="h-4 w-4" />
                   {item.label}
-                </Link>
+                </a>
               );
             })}
           </nav>
