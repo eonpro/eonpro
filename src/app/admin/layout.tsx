@@ -518,25 +518,32 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
             const isClinicsTab = item.path === '/admin/clinics';
             const isClinicSwitch = isClinicsTab && hasMultipleClinics && userRole !== 'super_admin';
 
+            if (isClinicSwitch) {
+              return (
+                <button
+                  key={item.path}
+                  type="button"
+                  onClick={() => setShowClinicSwitchModal(true)}
+                  className="flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 py-3 text-gray-400 active:text-gray-600"
+                >
+                  <Icon className="h-5 w-5 flex-shrink-0" />
+                  <span className="truncate text-[10px] font-medium leading-tight">Switch</span>
+                </button>
+              );
+            }
+
             return (
-              <button
+              <a
                 key={item.path}
-                type="button"
-                onClick={() => {
-                  if (isClinicSwitch) {
-                    setShowClinicSwitchModal(true);
-                  } else {
-                    router.push(item.path);
-                  }
-                }}
-                className={`flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 py-3 transition-colors ${
+                href={item.path}
+                className={`flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 py-3 no-underline transition-colors ${
                   active ? '' : 'text-gray-400 active:text-gray-600'
                 }`}
                 style={active ? { color: primaryColor } : {}}
               >
                 <Icon className="h-5 w-5 flex-shrink-0" />
-                <span className="truncate text-[10px] font-medium leading-tight">{isClinicSwitch ? 'Switch' : item.label}</span>
-              </button>
+                <span className="truncate text-[10px] font-medium leading-tight">{item.label}</span>
+              </a>
             );
           })}
           <button
