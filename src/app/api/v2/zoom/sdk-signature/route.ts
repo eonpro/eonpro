@@ -14,7 +14,7 @@ import { SignJWT } from 'jose';
 import { z } from 'zod';
 
 import { withProviderAuth, type AuthUser } from '@/lib/auth/middleware';
-import { zoomConfig, isZoomEnabled } from '@/lib/integrations/zoom/config';
+import { zoomConfig, isZoomConfigured } from '@/lib/integrations/zoom/config';
 import { logger } from '@/lib/logger';
 import { auditLog, AuditEventType } from '@/lib/audit/hipaa-audit';
 import { prisma } from '@/lib/db';
@@ -26,7 +26,7 @@ const signatureSchema = z.object({
 
 export const POST = withProviderAuth(async (req: NextRequest, user: AuthUser) => {
   try {
-    if (!isZoomEnabled()) {
+    if (!isZoomConfigured()) {
       return NextResponse.json(
         { error: 'Zoom Telehealth is not enabled' },
         { status: 403 }

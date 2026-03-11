@@ -10,7 +10,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { withProviderAuth, AuthUser } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
 import { prisma } from '@/lib/db';
-import { isZoomEnabled } from '@/lib/integrations/zoom/config';
+import { isZoomConfigured } from '@/lib/integrations/zoom/config';
 
 // Dynamic import to avoid circular dependency in production builds
 async function safeDecryptPatient(patient: any): Promise<any> {
@@ -78,7 +78,7 @@ export const GET = withProviderAuth(async (req: NextRequest, user: AuthUser) => 
         return NextResponse.json({
           sessions: fallbackSessions,
           totalCount: fallbackSessions.length,
-          zoomEnabled: isZoomEnabled(),
+          zoomEnabled: isZoomConfigured(),
           debug: {
             reason: 'provider_not_found_using_raw_fallback',
             userId: user.id,
@@ -92,7 +92,7 @@ export const GET = withProviderAuth(async (req: NextRequest, user: AuthUser) => 
         return NextResponse.json({
           sessions: [],
           totalCount: 0,
-          zoomEnabled: isZoomEnabled(),
+          zoomEnabled: isZoomConfigured(),
           debug: { reason: 'raw_fallback_failed', userId: user.id, error: fbMsg },
         });
       }
@@ -213,10 +213,10 @@ export const GET = withProviderAuth(async (req: NextRequest, user: AuthUser) => 
     return NextResponse.json({
       sessions: sessionResults.slice(0, 20),
       totalCount: sessionResults.length,
-      zoomEnabled: isZoomEnabled(),
+      zoomEnabled: isZoomConfigured(),
       debug: {
         providerId: provider.id,
-        zoomConfigured: isZoomEnabled(),
+        zoomConfigured: isZoomConfigured(),
         telehealthSessionCount: seenAppointmentIds.size,
         videoAppointmentCount: videoAppointments.length,
         dateRange: { from: now.toISOString(), to: endDate.toISOString() },

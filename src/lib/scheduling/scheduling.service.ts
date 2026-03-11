@@ -17,7 +17,7 @@ import {
   ensureZoomMeetingForAppointment,
   cancelZoomMeetingForAppointment,
 } from '@/lib/integrations/zoom/telehealthService';
-import { isZoomEnabled } from '@/lib/integrations/zoom/config';
+import { isZoomConfigured } from '@/lib/integrations/zoom/config';
 
 // Types
 export interface TimeSlot {
@@ -257,7 +257,7 @@ export async function createAppointment(input: CreateAppointmentInput): Promise<
 
     // Auto-create Zoom meeting for VIDEO appointments
     let finalAppointment = appointment;
-    if (input.type === AppointmentModeType.VIDEO && isZoomEnabled()) {
+    if (input.type === AppointmentModeType.VIDEO && isZoomConfigured()) {
       try {
         const zoomResult = await ensureZoomMeetingForAppointment(appointment.id);
         if (zoomResult.success && zoomResult.session) {
@@ -455,7 +455,7 @@ export async function cancelAppointment(
     await cancelAppointmentReminders(appointmentId);
 
     // Cancel Zoom meeting if this was a VIDEO appointment
-    if (existingAppointment?.type === AppointmentModeType.VIDEO && isZoomEnabled()) {
+    if (existingAppointment?.type === AppointmentModeType.VIDEO && isZoomConfigured()) {
       try {
         await cancelZoomMeetingForAppointment(appointmentId, reason);
         logger.info('Zoom meeting cancelled for appointment', { appointmentId });

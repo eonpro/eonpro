@@ -8,7 +8,7 @@
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import {
-  isZoomEnabled,
+  isZoomConfigured,
   zoomConfig,
   MeetingType,
   TELEHEALTH_SETTINGS,
@@ -78,7 +78,7 @@ let cachedTokenExpiresAt: number = 0;
  * Caches the token in memory with a 5-minute safety buffer.
  */
 export async function getZoomAccessToken(): Promise<string> {
-  if (!isZoomEnabled()) {
+  if (!isZoomConfigured()) {
     return 'mock_access_token';
   }
 
@@ -124,7 +124,7 @@ export async function getZoomAccessToken(): Promise<string> {
 // ============================================================================
 
 export async function createZoomMeeting(params: CreateMeetingParams): Promise<ZoomMeetingResponse> {
-  if (!isZoomEnabled()) {
+  if (!isZoomConfigured()) {
     return createMockMeeting(params);
   }
 
@@ -220,7 +220,7 @@ export async function createZoomMeeting(params: CreateMeetingParams): Promise<Zo
 }
 
 export async function getZoomMeeting(meetingId: string): Promise<ZoomMeetingResponse | null> {
-  if (!isZoomEnabled()) {
+  if (!isZoomConfigured()) {
     return createMockMeeting({
       topic: 'Mock Meeting',
       duration: 30,
@@ -277,7 +277,7 @@ export async function updateZoomMeeting(
   meetingId: string,
   updates: Partial<CreateMeetingParams>
 ): Promise<boolean> {
-  if (!isZoomEnabled()) {
+  if (!isZoomConfigured()) {
     return true;
   }
 
@@ -311,7 +311,7 @@ export async function updateZoomMeeting(
 }
 
 export async function cancelZoomMeeting(meetingId: string): Promise<boolean> {
-  if (!isZoomEnabled()) {
+  if (!isZoomConfigured()) {
     return true;
   }
 
@@ -351,7 +351,7 @@ export async function cancelZoomMeeting(meetingId: string): Promise<boolean> {
 }
 
 export async function getMeetingParticipants(meetingId: string): Promise<ZoomParticipant[]> {
-  if (!isZoomEnabled()) {
+  if (!isZoomConfigured()) {
     return [
       {
         id: 'mock-host',
@@ -399,7 +399,7 @@ export async function getMeetingParticipants(meetingId: string): Promise<ZoomPar
 }
 
 export async function admitParticipant(meetingId: string, participantId: string): Promise<boolean> {
-  if (!isZoomEnabled()) {
+  if (!isZoomConfigured()) {
     return true;
   }
 

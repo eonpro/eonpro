@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 
 import { AnimatePresence, motion } from 'framer-motion';
+import { Loader2 } from 'lucide-react';
 
 import { apiFetch } from '@/lib/api/fetch';
 import ActiveCallView from './ActiveCallView';
@@ -37,6 +38,7 @@ export default function TelehealthDashboard({
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [scribeEnabled, setScribeEnabled] = useState(true);
+  const [provisioningDeepLink, setProvisioningDeepLink] = useState(false);
 
   // Auto-open lobby when navigated with ?consultationId=X (from consultations page)
   useEffect(() => {
@@ -50,16 +52,38 @@ export default function TelehealthDashboard({
         const data = await res.json();
         const sessions: TelehealthSessionData[] = data.sessions ?? [];
 
-        // Match by appointment ID
         const match = sessions.find(
           (s) => s.appointment?.id === Number(consultationId) || s.id === Number(consultationId)
         );
 
-        if (match) {
-          setSelectedSession(match);
-          setPhase('lobby');
-          onPhaseChange?.('lobby');
+        if (!match) return;
+
+        // If the session has no meeting data, try to provision it first
+        if (!match.meetingId && match.appointment?.id) {
+          setProvisioningDeepLink(true);
+          try {
+            const provisionRes = await apiFetch('/api/v2/zoom/meetings/provision', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ appointmentId: match.appointment.id }),
+            });
+            if (provisionRes.ok) {
+              const provisionData = await provisionRes.json();
+              if (provisionData.appointment?.zoomMeetingId) {
+                match.meetingId = provisionData.appointment.zoomMeetingId;
+                match.joinUrl = provisionData.appointment.zoomJoinUrl || match.joinUrl;
+              }
+            }
+          } catch {
+            // Fall through -- lobby will show the session state as-is
+          } finally {
+            setProvisioningDeepLink(false);
+          }
         }
+
+        setSelectedSession(match);
+        setPhase('lobby');
+        onPhaseChange?.('lobby');
       } catch {
         // Fall through to queue view
       }
@@ -85,9 +109,10 @@ export default function TelehealthDashboard({
   );
 
   const handleJoinCall = useCallback((enableScribe: boolean) => {
+    if (!selectedSession?.meetingId) return;
     setScribeEnabled(enableScribe);
     changePhase('call');
-  }, [changePhase]);
+  }, [changePhase, selectedSession]);
 
   const handleCallEnd = useCallback(
     (data: PostCallData) => {
@@ -136,12 +161,21 @@ export default function TelehealthDashboard({
 
           {phase === 'lobby' && selectedSession && (
             <motion.div key="lobby" {...pageVariants}>
-              <SessionLobby
-                session={selectedSession}
-                userName={userName}
-                onJoinCall={handleJoinCall}
-                onBack={handleBackToQueue}
-              />
+              {provisioningDeepLink ? (
+                <div className="flex h-[60vh] items-center justify-center">
+                  <div className="text-center">
+                    <Loader2 className="mx-auto mb-4 h-10 w-10 animate-spin text-blue-500" />
+                    <p className="text-sm text-gray-500">Preparing your video session...</p>
+                  </div>
+                </div>
+              ) : (
+                <SessionLobby
+                  session={selectedSession}
+                  userName={userName}
+                  onJoinCall={handleJoinCall}
+                  onBack={handleBackToQueue}
+                />
+              )}
             </motion.div>
           )}
 

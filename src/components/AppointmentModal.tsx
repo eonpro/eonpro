@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { logger } from '../lib/logger';
 
 import {
@@ -21,6 +22,7 @@ import {
   CheckCircle2,
   AlertCircle,
   Loader2,
+  ExternalLink,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api/fetch';
 
@@ -65,6 +67,8 @@ export default function AppointmentModal({
   const [patients, setPatients] = useState<Patient[]>([]);
   const [patientsLoading, setPatientsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [createdAppointmentId, setCreatedAppointmentId] = useState<number | null>(null);
+  const router = useRouter();
 
   const [formData, setFormData] = useState({
     date: selectedDate || new Date(),
@@ -313,6 +317,7 @@ export default function AppointmentModal({
 
       // Show confirmation message
       setShowConfirmation(true);
+      setCreatedAppointmentId(createdAppointment.id);
 
       // Pass the created appointment back to parent
       const appointmentData = {
@@ -334,12 +339,16 @@ export default function AppointmentModal({
         smsReminders: formData.smsReminders,
       };
 
-      // Wait briefly to show confirmation, then close
-      setTimeout(() => {
+      const isVideoAppointment = formData.type === 'telehealth';
+      if (isVideoAppointment) {
         onSave(appointmentData);
-        setShowConfirmation(false);
-        onClose();
-      }, 2000);
+      } else {
+        setTimeout(() => {
+          onSave(appointmentData);
+          setShowConfirmation(false);
+          onClose();
+        }, 2000);
+      }
     } catch (err) {
       logger.error('Error saving appointment:', err);
       setError(err instanceof Error ? err.message : 'Failed to save appointment');
@@ -433,6 +442,33 @@ export default function AppointmentModal({
                           {copiedLink ? '✓' : 'Copy'}
                         </button>
                       </div>
+                    </div>
+                  )}
+
+                  {formData.type === 'telehealth' && createdAppointmentId && (
+                    <div className="mt-5 flex w-full max-w-sm flex-col gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onClose();
+                          router.push(`/provider/telehealth?consultationId=${createdAppointmentId}`);
+                        }}
+                        className="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-blue-700"
+                      >
+                        <Video className="h-4 w-4" />
+                        Start Video Call
+                        <ExternalLink className="h-3.5 w-3.5 opacity-60" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowConfirmation(false);
+                          onClose();
+                        }}
+                        className="flex w-full items-center justify-center rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50"
+                      >
+                        Done
+                      </button>
                     </div>
                   )}
                 </div>

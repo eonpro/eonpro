@@ -12,7 +12,7 @@ import {
   cancelZoomMeeting,
   ZoomMeetingResponse,
 } from './meetingService';
-import { isZoomEnabled, ZOOM_WEBHOOK_EVENTS } from './config';
+import { isZoomConfigured, ZOOM_WEBHOOK_EVENTS } from './config';
 import { AppointmentModeType } from '@prisma/client';
 import { onAppointmentChange } from '@/lib/calendar-sync/calendar-sync.service';
 import {
@@ -123,7 +123,7 @@ export async function createTelehealthSession(
     const clinicId = input.clinicId || patient.clinicId;
 
     // Check if clinic has Zoom configured
-    const hasZoom = clinicId ? await isClinicZoomConfigured(clinicId) : isZoomEnabled();
+    const hasZoom = clinicId ? await isClinicZoomConfigured(clinicId) : isZoomConfigured();
     if (!hasZoom) {
       return { success: false, error: 'Zoom not configured for this clinic' };
     }

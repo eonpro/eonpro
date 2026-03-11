@@ -15,7 +15,10 @@ import {
   CheckCircle,
   Calendar,
   Loader2,
+  LinkIcon,
 } from 'lucide-react';
+
+import { apiFetch } from '@/lib/api/fetch';
 
 import { type TelehealthSessionData, type DeviceStatus } from './types';
 import RecordingConsentModal from './RecordingConsentModal';
@@ -38,6 +41,32 @@ export default function SessionLobby({ session, userName, onJoinCall, onBack }: 
   const [micOn, setMicOn] = useState(true);
   const [checking, setChecking] = useState(true);
   const [showConsentModal, setShowConsentModal] = useState(false);
+  const [provisioning, setProvisioning] = useState(false);
+  const [meetingReady, setMeetingReady] = useState(!!(session.meetingId && session.joinUrl));
+
+  const handleProvision = async () => {
+    if (!session.appointment?.id) return;
+    setProvisioning(true);
+    try {
+      const res = await apiFetch('/api/v2/zoom/meetings/provision', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ appointmentId: session.appointment.id }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.appointment?.zoomMeetingId) {
+          session.meetingId = data.appointment.zoomMeetingId;
+          session.joinUrl = data.appointment.zoomJoinUrl || session.joinUrl;
+          setMeetingReady(true);
+        }
+      }
+    } catch {
+      // handled by UI state
+    } finally {
+      setProvisioning(false);
+    }
+  };
 
   const checkDevices = useCallback(async () => {
     setChecking(true);
@@ -304,14 +333,41 @@ export default function SessionLobby({ session, userName, onJoinCall, onBack }: 
             </div>
           </div>
 
-          {/* Join Button */}
-          <button
-            onClick={handleJoinClick}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-6 py-4 text-base font-semibold text-white shadow-lg transition-all hover:bg-blue-700 hover:shadow-xl active:scale-[0.98]"
-          >
-            <Video className="h-5 w-5" />
-            Join Call
-          </button>
+          {/* Join / Provision Button */}
+          {meetingReady ? (
+            <button
+              onClick={handleJoinClick}
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-6 py-4 text-base font-semibold text-white shadow-lg transition-all hover:bg-blue-700 hover:shadow-xl active:scale-[0.98]"
+            >
+              <Video className="h-5 w-5" />
+              Join Call
+            </button>
+          ) : (
+            <div className="space-y-3">
+              <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+                <div className="text-xs text-amber-800">
+                  <p className="font-medium">Video link not ready</p>
+                  <p className="mt-0.5">
+                    The Zoom meeting for this session hasn&apos;t been created yet.
+                    Click below to generate it now.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => void handleProvision()}
+                disabled={provisioning}
+                className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-orange-300 bg-orange-50 px-6 py-4 text-base font-semibold text-orange-700 shadow-sm transition-all hover:bg-orange-100 active:scale-[0.98] disabled:opacity-60"
+              >
+                {provisioning ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : (
+                  <LinkIcon className="h-5 w-5" />
+                )}
+                {provisioning ? 'Generating Video Link...' : 'Generate Video Link'}
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
