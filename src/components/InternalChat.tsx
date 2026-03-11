@@ -768,8 +768,7 @@ export default function InternalChat({ currentUserId, currentUserRole }: Interna
     return (
       <button
         onClick={() => setIsOpen(true)}
-        className={`group fixed bottom-4 right-4 z-50 sm:bottom-6 sm:right-6${hideButtonOnMobile ? ' hidden sm:block' : ''}`}
-        style={{ bottom: 'max(1rem, env(safe-area-inset-bottom))' }}
+        className={`group fixed bottom-20 right-3 z-50 sm:bottom-6 sm:right-6${hideButtonOnMobile ? ' hidden sm:block' : ''}`}
         title="Open Team Chat"
       >
         <div className="relative">

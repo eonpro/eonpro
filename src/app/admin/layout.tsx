@@ -402,13 +402,13 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
           <>
             {/* Logo */}
             <div className="mb-6 flex flex-col items-center px-4">
-              <a href={isPharmacyExperience ? '/admin' : '/'}>
+              <Link href={isPharmacyExperience ? '/admin' : '/'}>
                 {sidebarExpanded ? (
                   <img src={clinicLogo} alt={clinicName} className="h-10 w-auto max-w-[140px] object-contain" />
                 ) : (
                   <img src={clinicIcon} alt={clinicName} className="h-10 w-10 object-contain" />
                 )}
-              </a>
+              </Link>
               {isWhiteLabeled && sidebarExpanded && (
                 <span className="mt-1 flex items-center justify-center gap-1 text-[10px] text-gray-400">
                   Powered by{' '}
@@ -510,47 +510,44 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
       </main>
 
       {/* Mobile Bottom Navigation — visible only on small screens */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 flex items-center justify-around border-t border-gray-200 bg-white pb-[env(safe-area-inset-bottom)] md:hidden">
-        {navItems.slice(0, 5).map((item) => {
-          const Icon = item.icon;
-          const active = isActive(item.path);
-          const isClinicsTab = item.path === '/admin/clinics';
-          const isClinicSwitch = isClinicsTab && hasMultipleClinics && userRole !== 'super_admin';
+      <nav className="fixed bottom-0 left-0 right-0 z-[55] border-t border-gray-200 bg-white pb-[env(safe-area-inset-bottom)] md:hidden">
+        <div className="flex">
+          {navItems.slice(0, 5).map((item) => {
+            const Icon = item.icon;
+            const active = isActive(item.path);
+            const isClinicsTab = item.path === '/admin/clinics';
+            const isClinicSwitch = isClinicsTab && hasMultipleClinics && userRole !== 'super_admin';
 
-          if (isClinicSwitch) {
             return (
               <button
                 key={item.path}
-                onClick={() => setShowClinicSwitchModal(true)}
-                className="flex flex-1 flex-col items-center gap-0.5 py-2.5 text-gray-400 transition-colors"
+                type="button"
+                onClick={() => {
+                  if (isClinicSwitch) {
+                    setShowClinicSwitchModal(true);
+                  } else {
+                    router.push(item.path);
+                  }
+                }}
+                className={`flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 py-3 transition-colors ${
+                  active ? '' : 'text-gray-400 active:text-gray-600'
+                }`}
+                style={active ? { color: primaryColor } : {}}
               >
-                <Icon className="h-5 w-5" />
-                <span className="text-[10px] font-medium">Switch</span>
+                <Icon className="h-5 w-5 flex-shrink-0" />
+                <span className="truncate text-[10px] font-medium leading-tight">{isClinicSwitch ? 'Switch' : item.label}</span>
               </button>
             );
-          }
-
-          return (
-            <Link
-              key={item.path}
-              href={item.path}
-              className={`flex flex-1 flex-col items-center gap-0.5 py-2.5 no-underline transition-colors ${
-                active ? '' : 'text-gray-400'
-              }`}
-              style={active ? { color: primaryColor } : {}}
-            >
-              <Icon className="h-5 w-5" />
-              <span className="text-[10px] font-medium">{item.label}</span>
-            </Link>
-          );
-        })}
-        <button
-          onClick={handleLogout}
-          className="flex flex-1 flex-col items-center gap-0.5 py-2.5 text-gray-400 transition-colors"
-        >
-          <LogOut className="h-5 w-5" />
-          <span className="text-[10px] font-medium">Logout</span>
-        </button>
+          })}
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 py-3 text-gray-400 transition-colors active:text-gray-600"
+          >
+            <LogOut className="h-5 w-5 flex-shrink-0" />
+            <span className="text-[10px] font-medium leading-tight">Logout</span>
+          </button>
+        </div>
       </nav>
 
       {/* Internal Team Chat */}
