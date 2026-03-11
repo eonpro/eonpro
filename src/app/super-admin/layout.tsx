@@ -112,14 +112,6 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
     return pathname === path || pathname?.startsWith(path + '/');
   };
 
-  if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-[#efece7]">
-        <img src={EONPRO_ICON} alt="Loading" className="h-12 w-12 animate-pulse object-contain" />
-      </div>
-    );
-  }
-
   return (
     <ClinicBrandingProvider>
       <NotificationProvider>
@@ -130,75 +122,83 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
               sidebarExpanded ? 'w-56' : 'w-20'
             }`}
           >
-            {/* Logo */}
-            <div className="mb-6 flex items-center justify-center px-4">
-              <Link href="/super-admin">
-                <img
-                  src={EONPRO_LOGO}
-                  alt="EONPRO"
-                  className={`h-10 w-auto ${sidebarExpanded ? 'block' : 'hidden'}`}
-                />
-                <img
-                  src={EONPRO_ICON}
-                  alt="EONPRO"
-                  className={`h-10 w-10 object-contain ${sidebarExpanded ? 'hidden' : 'block'}`}
-                />
-              </Link>
-            </div>
+            {!loading ? (
+              <>
+                {/* Logo */}
+                <div className="mb-6 flex items-center justify-center px-4">
+                  <a href="/super-admin">
+                    <img
+                      src={EONPRO_LOGO}
+                      alt="EONPRO"
+                      className={`h-10 w-auto ${sidebarExpanded ? 'block' : 'hidden'}`}
+                    />
+                    <img
+                      src={EONPRO_ICON}
+                      alt="EONPRO"
+                      className={`h-10 w-10 object-contain ${sidebarExpanded ? 'hidden' : 'block'}`}
+                    />
+                  </a>
+                </div>
 
-            {/* Expand Button */}
-            <button
-              onClick={() => setSidebarExpanded(!sidebarExpanded)}
-              className={`absolute -right-3 top-20 flex h-6 w-6 items-center justify-center rounded-full border border-gray-200 bg-white shadow-sm transition-all hover:bg-gray-50 focus:outline-none ${
-                sidebarExpanded ? 'rotate-180' : ''
-              }`}
-            >
-              <ChevronRight className="h-3 w-3 text-gray-400" />
-            </button>
+                {/* Expand Button */}
+                <button
+                  onClick={() => setSidebarExpanded(!sidebarExpanded)}
+                  className={`absolute -right-3 top-20 flex h-6 w-6 items-center justify-center rounded-full border border-gray-200 bg-white shadow-sm transition-all hover:bg-gray-50 focus:outline-none ${
+                    sidebarExpanded ? 'rotate-180' : ''
+                  }`}
+                >
+                  <ChevronRight className="h-3 w-3 text-gray-400" />
+                </button>
 
-            {/* Navigation Icons */}
-            <nav className="flex flex-1 flex-col space-y-1 px-3">
-              {navItems.map((item) => {
-                const Icon = item.icon;
-                const active = isActive(item.path, item.exact);
+                {/* Navigation Icons */}
+                <nav className="flex flex-1 flex-col space-y-1 px-3">
+                  {navItems.map((item) => {
+                    const Icon = item.icon;
+                    const active = isActive(item.path, item.exact);
 
-                return (
-                  <Link
-                    key={item.path}
-                    href={item.path}
-                    title={!sidebarExpanded ? item.label : undefined}
-                    className={`flex w-full cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 text-left no-underline transition-all ${
-                      active
-                        ? 'bg-[#4fa77e]/10 text-[#4fa77e]'
-                        : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
-                    }`}
+                    return (
+                      <a
+                        key={item.path}
+                        href={item.path}
+                        title={!sidebarExpanded ? item.label : undefined}
+                        className={`flex w-full cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 text-left no-underline transition-all ${
+                          active
+                            ? 'bg-[#4fa77e]/10 text-[#4fa77e]'
+                            : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
+                        }`}
+                      >
+                        <Icon className="h-5 w-5 flex-shrink-0" />
+                        {sidebarExpanded && (
+                          <span className="whitespace-nowrap text-sm font-medium">{item.label}</span>
+                        )}
+                      </a>
+                    );
+                  })}
+                </nav>
+
+                {/* User Info & Logout */}
+                <div className="space-y-2 border-t border-gray-100 px-3 pt-4">
+                  {sidebarExpanded && userName && (
+                    <div className="truncate px-3 py-2 text-xs text-gray-500">{userName}</div>
+                  )}
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    title={!sidebarExpanded ? 'Logout' : undefined}
+                    className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-gray-400 transition-all hover:bg-red-50 hover:text-red-600"
                   >
-                    <Icon className="h-5 w-5 flex-shrink-0" />
+                    <LogOut className="h-5 w-5 flex-shrink-0" />
                     {sidebarExpanded && (
-                      <span className="whitespace-nowrap text-sm font-medium">{item.label}</span>
+                      <span className="whitespace-nowrap text-sm font-medium">Sign Out</span>
                     )}
-                  </Link>
-                );
-              })}
-            </nav>
-
-            {/* User Info & Logout */}
-            <div className="space-y-2 border-t border-gray-100 px-3 pt-4">
-              {sidebarExpanded && userName && (
-                <div className="truncate px-3 py-2 text-xs text-gray-500">{userName}</div>
-              )}
-              <button
-                type="button"
-                onClick={handleLogout}
-                title={!sidebarExpanded ? 'Logout' : undefined}
-                className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-gray-400 transition-all hover:bg-red-50 hover:text-red-600"
-              >
-                <LogOut className="h-5 w-5 flex-shrink-0" />
-                {sidebarExpanded && (
-                  <span className="whitespace-nowrap text-sm font-medium">Sign Out</span>
-                )}
-              </button>
-            </div>
+                  </button>
+                </div>
+              </>
+            ) : (
+              <div className="flex flex-1 items-center justify-center">
+                <img src={EONPRO_ICON} alt="Loading" className="h-8 w-8 animate-pulse object-contain" />
+              </div>
+            )}
           </aside>
 
           {/* Main Content */}

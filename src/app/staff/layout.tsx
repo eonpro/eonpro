@@ -122,14 +122,6 @@ function StaffLayoutInner({ children }: { children: React.ReactNode }) {
     return pathname === path || pathname?.startsWith(path + '/');
   };
 
-  if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-[#efece7]">
-        <img src={EONPRO_ICON} alt="Loading" className="h-12 w-12 animate-pulse object-contain" />
-      </div>
-    );
-  }
-
   return (
     <div className="flex min-h-screen bg-[#efece7]">
       {/* Sidebar */}
@@ -138,76 +130,84 @@ function StaffLayoutInner({ children }: { children: React.ReactNode }) {
           sidebarExpanded ? 'w-56' : 'w-20'
         }`}
       >
-        {/* Logo */}
-        <div className="mb-6 flex flex-col items-center px-4">
-          <Link href="/staff">
-            {sidebarExpanded ? (
-              <img
-                src={clinicLogo}
-                alt={clinicName}
-                className="h-10 w-auto max-w-[140px] object-contain"
-              />
-            ) : (
-              <img src={clinicIcon} alt={clinicName} className="h-10 w-10 object-contain" />
-            )}
-          </Link>
-          {isWhiteLabeled && sidebarExpanded && (
-            <span className="mt-1 flex items-center justify-center gap-1 text-[10px] text-gray-400">
-              Powered by{' '}
-              <img src={EONPRO_LOGO} alt="EONPRO" className="h-[21px] w-auto" />
-            </span>
-          )}
-        </div>
-
-        {/* Expand Button */}
-        <button
-          onClick={() => setSidebarExpanded(!sidebarExpanded)}
-          className={`absolute -right-3 top-20 flex h-6 w-6 items-center justify-center rounded-full border border-gray-200 bg-white shadow-sm transition-all hover:bg-gray-50 focus:outline-none ${
-            sidebarExpanded ? 'rotate-180' : ''
-          }`}
-        >
-          <ChevronRight className="h-3 w-3 text-gray-400" />
-        </button>
-
-        {/* Navigation */}
-        <nav className="flex flex-1 flex-col space-y-1 px-3">
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            const active = isActive(item.path);
-
-            return (
-              <Link
-                key={item.path}
-                href={item.path}
-                title={!sidebarExpanded ? item.label : undefined}
-                className={`flex w-full cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 text-left no-underline transition-all ${
-                  active ? '' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
-                }`}
-                style={active ? { backgroundColor: `${primaryColor}15`, color: primaryColor } : {}}
-              >
-                <Icon className="h-5 w-5 flex-shrink-0" />
-                {sidebarExpanded && (
-                  <span className="whitespace-nowrap text-sm font-medium">{item.label}</span>
+        {!loading ? (
+          <>
+            {/* Logo */}
+            <div className="mb-6 flex flex-col items-center px-4">
+              <a href="/staff">
+                {sidebarExpanded ? (
+                  <img
+                    src={clinicLogo}
+                    alt={clinicName}
+                    className="h-10 w-auto max-w-[140px] object-contain"
+                  />
+                ) : (
+                  <img src={clinicIcon} alt={clinicName} className="h-10 w-10 object-contain" />
                 )}
-              </Link>
-            );
-          })}
-        </nav>
+              </a>
+              {isWhiteLabeled && sidebarExpanded && (
+                <span className="mt-1 flex items-center justify-center gap-1 text-[10px] text-gray-400">
+                  Powered by{' '}
+                  <img src={EONPRO_LOGO} alt="EONPRO" className="h-[21px] w-auto" />
+                </span>
+              )}
+            </div>
 
-        {/* Logout */}
-        <div className="space-y-2 border-t border-gray-100 px-3 pt-4">
-          <button
-            type="button"
-            onClick={handleLogout}
-            title={!sidebarExpanded ? 'Logout' : undefined}
-            className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-gray-400 transition-all hover:bg-gray-100 hover:text-gray-600"
-          >
-            <LogOut className="h-5 w-5 flex-shrink-0" />
-            {sidebarExpanded && (
-              <span className="whitespace-nowrap text-sm font-medium">Logout</span>
-            )}
-          </button>
-        </div>
+            {/* Expand Button */}
+            <button
+              onClick={() => setSidebarExpanded(!sidebarExpanded)}
+              className={`absolute -right-3 top-20 flex h-6 w-6 items-center justify-center rounded-full border border-gray-200 bg-white py-4 transition-all hover:bg-gray-50 focus:outline-none ${
+                sidebarExpanded ? 'rotate-180' : ''
+              }`}
+            >
+              <ChevronRight className="h-3 w-3 text-gray-400" />
+            </button>
+
+            {/* Navigation */}
+            <nav className="flex flex-1 flex-col space-y-1 px-3">
+              {navItems.map((item) => {
+                const Icon = item.icon;
+                const active = isActive(item.path);
+
+                return (
+                  <a
+                    key={item.path}
+                    href={item.path}
+                    title={!sidebarExpanded ? item.label : undefined}
+                    className={`flex w-full cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 text-left no-underline transition-all ${
+                      active ? '' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
+                    }`}
+                    style={active ? { backgroundColor: `${primaryColor}15`, color: primaryColor } : {}}
+                  >
+                    <Icon className="h-5 w-5 flex-shrink-0" />
+                    {sidebarExpanded && (
+                      <span className="whitespace-nowrap text-sm font-medium">{item.label}</span>
+                    )}
+                  </a>
+                );
+              })}
+            </nav>
+
+            {/* Logout */}
+            <div className="space-y-2 border-t border-gray-100 px-3 pt-4">
+              <button
+                type="button"
+                onClick={handleLogout}
+                title={!sidebarExpanded ? 'Logout' : undefined}
+                className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-gray-400 transition-all hover:bg-gray-100 hover:text-gray-600"
+              >
+                <LogOut className="h-5 w-5 flex-shrink-0" />
+                {sidebarExpanded && (
+                  <span className="whitespace-nowrap text-sm font-medium">Logout</span>
+                )}
+              </button>
+            </div>
+          </>
+        ) : (
+          <div className="flex flex-1 items-center justify-center">
+            <img src={EONPRO_ICON} alt="Loading" className="h-8 w-8 animate-pulse object-contain" />
+          </div>
+        )}
       </aside>
 
       {/* Main Content */}
