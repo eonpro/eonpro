@@ -123,7 +123,8 @@ export const CLINIC_ISOLATED_MODELS: readonly string[] = [
   'loginaudit',
   'notification',
   'order',
-  'packagephoto',
+  // 'packagephoto' — intentionally NOT clinic-isolated; package photos are global
+  // so LifeFile IDs can be matched across all clinics. clinicId is still stored for audit.
   'patient',
   'patientchatmessage',
   'patientcounter',
