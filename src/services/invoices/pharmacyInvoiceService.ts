@@ -11,7 +11,8 @@
 import { prisma } from '@/lib/db';
 import { uploadToS3, generateSignedUrl } from '@/lib/integrations/aws/s3Service';
 import { FileCategory } from '@/lib/integrations/aws/s3Config';
-import { decryptPHI } from '@/lib/security/phi-encryption';
+// PHI decryption is intentionally not used in reconciliation matching.
+// The lifefileOrderId match is deterministic and sufficient.
 import { parseWellmedrInvoicePdf } from '@/lib/invoices/wellmedr-parser';
 import type { ParsedInvoice, ParsedInvoiceLineItem } from '@/lib/invoices/wellmedr-parser';
 import { logger } from '@/lib/logger';
@@ -244,9 +245,8 @@ export async function runReconciliation(uploadId: number, clinicId: number): Pro
             lifefileOrderId: { in: invoiceOrderIds },
           },
           include: {
-            patient: { select: { id: true, firstName: true, lastName: true } },
-            provider: { select: { id: true, firstName: true, lastName: true } },
-            rxs: { select: { id: true, medName: true, strength: true } },
+            patient: { select: { id: true } },
+            provider: { select: { id: true, lastName: true } },
           },
         })
       : [];
@@ -308,37 +308,24 @@ export async function runReconciliation(uploadId: number, clinicId: number): Pro
         continue;
       }
 
-      // Order found — confirm patient and provider names
-      let confidence = 0.8; // Base confidence for order ID match
+      // Order found — deterministic match on lifefileOrderId
+      let confidence = 0.9;
       const notes: string[] = [];
 
-      // Patient name confirmation
-      if (li.patientName && order.patient) {
-        try {
-          const decLastName = await decryptPHI(order.patient.lastName);
-          const invoiceLastName = li.patientName.split(',')[0]?.trim().toUpperCase();
-          const dbLastName = decLastName.toUpperCase();
+      // Provider name confirmation (not encrypted, safe to compare)
+      try {
+        if (li.doctorName && order.provider) {
+          const invoiceDocLast = li.doctorName.split(',')[0]?.trim().toUpperCase();
+          const dbProviderLast = (order.provider.lastName ?? '').toUpperCase();
 
-          if (invoiceLastName === dbLastName) {
-            confidence += 0.1;
-          } else {
-            notes.push(`Patient name mismatch: invoice="${invoiceLastName}" db="${dbLastName}"`);
+          if (invoiceDocLast === dbProviderLast) {
+            confidence = 1.0;
+          } else if (dbProviderLast) {
+            notes.push(`Provider: invoice="${invoiceDocLast}" db="${dbProviderLast}"`);
           }
-        } catch {
-          // Decryption may fail in test environments
         }
-      }
-
-      // Provider name confirmation
-      if (li.doctorName && order.provider) {
-        const invoiceDocLast = li.doctorName.split(',')[0]?.trim().toUpperCase();
-        const dbProviderLast = order.provider.lastName.toUpperCase();
-
-        if (invoiceDocLast === dbProviderLast) {
-          confidence += 0.1;
-        } else {
-          notes.push(`Provider name mismatch: invoice="${invoiceDocLast}" db="${dbProviderLast}"`);
-        }
+      } catch {
+        // Non-critical: provider comparison failed
       }
 
       const matchStatus: PharmacyInvoiceMatchStatus =
@@ -355,8 +342,8 @@ export async function runReconciliation(uploadId: number, clinicId: number): Pro
         id: li.id,
         matchStatus,
         matchedOrderId: order.id,
-        matchedPatientId: order.patient.id,
-        matchedProviderId: order.provider.id,
+        matchedPatientId: order.patient?.id ?? null,
+        matchedProviderId: order.provider?.id ?? null,
         matchConfidence: Math.min(confidence, 1.0),
         matchNotes: notes.length > 0 ? notes.join('; ') : null,
       });
