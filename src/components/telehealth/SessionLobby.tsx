@@ -106,6 +106,13 @@ export default function SessionLobby({ session, userName, onJoinCall, onBack }: 
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Attach stream to video element once both are available
+  useEffect(() => {
+    if (videoRef.current && streamRef.current && devices.camera === 'granted' && cameraOn) {
+      videoRef.current.srcObject = streamRef.current;
+    }
+  }, [devices.camera, cameraOn]);
+
   const toggleCamera = () => {
     if (devices.cameraStream) {
       devices.cameraStream.getVideoTracks().forEach((track) => {
