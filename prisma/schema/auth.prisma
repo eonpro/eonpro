@@ -136,6 +136,11 @@ model User {
   // Sales Rep Commission Events (ledger)
   salesRepCommissionEvents SalesRepCommissionEvent[] @relation("SalesRepCommissionEvents")
 
+  // Sales Rep Override Commissions (manager hierarchy)
+  salesRepOverridesAsManager     SalesRepOverrideAssignment[]        @relation("SalesRepOverrideManager")
+  salesRepOverridesAsSubordinate SalesRepOverrideAssignment[]        @relation("SalesRepOverrideSubordinate")
+  salesRepOverrideCommEvents     SalesRepOverrideCommissionEvent[]   @relation("SalesRepOverrideCommEvents")
+
   // FedEx Shipping Labels
   shipmentLabels ShipmentLabel[]
 

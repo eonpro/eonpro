@@ -26,7 +26,7 @@ export const GET = withAuth(
       const salesRepId = user.id;
 
       const result = await runWithClinicContext(clinicId, async () => {
-        const [assignedPatientCount, commissionAgg] = await Promise.all([
+        const [assignedPatientCount, commissionAgg, overrideAgg, subordinateCount] = await Promise.all([
           prisma.patientSalesRepAssignment.count({
             where: { salesRepId, clinicId, isActive: true },
           }),
@@ -38,11 +38,28 @@ export const GET = withAuth(
             },
             _sum: { commissionAmountCents: true },
           }).catch(() => ({ _sum: { commissionAmountCents: null } })),
+          prisma.salesRepOverrideCommissionEvent.aggregate({
+            where: {
+              overrideRepId: salesRepId,
+              clinicId,
+              status: { in: ['PENDING', 'APPROVED', 'PAID'] },
+            },
+            _sum: { commissionAmountCents: true },
+          }).catch(() => ({ _sum: { commissionAmountCents: null } })),
+          prisma.salesRepOverrideAssignment.count({
+            where: { overrideRepId: salesRepId, clinicId, isActive: true },
+          }),
         ]);
+
+        const directCents = commissionAgg._sum.commissionAmountCents || 0;
+        const overrideCents = overrideAgg._sum.commissionAmountCents || 0;
 
         return {
           assignedPatientCount,
-          commissionsEarnedCents: commissionAgg._sum.commissionAmountCents || 0,
+          commissionsEarnedCents: directCents,
+          overrideCommissionsEarnedCents: overrideCents,
+          totalEarningsCents: directCents + overrideCents,
+          subordinateRepCount: subordinateCount,
         };
       });
 

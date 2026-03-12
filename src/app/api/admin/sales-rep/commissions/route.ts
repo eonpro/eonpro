@@ -82,6 +82,35 @@ async function handleGet(req: NextRequest, user: AuthUser): Promise<Response> {
         _count: true,
       });
 
+      // Override commission events for the same filters
+      const overrideWhere: Record<string, any> = {};
+      if (clinicId) overrideWhere.clinicId = clinicId;
+      if (salesRepId) overrideWhere.overrideRepId = parseInt(salesRepId, 10);
+      if (status) overrideWhere.status = status;
+      if (where.occurredAt) overrideWhere.occurredAt = where.occurredAt;
+
+      const overrideActiveWhere = { ...overrideWhere };
+      if (!status) {
+        overrideActiveWhere.status = { in: ['PENDING', 'APPROVED', 'PAID'] };
+      }
+
+      const [overrideEvents, overrideSummary] = await Promise.all([
+        prisma.salesRepOverrideCommissionEvent.findMany({
+          where: overrideWhere,
+          orderBy: { occurredAt: 'desc' },
+          take: limit,
+          skip: offset,
+          include: {
+            overrideRep: { select: { id: true, firstName: true, lastName: true, email: true } },
+          },
+        }),
+        prisma.salesRepOverrideCommissionEvent.aggregate({
+          where: overrideActiveWhere,
+          _sum: { commissionAmountCents: true, eventAmountCents: true },
+          _count: true,
+        }),
+      ]);
+
       return NextResponse.json({
         events: events.map((e: any) => ({
           ...e,
@@ -96,6 +125,16 @@ async function handleGet(req: NextRequest, user: AuthUser): Promise<Response> {
           volumeTierBonusCents: summary._sum.volumeTierBonusCents || 0,
           productBonusCents: summary._sum.productBonusCents || 0,
           multiItemBonusCents: summary._sum.multiItemBonusCents || 0,
+        },
+        overrideEvents: overrideEvents.map((e: any) => ({
+          ...e,
+          overrideRepName: `${e.overrideRep?.firstName || ''} ${e.overrideRep?.lastName || ''}`.trim() || e.overrideRep?.email,
+          overridePercentDisplay: `${(e.overridePercentBps / 100).toFixed(2)}%`,
+        })),
+        overrideSummary: {
+          totalEvents: overrideSummary._count,
+          totalOverrideCommissionCents: overrideSummary._sum.commissionAmountCents || 0,
+          totalOverrideRevenueCents: overrideSummary._sum.eventAmountCents || 0,
         },
         pagination: { limit, offset, total, hasMore: offset + limit < total },
       });

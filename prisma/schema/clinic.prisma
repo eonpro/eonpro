@@ -240,7 +240,9 @@ model Clinic {
   // Sales Rep Commission Plans (dedicated — separate from affiliates)
   salesRepCommissionPlans  SalesRepCommissionPlan[]
   salesRepPlanAssignments  SalesRepPlanAssignment[]
-  salesRepCommissionEvents SalesRepCommissionEvent[]
+  salesRepCommissionEvents          SalesRepCommissionEvent[]
+  salesRepOverrideAssignments       SalesRepOverrideAssignment[]
+  salesRepOverrideCommissionEvents  SalesRepOverrideCommissionEvent[]
 
   // Lifefile Shipping Updates
   shippingUpdates PatientShippingUpdate[]

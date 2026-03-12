@@ -296,6 +296,34 @@ async function handler(
       hasPayment: (a.patient._count?.payments || 0) > 0,
     }));
 
+    // Override commission data (earned as a manager)
+    const [overrideAgg, overrideAssignments, overrideLedger] = await Promise.all([
+      prisma.salesRepOverrideCommissionEvent.aggregate({
+        where: { overrideRepId: userId, occurredAt: { gte: startDate, lte: endDate }, status: { in: ['PENDING', 'APPROVED', 'PAID'] } },
+        _sum: { commissionAmountCents: true, eventAmountCents: true },
+        _count: true,
+      }).catch(() => ({ _sum: { commissionAmountCents: null, eventAmountCents: null }, _count: 0 })),
+      prisma.salesRepOverrideAssignment.findMany({
+        where: { overrideRepId: userId, isActive: true },
+        include: {
+          subordinateRep: { select: { id: true, firstName: true, lastName: true, email: true } },
+        },
+      }),
+      prisma.salesRepOverrideCommissionEvent.findMany({
+        where: { overrideRepId: userId, occurredAt: { gte: startDate, lte: endDate } },
+        orderBy: { occurredAt: 'desc' },
+        take: 50,
+        select: {
+          id: true, occurredAt: true, eventAmountCents: true, commissionAmountCents: true,
+          overridePercentBps: true, subordinateRepId: true, status: true, notes: true,
+        },
+      }).catch(() => [] as any[]),
+    ]);
+
+    const overrideEarnedCents = overrideAgg._sum.commissionAmountCents || 0;
+    const overrideRevenueCents = overrideAgg._sum.eventAmountCents || 0;
+    const overrideEventCount = overrideAgg._count || 0;
+
     // Computed averages
     const revenueCents = commissionAgg._sum.eventAmountCents || 0;
     const commissionEarnedCents = commissionAgg._sum.commissionAmountCents || 0;
@@ -317,6 +345,10 @@ async function handler(
         commissionEarnedCents,
         revenueCents,
         commissionEvents: commEvents,
+        overrideEarnedCents,
+        overrideRevenueCents,
+        overrideEvents: overrideEventCount,
+        totalEarningsCents: commissionEarnedCents + overrideEarnedCents,
         conversionRate: totalClicks > 0 ? (totalConversions / totalClicks) * 100 : 0,
         avgDealSizeCents: totalConversions > 0 ? Math.round(revenueCents / totalConversions) : 0,
         avgCommissionPerSaleCents: commEvents > 0 ? Math.round(commissionEarnedCents / commEvents) : 0,
@@ -324,6 +356,25 @@ async function handler(
       dailyBreakdown,
       weeklyRollup,
       commissionLedger,
+      overrideCommissions: {
+        subordinates: overrideAssignments.map((a) => ({
+          assignmentId: a.id,
+          subordinateRepId: a.subordinateRep.id,
+          subordinateRepName: `${a.subordinateRep.firstName || ''} ${a.subordinateRep.lastName || ''}`.trim() || a.subordinateRep.email,
+          overridePercentBps: a.overridePercentBps,
+          overridePercentDisplay: `${(a.overridePercentBps / 100).toFixed(2)}%`,
+        })),
+        ledger: (overrideLedger as any[]).map((ev: any) => ({
+          id: ev.id,
+          occurredAt: ev.occurredAt,
+          eventAmountCents: ev.eventAmountCents,
+          commissionAmountCents: ev.commissionAmountCents,
+          overridePercentBps: ev.overridePercentBps,
+          subordinateRepId: ev.subordinateRepId,
+          status: ev.status,
+          notes: ev.notes,
+        })),
+      },
       patients,
       codePerformance,
       dateRange: { startDate: startDate.toISOString(), endDate: endDate.toISOString() },

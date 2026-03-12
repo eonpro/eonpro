@@ -214,3 +214,83 @@ model SalesRepVolumeCommissionTier {
   @@index([planId])
   @@index([planId, minSales])
 }
+
+// ==========================================================================
+// SALES REP OVERRIDE COMMISSIONS (manager earns % of subordinate's revenue)
+// ==========================================================================
+
+// Links a senior/override rep to a subordinate rep.
+// The override rep earns overridePercentBps of gross revenue from the subordinate's patients.
+model SalesRepOverrideAssignment {
+  id               Int      @id @default(autoincrement())
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  clinicId         Int
+  clinic           Clinic   @relation(fields: [clinicId], references: [id])
+
+  overrideRepId    Int
+  overrideRep      User     @relation("SalesRepOverrideManager", fields: [overrideRepId], references: [id])
+
+  subordinateRepId Int
+  subordinateRep   User     @relation("SalesRepOverrideSubordinate", fields: [subordinateRepId], references: [id])
+
+  overridePercentBps Int // e.g. 50 = 0.5%, 100 = 1.0%, 150 = 1.5%
+
+  effectiveFrom    DateTime  @default(now())
+  effectiveTo      DateTime?
+  isActive         Boolean   @default(true)
+
+  assignedById     Int?
+  notes            String?
+
+  overrideEvents   SalesRepOverrideCommissionEvent[]
+
+  @@unique([clinicId, overrideRepId, subordinateRepId])
+  @@index([clinicId])
+  @@index([overrideRepId])
+  @@index([subordinateRepId])
+  @@index([isActive])
+}
+
+// Ledger for override commissions earned by senior reps from subordinate rep revenue.
+// HIPAA-COMPLIANT: stores only financial data and IDs, never patient-identifiable information.
+model SalesRepOverrideCommissionEvent {
+  id                      Int      @id @default(autoincrement())
+  createdAt               DateTime @default(now())
+  clinicId                Int
+  clinic                  Clinic   @relation(fields: [clinicId], references: [id])
+
+  overrideRepId           Int
+  overrideRep             User     @relation("SalesRepOverrideCommEvents", fields: [overrideRepId], references: [id])
+
+  subordinateRepId        Int
+
+  sourceCommissionEventId Int?
+  overrideAssignmentId    Int
+  overrideAssignment      SalesRepOverrideAssignment @relation(fields: [overrideAssignmentId], references: [id])
+
+  eventAmountCents        Int // Gross revenue (payment amount)
+  overridePercentBps      Int // Rate snapshot at time of calculation
+  commissionAmountCents   Int // Calculated override amount
+
+  patientId               Int?
+  stripeEventId           String?
+
+  status                  CommissionEventStatus @default(PENDING)
+  occurredAt              DateTime
+  holdUntil               DateTime?
+  approvedAt              DateTime?
+  paidAt                  DateTime?
+  reversedAt              DateTime?
+  reversalReason          String?
+
+  isManual                Boolean @default(false)
+  notes                   String?
+  metadata                Json?
+
+  @@unique([clinicId, stripeEventId, overrideRepId])
+  @@index([overrideRepId, status])
+  @@index([clinicId, occurredAt])
+  @@index([subordinateRepId, occurredAt])
+  @@index([sourceCommissionEventId])
+}
