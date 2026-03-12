@@ -79,10 +79,10 @@ export default function OverrideManagersPage() {
   const fetchReps = useCallback(async () => {
     if (!clinicId) return;
     try {
-      const res = await apiFetch(`/api/admin/sales-reps?clinicId=${clinicId}`);
+      const res = await apiFetch(`/api/admin/sales-reps?clinicId=${clinicId}&includeInactive=false`);
       if (res.ok) {
         const json = await res.json();
-        setReps(json.reps || []);
+        setReps(json.salesReps || []);
       }
     } catch { /* ignore */ }
   }, [clinicId]);

@@ -24,8 +24,10 @@ async function handleGet(req: NextRequest, user: AuthUser): Promise<Response> {
     const search = (searchParams.get('search') || '').trim();
     const includeInactive = searchParams.get('includeInactive') === 'true';
 
-    // Get clinic context for non-super-admin users
-    const clinicId = user.role === 'super_admin' ? undefined : user.clinicId;
+    const clinicIdParam = searchParams.get('clinicId');
+    const clinicId = user.role === 'super_admin'
+      ? (clinicIdParam ? parseInt(clinicIdParam, 10) : undefined)
+      : user.clinicId;
 
     // Build where clause
     const whereClause: Record<string, unknown> = {
