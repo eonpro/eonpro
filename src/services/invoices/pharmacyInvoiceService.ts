@@ -263,34 +263,26 @@ export async function runReconciliation(uploadId: number, clinicId: number): Pro
       }
     }
 
-    // Match each line item
+    // Match each line item in memory, then bulk-write results
     let matchedCount = 0;
     let unmatchedCount = 0;
     let discrepancyCount = 0;
     let matchedTotalCents = 0;
     let unmatchedTotalCents = 0;
 
-    const updates: Array<{
-      id: number;
-      matchStatus: PharmacyInvoiceMatchStatus;
-      matchedOrderId: number | null;
-      matchedPatientId: number | null;
-      matchedProviderId: number | null;
-      matchConfidence: number | null;
-      matchNotes: string | null;
-    }> = [];
+    // Collect IDs for each status to do bulk updateMany
+    const unmatchedIds: number[] = [];
+    const matchedByOrder: Map<string, {
+      ids: number[];
+      orderId: number;
+      patientId: number | null;
+      providerId: number | null;
+      confidence: number;
+    }> = new Map();
 
     for (const li of lineItems) {
       if (!li.lifefileOrderId) {
-        updates.push({
-          id: li.id,
-          matchStatus: 'UNMATCHED',
-          matchedOrderId: null,
-          matchedPatientId: null,
-          matchedProviderId: null,
-          matchConfidence: null,
-          matchNotes: 'No Lifefile order ID on line item',
-        });
+        unmatchedIds.push(li.id);
         unmatchedCount++;
         unmatchedTotalCents += li.amountCents;
         continue;
@@ -298,15 +290,7 @@ export async function runReconciliation(uploadId: number, clinicId: number): Pro
 
       const order = orderMap.get(li.lifefileOrderId);
       if (!order) {
-        updates.push({
-          id: li.id,
-          matchStatus: 'UNMATCHED',
-          matchedOrderId: null,
-          matchedPatientId: null,
-          matchedProviderId: null,
-          matchConfidence: null,
-          matchNotes: `No order found for lifefileOrderId ${li.lifefileOrderId}`,
-        });
+        unmatchedIds.push(li.id);
         unmatchedCount++;
         unmatchedTotalCents += li.amountCents;
         continue;
@@ -314,56 +298,52 @@ export async function runReconciliation(uploadId: number, clinicId: number): Pro
 
       // Order found — deterministic match on lifefileOrderId
       let confidence = 0.9;
-      const notes: string[] = [];
-
-      // Provider name confirmation (not encrypted, safe to compare)
       try {
         if (li.doctorName && order.provider) {
           const invoiceDocLast = li.doctorName.split(',')[0]?.trim().toUpperCase();
           const dbProviderLast = (order.provider.lastName ?? '').toUpperCase();
-
-          if (invoiceDocLast === dbProviderLast) {
-            confidence = 1.0;
-          } else if (dbProviderLast) {
-            notes.push(`Provider: invoice="${invoiceDocLast}" db="${dbProviderLast}"`);
-          }
+          if (invoiceDocLast === dbProviderLast) confidence = 1.0;
         }
       } catch {
-        // Non-critical: provider comparison failed
+        // Non-critical
       }
 
-      const matchStatus: PharmacyInvoiceMatchStatus =
-        notes.length > 0 ? 'DISCREPANCY' : 'MATCHED';
-
-      if (matchStatus === 'DISCREPANCY') {
-        discrepancyCount++;
-      } else {
-        matchedCount++;
-      }
+      matchedCount++;
       matchedTotalCents += li.amountCents;
 
-      updates.push({
-        id: li.id,
-        matchStatus,
-        matchedOrderId: order.id,
-        matchedPatientId: order.patient?.id ?? null,
-        matchedProviderId: order.provider?.id ?? null,
-        matchConfidence: Math.min(confidence, 1.0),
-        matchNotes: notes.length > 0 ? notes.join('; ') : null,
+      const key = li.lifefileOrderId;
+      const existing = matchedByOrder.get(key);
+      if (existing) {
+        existing.ids.push(li.id);
+      } else {
+        matchedByOrder.set(key, {
+          ids: [li.id],
+          orderId: order.id,
+          patientId: order.patient?.id ?? null,
+          providerId: order.provider?.id ?? null,
+          confidence,
+        });
+      }
+    }
+
+    // Bulk update: set all unmatched items in one query
+    if (unmatchedIds.length > 0) {
+      await prisma.pharmacyInvoiceLineItem.updateMany({
+        where: { id: { in: unmatchedIds } },
+        data: { matchStatus: 'UNMATCHED' },
       });
     }
 
-    // Update line items individually (avoids $transaction issues on PgBouncer/Vercel)
-    for (const u of updates) {
-      await prisma.pharmacyInvoiceLineItem.update({
-        where: { id: u.id },
+    // Bulk update: set matched items per order group (one query per unique order)
+    for (const [, group] of matchedByOrder) {
+      await prisma.pharmacyInvoiceLineItem.updateMany({
+        where: { id: { in: group.ids } },
         data: {
-          matchStatus: u.matchStatus,
-          matchedOrderId: u.matchedOrderId,
-          matchedPatientId: u.matchedPatientId,
-          matchedProviderId: u.matchedProviderId,
-          matchConfidence: u.matchConfidence,
-          matchNotes: u.matchNotes,
+          matchStatus: 'MATCHED',
+          matchedOrderId: group.orderId,
+          matchedPatientId: group.patientId,
+          matchedProviderId: group.providerId,
+          matchConfidence: group.confidence,
         },
       });
     }
