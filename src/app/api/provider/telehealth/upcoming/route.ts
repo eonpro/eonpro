@@ -12,20 +12,25 @@ import { logger } from '@/lib/logger';
 import { prisma } from '@/lib/db';
 import { isZoomConfigured } from '@/lib/integrations/zoom/config';
 
-// Dynamic import to avoid circular dependency in production builds
+async function safeDecryptField(value: unknown): Promise<string> {
+  if (!value || typeof value !== 'string') return '';
+  try {
+    const parts = value.split(':');
+    if (parts.length !== 3) return value;
+    const { decryptPHI } = await import('@/lib/security/phi-encryption');
+    return decryptPHI(value) ?? value;
+  } catch {
+    return value;
+  }
+}
+
 async function safeDecryptPatient(patient: any): Promise<any> {
   if (!patient) return patient;
-  try {
-    const plain = JSON.parse(JSON.stringify(patient));
-    const { decryptPatientPHI } = await import('@/lib/security/phi-encryption');
-    return decryptPatientPHI(plain, ['firstName', 'lastName']);
-  } catch (err) {
-    logger.warn('Failed to decrypt patient PHI in telehealth', {
-      patientId: patient.id,
-      error: err instanceof Error ? err.message : 'Unknown',
-    });
-    return patient;
-  }
+  return {
+    id: patient.id,
+    firstName: await safeDecryptField(patient.firstName),
+    lastName: await safeDecryptField(patient.lastName),
+  };
 }
 
 export const GET = withProviderAuth(async (req: NextRequest, user: AuthUser) => {
