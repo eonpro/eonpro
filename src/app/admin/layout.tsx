@@ -491,6 +491,10 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
                   <a
                     key={item.path}
                     href={item.path}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      window.location.href = item.path;
+                    }}
                     title={!showLabels ? item.label : undefined}
                     className={`flex min-h-[44px] w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left no-underline transition-colors touch-manipulation ${
                       active ? '' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600 active:bg-gray-100'
@@ -584,6 +588,10 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
               <a
                 key={item.path}
                 href={item.path}
+                onClick={(e) => {
+                  e.preventDefault();
+                  window.location.href = item.path;
+                }}
                 className={`flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 py-3 no-underline transition-colors ${
                   active ? '' : 'text-gray-400 active:text-gray-600'
                 }`}
