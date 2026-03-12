@@ -118,16 +118,40 @@ export default function PharmacyInvoiceDetailPage() {
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [filter, setFilter] = useState<string>('all');
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalGroups, setTotalGroups] = useState(0);
+
+  // Debounce search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+      setPage(1);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  // Reset page when filter changes
+  useEffect(() => { setPage(1); }, [filter]);
 
   const fetchDetail = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await apiFetch(`/api/admin/pharmacy-invoices/${uploadId}`);
+      const params = new URLSearchParams();
+      params.set('page', String(page));
+      params.set('limit', '50');
+      if (filter !== 'all') params.set('matchStatus', filter);
+      if (debouncedSearch) params.set('search', debouncedSearch);
+
+      const res = await apiFetch(`/api/admin/pharmacy-invoices/${uploadId}?${params}`);
       const json = await res.json();
       if (json.success) {
         setSummary(json.data.summary);
         setOrderGroups(json.data.orderGroups ?? []);
+        setTotalPages(json.data.totalPages ?? 1);
+        setTotalGroups(json.data.totalGroups ?? 0);
         setPdfUrl(json.data.pdfUrl ?? null);
       }
     } catch {
@@ -135,7 +159,7 @@ export default function PharmacyInvoiceDetailPage() {
     } finally {
       setLoading(false);
     }
-  }, [uploadId]);
+  }, [uploadId, page, filter, debouncedSearch]);
 
   useEffect(() => {
     if (uploadId) fetchDetail();
@@ -158,25 +182,8 @@ export default function PharmacyInvoiceDetailPage() {
     setExpandedOrders(new Set());
   };
 
-  // Filter & search
-  const filteredGroups = orderGroups.filter((g) => {
-    if (filter !== 'all' && g.matchStatus !== filter) return false;
-    if (search) {
-      const q = search.toLowerCase();
-      const matchesOrder = g.lifefileOrderId?.toLowerCase().includes(q);
-      const matchesPatient = g.lineItems.some((li) =>
-        li.patientName?.toLowerCase().includes(q)
-      );
-      const matchesRx = g.lineItems.some((li) =>
-        li.rxNumber?.toLowerCase().includes(q)
-      );
-      const matchesMed = g.lineItems.some((li) =>
-        li.medicationName?.toLowerCase().includes(q)
-      );
-      return matchesOrder || matchesPatient || matchesRx || matchesMed;
-    }
-    return true;
-  });
+  // Filtering is done server-side; orderGroups is already filtered/paginated
+  const filteredGroups = orderGroups;
 
   if (loading) {
     return (
@@ -471,12 +478,30 @@ export default function PharmacyInvoiceDetailPage() {
           })}
         </div>
 
-        {/* Summary footer */}
+        {/* Pagination */}
         <div className="mt-6 flex items-center justify-between text-sm text-gray-500">
           <span>
-            Showing {filteredGroups.length} of {orderGroups.length} orders
-            ({up.totalLineItems} total line items)
+            Showing {filteredGroups.length} of {totalGroups} orders
+            ({up.totalLineItems} total line items) &middot; Page {page} of {totalPages}
           </span>
+          {totalPages > 1 && (
+            <div className="flex gap-2">
+              <button
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page <= 1}
+                className="rounded-md border border-gray-300 px-3 py-1.5 text-xs hover:bg-gray-50 disabled:opacity-50"
+              >
+                Previous
+              </button>
+              <button
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page >= totalPages}
+                className="rounded-md border border-gray-300 px-3 py-1.5 text-xs hover:bg-gray-50 disabled:opacity-50"
+              >
+                Next
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>

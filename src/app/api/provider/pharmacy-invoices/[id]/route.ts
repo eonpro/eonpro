@@ -35,12 +35,16 @@ export const GET = withAuth(
       const summary = await getUploadSummary(uploadId, clinicId);
       if (!summary) throw new NotFoundError('Invoice not found');
 
-      // Get all order groups, then filter to only this provider's matches
-      const allGroups = await getLineItemsGroupedByOrder(uploadId);
+      const { searchParams } = new URL(_req.url);
+      const groupResult = await getLineItemsGroupedByOrder(uploadId, {
+        search: searchParams.get('search') ?? undefined,
+        page: parseInt(searchParams.get('page') ?? '1', 10),
+        limit: parseInt(searchParams.get('limit') ?? '50', 10),
+      });
 
-      // Find which orders belong to this provider
+      // Filter to only this provider's orders
       const providerId = user.providerId;
-      let orderGroups = allGroups;
+      let orderGroups = groupResult.orderGroups;
 
       if (providerId && user.role === 'provider') {
         const providerOrderIds = await prisma.order.findMany({
@@ -50,7 +54,7 @@ export const GET = withAuth(
           new Set(orders.map((o) => o.lifefileOrderId).filter(Boolean))
         );
 
-        orderGroups = allGroups.filter(
+        orderGroups = orderGroups.filter(
           (g) => g.lifefileOrderId && providerOrderIds.has(g.lifefileOrderId)
         );
       }
@@ -60,6 +64,9 @@ export const GET = withAuth(
         data: {
           summary,
           orderGroups,
+          totalGroups: groupResult.totalGroups,
+          totalPages: groupResult.totalPages,
+          page: groupResult.page,
         },
       });
     } catch (error) {

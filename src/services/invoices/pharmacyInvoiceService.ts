@@ -471,13 +471,56 @@ export async function listLineItems(filters: ListLineItemsFilters) {
   return { items, total, page, limit, totalPages: Math.ceil(total / limit) };
 }
 
-export async function getLineItemsGroupedByOrder(invoiceUploadId: number) {
+export async function getLineItemsGroupedByOrder(
+  invoiceUploadId: number,
+  options?: { matchStatus?: string; search?: string; page?: number; limit?: number }
+) {
+  const { matchStatus, search, page = 1, limit = 50 } = options ?? {};
+
+  // Get distinct order IDs with optional filtering
+  const where: Record<string, unknown> = { invoiceUploadId };
+  if (matchStatus && matchStatus !== 'all') where.matchStatus = matchStatus;
+  if (search) {
+    where.OR = [
+      { patientName: { contains: search, mode: 'insensitive' } },
+      { lifefileOrderId: { contains: search } },
+      { rxNumber: { contains: search } },
+      { medicationName: { contains: search, mode: 'insensitive' } },
+    ];
+  }
+
+  // Get all items matching filter (trimmed fields for performance)
   const items = await prisma.pharmacyInvoiceLineItem.findMany({
-    where: { invoiceUploadId },
+    where,
     orderBy: [{ lifefileOrderId: 'asc' }, { lineNumber: 'asc' }],
+    select: {
+      id: true,
+      lineNumber: true,
+      lineType: true,
+      date: true,
+      lifefileOrderId: true,
+      rxNumber: true,
+      fillId: true,
+      patientName: true,
+      doctorName: true,
+      medicationName: true,
+      strength: true,
+      form: true,
+      vialSize: true,
+      shippingMethod: true,
+      quantity: true,
+      unitPriceCents: true,
+      amountCents: true,
+      orderSubtotalCents: true,
+      matchStatus: true,
+      matchedOrderId: true,
+      matchConfidence: true,
+      matchNotes: true,
+    },
   });
 
-  const groups = new Map<string, PharmacyInvoiceLineItem[]>();
+  // Group by order
+  const groups = new Map<string, typeof items>();
   for (const item of items) {
     const key = item.lifefileOrderId ?? 'unknown';
     const group = groups.get(key) ?? [];
@@ -485,13 +528,26 @@ export async function getLineItemsGroupedByOrder(invoiceUploadId: number) {
     groups.set(key, group);
   }
 
-  return Array.from(groups.entries()).map(([orderId, lineItems]) => ({
+  const allGroups = Array.from(groups.entries()).map(([orderId, lineItems]) => ({
     lifefileOrderId: orderId,
     lineItems,
     subtotalCents: lineItems.reduce((sum, li) => sum + li.amountCents, 0),
     matchStatus: lineItems[0]?.matchStatus ?? 'PENDING',
     matchedOrderId: lineItems[0]?.matchedOrderId ?? null,
   }));
+
+  // Paginate the order groups
+  const totalGroups = allGroups.length;
+  const start = (page - 1) * limit;
+  const paginatedGroups = allGroups.slice(start, start + limit);
+
+  return {
+    orderGroups: paginatedGroups,
+    totalGroups,
+    page,
+    limit,
+    totalPages: Math.ceil(totalGroups / limit),
+  };
 }
 
 export async function getSignedPdfUrl(s3Key: string): Promise<string> {

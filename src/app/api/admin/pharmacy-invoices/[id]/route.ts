@@ -45,7 +45,13 @@ export const GET = withAuth(
       const summary = await getUploadSummary(uploadId, clinicId);
       if (!summary) throw new NotFoundError('Invoice upload not found');
 
-      const orderGroups = await getLineItemsGroupedByOrder(uploadId);
+      const { searchParams } = new URL(req.url);
+      const groupResult = await getLineItemsGroupedByOrder(uploadId, {
+        matchStatus: searchParams.get('matchStatus') ?? undefined,
+        search: searchParams.get('search') ?? undefined,
+        page: parseInt(searchParams.get('page') ?? '1', 10),
+        limit: parseInt(searchParams.get('limit') ?? '50', 10),
+      });
 
       let pdfUrl: string | null = null;
       try {
@@ -58,7 +64,7 @@ export const GET = withAuth(
         success: true,
         data: {
           summary,
-          orderGroups,
+          ...groupResult,
           pdfUrl,
         },
       });
