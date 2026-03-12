@@ -177,6 +177,7 @@ export default function PrescriptionReportsPage() {
         if (providerId) params.set('providerId', providerId);
         params.set('page', String(p));
         params.set('limit', String(limit));
+        params.set('tz', Intl.DateTimeFormat().resolvedOptions().timeZone);
 
         const res = await apiFetch(`/api/super-admin/prescription-reports?${params}`);
         if (res.ok) {

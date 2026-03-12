@@ -214,6 +214,8 @@ interface QueueItem {
   }>;
   requestJson?: string | null;
   queuedByUserId?: number | null;
+  // Indicates source of GLP-1 info for refills: 'last_prescription' | 'medication_info'
+  glp1Source?: string;
   // Hold status (provider needs more information)
   holdReason?: string | null;
   heldAt?: string | null;
@@ -1775,7 +1777,18 @@ export default function PrescriptionQueuePage() {
                           />
                         </div>
                         <div className="min-w-0">
-                          {item.glp1Info?.usedGlp1 ? (
+                          {item.queueType === 'refill' && item.glp1Info?.usedGlp1 ? (
+                            <>
+                              <p className="truncate text-[10px] font-semibold text-blue-700">
+                                {item.glp1Info.glp1Type || 'GLP-1'}
+                              </p>
+                              <p className="text-[10px] text-blue-600">
+                                {item.glp1Info.lastDose
+                                  ? `Last Rx: ${item.glp1Info.lastDose}mg`
+                                  : 'Refill'}
+                              </p>
+                            </>
+                          ) : item.glp1Info?.usedGlp1 ? (
                             <>
                               <p className="truncate text-[10px] font-semibold text-blue-700">
                                 {item.glp1Info.glp1Type || 'Prior GLP-1'}
@@ -3176,25 +3189,32 @@ export default function PrescriptionQueuePage() {
                         <div className="rounded-xl border border-blue-200 bg-blue-50 p-4">
                           <h3 className="mb-2 flex items-center gap-2 text-sm font-medium text-blue-800">
                             <Pill className="h-4 w-4 text-blue-600" />
-                            Previous Dosage
+                            {prescriptionPanel.item.queueType === 'refill' ? 'Last Prescribed' : 'Previous Dosage'}
                           </h3>
                           {(() => {
                             const glp1 = prescriptionPanel.item.glp1Info;
                             const ctx = prescriptionPanel.details.clinicalContext?.glp1History;
-                            const medType = ctx?.type || glp1?.glp1Type;
-                            const dose = ctx?.dose || glp1?.lastDose;
-                            const hasHistory = glp1?.usedGlp1 || ctx?.used;
+                            const isRefill = prescriptionPanel.item.queueType === 'refill';
+                            const medType = isRefill ? glp1?.glp1Type : (ctx?.type || glp1?.glp1Type);
+                            const dose = isRefill ? glp1?.lastDose : (ctx?.dose || glp1?.lastDose);
+                            const hasHistory = isRefill ? glp1?.usedGlp1 : (glp1?.usedGlp1 || ctx?.used);
 
                             if (hasHistory && (medType || dose)) {
                               return (
                                 <div>
                                   <p className="text-2xl font-bold text-blue-900">
                                     {dose ? `${dose}mg` : 'N/A'}
+                                    {isRefill && dose && <span className="text-sm font-normal text-blue-500">/week</span>}
                                   </p>
                                   <p className="mt-1 text-sm font-medium text-blue-700">
                                     {medType || 'GLP-1 Medication'}
                                   </p>
-                                  {ctx?.sideEffects && (
+                                  {isRefill && prescriptionPanel.item.glp1Source === 'last_prescription' && (
+                                    <p className="mt-1 text-xs text-emerald-600">
+                                      Based on last prescription sent
+                                    </p>
+                                  )}
+                                  {!isRefill && ctx?.sideEffects && (
                                     <p className="mt-2 text-xs text-blue-600">
                                       Side effects: {ctx.sideEffects}
                                     </p>
@@ -3821,7 +3841,32 @@ export default function PrescriptionQueuePage() {
                         <h3 className="text-sm font-semibold text-amber-900">GLP-1 History</h3>
                       </div>
                       <div className="px-4 py-3">
-                        {prescriptionPanel.item.glp1Info?.usedGlp1 ? (
+                        {prescriptionPanel.item.queueType === 'refill' && prescriptionPanel.item.glp1Info?.usedGlp1 ? (
+                          <div className="space-y-1.5">
+                            <div className="flex items-center gap-2">
+                              <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-800">
+                                Returning Patient
+                              </span>
+                              {prescriptionPanel.item.glp1Source === 'last_prescription' && (
+                                <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">
+                                  From last Rx
+                                </span>
+                              )}
+                            </div>
+                            {prescriptionPanel.item.glp1Info.glp1Type && (
+                              <p className="text-sm text-amber-900">
+                                <span className="font-medium">Medication:</span>{' '}
+                                {prescriptionPanel.item.glp1Info.glp1Type}
+                              </p>
+                            )}
+                            {prescriptionPanel.item.glp1Info.lastDose && (
+                              <p className="text-sm text-amber-900">
+                                <span className="font-medium">Last Prescribed Dose:</span>{' '}
+                                {prescriptionPanel.item.glp1Info.lastDose} mg/week
+                              </p>
+                            )}
+                          </div>
+                        ) : prescriptionPanel.item.glp1Info?.usedGlp1 ? (
                           <div className="space-y-1.5">
                             <div className="flex items-center gap-2">
                               <span className="rounded-full bg-amber-200 px-2 py-0.5 text-xs font-semibold text-amber-800">

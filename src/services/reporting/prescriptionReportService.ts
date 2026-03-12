@@ -34,6 +34,7 @@ export interface PrescriptionReportFilters {
   providerId?: number;
   page?: number;
   limit?: number;
+  tz?: string;
 }
 
 export interface ProviderRxSummary {
@@ -168,60 +169,133 @@ function mapOrderToDetail(order: ReportOrder): PrescriptionDetailRow {
   };
 }
 
+/**
+ * Get the current date parts in a specific IANA timezone.
+ */
+function getDatePartsInTz(tz: string): {
+  year: number;
+  month: number;
+  day: number;
+  dayOfWeek: number;
+} {
+  const now = new Date();
+  try {
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: tz,
+      year: 'numeric',
+      month: 'numeric',
+      day: 'numeric',
+      weekday: 'short',
+    });
+    const parts = formatter.formatToParts(now);
+    const yearPart = parts.find((p) => p.type === 'year');
+    const monthPart = parts.find((p) => p.type === 'month');
+    const dayPart = parts.find((p) => p.type === 'day');
+    const weekdayPart = parts.find((p) => p.type === 'weekday');
+    if (!yearPart || !monthPart || !dayPart || !weekdayPart) {
+      throw new Error('Missing date parts from formatter');
+    }
+    const year = Number(yearPart.value);
+    const month = Number(monthPart.value) - 1;
+    const day = Number(dayPart.value);
+    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const dayOfWeek = dayNames.indexOf(weekdayPart.value);
+    return { year, month, day, dayOfWeek };
+  } catch {
+    return {
+      year: now.getUTCFullYear(),
+      month: now.getUTCMonth(),
+      day: now.getUTCDate(),
+      dayOfWeek: now.getUTCDay(),
+    };
+  }
+}
+
+/**
+ * Create a UTC Date representing midnight of a calendar date in a given timezone.
+ */
+function midnightInTz(year: number, month: number, day: number, tz: string): Date {
+  const guess = new Date(Date.UTC(year, month, day, 12, 0, 0));
+  try {
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: tz,
+      year: 'numeric',
+      month: 'numeric',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: 'numeric',
+      hour12: false,
+    });
+    const parts = formatter.formatToParts(guess);
+    const hourPart = parts.find((p) => p.type === 'hour');
+    const minutePart = parts.find((p) => p.type === 'minute');
+    if (!hourPart || !minutePart) {
+      throw new Error('Missing time parts from formatter');
+    }
+    const h = Number(hourPart.value) % 24;
+    const m = Number(minutePart.value);
+    const offsetMs = (h * 60 + m - 12 * 60) * 60 * 1000;
+    return new Date(Date.UTC(year, month, day) - offsetMs);
+  } catch {
+    return new Date(Date.UTC(year, month, day));
+  }
+}
+
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
 export function computeDateRange(
   period: ReportPeriod,
   customStart?: Date,
-  customEnd?: Date
+  customEnd?: Date,
+  tz = 'America/New_York'
 ): { startDate: Date; endDate: Date } {
-  const now = new Date();
+  const { year, month, day, dayOfWeek } = getDatePartsInTz(tz);
+
+  const todayStart = midnightInTz(year, month, day, tz);
+  const tomorrowStart = new Date(todayStart.getTime() + MS_PER_DAY);
+  const endOfToday = new Date(tomorrowStart.getTime() - 1);
+
   let startDate: Date;
-  let endDate = new Date(now);
+  let endDate: Date = endOfToday;
 
   switch (period) {
     case 'day': {
-      startDate = new Date(now);
-      startDate.setHours(0, 0, 0, 0);
-      endDate.setHours(23, 59, 59, 999);
+      startDate = todayStart;
       break;
     }
     case 'week': {
-      startDate = new Date(now);
-      startDate.setDate(now.getDate() - now.getDay());
-      startDate.setHours(0, 0, 0, 0);
+      startDate = new Date(todayStart.getTime() - dayOfWeek * MS_PER_DAY);
       break;
     }
     case 'month': {
-      startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+      startDate = midnightInTz(year, month, 1, tz);
       break;
     }
     case 'quarter': {
-      const quarterStart = Math.floor(now.getMonth() / 3) * 3;
-      startDate = new Date(now.getFullYear(), quarterStart, 1);
+      const quarterStart = Math.floor(month / 3) * 3;
+      startDate = midnightInTz(year, quarterStart, 1, tz);
       break;
     }
     case 'semester': {
-      const semesterStart = now.getMonth() < 6 ? 0 : 6;
-      startDate = new Date(now.getFullYear(), semesterStart, 1);
+      const semesterStart = month < 6 ? 0 : 6;
+      startDate = midnightInTz(year, semesterStart, 1, tz);
       break;
     }
     case 'year': {
-      startDate = new Date(now.getFullYear(), 0, 1);
+      startDate = midnightInTz(year, 0, 1, tz);
       break;
     }
     case 'custom': {
       if (!customStart || !customEnd) {
-        startDate = new Date(now);
-        startDate.setDate(now.getDate() - 30);
+        startDate = new Date(todayStart.getTime() - 30 * MS_PER_DAY);
       } else {
-        startDate = new Date(customStart);
-        endDate = new Date(customEnd);
-        endDate.setHours(23, 59, 59, 999);
+        startDate = customStart;
+        endDate = customEnd;
       }
       break;
     }
     default: {
-      startDate = new Date(now);
-      startDate.setDate(now.getDate() - 30);
+      startDate = new Date(todayStart.getTime() - 30 * MS_PER_DAY);
     }
   }
 
@@ -241,7 +315,8 @@ export const prescriptionReportService = {
     const { startDate, endDate } = computeDateRange(
       filters.period,
       filters.startDate,
-      filters.endDate
+      filters.endDate,
+      filters.tz
     );
     const offset = (page - 1) * limit;
 
@@ -411,7 +486,8 @@ export const prescriptionReportService = {
     const { startDate, endDate } = computeDateRange(
       filters.period,
       filters.startDate,
-      filters.endDate
+      filters.endDate,
+      filters.tz
     );
 
     const where: Record<string, unknown> = {

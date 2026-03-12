@@ -163,7 +163,6 @@ export async function createZoomMeeting(params: CreateMeetingParams): Promise<Zo
 
     const raw = await response.json();
 
-    // Normalize Zoom snake_case response to our camelCase interface
     const meeting: ZoomMeetingResponse = {
       id: raw.id,
       uuid: raw.uuid,
@@ -184,31 +183,6 @@ export async function createZoomMeeting(params: CreateMeetingParams): Promise<Zo
       encryptedPassword: raw.encrypted_password,
       settings: raw.settings,
     };
-
-    try {
-      await prisma.telehealthSession.create({
-        data: {
-          meetingId: meeting.id.toString(),
-          meetingUuid: meeting.uuid,
-          joinUrl: meeting.joinUrl,
-          hostUrl: meeting.startUrl,
-          password: meeting.password,
-          topic: meeting.topic,
-          patientId: params.patientId,
-          providerId: params.providerId,
-          scheduledAt: params.scheduledAt || new Date(),
-          duration: params.duration,
-          status: 'SCHEDULED',
-          platform: 'zoom',
-          metadata: { zoomResponse: raw, createdAt: new Date().toISOString() } as any,
-        },
-      });
-    } catch (dbError) {
-      logger.error('[ZOOM] Failed to persist meeting to database', {
-        meetingId: meeting.id,
-        error: dbError instanceof Error ? dbError.message : 'Unknown error',
-      });
-    }
 
     return meeting;
   } catch (error) {

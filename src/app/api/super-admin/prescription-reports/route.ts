@@ -37,6 +37,7 @@ const reportQuerySchema = z.object({
     .string()
     .optional()
     .transform((v) => (v ? Math.min(parseInt(v, 10), 200) : 50)),
+  tz: z.string().optional(),
 });
 
 /**
@@ -56,7 +57,7 @@ export const GET = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) =
       );
     }
 
-    const { period, startDate, endDate, clinicId, providerId, page, limit } = parsed.data;
+    const { period, startDate, endDate, clinicId, providerId, page, limit, tz } = parsed.data;
 
     const report = await prescriptionReportService.getReport({
       period,
@@ -66,6 +67,7 @@ export const GET = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) =
       providerId,
       page,
       limit,
+      tz,
     });
 
     await auditLog(req, {

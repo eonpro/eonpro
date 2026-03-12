@@ -83,6 +83,7 @@ const ROLE_PERMISSIONS: Record<string, Permission[]> = {
   ],
   staff: [
     'patient:view',
+    'patient:edit',
     'order:view',
     'invoice:view',
     'report:run',

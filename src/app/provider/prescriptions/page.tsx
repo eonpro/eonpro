@@ -169,6 +169,7 @@ export default function ProviderPrescriptionsPage() {
       const params = new URLSearchParams({
         limit: String(PAGE_SIZE),
         offset: String(offset),
+        tz: Intl.DateTimeFormat().resolvedOptions().timeZone,
       });
       if (search.trim()) {
         params.set('search', search.trim());

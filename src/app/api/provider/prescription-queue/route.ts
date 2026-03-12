@@ -954,7 +954,53 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       }
     }
 
-    // ─── Phase 2c: Batch-load subscription start dates for renewal month computation ───
+    // ─── Phase 2c: Batch-load last prescribed Rx data for refill patients ───
+    // For refills, the GLP-1 history should reflect what we ACTUALLY prescribed last time,
+    // not the original intake form data. This enables correct dose escalation recommendations.
+    const lastOrderRxMap = new Map<number, { medName: string; strength: string; sig: string; dose: number | null }>();
+    {
+      const lastOrderIds = (refills as any[])
+        .map((r: any) => r.lastOrderId)
+        .filter((id: number | null): id is number => id !== null && id !== undefined);
+
+      if (lastOrderIds.length > 0) {
+        try {
+          const lastOrderRxs = await prisma.rx.findMany({
+            where: { orderId: { in: [...new Set(lastOrderIds)] } },
+            select: {
+              orderId: true,
+              medName: true,
+              strength: true,
+              sig: true,
+            },
+          });
+
+          for (const rx of lastOrderRxs) {
+            if (lastOrderRxMap.has(rx.orderId)) continue;
+            const doseMatch = rx.sig.match(/(?:inject|administer)\s+([\d.]+)\s*mg/i);
+            const dose = doseMatch ? parseFloat(doseMatch[1]) : null;
+            lastOrderRxMap.set(rx.orderId, {
+              medName: rx.medName,
+              strength: rx.strength,
+              sig: rx.sig,
+              dose,
+            });
+          }
+
+          logger.info('[PRESCRIPTION-QUEUE] Loaded last-order Rx data for refill dose escalation', {
+            refillsWithLastOrder: lastOrderIds.length,
+            rxDataFound: lastOrderRxMap.size,
+          });
+        } catch (rxErr) {
+          logger.warn('[PRESCRIPTION-QUEUE] Failed to load last-order Rx data for refills', {
+            error: rxErr instanceof Error ? rxErr.message : String(rxErr),
+            orderIds: lastOrderIds.length,
+          });
+        }
+      }
+    }
+
+    // ─── Phase 2d: Batch-load subscription start dates for renewal month computation ───
     // Invoices auto-created from Stripe subscription events may show generic labels
     // like "Subscription update". We compute the actual refill month from the subscription startDate.
     const subscriptionStartMap = new Map<string, { startDate: Date; interval: string; intervalCount: number }>();
@@ -1322,11 +1368,29 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       const planLabel = planMonths === 6 ? '6-Month' : planMonths === 3 ? 'Quarterly' : 'Monthly';
 
       // Refill patients are already GLP-1 users - extract type from medication name
-      const istirzepatide = treatmentDisplay.toLowerCase().includes('tirzepatide');
+      const isTirzepatide = treatmentDisplay.toLowerCase().includes('tirzepatide');
       const isSemaglutide = treatmentDisplay.toLowerCase().includes('semaglutide');
 
-      const refillBlob = patientDocBlobMap.get(refill.patient.id) || null;
-      const docGlp1Info = refillBlob ? extractGlp1Info(null, refillBlob) : null;
+      // For refills, prefer the LAST PRESCRIBED dose (from the actual Rx we sent) over
+      // intake form data. This ensures the preselection recommends one dose UP from what
+      // we last prescribed, rather than repeating the intake-reported dose.
+      const lastRxData = refill.lastOrderId ? lastOrderRxMap.get(refill.lastOrderId) : null;
+
+      let refillGlp1Type: string | null = null;
+      let refillLastDose: string | null = null;
+
+      if (lastRxData) {
+        const medNameLower = lastRxData.medName.toLowerCase();
+        refillGlp1Type = medNameLower.includes('tirzepatide')
+          ? 'Tirzepatide'
+          : medNameLower.includes('semaglutide')
+            ? 'Semaglutide'
+            : lastRxData.medName;
+        refillLastDose = lastRxData.dose !== null ? String(lastRxData.dose) : lastRxData.strength;
+      } else {
+        refillGlp1Type = isTirzepatide ? 'Tirzepatide' : isSemaglutide ? 'Semaglutide' : refill.medicationName;
+        refillLastDose = refill.medicationStrength || null;
+      }
 
       return {
         // Queue item identification
@@ -1357,18 +1421,18 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         amountFormatted: '-',
         paidAt: refill.paymentVerifiedAt,
         createdAt: refill.createdAt,
-        queuedAt: refill.providerQueuedAt || refill.adminApprovedAt || refill.createdAt, // Use providerQueuedAt for sorting
+        queuedAt: refill.providerQueuedAt || refill.adminApprovedAt || refill.createdAt,
         invoiceNumber: refill.invoiceId ? `INV-${refill.invoiceId}` : `REFILL-${refill.id}`,
         intakeCompletedAt,
-        // GLP-1 history info - refill patients are existing GLP-1 users
-        // Prefer document data if available (has original intake info), fallback to medication info
+        // GLP-1 history - for refills, uses LAST PRESCRIBED dose (not intake form)
+        // so preselection recommends one dose up from what was actually prescribed
         glp1Info: {
-          usedGlp1: true, // Refill = they've used it before
-          glp1Type:
-            docGlp1Info?.glp1Type ||
-            (istirzepatide ? 'Tirzepatide' : isSemaglutide ? 'Semaglutide' : refill.medicationName),
-          lastDose: docGlp1Info?.lastDose || refill.medicationStrength || null,
+          usedGlp1: true,
+          glp1Type: refillGlp1Type,
+          lastDose: refillLastDose,
         },
+        // Source indicator for UI labeling
+        glp1Source: lastRxData ? 'last_prescription' : 'medication_info',
         // SOAP Note status
         soapNote: soapNote
           ? {
