@@ -71,7 +71,7 @@ export const GET = withProviderAuth(async (req: NextRequest, user: AuthUser) => 
           LIMIT 20
         `);
 
-        const fallbackSessions = rows.map((r: any) => ({
+        const fallbackSessions = await Promise.all(rows.map(async (r: any) => ({
           id: r.id,
           topic: r.title ?? r.reason ?? 'Video Consultation',
           scheduledAt: new Date(r.startTime).toISOString(),
@@ -81,10 +81,12 @@ export const GET = withProviderAuth(async (req: NextRequest, user: AuthUser) => 
           hostUrl: null,
           meetingId: r.zoomMeetingId,
           password: null,
-          patient: r.patientId ? { id: r.patientId, firstName: r.firstName ?? '', lastName: r.lastName ?? '' } : null,
+          patient: r.patientId
+            ? await safeDecryptPatient({ id: r.patientId, firstName: r.firstName, lastName: r.lastName })
+            : null,
           appointment: { id: r.id, title: r.title, reason: r.reason },
           source: 'fallback',
-        }));
+        })));
 
         return NextResponse.json({
           sessions: fallbackSessions,
