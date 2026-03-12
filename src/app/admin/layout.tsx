@@ -412,6 +412,7 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
 
       {/* Sidebar — drawer on mobile, fixed sidebar on md+ */}
       <aside
+        style={{ pointerEvents: 'auto' }}
         className={`fixed bottom-0 left-0 top-0 z-[101] flex flex-col border-r border-gray-200 bg-white py-4 transition-[transform,width] duration-300
           md:translate-x-0
           ${mobileNavOpen ? 'translate-x-0 w-[280px]' : '-translate-x-full w-[280px] md:translate-x-0 md:w-20'}
@@ -487,22 +488,22 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
                   );
                 }
 
+                const navHandler = () => { window.location.href = item.path; };
                 return (
                   <button
                     key={item.path}
                     type="button"
-                    onClick={() => {
-                      window.location.href = item.path;
-                    }}
+                    onClick={navHandler}
+                    onPointerDown={navHandler}
                     title={!showLabels ? item.label : undefined}
-                    className={`flex min-h-[44px] w-full cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors touch-manipulation ${
+                    className={`relative flex min-h-[44px] w-full cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors touch-manipulation ${
                       active ? '' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600 active:bg-gray-100'
                     }`}
-                    style={active ? { backgroundColor: `${primaryColor}15`, color: primaryColor } : {}}
+                    style={{ pointerEvents: 'auto', ...(active ? { backgroundColor: `${primaryColor}15`, color: primaryColor } : {}) }}
                   >
                     <Icon className="h-5 w-5 flex-shrink-0" />
                     {showLabels && (
-                      <span className="whitespace-nowrap text-sm font-medium">{item.label}</span>
+                      <span className="pointer-events-none whitespace-nowrap text-sm font-medium">{item.label}</span>
                     )}
                   </button>
                 );
@@ -583,20 +584,20 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
               );
             }
 
+            const tabHandler = () => { window.location.href = item.path; };
             return (
               <button
                 key={item.path}
                 type="button"
-                onClick={() => {
-                  window.location.href = item.path;
-                }}
+                onClick={tabHandler}
+                onPointerDown={tabHandler}
                 className={`flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 py-3 transition-colors ${
                   active ? '' : 'text-gray-400 active:text-gray-600'
                 }`}
-                style={active ? { color: primaryColor } : {}}
+                style={{ pointerEvents: 'auto', ...(active ? { color: primaryColor } : {}) }}
               >
                 <Icon className="h-5 w-5 flex-shrink-0" />
-                <span className="truncate text-[10px] font-medium leading-tight">{item.label}</span>
+                <span className="pointer-events-none truncate text-[10px] font-medium leading-tight">{item.label}</span>
               </button>
             );
           })}
