@@ -52,7 +52,7 @@ export const GET = withProviderAuth(async (req: NextRequest, user: AuthUser) => 
           FROM "Appointment" a
           LEFT JOIN "Patient" p ON a."patientId" = p.id
           WHERE a.type = 'VIDEO'
-            AND a."startTime" >= DATE_TRUNC('day', NOW())
+            AND a."startTime" >= NOW() - INTERVAL '7 days'
             AND a."startTime" <= NOW() + INTERVAL '7 days'
             AND a.status IN ('SCHEDULED', 'CONFIRMED', 'IN_PROGRESS')
             ${clinicFilter}
@@ -100,7 +100,8 @@ export const GET = withProviderAuth(async (req: NextRequest, user: AuthUser) => 
 
     const now = new Date();
     const lookbackStart = new Date();
-    lookbackStart.setHours(0, 0, 0, 0); // Start of today
+    lookbackStart.setDate(lookbackStart.getDate() - 7);
+    lookbackStart.setHours(0, 0, 0, 0);
     const endDate = new Date();
     endDate.setDate(endDate.getDate() + 7);
 
