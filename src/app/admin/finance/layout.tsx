@@ -14,6 +14,7 @@ import {
   Settings,
   UserPlus,
   CreditCard,
+  ClipboardCheck,
 } from 'lucide-react';
 
 const financeNavItems = [
@@ -24,6 +25,7 @@ const financeNavItems = [
   { icon: Wallet, path: '/admin/finance/payouts', label: 'Payouts' },
   { icon: RefreshCcw, path: '/admin/finance/reconciliation', label: 'Reconciliation' },
   { icon: FileText, path: '/admin/finance/invoices', label: 'Invoices' },
+  { icon: ClipboardCheck, path: '/admin/pharmacy-invoices', label: 'Pharmacy Invoices' },
   { icon: PieChart, path: '/admin/finance/subscriptions', label: 'Subscriptions' },
   { icon: UserPlus, path: '/admin/finance/pending-profiles', label: 'Pending Profiles' },
   { icon: FileBarChart, path: '/admin/finance/reports', label: 'Report Center' },

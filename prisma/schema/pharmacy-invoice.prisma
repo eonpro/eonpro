@@ -1,0 +1,125 @@
+// ==========================================================================
+// PHARMACY INVOICE RECONCILIATION DOMAIN
+// ==========================================================================
+// Bounded context: pharmacy-invoice
+// Part of multi-file Prisma schema (prisma/schema/)
+// Handles uploading, parsing, and reconciling WellMedR/Lifefile pharmacy
+// invoices against internal Order records.
+// ==========================================================================
+
+model PharmacyInvoiceUpload {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  clinicId   Int
+  clinic     Clinic @relation(fields: [clinicId], references: [id])
+  uploadedBy Int
+
+  // Invoice header fields extracted from PDF
+  invoiceNumber    String?
+  invoiceDate      DateTime?
+  amountDueCents   Int?
+  payorId          String?
+  billingProfileId String?
+  pharmacyName     String?
+
+  // Storage
+  s3Key    String
+  fileName String
+
+  // Processing status
+  status       PharmacyInvoiceStatus @default(PENDING)
+  errorMessage String?
+  parsedAt     DateTime?
+  reconciledAt DateTime?
+
+  // Summary counts (updated after parsing + matching)
+  totalLineItems   Int @default(0)
+  matchedCount     Int @default(0)
+  unmatchedCount   Int @default(0)
+  discrepancyCount Int @default(0)
+
+  // Totals from the invoice
+  invoiceTotalCents   Int @default(0)
+  matchedTotalCents   Int @default(0)
+  unmatchedTotalCents Int @default(0)
+
+  lineItems PharmacyInvoiceLineItem[]
+
+  @@unique([clinicId, invoiceNumber])
+  @@index([clinicId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model PharmacyInvoiceLineItem {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+
+  invoiceUploadId Int
+  invoiceUpload   PharmacyInvoiceUpload @relation(fields: [invoiceUploadId], references: [id], onDelete: Cascade)
+  lineNumber      Int
+
+  // Line type classification
+  lineType PharmacyInvoiceLineType @default(MEDICATION)
+
+  // Parsed fields from the invoice
+  date            DateTime?
+  lifefileOrderId String?
+  rxNumber        String?
+  fillId          String?
+  patientName     String?
+  doctorName      String?
+  description     String?
+  medicationName  String?
+  strength        String?
+  form            String?
+  vialSize        String?
+  shippingMethod  String?
+
+  // Financial
+  quantity       Int @default(1)
+  unitPriceCents Int @default(0)
+  discountCents  Int @default(0)
+  amountCents    Int @default(0)
+
+  // Per-order subtotal (only set on last line of each order group)
+  orderSubtotalCents Int?
+
+  // Matching results
+  matchStatus       PharmacyInvoiceMatchStatus @default(PENDING)
+  matchedOrderId    Int?
+  matchedPatientId  Int?
+  matchedProviderId Int?
+  matchConfidence   Float?
+  matchNotes        String?
+
+  @@index([invoiceUploadId])
+  @@index([lifefileOrderId])
+  @@index([matchStatus])
+  @@index([matchedOrderId])
+}
+
+enum PharmacyInvoiceStatus {
+  PENDING
+  PARSING
+  PARSED
+  MATCHING
+  RECONCILED
+  ERROR
+}
+
+enum PharmacyInvoiceLineType {
+  MEDICATION
+  SUPPLY
+  SHIPPING_CARRIER
+  SHIPPING_FEE
+}
+
+enum PharmacyInvoiceMatchStatus {
+  PENDING
+  MATCHED
+  UNMATCHED
+  DISCREPANCY
+}

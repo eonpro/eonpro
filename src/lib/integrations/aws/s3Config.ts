@@ -67,6 +67,7 @@ export enum FileCategory {
   PROFILE_PICTURES = 'profile-pictures', // User profile pictures
   PATIENT_PHOTOS = 'patient-photos', // Patient progress/ID/medical photos
   PACKAGE_PHOTOS = 'package-photos', // Pharmacy rep package verification photos
+  PHARMACY_INVOICES = 'pharmacy-invoices', // WellMedR/Lifefile pharmacy invoice PDFs
   OTHER = 'other',
 }
 

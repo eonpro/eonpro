@@ -296,6 +296,9 @@ model Clinic {
   // Patient profile notes (author attribution, center = clinic)
   patientNotes PatientNote[]
 
+  // Pharmacy Invoice Reconciliation
+  pharmacyInvoiceUploads PharmacyInvoiceUpload[]
+
   @@index([subdomain])
   @@index([status])
   @@index([customDomain])
