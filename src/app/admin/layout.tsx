@@ -397,46 +397,20 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
     return pathname === path || pathname?.startsWith(path + '/');
   };
 
-  const showLabels = sidebarExpanded || mobileNavOpen;
-
   return (
     <div className="flex min-h-screen bg-[#efece7]">
-      {/* Mobile nav overlay */}
-      {!loading && mobileNavOpen && (
-        <div
-          className="fixed inset-0 z-[100] bg-black/40 md:hidden"
-          aria-hidden
-          onClick={() => setMobileNavOpen(false)}
-        />
-      )}
-
-      {/* Sidebar — drawer on mobile, fixed sidebar on md+ */}
+      {/* ============================================================
+          DESKTOP SIDEBAR — hidden on mobile, visible on md+
+          Uses the original proven pattern: hidden/md:flex, z-50, no transform.
+          ============================================================ */}
       <aside
-        style={{ pointerEvents: 'auto' }}
-        className={`fixed bottom-0 left-0 top-0 z-[101] flex flex-col border-r border-gray-200 bg-white py-4 transition-[transform,width] duration-300
-          md:translate-x-0
-          ${mobileNavOpen ? 'translate-x-0 w-[280px]' : '-translate-x-full w-[280px] md:translate-x-0 md:w-20'}
-          ${sidebarExpanded ? 'md:w-56' : 'md:w-20'}`}
+        className={`fixed bottom-0 left-0 top-0 z-50 hidden flex-col border-r border-gray-200 bg-white py-4 transition-all duration-300 md:flex ${
+          sidebarExpanded ? 'w-56' : 'w-20'
+        }`}
       >
         {!loading ? (
           <>
-            {/* Mobile: close button + logo (below md) */}
-            <div className="flex items-center justify-between px-4 pb-2 md:hidden">
-              <a href={isPharmacyExperience ? '/admin' : '/'} onClick={() => setMobileNavOpen(false)}>
-                <img src={clinicLogo} alt={clinicName} className="h-9 w-auto max-w-[140px] object-contain" />
-              </a>
-              <button
-                type="button"
-                onClick={() => setMobileNavOpen(false)}
-                className="flex h-11 w-11 items-center justify-center rounded-xl text-gray-500 hover:bg-gray-100"
-                aria-label="Close menu"
-              >
-                <X className="h-6 w-6" />
-              </button>
-            </div>
-
-            {/* Logo — desktop (md+) */}
-            <div className="mb-6 hidden flex-col items-center px-4 md:flex">
+            <div className="mb-6 flex flex-col items-center px-4">
               <a href={isPharmacyExperience ? '/admin' : '/'}>
                 {sidebarExpanded ? (
                   <img src={clinicLogo} alt={clinicName} className="h-10 w-auto max-w-[140px] object-contain" />
@@ -452,10 +426,9 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
               )}
             </div>
 
-            {/* Expand Button — desktop only */}
             <button
               onClick={() => setSidebarExpanded(!sidebarExpanded)}
-              className={`absolute -right-3 top-20 hidden h-6 w-6 items-center justify-center rounded-full border border-gray-200 bg-white shadow-sm transition-all hover:bg-gray-50 focus:outline-none md:flex ${
+              className={`absolute -right-3 top-20 flex h-6 w-6 items-center justify-center rounded-full border border-gray-200 bg-white shadow-sm transition-all hover:bg-gray-50 focus:outline-none ${
                 sidebarExpanded ? 'rotate-180' : ''
               }`}
             >
@@ -473,57 +446,47 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
                   return (
                     <button
                       key={item.path}
-                      onClick={() => {
-                        setMobileNavOpen(false);
-                        setShowClinicSwitchModal(true);
-                      }}
-                      title={!showLabels ? 'Switch Clinic' : undefined}
-                      className="flex min-h-[44px] w-full cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors touch-manipulation text-gray-400 hover:bg-gray-100 hover:text-gray-600 active:bg-gray-100"
+                      onClick={() => setShowClinicSwitchModal(true)}
+                      title={!sidebarExpanded ? 'Switch Clinic' : undefined}
+                      className="flex w-full cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors text-gray-400 hover:bg-gray-100 hover:text-gray-600"
                     >
                       <Icon className="h-5 w-5 flex-shrink-0" />
-                      {showLabels && (
+                      {sidebarExpanded && (
                         <span className="whitespace-nowrap text-sm font-medium">Switch Clinic</span>
                       )}
                     </button>
                   );
                 }
 
-                const navHandler = () => { window.location.href = item.path; };
                 return (
-                  <button
+                  <a
                     key={item.path}
-                    type="button"
-                    onClick={navHandler}
-                    onPointerDown={navHandler}
-                    title={!showLabels ? item.label : undefined}
-                    className={`relative flex min-h-[44px] w-full cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors touch-manipulation ${
-                      active ? '' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600 active:bg-gray-100'
+                    href={item.path}
+                    title={!sidebarExpanded ? item.label : undefined}
+                    className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left no-underline transition-colors ${
+                      active ? '' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
                     }`}
-                    style={{ pointerEvents: 'auto', ...(active ? { backgroundColor: `${primaryColor}15`, color: primaryColor } : {}) }}
+                    style={active ? { backgroundColor: `${primaryColor}15`, color: primaryColor } : {}}
                   >
                     <Icon className="h-5 w-5 flex-shrink-0" />
-                    {showLabels && (
-                      <span className="pointer-events-none whitespace-nowrap text-sm font-medium">{item.label}</span>
+                    {sidebarExpanded && (
+                      <span className="whitespace-nowrap text-sm font-medium">{item.label}</span>
                     )}
-                  </button>
+                  </a>
                 );
               })}
             </nav>
 
-            {/* Logout */}
             <div className="space-y-2 border-t border-gray-100 px-3 pt-4">
               <button
                 type="button"
-                onClick={(e) => {
-                  setMobileNavOpen(false);
-                  handleLogout(e);
-                }}
-                title={!showLabels ? 'Logout' : undefined}
-                className="flex min-h-[44px] w-full items-center gap-3 rounded-xl px-3 py-2.5 text-gray-400 transition-all touch-manipulation hover:bg-red-50 hover:text-red-600 active:bg-red-50"
+                onClick={handleLogout}
+                title={!sidebarExpanded ? 'Logout' : undefined}
+                className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-gray-400 transition-all hover:bg-gray-100 hover:text-gray-600"
               >
                 <LogOut className="h-5 w-5 flex-shrink-0" />
-                {showLabels && (
-                  <span className="whitespace-nowrap text-sm font-medium">Sign Out</span>
+                {sidebarExpanded && (
+                  <span className="whitespace-nowrap text-sm font-medium">Logout</span>
                 )}
               </button>
             </div>
@@ -535,9 +498,95 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
         )}
       </aside>
 
+      {/* ============================================================
+          MOBILE DRAWER — separate element, only on mobile (md:hidden)
+          Uses translate-x for animation. Completely independent from
+          the desktop sidebar above.
+          ============================================================ */}
+      {!loading && mobileNavOpen && (
+        <div
+          className="fixed inset-0 z-[100] bg-black/40 md:hidden"
+          aria-hidden
+          onClick={() => setMobileNavOpen(false)}
+        />
+      )}
+      <div
+        className={`fixed bottom-0 left-0 top-0 z-[101] flex w-[280px] flex-col border-r border-gray-200 bg-white py-4 transition-transform duration-300 md:hidden ${
+          mobileNavOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
+      >
+        {!loading && (
+          <>
+            <div className="flex items-center justify-between px-4 pb-2">
+              <a href={isPharmacyExperience ? '/admin' : '/'}>
+                <img src={clinicLogo} alt={clinicName} className="h-9 w-auto max-w-[140px] object-contain" />
+              </a>
+              <button
+                type="button"
+                onClick={() => setMobileNavOpen(false)}
+                className="flex h-11 w-11 items-center justify-center rounded-xl text-gray-500 hover:bg-gray-100"
+                aria-label="Close menu"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+
+            <nav className="flex min-h-0 flex-1 flex-col space-y-1 overflow-y-auto px-3">
+              {navItems.map((item) => {
+                const Icon = item.icon;
+                const active = isActive(item.path);
+                const isClinicsTab = item.path === '/admin/clinics';
+                const isClinicSwitch = isClinicsTab && hasMultipleClinics && userRole !== 'super_admin';
+
+                if (isClinicSwitch) {
+                  return (
+                    <button
+                      key={item.path}
+                      onClick={() => {
+                        setMobileNavOpen(false);
+                        setShowClinicSwitchModal(true);
+                      }}
+                      className="flex min-h-[44px] w-full cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 text-left text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                    >
+                      <Icon className="h-5 w-5 flex-shrink-0" />
+                      <span className="whitespace-nowrap text-sm font-medium">Switch Clinic</span>
+                    </button>
+                  );
+                }
+
+                return (
+                  <a
+                    key={item.path}
+                    href={item.path}
+                    className={`flex min-h-[44px] w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left no-underline touch-manipulation ${
+                      active ? '' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600 active:bg-gray-100'
+                    }`}
+                    style={active ? { backgroundColor: `${primaryColor}15`, color: primaryColor } : {}}
+                  >
+                    <Icon className="h-5 w-5 flex-shrink-0" />
+                    <span className="whitespace-nowrap text-sm font-medium">{item.label}</span>
+                  </a>
+                );
+              })}
+            </nav>
+
+            <div className="space-y-2 border-t border-gray-100 px-3 pt-4">
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="flex min-h-[44px] w-full items-center gap-3 rounded-xl px-3 py-2.5 text-gray-400 hover:bg-red-50 hover:text-red-600"
+              >
+                <LogOut className="h-5 w-5 flex-shrink-0" />
+                <span className="whitespace-nowrap text-sm font-medium">Sign Out</span>
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+
       {/* Main Content */}
       <main className={`flex-1 pb-20 transition-all duration-300 md:pb-0 ${sidebarExpanded ? 'md:ml-56' : 'md:ml-20'}`}>
-        {/* Top Bar — hamburger on mobile + notifications */}
+        {/* Top Bar */}
         <div className="sticky top-0 z-40 border-b border-gray-200/50 bg-[#efece7]/95 px-4 py-2.5 backdrop-blur-sm md:px-6 md:py-3" style={{ paddingTop: 'max(0.625rem, env(safe-area-inset-top))' }}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -561,7 +610,7 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
         {children}
       </main>
 
-      {/* Mobile Bottom Navigation — quick-access tabs on small screens */}
+      {/* Mobile Bottom Navigation — quick-access tabs, md:hidden */}
       <nav className="fixed bottom-0 left-0 right-0 z-[55] border-t border-gray-200 bg-white pb-[env(safe-area-inset-bottom)] md:hidden">
         <div className="flex">
           {navItems.slice(0, 4).map((item) => {
@@ -584,21 +633,18 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
               );
             }
 
-            const tabHandler = () => { window.location.href = item.path; };
             return (
-              <button
+              <a
                 key={item.path}
-                type="button"
-                onClick={tabHandler}
-                onPointerDown={tabHandler}
-                className={`flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 py-3 transition-colors ${
+                href={item.path}
+                className={`flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 py-3 no-underline transition-colors ${
                   active ? '' : 'text-gray-400 active:text-gray-600'
                 }`}
-                style={{ pointerEvents: 'auto', ...(active ? { color: primaryColor } : {}) }}
+                style={active ? { color: primaryColor } : {}}
               >
                 <Icon className="h-5 w-5 flex-shrink-0" />
-                <span className="pointer-events-none truncate text-[10px] font-medium leading-tight">{item.label}</span>
-              </button>
+                <span className="truncate text-[10px] font-medium leading-tight">{item.label}</span>
+              </a>
             );
           })}
           <button
