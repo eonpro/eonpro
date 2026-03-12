@@ -79,10 +79,16 @@ export default function OverrideManagersPage() {
   const fetchReps = useCallback(async () => {
     if (!clinicId) return;
     try {
-      const res = await apiFetch(`/api/admin/sales-reps?clinicId=${clinicId}&includeInactive=false`);
+      const res = await apiFetch(`/api/super-admin/sales-reps?preset=all-time&clinicId=${clinicId}`);
       if (res.ok) {
         const json = await res.json();
-        setReps(json.salesReps || []);
+        const repList = (json.reps || []).map((r: any) => ({
+          id: r.id,
+          firstName: r.name?.split(' ')[0] || '',
+          lastName: r.name?.split(' ').slice(1).join(' ') || '',
+          email: r.email,
+        }));
+        setReps(repList);
       }
     } catch { /* ignore */ }
   }, [clinicId]);
@@ -90,10 +96,11 @@ export default function OverrideManagersPage() {
   useEffect(() => { fetchClinics(); }, [fetchClinics]);
   useEffect(() => { fetchAssignments(); fetchReps(); }, [fetchAssignments, fetchReps]);
 
-  const openCreate = () => {
+  const openCreate = async () => {
     setEditAssignment(null);
     setForm({ overrideRepId: '', subordinateRepId: '', overridePercent: '', notes: '' });
     setError('');
+    await fetchReps();
     setShowModal(true);
   };
 
