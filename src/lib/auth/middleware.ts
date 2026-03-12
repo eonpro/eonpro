@@ -1013,13 +1013,13 @@ export function withProviderAuth(
 }
 
 /**
- * Middleware for clinical routes (providers and staff)
- * @see withAuth — use withAuth(handler, { roles: ['super_admin', 'admin', 'provider', 'staff'] }) for new code
+ * Middleware for clinical routes (providers, staff, and pharmacy reps)
+ * @see withAuth — use withAuth(handler, { roles: ['super_admin', 'admin', 'provider', 'staff', 'pharmacy_rep'] }) for new code
  */
 export function withClinicalAuth(
   handler: (req: NextRequest, user: AuthUser, context?: unknown) => Promise<Response>
 ): (req: NextRequest, context?: unknown) => Promise<Response> {
-  return withAuth<unknown>(handler, { roles: ['super_admin', 'admin', 'provider', 'staff'] });
+  return withAuth<unknown>(handler, { roles: ['super_admin', 'admin', 'provider', 'staff', 'pharmacy_rep'] });
 }
 
 /**

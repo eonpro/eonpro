@@ -59,7 +59,7 @@ const createPatientSchema = z.object({
  * - tags: Filter by tags (comma-separated)
  * - includeContact: Include email/phone/address (default: false)
  */
-const getPatientsHandler = withAuth(async (req: NextRequest, user) => {
+const getPatientsHandler = withClinicalAuth(async (req: NextRequest, user) => {
   const timing = createServerTiming();
 
   try {
@@ -146,7 +146,7 @@ const getPatientsHandler = withAuth(async (req: NextRequest, user) => {
       context: { route: 'GET /api/patients' },
     });
   }
-}, { roles: ['super_admin', 'admin', 'provider', 'staff', 'pharmacy_rep'] });
+});
 
 // Apply rate limiting to GET endpoint
 export const GET = relaxedRateLimit(getPatientsHandler);
