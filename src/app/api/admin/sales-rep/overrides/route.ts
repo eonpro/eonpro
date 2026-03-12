@@ -97,7 +97,7 @@ async function handlePost(req: NextRequest, user: AuthUser): Promise<Response> {
 
     const [overrideRep, subordinateRep] = await Promise.all([
       prisma.user.findFirst({
-        where: { id: overrideRepId, role: 'SALES_REP', status: 'ACTIVE' },
+        where: { id: overrideRepId, role: { in: ['SALES_REP', 'ADMIN'] }, status: 'ACTIVE' },
         select: { id: true, clinicId: true },
       }),
       prisma.user.findFirst({
@@ -107,7 +107,7 @@ async function handlePost(req: NextRequest, user: AuthUser): Promise<Response> {
     ]);
 
     if (!overrideRep) {
-      return NextResponse.json({ error: 'Override rep not found or not active' }, { status: 404 });
+      return NextResponse.json({ error: 'Override manager not found or not active' }, { status: 404 });
     }
     if (!subordinateRep) {
       return NextResponse.json({ error: 'Subordinate rep not found or not active' }, { status: 404 });

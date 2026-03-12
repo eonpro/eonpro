@@ -29,9 +29,15 @@ async function handleGet(req: NextRequest, user: AuthUser): Promise<Response> {
       ? (clinicIdParam ? parseInt(clinicIdParam, 10) : undefined)
       : user.clinicId;
 
-    // Build where clause
+    // Support querying multiple roles (e.g. ?roles=SALES_REP,ADMIN for override manager dropdown)
+    const rolesParam = searchParams.get('roles');
+    const allowedRoles = ['SALES_REP', 'ADMIN', 'STAFF'];
+    const requestedRoles = rolesParam
+      ? rolesParam.split(',').filter((r) => allowedRoles.includes(r))
+      : ['SALES_REP'];
+
     const whereClause: Record<string, unknown> = {
-      role: 'SALES_REP',
+      role: requestedRoles.length === 1 ? requestedRoles[0] : { in: requestedRoles },
       ...(includeInactive ? {} : { status: 'ACTIVE' }),
     };
 
@@ -55,6 +61,7 @@ async function handleGet(req: NextRequest, user: AuthUser): Promise<Response> {
         firstName: true,
         lastName: true,
         email: true,
+        role: true,
         status: true,
         clinicId: true,
         createdAt: true,
@@ -83,6 +90,7 @@ async function handleGet(req: NextRequest, user: AuthUser): Promise<Response> {
       firstName: rep.firstName,
       lastName: rep.lastName,
       email: rep.email,
+      role: rep.role,
       status: rep.status,
       clinicId: rep.clinicId,
       clinicName: rep.clinic?.name || null,

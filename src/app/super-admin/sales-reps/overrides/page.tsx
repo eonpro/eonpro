@@ -26,10 +26,11 @@ interface OverrideAssignment {
 }
 
 interface Clinic { id: number; name: string; }
-interface Rep { id: number; firstName: string; lastName: string; email: string; }
+interface Rep { id: number; firstName: string; lastName: string; email: string; role?: string; }
 
 function repName(r: Rep) {
-  return `${r.firstName || ''} ${r.lastName || ''}`.trim() || r.email;
+  const name = `${r.firstName || ''} ${r.lastName || ''}`.trim() || r.email;
+  return r.role === 'ADMIN' ? `${name} (Admin)` : name;
 }
 
 export default function OverrideManagersPage() {
@@ -43,6 +44,7 @@ export default function OverrideManagersPage() {
   const [editAssignment, setEditAssignment] = useState<OverrideAssignment | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [managers, setManagers] = useState<Rep[]>([]);
 
   const [form, setForm] = useState({
     overrideRepId: '',
@@ -79,17 +81,29 @@ export default function OverrideManagersPage() {
   const fetchReps = useCallback(async () => {
     if (!clinicId) return;
     try {
-      const res = await apiFetch(`/api/super-admin/sales-reps?preset=all-time&clinicId=${clinicId}`);
-      if (res.ok) {
-        const json = await res.json();
-        const repList = (json.reps || []).map((r: any) => ({
-          id: r.id,
-          firstName: r.name?.split(' ')[0] || '',
-          lastName: r.name?.split(' ').slice(1).join(' ') || '',
-          email: r.email,
+      // Fetch sales reps (subordinates only)
+      const repRes = await apiFetch(`/api/admin/sales-reps?clinicId=${clinicId}&roles=SALES_REP`);
+      let repList: Rep[] = [];
+      if (repRes.ok) {
+        const json = await repRes.json();
+        repList = (json.salesReps || []).map((r: any) => ({
+          id: r.id, firstName: r.firstName || '', lastName: r.lastName || '',
+          email: r.email, role: r.role || 'SALES_REP',
         }));
-        setReps(repList);
       }
+      setReps(repList);
+
+      // Fetch admins + sales reps (eligible as override managers)
+      const mgrRes = await apiFetch(`/api/admin/sales-reps?clinicId=${clinicId}&roles=SALES_REP,ADMIN`);
+      let mgrList: Rep[] = [];
+      if (mgrRes.ok) {
+        const json = await mgrRes.json();
+        mgrList = (json.salesReps || []).map((r: any) => ({
+          id: r.id, firstName: r.firstName || '', lastName: r.lastName || '',
+          email: r.email, role: r.role || 'SALES_REP',
+        }));
+      }
+      setManagers(mgrList);
     } catch { /* ignore */ }
   }, [clinicId]);
 
@@ -276,10 +290,10 @@ export default function OverrideManagersPage() {
               {!editAssignment && (
                 <>
                   <div>
-                    <label className="mb-1 block text-sm font-medium text-gray-700">Override Manager (senior rep) *</label>
+                    <label className="mb-1 block text-sm font-medium text-gray-700">Override Manager (senior rep or admin) *</label>
                     <select value={form.overrideRepId} onChange={(e) => setForm((f) => ({ ...f, overrideRepId: e.target.value }))} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
-                      <option value="">Select manager rep...</option>
-                      {reps.map((r) => <option key={r.id} value={String(r.id)}>{repName(r)} ({r.email})</option>)}
+                      <option value="">Select manager...</option>
+                      {managers.map((r) => <option key={r.id} value={String(r.id)}>{repName(r)} ({r.email})</option>)}
                     </select>
                   </div>
 
@@ -318,7 +332,7 @@ export default function OverrideManagersPage() {
                 <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800">
                   <p className="font-medium">Preview</p>
                   <p className="mt-1">
-                    When {reps.find((r) => String(r.id) === form.subordinateRepId)?.firstName || 'the subordinate'}'s patients generate revenue, {reps.find((r) => String(r.id) === form.overrideRepId)?.firstName || 'the manager'} will earn <strong>{form.overridePercent}%</strong> of the gross payment amount.
+                    When {reps.find((r) => String(r.id) === form.subordinateRepId)?.firstName || 'the subordinate'}'s patients generate revenue, {managers.find((r) => String(r.id) === form.overrideRepId)?.firstName || 'the manager'} will earn <strong>{form.overridePercent}%</strong> of the gross payment amount.
                   </p>
                   <p className="mt-1 text-xs text-blue-600">Example: $1,000 payment = ${(parseFloat(form.overridePercent || '0') * 10).toFixed(2)} override commission</p>
                 </div>
