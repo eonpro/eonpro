@@ -488,15 +488,14 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
                 }
 
                 return (
-                  <a
+                  <button
                     key={item.path}
-                    href={item.path}
-                    onClick={(e) => {
-                      e.preventDefault();
+                    type="button"
+                    onClick={() => {
                       window.location.href = item.path;
                     }}
                     title={!showLabels ? item.label : undefined}
-                    className={`flex min-h-[44px] w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left no-underline transition-colors touch-manipulation ${
+                    className={`flex min-h-[44px] w-full cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors touch-manipulation ${
                       active ? '' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600 active:bg-gray-100'
                     }`}
                     style={active ? { backgroundColor: `${primaryColor}15`, color: primaryColor } : {}}
@@ -505,7 +504,7 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
                     {showLabels && (
                       <span className="whitespace-nowrap text-sm font-medium">{item.label}</span>
                     )}
-                  </a>
+                  </button>
                 );
               })}
             </nav>
@@ -585,21 +584,20 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
             }
 
             return (
-              <a
+              <button
                 key={item.path}
-                href={item.path}
-                onClick={(e) => {
-                  e.preventDefault();
+                type="button"
+                onClick={() => {
                   window.location.href = item.path;
                 }}
-                className={`flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 py-3 no-underline transition-colors ${
+                className={`flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 py-3 transition-colors ${
                   active ? '' : 'text-gray-400 active:text-gray-600'
                 }`}
                 style={active ? { color: primaryColor } : {}}
               >
                 <Icon className="h-5 w-5 flex-shrink-0" />
                 <span className="truncate text-[10px] font-medium leading-tight">{item.label}</span>
-              </a>
+              </button>
             );
           })}
           <button
