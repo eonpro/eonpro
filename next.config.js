@@ -17,6 +17,8 @@ const nextConfig = {
     '@redis/client',
     'ioredis',
     'bullmq',
+    'unpdf',
+    'pdf-parse',
   ],
 
   // TypeScript: CI MUST run "npm run type-check" and fail on type errors (see .github/workflows/ci.yml).

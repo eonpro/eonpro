@@ -91,15 +91,56 @@ export const POST = withAuth(
       });
 
       // Upload + parse
-      const { upload, parsed } = await uploadAndParseInvoice({
-        clinicId,
-        uploadedBy: user.id,
-        pdfBuffer: buffer,
-        fileName: file.name,
-      });
+      let uploadResult;
+      try {
+        uploadResult = await uploadAndParseInvoice({
+          clinicId,
+          uploadedBy: user.id,
+          pdfBuffer: buffer,
+          fileName: file.name,
+        });
+      } catch (parseErr) {
+        const msg = parseErr instanceof Error ? parseErr.message : 'Upload/parse failed';
+        const statusCode = (parseErr as { statusCode?: number }).statusCode ?? 500;
+        logger.error('Pharmacy invoice upload/parse failed', {
+          clinicId,
+          userId: user.id,
+          error: msg,
+        });
+        return NextResponse.json({ error: msg }, { status: statusCode });
+      }
+
+      const { upload, parsed } = uploadResult;
 
       // Run reconciliation
-      const summary = await runReconciliation(upload.id, clinicId);
+      let summary;
+      try {
+        summary = await runReconciliation(upload.id, clinicId);
+      } catch (matchErr) {
+        const msg = matchErr instanceof Error ? matchErr.message : 'Reconciliation failed';
+        logger.error('Pharmacy invoice reconciliation failed', {
+          uploadId: upload.id,
+          error: msg,
+        });
+        return NextResponse.json(
+          {
+            success: true,
+            data: {
+              upload,
+              summary: {
+                totalLineItems: parsed.lineItems.length,
+                orderCount: parsed.orderCount,
+                totalCents: parsed.totalCents,
+                matchedCents: 0,
+                unmatchedCents: 0,
+                matchRate: 0,
+                reconciliationError: msg,
+              },
+            },
+          },
+          { status: 201 }
+        );
+      }
 
       return NextResponse.json(
         {

@@ -83,21 +83,6 @@ export async function uploadAndParseInvoice(
 ): Promise<UploadInvoiceResult> {
   const { clinicId, uploadedBy, pdfBuffer, fileName } = input;
 
-  // 0. Pre-parse to check for duplicate invoice number before uploading to S3
-  const preParsed = await parseWellmedrInvoicePdf(pdfBuffer);
-  if (preParsed.header.invoiceNumber) {
-    const existing = await prisma.pharmacyInvoiceUpload.findFirst({
-      where: { clinicId, invoiceNumber: preParsed.header.invoiceNumber },
-    });
-    if (existing) {
-      const err = new Error(
-        `Invoice #${preParsed.header.invoiceNumber} has already been uploaded for this clinic.`
-      ) as Error & { statusCode?: number };
-      err.statusCode = 409;
-      throw err;
-    }
-  }
-
   // 1. Upload PDF to S3
   const s3Result = await uploadToS3({
     file: pdfBuffer,
@@ -119,8 +104,30 @@ export async function uploadAndParseInvoice(
   });
 
   try {
-    // 3. Use the pre-parsed result (already parsed above for duplicate check)
-    const parsed = preParsed;
+    // 3. Parse the PDF
+    const parsed = await parseWellmedrInvoicePdf(pdfBuffer);
+
+    // 3a. Check for duplicate invoice number
+    if (parsed.header.invoiceNumber) {
+      const existing = await prisma.pharmacyInvoiceUpload.findFirst({
+        where: {
+          clinicId,
+          invoiceNumber: parsed.header.invoiceNumber,
+          id: { not: upload.id },
+        },
+      });
+      if (existing) {
+        await prisma.pharmacyInvoiceUpload.update({
+          where: { id: upload.id },
+          data: { status: 'ERROR', errorMessage: `Duplicate invoice #${parsed.header.invoiceNumber}` },
+        });
+        const err = new Error(
+          `Invoice #${parsed.header.invoiceNumber} has already been uploaded for this clinic.`
+        ) as Error & { statusCode?: number };
+        err.statusCode = 409;
+        throw err;
+      }
+    }
 
     // 4. Store line items + update header in a transaction
     const updated = await prisma.$transaction(async (tx) => {
