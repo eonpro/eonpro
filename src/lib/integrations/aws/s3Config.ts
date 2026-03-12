@@ -158,11 +158,14 @@ export const STORAGE_CONFIG = {
 
 // S3 Bucket Policies
 export const BUCKET_POLICIES = {
-  // CORS configuration
+  // CORS configuration — must include all subdomains that do direct browser-to-S3 uploads
   CORS: {
     AllowedHeaders: ['*'],
     AllowedMethods: ['GET', 'PUT', 'POST', 'DELETE', 'HEAD'],
-    AllowedOrigins: [process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'],
+    AllowedOrigins: [
+      process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
+      'https://*.eonpro.io',
+    ],
     ExposeHeaders: ['ETag', 'x-amz-server-side-encryption'],
     MaxAgeSeconds: 3000,
   },

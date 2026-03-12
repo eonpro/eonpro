@@ -2,10 +2,9 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { apiFetch } from '@/lib/api/fetch';
-import { getAuthHeaders } from '@/lib/utils/auth-token';
 import { PatientPhotoType } from '@/types/prisma-enums';
 import { Camera, Loader2, AlertCircle, CheckCircle, X, RotateCcw } from 'lucide-react';
+import { getAuthToken } from '@/lib/utils/auth-token';
 
 interface CaptureStepConfig {
   type: PatientPhotoType;
@@ -16,6 +15,8 @@ interface CaptureStepConfig {
 
 const MAX_DIMENSION = 2048;
 const COMPRESSION_QUALITY = 0.85;
+const UPLOAD_TIMEOUT_MS = 45_000;
+const MAX_RETRIES = 2;
 
 function compressImage(file: File): Promise<{ blob: Blob; width: number; height: number }> {
   return new Promise((resolve, reject) => {
@@ -96,6 +97,10 @@ function createThumbnail(blob: Blob, maxSize = 200): Promise<Blob> {
   });
 }
 
+/**
+ * Upload photo via server-side direct upload (bypasses S3 CORS).
+ * Sends the file as FormData to the API which handles S3 upload + DB record in one request.
+ */
 async function uploadVerificationPhoto(
   compressed: Blob,
   type: PatientPhotoType,
@@ -103,62 +108,82 @@ async function uploadVerificationPhoto(
   height: number,
   originalBlob: Blob,
 ): Promise<void> {
-  const presigned = await apiFetch('/api/patient-portal/photos/upload', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-    body: JSON.stringify({
-      type,
-      contentType: 'image/jpeg',
-      fileSize: compressed.size,
-      includeThumbnail: true,
-    }),
-  });
-  if (!presigned.ok) {
-    const err = await presigned.json().catch(() => ({ error: 'Upload URL failed' }));
-    throw new Error(err.error || 'Failed to get upload URL');
+  const formData = new FormData();
+  formData.append('file', compressed, `${type.toLowerCase()}.jpg`);
+  formData.append('type', type);
+  formData.append('width', String(width));
+  formData.append('height', String(height));
+  formData.append('uploadedFrom', 'camera');
+
+  // Best-effort thumbnail
+  try {
+    const thumb = await createThumbnail(originalBlob);
+    formData.append('thumbnail', thumb, `${type.toLowerCase()}_thumb.jpg`);
+  } catch {
+    // Thumbnail is optional
   }
-  const { uploadUrl, s3Key, thumbnailUploadUrl, thumbnailKey } = await presigned.json();
 
-  const uploadResp = await fetch(uploadUrl, {
-    method: 'PUT',
-    body: compressed,
-    headers: { 'Content-Type': 'image/jpeg' },
-  });
-  if (!uploadResp.ok) throw new Error('S3 upload failed');
+  const headers: HeadersInit = {};
+  const token = getAuthToken();
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
 
-  let finalThumbnailKey: string | undefined;
-  if (thumbnailUploadUrl && thumbnailKey) {
+  let lastError: Error | null = null;
+
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), UPLOAD_TIMEOUT_MS);
+
     try {
-      const thumb = await createThumbnail(originalBlob);
-      await fetch(thumbnailUploadUrl, {
-        method: 'PUT',
-        body: thumb,
-        headers: { 'Content-Type': 'image/jpeg' },
+      const resp = await fetch('/api/patient-portal/photos/upload-direct', {
+        method: 'POST',
+        body: formData,
+        headers,
+        credentials: 'include',
+        signal: controller.signal,
       });
-      finalThumbnailKey = thumbnailKey;
-    } catch {
-      // Thumbnail upload is best-effort
+
+      clearTimeout(timeoutId);
+
+      if (resp.ok) return;
+
+      const body = await resp.json().catch(() => ({ error: 'Upload failed' }));
+
+      if (resp.status === 401 || resp.status === 403) {
+        throw new Error('Your session has expired. Please log in again.');
+      }
+      if (resp.status === 503) {
+        throw new Error('Photo upload service is temporarily unavailable. Please try again later.');
+      }
+
+      lastError = new Error(body.error || 'Upload failed');
+
+      // Don't retry client errors (400, 404)
+      if (resp.status >= 400 && resp.status < 500) throw lastError;
+    } catch (err) {
+      clearTimeout(timeoutId);
+      if (err instanceof Error && (err.message.includes('session') || err.message.includes('unavailable'))) {
+        throw err;
+      }
+      const isTimeout = (err as any)?.name === 'AbortError';
+      const isNetwork = (err as any)?.name === 'TypeError';
+      lastError = isTimeout
+        ? new Error('Upload timed out. Please check your connection and try again.')
+        : isNetwork
+          ? new Error('Unable to reach the server. Please check your internet connection.')
+          : err instanceof Error
+            ? err
+            : new Error('Upload failed');
+
+      if (attempt < MAX_RETRIES) {
+        await new Promise((r) => setTimeout(r, 1000 * (attempt + 1)));
+        continue;
+      }
     }
   }
 
-  const createResp = await apiFetch('/api/patient-portal/photos', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-    body: JSON.stringify({
-      type,
-      s3Key,
-      thumbnailKey: finalThumbnailKey,
-      fileSize: compressed.size,
-      mimeType: 'image/jpeg',
-      width,
-      height,
-      uploadedFrom: 'camera',
-    }),
-  });
-  if (!createResp.ok) {
-    const err = await createResp.json().catch(() => ({ error: 'Save failed' }));
-    throw new Error(err.error || 'Failed to save photo');
-  }
+  throw lastError ?? new Error('Upload failed. Please try again.');
 }
 
 type CapturePhase = 'camera' | 'preview' | 'uploading' | 'complete';
