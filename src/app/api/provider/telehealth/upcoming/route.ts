@@ -52,7 +52,7 @@ export const GET = withProviderAuth(async (req: NextRequest, user: AuthUser) => 
           FROM "Appointment" a
           LEFT JOIN "Patient" p ON a."patientId" = p.id
           WHERE a.type = 'VIDEO'
-            AND a."startTime" >= NOW()
+            AND a."startTime" >= DATE_TRUNC('day', NOW())
             AND a."startTime" <= NOW() + INTERVAL '7 days'
             AND a.status IN ('SCHEDULED', 'CONFIRMED', 'IN_PROGRESS')
             ${clinicFilter}
@@ -99,6 +99,8 @@ export const GET = withProviderAuth(async (req: NextRequest, user: AuthUser) => 
     }
 
     const now = new Date();
+    const lookbackStart = new Date();
+    lookbackStart.setHours(0, 0, 0, 0); // Start of today
     const endDate = new Date();
     endDate.setDate(endDate.getDate() + 7);
 
@@ -110,7 +112,10 @@ export const GET = withProviderAuth(async (req: NextRequest, user: AuthUser) => 
       const telehealthSessions = await prisma.telehealthSession.findMany({
         where: {
           providerId: provider.id,
-          scheduledAt: { gte: now, lte: endDate },
+          OR: [
+            { scheduledAt: { gte: lookbackStart, lte: endDate } },
+            { status: 'IN_PROGRESS' },
+          ],
           status: { in: ['SCHEDULED', 'WAITING', 'IN_PROGRESS'] },
         },
         include: {
@@ -160,7 +165,10 @@ export const GET = withProviderAuth(async (req: NextRequest, user: AuthUser) => 
       where: {
         providerId: provider.id,
         type: 'VIDEO',
-        startTime: { gte: now, lte: endDate },
+        OR: [
+          { startTime: { gte: lookbackStart, lte: endDate } },
+          { status: 'IN_PROGRESS' },
+        ],
         status: { in: ['SCHEDULED', 'CONFIRMED', 'IN_PROGRESS'] },
         ...(seenAppointmentIds.size > 0
           ? { id: { notIn: Array.from(seenAppointmentIds) } }

@@ -52,9 +52,41 @@ export default function TelehealthDashboard({
         const data = await res.json();
         const sessions: TelehealthSessionData[] = data.sessions ?? [];
 
-        const match = sessions.find(
+        let match = sessions.find(
           (s) => s.appointment?.id === Number(consultationId) || s.id === Number(consultationId)
         );
+
+        // If not found in upcoming, fetch the specific appointment directly
+        if (!match) {
+          try {
+            const aptRes = await apiFetch(
+              `/api/scheduling/appointments?appointmentId=${consultationId}`
+            );
+            if (aptRes.ok) {
+              const aptData = await aptRes.json();
+              const apt = aptData.appointment ?? aptData;
+              if (apt?.id && apt?.type === 'VIDEO') {
+                match = {
+                  id: apt.id,
+                  topic: apt.title || apt.reason || 'Video Consultation',
+                  scheduledAt: apt.startTime,
+                  duration: apt.duration || 30,
+                  status: apt.status === 'CONFIRMED' ? 'SCHEDULED' : apt.status,
+                  joinUrl: apt.zoomJoinUrl || apt.videoLink || '',
+                  hostUrl: undefined,
+                  meetingId: apt.zoomMeetingId || undefined,
+                  password: undefined,
+                  patient: apt.patient
+                    ? { id: apt.patient.id, firstName: apt.patient.firstName || '', lastName: apt.patient.lastName || '' }
+                    : { id: 0, firstName: 'Unknown', lastName: 'Patient' },
+                  appointment: { id: apt.id, title: apt.title || '', reason: apt.reason || '' },
+                };
+              }
+            }
+          } catch {
+            // Fall through to queue
+          }
+        }
 
         if (!match) return;
 
