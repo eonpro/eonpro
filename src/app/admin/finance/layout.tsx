@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard,
@@ -62,9 +61,13 @@ export default function FinanceLayout({ children }: { children: React.ReactNode 
               const Icon = item.icon;
               const active = isActive(item.path, item.exact);
               return (
-                <Link
+                <a
                   key={item.path}
                   href={item.path}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    window.location.href = item.path;
+                  }}
                   className={`flex items-center gap-2 whitespace-nowrap border-b-2 px-4 py-3 text-sm font-medium transition-colors ${
                     active
                       ? 'border-emerald-500 text-emerald-600'
@@ -73,7 +76,7 @@ export default function FinanceLayout({ children }: { children: React.ReactNode 
                 >
                   <Icon className="h-4 w-4" />
                   {item.label}
-                </Link>
+                </a>
               );
             })}
           </nav>
