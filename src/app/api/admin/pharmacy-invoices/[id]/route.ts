@@ -11,6 +11,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { handleApiError, NotFoundError } from '@/domains/shared/errors';
+import { logger } from '@/lib/logger';
 import {
   getUploadSummary,
   runReconciliation,
@@ -88,7 +89,14 @@ export const PATCH = withAuth(
 
       return NextResponse.json({ success: true, data: { summary } });
     } catch (error) {
-      return handleApiError(error, { context: { route: 'PATCH /api/admin/pharmacy-invoices/[id]' } });
+      const msg = error instanceof Error ? error.message : String(error);
+      const stack = error instanceof Error ? error.stack?.slice(0, 500) : undefined;
+      logger.error('Pharmacy invoice reconciliation PATCH failed', {
+        uploadId: context ? 'present' : 'missing',
+        error: msg,
+        stack,
+      });
+      return NextResponse.json({ error: msg, stack }, { status: 500 });
     }
   },
   { roles: ['admin', 'super_admin'] }

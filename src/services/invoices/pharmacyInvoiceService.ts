@@ -353,26 +353,19 @@ export async function runReconciliation(uploadId: number, clinicId: number): Pro
       });
     }
 
-    // Batch update line items in chunks to avoid transaction limits
-    const CHUNK_SIZE = 50;
-    for (let ci = 0; ci < updates.length; ci += CHUNK_SIZE) {
-      const chunk = updates.slice(ci, ci + CHUNK_SIZE);
-      await prisma.$transaction(
-        chunk.map((u) =>
-          prisma.pharmacyInvoiceLineItem.update({
-            where: { id: u.id },
-            data: {
-              matchStatus: u.matchStatus,
-              matchedOrderId: u.matchedOrderId,
-              matchedPatientId: u.matchedPatientId,
-              matchedProviderId: u.matchedProviderId,
-              matchConfidence: u.matchConfidence,
-              matchNotes: u.matchNotes,
-            },
-          })
-        ),
-        { timeout: 30_000 }
-      );
+    // Update line items individually (avoids $transaction issues on PgBouncer/Vercel)
+    for (const u of updates) {
+      await prisma.pharmacyInvoiceLineItem.update({
+        where: { id: u.id },
+        data: {
+          matchStatus: u.matchStatus,
+          matchedOrderId: u.matchedOrderId,
+          matchedPatientId: u.matchedPatientId,
+          matchedProviderId: u.matchedProviderId,
+          matchConfidence: u.matchConfidence,
+          matchNotes: u.matchNotes,
+        },
+      });
     }
 
     // Update upload summary
