@@ -72,8 +72,10 @@ export const POST = withAuth(
         return NextResponse.json({ error: 'No file provided' }, { status: 400 });
       }
 
-      if (file.type !== 'application/pdf') {
-        return NextResponse.json({ error: 'Only PDF files are accepted' }, { status: 400 });
+      const allowedTypes = ['application/pdf', 'text/csv', 'application/vnd.ms-excel'];
+      const isCsv = file.name.toLowerCase().endsWith('.csv') || file.type === 'text/csv' || file.type === 'application/vnd.ms-excel';
+      if (!isCsv && file.type !== 'application/pdf') {
+        return NextResponse.json({ error: 'Only PDF and CSV files are accepted' }, { status: 400 });
       }
 
       const maxSize = 50 * 1024 * 1024; // 50 MB
@@ -98,6 +100,7 @@ export const POST = withAuth(
           uploadedBy: user.id,
           pdfBuffer: buffer,
           fileName: file.name,
+          fileType: isCsv ? 'csv' : 'pdf',
         });
       } catch (parseErr) {
         const msg = parseErr instanceof Error ? parseErr.message : 'Upload/parse failed';

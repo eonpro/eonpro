@@ -13,7 +13,7 @@ import { uploadToS3, generateSignedUrl } from '@/lib/integrations/aws/s3Service'
 import { FileCategory } from '@/lib/integrations/aws/s3Config';
 // PHI decryption is intentionally not used in reconciliation matching.
 // The lifefileOrderId match is deterministic and sufficient.
-import { parseWellmedrInvoicePdf } from '@/lib/invoices/wellmedr-parser';
+import { parseWellmedrInvoicePdf, parseWellmedrInvoiceCsv } from '@/lib/invoices/wellmedr-parser';
 import type { ParsedInvoice, ParsedInvoiceLineItem } from '@/lib/invoices/wellmedr-parser';
 import { logger } from '@/lib/logger';
 import type {
@@ -31,6 +31,7 @@ export interface UploadInvoiceInput {
   uploadedBy: number;
   pdfBuffer: Buffer;
   fileName: string;
+  fileType?: 'pdf' | 'csv';
 }
 
 export interface UploadInvoiceResult {
@@ -105,8 +106,11 @@ export async function uploadAndParseInvoice(
   });
 
   try {
-    // 3. Parse the PDF
-    const parsed = await parseWellmedrInvoicePdf(pdfBuffer);
+    // 3. Parse the file (PDF or CSV)
+    const isCsv = input.fileType === 'csv' || fileName.toLowerCase().endsWith('.csv');
+    const parsed = isCsv
+      ? parseWellmedrInvoiceCsv(pdfBuffer.toString('utf-8'))
+      : await parseWellmedrInvoicePdf(pdfBuffer);
 
     // 3a. Check for duplicate invoice number
     if (parsed.header.invoiceNumber) {

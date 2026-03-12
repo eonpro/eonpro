@@ -85,8 +85,10 @@ export default function PharmacyInvoicesPage() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.type !== 'application/pdf') {
-      setUploadError('Only PDF files are accepted.');
+    const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+    const isCsv = file.type === 'text/csv' || file.name.toLowerCase().endsWith('.csv') || file.type === 'application/vnd.ms-excel';
+    if (!isPdf && !isCsv) {
+      setUploadError('Only PDF and CSV files are accepted.');
       return;
     }
 
@@ -152,7 +154,7 @@ export default function PharmacyInvoicesPage() {
           <input
             ref={fileInputRef}
             type="file"
-            accept=".pdf,application/pdf"
+            accept=".pdf,.csv,application/pdf,text/csv"
             onChange={handleUpload}
             className="hidden"
             id="invoice-upload"
@@ -176,10 +178,10 @@ export default function PharmacyInvoicesPage() {
               <>
                 <Upload className="h-10 w-10 text-gray-400" />
                 <span className="text-sm font-medium text-gray-700">
-                  Drop a pharmacy invoice PDF here or click to upload
+                  Drop a pharmacy invoice PDF or CSV here, or click to upload
                 </span>
                 <span className="text-xs text-gray-400">
-                  WellMedR/Lifefile invoice PDFs up to 50 MB
+                  WellMedR/Lifefile invoice PDFs or CSV exports up to 50 MB
                 </span>
               </>
             )}

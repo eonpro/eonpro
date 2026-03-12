@@ -597,3 +597,228 @@ export function parseWellmedrInvoiceText(text: string): ParsedInvoice {
     orderCount: uniqueOrders.size,
   };
 }
+
+// ---------------------------------------------------------------------------
+// CSV Parser
+// ---------------------------------------------------------------------------
+
+/**
+ * Parse a simple CSV row, handling quoted fields with commas inside.
+ */
+function parseCsvRow(line: string): string[] {
+  const fields: string[] = [];
+  let current = '';
+  let inQuotes = false;
+
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') {
+      if (inQuotes && line[i + 1] === '"') {
+        current += '"';
+        i++;
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if (ch === ',' && !inQuotes) {
+      fields.push(current.trim());
+      current = '';
+    } else {
+      current += ch;
+    }
+  }
+  fields.push(current.trim());
+  return fields;
+}
+
+function parseCsvDollar(s: string): number {
+  if (!s) return 0;
+  const cleaned = s.replace(/[$,\s]/g, '');
+  const val = parseFloat(cleaned);
+  return isNaN(val) ? 0 : Math.round(val * 100);
+}
+
+/**
+ * Parse a WellMedR invoice CSV (exported from Google Sheets or similar).
+ *
+ * Expected columns (order may vary, detected from header row):
+ *   Order | Patient | Description | Doctor | Qty | Unit Price | Amount
+ *
+ * Subtotal rows have the dollar amount in column A or B.
+ * Shipping rows have "Order #NNN - METHOD" or "WELLMEDR SHIPPING" in Patient column.
+ */
+export function parseWellmedrInvoiceCsv(csvText: string): ParsedInvoice {
+  const rawLines = csvText.split(/\r?\n/);
+
+  // Detect and skip header row
+  let startIdx = 0;
+  let colOrder = -1, colPatient = -1, colDesc = -1, colDoctor = -1;
+  let colQty = -1, colPrice = -1, colAmount = -1;
+
+  for (let i = 0; i < Math.min(5, rawLines.length); i++) {
+    const row = parseCsvRow(rawLines[i]);
+    const lower = row.map((c) => c.toLowerCase());
+    if (lower.includes('order') && (lower.includes('patient') || lower.includes('description'))) {
+      colOrder = lower.indexOf('order');
+      colPatient = lower.indexOf('patient');
+      colDesc = lower.indexOf('description');
+      colDoctor = lower.indexOf('doctor');
+      colQty = lower.indexOf('qty');
+      colPrice = lower.findIndex((c) => c.includes('unit') && c.includes('price'));
+      colAmount = lower.indexOf('amount');
+      startIdx = i + 1;
+      break;
+    }
+  }
+
+  // Fallback: assume standard column order if no header found
+  if (colOrder === -1) {
+    colOrder = 0;
+    colPatient = 1;
+    colDesc = 2;
+    colDoctor = 3;
+    colQty = 4;
+    colPrice = 5;
+    colAmount = 6;
+  }
+
+  const items: ParsedInvoiceLineItem[] = [];
+  let lineNumber = 0;
+  let totalCents = 0;
+
+  for (let i = startIdx; i < rawLines.length; i++) {
+    const line = rawLines[i].trim();
+    if (!line) continue;
+
+    const cols = parseCsvRow(line);
+    const orderVal = cols[colOrder] ?? '';
+    const patientVal = cols[colPatient] ?? '';
+    const descVal = cols[colDesc] ?? '';
+    const doctorVal = cols[colDoctor] ?? '';
+    const qtyVal = cols[colQty] ?? '';
+    const priceVal = cols[colPrice] ?? '';
+    const amountVal = cols[colAmount] ?? '';
+
+    // Subtotal row: "Subtotal" in order or patient column, or just a dollar amount in order column
+    if (orderVal.toLowerCase() === 'subtotal' || patientVal.toLowerCase() === 'subtotal') {
+      const subtotalStr = patientVal.match(/\$/) ? patientVal : (descVal || amountVal || orderVal);
+      const subtotalCents = parseCsvDollar(subtotalStr);
+      for (let j = items.length - 1; j >= 0; j--) {
+        if (items[j].orderSubtotalCents === null) {
+          items[j].orderSubtotalCents = subtotalCents;
+          break;
+        }
+      }
+      continue;
+    }
+
+    // Rows where order column is just a dollar amount (subtotal without label)
+    if (/^\$[\d,.]+$/.test(orderVal) && !patientVal) {
+      const subtotalCents = parseCsvDollar(orderVal);
+      for (let j = items.length - 1; j >= 0; j--) {
+        if (items[j].orderSubtotalCents === null) {
+          items[j].orderSubtotalCents = subtotalCents;
+          break;
+        }
+      }
+      continue;
+    }
+
+    // Skip non-order rows
+    const orderId = orderVal.replace(/\D/g, '');
+    if (!orderId || orderId.length < 6) continue;
+
+    // Determine line type
+    const isShippingCarrier = ORDER_SHIPPING_RE.test(patientVal) || ORDER_SHIPPING_RE.test(descVal);
+    const isShippingFee = WELLMEDR_SHIPPING_RE.test(patientVal) || WELLMEDR_SHIPPING_RE.test(descVal);
+    const isSupply = SUPPLY_RE.test(descVal) || SUPPLY_RE.test(patientVal);
+
+    let lineType: InvoiceLineType;
+    if (isShippingCarrier) lineType = 'SHIPPING_CARRIER';
+    else if (isShippingFee) lineType = 'SHIPPING_FEE';
+    else if (isSupply) lineType = 'SUPPLY';
+    else lineType = 'MEDICATION';
+
+    // Extract rx number and fill ID from description
+    const rxMatch = descVal.match(/RX\s*(\d{6,12})/);
+    const fillMatch = descVal.match(FILL_ID_RE);
+    const rxNumber = rxMatch ? rxMatch[1] : null;
+    const fillId = fillMatch ? fillMatch[1] : null;
+
+    // Medication details
+    const medDetails = lineType === 'MEDICATION' ? extractMedicationDetails(descVal) : { medicationName: null, strength: null, form: null, vialSize: null };
+
+    // Shipping method
+    let shippingMethod: string | null = null;
+    if (isShippingCarrier) {
+      const sm = (patientVal || descVal).match(ORDER_SHIPPING_RE);
+      shippingMethod = sm ? sm[2].trim() : null;
+    } else if (isShippingFee) {
+      shippingMethod = 'WELLMEDR SHIPPING';
+    }
+
+    // For shipping/fee rows, price and amount may be in shifted columns
+    let quantity = parseInt(qtyVal, 10) || 1;
+    let unitPriceCents = parseCsvDollar(priceVal);
+    let amountCents = parseCsvDollar(amountVal);
+
+    // If amount is 0 but there's a dollar value in doctor/qty columns (shifted), try those
+    if (amountCents === 0 && (isShippingCarrier || isShippingFee)) {
+      if (parseCsvDollar(doctorVal) > 0) {
+        unitPriceCents = parseCsvDollar(doctorVal);
+        amountCents = parseCsvDollar(qtyVal);
+        quantity = parseInt(descVal, 10) || 1;
+      }
+    }
+
+    // Patient name (only for rx/supply lines)
+    const patientName = (lineType === 'MEDICATION' || lineType === 'SUPPLY') ? patientVal || null : null;
+    const doctorName = (lineType === 'MEDICATION' || lineType === 'SUPPLY') ? doctorVal || null : null;
+
+    lineNumber++;
+    items.push({
+      lineNumber,
+      lineType,
+      date: null,
+      lifefileOrderId: orderId,
+      rxNumber,
+      fillId,
+      patientName,
+      doctorName,
+      description: descVal.slice(0, 1000) || null,
+      medicationName: medDetails.medicationName,
+      strength: medDetails.strength,
+      form: medDetails.form,
+      vialSize: medDetails.vialSize,
+      shippingMethod,
+      quantity,
+      unitPriceCents,
+      discountCents: 0,
+      amountCents,
+      orderSubtotalCents: null,
+    });
+
+    totalCents += amountCents;
+  }
+
+  const uniqueOrders = new Set(items.map((item) => item.lifefileOrderId).filter(Boolean));
+
+  logger.info('WellMedR invoice CSV parsed', {
+    lineItemCount: items.length,
+    orderCount: uniqueOrders.size,
+    totalCents,
+  });
+
+  return {
+    header: {
+      pharmacyName: 'WellMedR / Logos Pharmacy',
+      invoiceNumber: null,
+      amountDueCents: totalCents,
+      payorId: null,
+      billingProfileId: null,
+      invoiceDate: null,
+    },
+    lineItems: items,
+    totalCents,
+    orderCount: uniqueOrders.size,
+  };
+}
