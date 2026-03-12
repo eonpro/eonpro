@@ -1,3 +1,4 @@
+const _ROUTE_BUILD = '2026-03-12T19:30:00Z';
 import { NextRequest, NextResponse } from 'next/server';
 import { withAuth, type AuthUser } from '@/lib/auth/middleware';
 import { prisma } from '@/lib/db';

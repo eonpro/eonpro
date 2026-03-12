@@ -1,5 +1,7 @@
 'use client';
 
+const _LAYOUT_BUILD = '2026-03-12T19:30:00Z';
+
 import React, { useEffect, useState, useMemo, Component, ErrorInfo } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
