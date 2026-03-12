@@ -87,12 +87,6 @@ export default function ZoomEmbeddedMeeting({
             },
           },
           meetingInfo: ['topic', 'host', 'mn', 'pwd', 'telPwd', 'invite', 'participant', 'dc', 'enctype'],
-          toolbar: {
-            buttons: [
-              { text: 'Audio', className: 'zoom-audio-btn', onClick: () => {} },
-              { text: 'Video', className: 'zoom-video-btn', onClick: () => {} },
-            ],
-          },
         },
       });
 

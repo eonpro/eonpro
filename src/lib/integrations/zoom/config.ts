@@ -106,14 +106,14 @@ export const TELEHEALTH_SETTINGS: Partial<ZoomMeetingSettings> = {
   hostVideo: true,
   participantVideo: true,
   audioOption: 'both',
-  joinBeforeHost: false,
+  joinBeforeHost: true,
   muteUponEntry: true,
-  waitingRoom: true,
+  waitingRoom: false,
   enforceLogin: false,
-  autoRecording: 'cloud', // Record for compliance (with consent)
+  autoRecording: 'cloud',
   encryptionType: 'enhanced_encryption',
   watermark: true,
-  showShareButton: true, // For sharing medical images
+  showShareButton: true,
   allowMultipleDevices: false,
 };
 
