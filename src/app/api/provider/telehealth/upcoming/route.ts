@@ -11,26 +11,18 @@ import { withProviderAuth, AuthUser } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
 import { prisma } from '@/lib/db';
 import { isZoomConfigured } from '@/lib/integrations/zoom/config';
+import { decryptPatientPHI } from '@/lib/security/phi-encryption';
 
-async function safeDecryptField(value: unknown): Promise<string> {
-  if (!value || typeof value !== 'string') return '';
-  try {
-    const parts = value.split(':');
-    if (parts.length !== 3) return value;
-    const { decryptPHI } = await import('@/lib/security/phi-encryption');
-    return decryptPHI(value) ?? value;
-  } catch {
-    return value;
-  }
-}
-
-async function safeDecryptPatient(patient: any): Promise<any> {
+function safeDecryptPatient(patient: any): any {
   if (!patient) return patient;
-  return {
-    id: patient.id,
-    firstName: await safeDecryptField(patient.firstName),
-    lastName: await safeDecryptField(patient.lastName),
-  };
+  try {
+    return decryptPatientPHI(
+      { id: patient.id, firstName: patient.firstName, lastName: patient.lastName },
+      ['firstName', 'lastName'] as any
+    );
+  } catch {
+    return { id: patient.id, firstName: patient.firstName, lastName: patient.lastName };
+  }
 }
 
 export const GET = withProviderAuth(async (req: NextRequest, user: AuthUser) => {
@@ -82,7 +74,7 @@ export const GET = withProviderAuth(async (req: NextRequest, user: AuthUser) => 
           meetingId: r.zoomMeetingId,
           password: null,
           patient: r.patientId
-            ? await safeDecryptPatient({ id: r.patientId, firstName: r.firstName, lastName: r.lastName })
+            ? safeDecryptPatient({ id: r.patientId, firstName: r.firstName, lastName: r.lastName })
             : null,
           appointment: { id: r.id, title: r.title, reason: r.reason },
           source: 'fallback',
@@ -147,7 +139,7 @@ export const GET = withProviderAuth(async (req: NextRequest, user: AuthUser) => 
       for (const s of telehealthSessions) {
         if (s.appointmentId) seenAppointmentIds.add(s.appointmentId);
         const patient = s.patient
-          ? await safeDecryptPatient(s.patient)
+          ? safeDecryptPatient(s.patient)
           : s.patient;
         sessionResults.push({
           id: s.id,
@@ -199,7 +191,7 @@ export const GET = withProviderAuth(async (req: NextRequest, user: AuthUser) => 
 
     for (const apt of videoAppointments) {
       const patient = apt.patient
-        ? await safeDecryptPatient(apt.patient)
+        ? safeDecryptPatient(apt.patient)
         : null;
       sessionResults.push({
         id: apt.id,
