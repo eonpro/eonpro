@@ -2,25 +2,21 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react';
 
-import dynamic from 'next/dynamic';
-
 import {
   Users,
   Sparkles,
   Copy,
   CheckCircle,
   Shield,
+  ExternalLink,
+  PhoneOff,
+  Video,
 } from 'lucide-react';
 
 import { safeParseJsonString } from '@/lib/utils/safe-json';
 import CallTimer from './CallTimer';
 import ScribePanel from './ScribePanel';
 import { type TelehealthSessionData, type PostCallData } from './types';
-
-const ZoomEmbeddedMeeting = dynamic(
-  async () => import('./ZoomEmbeddedMeeting'),
-  { ssr: false }
-);
 
 interface ActiveCallViewProps {
   session: TelehealthSessionData;
@@ -42,12 +38,12 @@ export default function ActiveCallView({
   const [callStartTime, setCallStartTime] = useState<Date | null>(null);
   const [copied, setCopied] = useState(false);
   const [providerId, setProviderId] = useState<number | undefined>();
+  const [zoomOpened, setZoomOpened] = useState(false);
   const transcriptRef = useRef('');
   const callStartRef = useRef<Date | null>(null);
   const onCallEndRef = useRef(onCallEnd);
   onCallEndRef.current = onCallEnd;
 
-  // Resolve providerId from auth context for the AI Scribe
   useEffect(() => {
     try {
       const user = localStorage.getItem('user');
@@ -58,29 +54,33 @@ export default function ActiveCallView({
     } catch { /* ignore */ }
   }, []);
 
-  const handleMeetingStart = useCallback(() => {
-    setCallActive(true);
-    const now = new Date();
-    callStartRef.current = now;
-    setCallStartTime(now);
-  }, []);
+  // Open Zoom in a new tab immediately
+  useEffect(() => {
+    if (zoomOpened) return;
+    const url = session.hostUrl ?? session.joinUrl;
+    if (url) {
+      window.open(url, '_blank', 'noopener,noreferrer');
+      setZoomOpened(true);
+      setCallActive(true);
+      const now = new Date();
+      callStartRef.current = now;
+      setCallStartTime(now);
+    }
+  }, [session.hostUrl, session.joinUrl, zoomOpened]);
 
-  const handleMeetingEnd = useCallback(
-    () => {
-      setCallActive(false);
-      const start = callStartRef.current;
-      const duration = start
-        ? Math.floor((Date.now() - start.getTime()) / 1000)
-        : 0;
+  const handleEndCall = useCallback(() => {
+    setCallActive(false);
+    const start = callStartRef.current;
+    const duration = start
+      ? Math.floor((Date.now() - start.getTime()) / 1000)
+      : 0;
 
-      onCallEndRef.current({
-        session,
-        duration,
-        transcript: transcriptRef.current ?? undefined,
-      });
-    },
-    [session]
-  );
+    onCallEndRef.current({
+      session,
+      duration,
+      transcript: transcriptRef.current ?? undefined,
+    });
+  }, [session]);
 
   const handleTranscriptUpdate = useCallback((transcript: string) => {
     transcriptRef.current = transcript;
@@ -91,6 +91,11 @@ export default function ActiveCallView({
     void navigator.clipboard.writeText(session.joinUrl);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const reopenZoom = () => {
+    const url = session.hostUrl ?? session.joinUrl;
+    if (url) window.open(url, '_blank', 'noopener,noreferrer');
   };
 
   return (
@@ -155,26 +160,61 @@ export default function ActiveCallView({
 
       {/* Main Content */}
       <div className="flex flex-1 overflow-hidden">
-        {/* Video Area */}
-        <div className="flex flex-1 items-center justify-center p-2 sm:p-4">
-          <div className="w-full max-w-5xl">
-            <ZoomEmbeddedMeeting
-              meetingNumber={session.meetingId ?? session.id.toString()}
-              password={session.password}
-              userName={userName}
-              userEmail={userEmail}
-              role={1}
-              joinUrl={session.hostUrl ?? session.joinUrl}
-              onMeetingStart={handleMeetingStart}
-              onMeetingEnd={handleMeetingEnd}
-              onError={() => {
-                // Non-blocking: error is shown inside ZoomEmbeddedMeeting
-              }}
-            />
+        {/* Call Status Area */}
+        <div className="flex flex-1 flex-col items-center justify-center p-4 sm:p-8">
+          <div className="w-full max-w-lg text-center">
+            <div className="mx-auto mb-6 flex h-24 w-24 items-center justify-center rounded-full bg-blue-600/20">
+              <Video className="h-12 w-12 text-blue-400" />
+            </div>
+
+            <h2 className="mb-2 text-xl font-semibold text-white">
+              Call in Progress
+            </h2>
+            <p className="mb-8 text-sm text-gray-400">
+              Zoom is open in a separate tab. Your AI Scribe is recording the session.
+            </p>
+
+            <div className="mb-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
+              <button
+                onClick={reopenZoom}
+                className="flex items-center gap-2 rounded-lg border border-gray-600 bg-gray-800 px-5 py-3 text-sm font-medium text-gray-200 transition-colors hover:bg-gray-700"
+              >
+                <ExternalLink className="h-4 w-4" />
+                Reopen Zoom
+              </button>
+
+              <button
+                onClick={handleEndCall}
+                className="flex items-center gap-2 rounded-full bg-red-600 px-8 py-3 text-sm font-semibold text-white shadow-lg transition-all hover:bg-red-700 hover:shadow-xl"
+              >
+                <PhoneOff className="h-4 w-4" />
+                End Call
+              </button>
+            </div>
+
+            <div className="rounded-xl border border-gray-800 bg-gray-900/50 p-4 text-left">
+              <p className="mb-2 text-xs font-medium uppercase tracking-wide text-gray-500">Session Details</p>
+              <div className="space-y-1.5 text-sm text-gray-400">
+                <div className="flex justify-between">
+                  <span>Patient</span>
+                  <span className="text-gray-200">{session.patient.firstName} {session.patient.lastName}</span>
+                </div>
+                {session.topic && (
+                  <div className="flex justify-between">
+                    <span>Topic</span>
+                    <span className="text-gray-200">{session.topic}</span>
+                  </div>
+                )}
+                <div className="flex justify-between">
+                  <span>Duration</span>
+                  <span className="text-gray-200">{session.duration} min</span>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Scribe Sidebar — hidden on mobile, shown on md+ */}
+        {/* Scribe Sidebar */}
         {scribeEnabled && (
           <div className="hidden md:flex">
             <ScribePanel
