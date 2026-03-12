@@ -14,10 +14,16 @@ import { isZoomConfigured } from '@/lib/integrations/zoom/config';
 
 // Dynamic import to avoid circular dependency in production builds
 async function safeDecryptPatient(patient: any): Promise<any> {
+  if (!patient) return patient;
   try {
+    const plain = JSON.parse(JSON.stringify(patient));
     const { decryptPatientPHI } = await import('@/lib/security/phi-encryption');
-    return decryptPatientPHI(patient, ['firstName', 'lastName']);
-  } catch {
+    return decryptPatientPHI(plain, ['firstName', 'lastName']);
+  } catch (err) {
+    logger.warn('Failed to decrypt patient PHI in telehealth', {
+      patientId: patient.id,
+      error: err instanceof Error ? err.message : 'Unknown',
+    });
     return patient;
   }
 }
