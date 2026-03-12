@@ -46,10 +46,13 @@ async function createMeeting(token: string, topic: string, duration: number, sta
       settings: {
         host_video: true,
         participant_video: true,
-        join_before_host: false,
+        join_before_host: true,
         mute_upon_entry: true,
-        waiting_room: true,
-        auto_recording: 'cloud',
+        waiting_room: false,
+        auto_recording: 'none',
+        meeting_authentication: false,
+        enforce_login: false,
+        approval_type: 2,
       },
     }),
   });
