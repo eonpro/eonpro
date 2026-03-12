@@ -85,12 +85,11 @@ async function withRetry<T>(
     } catch (error) {
       lastError = error instanceof Error ? error : new Error(String(error));
 
-      // Don't retry on abort errors or auth errors
       if (lastError.name === 'AbortError') throw lastError;
       if (lastError.message.includes('401') || lastError.message.includes('403')) throw lastError;
+      if (lastError.message.includes('429')) throw lastError;
 
       if (attempt < maxAttempts) {
-        // Exponential backoff: 1s, 2s, 4s...
         await new Promise((resolve) => setTimeout(resolve, delayMs * Math.pow(2, attempt - 1)));
       }
     }
@@ -125,6 +124,9 @@ export function useNotifications(options: UseNotificationsOptions = {}) {
   const abortControllerRef = useRef<AbortController | null>(null);
   const isServerless = useRef<boolean>(false);
   const lastFetchTime = useRef<number>(0);
+  const rateLimitedUntilRef = useRef<number>(0);
+  const isFetchingRef = useRef<boolean>(false);
+  const isFetchingCountRef = useRef<boolean>(false);
 
   // Determine if we're on serverless (no WebSocket) on mount
   useEffect(() => {
@@ -151,10 +153,25 @@ export function useNotifications(options: UseNotificationsOptions = {}) {
     [pageSize, category, unreadOnly]
   );
 
+  const isRateLimited = useCallback(() => {
+    return Date.now() < rateLimitedUntilRef.current;
+  }, []);
+
+  const handleRateLimitResponse = useCallback((status: number, headers?: Headers) => {
+    if (status === 429) {
+      const retryAfter = headers?.get('Retry-After');
+      const backoffMs = retryAfter ? parseInt(retryAfter, 10) * 1000 : 60_000;
+      rateLimitedUntilRef.current = Date.now() + backoffMs;
+      clientLogger.warn('[Notifications] Rate limited, backing off for', backoffMs, 'ms');
+    }
+  }, []);
+
   // Fetch notifications with retry logic
   const fetchNotifications = useCallback(
     async (page = 1, append = false) => {
       if (!isBrowser) return;
+      if (isRateLimited()) return;
+      if (isFetchingRef.current && !append) return;
 
       // Cancel previous request
       if (abortControllerRef.current) {
@@ -173,6 +190,8 @@ export function useNotifications(options: UseNotificationsOptions = {}) {
         setState((prev) => ({ ...prev, loading: true, error: null }));
       }
 
+      isFetchingRef.current = true;
+
       try {
         const data = await withRetry(async () => {
           const response = await apiFetch(`/api/notifications?${buildQueryString(page)}`, {
@@ -180,6 +199,7 @@ export function useNotifications(options: UseNotificationsOptions = {}) {
           });
 
           if (!response.ok) {
+            handleRateLimitResponse(response.status, response.headers);
             throw new Error(`Failed to fetch notifications: ${response.status}`);
           }
 
@@ -207,7 +227,7 @@ export function useNotifications(options: UseNotificationsOptions = {}) {
         }));
       } catch (error) {
         if (error instanceof Error && error.name === 'AbortError') {
-          return; // Request was cancelled
+          return;
         }
         clientLogger.error('Failed to fetch notifications:', error);
         setState((prev) => ({
@@ -215,35 +235,43 @@ export function useNotifications(options: UseNotificationsOptions = {}) {
           loading: false,
           error: error instanceof Error ? error.message : 'Unknown error',
         }));
+      } finally {
+        isFetchingRef.current = false;
       }
     },
-    [buildQueryString]
+    [buildQueryString, isRateLimited, handleRateLimitResponse]
   );
 
   // Fetch unread count only (lightweight) - with retry
   const fetchUnreadCount = useCallback(async () => {
     if (!isBrowser) return;
+    if (isRateLimited()) return;
+    if (isFetchingCountRef.current) return;
 
     const token = getAuthToken();
     if (!token) return;
+
+    isFetchingCountRef.current = true;
 
     try {
       const data = await withRetry(async () => {
         const response = await apiGet('/api/notifications/count');
 
         if (!response.ok) {
+          handleRateLimitResponse(response.status, response.headers);
           throw new Error(`Failed to fetch count: ${response.status}`);
         }
 
         return response.json();
-      }, 2); // Only 2 retries for lightweight count check
+      }, 2);
 
       setState((prev) => ({ ...prev, unreadCount: data.count ?? 0 }));
     } catch (error) {
-      // Silent fail for count - non-critical
       clientLogger.debug('Failed to fetch unread count:', error);
+    } finally {
+      isFetchingCountRef.current = false;
     }
-  }, []);
+  }, [isRateLimited, handleRateLimitResponse]);
 
   // Load more (pagination)
   const loadMore = useCallback(() => {
@@ -431,7 +459,6 @@ export function useNotifications(options: UseNotificationsOptions = {}) {
   useEffect(() => {
     if (refreshInterval <= 0) return;
 
-    // Use faster polling on serverless environments (no WebSocket support)
     const effectiveInterval = isServerless.current
       ? Math.min(refreshInterval, SERVERLESS_POLLING_INTERVAL)
       : refreshInterval;
@@ -444,10 +471,14 @@ export function useNotifications(options: UseNotificationsOptions = {}) {
     );
 
     const interval = setInterval(() => {
+      if (isRateLimited()) {
+        clientLogger.debug('[Notifications] Polling skipped (rate limited)');
+        return;
+      }
+
       clientLogger.debug('[Notifications] Polling...');
       fetchUnreadCount();
 
-      // On serverless, also do a full fetch periodically to catch new notifications
       if (isServerless.current && Date.now() - lastFetchTime.current > 60000) {
         clientLogger.debug('[Notifications] Full refresh on serverless...');
         fetchNotifications(1, false);
@@ -455,19 +486,17 @@ export function useNotifications(options: UseNotificationsOptions = {}) {
     }, effectiveInterval);
 
     return () => clearInterval(interval);
-  }, [refreshInterval, fetchUnreadCount, fetchNotifications]);
+  }, [refreshInterval, fetchUnreadCount, fetchNotifications, isRateLimited]);
 
   // Visibility change detection - refresh when tab becomes visible
   useEffect(() => {
     if (!isBrowser) return;
 
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        // Only refresh if it's been more than 5 seconds since last fetch
+      if (document.visibilityState === 'visible' && !isRateLimited()) {
         if (Date.now() - lastFetchTime.current > 5000) {
           fetchUnreadCount();
 
-          // On serverless, do a full fetch when tab becomes visible
           if (isServerless.current) {
             fetchNotifications(1, false);
           }
@@ -477,22 +506,21 @@ export function useNotifications(options: UseNotificationsOptions = {}) {
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [fetchUnreadCount, fetchNotifications]);
+  }, [fetchUnreadCount, fetchNotifications, isRateLimited]);
 
   // Focus detection - refresh when window gains focus
   useEffect(() => {
     if (!isBrowser) return;
 
     const handleFocus = () => {
-      // Only refresh if it's been more than 10 seconds since last fetch
-      if (Date.now() - lastFetchTime.current > 10000) {
+      if (!isRateLimited() && Date.now() - lastFetchTime.current > 10000) {
         fetchUnreadCount();
       }
     };
 
     window.addEventListener('focus', handleFocus);
     return () => window.removeEventListener('focus', handleFocus);
-  }, [fetchUnreadCount]);
+  }, [fetchUnreadCount, isRateLimited]);
 
   // Cleanup
   useEffect(() => {

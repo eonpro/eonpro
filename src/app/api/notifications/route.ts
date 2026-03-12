@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
-import { standardRateLimit } from '@/lib/rateLimit';
+import { standardRateLimit, relaxedRateLimit } from '@/lib/rateLimit';
 import { notificationService } from '@/services/notification';
 import { invalidateNotificationsCountCache } from '@/app/api/notifications/count/route';
 import { z } from 'zod';
@@ -281,6 +281,6 @@ async function archiveNotificationsHandler(req: NextRequest, user: AuthUser): Pr
   }
 }
 
-export const GET = standardRateLimit(withAuth(getNotificationsHandler));
+export const GET = relaxedRateLimit(withAuth(getNotificationsHandler));
 export const PUT = standardRateLimit(withAuth(markNotificationsReadHandler));
 export const DELETE = standardRateLimit(withAuth(archiveNotificationsHandler));

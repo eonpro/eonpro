@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
-import { standardRateLimit } from '@/lib/rateLimit';
+import { relaxedRateLimit } from '@/lib/rateLimit';
 import { notificationService } from '@/services/notification';
 import cache from '@/lib/cache/redis';
 import { getClinicContext } from '@/lib/db';
@@ -79,4 +79,4 @@ async function getUnreadCountHandler(req: NextRequest, user: AuthUser): Promise<
   }
 }
 
-export const GET = standardRateLimit(withAuth(getUnreadCountHandler));
+export const GET = relaxedRateLimit(withAuth(getUnreadCountHandler));

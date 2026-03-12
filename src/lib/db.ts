@@ -214,6 +214,8 @@ const BASE_PRISMA_ALLOWLIST: readonly string[] = [
   'affiliatecommissionevent', // super-admin cross-tenant commission aggregation (guarded by withSuperAdminAuth)
   'affiliatecommissionplan',
   'affiliateplanassignment',
+  'affiliatetouch', // super-admin cross-tenant click/conversion analytics (guarded by withSuperAdminAuth)
+  'affiliaterefcode', // super-admin affiliate management (guarded by withSuperAdminAuth)
   'platformfeeevent',
   'scheduledemail', // cron needs to query system-level emails (clinicId = null)
   'internalmessage', // user-scoped (senderId/recipientId), not clinic-scoped; clinicId is optional context only
