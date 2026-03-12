@@ -64,13 +64,32 @@ export const POST = withProviderAuth(async (req: NextRequest, user: AuthUser) =>
     const result = await ensureZoomMeetingForAppointment(appointmentId);
 
     if (!result.success) {
+      const errorMsg = result.error || 'Failed to create Zoom meeting';
+      const isConfigIssue = errorMsg.toLowerCase().includes('not configured') ||
+        errorMsg.toLowerCase().includes('no zoom') ||
+        errorMsg.toLowerCase().includes('credentials');
+      const isAuthIssue = errorMsg.toLowerCase().includes('token') ||
+        errorMsg.toLowerCase().includes('oauth') ||
+        errorMsg.toLowerCase().includes('401') ||
+        errorMsg.toLowerCase().includes('unauthorized');
+
       logger.error('Zoom provision retry failed', {
         appointmentId,
-        error: result.error,
+        clinicId: appointment.clinicId,
+        error: errorMsg,
+        category: isConfigIssue ? 'config' : isAuthIssue ? 'auth' : 'api',
       });
+
+      const statusCode = isConfigIssue ? 503 : 502;
+      const userMessage = isConfigIssue
+        ? 'Zoom is not configured for this clinic. Please contact your administrator.'
+        : isAuthIssue
+          ? 'Zoom authentication failed. Your clinic may need to reconnect its Zoom account.'
+          : `Zoom meeting creation failed: ${errorMsg}`;
+
       return NextResponse.json(
-        { error: result.error || 'Failed to create Zoom meeting' },
-        { status: 502 }
+        { error: userMessage, detail: errorMsg },
+        { status: statusCode }
       );
     }
 
