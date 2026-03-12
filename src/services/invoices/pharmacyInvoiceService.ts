@@ -83,6 +83,21 @@ export async function uploadAndParseInvoice(
 ): Promise<UploadInvoiceResult> {
   const { clinicId, uploadedBy, pdfBuffer, fileName } = input;
 
+  // 0. Pre-parse to check for duplicate invoice number before uploading to S3
+  const preParsed = await parseWellmedrInvoicePdf(pdfBuffer);
+  if (preParsed.header.invoiceNumber) {
+    const existing = await prisma.pharmacyInvoiceUpload.findFirst({
+      where: { clinicId, invoiceNumber: preParsed.header.invoiceNumber },
+    });
+    if (existing) {
+      const err = new Error(
+        `Invoice #${preParsed.header.invoiceNumber} has already been uploaded for this clinic.`
+      ) as Error & { statusCode?: number };
+      err.statusCode = 409;
+      throw err;
+    }
+  }
+
   // 1. Upload PDF to S3
   const s3Result = await uploadToS3({
     file: pdfBuffer,
@@ -104,8 +119,8 @@ export async function uploadAndParseInvoice(
   });
 
   try {
-    // 3. Parse the PDF
-    const parsed = await parseWellmedrInvoicePdf(pdfBuffer);
+    // 3. Use the pre-parsed result (already parsed above for duplicate check)
+    const parsed = preParsed;
 
     // 4. Store line items + update header in a transaction
     const updated = await prisma.$transaction(async (tx) => {
@@ -193,23 +208,41 @@ export async function runReconciliation(uploadId: number, clinicId: number): Pro
       orderBy: { lineNumber: 'asc' },
     });
 
+    // If no line items, mark as reconciled with 0 matches
+    if (lineItems.length === 0) {
+      const upload = await prisma.pharmacyInvoiceUpload.update({
+        where: { id: uploadId },
+        data: { status: 'RECONCILED', reconciledAt: new Date() },
+      });
+      return {
+        upload,
+        matchedCents: 0,
+        unmatchedCents: 0,
+        discrepancyCents: 0,
+        totalCents: upload.invoiceTotalCents,
+        matchRate: 0,
+      };
+    }
+
     // Collect unique Lifefile order IDs from the invoice
     const invoiceOrderIds = [
       ...new Set(lineItems.map((li) => li.lifefileOrderId).filter(Boolean)),
     ] as string[];
 
     // Batch-load matching orders from the database
-    const orders = await prisma.order.findMany({
-      where: {
-        clinicId,
-        lifefileOrderId: { in: invoiceOrderIds },
-      },
-      include: {
-        patient: { select: { id: true, firstName: true, lastName: true } },
-        provider: { select: { id: true, firstName: true, lastName: true } },
-        rxs: { select: { id: true, medName: true, strength: true } },
-      },
-    });
+    const orders = invoiceOrderIds.length > 0
+      ? await prisma.order.findMany({
+          where: {
+            clinicId,
+            lifefileOrderId: { in: invoiceOrderIds },
+          },
+          include: {
+            patient: { select: { id: true, firstName: true, lastName: true } },
+            provider: { select: { id: true, firstName: true, lastName: true } },
+            rxs: { select: { id: true, medName: true, strength: true } },
+          },
+        })
+      : [];
 
     // Build lookup map: lifefileOrderId -> order
     const orderMap = new Map<string, typeof orders[number]>();
@@ -322,23 +355,27 @@ export async function runReconciliation(uploadId: number, clinicId: number): Pro
       });
     }
 
-    // Batch update line items
-    await prisma.$transaction(
-      updates.map((u) =>
-        prisma.pharmacyInvoiceLineItem.update({
-          where: { id: u.id },
-          data: {
-            matchStatus: u.matchStatus,
-            matchedOrderId: u.matchedOrderId,
-            matchedPatientId: u.matchedPatientId,
-            matchedProviderId: u.matchedProviderId,
-            matchConfidence: u.matchConfidence,
-            matchNotes: u.matchNotes,
-          },
-        })
-      ),
-      { timeout: 60_000 }
-    );
+    // Batch update line items in chunks to avoid transaction limits
+    const CHUNK_SIZE = 50;
+    for (let ci = 0; ci < updates.length; ci += CHUNK_SIZE) {
+      const chunk = updates.slice(ci, ci + CHUNK_SIZE);
+      await prisma.$transaction(
+        chunk.map((u) =>
+          prisma.pharmacyInvoiceLineItem.update({
+            where: { id: u.id },
+            data: {
+              matchStatus: u.matchStatus,
+              matchedOrderId: u.matchedOrderId,
+              matchedPatientId: u.matchedPatientId,
+              matchedProviderId: u.matchedProviderId,
+              matchConfidence: u.matchConfidence,
+              matchNotes: u.matchNotes,
+            },
+          })
+        ),
+        { timeout: 30_000 }
+      );
+    }
 
     // Update upload summary
     const upload = await prisma.pharmacyInvoiceUpload.update({

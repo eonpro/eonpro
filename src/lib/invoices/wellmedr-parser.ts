@@ -197,6 +197,41 @@ async function extractWithPdfParse(buffer: Buffer, timeout: number): Promise<str
   }
 }
 
+/**
+ * On Vercel serverless, PDF text extraction often produces text without proper
+ * line breaks — table rows run together. This function re-inserts newlines
+ * before recognizable patterns so the line-by-line parser works correctly.
+ */
+function normalizeTextLineBreaks(text: string): string {
+  // If the text already has a healthy number of newlines, it's fine
+  const lineCount = (text.match(/\n/g) || []).length;
+  if (lineCount > 20) return text;
+
+  logger.info('Invoice text has few newlines, normalizing', { lineCount, textLen: text.length });
+
+  let normalized = text;
+
+  // Insert newlines before date patterns that start a table row: MM/DD/YYYY followed by an order number
+  normalized = normalized.replace(/(?<!\n)\s*(\d{2}\/\d{2}\/\d{4})\s+(\d{6,12})\s/g, '\n$1 $2 ');
+
+  // Insert newlines before Subtotal
+  normalized = normalized.replace(/(?<!\n)\s*(Subtotal\s+\$)/g, '\n$1');
+
+  // Insert newlines before TOTAL (grand total)
+  normalized = normalized.replace(/(?<!\n)\s*(TOTAL\s+\$)/g, '\n$1');
+
+  // Insert newlines before page break patterns
+  normalized = normalized.replace(
+    /(?<!\n)\s*(\d{1,2}\/\d{1,2}\/\d{2,4},\s+\d{1,2}:\d{2}\s+[AP]M\s+Invoice for Order)/g,
+    '\n$1'
+  );
+
+  // Insert newlines before "-- N of N --"
+  normalized = normalized.replace(/(?<!\n)\s*(-- \d+ of \d+ --)/g, '\n$1');
+
+  return normalized;
+}
+
 async function extractText(buffer: Buffer): Promise<string> {
   if (buffer.length > MAX_PDF_BYTES) {
     throw new Error('Invoice PDF exceeds maximum size (50 MB).');
@@ -225,6 +260,9 @@ async function extractText(buffer: Buffer): Promise<string> {
     );
   }
 
+  // Normalize line breaks for serverless environments
+  text = normalizeTextLineBreaks(text);
+
   return text;
 }
 
@@ -242,10 +280,15 @@ function parseHeader(text: string): ParsedInvoiceHeader {
     invoiceDate: null,
   };
 
-  // Pharmacy name: first line of the PDF
-  const firstLine = text.split('\n')[0]?.trim();
-  if (firstLine && !firstLine.match(/^\d/)) {
-    header.pharmacyName = firstLine;
+  // Pharmacy name: extract from known patterns or first short line
+  const pharmacyMatch = text.match(/^([A-Z][A-Za-z\s]+Pharmacy)/m);
+  if (pharmacyMatch) {
+    header.pharmacyName = pharmacyMatch[1].trim();
+  } else {
+    const firstLine = text.split('\n')[0]?.trim();
+    if (firstLine && firstLine.length < 100 && !firstLine.match(/^\d/)) {
+      header.pharmacyName = firstLine;
+    }
   }
 
   // Invoice number
@@ -265,7 +308,7 @@ function parseHeader(text: string): ParsedInvoiceHeader {
   if (bpMatch) header.billingProfileId = bpMatch[1];
 
   // Invoice date: first date in the table rows
-  const dateMatch = text.match(/\n(\d{2}\/\d{2}\/\d{4})\s+\d{6,12}/);
+  const dateMatch = text.match(/(?:^|\n)(\d{2}\/\d{2}\/\d{4})\s+\d{6,12}/m);
   if (dateMatch) header.invoiceDate = parseInvoiceDate(dateMatch[1]);
 
   return header;
