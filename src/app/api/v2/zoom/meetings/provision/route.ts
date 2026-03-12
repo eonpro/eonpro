@@ -9,8 +9,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { withProviderAuth, AuthUser } from '@/lib/auth/middleware';
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
-import { isZoomConfigured } from '@/lib/integrations/zoom/config';
-import { ensureZoomMeetingForAppointment } from '@/lib/integrations/zoom/telehealthService';
 import { prisma } from '@/lib/db';
 
 const provisionSchema = z.object({
@@ -19,6 +17,7 @@ const provisionSchema = z.object({
 
 export const POST = withProviderAuth(async (req: NextRequest, user: AuthUser) => {
   try {
+    const { isZoomConfigured } = await import('@/lib/integrations/zoom/config');
     if (!isZoomConfigured()) {
       return NextResponse.json(
         { error: 'Zoom is not configured. Please add API credentials.' },
@@ -61,6 +60,7 @@ export const POST = withProviderAuth(async (req: NextRequest, user: AuthUser) =>
       });
     }
 
+    const { ensureZoomMeetingForAppointment } = await import('@/lib/integrations/zoom/telehealthService');
     const result = await ensureZoomMeetingForAppointment(appointmentId);
 
     if (!result.success) {
