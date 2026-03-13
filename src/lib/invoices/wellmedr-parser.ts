@@ -140,7 +140,7 @@ function extractMedicationDetails(desc: string): {
   const vialSize = vialMatch ? vialMatch[1].toUpperCase() : null;
 
   const medMatch = desc.match(
-    /(SEMAGLUTIDE|TIRZEPATIDE|LIRAGLUTIDE|PHENTERMINE)[\/\w\s]*([\d.]+\/[\d.]+MG\/ML)/i
+    /(SEMAGLUTIDE|TIRZEPATIDE|LIRAGLUTIDE|PHENTERMINE)[\/\w\s,]*([\d.]+\/[\d.]+MG\/ML)/i
   );
   if (medMatch) {
     return {
@@ -603,9 +603,64 @@ export function parseWellmedrInvoiceText(text: string): ParsedInvoice {
 // ---------------------------------------------------------------------------
 
 /**
- * Parse a simple CSV row, handling quoted fields with commas inside.
+ * Parse CSV row with robust handling for broken quoting (e.g., 5/16" in
+ * syringe descriptions that breaks Google Sheets CSV quoting).
+ *
+ * Strategy: parse columns from the RIGHT side first (dollar amounts are
+ * always the last 2 columns), then split the remaining left part.
  */
-function parseCsvRow(line: string): string[] {
+function parseCsvRowRobust(line: string): string[] {
+  // First, try standard CSV parsing
+  const standardResult = parseCsvRowStandard(line);
+
+  // Validate: the last column should look like a dollar amount or be empty/numeric
+  // for data rows (not header). If it does, the standard parse worked.
+  const lastCol = standardResult[standardResult.length - 1]?.trim() ?? '';
+  const secondLast = standardResult[standardResult.length - 2]?.trim() ?? '';
+  if (
+    standardResult.length >= 4 &&
+    (lastCol.match(/^\$?[\d,.]+$/) || lastCol === '' || lastCol === '0' || lastCol.match(/^Amount/i))
+  ) {
+    return standardResult;
+  }
+
+  // Standard parse failed (likely due to broken quoting). Use right-to-left approach:
+  // Find the last 3 comma-separated numeric/dollar fields from the right.
+  const parts = line.split(',');
+  if (parts.length < 4) return standardResult;
+
+  // Work from the right: Amount, Unit Price, Qty are the last 3 fields
+  const amountStr = parts[parts.length - 1]?.trim();
+  const priceStr = parts[parts.length - 2]?.trim();
+  const qtyStr = parts[parts.length - 3]?.trim();
+
+  // If the last 3 fields look like Amount/Price/Qty, reconstruct
+  if (priceStr.match(/^\$?[\d,.]+$/) && amountStr.match(/^\$?[\d,.]+$/)) {
+    const leftParts = parts.slice(0, parts.length - 3);
+    const leftText = leftParts.join(',');
+
+    // From the left: first field is Order (digits), rest is Patient + Description merged
+    const orderMatch = leftText.match(/^"?(\d{6,12})"?\s*,\s*(.*)/s);
+    if (orderMatch) {
+      const orderId = orderMatch[1];
+      const remaining = orderMatch[2].replace(/^"|"$/g, '');
+
+      // Split remaining into Patient and Description at the first "RX " or "Order #" or "WELLMEDR"
+      const descSplit = remaining.match(/^(.*?),\s*((?:RX |Order #|WELLMEDR|SYRINGES).*)$/s) ??
+                        remaining.match(/^(.*?),\s*(".*")$/s);
+
+      if (descSplit) {
+        return [orderId, descSplit[1].replace(/^"|"$/g, '').trim(), descSplit[2].replace(/^"|"$/g, '').trim(), qtyStr, priceStr, amountStr];
+      }
+
+      return [orderId, '', remaining.replace(/^"|"$/g, '').trim(), qtyStr, priceStr, amountStr];
+    }
+  }
+
+  return standardResult;
+}
+
+function parseCsvRowStandard(line: string): string[] {
   const fields: string[] = [];
   let current = '';
   let inQuotes = false;
@@ -632,7 +687,7 @@ function parseCsvRow(line: string): string[] {
 
 function parseCsvDollar(s: string): number {
   if (!s) return 0;
-  const cleaned = s.replace(/[$,\s]/g, '');
+  const cleaned = s.replace(/[$,\s"]/g, '');
   const val = parseFloat(cleaned);
   return isNaN(val) ? 0 : Math.round(val * 100);
 }
@@ -640,11 +695,11 @@ function parseCsvDollar(s: string): number {
 /**
  * Parse a WellMedR invoice CSV (exported from Google Sheets or similar).
  *
- * Expected columns (order may vary, detected from header row):
- *   Order | Patient | Description | Doctor | Qty | Unit Price | Amount
+ * Expected columns:
+ *   Order | Patient | Description | Qty | Unit Price | Amount
+ *   (Doctor column is optional and auto-detected)
  *
- * Subtotal rows have the dollar amount in column A or B.
- * Shipping rows have "Order #NNN - METHOD" or "WELLMEDR SHIPPING" in Patient column.
+ * Handles broken CSV quoting from 5/16" syringe descriptions.
  */
 export function parseWellmedrInvoiceCsv(csvText: string): ParsedInvoice {
   const rawLines = csvText.split(/\r?\n/);
@@ -655,7 +710,7 @@ export function parseWellmedrInvoiceCsv(csvText: string): ParsedInvoice {
   let colQty = -1, colPrice = -1, colAmount = -1;
 
   for (let i = 0; i < Math.min(5, rawLines.length); i++) {
-    const row = parseCsvRow(rawLines[i]);
+    const row = parseCsvRowStandard(rawLines[i]);
     const lower = row.map((c) => c.toLowerCase());
     if (lower.includes('order') && (lower.includes('patient') || lower.includes('description'))) {
       colOrder = lower.indexOf('order');
@@ -689,7 +744,7 @@ export function parseWellmedrInvoiceCsv(csvText: string): ParsedInvoice {
     const line = rawLines[i].trim();
     if (!line) continue;
 
-    const cols = parseCsvRow(line);
+    const cols = parseCsvRowRobust(line);
     const orderVal = cols[colOrder] ?? '';
     const patientVal = cols[colPatient] ?? '';
     const descVal = cols[colDesc] ?? '';
