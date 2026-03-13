@@ -233,9 +233,10 @@ export default function PharmacyInvoiceDetailPage() {
     <div className="min-h-screen bg-[#efece7]">
       <div className="mx-auto max-w-7xl px-6 py-8">
         {/* Back */}
-        <Link href="/admin/pharmacy-invoices" className="mb-6 inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700">
+        <a href="/admin/pharmacy-invoices" onClick={(e) => { e.preventDefault(); window.location.href = '/admin/pharmacy-invoices'; }}
+          className="mb-6 inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700">
           <ArrowLeft className="h-4 w-4" /> Back to invoices
-        </Link>
+        </a>
 
         {/* Header */}
         <div className="mb-6 flex items-start justify-between">
