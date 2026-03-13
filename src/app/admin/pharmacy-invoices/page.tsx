@@ -165,11 +165,34 @@ export default function PharmacyInvoicesPage() {
     finally { setUploading(false); if (fileInputRef.current) fileInputRef.current.value = ''; }
   };
 
-  const handleDelete = async (id: number) => {
-    if (!confirm('Delete this invoice upload and all its data?')) return;
-    setDeletingId(id);
-    try { await apiFetch(`/api/admin/pharmacy-invoices/${id}`, { method: 'DELETE' }); fetchUploads(); }
-    finally { setDeletingId(null); }
+  // Delete requires super admin password
+  const [deleteModal, setDeleteModal] = useState<number | null>(null);
+  const [deletePassword, setDeletePassword] = useState('');
+  const [deleteError, setDeleteError] = useState('');
+
+  const handleDelete = async () => {
+    if (!deleteModal || !deletePassword) return;
+    setDeletingId(deleteModal);
+    setDeleteError('');
+    try {
+      const res = await apiFetch(`/api/admin/pharmacy-invoices/${deleteModal}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: deletePassword }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        setDeleteError(json.error ?? 'Delete failed');
+        return;
+      }
+      setDeleteModal(null);
+      setDeletePassword('');
+      fetchUploads();
+    } catch {
+      setDeleteError('Delete failed');
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   const handleRerun = async (id: number) => {
@@ -351,7 +374,8 @@ export default function PharmacyInvoicesPage() {
                                   onClick={(e) => { e.preventDefault(); window.location.href = `/admin/pharmacy-invoices/${u.id}`; }}
                                   className="text-xs font-medium text-gray-500 hover:text-emerald-600">View</a>
                                 <button onClick={() => handleRerun(u.id)} className="text-gray-400 hover:text-blue-500" title="Re-run"><RefreshCw className="h-3.5 w-3.5" /></button>
-                                <button onClick={() => handleDelete(u.id)} disabled={deletingId === u.id} className="text-gray-400 hover:text-red-500 disabled:opacity-50" title="Delete">
+                                <button onClick={() => { setDeleteModal(u.id); setDeletePassword(''); setDeleteError(''); }} disabled={deletingId === u.id}
+                                  className="text-gray-400 hover:text-red-500 disabled:opacity-50" title="Delete (Super Admin only)">
                                   {deletingId === u.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
                                 </button>
                               </div>
@@ -439,6 +463,33 @@ export default function PharmacyInvoicesPage() {
               <button onClick={() => setShowCreateStmt(false)} className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50">Cancel</button>
               <button onClick={handleCreateStatement} disabled={!stmtTitle.trim()}
                 className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50">Create Statement</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal (Super Admin Password Required) */}
+      {deleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setDeleteModal(null)}>
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <h2 className="mb-2 text-lg font-bold text-red-600">Delete Invoice</h2>
+            <p className="mb-4 text-sm text-gray-500">
+              This will permanently delete the invoice and all its line items. Enter your super admin password to confirm.
+            </p>
+            {deleteError && (
+              <div className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{deleteError}</div>
+            )}
+            <label className="mb-1 block text-sm font-medium text-gray-700">Password</label>
+            <input type="password" value={deletePassword} onChange={(e) => setDeletePassword(e.target.value)}
+              placeholder="Enter your password"
+              className="mb-4 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-red-500 focus:outline-none"
+              onKeyDown={(e) => { if (e.key === 'Enter') handleDelete(); }} autoFocus />
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setDeleteModal(null)} className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50">Cancel</button>
+              <button onClick={handleDelete} disabled={!deletePassword || deletingId !== null}
+                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50">
+                {deletingId ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Delete Invoice'}
+              </button>
             </div>
           </div>
         </div>

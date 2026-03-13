@@ -109,14 +109,39 @@ export const PATCH = withAuth(
 );
 
 export const DELETE = withAuth(
-  async (_req: NextRequest, user: AuthUser, context?: RouteContext) => {
+  async (req: NextRequest, user: AuthUser, context?: RouteContext) => {
     try {
-      requirePermission(toPermissionContext(user), 'invoice:create');
+      // Only super_admin can delete invoices
+      if (user.role !== 'super_admin') {
+        return NextResponse.json({ error: 'Only super admins can delete invoices' }, { status: 403 });
+      }
 
       const { id } = await context!.params;
       const uploadId = parseInt(id, 10);
       if (isNaN(uploadId)) {
         return NextResponse.json({ error: 'Invalid ID' }, { status: 400 });
+      }
+
+      // Require password confirmation
+      let body: { password?: string } = {};
+      try { body = await req.json(); } catch { /* empty body */ }
+
+      if (!body.password) {
+        return NextResponse.json({ error: 'Password required to delete invoices' }, { status: 400 });
+      }
+
+      const bcrypt = await import('bcryptjs');
+      const { prisma: db } = await import('@/lib/db');
+      const dbUser = await db.user.findUnique({
+        where: { id: user.id },
+        select: { passwordHash: true },
+      });
+      if (!dbUser?.passwordHash) {
+        return NextResponse.json({ error: 'Unable to verify password' }, { status: 400 });
+      }
+      const isValid = await bcrypt.compare(body.password, dbUser.passwordHash);
+      if (!isValid) {
+        return NextResponse.json({ error: 'Incorrect password' }, { status: 401 });
       }
 
       const clinicId = user.clinicId;
@@ -127,10 +152,11 @@ export const DELETE = withAuth(
       const deleted = await deleteUpload(uploadId, clinicId);
       if (!deleted) throw new NotFoundError('Invoice upload not found');
 
+      logger.info('Pharmacy invoice deleted by super admin', { uploadId, userId: user.id });
       return NextResponse.json({ success: true });
     } catch (error) {
       return handleApiError(error, { context: { route: 'DELETE /api/admin/pharmacy-invoices/[id]' } });
     }
   },
-  { roles: ['admin', 'super_admin'] }
+  { roles: ['super_admin'] }
 );
