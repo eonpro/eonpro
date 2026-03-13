@@ -693,6 +693,38 @@ function parseCsvDollar(s: string): number {
 }
 
 /**
+ * Reassemble CSV lines that were split by newlines inside quoted fields.
+ * Google Sheets exports multi-line cell content within quotes, but splitting
+ * by \n breaks those lines apart. This function joins them back.
+ *
+ * Strategy: a data row starts with a number (order ID) or known keywords
+ * (Subtotal, $). Lines that don't start with these are continuations
+ * of the previous line's quoted field.
+ */
+function reassembleCsvLines(csvText: string): string[] {
+  const physicalLines = csvText.split(/\r?\n/);
+  const logicalLines: string[] = [];
+
+  for (let i = 0; i < physicalLines.length; i++) {
+    const line = physicalLines[i];
+    if (!line.trim()) continue;
+
+    // A logical CSV row starts with: a digit (order ID), "Order" (header),
+    // "Subtotal", a dollar sign, or is the header row
+    const isRowStart = /^\s*(\d{5,}|"?\d{5,}|Order\b|Subtotal|"\$|\$)/i.test(line);
+
+    if (isRowStart || logicalLines.length === 0) {
+      logicalLines.push(line);
+    } else {
+      // Continuation of previous line's multi-line field
+      logicalLines[logicalLines.length - 1] += ' ' + line.trim();
+    }
+  }
+
+  return logicalLines;
+}
+
+/**
  * Parse a WellMedR invoice CSV (exported from Google Sheets or similar).
  *
  * Expected columns:
@@ -702,7 +734,9 @@ function parseCsvDollar(s: string): number {
  * Handles broken CSV quoting from 5/16" syringe descriptions.
  */
 export function parseWellmedrInvoiceCsv(csvText: string): ParsedInvoice {
-  const rawLines = csvText.split(/\r?\n/);
+  // Reassemble multi-line CSV fields: Google Sheets exports cells with newlines
+  // inside quoted fields. Join continuation lines before processing.
+  const rawLines = reassembleCsvLines(csvText);
 
   // Detect and skip header row
   let startIdx = 0;
