@@ -16,6 +16,7 @@ import { prisma, runWithClinicContext } from '@/lib/db';
 import { orderService, orderRepository, type UserContext } from '@/domains/order';
 import { handleApiError } from '@/domains/shared/errors';
 import { decryptPHI } from '@/lib/security/phi-encryption';
+import { logger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -112,55 +113,58 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Build the shipment where clause once (used for both findMany and count)
-    const shipmentWhere = hasTrackingNumber === 'true'
-      ? {
+    // All queries are sequential (1 connection at a time) to stay within
+    // Vercel's serverless connection_limit=3 under concurrent load.
+
+    const allEvents = orderIds.length > 0
+      ? await prisma.orderEvent.findMany({
+          where: { orderId: { in: orderIds } },
+          orderBy: { createdAt: 'desc' },
+          take: 500,
+        })
+      : [];
+
+    const orderSmsLogs = trackingOrders.length > 0
+      ? await prisma.smsLog.findMany({
           where: {
-            ...(userContext.role === 'super_admin' ? {} : { clinicId: userContext.clinicId }),
-            OR: [{ orderId: null }, { order: { trackingNumber: null } }, { order: { is: null } }],
-          } as any,
-        }
-      : null;
+            patientId: { in: trackingOrders.map((o) => o.patientId) },
+            templateType: 'SHIPPING_TRACKING',
+          },
+          orderBy: { createdAt: 'desc' },
+          select: { patientId: true, status: true, body: true },
+          take: 500,
+        })
+      : [];
 
-    // Batch 1: Order events + SMS logs (max 2 concurrent queries, within connection_limit=3)
-    const [allEvents, orderSmsLogs] = await Promise.all([
-      orderIds.length > 0
-        ? prisma.orderEvent.findMany({
-            where: { orderId: { in: orderIds } },
-            orderBy: { createdAt: 'desc' },
-            take: 500,
-          })
-        : Promise.resolve([]),
-      trackingOrders.length > 0
-        ? prisma.smsLog.findMany({
-            where: {
-              patientId: { in: trackingOrders.map((o) => o.patientId) },
-              templateType: 'SHIPPING_TRACKING',
-            },
-            orderBy: { createdAt: 'desc' },
-            select: { patientId: true, status: true, body: true },
-            take: 500,
-          })
-        : Promise.resolve([]),
-    ]);
+    // Shipment-only records: fetched with graceful fallback so the page
+    // loads with order data even if the shipment query fails.
+    let patientShipments: any[] = [];
+    let shipmentOnlyTotal = 0;
 
-    // Batch 2: Shipment records + count (max 2 concurrent queries)
-    const [patientShipments, shipmentOnlyTotal] = await Promise.all([
-      shipmentWhere
-        ? prisma.patientShippingUpdate.findMany({
-            ...shipmentWhere,
-            include: {
-              patient: { select: { id: true, firstName: true, lastName: true } },
-              order: { select: { id: true, primaryMedName: true, primaryMedStrength: true } },
-            },
-            orderBy: { createdAt: 'desc' },
-            take: trackedMergeWindow,
-          })
-        : Promise.resolve([]),
-      shipmentWhere
-        ? prisma.patientShippingUpdate.count(shipmentWhere as any)
-        : Promise.resolve(0),
-    ]);
+    if (hasTrackingNumber === 'true') {
+      const clinicFilter = userContext.role === 'super_admin' ? {} : { clinicId: userContext.clinicId };
+      try {
+        // Simplified query: avoid expensive OR with relation sub-queries.
+        // Just fetch shipment records that have no linked orderId (true shipment-only records).
+        patientShipments = await prisma.patientShippingUpdate.findMany({
+          where: { ...clinicFilter, orderId: null },
+          include: {
+            patient: { select: { id: true, firstName: true, lastName: true } },
+          },
+          orderBy: { createdAt: 'desc' },
+          take: trackedMergeWindow,
+        });
+
+        shipmentOnlyTotal = await prisma.patientShippingUpdate.count({
+          where: { ...clinicFilter, orderId: null },
+        });
+      } catch (shipmentError) {
+        logger.warn('[OrdersList] Shipment query failed, returning orders only', {
+          error: shipmentError instanceof Error ? shipmentError.message : String(shipmentError),
+          errorCode: (shipmentError as any)?.code,
+        });
+      }
+    }
 
     // Build events map
     const eventsByOrderId = new Map<number, typeof allEvents>();
@@ -223,7 +227,7 @@ export async function GET(request: NextRequest) {
         }
 
         return {
-          id: shipment.orderId || -shipment.id,
+          id: -shipment.id,
           _isShipmentOnly: true,
           _shipmentId: shipment.id,
           createdAt: shipment.createdAt,
@@ -235,9 +239,8 @@ export async function GET(request: NextRequest) {
             lastName: decryptPHI(shipment.patient?.lastName) || '',
           },
           patientId: shipment.patientId,
-          primaryMedName: shipment.medicationName || shipment.order?.primaryMedName || null,
-          primaryMedStrength:
-            shipment.medicationStrength || shipment.order?.primaryMedStrength || null,
+          primaryMedName: shipment.medicationName || null,
+          primaryMedStrength: shipment.medicationStrength || null,
           status: shipment.status,
           shippingStatus: shipment.status,
           trackingNumber: shipment.trackingNumber,
