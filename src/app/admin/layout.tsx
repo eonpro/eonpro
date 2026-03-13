@@ -450,6 +450,26 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
                   );
                 }
 
+                if (isPharmacyRep) {
+                  return (
+                    <button
+                      key={item.path}
+                      type="button"
+                      onClick={() => { window.location.href = item.path; }}
+                      title={!sidebarExpanded ? item.label : undefined}
+                      className={`flex w-full cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors ${
+                        active ? '' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
+                      }`}
+                      style={active ? { backgroundColor: `${primaryColor}15`, color: primaryColor } : {}}
+                    >
+                      <Icon className="h-5 w-5 flex-shrink-0" />
+                      {sidebarExpanded && (
+                        <span className="whitespace-nowrap text-sm font-medium">{item.label}</span>
+                      )}
+                    </button>
+                  );
+                }
+
                 return (
                   <a
                     key={item.path}
@@ -528,6 +548,23 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
                 >
                   <Icon className="h-5 w-5 flex-shrink-0" />
                   <span className="truncate text-[10px] font-medium leading-tight">Switch</span>
+                </button>
+              );
+            }
+
+            if (isPharmacyRep) {
+              return (
+                <button
+                  key={item.path}
+                  type="button"
+                  onClick={() => { window.location.href = item.path; }}
+                  className={`flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 py-3 transition-colors ${
+                    active ? '' : 'text-gray-400 active:text-gray-600'
+                  }`}
+                  style={active ? { color: primaryColor } : {}}
+                >
+                  <Icon className="h-5 w-5 flex-shrink-0" />
+                  <span className="truncate text-[10px] font-medium leading-tight">{item.label}</span>
                 </button>
               );
             }
