@@ -712,14 +712,17 @@ export async function searchOrdersForMatch(
   clinicId: number,
   query: { q?: string; lifefileOrderId?: string }
 ) {
+  const orderInclude = {
+    patient: { select: { id: true, firstName: true, lastName: true } },
+    provider: { select: { id: true, firstName: true, lastName: true } },
+    rxs: { select: { id: true, medName: true, strength: true, form: true } },
+  };
+
+  // Search by exact lifefileOrderId
   if (query.lifefileOrderId) {
     const orders = await prisma.order.findMany({
       where: { clinicId, lifefileOrderId: query.lifefileOrderId },
-      include: {
-        patient: { select: { id: true, firstName: true, lastName: true } },
-        provider: { select: { id: true, firstName: true, lastName: true } },
-        rxs: { select: { id: true, medName: true, strength: true, form: true } },
-      },
+      include: orderInclude,
       take: 10,
       orderBy: { createdAt: 'desc' },
     });
@@ -727,24 +730,52 @@ export async function searchOrdersForMatch(
   }
 
   if (query.q && query.q.length >= 2) {
+    const q = query.q.trim();
+
+    // If the query looks like a number, search by order IDs
+    if (/^\d+$/.test(q)) {
+      const orders = await prisma.order.findMany({
+        where: {
+          clinicId,
+          OR: [
+            { lifefileOrderId: { contains: q } },
+            { id: parseInt(q, 10) || 0 },
+          ],
+        },
+        include: orderInclude,
+        take: 20,
+        orderBy: { createdAt: 'desc' },
+      });
+      return orders.map(formatOrderForSearch);
+    }
+
+    // For text queries (patient names): patient names are encrypted in the DB,
+    // so we search by Rx medication name instead, or by provider last name
+    // (which is NOT encrypted)
     const orders = await prisma.order.findMany({
       where: {
         clinicId,
         OR: [
-          { lifefileOrderId: { contains: query.q } },
-          { patient: { lastName: { contains: query.q, mode: 'insensitive' } } },
-          { patient: { firstName: { contains: query.q, mode: 'insensitive' } } },
+          { provider: { lastName: { contains: q, mode: 'insensitive' } } },
+          { rxs: { some: { medName: { contains: q, mode: 'insensitive' } } } },
+          { primaryMedName: { contains: q, mode: 'insensitive' } },
         ],
       },
-      include: {
-        patient: { select: { id: true, firstName: true, lastName: true } },
-        provider: { select: { id: true, firstName: true, lastName: true } },
-        rxs: { select: { id: true, medName: true, strength: true, form: true } },
-      },
+      include: orderInclude,
       take: 20,
       orderBy: { createdAt: 'desc' },
     });
-    return orders.map(formatOrderForSearch);
+
+    if (orders.length > 0) return orders.map(formatOrderForSearch);
+
+    // Last resort: search recent orders and show all (let the user pick)
+    const recent = await prisma.order.findMany({
+      where: { clinicId },
+      include: orderInclude,
+      take: 20,
+      orderBy: { createdAt: 'desc' },
+    });
+    return recent.map(formatOrderForSearch);
   }
 
   return [];
