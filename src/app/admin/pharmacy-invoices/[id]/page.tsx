@@ -82,6 +82,8 @@ interface LineItem {
   adminNotes: string | null;
   disputed: boolean;
   adjustedAmountCents: number | null;
+  isDuplicate: boolean;
+  duplicateOfLineItemId: number | null;
 }
 
 interface OrderGroup {
@@ -173,7 +175,8 @@ export default function PharmacyInvoiceDetailPage() {
       const p = new URLSearchParams();
       p.set('page', String(page));
       p.set('limit', '30');
-      if (filter !== 'all') p.set('matchStatus', filter);
+      if (filter === 'DUPLICATES') p.set('duplicatesOnly', 'true');
+      else if (filter !== 'all') p.set('matchStatus', filter);
       if (debouncedSearch) p.set('search', debouncedSearch);
 
       const res = await apiFetch(`/api/admin/pharmacy-invoices/${uploadId}?${p}`);
@@ -283,12 +286,12 @@ export default function PharmacyInvoiceDetailPage() {
               onChange={(e) => setSearch(e.target.value)}
               className="w-full rounded-lg border border-gray-300 bg-white py-2 pl-9 pr-4 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500" />
           </div>
-          {['all', 'MATCHED', 'MANUALLY_MATCHED', 'UNMATCHED', 'DISPUTED'].map((f) => (
+          {['all', 'MATCHED', 'MANUALLY_MATCHED', 'UNMATCHED', 'DISPUTED', 'DUPLICATES'].map((f) => (
             <button key={f} onClick={() => setFilter(f)}
               className={`rounded-lg px-3 py-2 text-xs font-medium transition-colors ${
                 filter === f ? 'bg-gray-900 text-white' : 'bg-white text-gray-600 hover:bg-gray-100'
               }`}>
-              {f === 'all' ? 'All' : STATUS_BADGE[f]?.label ?? f}
+              {f === 'all' ? 'All' : f === 'DUPLICATES' ? 'Duplicates' : STATUS_BADGE[f]?.label ?? f}
             </button>
           ))}
         </div>
@@ -451,7 +454,7 @@ function LineItemRow({ li, onSave }: { li: LineItem; onSave: (data: Record<strin
   const effectiveAmount = li.adjustedAmountCents ?? li.amountCents;
 
   return (
-    <tr className={`hover:bg-gray-50 ${li.disputed ? 'bg-purple-50/50' : ''}`}>
+    <tr className={`hover:bg-gray-50 ${li.disputed ? 'bg-purple-50/50' : li.isDuplicate ? 'bg-orange-50/50' : ''}`}>
       <td className="px-5 py-2">
         <div className="flex items-center gap-1 text-gray-400">
           <Icon className="h-3.5 w-3.5" />
@@ -463,6 +466,11 @@ function LineItemRow({ li, onSave }: { li: LineItem; onSave: (data: Record<strin
       <td className="px-5 py-2 text-xs text-gray-500">
         {li.rxNumber && <span>Rx {li.rxNumber}</span>}
         {li.fillId && <span className="ml-1 text-gray-300">/ {li.fillId}</span>}
+        {li.isDuplicate && (
+          <span className="ml-1 rounded bg-orange-100 px-1.5 py-0.5 text-[10px] font-semibold text-orange-700" title={`Duplicate of item #${li.duplicateOfLineItemId}`}>
+            DUPE
+          </span>
+        )}
       </td>
       <td className="max-w-xs truncate px-5 py-2 text-xs text-gray-700">
         {li.medicationName ? (

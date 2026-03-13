@@ -51,6 +51,7 @@ export const GET = withAuth(
         search: searchParams.get('search') ?? undefined,
         page: parseInt(searchParams.get('page') ?? '1', 10),
         limit: parseInt(searchParams.get('limit') ?? '50', 10),
+        duplicatesOnly: searchParams.get('duplicatesOnly') === 'true',
       });
 
       let pdfUrl: string | null = null;

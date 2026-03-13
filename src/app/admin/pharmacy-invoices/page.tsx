@@ -87,7 +87,7 @@ const PAYMENT_BADGE: Record<string, { label: string; cls: string }> = {
 // ---------------------------------------------------------------------------
 
 export default function PharmacyInvoicesPage() {
-  const [tab, setTab] = useState<'invoices' | 'statements'>('invoices');
+  const [tab, setTab] = useState<'invoices' | 'statements' | 'unmatched'>('invoices');
   const [uploads, setUploads] = useState<InvoiceUpload[]>([]);
   const [statements, setStatements] = useState<Statement[]>([]);
   const [loading, setLoading] = useState(true);
@@ -101,6 +101,16 @@ export default function PharmacyInvoicesPage() {
   // Multi-select for statements
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+
+  // Unmatched Rx tab
+  const [unmatchedOrders, setUnmatchedOrders] = useState<Array<{
+    id: number; lifefileOrderId: string | null; createdAt: string; status: string | null;
+    patientName: string; providerName: string; medications: string; rxCount: number;
+  }>>([]);
+  const [unmatchedTotal, setUnmatchedTotal] = useState(0);
+  const [unmatchedStartDate, setUnmatchedStartDate] = useState('2026-03-04');
+  const [unmatchedPage, setUnmatchedPage] = useState(1);
+  const [unmatchedLoading, setUnmatchedLoading] = useState(false);
 
   // Mark Paid modal
   const [payModal, setPayModal] = useState<InvoiceUpload | null>(null);
@@ -131,10 +141,26 @@ export default function PharmacyInvoicesPage() {
     } catch { /* */ }
   }, []);
 
+  const fetchUnmatched = useCallback(async () => {
+    try {
+      setUnmatchedLoading(true);
+      const res = await apiFetch(`/api/admin/pharmacy-invoices/unmatched-orders?startDate=${unmatchedStartDate}&page=${unmatchedPage}&limit=50`);
+      const json = await res.json();
+      if (json.success) {
+        setUnmatchedOrders(json.data.orders ?? []);
+        setUnmatchedTotal(json.data.total ?? 0);
+      }
+    } catch { /* */ } finally { setUnmatchedLoading(false); }
+  }, [unmatchedStartDate, unmatchedPage]);
+
   useEffect(() => {
     fetchUploads();
     fetchStatements();
   }, [fetchUploads, fetchStatements]);
+
+  useEffect(() => {
+    if (tab === 'unmatched') fetchUnmatched();
+  }, [tab, fetchUnmatched]);
 
   // Upload handler
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -298,6 +324,10 @@ export default function PharmacyInvoicesPage() {
             className={`border-b-2 px-4 py-2.5 text-sm font-medium ${tab === 'statements' ? 'border-emerald-500 text-emerald-600' : 'border-transparent text-gray-500'}`}>
             Statements ({statements.length})
           </button>
+          <button onClick={() => setTab('unmatched')}
+            className={`border-b-2 px-4 py-2.5 text-sm font-medium ${tab === 'unmatched' ? 'border-emerald-500 text-emerald-600' : 'border-transparent text-gray-500'}`}>
+            Unmatched Rx {unmatchedTotal > 0 && <span className="ml-1 rounded-full bg-red-100 px-1.5 py-0.5 text-[10px] font-bold text-red-600">{unmatchedTotal}</span>}
+          </button>
         </div>
 
         {/* Invoices Tab */}
@@ -440,6 +470,77 @@ export default function PharmacyInvoicesPage() {
                     ))}
                   </tbody>
                 </table>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Unmatched Rx Tab */}
+        {tab === 'unmatched' && (
+          <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+            <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900">Unmatched Prescriptions</h2>
+                <p className="text-xs text-gray-500">Orders sent that do not appear on any uploaded pharmacy invoice</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <label className="text-xs text-gray-500">From:</label>
+                <input type="date" value={unmatchedStartDate} onChange={(e) => { setUnmatchedStartDate(e.target.value); setUnmatchedPage(1); }}
+                  className="rounded-lg border border-gray-300 px-2 py-1.5 text-sm" />
+              </div>
+            </div>
+
+            {unmatchedLoading ? (
+              <div className="flex items-center justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-gray-400" /></div>
+            ) : unmatchedOrders.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-16 text-gray-400">
+                <CheckCircle className="mb-3 h-10 w-10 text-emerald-400" />
+                <span className="text-sm font-medium text-emerald-600">All prescriptions accounted for</span>
+                <span className="mt-1 text-xs">Every order from {fmtDate(unmatchedStartDate)} onward appears on an uploaded invoice.</span>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-gray-100 bg-gray-50 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                      <th className="px-6 py-3">Order ID</th>
+                      <th className="px-6 py-3">Patient</th>
+                      <th className="px-6 py-3">Provider</th>
+                      <th className="px-6 py-3">Medications</th>
+                      <th className="px-6 py-3">Date Sent</th>
+                      <th className="px-6 py-3">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {unmatchedOrders.map((o) => (
+                      <tr key={o.id} className="hover:bg-gray-50">
+                        <td className="px-6 py-3 text-sm font-medium text-gray-900">
+                          #{o.lifefileOrderId ?? o.id}
+                        </td>
+                        <td className="px-6 py-3 text-sm text-gray-600">{o.patientName}</td>
+                        <td className="px-6 py-3 text-sm text-gray-600">{o.providerName}</td>
+                        <td className="max-w-xs truncate px-6 py-3 text-xs text-gray-500">{o.medications || '—'}</td>
+                        <td className="px-6 py-3 text-sm text-gray-600">{fmtDate(o.createdAt)}</td>
+                        <td className="px-6 py-3">
+                          <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-700">
+                            {o.status ?? 'sent'}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            {unmatchedTotal > 50 && (
+              <div className="flex items-center justify-between border-t border-gray-100 px-6 py-3">
+                <span className="text-sm text-gray-500">{unmatchedTotal} unmatched orders</span>
+                <div className="flex gap-2">
+                  <button onClick={() => setUnmatchedPage((p) => Math.max(1, p - 1))} disabled={unmatchedPage <= 1}
+                    className="rounded-md border border-gray-300 p-1.5 hover:bg-gray-50 disabled:opacity-50"><ChevronLeft className="h-4 w-4" /></button>
+                  <button onClick={() => setUnmatchedPage((p) => p + 1)} disabled={unmatchedOrders.length < 50}
+                    className="rounded-md border border-gray-300 p-1.5 hover:bg-gray-50 disabled:opacity-50"><ChevronRight className="h-4 w-4" /></button>
+                </div>
               </div>
             )}
           </div>

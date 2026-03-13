@@ -104,6 +104,10 @@ model PharmacyInvoiceLineItem {
   matchConfidence   Float?
   matchNotes        String?
 
+  // Duplicate detection
+  isDuplicate          Boolean @default(false)
+  duplicateOfLineItemId Int?
+
   // Admin corrections and manual matching
   adminNotes         String?
   disputed           Boolean   @default(false)

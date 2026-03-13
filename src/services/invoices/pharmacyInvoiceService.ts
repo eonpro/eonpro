@@ -183,6 +183,9 @@ export async function uploadAndParseInvoice(
       });
     }, { timeout: 30_000 });
 
+    // 5. Run duplicate check after storing
+    await checkDuplicateLineItems(upload.id, clinicId);
+
     logger.info('Pharmacy invoice parsed and stored', {
       uploadId: upload.id,
       clinicId,
@@ -473,13 +476,13 @@ export async function listLineItems(filters: ListLineItemsFilters) {
 
 export async function getLineItemsGroupedByOrder(
   invoiceUploadId: number,
-  options?: { matchStatus?: string; search?: string; page?: number; limit?: number }
+  options?: { matchStatus?: string; search?: string; page?: number; limit?: number; duplicatesOnly?: boolean }
 ) {
-  const { matchStatus, search, page = 1, limit = 50 } = options ?? {};
+  const { matchStatus, search, page = 1, limit = 50, duplicatesOnly } = options ?? {};
 
-  // Get distinct order IDs with optional filtering
   const where: Record<string, unknown> = { invoiceUploadId };
-  if (matchStatus && matchStatus !== 'all') where.matchStatus = matchStatus;
+  if (duplicatesOnly) where.isDuplicate = true;
+  else if (matchStatus && matchStatus !== 'all') where.matchStatus = matchStatus;
   if (search) {
     where.OR = [
       { patientName: { contains: search, mode: 'insensitive' } },
@@ -518,6 +521,8 @@ export async function getLineItemsGroupedByOrder(
       adminNotes: true,
       disputed: true,
       adjustedAmountCents: true,
+      isDuplicate: true,
+      duplicateOfLineItemId: true,
     },
   });
 
@@ -945,4 +950,165 @@ export async function exportStatementCsv(id: number, clinicId: number): Promise<
   );
 
   return [header, ...rows].join('\n');
+}
+
+// ---------------------------------------------------------------------------
+// Duplicate Detection
+// ---------------------------------------------------------------------------
+
+/**
+ * Check for duplicate Rx line items across all uploads for this clinic.
+ * Flags items where the same rxNumber already exists in a DIFFERENT upload,
+ * and also flags internal duplicates within the same upload.
+ */
+export async function checkDuplicateLineItems(invoiceUploadId: number, clinicId: number) {
+  // Get all rx numbers from the new upload
+  const newItems = await prisma.pharmacyInvoiceLineItem.findMany({
+    where: { invoiceUploadId, rxNumber: { not: null } },
+    select: { id: true, rxNumber: true },
+  });
+
+  if (newItems.length === 0) return;
+
+  const rxNumbers = newItems.map((i) => i.rxNumber).filter(Boolean) as string[];
+  if (rxNumbers.length === 0) return;
+
+  // Find existing items with matching rx numbers in OTHER uploads for this clinic
+  const existingDupes = await prisma.pharmacyInvoiceLineItem.findMany({
+    where: {
+      rxNumber: { in: rxNumbers },
+      invoiceUpload: { clinicId },
+      invoiceUploadId: { not: invoiceUploadId },
+    },
+    select: { id: true, rxNumber: true, invoiceUploadId: true },
+  });
+
+  const existingRxMap = new Map<string, number>();
+  for (const item of existingDupes) {
+    if (item.rxNumber && !existingRxMap.has(item.rxNumber)) {
+      existingRxMap.set(item.rxNumber, item.id);
+    }
+  }
+
+  // Check for internal duplicates (same rxNumber appearing multiple times in this upload)
+  const internalRxCount = new Map<string, number>();
+  const internalFirstId = new Map<string, number>();
+  for (const item of newItems) {
+    if (!item.rxNumber) continue;
+    const count = (internalRxCount.get(item.rxNumber) ?? 0) + 1;
+    internalRxCount.set(item.rxNumber, count);
+    if (!internalFirstId.has(item.rxNumber)) internalFirstId.set(item.rxNumber, item.id);
+  }
+
+  // Flag duplicates
+  const dupeIds: number[] = [];
+  const dupeData: Array<{ id: number; duplicateOfLineItemId: number | null }> = [];
+
+  for (const item of newItems) {
+    if (!item.rxNumber) continue;
+
+    // Cross-upload duplicate
+    const crossDupeId = existingRxMap.get(item.rxNumber);
+    if (crossDupeId) {
+      dupeIds.push(item.id);
+      dupeData.push({ id: item.id, duplicateOfLineItemId: crossDupeId });
+      continue;
+    }
+
+    // Internal duplicate (second+ occurrence of same rx in this upload)
+    const firstId = internalFirstId.get(item.rxNumber);
+    if (firstId && firstId !== item.id && (internalRxCount.get(item.rxNumber) ?? 0) > 1) {
+      dupeIds.push(item.id);
+      dupeData.push({ id: item.id, duplicateOfLineItemId: firstId });
+    }
+  }
+
+  // Bulk update
+  if (dupeIds.length > 0) {
+    await prisma.pharmacyInvoiceLineItem.updateMany({
+      where: { id: { in: dupeIds } },
+      data: { isDuplicate: true },
+    });
+    // Set individual duplicateOfLineItemId references
+    for (const d of dupeData) {
+      await prisma.pharmacyInvoiceLineItem.update({
+        where: { id: d.id },
+        data: { duplicateOfLineItemId: d.duplicateOfLineItemId },
+      });
+    }
+    logger.info('Duplicate line items flagged', {
+      invoiceUploadId,
+      duplicateCount: dupeIds.length,
+    });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Unmatched Prescriptions (Orders not on any invoice)
+// ---------------------------------------------------------------------------
+
+export async function getUnmatchedOrders(
+  clinicId: number,
+  startDate: Date,
+  page: number = 1,
+  limit: number = 50
+) {
+  // Get all distinct lifefileOrderIds that appear on any invoice for this clinic
+  const invoicedOrderIds = await prisma.pharmacyInvoiceLineItem.findMany({
+    where: {
+      invoiceUpload: { clinicId },
+      lifefileOrderId: { not: null },
+    },
+    select: { lifefileOrderId: true },
+    distinct: ['lifefileOrderId'],
+  });
+
+  const invoicedSet = new Set(invoicedOrderIds.map((i) => i.lifefileOrderId).filter(Boolean));
+
+  // Get orders for this clinic from the start date that have a lifefileOrderId
+  const skip = (page - 1) * limit;
+
+  const where = {
+    clinicId,
+    createdAt: { gte: startDate },
+    lifefileOrderId: { not: null },
+  };
+
+  const [allOrders, totalCount] = await Promise.all([
+    prisma.order.findMany({
+      where,
+      include: {
+        patient: { select: { id: true, firstName: true, lastName: true } },
+        provider: { select: { id: true, firstName: true, lastName: true } },
+        rxs: { select: { medName: true, strength: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+      skip,
+      take: limit + invoicedSet.size, // fetch extra to account for filtering
+    }),
+    prisma.order.count({ where }),
+  ]);
+
+  // Filter out orders that ARE on an invoice
+  const unmatchedOrders = allOrders
+    .filter((o) => o.lifefileOrderId && !invoicedSet.has(o.lifefileOrderId))
+    .slice(0, limit);
+
+  const formattedOrders = unmatchedOrders.map((o) => ({
+    id: o.id,
+    lifefileOrderId: o.lifefileOrderId,
+    createdAt: o.createdAt.toISOString(),
+    status: o.status,
+    patientName: o.patient ? `${o.patient.lastName}, ${o.patient.firstName}` : '—',
+    providerName: o.provider ? `${o.provider.lastName}, ${o.provider.firstName}` : '—',
+    medications: o.rxs.map((rx) => `${rx.medName} ${rx.strength}`).join(', '),
+    rxCount: o.rxs.length,
+  }));
+
+  return {
+    orders: formattedOrders,
+    total: Math.max(0, totalCount - invoicedSet.size),
+    page,
+    limit,
+  };
 }
