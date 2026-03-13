@@ -244,12 +244,13 @@ export default function PharmacyInvoicesPage() {
                       return (
                         <tr key={u.id} className="hover:bg-gray-50">
                           <td className="px-6 py-4">
-                            <Link
+                            <a
                               href={`/admin/pharmacy-invoices/${u.id}`}
+                              onClick={(e) => { e.preventDefault(); window.location.href = `/admin/pharmacy-invoices/${u.id}`; }}
                               className="text-sm font-medium text-emerald-600 hover:text-emerald-700"
                             >
                               {u.invoiceNumber ? `#${u.invoiceNumber}` : u.fileName}
-                            </Link>
+                            </a>
                             <div className="text-xs text-gray-400">
                               {u.pharmacyName ?? 'Unknown pharmacy'}
                             </div>
@@ -290,12 +291,13 @@ export default function PharmacyInvoicesPage() {
                           </td>
                           <td className="px-6 py-4">
                             <div className="flex items-center gap-2">
-                              <Link
+                              <a
                                 href={`/admin/pharmacy-invoices/${u.id}`}
+                                onClick={(e) => { e.preventDefault(); window.location.href = `/admin/pharmacy-invoices/${u.id}`; }}
                                 className="text-xs font-medium text-gray-500 hover:text-emerald-600"
                               >
                                 View
-                              </Link>
+                              </a>
                               <button
                                 onClick={() => handleRerun(u.id)}
                                 className="text-gray-400 hover:text-blue-500"
