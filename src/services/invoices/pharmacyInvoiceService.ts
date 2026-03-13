@@ -733,7 +733,7 @@ export async function searchOrdersForMatch(
     return orders.map(formatOrderForSearch);
   }
 
-  if (query.q && query.q.length >= 2) {
+  if (query.q && query.q.trim().length >= 1) {
     const q = query.q.trim();
 
     // If the query looks like a number, search by order IDs
@@ -763,23 +763,42 @@ export async function searchOrdersForMatch(
     });
 
     const qLower = q.toLowerCase();
-    const matched = recentOrders.filter((o) => {
+
+    // Decrypt and filter in memory
+    const results: typeof recentOrders = [];
+    for (const o of recentOrders) {
+      if (results.length >= 20) break;
+
+      let match = false;
+
       // Decrypt patient name and match
       if (o.patient) {
         try {
-          const lastName = (decryptPHI(o.patient.lastName) ?? o.patient.lastName).toLowerCase();
-          const firstName = (decryptPHI(o.patient.firstName) ?? o.patient.firstName).toLowerCase();
-          if (lastName.includes(qLower) || firstName.includes(qLower)) return true;
-          if (`${lastName}, ${firstName}`.includes(qLower)) return true;
-        } catch { /* skip */ }
+          const rawLast = o.patient.lastName ?? '';
+          const rawFirst = o.patient.firstName ?? '';
+          const lastName = (decryptPHI(rawLast) ?? rawLast).toLowerCase();
+          const firstName = (decryptPHI(rawFirst) ?? rawFirst).toLowerCase();
+          if (lastName.includes(qLower) || firstName.includes(qLower)) match = true;
+          if (`${lastName}, ${firstName}`.includes(qLower)) match = true;
+          if (`${firstName} ${lastName}`.includes(qLower)) match = true;
+        } catch {
+          // decryptPHI failed - try raw value
+          const raw = `${o.patient.lastName} ${o.patient.firstName}`.toLowerCase();
+          if (raw.includes(qLower)) match = true;
+        }
       }
-      // Also match provider name and medication
-      if (o.provider?.lastName?.toLowerCase().includes(qLower)) return true;
-      if (o.rxs?.some((rx) => rx.medName.toLowerCase().includes(qLower))) return true;
-      return false;
-    });
 
-    return matched.slice(0, 20).map(formatOrderForSearch);
+      // Also match provider name, medication, lifefileOrderId
+      if (!match && o.provider?.lastName?.toLowerCase().includes(qLower)) match = true;
+      if (!match && o.lifefileOrderId?.includes(q)) match = true;
+      if (!match && o.rxs?.some((rx) => rx.medName.toLowerCase().includes(qLower))) match = true;
+
+      if (match) results.push(o);
+    }
+
+    logger.info('Manual match search', { query: q, loadedOrders: recentOrders.length, matchedResults: results.length });
+
+    return results.map(formatOrderForSearch);
   }
 
   return [];
