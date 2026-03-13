@@ -755,50 +755,91 @@ export async function searchOrdersForMatch(
 
     // Text query: patient names are PHI-encrypted, so we load recent orders,
     // decrypt names in memory, and filter by the search term.
-    const recentOrders = await prisma.order.findMany({
-      where: { clinicId },
-      include: orderInclude,
-      take: 500,
-      orderBy: { createdAt: 'desc' },
-    });
+    try {
+      const recentOrders = await prisma.order.findMany({
+        where: { clinicId },
+        include: orderInclude,
+        take: 200,
+        orderBy: { createdAt: 'desc' },
+      });
 
-    const qLower = q.toLowerCase();
+      logger.info('Manual match search: loaded orders', { query: q, clinicId, count: recentOrders.length });
 
-    // Decrypt and filter in memory
-    const results: typeof recentOrders = [];
-    for (const o of recentOrders) {
-      if (results.length >= 20) break;
+      const qLower = q.toLowerCase();
+      const results: typeof recentOrders = [];
 
-      let match = false;
+      for (const o of recentOrders) {
+        if (results.length >= 20) break;
+        let match = false;
 
-      // Decrypt patient name and match
-      if (o.patient) {
-        try {
-          const rawLast = o.patient.lastName ?? '';
-          const rawFirst = o.patient.firstName ?? '';
-          const lastName = (decryptPHI(rawLast) ?? rawLast).toLowerCase();
-          const firstName = (decryptPHI(rawFirst) ?? rawFirst).toLowerCase();
-          if (lastName.includes(qLower) || firstName.includes(qLower)) match = true;
-          if (`${lastName}, ${firstName}`.includes(qLower)) match = true;
-          if (`${firstName} ${lastName}`.includes(qLower)) match = true;
-        } catch {
-          // decryptPHI failed - try raw value
-          const raw = `${o.patient.lastName} ${o.patient.firstName}`.toLowerCase();
-          if (raw.includes(qLower)) match = true;
+        // Try decrypting patient name
+        if (o.patient) {
+          try {
+            const rawLast = o.patient.lastName ?? '';
+            const rawFirst = o.patient.firstName ?? '';
+            const decLast = decryptPHI(rawLast);
+            const decFirst = decryptPHI(rawFirst);
+            const lastName = (decLast ?? rawLast).toLowerCase();
+            const firstName = (decFirst ?? rawFirst).toLowerCase();
+            if (lastName.includes(qLower) || firstName.includes(qLower)) match = true;
+            if (`${lastName}, ${firstName}`.includes(qLower)) match = true;
+            if (`${firstName} ${lastName}`.includes(qLower)) match = true;
+          } catch {
+            const raw = `${o.patient.lastName ?? ''} ${o.patient.firstName ?? ''}`.toLowerCase();
+            if (raw.includes(qLower)) match = true;
+          }
         }
+
+        if (!match && o.provider?.lastName?.toLowerCase().includes(qLower)) match = true;
+        if (!match && o.provider?.firstName?.toLowerCase().includes(qLower)) match = true;
+        if (!match && o.lifefileOrderId?.includes(q)) match = true;
+        if (!match && o.rxs?.some((rx) => rx.medName.toLowerCase().includes(qLower))) match = true;
+        if (!match && o.primaryMedName?.toLowerCase().includes(qLower)) match = true;
+
+        if (match) results.push(o);
       }
 
-      // Also match provider name, medication, lifefileOrderId
-      if (!match && o.provider?.lastName?.toLowerCase().includes(qLower)) match = true;
-      if (!match && o.lifefileOrderId?.includes(q)) match = true;
-      if (!match && o.rxs?.some((rx) => rx.medName.toLowerCase().includes(qLower))) match = true;
+      logger.info('Manual match search: results', { query: q, matched: results.length });
 
-      if (match) results.push(o);
+      if (results.length > 0) return results.map(formatOrderForSearch);
+
+      // If decrypt search found nothing, try SQL search on non-encrypted fields as fallback
+      const fallback = await prisma.order.findMany({
+        where: {
+          clinicId,
+          OR: [
+            { provider: { lastName: { contains: q, mode: 'insensitive' } } },
+            { provider: { firstName: { contains: q, mode: 'insensitive' } } },
+            { rxs: { some: { medName: { contains: q, mode: 'insensitive' } } } },
+            { primaryMedName: { contains: q, mode: 'insensitive' } },
+          ],
+        },
+        include: orderInclude,
+        take: 20,
+        orderBy: { createdAt: 'desc' },
+      });
+
+      if (fallback.length > 0) return fallback.map(formatOrderForSearch);
+
+      // Last resort: return 20 most recent orders so user can manually pick
+      const recent = await prisma.order.findMany({
+        where: { clinicId },
+        include: orderInclude,
+        take: 20,
+        orderBy: { createdAt: 'desc' },
+      });
+      return recent.map(formatOrderForSearch);
+    } catch (err) {
+      logger.error('Manual match search failed', { query: q, error: err instanceof Error ? err.message : String(err) });
+      // On any error, return recent orders as fallback
+      const recent = await prisma.order.findMany({
+        where: { clinicId },
+        include: orderInclude,
+        take: 20,
+        orderBy: { createdAt: 'desc' },
+      });
+      return recent.map(formatOrderForSearch);
     }
-
-    logger.info('Manual match search', { query: q, loadedOrders: recentOrders.length, matchedResults: results.length });
-
-    return results.map(formatOrderForSearch);
   }
 
   return [];
