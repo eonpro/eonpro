@@ -34,6 +34,7 @@ import {
 
 interface RxMedication {
   id: number;
+  medicationKey?: string;
   name: string;
   strength: string;
   form: string;
@@ -103,6 +104,31 @@ function isSupplyMedication(name: string): boolean {
     normalized.includes('needle') ||
     normalized.includes('kit')
   );
+}
+
+function isInjectableMedication(name: string): boolean {
+  const n = (name || '').toLowerCase();
+  return (
+    n.includes('semaglutide') ||
+    n.includes('tirzepatide') ||
+    n.includes('testosterone') ||
+    n.includes('sermorelin') ||
+    n.includes('bpc') ||
+    n.includes('tb-500')
+  );
+}
+
+function parseDoseFromDirections(directions: string): { mg: string; units: string } | null {
+  if (!directions) return null;
+  const match = directions.match(
+    /inject\s+([\d.]+)\s*mg\s*\((\d+)\s*units?\)/i
+  );
+  if (match?.[1] && match?.[2]) return { mg: match[1], units: match[2] };
+  const mgOnly = directions.match(/inject\s+([\d.]+)\s*mg/i);
+  if (mgOnly?.[1]) return { mg: mgOnly[1], units: '' };
+  const unitsOnly = directions.match(/inject\s+(\d+)\s*units?/i);
+  if (unitsOnly?.[1]) return { mg: '', units: unitsOnly[1] };
+  return null;
 }
 
 function extractMlValue(...inputs: Array<string | null | undefined>): string | null {
@@ -182,6 +208,7 @@ export default function MedicationsPage() {
   const [saving, setSaving] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [showHistory, setShowHistory] = useState(false);
+  const [showDosingSchedule, setShowDosingSchedule] = useState(true);
 
   useEffect(() => {
     if (patientId) {
@@ -463,6 +490,70 @@ END:VCALENDAR`;
     return { totalMonths, upcoming, remaining };
   })();
 
+  const dosingScheduleItems = (() => {
+    const allOrders = [...prescriptions].sort(
+      (a, b) => new Date(a.prescribedDate).getTime() - new Date(b.prescribedDate).getTime()
+    );
+
+    const items: Array<{
+      monthNumber: number;
+      weekStart: number;
+      weekEnd: number;
+      prescriptionId: number;
+      date: string;
+      medName: string;
+      directions: string;
+      dose: { mg: string; units: string } | null;
+      isActive: boolean;
+      isTitration: boolean;
+      status: string;
+    }> = [];
+
+    let monthNum = 0;
+    let weekCursor = 1;
+    let prevDoseKey = '';
+    for (const order of allOrders) {
+      const injectableMeds = (order.medications ?? []).filter(
+        (m) => isInjectableMedication(m.name) && !isSupplyMedication(m.name)
+      );
+      if (injectableMeds.length === 0) continue;
+
+      for (const med of injectableMeds) {
+        monthNum++;
+        const weeksInSupply = med.daysSupply > 0 ? Math.round(med.daysSupply / 7) : 4;
+        const weekStart = weekCursor;
+        const weekEnd = weekCursor + weeksInSupply - 1;
+        weekCursor = weekEnd + 1;
+
+        const dose = parseDoseFromDirections(med.directions);
+        const doseKey = dose ? `${dose.mg}-${dose.units}` : med.directions;
+        const isTitration = prevDoseKey !== '' && doseKey !== prevDoseKey;
+        prevDoseKey = doseKey;
+
+        const isActive = ['pending', 'processing', 'shipped', 'active', 'approved', 'submitted', 'in_progress'].includes(
+          (order.status || '').toLowerCase()
+        );
+        items.push({
+          monthNumber: monthNum,
+          weekStart,
+          weekEnd,
+          prescriptionId: order.id,
+          date: order.prescribedDate,
+          medName: getMedicationDisplayName(med),
+          directions: med.directions,
+          dose,
+          isActive,
+          isTitration,
+          status: order.status,
+        });
+      }
+    }
+
+    return items;
+  })();
+
+  const currentDoseIndex = dosingScheduleItems.findIndex((d) => d.isActive);
+
   if (loading) {
     return <MedicationsPageSkeleton />;
   }
@@ -721,6 +812,182 @@ END:VCALENDAR`;
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* ── Dosing Schedule (Injection Directions per Prescription) ── */}
+      {dosingScheduleItems.length > 0 && (
+        <div className="mb-8">
+          <button
+            onClick={() => setShowDosingSchedule(!showDosingSchedule)}
+            className="mb-4 flex w-full items-center justify-between text-left"
+          >
+            <h2 className="flex items-center gap-2 text-lg font-semibold text-gray-900">
+              <Syringe className="h-5 w-5 shrink-0" style={{ color: primaryColor }} />
+              <span>Your Dosing Schedule</span>
+            </h2>
+            {showDosingSchedule ? (
+              <ChevronUp className="h-5 w-5 shrink-0 text-gray-400" />
+            ) : (
+              <ChevronDown className="h-5 w-5 shrink-0 text-gray-400" />
+            )}
+          </button>
+          {showDosingSchedule && (
+            <div className="overflow-hidden rounded-2xl bg-white shadow-lg shadow-gray-200/40">
+              <div
+                className="px-4 py-3 sm:px-5 sm:py-4"
+                style={{ backgroundColor: `${primaryColor}08` }}
+              >
+                <p className="text-xs font-medium text-gray-500 sm:text-sm">
+                  Each prescription below covers {dosingScheduleItems[0]?.weekEnd && dosingScheduleItems[0].weekEnd - dosingScheduleItems[0].weekStart + 1 || 4} weekly
+                  injections at the listed dose. Your provider may adjust the dose after 4+ weeks based on your progress.
+                </p>
+              </div>
+              <div className="divide-y divide-gray-50">
+                {dosingScheduleItems.map((item, idx) => {
+                  const isCurrent = idx === currentDoseIndex;
+                  const isPast = currentDoseIndex >= 0 ? idx < currentDoseIndex : !item.isActive;
+                  return (
+                    <div
+                      key={`${item.prescriptionId}-${item.monthNumber}`}
+                      className={`relative flex gap-3 px-4 py-4 sm:gap-4 sm:px-5 sm:py-5 ${
+                        isCurrent ? 'bg-emerald-50/60' : ''
+                      }`}
+                    >
+                      {/* Timeline connector */}
+                      <div className="flex flex-col items-center">
+                        <div
+                          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-bold sm:h-10 sm:w-10 ${
+                            isCurrent
+                              ? 'text-white shadow-md'
+                              : isPast
+                                ? 'bg-gray-100 text-gray-400'
+                                : 'bg-gray-100 text-gray-500'
+                          }`}
+                          style={
+                            isCurrent ? { backgroundColor: primaryColor } : undefined
+                          }
+                        >
+                          {item.monthNumber}
+                        </div>
+                        {idx < dosingScheduleItems.length - 1 && (
+                          <div
+                            className={`mt-1 w-0.5 flex-1 ${
+                              isPast ? 'bg-gray-200' : 'bg-gray-100'
+                            }`}
+                            style={
+                              isCurrent ? { backgroundColor: `${primaryColor}40` } : undefined
+                            }
+                          />
+                        )}
+                      </div>
+
+                      {/* Content */}
+                      <div className="min-w-0 flex-1 pb-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span
+                            className={`text-sm font-semibold sm:text-base ${
+                              isCurrent ? 'text-gray-900' : isPast ? 'text-gray-400' : 'text-gray-700'
+                            }`}
+                          >
+                            Month {item.monthNumber}
+                          </span>
+                          <span
+                            className={`text-[10px] font-semibold sm:text-xs ${
+                              isPast ? 'text-gray-300' : 'text-gray-400'
+                            }`}
+                          >
+                            Weeks {item.weekStart}&ndash;{item.weekEnd}
+                          </span>
+                          {isCurrent && (
+                            <span
+                              className="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white sm:text-xs"
+                              style={{ backgroundColor: primaryColor }}
+                            >
+                              Current
+                            </span>
+                          )}
+                          {isPast && (
+                            <span className="flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-semibold text-gray-400 sm:text-xs">
+                              <Check className="h-3 w-3" /> Done
+                            </span>
+                          )}
+                          {item.isTitration && !isPast && (
+                            <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-600 sm:text-xs">
+                              Dose increase
+                            </span>
+                          )}
+                        </div>
+
+                        <p
+                          className={`mt-0.5 text-xs sm:text-sm ${
+                            isPast ? 'text-gray-400' : 'text-gray-500'
+                          }`}
+                        >
+                          {item.medName}
+                          <span className="mx-1.5 text-gray-300">&middot;</span>
+                          Prescribed {formatDate(item.date)}
+                        </p>
+
+                        {/* Injection directions */}
+                        <div
+                          className={`mt-2 rounded-xl p-3 ${
+                            isCurrent
+                              ? 'border border-emerald-200 bg-white'
+                              : 'bg-gray-50'
+                          }`}
+                        >
+                          {item.dose && (item.dose.mg || item.dose.units) ? (
+                            <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                              <span
+                                className={`text-xs font-semibold uppercase tracking-wider ${
+                                  isPast ? 'text-gray-300' : 'text-gray-400'
+                                }`}
+                              >
+                                Inject weekly:
+                              </span>
+                              {item.dose.units && (
+                                <span
+                                  className={`text-lg font-bold sm:text-xl ${
+                                    isCurrent ? '' : isPast ? 'text-gray-300' : 'text-gray-700'
+                                  }`}
+                                  style={isCurrent ? { color: primaryColor } : undefined}
+                                >
+                                  {item.dose.units} units
+                                </span>
+                              )}
+                              {item.dose.mg && (
+                                <span
+                                  className={`text-sm font-medium ${
+                                    isPast ? 'text-gray-300' : 'text-gray-500'
+                                  }`}
+                                >
+                                  ({item.dose.mg} mg)
+                                </span>
+                              )}
+                            </div>
+                          ) : null}
+                          <p
+                            className={`${item.dose && (item.dose.mg || item.dose.units) ? 'mt-1.5' : ''} text-xs leading-relaxed sm:text-sm ${
+                              isPast ? 'text-gray-300' : 'text-gray-600'
+                            }`}
+                          >
+                            {item.directions}
+                          </p>
+                          {isCurrent && (
+                            <p className="mt-2 flex items-center gap-1.5 text-[10px] font-medium text-gray-400 sm:text-xs">
+                              <Calendar className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+                              1 injection per week &middot; {item.weekEnd - item.weekStart + 1} weeks at this dose
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
       )}
 

@@ -68,6 +68,7 @@ async function fetchPatientPrescriptions(req: NextRequest, user: AuthUser, patie
         rxs: {
           select: {
             id: true,
+            medicationKey: true,
             medName: true,
             strength: true,
             form: true,
@@ -114,6 +115,7 @@ async function fetchPatientPrescriptions(req: NextRequest, user: AuthUser, patie
     },
     medications: order.rxs.map((rx) => ({
       id: rx.id,
+      medicationKey: rx.medicationKey,
       name: rx.medName,
       strength: rx.strength,
       form: rx.form,

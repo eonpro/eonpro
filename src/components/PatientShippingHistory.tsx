@@ -22,6 +22,7 @@ type ShippingUpdate = {
   lifefileOrderId?: string | null;
   brand?: string | null;
   source: string;
+  patientConfirmedAt?: string | null;
   createdAt: string;
   updatedAt: string;
   order?: {
@@ -376,6 +377,18 @@ export default function PatientShippingHistory({
                   </div>
                 )}
               </div>
+
+              {/* Patient delivery confirmation */}
+              {update.patientConfirmedAt && (
+                <div className="mt-3 flex items-center gap-2 rounded-lg bg-emerald-50 px-3 py-2 text-sm">
+                  <svg className="h-4 w-4 shrink-0 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  <span className="font-medium text-emerald-700">
+                    Received by patient on {formatDate(update.patientConfirmedAt)}
+                  </span>
+                </div>
+              )}
 
               {/* Footer */}
               <div className="mt-3 flex items-center justify-between border-t border-gray-100 pt-3 text-xs text-gray-500">

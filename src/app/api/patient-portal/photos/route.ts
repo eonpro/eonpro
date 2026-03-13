@@ -13,7 +13,6 @@ import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { z } from 'zod';
-import { generateSignedUrl } from '@/lib/integrations/aws/s3Service';
 import crypto from 'crypto';
 import { auditLog, AuditEventType, logPHICreate } from '@/lib/audit/hipaa-audit';
 import { handleApiError } from '@/domains/shared/errors';
@@ -93,28 +92,14 @@ function getClientIp(req: NextRequest): string {
   return hashIpAddress(ip);
 }
 
-async function refreshPhotoUrls(
-  photos: Array<{ s3Key: string; thumbnailKey: string | null; [key: string]: any }>
-): Promise<Array<any>> {
-  return Promise.all(
-    photos.map(async (photo) => {
-      try {
-        const [s3Url, thumbnailUrl] = await Promise.all([
-          generateSignedUrl(photo.s3Key, 'GET', 3600),
-          photo.thumbnailKey ? generateSignedUrl(photo.thumbnailKey, 'GET', 3600) : null,
-        ]);
-        return { ...photo, s3Url, thumbnailUrl };
-      } catch (error) {
-        const errMsg = error instanceof Error ? error.message : 'Unknown error';
-        logger.error('[Photos API] Failed to generate signed URL for photo', {
-          photoId: photo.id,
-          s3Key: photo.s3Key?.substring(0, 40),
-          error: errMsg,
-        });
-        return { ...photo, s3Url: null, thumbnailUrl: null, urlError: errMsg };
-      }
-    })
-  );
+function buildProxyUrls(
+  photos: Array<{ id: number; s3Key: string; thumbnailKey: string | null; [key: string]: any }>
+): Array<any> {
+  return photos.map((photo) => ({
+    ...photo,
+    s3Url: `/api/patient-photos/${photo.id}/image`,
+    thumbnailUrl: photo.thumbnailKey ? `/api/patient-photos/${photo.id}/image?thumb=1` : null,
+  }));
 }
 
 // =============================================================================
@@ -250,8 +235,8 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       take: params.data.limit,
     });
 
-    // Generate fresh signed URLs for all photos
-    const photosWithUrls = await refreshPhotoUrls(photos);
+    // Build same-origin proxy URLs (avoids S3 CORS blocks on subdomains)
+    const photosWithUrls = buildProxyUrls(photos);
 
     try {
       await auditLog(req, {
@@ -275,16 +260,6 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       });
     }
 
-    const failedUrlCount = photosWithUrls.filter((p: any) => p.s3Url === null).length;
-    if (failedUrlCount > 0 && photos.length > 0) {
-      logger.error('[Photos API] Signed URL generation failed for photos', {
-        failedCount: failedUrlCount,
-        totalCount: photos.length,
-        patientId,
-        clinicId,
-      });
-    }
-
     return NextResponse.json({
       photos: photosWithUrls,
       pagination: {
@@ -293,9 +268,6 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         total,
         totalPages: Math.ceil(total / params.data.limit),
       },
-      ...(failedUrlCount > 0 && {
-        warning: `${failedUrlCount} photo(s) could not be loaded. Please try again or contact support.`,
-      }),
     });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -431,10 +403,9 @@ async function handlePost(req: NextRequest, user: AuthUser) {
       },
     });
 
-    // Generate signed URL for the response
-    const s3Url = await generateSignedUrl(photo.s3Key, 'GET', 3600);
+    const s3Url = `/api/patient-photos/${photo.id}/image`;
     const thumbnailUrl = photo.thumbnailKey
-      ? await generateSignedUrl(photo.thumbnailKey, 'GET', 3600)
+      ? `/api/patient-photos/${photo.id}/image?thumb=1`
       : null;
 
     logger.info('[Photos API] Photo created', {

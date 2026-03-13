@@ -5215,6 +5215,10 @@ model PatientShippingUpdate {
   externalRef     String? // Any other external reference
   brand           String? // Clinic brand name (Wellmedr, NewSelf, etc.)
 
+  // Patient delivery confirmation
+  patientConfirmedAt   DateTime?
+  patientConfirmedById Int?
+
   // Audit Trail
   rawPayload    Json? // Full webhook payload for debugging
   source        String    @default("lifefile") // lifefile, manual, pharmacy, etc.

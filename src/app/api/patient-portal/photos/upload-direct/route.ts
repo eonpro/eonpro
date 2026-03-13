@@ -15,7 +15,7 @@ import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { v4 as uuidv4 } from 'uuid';
 import { isS3Enabled, s3Config, STORAGE_CONFIG } from '@/lib/integrations/aws/s3Config';
-import { getS3Client, generateSignedUrl } from '@/lib/integrations/aws/s3Service';
+import { getS3Client } from '@/lib/integrations/aws/s3Service';
 import { PutObjectCommand } from '@aws-sdk/client-s3';
 import { PatientPhotoType } from '@prisma/client';
 import { logPHICreate } from '@/lib/audit/hipaa-audit';
@@ -207,7 +207,7 @@ async function handlePost(req: NextRequest, user: AuthUser) {
       },
     });
 
-    const s3Url = await generateSignedUrl(photo.s3Key, 'GET', 3600);
+    const s3Url = `/api/patient-photos/${photo.id}/image`;
 
     logger.info('[Photos Direct Upload] Photo created', {
       photoId: photo.id,

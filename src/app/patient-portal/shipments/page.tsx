@@ -2,18 +2,23 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
 import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
 import { usePatientPortalLanguage } from '@/lib/contexts/PatientPortalLanguageContext';
 import { usePortalSWR } from '@/hooks/usePortalSWR';
+import { portalFetch } from '@/lib/api/patient-portal-client';
+import { logger } from '@/lib/logger';
 import {
   Package,
+  PackageCheck,
   Truck,
   Clock,
   ExternalLink,
   Calendar,
   ArrowLeft,
   RefreshCw,
+  Check,
 } from 'lucide-react';
 
 interface ShipmentItem {
@@ -35,6 +40,8 @@ interface Shipment {
   shippedAt: string | null;
   estimatedDelivery: string | null;
   lastUpdate: string;
+  patientConfirmedAt: string | null;
+  canConfirmReceipt: boolean;
 }
 
 interface PrescriptionJourney {
@@ -64,6 +71,7 @@ interface TrackingResponse {
 export default function ShipmentsPage() {
   const { branding } = useClinicBranding();
   const { t } = usePatientPortalLanguage();
+  const router = useRouter();
   const primaryColor = branding?.primaryColor || '#4fa77e';
 
   const { data, error: swrError, isLoading, isValidating, mutate } = usePortalSWR<TrackingResponse>(
@@ -83,6 +91,35 @@ export default function ShipmentsPage() {
   const error = swrError ? (swrError instanceof Error ? swrError.message : 'Failed to load shipments') : null;
 
   const [refreshing, setRefreshing] = useState(false);
+  const [confirmingTrackingNumber, setConfirmingTrackingNumber] = useState<string | null>(null);
+  const [confirmError, setConfirmError] = useState<string | null>(null);
+
+  const handleConfirmReceipt = async (trackingNumber: string) => {
+    setConfirmError(null);
+    setConfirmingTrackingNumber(trackingNumber);
+    try {
+      const res = await portalFetch('/api/patient-portal/shipments/confirm-receipt', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ trackingNumber }),
+      });
+      if (res.ok) {
+        await mutate();
+        router.push(`${PATIENT_PORTAL_PATH}/welcome-kit`);
+      } else {
+        const body = await res.json().catch(() => null);
+        const msg = (body as { error?: string })?.error || 'Failed to confirm. Please try again.';
+        setConfirmError(msg);
+      }
+    } catch (err) {
+      logger.error('[Shipments] Confirm receipt failed', {
+        error: err instanceof Error ? err.message : String(err),
+      });
+      setConfirmError('Something went wrong. Please try again.');
+    } finally {
+      setConfirmingTrackingNumber(null);
+    }
+  };
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -232,9 +269,44 @@ export default function ShipmentsPage() {
                     ? `Shipped ${formatDate(shipment.shippedAt)}`
                     : `Ordered ${formatDate(shipment.orderedAt)}`}
                 </div>
+
+                {/* Delivery confirmation */}
+                {shipment.patientConfirmedAt ? (
+                  <div className="mt-3 flex items-center gap-2 rounded-xl bg-emerald-50 px-3 py-2.5">
+                    <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-100">
+                      <Check className="h-3.5 w-3.5 text-emerald-600" />
+                    </div>
+                    <span className="text-sm font-medium text-emerald-700">
+                      Received on {formatDate(shipment.patientConfirmedAt)}
+                    </span>
+                  </div>
+                ) : shipment.canConfirmReceipt ? (
+                  <button
+                    onClick={() => handleConfirmReceipt(shipment.trackingNumber)}
+                    disabled={confirmingTrackingNumber === shipment.trackingNumber}
+                    className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white transition-all hover:bg-emerald-700 disabled:opacity-60"
+                  >
+                    {confirmingTrackingNumber === shipment.trackingNumber ? (
+                      <>
+                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                        Confirming...
+                      </>
+                    ) : (
+                      <>
+                        <PackageCheck className="h-5 w-5" />
+                        I Received My Package
+                      </>
+                    )}
+                  </button>
+                ) : null}
               </div>
             </div>
           ))}
+          {confirmError && (
+            <div className="rounded-2xl border border-red-100 bg-red-50 p-4 text-sm text-red-700">
+              {confirmError}
+            </div>
+          )}
         </div>
       )}
     </div>

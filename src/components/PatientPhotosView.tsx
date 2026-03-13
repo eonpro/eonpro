@@ -13,6 +13,7 @@ import {
   TrendingDown,
   Shield,
   Stethoscope,
+  Package,
   ChevronRight,
   Image as ImageIcon,
   CheckCircle,
@@ -25,6 +26,9 @@ import {
   RefreshCw,
   RotateCcw,
   Trash2,
+  Pill,
+  Truck,
+  ExternalLink,
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { apiFetch } from '@/lib/api/fetch';
@@ -46,6 +50,43 @@ interface Photo {
   takenAt: string;
   verificationStatus: string;
   verifiedAt: string | null;
+}
+
+interface PackagePhotoRx {
+  id: number;
+  medName: string;
+  strength: string;
+  form: string;
+  quantity: string;
+  sig: string;
+}
+
+interface PackagePhotoOrder {
+  id: number;
+  lifefileOrderId: string | null;
+  status: string | null;
+  trackingNumber: string | null;
+  primaryMedName: string | null;
+  primaryMedStrength: string | null;
+  primaryMedForm: string | null;
+  createdAt: string;
+  rxs: PackagePhotoRx[];
+}
+
+interface PackagePhoto {
+  id: number;
+  createdAt: string;
+  lifefileId: string;
+  trackingNumber: string | null;
+  trackingSource: string | null;
+  s3Url: string | null;
+  contentType: string;
+  fileSize: number | null;
+  notes: string | null;
+  matched: boolean;
+  matchStrategy: string | null;
+  capturedBy: { id: number; firstName: string; lastName: string };
+  order: PackagePhotoOrder | null;
 }
 
 interface PatientPhotosViewProps {
@@ -85,6 +126,11 @@ const categoryLabels: Record<string, { label: string; icon: typeof Camera; color
     label: 'Medical Images',
     icon: Stethoscope,
     color: 'text-teal-600 bg-teal-50',
+  },
+  pharmacy: {
+    label: 'Package Photos',
+    icon: Package,
+    color: 'text-indigo-600 bg-indigo-50',
   },
 };
 
@@ -131,11 +177,13 @@ function categorizePhotos(photos: Photo[]) {
 
 export default function PatientPhotosView({ patientId, patientName }: PatientPhotosViewProps) {
   const [photos, setPhotos] = useState<Photo[]>([]);
+  const [packagePhotos, setPackagePhotos] = useState<PackagePhoto[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedPhoto, setSelectedPhoto] = useState<Photo | null>(null);
+  const [selectedPackagePhoto, setSelectedPackagePhoto] = useState<PackagePhoto | null>(null);
   const [activeCategory, setActiveCategory] = useState<
-    'all' | 'progress' | 'verification' | 'medical'
+    'all' | 'progress' | 'verification' | 'medical' | 'pharmacy'
   >('all');
   const [verifying, setVerifying] = useState(false);
   const [verificationNotes, setVerificationNotes] = useState('');
@@ -148,14 +196,22 @@ export default function PatientPhotosView({ patientId, patientName }: PatientPho
     setError(null);
 
     try {
-      const response = await apiFetch(`/api/patient-portal/photos?patientId=${patientId}&limit=200`);
+      const [photosRes, pkgRes] = await Promise.all([
+        apiFetch(`/api/patient-portal/photos?patientId=${patientId}&limit=200`),
+        apiFetch(`/api/patients/${patientId}/package-photos?limit=100`),
+      ]);
 
-      if (!response.ok) {
+      if (!photosRes.ok) {
         throw new Error('Failed to load photos');
       }
 
-      const data = await response.json();
-      setPhotos(data.photos || []);
+      const photosData = await photosRes.json();
+      setPhotos(photosData.photos || []);
+
+      if (pkgRes.ok) {
+        const pkgData = await pkgRes.json();
+        setPackagePhotos(pkgData.data || []);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load photos');
     } finally {
@@ -239,13 +295,15 @@ export default function PatientPhotosView({ patientId, patientName }: PatientPho
   };
 
   const categorized = categorizePhotos(photos);
+  const categorizedWithPharmacy = { ...categorized, pharmacy: packagePhotos };
 
   const getFilteredPhotos = () => {
-    if (activeCategory === 'all') return photos;
+    if (activeCategory === 'all' || activeCategory === 'pharmacy') return photos;
     return categorized[activeCategory] || [];
   };
 
-  const filteredPhotos = getFilteredPhotos();
+  const filteredPhotos = activeCategory === 'pharmacy' ? [] : getFilteredPhotos();
+  const totalCount = photos.length + packagePhotos.length;
 
   // Group progress photos by date for comparison view
   const progressPhotosByDate = categorized.progress.reduce(
@@ -289,7 +347,12 @@ export default function PatientPhotosView({ patientId, patientName }: PatientPho
         <div>
           <h2 className="text-lg font-semibold text-gray-900">Patient Photos</h2>
           <p className="text-sm text-gray-500">
-            {photos.length} photo{photos.length !== 1 ? 's' : ''} for {patientName}
+            {totalCount} photo{totalCount !== 1 ? 's' : ''} for {patientName}
+            {packagePhotos.length > 0 && (
+              <span className="ml-1 text-indigo-600">
+                ({packagePhotos.length} package)
+              </span>
+            )}
           </p>
         </div>
         <button
@@ -302,9 +365,9 @@ export default function PatientPhotosView({ patientId, patientName }: PatientPho
       </div>
 
       {/* Category Summary Cards */}
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {Object.entries(categoryLabels).map(([key, config]) => {
-          const count = categorized[key as keyof typeof categorized]?.length || 0;
+          const count = categorizedWithPharmacy[key as keyof typeof categorizedWithPharmacy]?.length || 0;
           const Icon = config.icon;
           const isActive = activeCategory === key;
 
@@ -332,8 +395,8 @@ export default function PatientPhotosView({ patientId, patientName }: PatientPho
       </div>
 
       {/* Category Filter Tabs */}
-      <div className="flex gap-2 border-b border-gray-200 pb-2">
-        {['all', 'progress', 'verification', 'medical'].map((cat) => (
+      <div className="flex gap-2 border-b border-gray-200 pb-2 overflow-x-auto">
+        {['all', 'progress', 'verification', 'medical', 'pharmacy'].map((cat) => (
           <button
             key={cat}
             onClick={() => setActiveCategory(cat as any)}
@@ -348,35 +411,32 @@ export default function PatientPhotosView({ patientId, patientName }: PatientPho
         ))}
       </div>
 
-      {/* Photo Grid */}
-      {filteredPhotos.length === 0 ? (
-        <div className="rounded-xl bg-gray-50 py-12 text-center">
-          <Camera className="mx-auto h-12 w-12 text-gray-300" />
-          <p className="mt-2 text-gray-500">No photos found</p>
-          <p className="text-sm text-gray-400">
-            {activeCategory === 'all'
-              ? 'This patient has not uploaded any photos yet.'
-              : `No ${categoryLabels[activeCategory]?.label?.toLowerCase() || activeCategory} photos uploaded.`}
-          </p>
-        </div>
-      ) : (
-        <div className="grid gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-          {filteredPhotos.map((photo) => {
-            const status = statusConfig[photo.verificationStatus] || statusConfig.NOT_APPLICABLE;
-            const StatusIcon = status.icon;
-
-            return (
+      {/* Package Photos Grid (pharmacy tab or "all" tab) */}
+      {(activeCategory === 'pharmacy' || activeCategory === 'all') && packagePhotos.length > 0 && (
+        <div className="space-y-3">
+          {activeCategory === 'all' && (
+            <div className="flex items-center gap-2">
+              <Package className="h-4 w-4 text-indigo-600" />
+              <h3 className="text-sm font-semibold text-gray-900">
+                Package Photos from Pharmacy
+              </h3>
+              <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-700">
+                {packagePhotos.length}
+              </span>
+            </div>
+          )}
+          <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+            {packagePhotos.map((pkg) => (
               <div
-                key={photo.id}
-                onClick={() => setSelectedPhoto(photo)}
-                className="group cursor-pointer overflow-hidden rounded-xl border border-gray-200 bg-white transition-shadow hover:shadow-md"
+                key={`pkg-${pkg.id}`}
+                onClick={() => setSelectedPackagePhoto(pkg)}
+                className="group cursor-pointer overflow-hidden rounded-xl border border-indigo-200 bg-white transition-shadow hover:shadow-md"
               >
-                {/* Photo */}
-                <div className="relative aspect-[3/4] bg-gray-100">
-                  {photo.thumbnailUrl || photo.s3Url ? (
+                <div className="relative aspect-[4/3] bg-gray-100">
+                  {pkg.s3Url ? (
                     <img
-                      src={photo.thumbnailUrl || photo.s3Url || ''}
-                      alt={photoTypeLabels[photo.type] || photo.type}
+                      src={pkg.s3Url}
+                      alt={`Package ${pkg.lifefileId}`}
                       className="h-full w-full object-cover"
                       onError={(e) => {
                         const target = e.currentTarget;
@@ -388,45 +448,163 @@ export default function PatientPhotosView({ patientId, patientName }: PatientPho
                   ) : null}
                   <div
                     className="flex h-full flex-col items-center justify-center gap-1"
-                    style={{ display: photo.thumbnailUrl || photo.s3Url ? 'none' : 'flex' }}
+                    style={{ display: pkg.s3Url ? 'none' : 'flex' }}
                   >
-                    <AlertCircle className="h-6 w-6 text-gray-400" />
+                    <Package className="h-6 w-6 text-gray-400" />
                     <p className="text-[10px] text-gray-400">Image not available</p>
                   </div>
 
-                  {/* Verification Badge */}
-                  {['ID_FRONT', 'ID_BACK', 'SELFIE'].includes(photo.type) && (
+                  {pkg.order && (
                     <div className="absolute bottom-2 left-2 right-2">
-                      <span
-                        className={`inline-flex w-full items-center justify-center gap-1 rounded-full px-2 py-1 text-xs font-medium ${status.bgColor} ${status.color}`}
-                      >
-                        <StatusIcon className="h-3 w-3" />
-                        {status.label}
+                      <span className="inline-flex w-full items-center justify-center gap-1 rounded-full bg-indigo-600/90 px-2 py-1 text-xs font-medium text-white">
+                        <Pill className="h-3 w-3" />
+                        {pkg.order.primaryMedName || 'Rx Linked'}
                       </span>
                     </div>
                   )}
 
-                  {/* Zoom Icon on Hover */}
                   <div className="absolute inset-0 flex items-center justify-center bg-black/0 transition-all group-hover:bg-black/30">
                     <ZoomIn className="h-8 w-8 text-white opacity-0 transition-opacity group-hover:opacity-100" />
                   </div>
                 </div>
 
-                {/* Photo Info */}
-                <div className="p-2">
-                  <p className="truncate text-xs font-medium text-gray-700">
-                    {photoTypeLabels[photo.type] || photo.type}
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    {format(parseISO(photo.takenAt), 'MMM d, yyyy')}
-                  </p>
-                  {photo.weight && (
-                    <p className="mt-1 text-xs font-medium text-[var(--brand-primary)]">{photo.weight} lbs</p>
+                <div className="p-3">
+                  <div className="flex items-center gap-1.5">
+                    <span className="truncate text-xs font-semibold text-gray-800">
+                      LF-{pkg.lifefileId}
+                    </span>
+                    {pkg.matched && (
+                      <CheckCircle className="h-3.5 w-3.5 flex-shrink-0 text-green-500" />
+                    )}
+                  </div>
+                  {pkg.order?.primaryMedName && (
+                    <p className="mt-0.5 truncate text-xs text-indigo-600">
+                      {pkg.order.primaryMedName} {pkg.order.primaryMedStrength || ''}
+                    </p>
                   )}
+                  {pkg.trackingNumber && (
+                    <p className="mt-0.5 flex items-center gap-1 truncate text-xs text-gray-500">
+                      <Truck className="h-3 w-3" />
+                      {pkg.trackingNumber}
+                    </p>
+                  )}
+                  <p className="mt-1 text-xs text-gray-400">
+                    {format(parseISO(pkg.createdAt), 'MMM d, yyyy h:mm a')}
+                  </p>
                 </div>
               </div>
-            );
-          })}
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Patient Photos Grid */}
+      {activeCategory !== 'pharmacy' && (
+        <>
+          {activeCategory === 'all' && photos.length > 0 && packagePhotos.length > 0 && (
+            <div className="flex items-center gap-2">
+              <Camera className="h-4 w-4 text-gray-600" />
+              <h3 className="text-sm font-semibold text-gray-900">Patient Photos</h3>
+              <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">
+                {photos.length}
+              </span>
+            </div>
+          )}
+          {filteredPhotos.length === 0 && packagePhotos.length === 0 ? (
+            <div className="rounded-xl bg-gray-50 py-12 text-center">
+              <Camera className="mx-auto h-12 w-12 text-gray-300" />
+              <p className="mt-2 text-gray-500">No photos found</p>
+              <p className="text-sm text-gray-400">
+                {activeCategory === 'all'
+                  ? 'This patient has not uploaded any photos yet.'
+                  : `No ${categoryLabels[activeCategory]?.label?.toLowerCase() || activeCategory} photos uploaded.`}
+              </p>
+            </div>
+          ) : filteredPhotos.length === 0 && activeCategory !== 'all' ? (
+            <div className="rounded-xl bg-gray-50 py-12 text-center">
+              <Camera className="mx-auto h-12 w-12 text-gray-300" />
+              <p className="mt-2 text-gray-500">No photos found</p>
+              <p className="text-sm text-gray-400">
+                {`No ${categoryLabels[activeCategory]?.label?.toLowerCase() || activeCategory} photos uploaded.`}
+              </p>
+            </div>
+          ) : filteredPhotos.length > 0 ? (
+            <div className="grid gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+              {filteredPhotos.map((photo) => {
+                const status = statusConfig[photo.verificationStatus] || statusConfig.NOT_APPLICABLE;
+                const StatusIcon = status.icon;
+
+                return (
+                  <div
+                    key={photo.id}
+                    onClick={() => setSelectedPhoto(photo)}
+                    className="group cursor-pointer overflow-hidden rounded-xl border border-gray-200 bg-white transition-shadow hover:shadow-md"
+                  >
+                    <div className="relative aspect-[3/4] bg-gray-100">
+                      {photo.thumbnailUrl || photo.s3Url ? (
+                        <img
+                          src={photo.thumbnailUrl || photo.s3Url || ''}
+                          alt={photoTypeLabels[photo.type] || photo.type}
+                          className="h-full w-full object-cover"
+                          onError={(e) => {
+                            const target = e.currentTarget;
+                            target.style.display = 'none';
+                            const fallback = target.nextElementSibling as HTMLElement | null;
+                            if (fallback) fallback.style.display = 'flex';
+                          }}
+                        />
+                      ) : null}
+                      <div
+                        className="flex h-full flex-col items-center justify-center gap-1"
+                        style={{ display: photo.thumbnailUrl || photo.s3Url ? 'none' : 'flex' }}
+                      >
+                        <AlertCircle className="h-6 w-6 text-gray-400" />
+                        <p className="text-[10px] text-gray-400">Image not available</p>
+                      </div>
+
+                      {['ID_FRONT', 'ID_BACK', 'SELFIE'].includes(photo.type) && (
+                        <div className="absolute bottom-2 left-2 right-2">
+                          <span
+                            className={`inline-flex w-full items-center justify-center gap-1 rounded-full px-2 py-1 text-xs font-medium ${status.bgColor} ${status.color}`}
+                          >
+                            <StatusIcon className="h-3 w-3" />
+                            {status.label}
+                          </span>
+                        </div>
+                      )}
+
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/0 transition-all group-hover:bg-black/30">
+                        <ZoomIn className="h-8 w-8 text-white opacity-0 transition-opacity group-hover:opacity-100" />
+                      </div>
+                    </div>
+
+                    <div className="p-2">
+                      <p className="truncate text-xs font-medium text-gray-700">
+                        {photoTypeLabels[photo.type] || photo.type}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {format(parseISO(photo.takenAt), 'MMM d, yyyy')}
+                      </p>
+                      {photo.weight && (
+                        <p className="mt-1 text-xs font-medium text-[var(--brand-primary)]">{photo.weight} lbs</p>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : null}
+        </>
+      )}
+
+      {/* Empty state when pharmacy tab has no photos */}
+      {activeCategory === 'pharmacy' && packagePhotos.length === 0 && (
+        <div className="rounded-xl bg-gray-50 py-12 text-center">
+          <Package className="mx-auto h-12 w-12 text-gray-300" />
+          <p className="mt-2 text-gray-500">No package photos</p>
+          <p className="text-sm text-gray-400">
+            No pharmacy package photos have been linked to this patient yet.
+          </p>
         </div>
       )}
 
@@ -641,6 +819,184 @@ export default function PatientPhotosView({ patientId, patientName }: PatientPho
                       Delete Photo
                     </button>
                   </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Package Photo Detail Modal */}
+      {selectedPackagePhoto && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
+          <div className="relative max-h-[90vh] w-full max-w-4xl overflow-hidden rounded-2xl bg-white">
+            <button
+              onClick={() => setSelectedPackagePhoto(null)}
+              className="absolute right-4 top-4 z-10 rounded-full bg-black/50 p-2 text-white hover:bg-black/70"
+            >
+              <X className="h-5 w-5" />
+            </button>
+
+            <div className="flex flex-col md:flex-row">
+              <div className="flex-1 bg-gray-900">
+                {selectedPackagePhoto.s3Url ? (
+                  <img
+                    src={selectedPackagePhoto.s3Url}
+                    alt={`Package ${selectedPackagePhoto.lifefileId}`}
+                    className="h-full max-h-[70vh] w-full object-contain"
+                  />
+                ) : (
+                  <div className="flex h-96 flex-col items-center justify-center gap-2">
+                    <Package className="h-12 w-12 text-gray-500" />
+                    <p className="text-sm text-gray-400">Image not available</p>
+                  </div>
+                )}
+              </div>
+
+              <div className="w-full overflow-y-auto p-6 md:w-96">
+                <div className="flex items-center gap-2">
+                  <Package className="h-5 w-5 text-indigo-600" />
+                  <h3 className="text-lg font-semibold text-gray-900">Package Photo</h3>
+                </div>
+
+                <div className="mt-4 space-y-4">
+                  <div>
+                    <p className="text-xs font-medium uppercase text-gray-500">LifeFile Order ID</p>
+                    <p className="font-mono text-sm font-semibold text-gray-900">
+                      {selectedPackagePhoto.lifefileId}
+                    </p>
+                  </div>
+
+                  <div>
+                    <p className="text-xs font-medium uppercase text-gray-500">Date Captured</p>
+                    <p className="text-gray-900">
+                      {format(parseISO(selectedPackagePhoto.createdAt), 'MMMM d, yyyy h:mm a')}
+                    </p>
+                  </div>
+
+                  {selectedPackagePhoto.capturedBy && (
+                    <div>
+                      <p className="text-xs font-medium uppercase text-gray-500">Captured By</p>
+                      <p className="text-gray-900">
+                        {selectedPackagePhoto.capturedBy.firstName} {selectedPackagePhoto.capturedBy.lastName}
+                      </p>
+                    </div>
+                  )}
+
+                  {selectedPackagePhoto.trackingNumber && (
+                    <div>
+                      <p className="text-xs font-medium uppercase text-gray-500">Tracking Number</p>
+                      <div className="flex items-center gap-2">
+                        <Truck className="h-4 w-4 text-gray-400" />
+                        <p className="font-mono text-sm text-gray-900">
+                          {selectedPackagePhoto.trackingNumber}
+                        </p>
+                      </div>
+                      {selectedPackagePhoto.trackingSource && (
+                        <p className="mt-0.5 text-xs text-gray-500">
+                          Source: {selectedPackagePhoto.trackingSource}
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {selectedPackagePhoto.matched && (
+                    <div className="flex items-center gap-1.5 rounded-lg bg-green-50 px-3 py-2">
+                      <CheckCircle className="h-4 w-4 text-green-600" />
+                      <span className="text-sm font-medium text-green-700">Matched to patient record</span>
+                    </div>
+                  )}
+
+                  {/* Linked Prescription */}
+                  {selectedPackagePhoto.order && (
+                    <div className="rounded-xl border border-indigo-200 bg-indigo-50 p-4">
+                      <div className="mb-3 flex items-center gap-2">
+                        <Pill className="h-4 w-4 text-indigo-600" />
+                        <p className="text-xs font-semibold uppercase text-indigo-700">
+                          Linked Prescription
+                        </p>
+                      </div>
+
+                      <div className="space-y-2">
+                        {selectedPackagePhoto.order.primaryMedName && (
+                          <div>
+                            <p className="text-sm font-semibold text-gray-900">
+                              {selectedPackagePhoto.order.primaryMedName}
+                              {selectedPackagePhoto.order.primaryMedStrength && (
+                                <span className="ml-1 font-normal text-gray-600">
+                                  {selectedPackagePhoto.order.primaryMedStrength}
+                                </span>
+                              )}
+                            </p>
+                            {selectedPackagePhoto.order.primaryMedForm && (
+                              <p className="text-xs text-gray-500">
+                                {selectedPackagePhoto.order.primaryMedForm}
+                              </p>
+                            )}
+                          </div>
+                        )}
+
+                        {selectedPackagePhoto.order.lifefileOrderId && (
+                          <div className="flex items-center gap-1.5 text-xs text-gray-600">
+                            <ExternalLink className="h-3 w-3" />
+                            Order: {selectedPackagePhoto.order.lifefileOrderId}
+                          </div>
+                        )}
+
+                        {selectedPackagePhoto.order.status && (
+                          <div>
+                            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                              selectedPackagePhoto.order.status === 'completed' || selectedPackagePhoto.order.status === 'Shipped'
+                                ? 'bg-green-100 text-green-700'
+                                : selectedPackagePhoto.order.status === 'cancelled'
+                                  ? 'bg-red-100 text-red-700'
+                                  : 'bg-gray-100 text-gray-700'
+                            }`}>
+                              {selectedPackagePhoto.order.status}
+                            </span>
+                          </div>
+                        )}
+
+                        <p className="text-xs text-gray-500">
+                          Prescribed: {format(parseISO(selectedPackagePhoto.order.createdAt), 'MMM d, yyyy')}
+                        </p>
+
+                        {/* Rx line items */}
+                        {selectedPackagePhoto.order.rxs.length > 0 && (
+                          <div className="mt-2 border-t border-indigo-200 pt-2">
+                            <p className="mb-1.5 text-xs font-semibold text-indigo-700">
+                              Medications ({selectedPackagePhoto.order.rxs.length})
+                            </p>
+                            <div className="space-y-1.5">
+                              {selectedPackagePhoto.order.rxs.map((rx) => (
+                                <div
+                                  key={rx.id}
+                                  className="rounded-lg bg-white p-2 text-xs"
+                                >
+                                  <p className="font-medium text-gray-900">
+                                    {rx.medName} {rx.strength}
+                                  </p>
+                                  <p className="text-gray-500">
+                                    {rx.form} &middot; Qty: {rx.quantity}
+                                  </p>
+                                  <p className="mt-0.5 italic text-gray-400">
+                                    {rx.sig}
+                                  </p>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {selectedPackagePhoto.notes && (
+                    <div>
+                      <p className="text-xs font-medium uppercase text-gray-500">Notes</p>
+                      <p className="text-gray-700">{selectedPackagePhoto.notes}</p>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

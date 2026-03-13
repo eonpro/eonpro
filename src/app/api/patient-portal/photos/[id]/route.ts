@@ -13,7 +13,7 @@ import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { z } from 'zod';
-import { generateSignedUrl, deleteFromS3 } from '@/lib/integrations/aws/s3Service';
+import { deleteFromS3 } from '@/lib/integrations/aws/s3Service';
 import { logPHIAccess, logPHIUpdate, logPHIDelete } from '@/lib/audit/hipaa-audit';
 
 // =============================================================================
@@ -97,13 +97,9 @@ async function handleGet(
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 
-    // Generate fresh signed URLs
-    const [s3Url, thumbnailUrl] = await Promise.all([
-      generateSignedUrl(photo.s3Key, 'GET', 3600),
-      photo.thumbnailKey ? generateSignedUrl(photo.thumbnailKey, 'GET', 3600) : null,
-    ]);
+    const s3Url = `/api/patient-photos/${photo.id}/image`;
+    const thumbnailUrl = photo.thumbnailKey ? `/api/patient-photos/${photo.id}/image?thumb=1` : null;
 
-    // Remove internal fields
     const { patient, ...photoData } = photo;
 
     await logPHIAccess(req, user, 'PatientPhoto', String(photoId), photo.patientId, {
@@ -202,11 +198,8 @@ async function handlePatch(
       },
     });
 
-    // Generate fresh signed URLs
-    const [s3Url, thumbnailUrl] = await Promise.all([
-      generateSignedUrl(updatedPhoto.s3Key, 'GET', 3600),
-      updatedPhoto.thumbnailKey ? generateSignedUrl(updatedPhoto.thumbnailKey, 'GET', 3600) : null,
-    ]);
+    const s3Url = `/api/patient-photos/${updatedPhoto.id}/image`;
+    const thumbnailUrl = updatedPhoto.thumbnailKey ? `/api/patient-photos/${updatedPhoto.id}/image?thumb=1` : null;
 
     logger.info('[Photos API] Photo updated', {
       photoId,

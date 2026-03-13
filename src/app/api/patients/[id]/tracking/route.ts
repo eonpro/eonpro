@@ -239,6 +239,7 @@ export const GET = withAuthParams(
           shippedAt: update.shippedAt,
           estimatedDelivery: update.estimatedDelivery,
           actualDelivery: update.actualDelivery,
+          patientConfirmedAt: update.patientConfirmedAt || null,
           orderId: update.orderId,
           lifefileOrderId: update.lifefileOrderId || update.order?.lifefileOrderId,
           source: update.source,

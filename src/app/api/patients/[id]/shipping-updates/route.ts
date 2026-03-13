@@ -83,6 +83,7 @@ export const GET = withAuthParams(async (req: NextRequest, user: any, context: R
         lifefileOrderId: update.lifefileOrderId,
         brand: update.brand,
         source: update.source,
+        patientConfirmedAt: update.patientConfirmedAt ?? null,
         createdAt: update.createdAt,
         updatedAt: update.updatedAt,
         order: update.order

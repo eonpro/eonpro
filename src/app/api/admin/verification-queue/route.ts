@@ -11,7 +11,6 @@ import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { z } from 'zod';
-import { generateSignedUrl } from '@/lib/integrations/aws/s3Service';
 import { decryptPHI } from '@/lib/security/phi-encryption';
 
 // Avoid Prisma enum import issues - define locally
@@ -102,20 +101,12 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       take: limit,
     });
 
-    // Generate signed URLs for photos
-    const photosWithUrls = await Promise.all(
-      photos.map(async (photo) => {
-        try {
-          const [s3Url, thumbnailUrl] = await Promise.all([
-            generateSignedUrl(photo.s3Key, 'GET', 3600),
-            photo.thumbnailKey ? generateSignedUrl(photo.thumbnailKey, 'GET', 3600) : null,
-          ]);
-          return { ...photo, s3Url, thumbnailUrl };
-        } catch {
-          return { ...photo, s3Url: null, thumbnailUrl: null };
-        }
-      })
-    );
+    // Build proxy URLs (same-origin, avoids S3 CORS blocks on subdomains)
+    const photosWithUrls = photos.map((photo) => ({
+      ...photo,
+      s3Url: `/api/patient-photos/${photo.id}/image`,
+      thumbnailUrl: photo.thumbnailKey ? `/api/patient-photos/${photo.id}/image?thumb=1` : null,
+    }));
 
     // Group photos by patient for easier review, decrypting PHI
     const grouped = photosWithUrls.reduce((acc: any, photo) => {

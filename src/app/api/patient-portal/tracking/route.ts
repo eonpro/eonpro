@@ -276,6 +276,14 @@ async function getHandler(req: NextRequest, user: AuthUser) {
           new Date(update.updatedAt).getTime() > new Date(existingLastUpdate).getTime());
 
       if (shouldReplace) {
+        const trackingOrigin = update.shippedAt ?? update.createdAt;
+        const hoursSinceTracking = (Date.now() - new Date(trackingOrigin).getTime()) / (1000 * 60 * 60);
+        const blockedStatuses = ['RETURNED', 'EXCEPTION', 'CANCELLED'];
+        const canConfirm =
+          !update.patientConfirmedAt &&
+          hoursSinceTracking >= 48 &&
+          !blockedStatuses.includes(update.status);
+
         shipmentMap.set(key, {
           id: `shipping-${update.id}`,
           orderNumber:
@@ -303,6 +311,8 @@ async function getHandler(req: NextRequest, user: AuthUser) {
           lastLocation: update.statusNote || null,
           isRefill: (update.rawPayload as Record<string, unknown>)?.isRefill || false,
           refillNumber: (update.rawPayload as Record<string, unknown>)?.refillNumber || null,
+          patientConfirmedAt: safeDate(update.patientConfirmedAt),
+          canConfirmReceipt: canConfirm,
         });
       }
     }
@@ -315,6 +325,8 @@ async function getHandler(req: NextRequest, user: AuthUser) {
         const status = order.shippingStatus || order.status || 'SHIPPED';
         const statusInfo = mapStatusToDisplay(status.toUpperCase());
         const carrier = detectCarrier(order.trackingNumber);
+
+        const orderHoursSinceTracking = (Date.now() - new Date(order.createdAt).getTime()) / (1000 * 60 * 60);
 
         shipmentMap.set(key, {
           id: `order-${order.id}`,
@@ -339,6 +351,8 @@ async function getHandler(req: NextRequest, user: AuthUser) {
           lastLocation: null,
           isRefill: false,
           refillNumber: null,
+          patientConfirmedAt: null,
+          canConfirmReceipt: orderHoursSinceTracking >= 48 && statusInfo.status !== 'exception',
         });
       }
     }
