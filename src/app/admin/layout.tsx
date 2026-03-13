@@ -1,7 +1,5 @@
 'use client';
 
-const _LAYOUT_BUILD = '2026-03-12T21:00:00Z';
-
 import React, { useEffect, useState, useMemo, Component, ErrorInfo } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
@@ -35,7 +33,6 @@ import {
   Camera,
   Truck,
   Shield,
-  Menu,
 } from 'lucide-react';
 import InternalChat from '@/components/InternalChat';
 import {
@@ -154,7 +151,6 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { branding, isLoading: brandingLoading } = useClinicBranding();
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
-  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<number | null>(null);
   const [userRole, setUserRole] = useState<string>('admin');
@@ -280,11 +276,6 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
     }
   }, [loading, userRole, pathname, router]);
 
-  // Close mobile nav on route change
-  useEffect(() => {
-    setMobileNavOpen(false);
-  }, [pathname]);
-
   // Build navigation items from shared config (same as patients layout for consistency)
   const navItems = useMemo(() => {
     const config = getAdminNavConfig(userRole);
@@ -399,107 +390,25 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
     return pathname === path || pathname?.startsWith(path + '/');
   };
 
-  const sidebarNav = (
-    <nav className="flex min-h-0 flex-1 flex-col space-y-1 overflow-y-auto px-3">
-      {navItems.map((item) => {
-        const Icon = item.icon;
-        const active = isActive(item.path);
-        const isClinicsTab = item.path === '/admin/clinics';
-        const isClinicSwitch = isClinicsTab && hasMultipleClinics && userRole !== 'super_admin';
-
-        if (isClinicSwitch) {
-          return (
-            <button
-              key={item.path}
-              onClick={() => {
-                setMobileNavOpen(false);
-                setShowClinicSwitchModal(true);
-              }}
-              className="flex min-h-[44px] w-full cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-            >
-              <Icon className="h-5 w-5 flex-shrink-0" />
-              <span className="whitespace-nowrap text-sm font-medium">Switch Clinic</span>
-            </button>
-          );
-        }
-
-        return (
-          <button
-            key={item.path}
-            type="button"
-            onClick={() => { window.location.href = item.path; }}
-            className={`flex min-h-[44px] w-full cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors ${
-              active ? '' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
-            }`}
-            style={active ? { backgroundColor: `${primaryColor}15`, color: primaryColor } : {}}
-          >
-            <Icon className="h-5 w-5 flex-shrink-0" />
-            <span className="whitespace-nowrap text-sm font-medium">{item.label}</span>
-          </button>
-        );
-      })}
-    </nav>
-  );
-
   return (
     <div className="flex min-h-screen bg-[#efece7]">
-      {/* MOBILE DRAWER overlay */}
-      {!loading && mobileNavOpen && (
-        <div
-          className="fixed inset-0 z-[100] bg-black/40 md:hidden"
-          aria-hidden
-          onClick={() => setMobileNavOpen(false)}
-        />
-      )}
-      {/* MOBILE DRAWER */}
-      <div
-        className={`fixed bottom-0 left-0 top-0 z-[101] flex w-[280px] flex-col border-r border-gray-200 bg-white py-4 transition-transform duration-300 md:hidden ${
-          mobileNavOpen ? 'translate-x-0' : '-translate-x-full'
+      {/* Sidebar — hidden on mobile, visible on md+ */}
+      <aside
+        className={`fixed bottom-0 left-0 top-0 z-50 hidden flex-col border-r border-gray-200 bg-white py-4 transition-all duration-300 md:flex ${
+          sidebarExpanded ? 'w-56' : 'w-20'
         }`}
       >
-        {!loading && (
+        {!loading ? (
           <>
-            <div className="flex items-center justify-between px-4 pb-2">
-              <a href={isPharmacyExperience ? '/admin' : '/'}>
-                <img src={clinicLogo} alt={clinicName} className="h-9 w-auto max-w-[140px] object-contain" />
-              </a>
-              <button
-                type="button"
-                onClick={() => setMobileNavOpen(false)}
-                className="flex h-11 w-11 items-center justify-center rounded-xl text-gray-500 hover:bg-gray-100"
-                aria-label="Close menu"
-              >
-                <X className="h-6 w-6" />
-              </button>
-            </div>
-            {sidebarNav}
-            <div className="space-y-2 border-t border-gray-100 px-3 pt-4">
-              <button type="button" onClick={handleLogout} className="flex min-h-[44px] w-full items-center gap-3 rounded-xl px-3 py-2.5 text-gray-400 hover:bg-red-50 hover:text-red-600">
-                <LogOut className="h-5 w-5 flex-shrink-0" />
-                <span className="whitespace-nowrap text-sm font-medium">Sign Out</span>
-              </button>
-            </div>
-          </>
-        )}
-      </div>
-
-      {/* Main Content — sidebar is rendered INSIDE main so it shares the same DOM context */}
-      <main className={`flex-1 pb-20 transition-all duration-300 md:pb-0 ${sidebarExpanded ? 'md:ml-56' : 'md:ml-20'}`}>
-        {/* DESKTOP SIDEBAR — rendered inside <main> as a fixed div */}
-        {!loading && (
-          <div
-            className={`fixed bottom-0 left-0 top-0 z-50 hidden flex-col border-r border-gray-200 bg-white py-4 md:flex ${
-              sidebarExpanded ? 'w-56' : 'w-20'
-            }`}
-          >
+            {/* Logo */}
             <div className="mb-6 flex flex-col items-center px-4">
-              <button type="button" onClick={() => { window.location.href = isPharmacyExperience ? '/admin' : '/'; }} className="cursor-pointer">
+              <a href={isPharmacyExperience ? '/admin' : '/'}>
                 {sidebarExpanded ? (
                   <img src={clinicLogo} alt={clinicName} className="h-10 w-auto max-w-[140px] object-contain" />
                 ) : (
                   <img src={clinicIcon} alt={clinicName} className="h-10 w-10 object-contain" />
                 )}
-              </button>
+              </a>
               {isWhiteLabeled && sidebarExpanded && (
                 <span className="mt-1 flex items-center justify-center gap-1 text-[10px] text-gray-400">
                   Powered by{' '}
@@ -508,38 +417,86 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
               )}
             </div>
 
+            {/* Expand Button */}
             <button
               onClick={() => setSidebarExpanded(!sidebarExpanded)}
-              className={`absolute -right-3 top-20 flex h-6 w-6 items-center justify-center rounded-full border border-gray-200 bg-white shadow-sm hover:bg-gray-50 focus:outline-none ${
+              className={`absolute -right-3 top-20 flex h-6 w-6 items-center justify-center rounded-full border border-gray-200 bg-white shadow-sm transition-all hover:bg-gray-50 focus:outline-none ${
                 sidebarExpanded ? 'rotate-180' : ''
               }`}
             >
               <ChevronRight className="h-3 w-3 text-gray-400" />
             </button>
 
-            {sidebarNav}
+            <nav className="flex min-h-0 flex-1 flex-col space-y-1 overflow-y-auto px-3">
+              {navItems.map((item) => {
+                const Icon = item.icon;
+                const active = isActive(item.path);
+                const isClinicsTab = item.path === '/admin/clinics';
+                const isClinicSwitch = isClinicsTab && hasMultipleClinics && userRole !== 'super_admin';
 
+                if (isClinicSwitch) {
+                  return (
+                    <button
+                      key={item.path}
+                      onClick={() => setShowClinicSwitchModal(true)}
+                      title={!sidebarExpanded ? 'Switch Clinic' : undefined}
+                      className="flex w-full cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                    >
+                      <Icon className="h-5 w-5 flex-shrink-0" />
+                      {sidebarExpanded && (
+                        <span className="whitespace-nowrap text-sm font-medium">Switch Clinic</span>
+                      )}
+                    </button>
+                  );
+                }
+
+                return (
+                  <a
+                    key={item.path}
+                    href={item.path}
+                    title={!sidebarExpanded ? item.label : undefined}
+                    className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left no-underline transition-colors ${
+                      active ? '' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
+                    }`}
+                    style={active ? { backgroundColor: `${primaryColor}15`, color: primaryColor } : {}}
+                  >
+                    <Icon className="h-5 w-5 flex-shrink-0" />
+                    {sidebarExpanded && (
+                      <span className="whitespace-nowrap text-sm font-medium">{item.label}</span>
+                    )}
+                  </a>
+                );
+              })}
+            </nav>
+
+            {/* Logout */}
             <div className="space-y-2 border-t border-gray-100 px-3 pt-4">
-              <button type="button" onClick={handleLogout} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600">
-                <LogOut className="h-5 w-5 flex-shrink-0" />
-                {sidebarExpanded && <span className="whitespace-nowrap text-sm font-medium">Logout</span>}
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Top Bar */}
-        <div className="sticky top-0 z-40 border-b border-gray-200/50 bg-[#efece7]/95 px-4 py-2.5 backdrop-blur-sm md:px-6 md:py-3" style={{ paddingTop: 'max(0.625rem, env(safe-area-inset-top))' }}>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
               <button
                 type="button"
-                onClick={() => setMobileNavOpen(true)}
-                className="flex h-11 w-11 touch-manipulation items-center justify-center rounded-xl text-gray-600 hover:bg-white/60 active:bg-white/80 md:hidden"
-                aria-label="Open menu"
+                onClick={handleLogout}
+                title={!sidebarExpanded ? 'Logout' : undefined}
+                className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-gray-400 transition-all hover:bg-gray-100 hover:text-gray-600"
               >
-                <Menu className="h-6 w-6" />
+                <LogOut className="h-5 w-5 flex-shrink-0" />
+                {sidebarExpanded && (
+                  <span className="whitespace-nowrap text-sm font-medium">Logout</span>
+                )}
               </button>
+            </div>
+          </>
+        ) : (
+          <div className="flex flex-1 items-center justify-center">
+            <img src={EONPRO_ICON} alt="Loading" className="h-8 w-8 animate-pulse object-contain" />
+          </div>
+        )}
+      </aside>
+
+      {/* Main Content */}
+      <main className={`flex-1 pb-20 transition-all duration-300 md:pb-0 ${sidebarExpanded ? 'md:ml-56' : 'md:ml-20'}`}>
+        {/* Top Notification Bar */}
+        <div className="sticky top-0 z-40 border-b border-gray-200/50 bg-[#efece7]/95 px-4 py-2.5 backdrop-blur-sm md:px-6 md:py-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
               <NotificationCenter
                 notificationsPath="/admin/notifications"
                 dropdownPosition="left"
@@ -552,10 +509,10 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
         {children}
       </main>
 
-      {/* Mobile Bottom Navigation — quick-access tabs, md:hidden */}
+      {/* Mobile Bottom Navigation — visible only on small screens */}
       <nav className="fixed bottom-0 left-0 right-0 z-[55] border-t border-gray-200 bg-white pb-[env(safe-area-inset-bottom)] md:hidden">
         <div className="flex">
-          {navItems.slice(0, 4).map((item) => {
+          {navItems.slice(0, 5).map((item) => {
             const Icon = item.icon;
             const active = isActive(item.path);
             const isClinicsTab = item.path === '/admin/clinics';
@@ -579,7 +536,6 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
               <a
                 key={item.path}
                 href={item.path}
-                target="_top"
                 className={`flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 py-3 no-underline transition-colors ${
                   active ? '' : 'text-gray-400 active:text-gray-600'
                 }`}
@@ -592,11 +548,11 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
           })}
           <button
             type="button"
-            onClick={() => setMobileNavOpen(true)}
+            onClick={handleLogout}
             className="flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 py-3 text-gray-400 transition-colors active:text-gray-600"
           >
-            <Menu className="h-5 w-5 flex-shrink-0" />
-            <span className="text-[10px] font-medium leading-tight">More</span>
+            <LogOut className="h-5 w-5 flex-shrink-0" />
+            <span className="text-[10px] font-medium leading-tight">Logout</span>
           </button>
         </div>
       </nav>
