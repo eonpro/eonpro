@@ -299,7 +299,8 @@ model Clinic {
   patientNotes PatientNote[]
 
   // Pharmacy Invoice Reconciliation
-  pharmacyInvoiceUploads PharmacyInvoiceUpload[]
+  pharmacyInvoiceUploads       PharmacyInvoiceUpload[]
+  pharmacyConsolidatedStatements PharmacyConsolidatedStatement[]
 
   @@index([subdomain])
   @@index([status])

@@ -45,12 +45,21 @@ model PharmacyInvoiceUpload {
   matchedTotalCents   Int @default(0)
   unmatchedTotalCents Int @default(0)
 
+  // Payment tracking
+  paymentStatus    PharmacyPaymentStatus @default(UNPAID)
+  paidAt           DateTime?
+  paidAmountCents  Int                   @default(0)
+  paymentReference String?
+  paymentNotes     String?
+  paidBy           Int?
+
   lineItems PharmacyInvoiceLineItem[]
 
   @@unique([clinicId, invoiceNumber])
   @@index([clinicId])
   @@index([status])
   @@index([createdAt])
+  @@index([paymentStatus])
 }
 
 model PharmacyInvoiceLineItem {
@@ -122,6 +131,30 @@ enum PharmacyInvoiceLineType {
   SUPPLY
   SHIPPING_CARRIER
   SHIPPING_FEE
+}
+
+model PharmacyConsolidatedStatement {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  clinicId  Int
+  clinic    Clinic @relation(fields: [clinicId], references: [id])
+  createdBy Int
+
+  title      String
+  totalCents Int        @default(0)
+  invoiceIds Json
+  notes      String?
+
+  @@index([clinicId])
+  @@index([createdAt])
+}
+
+enum PharmacyPaymentStatus {
+  UNPAID
+  PARTIAL
+  PAID
 }
 
 enum PharmacyInvoiceMatchStatus {

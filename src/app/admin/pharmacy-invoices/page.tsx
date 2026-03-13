@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import Link from 'next/link';
 import {
   Upload,
   FileText,
@@ -14,8 +13,18 @@ import {
   ChevronRight,
   Trash2,
   RefreshCw,
+  DollarSign,
+  CreditCard,
+  FileStack,
+  Check,
+  X,
+  SquareStack,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api/fetch';
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
 
 interface InvoiceUpload {
   id: number;
@@ -33,14 +42,30 @@ interface InvoiceUpload {
   invoiceTotalCents: number;
   matchedTotalCents: number;
   unmatchedTotalCents: number;
-  errorMessage: string | null;
+  paymentStatus: string;
+  paidAmountCents: number;
+  paidAt: string | null;
+  paymentReference: string | null;
 }
 
-const formatCurrency = (cents: number) =>
-  new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-  }).format(cents / 100);
+interface Statement {
+  id: number;
+  createdAt: string;
+  title: string;
+  totalCents: number;
+  invoiceIds: number[];
+  notes: string | null;
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+const fmt = (cents: number) =>
+  new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(cents / 100);
+
+const fmtDate = (iso: string | null) =>
+  iso ? new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : null;
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.ElementType }> = {
   PENDING: { label: 'Pending', color: 'bg-gray-100 text-gray-700', icon: Clock },
@@ -51,8 +76,20 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.
   ERROR: { label: 'Error', color: 'bg-red-100 text-red-700', icon: XCircle },
 };
 
+const PAYMENT_BADGE: Record<string, { label: string; cls: string }> = {
+  UNPAID: { label: 'Unpaid', cls: 'bg-red-100 text-red-700' },
+  PARTIAL: { label: 'Partial', cls: 'bg-amber-100 text-amber-700' },
+  PAID: { label: 'Paid', cls: 'bg-emerald-100 text-emerald-700' },
+};
+
+// ---------------------------------------------------------------------------
+// Page
+// ---------------------------------------------------------------------------
+
 export default function PharmacyInvoicesPage() {
+  const [tab, setTab] = useState<'invoices' | 'statements'>('invoices');
   const [uploads, setUploads] = useState<InvoiceUpload[]>([]);
+  const [statements, setStatements] = useState<Statement[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -60,6 +97,17 @@ export default function PharmacyInvoicesPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Multi-select for statements
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+
+  // Mark Paid modal
+  const [payModal, setPayModal] = useState<InvoiceUpload | null>(null);
+
+  // Create Statement modal
+  const [showCreateStmt, setShowCreateStmt] = useState(false);
+  const [stmtTitle, setStmtTitle] = useState('');
 
   const fetchUploads = useCallback(async () => {
     try {
@@ -70,288 +118,423 @@ export default function PharmacyInvoicesPage() {
         setUploads(json.data.uploads);
         setTotalPages(json.data.totalPages);
       }
-    } catch {
-      // Error handled silently
-    } finally {
+    } catch { /* */ } finally {
       setLoading(false);
     }
   }, [page]);
 
+  const fetchStatements = useCallback(async () => {
+    try {
+      const res = await apiFetch('/api/admin/pharmacy-invoices/statements');
+      const json = await res.json();
+      if (json.success) setStatements(json.data ?? []);
+    } catch { /* */ }
+  }, []);
+
   useEffect(() => {
     fetchUploads();
-  }, [fetchUploads]);
+    fetchStatements();
+  }, [fetchUploads, fetchStatements]);
 
+  // Upload handler
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
     const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
     const isCsv = file.type === 'text/csv' || file.name.toLowerCase().endsWith('.csv') || file.type === 'application/vnd.ms-excel';
-    if (!isPdf && !isCsv) {
-      setUploadError('Only PDF and CSV files are accepted.');
-      return;
-    }
+    if (!isPdf && !isCsv) { setUploadError('Only PDF and CSV files are accepted.'); return; }
 
     setUploading(true);
     setUploadError(null);
-
     try {
       const formData = new FormData();
       formData.append('file', file);
-
-      const res = await apiFetch('/api/admin/pharmacy-invoices', {
-        method: 'POST',
-        body: formData,
-      });
-
+      const res = await apiFetch('/api/admin/pharmacy-invoices', { method: 'POST', body: formData });
       const json = await res.json();
       if (!res.ok) {
         setUploadError(json.error ?? 'Upload failed');
       } else {
-        // Upload + parse succeeded; now trigger reconciliation in background
         fetchUploads();
         const uploadId = json.data?.upload?.id;
         if (uploadId) {
           apiFetch(`/api/admin/pharmacy-invoices/${uploadId}`, { method: 'PATCH' })
-            .then(() => fetchUploads())
-            .catch(() => fetchUploads());
+            .then(() => fetchUploads()).catch(() => fetchUploads());
         }
       }
-    } catch {
-      setUploadError('Upload failed. Please try again.');
-    } finally {
-      setUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = '';
-    }
+    } catch { setUploadError('Upload failed. Please try again.'); }
+    finally { setUploading(false); if (fileInputRef.current) fileInputRef.current.value = ''; }
   };
 
   const handleDelete = async (id: number) => {
     if (!confirm('Delete this invoice upload and all its data?')) return;
     setDeletingId(id);
-    try {
-      await apiFetch(`/api/admin/pharmacy-invoices/${id}`, { method: 'DELETE' });
-      fetchUploads();
-    } finally {
-      setDeletingId(null);
-    }
+    try { await apiFetch(`/api/admin/pharmacy-invoices/${id}`, { method: 'DELETE' }); fetchUploads(); }
+    finally { setDeletingId(null); }
   };
 
   const handleRerun = async (id: number) => {
-    try {
-      await apiFetch(`/api/admin/pharmacy-invoices/${id}`, { method: 'PATCH' });
-      fetchUploads();
-    } catch {
-      // handled
-    }
+    try { await apiFetch(`/api/admin/pharmacy-invoices/${id}`, { method: 'PATCH' }); fetchUploads(); } catch { /* */ }
   };
+
+  const toggleSelect = (id: number) => {
+    setSelectedIds((prev) => {
+      const n = new Set(prev);
+      n.has(id) ? n.delete(id) : n.add(id);
+      return n;
+    });
+  };
+
+  const handleCreateStatement = async () => {
+    if (selectedIds.size === 0 || !stmtTitle.trim()) return;
+    try {
+      const res = await apiFetch('/api/admin/pharmacy-invoices/statements', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: stmtTitle, invoiceUploadIds: Array.from(selectedIds) }),
+      });
+      if (res.ok) {
+        setShowCreateStmt(false);
+        setSelectMode(false);
+        setSelectedIds(new Set());
+        setStmtTitle('');
+        fetchStatements();
+        setTab('statements');
+      }
+    } catch { /* */ }
+  };
+
+  // Payment summary
+  const totalUnpaid = uploads.filter((u) => u.paymentStatus === 'UNPAID').reduce((s, u) => s + u.invoiceTotalCents, 0);
+  const totalPaid = uploads.filter((u) => u.paymentStatus === 'PAID').reduce((s, u) => s + u.paidAmountCents, 0);
 
   return (
     <div className="min-h-screen bg-[#efece7]">
       <div className="mx-auto max-w-7xl px-6 py-8">
         {/* Header */}
-        <div className="mb-8">
+        <div className="mb-6">
           <h1 className="text-2xl font-bold text-gray-900">Pharmacy Invoice Reconciliation</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            Upload WellMedR/Lifefile pharmacy invoices to reconcile charges against your prescriptions.
-          </p>
+          <p className="mt-1 text-sm text-gray-500">Upload, reconcile, track payments, and create consolidated statements.</p>
         </div>
 
         {/* Upload Area */}
-        <div className="mb-8 rounded-xl border-2 border-dashed border-gray-300 bg-white p-8 text-center transition-colors hover:border-emerald-400">
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".pdf,.csv,application/pdf,text/csv"
-            onChange={handleUpload}
-            className="hidden"
-            id="invoice-upload"
-            disabled={uploading}
-          />
-          <label
-            htmlFor="invoice-upload"
-            className="flex cursor-pointer flex-col items-center gap-3"
-          >
+        <div className="mb-6 rounded-xl border-2 border-dashed border-gray-300 bg-white p-6 text-center transition-colors hover:border-emerald-400">
+          <input ref={fileInputRef} type="file" accept=".pdf,.csv,application/pdf,text/csv" onChange={handleUpload} className="hidden" id="invoice-upload" disabled={uploading} />
+          <label htmlFor="invoice-upload" className="flex cursor-pointer flex-col items-center gap-2">
             {uploading ? (
-              <>
-                <Loader2 className="h-10 w-10 animate-spin text-emerald-500" />
-                <span className="text-sm font-medium text-gray-700">
-                  Uploading and parsing invoice...
-                </span>
-                <span className="text-xs text-gray-400">
-                  This may take a moment for large files.
-                </span>
-              </>
+              <><Loader2 className="h-8 w-8 animate-spin text-emerald-500" /><span className="text-sm text-gray-700">Uploading and parsing...</span></>
             ) : (
-              <>
-                <Upload className="h-10 w-10 text-gray-400" />
-                <span className="text-sm font-medium text-gray-700">
-                  Drop a pharmacy invoice PDF or CSV here, or click to upload
-                </span>
-                <span className="text-xs text-gray-400">
-                  WellMedR/Lifefile invoice PDFs or CSV exports up to 50 MB
-                </span>
-              </>
+              <><Upload className="h-8 w-8 text-gray-400" /><span className="text-sm font-medium text-gray-700">Drop a pharmacy invoice PDF or CSV here, or click to upload</span><span className="text-xs text-gray-400">WellMedR/Lifefile invoice PDFs or CSV exports up to 50 MB</span></>
             )}
           </label>
-          {uploadError && (
-            <div className="mt-4 flex items-center justify-center gap-2 text-sm text-red-600">
-              <AlertTriangle className="h-4 w-4" />
-              {uploadError}
-            </div>
-          )}
+          {uploadError && <div className="mt-3 flex items-center justify-center gap-2 text-sm text-red-600"><AlertTriangle className="h-4 w-4" />{uploadError}</div>}
         </div>
 
-        {/* Invoices Table */}
-        <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-          <div className="border-b border-gray-200 px-6 py-4">
-            <h2 className="text-lg font-semibold text-gray-900">Uploaded Invoices</h2>
+        {/* Payment Summary Bar */}
+        {uploads.length > 0 && (
+          <div className="mb-6 flex flex-wrap gap-4">
+            <div className="flex items-center gap-2 rounded-lg bg-white px-4 py-2.5 border border-gray-200">
+              <DollarSign className="h-4 w-4 text-red-500" />
+              <span className="text-xs text-gray-500">Total Unpaid</span>
+              <span className="text-sm font-bold text-red-600">{fmt(totalUnpaid)}</span>
+            </div>
+            <div className="flex items-center gap-2 rounded-lg bg-white px-4 py-2.5 border border-gray-200">
+              <CreditCard className="h-4 w-4 text-emerald-500" />
+              <span className="text-xs text-gray-500">Total Paid</span>
+              <span className="text-sm font-bold text-emerald-600">{fmt(totalPaid)}</span>
+            </div>
+            <div className="ml-auto flex gap-2">
+              {!selectMode ? (
+                <button onClick={() => setSelectMode(true)}
+                  className="flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-medium text-gray-600 hover:bg-gray-50">
+                  <SquareStack className="h-4 w-4" /> Create Statement
+                </button>
+              ) : (
+                <>
+                  <button onClick={() => { setShowCreateStmt(true); }}
+                    disabled={selectedIds.size === 0}
+                    className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50">
+                    <FileStack className="h-4 w-4" /> Combine {selectedIds.size} Selected
+                  </button>
+                  <button onClick={() => { setSelectMode(false); setSelectedIds(new Set()); }}
+                    className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs text-gray-500 hover:bg-gray-50">
+                    Cancel
+                  </button>
+                </>
+              )}
+            </div>
           </div>
+        )}
 
-          {loading ? (
-            <div className="flex items-center justify-center py-16">
-              <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
-            </div>
-          ) : uploads.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 text-gray-400">
-              <FileText className="mb-3 h-10 w-10" />
-              <span className="text-sm">No invoices uploaded yet</span>
-            </div>
-          ) : (
-            <>
+        {/* Tabs */}
+        <div className="mb-4 flex border-b border-gray-200">
+          <button onClick={() => setTab('invoices')}
+            className={`border-b-2 px-4 py-2.5 text-sm font-medium ${tab === 'invoices' ? 'border-emerald-500 text-emerald-600' : 'border-transparent text-gray-500'}`}>
+            Invoices ({uploads.length})
+          </button>
+          <button onClick={() => setTab('statements')}
+            className={`border-b-2 px-4 py-2.5 text-sm font-medium ${tab === 'statements' ? 'border-emerald-500 text-emerald-600' : 'border-transparent text-gray-500'}`}>
+            Statements ({statements.length})
+          </button>
+        </div>
+
+        {/* Invoices Tab */}
+        {tab === 'invoices' && (
+          <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+            {loading ? (
+              <div className="flex items-center justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-gray-400" /></div>
+            ) : uploads.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-16 text-gray-400">
+                <FileText className="mb-3 h-10 w-10" /><span className="text-sm">No invoices uploaded yet</span>
+              </div>
+            ) : (
+              <>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-gray-100 bg-gray-50 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                        {selectMode && <th className="px-4 py-3 w-10" />}
+                        <th className="px-5 py-3">Invoice</th>
+                        <th className="px-5 py-3">Date</th>
+                        <th className="px-5 py-3">Amount</th>
+                        <th className="px-5 py-3">Reconciliation</th>
+                        <th className="px-5 py-3">Matched</th>
+                        <th className="px-5 py-3">Payment</th>
+                        <th className="px-5 py-3">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {uploads.map((u) => {
+                        const cfg = STATUS_CONFIG[u.status] ?? STATUS_CONFIG.PENDING;
+                        const StatusIcon = cfg.icon;
+                        const payBadge = PAYMENT_BADGE[u.paymentStatus] ?? PAYMENT_BADGE.UNPAID;
+                        const matchPct = u.totalLineItems > 0 ? Math.round((u.matchedCount / u.totalLineItems) * 100) : 0;
+
+                        return (
+                          <tr key={u.id} className={`hover:bg-gray-50 ${selectMode && selectedIds.has(u.id) ? 'bg-emerald-50' : ''}`}>
+                            {selectMode && (
+                              <td className="px-4 py-3">
+                                <input type="checkbox" checked={selectedIds.has(u.id)} onChange={() => toggleSelect(u.id)}
+                                  className="h-4 w-4 rounded border-gray-300 text-emerald-600" />
+                              </td>
+                            )}
+                            <td className="px-5 py-3">
+                              <a href={`/admin/pharmacy-invoices/${u.id}`}
+                                onClick={(e) => { e.preventDefault(); window.location.href = `/admin/pharmacy-invoices/${u.id}`; }}
+                                className="text-sm font-medium text-emerald-600 hover:text-emerald-700">
+                                {u.invoiceNumber ? `#${u.invoiceNumber}` : u.fileName}
+                              </a>
+                              <div className="text-xs text-gray-400">{u.pharmacyName ?? ''}</div>
+                            </td>
+                            <td className="px-5 py-3 text-sm text-gray-600">
+                              {fmtDate(u.invoiceDate) ?? fmtDate(u.createdAt)}
+                            </td>
+                            <td className="px-5 py-3 text-sm font-semibold text-gray-900">{fmt(u.invoiceTotalCents)}</td>
+                            <td className="px-5 py-3">
+                              <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${cfg.color}`}>
+                                <StatusIcon className="h-3 w-3" />{cfg.label}
+                              </span>
+                            </td>
+                            <td className="px-5 py-3 text-sm text-emerald-600">
+                              {u.matchedCount} <span className="text-xs text-gray-400">({matchPct}%)</span>
+                            </td>
+                            <td className="px-5 py-3">
+                              <button onClick={() => setPayModal(u)}
+                                className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-medium ${payBadge.cls} hover:opacity-80`}>
+                                {u.paymentStatus === 'PAID' && <CheckCircle className="h-3 w-3" />}
+                                {payBadge.label}
+                              </button>
+                              {u.paymentReference && <div className="mt-0.5 text-[10px] text-gray-400">Ref: {u.paymentReference}</div>}
+                            </td>
+                            <td className="px-5 py-3">
+                              <div className="flex items-center gap-1.5">
+                                <a href={`/admin/pharmacy-invoices/${u.id}`}
+                                  onClick={(e) => { e.preventDefault(); window.location.href = `/admin/pharmacy-invoices/${u.id}`; }}
+                                  className="text-xs font-medium text-gray-500 hover:text-emerald-600">View</a>
+                                <button onClick={() => handleRerun(u.id)} className="text-gray-400 hover:text-blue-500" title="Re-run"><RefreshCw className="h-3.5 w-3.5" /></button>
+                                <button onClick={() => handleDelete(u.id)} disabled={deletingId === u.id} className="text-gray-400 hover:text-red-500 disabled:opacity-50" title="Delete">
+                                  {deletingId === u.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                {totalPages > 1 && (
+                  <div className="flex items-center justify-between border-t border-gray-100 px-5 py-3">
+                    <span className="text-sm text-gray-500">Page {page} of {totalPages}</span>
+                    <div className="flex gap-2">
+                      <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1} className="rounded-md border border-gray-300 p-1.5 hover:bg-gray-50 disabled:opacity-50"><ChevronLeft className="h-4 w-4" /></button>
+                      <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page >= totalPages} className="rounded-md border border-gray-300 p-1.5 hover:bg-gray-50 disabled:opacity-50"><ChevronRight className="h-4 w-4" /></button>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        )}
+
+        {/* Statements Tab */}
+        {tab === 'statements' && (
+          <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+            {statements.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-16 text-gray-400">
+                <FileStack className="mb-3 h-10 w-10" /><span className="text-sm">No consolidated statements yet</span>
+                <span className="mt-1 text-xs">Select invoices from the Invoices tab and click &quot;Create Statement&quot;</span>
+              </div>
+            ) : (
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
                     <tr className="border-b border-gray-100 bg-gray-50 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                      <th className="px-6 py-3">Invoice</th>
-                      <th className="px-6 py-3">Date</th>
-                      <th className="px-6 py-3">Amount</th>
-                      <th className="px-6 py-3">Status</th>
-                      <th className="px-6 py-3">Matched</th>
-                      <th className="px-6 py-3">Unmatched</th>
-                      <th className="px-6 py-3">Discrepancies</th>
-                      <th className="px-6 py-3">Actions</th>
+                      <th className="px-5 py-3">Title</th>
+                      <th className="px-5 py-3">Date</th>
+                      <th className="px-5 py-3">Invoices</th>
+                      <th className="px-5 py-3">Total</th>
+                      <th className="px-5 py-3">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
-                    {uploads.map((u) => {
-                      const cfg = STATUS_CONFIG[u.status] ?? STATUS_CONFIG.PENDING;
-                      const StatusIcon = cfg.icon;
-                      const matchPct =
-                        u.totalLineItems > 0
-                          ? Math.round((u.matchedCount / u.totalLineItems) * 100)
-                          : 0;
-
-                      return (
-                        <tr key={u.id} className="hover:bg-gray-50">
-                          <td className="px-6 py-4">
-                            <a
-                              href={`/admin/pharmacy-invoices/${u.id}`}
-                              onClick={(e) => { e.preventDefault(); window.location.href = `/admin/pharmacy-invoices/${u.id}`; }}
-                              className="text-sm font-medium text-emerald-600 hover:text-emerald-700"
-                            >
-                              {u.invoiceNumber ? `#${u.invoiceNumber}` : u.fileName}
-                            </a>
-                            <div className="text-xs text-gray-400">
-                              {u.pharmacyName ?? 'Unknown pharmacy'}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 text-sm text-gray-600">
-                            {u.invoiceDate
-                              ? new Date(u.invoiceDate).toLocaleDateString()
-                              : new Date(u.createdAt).toLocaleDateString()}
-                          </td>
-                          <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                            {u.invoiceTotalCents
-                              ? formatCurrency(u.invoiceTotalCents)
-                              : u.amountDueCents
-                                ? formatCurrency(u.amountDueCents)
-                                : '—'}
-                          </td>
-                          <td className="px-6 py-4">
-                            <span
-                              className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${cfg.color}`}
-                            >
-                              <StatusIcon className="h-3 w-3" />
-                              {cfg.label}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4">
-                            <div className="text-sm font-medium text-emerald-600">
-                              {u.matchedCount}
-                              <span className="ml-1 text-xs text-gray-400">
-                                ({matchPct}%)
-                              </span>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 text-sm text-red-600">
-                            {u.unmatchedCount || '—'}
-                          </td>
-                          <td className="px-6 py-4 text-sm text-amber-600">
-                            {u.discrepancyCount || '—'}
-                          </td>
-                          <td className="px-6 py-4">
-                            <div className="flex items-center gap-2">
-                              <a
-                                href={`/admin/pharmacy-invoices/${u.id}`}
-                                onClick={(e) => { e.preventDefault(); window.location.href = `/admin/pharmacy-invoices/${u.id}`; }}
-                                className="text-xs font-medium text-gray-500 hover:text-emerald-600"
-                              >
-                                View
-                              </a>
-                              <button
-                                onClick={() => handleRerun(u.id)}
-                                className="text-gray-400 hover:text-blue-500"
-                                title="Re-run reconciliation"
-                              >
-                                <RefreshCw className="h-4 w-4" />
-                              </button>
-                              <button
-                                onClick={() => handleDelete(u.id)}
-                                disabled={deletingId === u.id}
-                                className="text-gray-400 hover:text-red-500 disabled:opacity-50"
-                                title="Delete"
-                              >
-                                {deletingId === u.id ? (
-                                  <Loader2 className="h-4 w-4 animate-spin" />
-                                ) : (
-                                  <Trash2 className="h-4 w-4" />
-                                )}
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
+                    {statements.map((s) => (
+                      <tr key={s.id} className="hover:bg-gray-50">
+                        <td className="px-5 py-3">
+                          <a href={`/admin/pharmacy-invoices/statements/${s.id}`}
+                            onClick={(e) => { e.preventDefault(); window.location.href = `/admin/pharmacy-invoices/statements/${s.id}`; }}
+                            className="text-sm font-medium text-emerald-600 hover:text-emerald-700">{s.title}</a>
+                        </td>
+                        <td className="px-5 py-3 text-sm text-gray-600">{fmtDate(s.createdAt)}</td>
+                        <td className="px-5 py-3 text-sm text-gray-600">{(s.invoiceIds as number[]).length} invoices</td>
+                        <td className="px-5 py-3 text-sm font-semibold text-gray-900">{fmt(s.totalCents)}</td>
+                        <td className="px-5 py-3">
+                          <a href={`/admin/pharmacy-invoices/statements/${s.id}`}
+                            onClick={(e) => { e.preventDefault(); window.location.href = `/admin/pharmacy-invoices/statements/${s.id}`; }}
+                            className="text-xs font-medium text-gray-500 hover:text-emerald-600">View</a>
+                        </td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>
+            )}
+          </div>
+        )}
+      </div>
 
-              {/* Pagination */}
-              {totalPages > 1 && (
-                <div className="flex items-center justify-between border-t border-gray-100 px-6 py-3">
-                  <span className="text-sm text-gray-500">
-                    Page {page} of {totalPages}
-                  </span>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => setPage((p) => Math.max(1, p - 1))}
-                      disabled={page <= 1}
-                      className="rounded-md border border-gray-300 p-1.5 hover:bg-gray-50 disabled:opacity-50"
-                    >
-                      <ChevronLeft className="h-4 w-4" />
-                    </button>
-                    <button
-                      onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                      disabled={page >= totalPages}
-                      className="rounded-md border border-gray-300 p-1.5 hover:bg-gray-50 disabled:opacity-50"
-                    >
-                      <ChevronRight className="h-4 w-4" />
-                    </button>
-                  </div>
-                </div>
-              )}
-            </>
-          )}
+      {/* Mark Paid Modal */}
+      {payModal && <MarkPaidModal invoice={payModal} onClose={() => setPayModal(null)} onSaved={() => { setPayModal(null); fetchUploads(); }} />}
+
+      {/* Create Statement Modal */}
+      {showCreateStmt && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setShowCreateStmt(false)}>
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <h2 className="mb-4 text-lg font-bold text-gray-900">Create Consolidated Statement</h2>
+            <p className="mb-4 text-sm text-gray-500">{selectedIds.size} invoices selected totaling {fmt(uploads.filter((u) => selectedIds.has(u.id)).reduce((s, u) => s + u.invoiceTotalCents, 0))}</p>
+            <label className="mb-1 block text-sm font-medium text-gray-700">Statement Title</label>
+            <input type="text" value={stmtTitle} onChange={(e) => setStmtTitle(e.target.value)}
+              placeholder="e.g. WellMedR Statement - March 2026"
+              className="mb-4 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none" />
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setShowCreateStmt(false)} className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50">Cancel</button>
+              <button onClick={handleCreateStatement} disabled={!stmtTitle.trim()}
+                className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50">Create Statement</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Mark Paid Modal
+// ---------------------------------------------------------------------------
+
+function MarkPaidModal({ invoice, onClose, onSaved }: {
+  invoice: InvoiceUpload; onClose: () => void; onSaved: () => void;
+}) {
+  const [status, setStatus] = useState(invoice.paymentStatus || 'PAID');
+  const [amount, setAmount] = useState(String((invoice.paidAmountCents || invoice.invoiceTotalCents) / 100));
+  const [reference, setReference] = useState(invoice.paymentReference ?? '');
+  const [notes, setNotes] = useState('');
+  const [paidAt, setPaidAt] = useState(new Date().toISOString().split('T')[0]);
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const res = await apiFetch(`/api/admin/pharmacy-invoices/${invoice.id}/payment`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          paymentStatus: status,
+          paidAmountCents: Math.round(parseFloat(amount) * 100),
+          paymentReference: reference || undefined,
+          paymentNotes: notes || undefined,
+          paidAt,
+        }),
+      });
+      if (res.ok) onSaved();
+    } finally { setSaving(false); }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
+      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-lg font-bold text-gray-900">Payment Status</h2>
+          <button onClick={onClose} className="rounded-lg p-1 hover:bg-gray-100"><X className="h-5 w-5 text-gray-400" /></button>
+        </div>
+        <p className="mb-4 text-sm text-gray-500">
+          {invoice.invoiceNumber ? `Invoice #${invoice.invoiceNumber}` : invoice.fileName} &middot; {fmt(invoice.invoiceTotalCents)}
+        </p>
+
+        {/* Status */}
+        <div className="mb-4 flex gap-2">
+          {['PAID', 'PARTIAL', 'UNPAID'].map((s) => (
+            <button key={s} onClick={() => setStatus(s)}
+              className={`flex-1 rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+                status === s ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-gray-300 text-gray-500 hover:bg-gray-50'
+              }`}>{s === 'PAID' ? 'Paid' : s === 'PARTIAL' ? 'Partial' : 'Unpaid'}</button>
+          ))}
+        </div>
+
+        {status !== 'UNPAID' && (
+          <>
+            <div className="mb-3">
+              <label className="mb-1 block text-sm font-medium text-gray-700">Payment Date</label>
+              <input type="date" value={paidAt} onChange={(e) => setPaidAt(e.target.value)}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+            </div>
+            <div className="mb-3">
+              <label className="mb-1 block text-sm font-medium text-gray-700">Amount Paid</label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">$</span>
+                <input type="number" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 py-2 pl-7 pr-3 text-sm" />
+              </div>
+            </div>
+            <div className="mb-3">
+              <label className="mb-1 block text-sm font-medium text-gray-700">Reference # (check, wire, etc.)</label>
+              <input type="text" value={reference} onChange={(e) => setReference(e.target.value)}
+                placeholder="e.g. Check #4521"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+            </div>
+            <div className="mb-4">
+              <label className="mb-1 block text-sm font-medium text-gray-700">Notes (optional)</label>
+              <input type="text" value={notes} onChange={(e) => setNotes(e.target.value)}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+            </div>
+          </>
+        )}
+
+        <div className="flex justify-end gap-2">
+          <button onClick={onClose} className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50">Cancel</button>
+          <button onClick={handleSave} disabled={saving}
+            className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50">
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Check className="mr-1 inline h-4 w-4" />Save</>}
+          </button>
         </div>
       </div>
     </div>

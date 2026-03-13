@@ -803,3 +803,146 @@ function formatOrderForSearch(order: {
     rxCount: order.rxs.length,
   };
 }
+
+// ---------------------------------------------------------------------------
+// Payment Tracking
+// ---------------------------------------------------------------------------
+
+export async function markInvoicePaid(
+  id: number,
+  clinicId: number,
+  data: {
+    paymentStatus: 'UNPAID' | 'PARTIAL' | 'PAID';
+    paidAmountCents?: number;
+    paymentReference?: string;
+    paymentNotes?: string;
+    paidAt?: string;
+  },
+  userId: number
+) {
+  const upload = await prisma.pharmacyInvoiceUpload.findFirst({ where: { id, clinicId } });
+  if (!upload) return null;
+
+  return prisma.pharmacyInvoiceUpload.update({
+    where: { id },
+    data: {
+      paymentStatus: data.paymentStatus,
+      paidAmountCents: data.paidAmountCents ?? (data.paymentStatus === 'PAID' ? upload.invoiceTotalCents : 0),
+      paymentReference: data.paymentReference ?? null,
+      paymentNotes: data.paymentNotes ?? null,
+      paidAt: data.paymentStatus !== 'UNPAID' ? (data.paidAt ? new Date(data.paidAt) : new Date()) : null,
+      paidBy: data.paymentStatus !== 'UNPAID' ? userId : null,
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Consolidated Statements
+// ---------------------------------------------------------------------------
+
+export async function createConsolidatedStatement(
+  clinicId: number,
+  invoiceUploadIds: number[],
+  title: string,
+  userId: number,
+  notes?: string
+) {
+  const invoices = await prisma.pharmacyInvoiceUpload.findMany({
+    where: { id: { in: invoiceUploadIds }, clinicId },
+    select: { id: true, invoiceTotalCents: true },
+  });
+
+  if (invoices.length === 0) throw new Error('No valid invoices found');
+
+  const totalCents = invoices.reduce((sum, inv) => sum + inv.invoiceTotalCents, 0);
+
+  return prisma.pharmacyConsolidatedStatement.create({
+    data: {
+      clinicId,
+      createdBy: userId,
+      title,
+      totalCents,
+      invoiceIds: invoices.map((inv) => inv.id),
+      notes: notes ?? null,
+    },
+  });
+}
+
+export async function listStatements(clinicId: number) {
+  return prisma.pharmacyConsolidatedStatement.findMany({
+    where: { clinicId },
+    orderBy: { createdAt: 'desc' },
+  });
+}
+
+export async function getStatement(id: number, clinicId: number) {
+  const statement = await prisma.pharmacyConsolidatedStatement.findFirst({
+    where: { id, clinicId },
+  });
+  if (!statement) return null;
+
+  const invoiceIds = (statement.invoiceIds as number[]) ?? [];
+  const invoices = await prisma.pharmacyInvoiceUpload.findMany({
+    where: { id: { in: invoiceIds } },
+    select: {
+      id: true,
+      fileName: true,
+      invoiceNumber: true,
+      invoiceDate: true,
+      invoiceTotalCents: true,
+      matchedCount: true,
+      unmatchedCount: true,
+      totalLineItems: true,
+      paymentStatus: true,
+      paidAmountCents: true,
+      paymentReference: true,
+      paidAt: true,
+    },
+  });
+
+  return { statement, invoices };
+}
+
+export async function exportStatementCsv(id: number, clinicId: number): Promise<string | null> {
+  const data = await getStatement(id, clinicId);
+  if (!data) return null;
+
+  const invoiceIds = (data.statement.invoiceIds as number[]) ?? [];
+  const lineItems = await prisma.pharmacyInvoiceLineItem.findMany({
+    where: { invoiceUploadId: { in: invoiceIds } },
+    orderBy: [{ invoiceUploadId: 'asc' }, { lifefileOrderId: 'asc' }, { lineNumber: 'asc' }],
+    select: {
+      invoiceUploadId: true,
+      lifefileOrderId: true,
+      rxNumber: true,
+      patientName: true,
+      doctorName: true,
+      medicationName: true,
+      strength: true,
+      lineType: true,
+      shippingMethod: true,
+      quantity: true,
+      unitPriceCents: true,
+      amountCents: true,
+      matchStatus: true,
+    },
+  });
+
+  const header = 'Invoice ID,Order ID,Patient,Doctor,Type,Medication,Qty,Unit Price,Amount,Match Status';
+  const rows = lineItems.map((li) =>
+    [
+      li.invoiceUploadId,
+      li.lifefileOrderId ?? '',
+      `"${(li.patientName ?? '').replace(/"/g, '""')}"`,
+      `"${(li.doctorName ?? '').replace(/"/g, '""')}"`,
+      li.lineType,
+      `"${(li.medicationName ?? li.shippingMethod ?? '').replace(/"/g, '""')}"`,
+      li.quantity,
+      (li.unitPriceCents / 100).toFixed(2),
+      (li.amountCents / 100).toFixed(2),
+      li.matchStatus,
+    ].join(',')
+  );
+
+  return [header, ...rows].join('\n');
+}
