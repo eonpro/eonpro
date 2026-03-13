@@ -18,7 +18,7 @@ import {
   calculateDateRange,
 } from '@/services/reporting/ReportingService';
 import { prisma } from '@/lib/db';
-import { getReadPrisma } from '@/lib/database/read-replica';
+import { getResilientReadDb } from '@/lib/database/read-replica';
 import { AGGREGATION_TAKE } from '@/lib/pagination';
 import { standardRateLimit } from '@/lib/rateLimit';
 import { logger } from '@/lib/logger';
@@ -42,7 +42,7 @@ type ReportType =
 async function exportReportHandler(req: NextRequest, user: AuthUser): Promise<Response> {
   try {
     requirePermission(toPermissionContext(user), 'report:run');
-    const readDb = getReadPrisma();
+    const readDb = getResilientReadDb();
     const url = new URL(req.url);
     const format = (url.searchParams.get('format') || 'csv') as ExportFormat;
     const report = (url.searchParams.get('report') || 'comprehensive') as ReportType;

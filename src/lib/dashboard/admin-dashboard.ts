@@ -12,7 +12,7 @@
 
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
-import { getReadPrisma } from '@/lib/database/read-replica';
+import { getResilientReadDb } from '@/lib/database/read-replica';
 import { patientService, type UserContext } from '@/domains/patient';
 import { getDashboardCache, getDashboardCacheAsync, setDashboardCache } from '@/lib/cache/dashboard';
 import { executeDbRead } from '@/lib/database/executeDb';
@@ -86,7 +86,7 @@ export async function getAdminDashboard(
   //   Query C: Subscription MRR groupBy (kept as Prisma — interval-based logic)
   const clinicWhere = clinicId ? Prisma.sql`AND "clinicId" = ${clinicId}` : Prisma.empty;
 
-  const readDb = getReadPrisma();
+  const readDb = getResilientReadDb();
 
   const statsResult = await executeDbRead(
     () =>
@@ -293,7 +293,7 @@ async function prismaFallbackStats(
   totalConverted: number;
   subscriptionMrr: number;
 }> {
-  const db = getReadPrisma();
+  const db = getResilientReadDb();
   const [
     totalPatients,
     totalOrders,

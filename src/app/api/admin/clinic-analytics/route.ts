@@ -16,9 +16,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { withAdminAuth, AuthUser } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
 import { handleApiError } from '@/domains/shared/errors';
-import { getReadPrisma, hasReadReplica } from '@/lib/database/read-replica';
-import { prisma as primaryPrisma } from '@/lib/db';
-import { PrismaClient } from '@prisma/client';
+import { getResilientReadDb, isTransientDbError, hasReadReplica } from '@/lib/database/read-replica';
 import {
   RevenueAnalyticsService,
   PatientAnalyticsService,
@@ -35,27 +33,8 @@ import {
   eachDayOfInterval,
 } from 'date-fns';
 
-const TRANSIENT_PRISMA_CODES = new Set(['P2035', 'P2024', 'P1001', 'P1002', 'P1008', 'P1017']);
-
-function isTransientDbError(error: unknown): boolean {
-  if (!error || typeof error !== 'object') return false;
-  const code = (error as any).code;
-  if (typeof code === 'string' && TRANSIENT_PRISMA_CODES.has(code)) return true;
-  const msg = (error instanceof Error ? error.message : '').toLowerCase();
-  return msg.includes('connection pool') || msg.includes('timed out fetching') || msg.includes('assertion violation');
-}
-
-/**
- * Get a database client for read-only analytics queries.
- * Falls back to the primary if the read replica is unavailable.
- */
-function getAnalyticsDb(): PrismaClient {
-  try {
-    return getReadPrisma();
-  } catch {
-    logger.warn('[CLINIC-ANALYTICS] Read replica unavailable, using primary');
-    return primaryPrisma as unknown as PrismaClient;
-  }
+function getAnalyticsDb() {
+  return getResilientReadDb();
 }
 
 type Period = '7d' | '30d' | '90d' | '12m';

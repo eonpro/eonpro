@@ -123,76 +123,37 @@ async function handler(req: NextRequest, user: any): Promise<Response> {
 
       const refCodeStrings = modernAffiliate.refCodes.map((rc: RefCode) => rc.refCode);
 
-      // Get all clicks for this affiliate's codes (use shared CLICK_FILTER constant)
-      const totalClicks = await prisma.affiliateTouch.count({
-        where: {
-          refCode: { in: refCodeStrings },
-          ...CLICK_FILTER,
-          ...clinicFilter,
-        },
-      });
-
-      // Get conversions (touches with convertedAt set — represents intake completions / "uses")
-      const totalConversions = await prisma.affiliateTouch.count({
-        where: {
-          refCode: { in: refCodeStrings },
-          convertedAt: { not: null },
-          ...clinicFilter,
-        },
-      });
-
-      // Get intake count: patients attributed to this affiliate
-      const totalIntakes = await prisma.patient.count({
-        where: {
-          attributionAffiliateId: modernAffiliate.id,
-        },
-      });
-
-      // Get payment conversion count from commission events
-      const totalPaymentConversions = await prisma.affiliateCommissionEvent.count({
-        where: {
-          affiliateId: modernAffiliate.id,
-          status: { in: ['PENDING', 'APPROVED', 'PAID'] },
-        },
-      });
-
-      // Get recent attributed patients (HIPAA-safe: IDs and dates only)
-      const recentPatients = await prisma.patient.findMany({
-        where: {
-          attributionAffiliateId: modernAffiliate.id,
-        },
-        select: {
-          id: true,
-          attributionRefCode: true,
-          attributionFirstTouchAt: true,
-          createdAt: true,
-        },
-        orderBy: { createdAt: 'desc' },
-        take: 10,
-      });
-
-      // Get revenue and commission totals
-      const commissionAgg = await prisma.affiliateCommissionEvent.aggregate({
-        where: {
-          affiliateId: modernAffiliate.id,
-          status: { in: ['PENDING', 'APPROVED', 'PAID'] },
-        },
-        _sum: {
-          eventAmountCents: true,
-          commissionAmountCents: true,
-        },
-      });
-
-      // Get pending commission
-      const pendingAgg = await prisma.affiliateCommissionEvent.aggregate({
-        where: {
-          affiliateId: modernAffiliate.id,
-          status: 'APPROVED',
-        },
-        _sum: {
-          commissionAmountCents: true,
-        },
-      });
+      const [
+        totalClicks, totalConversions, totalIntakes, totalPaymentConversions,
+        recentPatients, commissionAgg, pendingAgg,
+      ] = await Promise.all([
+        prisma.affiliateTouch.count({
+          where: { refCode: { in: refCodeStrings }, ...CLICK_FILTER, ...clinicFilter },
+        }),
+        prisma.affiliateTouch.count({
+          where: { refCode: { in: refCodeStrings }, convertedAt: { not: null }, ...clinicFilter },
+        }),
+        prisma.patient.count({
+          where: { attributionAffiliateId: modernAffiliate.id },
+        }),
+        prisma.affiliateCommissionEvent.count({
+          where: { affiliateId: modernAffiliate.id, status: { in: ['PENDING', 'APPROVED', 'PAID'] } },
+        }),
+        prisma.patient.findMany({
+          where: { attributionAffiliateId: modernAffiliate.id },
+          select: { id: true, attributionRefCode: true, attributionFirstTouchAt: true, createdAt: true },
+          orderBy: { createdAt: 'desc' },
+          take: 10,
+        }),
+        prisma.affiliateCommissionEvent.aggregate({
+          where: { affiliateId: modernAffiliate.id, status: { in: ['PENDING', 'APPROVED', 'PAID'] } },
+          _sum: { eventAmountCents: true, commissionAmountCents: true },
+        }),
+        prisma.affiliateCommissionEvent.aggregate({
+          where: { affiliateId: modernAffiliate.id, status: 'APPROVED' },
+          _sum: { commissionAmountCents: true },
+        }),
+      ]);
 
       // Format recent activity
       const recentActivity = modernAffiliate.commissionEvents.map((event: CommissionEvent) => ({

@@ -21,7 +21,7 @@ import {
   calculateDateRange,
 } from '@/services/reporting/ReportingService';
 import { prisma, getClinicContext } from '@/lib/db';
-import { getReadPrisma } from '@/lib/database/read-replica';
+import { getResilientReadDb } from '@/lib/database/read-replica';
 import { AGGREGATION_TAKE } from '@/lib/pagination';
 import { standardRateLimit } from '@/lib/rateLimit';
 import { logger } from '@/lib/logger';
@@ -29,7 +29,7 @@ import { logger } from '@/lib/logger';
 async function getPatientReportsHandler(req: NextRequest, user: AuthUser): Promise<Response> {
   try {
     requirePermission(toPermissionContext(user), 'report:run');
-    const readDb = getReadPrisma();
+    const readDb = getResilientReadDb();
     const url = new URL(req.url);
     const type = url.searchParams.get('type') || 'metrics';
     const rangeParam = (url.searchParams.get('range') || 'this_month') as DateRange;

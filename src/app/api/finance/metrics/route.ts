@@ -13,7 +13,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { getReadPrisma } from '@/lib/database/read-replica';
+import { getResilientReadDb } from '@/lib/database/read-replica';
 import { Prisma } from '@prisma/client';
 import { withAdminAuth, type AuthUser } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
@@ -43,7 +43,7 @@ function isDatabaseConnectionError(error: unknown): boolean {
 
 async function handleGet(request: NextRequest, user: AuthUser) {
   try {
-    const readDb = getReadPrisma();
+    const readDb = getResilientReadDb();
     const clinicId = user.clinicId;
 
     if (!clinicId) {

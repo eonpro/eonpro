@@ -25,7 +25,7 @@ import {
   calculateDateRange,
 } from '@/services/reporting/ReportingService';
 import { prisma } from '@/lib/db';
-import { getReadPrisma } from '@/lib/database/read-replica';
+import { getResilientReadDb } from '@/lib/database/read-replica';
 import { standardRateLimit } from '@/lib/rateLimit';
 import { logger } from '@/lib/logger';
 import { Prisma } from '@prisma/client';
@@ -57,7 +57,7 @@ function formatCurrency(cents: number): string {
 async function handler(req: NextRequest, user: AuthUser): Promise<Response> {
   try {
     requirePermission(toPermissionContext(user), 'report:run');
-    const readDb = getReadPrisma();
+    const readDb = getResilientReadDb();
 
     const url = new URL(req.url);
     const rangeParam = (url.searchParams.get('range') || 'today') as DateRange;

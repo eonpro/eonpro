@@ -362,6 +362,48 @@ function convertPrismaError(
           5
         );
 
+      // P2034: Write conflict or deadlock (Prisma docs: "Please retry your transaction")
+      case 'P2034':
+        return new ServiceUnavailableError(
+          'A temporary conflict occurred. Please try again.',
+          3
+        );
+
+      // P2037: Too many database connections opened
+      case 'P2037':
+        return new ServiceUnavailableError(
+          'Service is busy. Please try again in a moment.',
+          10
+        );
+
+      // P2023: Inconsistent column data (replica lag or temporary inconsistency)
+      case 'P2023':
+        return new ServiceUnavailableError(
+          'Database is temporarily unable to process this request. Please try again.',
+          5
+        );
+
+      // P2028: Transaction API error (deadlock, connection loss during transaction)
+      case 'P2028':
+        return new ServiceUnavailableError(
+          'A temporary conflict occurred. Please try again.',
+          5
+        );
+
+      // P1000: Authentication failed (transient during IAM rotation, failover)
+      case 'P1000':
+        return new ServiceUnavailableError(
+          'Database connection issue. Please try again in a moment.',
+          5
+        );
+
+      // P1011: Error opening TLS connection (transient during cert renewal)
+      case 'P1011':
+        return new ServiceUnavailableError(
+          'Database connection issue. Please try again.',
+          5
+        );
+
       // Default - check for connection/pool errors that may slip through
       default: {
         const code = String(error.code || '');

@@ -68,65 +68,44 @@ async function handleGet(request: NextRequest, user: AuthUser) {
       where.alertType = params.type;
     }
 
-    // Get total count
-    const total = await prisma.affiliateFraudAlert.count({ where });
+    const statsWhere = user.role === 'super_admin'
+      ? params.clinicId ? { clinicId: params.clinicId } : {}
+      : { clinicId: user.clinicId! };
 
-    // Get alerts with pagination
-    const alerts = await prisma.affiliateFraudAlert.findMany({
-      where,
-      include: {
-        affiliate: {
-          select: {
-            id: true,
-            displayName: true,
-            status: true,
-            user: {
-              select: {
-                email: true,
-              },
+    const [total, alerts, stats, severityStats] = await Promise.all([
+      prisma.affiliateFraudAlert.count({ where }),
+      prisma.affiliateFraudAlert.findMany({
+        where,
+        include: {
+          affiliate: {
+            select: {
+              id: true,
+              displayName: true,
+              status: true,
+              user: { select: { email: true } },
             },
           },
+          clinic: { select: { id: true, name: true } },
         },
-        clinic: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-      },
-      orderBy: [
-        { status: 'asc' }, // OPEN first
-        { severity: 'desc' }, // CRITICAL first
-        { createdAt: 'desc' },
-      ],
-      skip: (params.page! - 1) * params.limit!,
-      take: params.limit,
-    });
-
-    // Get summary stats
-    const stats = await prisma.affiliateFraudAlert.groupBy({
-      by: ['status'],
-      where:
-        user.role === 'super_admin'
-          ? params.clinicId
-            ? { clinicId: params.clinicId }
-            : {}
-          : { clinicId: user.clinicId! },
-      _count: true,
-    });
-
-    const severityStats = await prisma.affiliateFraudAlert.groupBy({
-      by: ['severity'],
-      where: {
-        ...(user.role === 'super_admin'
-          ? params.clinicId
-            ? { clinicId: params.clinicId }
-            : {}
-          : { clinicId: user.clinicId! }),
-        status: 'OPEN',
-      },
-      _count: true,
-    });
+        orderBy: [
+          { status: 'asc' },
+          { severity: 'desc' },
+          { createdAt: 'desc' },
+        ],
+        skip: (params.page! - 1) * params.limit!,
+        take: params.limit,
+      }),
+      prisma.affiliateFraudAlert.groupBy({
+        by: ['status'],
+        where: statsWhere,
+        _count: true,
+      }),
+      prisma.affiliateFraudAlert.groupBy({
+        by: ['severity'],
+        where: { ...statsWhere, status: 'OPEN' },
+        _count: true,
+      }),
+    ]);
 
     return NextResponse.json({
       alerts: alerts.map((alert: (typeof alerts)[number]) => ({

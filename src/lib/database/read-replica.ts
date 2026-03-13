@@ -123,6 +123,84 @@ export function getReadPrisma(): PrismaClient {
   return prisma;
 }
 
+// =============================================================================
+// RESILIENT READ CLIENT
+// =============================================================================
+
+const TRANSIENT_PRISMA_CODES = new Set([
+  'P2035', 'P2024', 'P2034', 'P2037', 'P2023', 'P2028',
+  'P1000', 'P1001', 'P1002', 'P1008', 'P1011', 'P1017',
+]);
+
+/**
+ * Detect transient database errors that may resolve on retry or with a different connection.
+ */
+export function isTransientDbError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
+  const code = (error as any).code;
+  if (typeof code === 'string' && TRANSIENT_PRISMA_CODES.has(code)) return true;
+  const msg = (error instanceof Error ? error.message : '').toLowerCase();
+  return (
+    msg.includes('connection pool') ||
+    msg.includes('timed out fetching') ||
+    msg.includes('assertion violation') ||
+    msg.includes('server closed the connection')
+  );
+}
+
+/**
+ * Resilient read-only Prisma client that automatically falls back to the
+ * primary database when the read replica is unavailable or throws a transient error.
+ *
+ * Use this instead of `getReadPrisma()` in analytics/report routes:
+ *
+ * @example
+ * ```typescript
+ * import { getResilientReadDb } from '@/lib/database/read-replica';
+ * const db = getResilientReadDb();
+ * const data = await db.invoice.findMany({ ... });
+ * ```
+ */
+export function getResilientReadDb(): PrismaClient {
+  try {
+    return getReadPrisma();
+  } catch {
+    logger.warn('[ReadReplica] Read replica unavailable, using primary');
+    const { prisma } = require('@/lib/db');
+    return prisma;
+  }
+}
+
+/**
+ * Execute a read operation with automatic fallback to primary on transient errors.
+ * If the operation fails with a transient error and a read replica is in use,
+ * retries once using the primary database.
+ *
+ * @example
+ * ```typescript
+ * const data = await withReadFallback(async (db) => {
+ *   return db.order.findMany({ where: { clinicId } });
+ * });
+ * ```
+ */
+export async function withReadFallback<T>(
+  operation: (db: PrismaClient) => Promise<T>
+): Promise<T> {
+  const db = getResilientReadDb();
+  try {
+    return await operation(db);
+  } catch (error) {
+    if (hasReadReplica && isTransientDbError(error)) {
+      logger.warn('[ReadReplica] Transient error on read replica, retrying with primary', {
+        errorCode: (error as any)?.code,
+      });
+      const { prisma } = require('@/lib/db');
+      return operation(prisma);
+    }
+    throw error;
+  }
+}
+
 /**
  * Check if the read replica is healthy (can connect and execute a query).
  */
