@@ -784,46 +784,70 @@ export default function PharmacyInvoicesPage() {
             {discrepancyData && (
               <>
                 {/* Summary Cards */}
-                <div className="grid gap-3 sm:grid-cols-4">
-                  <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-                    <div className="text-xs font-medium text-gray-500">Invoice Patients</div>
-                    <div className="mt-1 text-2xl font-bold text-gray-900">{discrepancyData.invoicePatientCount}</div>
-                  </div>
-                  <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-                    <div className="text-xs font-medium text-gray-500">System Patients</div>
-                    <div className="mt-1 text-2xl font-bold text-gray-900">{discrepancyData.systemPatientCount}</div>
-                  </div>
-                  <div className="rounded-xl border border-red-200 bg-red-50 p-4 shadow-sm">
-                    <div className="text-xs font-medium text-red-600">On Invoice Only</div>
-                    <div className="mt-1 text-2xl font-bold text-red-700">{discrepancyData.summary.onInvoiceOnlyCount}</div>
-                    <div className="text-[11px] text-red-500">Billed but no Rx sent</div>
-                  </div>
-                  <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 shadow-sm">
-                    <div className="text-xs font-medium text-amber-600">In System Only</div>
-                    <div className="mt-1 text-2xl font-bold text-amber-700">{discrepancyData.summary.inSystemOnlyCount}</div>
-                    <div className="text-[11px] text-amber-500">Rx sent but not on invoice</div>
-                  </div>
-                </div>
+                {(() => {
+                  const invoiceOnlyTotal = discrepancyData.onInvoiceOnly.reduce((s, p) => s + p.totalAmountCents, 0);
+                  const matchedInvoiceTotal = discrepancyData.matched.reduce((s, p) => s + (
+                    discrepancyData.onInvoiceOnly.find((x) => x.patientName === p.invoiceName)?.totalAmountCents ?? 0
+                  ), 0);
+                  return (
+                    <>
+                      <div className="grid gap-3 sm:grid-cols-4">
+                        <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+                          <div className="text-xs font-medium text-gray-500">Invoice Patients</div>
+                          <div className="mt-1 text-2xl font-bold text-gray-900">{discrepancyData.invoicePatientCount}</div>
+                        </div>
+                        <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+                          <div className="text-xs font-medium text-gray-500">System Patients</div>
+                          <div className="mt-1 text-2xl font-bold text-gray-900">{discrepancyData.systemPatientCount}</div>
+                        </div>
+                        <div className="rounded-xl border border-red-200 bg-red-50 p-4 shadow-sm">
+                          <div className="text-xs font-medium text-red-600">On Invoice Only</div>
+                          <div className="mt-1 text-2xl font-bold text-red-700">{discrepancyData.summary.onInvoiceOnlyCount}</div>
+                          <div className="text-sm font-bold text-red-600 mt-0.5">{fmt(invoiceOnlyTotal)}</div>
+                          <div className="text-[11px] text-red-500">Billed but no Rx sent</div>
+                        </div>
+                        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 shadow-sm">
+                          <div className="text-xs font-medium text-amber-600">In System Only</div>
+                          <div className="mt-1 text-2xl font-bold text-amber-700">{discrepancyData.summary.inSystemOnlyCount}</div>
+                          <div className="text-[11px] text-amber-500">Rx sent but not on invoice</div>
+                        </div>
+                      </div>
 
-                {/* Difference indicator */}
-                {(discrepancyData.summary.onInvoiceOnlyCount > 0 || discrepancyData.summary.inSystemOnlyCount > 0) && (
-                  <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 shadow-sm">
-                    <div className="flex items-center gap-2 text-sm font-medium text-blue-800">
-                      <GitCompare className="h-4 w-4" />
-                      Net difference: {Math.abs(discrepancyData.invoicePatientCount - discrepancyData.systemPatientCount)} patients
-                      {discrepancyData.invoicePatientCount > discrepancyData.systemPatientCount
-                        ? ' (invoice has more)'
-                        : discrepancyData.invoicePatientCount < discrepancyData.systemPatientCount
-                        ? ' (system has more)'
-                        : ''}
-                    </div>
-                    <div className="mt-1 text-xs text-blue-600">
-                      {discrepancyData.summary.matchedCount} patients match between invoice and system &middot;{' '}
-                      {discrepancyData.summary.onInvoiceOnlyCount} on invoice only &middot;{' '}
-                      {discrepancyData.summary.inSystemOnlyCount} in system only
-                    </div>
-                  </div>
-                )}
+                      {/* Monetary + patient difference */}
+                      {(discrepancyData.summary.onInvoiceOnlyCount > 0 || discrepancyData.summary.inSystemOnlyCount > 0) && (
+                        <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 shadow-sm">
+                          <div className="flex items-center gap-2 text-sm font-medium text-blue-800">
+                            <GitCompare className="h-4 w-4" />
+                            Net difference: {Math.abs(discrepancyData.invoicePatientCount - discrepancyData.systemPatientCount)} patients
+                            {discrepancyData.invoicePatientCount > discrepancyData.systemPatientCount
+                              ? ' (invoice has more)'
+                              : discrepancyData.invoicePatientCount < discrepancyData.systemPatientCount
+                              ? ' (system has more)'
+                              : ''}
+                          </div>
+                          <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-blue-600">
+                            <span>{discrepancyData.summary.matchedCount} patients match</span>
+                            <span>&middot; {discrepancyData.summary.onInvoiceOnlyCount} on invoice only</span>
+                            <span>&middot; {discrepancyData.summary.inSystemOnlyCount} in system only</span>
+                          </div>
+                          {invoiceOnlyTotal > 0 && (
+                            <div className="mt-2 flex items-center gap-3 rounded-lg bg-white/60 px-3 py-2">
+                              <DollarSign className="h-4 w-4 text-red-500" />
+                              <div>
+                                <div className="text-sm font-bold text-red-700">
+                                  {fmt(invoiceOnlyTotal)} billed for patients not in date range
+                                </div>
+                                <div className="text-[11px] text-gray-500">
+                                  {discrepancyData.summary.onInvoiceOnlyCount} patients &middot; across {discrepancyData.onInvoiceOnly.reduce((s, p) => s + p.lineItems.length, 0)} line items
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
 
                 {/* Sub-tabs + Search */}
                 <div className="flex items-center justify-between">

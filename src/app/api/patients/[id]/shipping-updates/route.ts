@@ -33,12 +33,27 @@ export const GET = withAuthParams(async (req: NextRequest, user: any, context: R
     const notFound = ensureTenantResource(patient, clinicId ?? undefined);
     if (notFound) return notFound;
 
-    const shippingUpdates = await runWithClinicContext(clinicId, async () => {
+    // Use the patient's own clinicId to guarantee a valid tenant context.
+    // The middleware already wraps us in runWithClinicContext(effectiveClinicId),
+    // but for super_admin the effective ID may be undefined. Re-scoping to the
+    // patient's clinic prevents TenantContextRequiredError on clinic-isolated models.
+    const patientClinicId = patient!.clinicId ?? clinicId;
+
+    if (!patientClinicId) {
+      logger.error('[ShippingUpdates] Unable to resolve clinicId for patient', {
+        patientId,
+        userId: user.id,
+        role: user.role,
+      });
+      return NextResponse.json(
+        { error: 'Unable to resolve clinic context for this patient' },
+        { status: 403 },
+      );
+    }
+
+    const shippingUpdates = await runWithClinicContext(patientClinicId, async () => {
       return prisma.patientShippingUpdate.findMany({
-        where: {
-          patientId,
-          ...(clinicId && { clinicId }),
-        },
+        where: { patientId },
         orderBy: { createdAt: 'desc' },
         take: 100,
         include: {

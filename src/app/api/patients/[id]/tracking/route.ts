@@ -89,7 +89,20 @@ export const GET = withAuthParams(
       });
       if (ensureTenantResource(patientGet, clinicId ?? undefined)) return tenantNotFoundResponse();
 
-      const result = await runWithClinicContext(clinicId, async () => {
+      const effectiveClinicId = patientGet!.clinicId ?? clinicId;
+      if (!effectiveClinicId) {
+        logger.error('[Tracking] Unable to resolve clinicId for patient', {
+          patientId,
+          userId: user.id,
+          role: user.role,
+        });
+        return NextResponse.json(
+          { error: 'Unable to resolve clinic context for this patient' },
+          { status: 403 },
+        );
+      }
+
+      const result = await runWithClinicContext(effectiveClinicId, async () => {
         const [shippingUpdates, orders, lastOrder, matchedShippingUpdateOrders] = await Promise.all([
           prisma.patientShippingUpdate.findMany({
             where: { patientId },
