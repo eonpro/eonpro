@@ -786,9 +786,27 @@ export default function PharmacyInvoicesPage() {
                 {/* Summary Cards */}
                 {(() => {
                   const invoiceOnlyTotal = discrepancyData.onInvoiceOnly.reduce((s, p) => s + p.totalAmountCents, 0);
-                  const matchedInvoiceTotal = discrepancyData.matched.reduce((s, p) => s + (
-                    discrepancyData.onInvoiceOnly.find((x) => x.patientName === p.invoiceName)?.totalAmountCents ?? 0
-                  ), 0);
+
+                  // Compute date breakdown for invoice-only patients
+                  const dateCountMap = new Map<string, { count: number; totalCents: number }>();
+                  for (const p of discrepancyData.onInvoiceOnly) {
+                    if (p.foundInSystem && p.systemOrderDates.length > 0) {
+                      for (const d of p.systemOrderDates) {
+                        const dateKey = new Date(d.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                        const existing = dateCountMap.get(dateKey);
+                        if (existing) {
+                          existing.count++;
+                          existing.totalCents += p.totalAmountCents;
+                        } else {
+                          dateCountMap.set(dateKey, { count: 1, totalCents: p.totalAmountCents });
+                        }
+                      }
+                    }
+                  }
+                  const notFoundCount = discrepancyData.onInvoiceOnly.filter((p) => !p.foundInSystem).length;
+                  const dateSummary = Array.from(dateCountMap.entries())
+                    .sort((a, b) => new Date(a[0]).getTime() - new Date(b[0]).getTime());
+
                   return (
                     <>
                       <div className="grid gap-3 sm:grid-cols-4">
@@ -801,15 +819,15 @@ export default function PharmacyInvoicesPage() {
                           <div className="mt-1 text-2xl font-bold text-gray-900">{discrepancyData.systemPatientCount}</div>
                         </div>
                         <div className="rounded-xl border border-red-200 bg-red-50 p-4 shadow-sm">
-                          <div className="text-xs font-medium text-red-600">On Invoice Only</div>
+                          <div className="text-xs font-medium text-red-600">Billed, No Rx in Date Range</div>
                           <div className="mt-1 text-2xl font-bold text-red-700">{discrepancyData.summary.onInvoiceOnlyCount}</div>
                           <div className="text-sm font-bold text-red-600 mt-0.5">{fmt(invoiceOnlyTotal)}</div>
-                          <div className="text-[11px] text-red-500">Billed but no Rx sent</div>
+                          <div className="text-[11px] text-red-500">On invoice but Rx not in {discrepancyStartDate} – {discrepancyEndDate}</div>
                         </div>
                         <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 shadow-sm">
-                          <div className="text-xs font-medium text-amber-600">In System Only</div>
+                          <div className="text-xs font-medium text-amber-600">Rx Sent, Not on Invoice</div>
                           <div className="mt-1 text-2xl font-bold text-amber-700">{discrepancyData.summary.inSystemOnlyCount}</div>
-                          <div className="text-[11px] text-amber-500">Rx sent but not on invoice</div>
+                          <div className="text-[11px] text-amber-500">Rx in {discrepancyStartDate} – {discrepancyEndDate} but not billed</div>
                         </div>
                       </div>
 
@@ -827,19 +845,39 @@ export default function PharmacyInvoicesPage() {
                           </div>
                           <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-blue-600">
                             <span>{discrepancyData.summary.matchedCount} patients match</span>
-                            <span>&middot; {discrepancyData.summary.onInvoiceOnlyCount} on invoice only</span>
-                            <span>&middot; {discrepancyData.summary.inSystemOnlyCount} in system only</span>
+                            <span>&middot; {discrepancyData.summary.onInvoiceOnlyCount} billed but no Rx in range</span>
+                            <span>&middot; {discrepancyData.summary.inSystemOnlyCount} Rx sent but not billed</span>
                           </div>
                           {invoiceOnlyTotal > 0 && (
                             <div className="mt-2 flex items-center gap-3 rounded-lg bg-white/60 px-3 py-2">
                               <DollarSign className="h-4 w-4 text-red-500" />
                               <div>
                                 <div className="text-sm font-bold text-red-700">
-                                  {fmt(invoiceOnlyTotal)} billed for patients not in date range
+                                  {fmt(invoiceOnlyTotal)} billed for patients whose Rx is outside date range
                                 </div>
                                 <div className="text-[11px] text-gray-500">
-                                  {discrepancyData.summary.onInvoiceOnlyCount} patients &middot; across {discrepancyData.onInvoiceOnly.reduce((s, p) => s + p.lineItems.length, 0)} line items
+                                  {discrepancyData.summary.onInvoiceOnlyCount} patients &middot; {discrepancyData.onInvoiceOnly.reduce((s, p) => s + p.lineItems.length, 0)} line items
                                 </div>
+                              </div>
+                            </div>
+                          )}
+                          {dateSummary.length > 0 && (
+                            <div className="mt-2 rounded-lg bg-white/60 px-3 py-2">
+                              <div className="text-xs font-semibold text-blue-800 mb-1.5">These Rx actually belong to:</div>
+                              <div className="flex flex-wrap gap-2">
+                                {dateSummary.map(([date, info]) => (
+                                  <span key={date} className="inline-flex items-center gap-1.5 rounded-full border border-blue-200 bg-white px-2.5 py-1 text-xs">
+                                    <span className="font-semibold text-blue-800">{date}</span>
+                                    <span className="text-blue-500">{info.count} pts</span>
+                                    <span className="text-red-600 font-medium">{fmt(info.totalCents)}</span>
+                                  </span>
+                                ))}
+                                {notFoundCount > 0 && (
+                                  <span className="inline-flex items-center gap-1.5 rounded-full border border-red-200 bg-red-50 px-2.5 py-1 text-xs">
+                                    <span className="font-semibold text-red-700">Not in system</span>
+                                    <span className="text-red-500">{notFoundCount} pts</span>
+                                  </span>
+                                )}
                               </div>
                             </div>
                           )}
