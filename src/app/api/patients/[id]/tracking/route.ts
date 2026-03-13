@@ -7,7 +7,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
-import { prisma, runWithClinicContext } from '@/lib/db';
+import { prisma, runWithClinicContext, withoutClinicFilter } from '@/lib/db';
 import { withAuthParams, AuthUser } from '@/lib/auth/middleware-with-params';
 import { ensureTenantResource, tenantNotFoundResponse } from '@/lib/tenant-response';
 import { logger } from '@/lib/logger';
@@ -83,10 +83,15 @@ export const GET = withAuthParams(
 
       const clinicId = user.role === 'super_admin' ? undefined : user.clinicId;
 
-      const patientGet = await prisma.patient.findUnique({
-        where: { id: patientId },
-        select: { id: true, firstName: true, lastName: true, clinicId: true },
-      });
+      // Use withoutClinicFilter for the initial lookup so super_admin (or users
+      // whose JWT clinicId is null) don't hit TenantContextRequiredError before
+      // we can resolve the patient's actual clinic.
+      const patientGet = await withoutClinicFilter(() =>
+        prisma.patient.findUnique({
+          where: { id: patientId },
+          select: { id: true, firstName: true, lastName: true, clinicId: true },
+        }),
+      );
       if (ensureTenantResource(patientGet, clinicId ?? undefined)) return tenantNotFoundResponse();
 
       const effectiveClinicId = patientGet!.clinicId ?? clinicId;
@@ -367,10 +372,12 @@ export const POST = withAuthParams(
 
       const clinicId = user.role === 'super_admin' ? undefined : user.clinicId;
 
-      const patientForPost = await prisma.patient.findUnique({
-        where: { id: patientId },
-        select: { id: true, clinicId: true, firstName: true, lastName: true, phone: true, email: true },
-      });
+      const patientForPost = await withoutClinicFilter(() =>
+        prisma.patient.findUnique({
+          where: { id: patientId },
+          select: { id: true, clinicId: true, firstName: true, lastName: true, phone: true, email: true },
+        }),
+      );
       if (ensureTenantResource(patientForPost, clinicId ?? undefined)) return tenantNotFoundResponse();
       if (!patientForPost) return tenantNotFoundResponse();
 
@@ -622,10 +629,12 @@ export const PUT = withAuthParams(
         return NextResponse.json({ error: 'Invalid password' }, { status: 401 });
       }
 
-      const existing = await prisma.patientShippingUpdate.findUnique({
-        where: { id: trackingEntryId },
-        select: { id: true, patientId: true, clinicId: true, source: true, trackingNumber: true },
-      });
+      const existing = await withoutClinicFilter(() =>
+        prisma.patientShippingUpdate.findUnique({
+          where: { id: trackingEntryId },
+          select: { id: true, patientId: true, clinicId: true, source: true, trackingNumber: true },
+        }),
+      );
 
       if (!existing || existing.patientId !== patientId) {
         return NextResponse.json({ error: 'Tracking entry not found' }, { status: 404 });
@@ -652,19 +661,21 @@ export const PUT = withAuthParams(
             ? generateTrackingUrl(newCarrier || 'Other', newTrackingNumber)
             : undefined;
 
-      const updated = await prisma.patientShippingUpdate.update({
-        where: { id: trackingEntryId },
-        data: {
-          ...(updateFields.trackingNumber && { trackingNumber: updateFields.trackingNumber }),
-          ...(updateFields.carrier && { carrier: updateFields.carrier }),
-          ...(newTrackingUrl !== undefined && { trackingUrl: newTrackingUrl }),
-          ...(updateFields.status && { status: updateFields.status as ShippingStatus }),
-          ...(updateFields.medicationName !== undefined && { medicationName: updateFields.medicationName }),
-          ...(updateFields.medicationStrength !== undefined && { medicationStrength: updateFields.medicationStrength }),
-          ...(updateFields.medicationQuantity !== undefined && { medicationQuantity: updateFields.medicationQuantity }),
-          ...(updateFields.notes !== undefined && { statusNote: updateFields.notes }),
-        },
-      });
+      const updated = await runWithClinicContext(existing.clinicId, () =>
+        prisma.patientShippingUpdate.update({
+          where: { id: trackingEntryId },
+          data: {
+            ...(updateFields.trackingNumber && { trackingNumber: updateFields.trackingNumber }),
+            ...(updateFields.carrier && { carrier: updateFields.carrier }),
+            ...(newTrackingUrl !== undefined && { trackingUrl: newTrackingUrl }),
+            ...(updateFields.status && { status: updateFields.status as ShippingStatus }),
+            ...(updateFields.medicationName !== undefined && { medicationName: updateFields.medicationName }),
+            ...(updateFields.medicationStrength !== undefined && { medicationStrength: updateFields.medicationStrength }),
+            ...(updateFields.medicationQuantity !== undefined && { medicationQuantity: updateFields.medicationQuantity }),
+            ...(updateFields.notes !== undefined && { statusNote: updateFields.notes }),
+          },
+        }),
+      );
 
       logger.info('[TRACKING] Manual entry edited', {
         trackingEntryId,
@@ -725,10 +736,12 @@ export const DELETE = withAuthParams(
         return NextResponse.json({ error: 'Invalid password' }, { status: 401 });
       }
 
-      const existing = await prisma.patientShippingUpdate.findUnique({
-        where: { id: trackingEntryId },
-        select: { id: true, patientId: true, clinicId: true, source: true, trackingNumber: true },
-      });
+      const existing = await withoutClinicFilter(() =>
+        prisma.patientShippingUpdate.findUnique({
+          where: { id: trackingEntryId },
+          select: { id: true, patientId: true, clinicId: true, source: true, trackingNumber: true },
+        }),
+      );
 
       if (!existing || existing.patientId !== patientId) {
         return NextResponse.json({ error: 'Tracking entry not found' }, { status: 404 });
@@ -746,7 +759,9 @@ export const DELETE = withAuthParams(
         return NextResponse.json({ error: 'Access denied' }, { status: 403 });
       }
 
-      await prisma.patientShippingUpdate.delete({ where: { id: trackingEntryId } });
+      await runWithClinicContext(existing.clinicId, () =>
+        prisma.patientShippingUpdate.delete({ where: { id: trackingEntryId } }),
+      );
 
       logger.info('[TRACKING] Manual entry deleted', {
         trackingEntryId,

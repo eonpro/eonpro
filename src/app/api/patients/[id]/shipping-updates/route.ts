@@ -6,7 +6,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma, runWithClinicContext } from '@/lib/db';
+import { prisma, runWithClinicContext, withoutClinicFilter } from '@/lib/db';
 import { withAuthParams } from '@/lib/auth/middleware-with-params';
 import { ensureTenantResource, tenantNotFoundResponse } from '@/lib/tenant-response';
 import { logger } from '@/lib/logger';
@@ -26,10 +26,12 @@ export const GET = withAuthParams(async (req: NextRequest, user: any, context: R
 
     const clinicId = user.role === 'super_admin' ? undefined : user.clinicId;
 
-    const patient = await prisma.patient.findUnique({
-      where: { id: patientId },
-      select: { id: true, clinicId: true },
-    });
+    const patient = await withoutClinicFilter(() =>
+      prisma.patient.findUnique({
+        where: { id: patientId },
+        select: { id: true, clinicId: true },
+      }),
+    );
     const notFound = ensureTenantResource(patient, clinicId ?? undefined);
     if (notFound) return notFound;
 
