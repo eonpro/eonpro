@@ -7,7 +7,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
-import { prisma, runWithClinicContext, withoutClinicFilter } from '@/lib/db';
+import { prisma, basePrisma, runWithClinicContext, withoutClinicFilter } from '@/lib/db';
 import { withAuthParams, AuthUser } from '@/lib/auth/middleware-with-params';
 import { ensureTenantResource, tenantNotFoundResponse } from '@/lib/tenant-response';
 import { logger } from '@/lib/logger';
@@ -83,15 +83,12 @@ export const GET = withAuthParams(
 
       const clinicId = user.role === 'super_admin' ? undefined : user.clinicId;
 
-      // Use withoutClinicFilter for the initial lookup so super_admin (or users
-      // whose JWT clinicId is null) don't hit TenantContextRequiredError before
-      // we can resolve the patient's actual clinic.
-      const patientGet = await withoutClinicFilter(() =>
-        prisma.patient.findUnique({
-          where: { id: patientId },
-          select: { id: true, firstName: true, lastName: true, clinicId: true },
-        }),
-      );
+      // basePrisma bypasses tenant enforcement so we can resolve the patient's
+      // clinicId before scoping subsequent queries.  patient is in BASE_PRISMA_ALLOWLIST.
+      const patientGet = await basePrisma.patient.findUnique({
+        where: { id: patientId },
+        select: { id: true, firstName: true, lastName: true, clinicId: true },
+      });
       if (ensureTenantResource(patientGet, clinicId ?? undefined)) return tenantNotFoundResponse();
 
       const effectiveClinicId = patientGet!.clinicId ?? clinicId;
@@ -372,12 +369,10 @@ export const POST = withAuthParams(
 
       const clinicId = user.role === 'super_admin' ? undefined : user.clinicId;
 
-      const patientForPost = await withoutClinicFilter(() =>
-        prisma.patient.findUnique({
-          where: { id: patientId },
-          select: { id: true, clinicId: true, firstName: true, lastName: true, phone: true, email: true },
-        }),
-      );
+      const patientForPost = await basePrisma.patient.findUnique({
+        where: { id: patientId },
+        select: { id: true, clinicId: true, firstName: true, lastName: true, phone: true, email: true },
+      });
       if (ensureTenantResource(patientForPost, clinicId ?? undefined)) return tenantNotFoundResponse();
       if (!patientForPost) return tenantNotFoundResponse();
 
