@@ -654,14 +654,13 @@ function ManualMatchModal({ uploadId, group, onClose, onMatched }: {
           {tab === 'search' && (
             <>
               <p className="mb-3 text-xs text-gray-400">
-                Search by order number, medication name, or provider last name.
-                Patient names are encrypted and cannot be searched directly.
+                Search by patient name, order number, medication, or provider name.
               </p>
               <div className="mb-4 flex gap-2">
                 <div className="relative flex-1">
                   <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
                   <input type="text" value={query} onChange={(e) => setQuery(e.target.value)}
-                    placeholder="Order number, medication, or provider name..."
+                    placeholder="Patient name, order number, medication..."
                     className="w-full rounded-lg border border-gray-300 py-2 pl-9 pr-4 text-sm focus:border-emerald-500 focus:outline-none"
                     onKeyDown={(e) => { if (e.key === 'Enter') doSearch(query); }} />
                 </div>

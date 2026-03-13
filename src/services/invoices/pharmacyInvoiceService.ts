@@ -753,33 +753,33 @@ export async function searchOrdersForMatch(
       return orders.map(formatOrderForSearch);
     }
 
-    // For text queries (patient names): patient names are encrypted in the DB,
-    // so we search by Rx medication name instead, or by provider last name
-    // (which is NOT encrypted)
-    const orders = await prisma.order.findMany({
-      where: {
-        clinicId,
-        OR: [
-          { provider: { lastName: { contains: q, mode: 'insensitive' } } },
-          { rxs: { some: { medName: { contains: q, mode: 'insensitive' } } } },
-          { primaryMedName: { contains: q, mode: 'insensitive' } },
-        ],
-      },
-      include: orderInclude,
-      take: 20,
-      orderBy: { createdAt: 'desc' },
-    });
-
-    if (orders.length > 0) return orders.map(formatOrderForSearch);
-
-    // Last resort: search recent orders and show all (let the user pick)
-    const recent = await prisma.order.findMany({
+    // Text query: patient names are PHI-encrypted, so we load recent orders,
+    // decrypt names in memory, and filter by the search term.
+    const recentOrders = await prisma.order.findMany({
       where: { clinicId },
       include: orderInclude,
-      take: 20,
+      take: 500,
       orderBy: { createdAt: 'desc' },
     });
-    return recent.map(formatOrderForSearch);
+
+    const qLower = q.toLowerCase();
+    const matched = recentOrders.filter((o) => {
+      // Decrypt patient name and match
+      if (o.patient) {
+        try {
+          const lastName = (decryptPHI(o.patient.lastName) ?? o.patient.lastName).toLowerCase();
+          const firstName = (decryptPHI(o.patient.firstName) ?? o.patient.firstName).toLowerCase();
+          if (lastName.includes(qLower) || firstName.includes(qLower)) return true;
+          if (`${lastName}, ${firstName}`.includes(qLower)) return true;
+        } catch { /* skip */ }
+      }
+      // Also match provider name and medication
+      if (o.provider?.lastName?.toLowerCase().includes(qLower)) return true;
+      if (o.rxs?.some((rx) => rx.medName.toLowerCase().includes(qLower))) return true;
+      return false;
+    });
+
+    return matched.slice(0, 20).map(formatOrderForSearch);
   }
 
   return [];
