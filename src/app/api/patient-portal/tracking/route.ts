@@ -126,6 +126,7 @@ async function getHandler(req: NextRequest, user: AuthUser) {
     });
 
     // If the scoped query fails (wrong clinic), try basePrisma lookup
+    let fallbackClinicId: number | undefined;
     if (!patientRecord) {
       const { basePrisma } = await import('@/lib/db');
       const fallbackUser = await basePrisma.user.findUnique({
@@ -145,10 +146,23 @@ async function getHandler(req: NextRequest, user: AuthUser) {
           clinicId: fallback.clinicId,
         });
         patientId = fallback.id;
+        fallbackClinicId = fallback.clinicId ?? undefined;
       }
     }
 
-    const effectiveClinicId = patientRecord?.clinicId ?? clinicId;
+    const effectiveClinicId = patientRecord?.clinicId ?? fallbackClinicId ?? clinicId;
+
+    if (!effectiveClinicId) {
+      logger.error('[Portal Tracking] Unable to resolve clinicId', {
+        userId: user.id,
+        patientId,
+        jwtClinicId: user.clinicId,
+      });
+      return NextResponse.json(
+        { error: 'Unable to resolve clinic context. Please log out and log back in.' },
+        { status: 403 }
+      );
+    }
 
     logger.info('[Portal Tracking] Query context', {
       userId: user.id,
