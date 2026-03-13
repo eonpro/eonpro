@@ -12,7 +12,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyAuth } from '@/lib/auth/middleware';
-import { prisma } from '@/lib/db';
+import { prisma, runWithClinicContext } from '@/lib/db';
 import { orderService, orderRepository, type UserContext } from '@/domains/order';
 import { handleApiError } from '@/domains/shared/errors';
 import { decryptPHI } from '@/lib/security/phi-encryption';
@@ -56,6 +56,12 @@ export async function GET(request: NextRequest) {
       patientId: user.patientId,
       providerId: user.providerId,
     };
+
+    // Wrap in runWithClinicContext for thread-safe tenant isolation
+    // (verifyAuth only sets the global, which is racy under concurrent requests)
+    const effectiveClinicId = user.role !== 'super_admin' ? user.clinicId : undefined;
+
+    return await runWithClinicContext(effectiveClinicId, async () => {
 
     // Parse query params
     const { searchParams } = new URL(request.url);
@@ -116,10 +122,8 @@ export async function GET(request: NextRequest) {
         }
       : null;
 
-    // Parallelize ALL independent queries in a single Promise.all to minimize
-    // connection hold time and reduce P2024 (pool exhaustion) risk on serverless.
-    const [allEvents, orderSmsLogs, patientShipments, shipmentOnlyTotal] = await Promise.all([
-      // 1. Events for all orders
+    // Batch 1: Order events + SMS logs (max 2 concurrent queries, within connection_limit=3)
+    const [allEvents, orderSmsLogs] = await Promise.all([
       orderIds.length > 0
         ? prisma.orderEvent.findMany({
             where: { orderId: { in: orderIds } },
@@ -127,8 +131,6 @@ export async function GET(request: NextRequest) {
             take: 500,
           })
         : Promise.resolve([]),
-
-      // 2. SMS status for tracked orders
       trackingOrders.length > 0
         ? prisma.smsLog.findMany({
             where: {
@@ -140,8 +142,10 @@ export async function GET(request: NextRequest) {
             take: 500,
           })
         : Promise.resolve([]),
+    ]);
 
-      // 3. Shipment-only records (when hasTrackingNumber=true)
+    // Batch 2: Shipment records + count (max 2 concurrent queries)
+    const [patientShipments, shipmentOnlyTotal] = await Promise.all([
       shipmentWhere
         ? prisma.patientShippingUpdate.findMany({
             ...shipmentWhere,
@@ -153,8 +157,6 @@ export async function GET(request: NextRequest) {
             take: trackedMergeWindow,
           })
         : Promise.resolve([]),
-
-      // 4. Total shipment-only count (when hasTrackingNumber=true)
       shipmentWhere
         ? prisma.patientShippingUpdate.count(shipmentWhere as any)
         : Promise.resolve(0),
@@ -272,6 +274,8 @@ export async function GET(request: NextRequest) {
       pageSize,
       hasMore: result.hasMore,
     });
+
+    }); // end runWithClinicContext
   } catch (error) {
     return handleApiError(error, {
       context: { route: 'GET /api/orders/list' },
