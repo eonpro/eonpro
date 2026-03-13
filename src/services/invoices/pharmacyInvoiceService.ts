@@ -1234,6 +1234,18 @@ export interface PatientDiscrepancyResult {
     lifefileOrderIds: string[];
     medications: string;
     latestOrderDate: string;
+    rxDetails: Array<{
+      lifefileOrderId: string | null;
+      createdAt: string;
+      status: string | null;
+      rxs: Array<{
+        medName: string;
+        strength: string;
+        form: string;
+        quantity: string;
+        sig: string;
+      }>;
+    }>;
   }>;
   matched: Array<{
     patientName: string;
@@ -1341,10 +1353,17 @@ export async function getPatientDiscrepancy(
     },
     include: {
       patient: { select: { id: true, firstName: true, lastName: true } },
-      rxs: { select: { medName: true, strength: true } },
+      rxs: { select: { medName: true, strength: true, form: true, quantity: true, sig: true } },
     },
     orderBy: { createdAt: 'desc' },
   });
+
+  type SystemOrderDetail = {
+    lifefileOrderId: string | null;
+    createdAt: string;
+    status: string | null;
+    rxs: Array<{ medName: string; strength: string; form: string; quantity: string; sig: string }>;
+  };
 
   // Build map of normalized patient name → system data
   const systemPatientMap = new Map<string, {
@@ -1353,6 +1372,7 @@ export async function getPatientDiscrepancy(
     orderIds: Set<string>;
     medications: Set<string>;
     latestOrderDate: Date;
+    orders: SystemOrderDetail[];
   }>();
 
   for (const order of systemOrders) {
@@ -1372,6 +1392,19 @@ export async function getPatientDiscrepancy(
     const normalized = normalizeName(displayName);
     if (!normalized) continue;
 
+    const orderDetail: SystemOrderDetail = {
+      lifefileOrderId: order.lifefileOrderId,
+      createdAt: order.createdAt.toISOString(),
+      status: order.status,
+      rxs: order.rxs.map((rx) => ({
+        medName: rx.medName,
+        strength: rx.strength,
+        form: rx.form,
+        quantity: rx.quantity,
+        sig: rx.sig,
+      })),
+    };
+
     const existing = systemPatientMap.get(normalized);
     if (existing) {
       if (order.lifefileOrderId) existing.orderIds.add(order.lifefileOrderId);
@@ -1381,6 +1414,7 @@ export async function getPatientDiscrepancy(
       if (order.createdAt > existing.latestOrderDate) {
         existing.latestOrderDate = order.createdAt;
       }
+      existing.orders.push(orderDetail);
     } else {
       systemPatientMap.set(normalized, {
         patientId: order.patient.id,
@@ -1388,6 +1422,7 @@ export async function getPatientDiscrepancy(
         orderIds: new Set(order.lifefileOrderId ? [order.lifefileOrderId] : []),
         medications: new Set(order.rxs.map((rx) => `${rx.medName} ${rx.strength}`)),
         latestOrderDate: order.createdAt,
+        orders: [orderDetail],
       });
     }
   }
@@ -1476,6 +1511,7 @@ export async function getPatientDiscrepancy(
         lifefileOrderIds: [...sysData.orderIds],
         medications: [...sysData.medications].join(', '),
         latestOrderDate: sysData.latestOrderDate.toISOString(),
+        rxDetails: sysData.orders,
       });
     }
   }

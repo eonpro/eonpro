@@ -120,6 +120,18 @@ interface DiscrepancyData {
     lifefileOrderIds: string[];
     medications: string;
     latestOrderDate: string;
+    rxDetails: Array<{
+      lifefileOrderId: string | null;
+      createdAt: string;
+      status: string | null;
+      rxs: Array<{
+        medName: string;
+        strength: string;
+        form: string;
+        quantity: string;
+        sig: string;
+      }>;
+    }>;
   }>;
   matched: Array<{
     patientName: string;
@@ -173,6 +185,7 @@ export default function PharmacyInvoicesPage() {
   const [discrepancyView, setDiscrepancyView] = useState<'invoiceOnly' | 'systemOnly' | 'matched'>('invoiceOnly');
   const [discrepancySearch, setDiscrepancySearch] = useState('');
   const [expandedDiscrepancy, setExpandedDiscrepancy] = useState<Set<number>>(new Set());
+  const [expandedSystemOnly, setExpandedSystemOnly] = useState<Set<number>>(new Set());
 
   // Mark Paid modal
   const [payModal, setPayModal] = useState<InvoiceUpload | null>(null);
@@ -1030,33 +1043,79 @@ export default function PharmacyInvoicesPage() {
                         <span className="text-xs">All system prescriptions appear on the selected invoices</span>
                       </div>
                     ) : (
-                      <div className="overflow-x-auto">
-                        <table className="w-full">
-                          <thead>
-                            <tr className="border-b border-gray-100 bg-gray-50 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                              <th className="px-5 py-3">#</th>
-                              <th className="px-5 py-3">Patient Name (System)</th>
-                              <th className="px-5 py-3">Orders</th>
-                              <th className="px-5 py-3">Medications</th>
-                              <th className="px-5 py-3">Latest Order</th>
-                              <th className="px-5 py-3">Lifefile Order IDs</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-gray-100">
-                            {discrepancyData.inSystemOnly
-                              .filter((p) => !discrepancySearch || p.patientName.toLowerCase().includes(discrepancySearch.toLowerCase()))
-                              .map((p, i) => (
-                              <tr key={i} className="hover:bg-amber-50/50">
-                                <td className="px-5 py-2.5 text-xs text-gray-400">{i + 1}</td>
-                                <td className="px-5 py-2.5 text-sm font-medium text-gray-900">{p.patientName}</td>
-                                <td className="px-5 py-2.5 text-sm text-gray-600">{p.orderCount}</td>
-                                <td className="px-5 py-2.5 text-xs text-gray-500 max-w-xs truncate">{p.medications}</td>
-                                <td className="px-5 py-2.5 text-sm text-gray-500">{fmtDate(p.latestOrderDate)}</td>
-                                <td className="px-5 py-2.5 text-xs text-gray-400 font-mono">{p.lifefileOrderIds.join(', ')}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
+                      <div className="divide-y divide-gray-100">
+                        {discrepancyData.inSystemOnly
+                          .filter((p) => !discrepancySearch || p.patientName.toLowerCase().includes(discrepancySearch.toLowerCase()))
+                          .map((p, i) => {
+                            const isExpanded = expandedSystemOnly.has(i);
+                            const totalRxCount = p.rxDetails.reduce((s, o) => s + o.rxs.length, 0);
+                            return (
+                              <div key={i}>
+                                <button
+                                  onClick={() => setExpandedSystemOnly((prev) => {
+                                    const n = new Set(prev);
+                                    n.has(i) ? n.delete(i) : n.add(i);
+                                    return n;
+                                  })}
+                                  className="flex w-full items-center gap-3 px-5 py-3 text-left hover:bg-amber-50/50 transition-colors"
+                                >
+                                  <span className="text-xs text-gray-400 w-6 text-right shrink-0">{i + 1}</span>
+                                  <div className="min-w-0 flex-1">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <span className="text-sm font-semibold text-gray-900">{p.patientName}</span>
+                                      <span className="text-xs text-gray-400">{p.orderCount} order{p.orderCount !== 1 ? 's' : ''} &middot; {totalRxCount} Rx</span>
+                                    </div>
+                                    <div className="mt-0.5 flex items-center gap-2 flex-wrap">
+                                      <span className="text-[11px] text-amber-600 font-medium">
+                                        Sent: {fmtDate(p.latestOrderDate)}
+                                      </span>
+                                      <span className="text-[11px] text-gray-400 truncate max-w-xs">{p.medications}</span>
+                                      <span className="text-[11px] text-gray-400 font-mono">{p.lifefileOrderIds.join(', ')}</span>
+                                    </div>
+                                  </div>
+                                  {isExpanded ? <ChevronUp className="h-4 w-4 text-gray-400 shrink-0" /> : <ChevronDown className="h-4 w-4 text-gray-400 shrink-0" />}
+                                </button>
+
+                                {isExpanded && p.rxDetails.length > 0 && (
+                                  <div className="border-t border-gray-100 bg-gray-50 px-5 py-2 space-y-3">
+                                    {p.rxDetails.map((od, oi) => (
+                                      <div key={oi}>
+                                        <div className="flex items-center gap-2 mb-1">
+                                          <span className="text-[11px] font-semibold text-gray-600">Order #{od.lifefileOrderId ?? '—'}</span>
+                                          <span className="text-[11px] text-gray-400">{fmtDate(od.createdAt)}</span>
+                                          <span className="inline-block rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-700">
+                                            {od.status ?? 'sent'}
+                                          </span>
+                                        </div>
+                                        <table className="w-full text-sm">
+                                          <thead>
+                                            <tr className="text-left text-[11px] font-medium uppercase tracking-wider text-gray-400">
+                                              <th className="py-1 pr-4"><Pill className="inline h-3 w-3" /> Medication</th>
+                                              <th className="py-1 pr-4">Strength</th>
+                                              <th className="py-1 pr-4">Form</th>
+                                              <th className="py-1 pr-4">Qty</th>
+                                              <th className="py-1">Directions</th>
+                                            </tr>
+                                          </thead>
+                                          <tbody className="divide-y divide-gray-100">
+                                            {od.rxs.map((rx, ri) => (
+                                              <tr key={ri}>
+                                                <td className="py-1 pr-4 text-xs font-medium text-gray-700">{rx.medName}</td>
+                                                <td className="py-1 pr-4 text-xs text-gray-500">{rx.strength}</td>
+                                                <td className="py-1 pr-4 text-xs text-gray-500">{rx.form}</td>
+                                                <td className="py-1 pr-4 text-xs text-gray-500">{rx.quantity}</td>
+                                                <td className="py-1 text-xs text-gray-400">{rx.sig}</td>
+                                              </tr>
+                                            ))}
+                                          </tbody>
+                                        </table>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
                       </div>
                     )}
                   </div>
