@@ -1217,6 +1217,15 @@ export interface PatientDiscrepancyResult {
     lifefileOrderIds: string[];
     systemOrderDates: Array<{ lifefileOrderId: string; createdAt: string; status: string | null }>;
     foundInSystem: boolean;
+    lineItems: Array<{
+      lifefileOrderId: string | null;
+      medicationName: string | null;
+      strength: string | null;
+      quantity: number;
+      unitPriceCents: number;
+      amountCents: number;
+      description: string | null;
+    }>;
   }>;
   inSystemOnly: Array<{
     patientId: number;
@@ -1262,14 +1271,30 @@ export async function getPatientDiscrepancy(
       patientName: true,
       lifefileOrderId: true,
       amountCents: true,
+      medicationName: true,
+      strength: true,
+      quantity: true,
+      unitPriceCents: true,
+      description: true,
     },
   });
+
+  type InvoiceLineItemData = {
+    lifefileOrderId: string | null;
+    medicationName: string | null;
+    strength: string | null;
+    quantity: number;
+    unitPriceCents: number;
+    amountCents: number;
+    description: string | null;
+  };
 
   // Build map of normalized patient name → invoice data
   const invoicePatientMap = new Map<string, {
     originalName: string;
     orderIds: Set<string>;
     totalAmountCents: number;
+    lineItems: InvoiceLineItemData[];
   }>();
 
   for (const li of invoiceLineItems) {
@@ -1277,15 +1302,27 @@ export async function getPatientDiscrepancy(
     const normalized = normalizeName(li.patientName);
     if (!normalized) continue;
 
+    const lineItem: InvoiceLineItemData = {
+      lifefileOrderId: li.lifefileOrderId,
+      medicationName: li.medicationName,
+      strength: li.strength,
+      quantity: li.quantity,
+      unitPriceCents: li.unitPriceCents,
+      amountCents: li.amountCents,
+      description: li.description,
+    };
+
     const existing = invoicePatientMap.get(normalized);
     if (existing) {
       if (li.lifefileOrderId) existing.orderIds.add(li.lifefileOrderId);
       existing.totalAmountCents += li.amountCents;
+      existing.lineItems.push(lineItem);
     } else {
       invoicePatientMap.set(normalized, {
         originalName: li.patientName,
         orderIds: new Set(li.lifefileOrderId ? [li.lifefileOrderId] : []),
         totalAmountCents: li.amountCents,
+        lineItems: [lineItem],
       });
     }
   }
@@ -1361,6 +1398,7 @@ export async function getPatientDiscrepancy(
     orderCount: number;
     totalAmountCents: number;
     lifefileOrderIds: string[];
+    lineItems: InvoiceLineItemData[];
   }> = [];
   const inSystemOnly: PatientDiscrepancyResult['inSystemOnly'] = [];
   const matched: PatientDiscrepancyResult['matched'] = [];
@@ -1381,6 +1419,7 @@ export async function getPatientDiscrepancy(
         orderCount: invData.orderIds.size,
         totalAmountCents: invData.totalAmountCents,
         lifefileOrderIds: [...invData.orderIds],
+        lineItems: invData.lineItems,
       });
     }
   }

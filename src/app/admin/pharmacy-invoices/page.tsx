@@ -103,6 +103,15 @@ interface DiscrepancyData {
     lifefileOrderIds: string[];
     systemOrderDates: Array<{ lifefileOrderId: string; createdAt: string; status: string | null }>;
     foundInSystem: boolean;
+    lineItems: Array<{
+      lifefileOrderId: string | null;
+      medicationName: string | null;
+      strength: string | null;
+      quantity: number;
+      unitPriceCents: number;
+      amountCents: number;
+      description: string | null;
+    }>;
   }>;
   inSystemOnly: Array<{
     patientId: number;
@@ -163,6 +172,7 @@ export default function PharmacyInvoicesPage() {
   const [discrepancyError, setDiscrepancyError] = useState<string | null>(null);
   const [discrepancyView, setDiscrepancyView] = useState<'invoiceOnly' | 'systemOnly' | 'matched'>('invoiceOnly');
   const [discrepancySearch, setDiscrepancySearch] = useState('');
+  const [expandedDiscrepancy, setExpandedDiscrepancy] = useState<Set<number>>(new Set());
 
   // Mark Paid modal
   const [payModal, setPayModal] = useState<InvoiceUpload | null>(null);
@@ -856,61 +866,93 @@ export default function PharmacyInvoicesPage() {
                         <span className="text-xs">All invoice patients have matching prescriptions in the system</span>
                       </div>
                     ) : (
-                      <div className="overflow-x-auto">
-                        <table className="w-full">
-                          <thead>
-                            <tr className="border-b border-gray-100 bg-gray-50 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                              <th className="px-5 py-3">#</th>
-                              <th className="px-5 py-3">Patient Name (Invoice)</th>
-                              <th className="px-5 py-3">Orders</th>
-                              <th className="px-5 py-3">Amount Billed</th>
-                              <th className="px-5 py-3">Rx Written Date</th>
-                              <th className="px-5 py-3">Status</th>
-                              <th className="px-5 py-3">Lifefile Order IDs</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-gray-100">
-                            {discrepancyData.onInvoiceOnly
-                              .filter((p) => !discrepancySearch || p.patientName.toLowerCase().includes(discrepancySearch.toLowerCase()))
-                              .map((p, i) => (
-                              <tr key={i} className="hover:bg-red-50/50">
-                                <td className="px-5 py-2.5 text-xs text-gray-400">{i + 1}</td>
-                                <td className="px-5 py-2.5 text-sm font-medium text-gray-900">{p.patientName}</td>
-                                <td className="px-5 py-2.5 text-sm text-gray-600">{p.orderCount}</td>
-                                <td className="px-5 py-2.5 text-sm font-semibold text-red-600">{fmt(p.totalAmountCents)}</td>
-                                <td className="px-5 py-2.5 text-sm">
-                                  {p.foundInSystem ? (
-                                    <div className="space-y-0.5">
-                                      {p.systemOrderDates.map((d) => (
-                                        <div key={d.lifefileOrderId} className="text-xs text-blue-700 font-medium">
-                                          {fmtDate(d.createdAt)}
-                                        </div>
-                                      ))}
+                      <div className="divide-y divide-gray-100">
+                        {discrepancyData.onInvoiceOnly
+                          .filter((p) => !discrepancySearch || p.patientName.toLowerCase().includes(discrepancySearch.toLowerCase()))
+                          .map((p, i) => {
+                            const isExpanded = expandedDiscrepancy.has(i);
+                            return (
+                              <div key={i}>
+                                <button
+                                  onClick={() => setExpandedDiscrepancy((prev) => {
+                                    const n = new Set(prev);
+                                    n.has(i) ? n.delete(i) : n.add(i);
+                                    return n;
+                                  })}
+                                  className="flex w-full items-center gap-3 px-5 py-3 text-left hover:bg-red-50/50 transition-colors"
+                                >
+                                  <span className="text-xs text-gray-400 w-6 text-right shrink-0">{i + 1}</span>
+                                  <div className="min-w-0 flex-1">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <span className="text-sm font-semibold text-gray-900">{p.patientName}</span>
+                                      <span className="text-sm font-bold text-red-600">{fmt(p.totalAmountCents)}</span>
+                                      <span className="text-xs text-gray-400">{p.lineItems.length} item{p.lineItems.length !== 1 ? 's' : ''}</span>
                                     </div>
-                                  ) : (
-                                    <span className="text-xs text-red-500 font-medium">Not in system</span>
-                                  )}
-                                </td>
-                                <td className="px-5 py-2.5">
-                                  {p.foundInSystem ? (
-                                    <div className="space-y-0.5">
-                                      {p.systemOrderDates.map((d) => (
-                                        <span key={d.lifefileOrderId} className="inline-block rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-medium text-blue-700">
-                                          {d.status ?? 'sent'}
+                                    <div className="mt-0.5 flex items-center gap-2 flex-wrap">
+                                      {p.foundInSystem ? (
+                                        <>
+                                          <span className="text-[11px] text-blue-600 font-medium">
+                                            Rx written: {p.systemOrderDates.map((d) => fmtDate(d.createdAt)).join(', ')}
+                                          </span>
+                                          {p.systemOrderDates.map((d) => (
+                                            <span key={d.lifefileOrderId} className="inline-block rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-medium text-blue-700">
+                                              {d.status ?? 'sent'}
+                                            </span>
+                                          ))}
+                                        </>
+                                      ) : (
+                                        <span className="inline-block rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-medium text-red-600">
+                                          Not in system
                                         </span>
-                                      ))}
+                                      )}
+                                      <span className="text-[11px] text-gray-400 font-mono">
+                                        {p.lifefileOrderIds.join(', ')}
+                                      </span>
                                     </div>
-                                  ) : (
-                                    <span className="inline-block rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-medium text-red-600">
-                                      missing
-                                    </span>
-                                  )}
-                                </td>
-                                <td className="px-5 py-2.5 text-xs text-gray-400 font-mono">{p.lifefileOrderIds.join(', ')}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
+                                  </div>
+                                  {isExpanded ? <ChevronUp className="h-4 w-4 text-gray-400 shrink-0" /> : <ChevronDown className="h-4 w-4 text-gray-400 shrink-0" />}
+                                </button>
+
+                                {isExpanded && p.lineItems.length > 0 && (
+                                  <div className="border-t border-gray-100 bg-gray-50 px-5 py-2">
+                                    <table className="w-full text-sm">
+                                      <thead>
+                                        <tr className="text-left text-[11px] font-medium uppercase tracking-wider text-gray-400">
+                                          <th className="py-1.5 pr-4"><Pill className="inline h-3 w-3" /> Medication</th>
+                                          <th className="py-1.5 pr-4">Strength</th>
+                                          <th className="py-1.5 pr-4">Qty</th>
+                                          <th className="py-1.5 pr-4 text-right">Unit Price</th>
+                                          <th className="py-1.5 pr-4 text-right">Amount</th>
+                                          <th className="py-1.5">Order ID</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody className="divide-y divide-gray-100">
+                                        {p.lineItems.map((li, j) => (
+                                          <tr key={j}>
+                                            <td className="py-1.5 pr-4 text-xs font-medium text-gray-700">
+                                              {li.medicationName || li.description || '—'}
+                                            </td>
+                                            <td className="py-1.5 pr-4 text-xs text-gray-500">{li.strength || '—'}</td>
+                                            <td className="py-1.5 pr-4 text-xs text-gray-500">{li.quantity}</td>
+                                            <td className="py-1.5 pr-4 text-xs text-gray-500 text-right">{fmt(li.unitPriceCents)}</td>
+                                            <td className="py-1.5 pr-4 text-xs font-semibold text-red-600 text-right">{fmt(li.amountCents)}</td>
+                                            <td className="py-1.5 text-xs text-gray-400 font-mono">{li.lifefileOrderId ?? '—'}</td>
+                                          </tr>
+                                        ))}
+                                      </tbody>
+                                      <tfoot>
+                                        <tr className="border-t border-gray-200">
+                                          <td colSpan={4} className="py-1.5 pr-4 text-xs font-semibold text-gray-700 text-right">Total</td>
+                                          <td className="py-1.5 pr-4 text-xs font-bold text-red-700 text-right">{fmt(p.totalAmountCents)}</td>
+                                          <td />
+                                        </tr>
+                                      </tfoot>
+                                    </table>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
                       </div>
                     )}
                   </div>
