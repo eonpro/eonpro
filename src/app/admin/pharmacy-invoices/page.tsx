@@ -22,6 +22,10 @@ import {
   ChevronDown,
   ChevronUp,
   Pill,
+  GitCompare,
+  Download,
+  ArrowRight,
+  Search,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api/fetch';
 
@@ -89,8 +93,39 @@ const PAYMENT_BADGE: Record<string, { label: string; cls: string }> = {
 // Page
 // ---------------------------------------------------------------------------
 
+interface DiscrepancyData {
+  invoicePatientCount: number;
+  systemPatientCount: number;
+  onInvoiceOnly: Array<{
+    patientName: string;
+    orderCount: number;
+    totalAmountCents: number;
+    lifefileOrderIds: string[];
+  }>;
+  inSystemOnly: Array<{
+    patientId: number;
+    patientName: string;
+    orderCount: number;
+    lifefileOrderIds: string[];
+    medications: string;
+    latestOrderDate: string;
+  }>;
+  matched: Array<{
+    patientName: string;
+    invoiceName: string;
+    systemName: string;
+    invoiceOrderCount: number;
+    systemOrderCount: number;
+  }>;
+  summary: {
+    onInvoiceOnlyCount: number;
+    inSystemOnlyCount: number;
+    matchedCount: number;
+  };
+}
+
 export default function PharmacyInvoicesPage() {
-  const [tab, setTab] = useState<'invoices' | 'statements' | 'unmatched'>('invoices');
+  const [tab, setTab] = useState<'invoices' | 'statements' | 'unmatched' | 'discrepancy'>('invoices');
   const [uploads, setUploads] = useState<InvoiceUpload[]>([]);
   const [statements, setStatements] = useState<Statement[]>([]);
   const [loading, setLoading] = useState(true);
@@ -116,6 +151,16 @@ export default function PharmacyInvoicesPage() {
   const [unmatchedStartDate, setUnmatchedStartDate] = useState('2026-03-04');
   const [unmatchedPage, setUnmatchedPage] = useState(1);
   const [unmatchedLoading, setUnmatchedLoading] = useState(false);
+
+  // Patient Discrepancy tab
+  const [discrepancyInvoiceIds, setDiscrepancyInvoiceIds] = useState<Set<number>>(new Set());
+  const [discrepancyStartDate, setDiscrepancyStartDate] = useState('2026-03-09');
+  const [discrepancyEndDate, setDiscrepancyEndDate] = useState(new Date().toISOString().split('T')[0]);
+  const [discrepancyData, setDiscrepancyData] = useState<DiscrepancyData | null>(null);
+  const [discrepancyLoading, setDiscrepancyLoading] = useState(false);
+  const [discrepancyError, setDiscrepancyError] = useState<string | null>(null);
+  const [discrepancyView, setDiscrepancyView] = useState<'invoiceOnly' | 'systemOnly' | 'matched'>('invoiceOnly');
+  const [discrepancySearch, setDiscrepancySearch] = useState('');
 
   // Mark Paid modal
   const [payModal, setPayModal] = useState<InvoiceUpload | null>(null);
@@ -157,6 +202,52 @@ export default function PharmacyInvoicesPage() {
       }
     } catch { /* */ } finally { setUnmatchedLoading(false); }
   }, [unmatchedStartDate, unmatchedPage]);
+
+  const fetchDiscrepancy = useCallback(async () => {
+    if (discrepancyInvoiceIds.size === 0) return;
+    try {
+      setDiscrepancyLoading(true);
+      setDiscrepancyError(null);
+      const ids = Array.from(discrepancyInvoiceIds).join(',');
+      const res = await apiFetch(
+        `/api/admin/pharmacy-invoices/patient-discrepancy?invoiceIds=${ids}&startDate=${discrepancyStartDate}&endDate=${discrepancyEndDate}`
+      );
+      const json = await res.json();
+      if (json.success) {
+        setDiscrepancyData(json.data);
+      } else {
+        setDiscrepancyError(json.error ?? 'Failed to load discrepancy data');
+      }
+    } catch {
+      setDiscrepancyError('Failed to load discrepancy data');
+    } finally {
+      setDiscrepancyLoading(false);
+    }
+  }, [discrepancyInvoiceIds, discrepancyStartDate, discrepancyEndDate]);
+
+  const exportDiscrepancyCsv = useCallback(() => {
+    if (!discrepancyData) return;
+    const rows: string[] = ['Section,Patient Name,Order Count,Details'];
+
+    for (const p of discrepancyData.onInvoiceOnly) {
+      rows.push(`On Invoice Only,"${p.patientName.replace(/"/g, '""')}",${p.orderCount},"$${(p.totalAmountCents / 100).toFixed(2)} | Orders: ${p.lifefileOrderIds.join('; ')}"`);
+    }
+    for (const p of discrepancyData.inSystemOnly) {
+      rows.push(`In System Only,"${p.patientName.replace(/"/g, '""')}",${p.orderCount},"${p.medications} | Orders: ${p.lifefileOrderIds.join('; ')}"`);
+    }
+    for (const p of discrepancyData.matched) {
+      rows.push(`Matched,"${p.invoiceName.replace(/"/g, '""')}",${p.invoiceOrderCount},"Invoice orders: ${p.invoiceOrderCount} | System orders: ${p.systemOrderCount}"`);
+    }
+
+    const csv = rows.join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `patient-discrepancy-${discrepancyStartDate}-to-${discrepancyEndDate}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [discrepancyData, discrepancyStartDate, discrepancyEndDate]);
 
   useEffect(() => {
     fetchUploads();
@@ -332,6 +423,10 @@ export default function PharmacyInvoicesPage() {
           <button onClick={() => setTab('unmatched')}
             className={`border-b-2 px-4 py-2.5 text-sm font-medium ${tab === 'unmatched' ? 'border-emerald-500 text-emerald-600' : 'border-transparent text-gray-500'}`}>
             Unmatched Rx {unmatchedTotal > 0 && <span className="ml-1 rounded-full bg-red-100 px-1.5 py-0.5 text-[10px] font-bold text-red-600">{unmatchedTotal}</span>}
+          </button>
+          <button onClick={() => setTab('discrepancy')}
+            className={`border-b-2 px-4 py-2.5 text-sm font-medium flex items-center gap-1.5 ${tab === 'discrepancy' ? 'border-emerald-500 text-emerald-600' : 'border-transparent text-gray-500'}`}>
+            <GitCompare className="h-3.5 w-3.5" /> Patient Discrepancy
           </button>
         </div>
 
@@ -580,6 +675,292 @@ export default function PharmacyInvoicesPage() {
                     className="rounded-md border border-gray-300 p-1.5 hover:bg-gray-50 disabled:opacity-50"><ChevronRight className="h-4 w-4" /></button>
                 </div>
               </div>
+            )}
+          </div>
+        )}
+
+        {/* Patient Discrepancy Tab */}
+        {tab === 'discrepancy' && (
+          <div className="space-y-4">
+            {/* Controls */}
+            <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+              <h2 className="text-lg font-semibold text-gray-900 mb-1">Patient Discrepancy Report</h2>
+              <p className="text-xs text-gray-500 mb-4">
+                Compare patients on selected invoices against prescriptions sent in the system for a date range.
+                This identifies patients billed by the pharmacy but not in your system, and vice versa.
+              </p>
+
+              {/* Invoice Selection */}
+              <div className="mb-4">
+                <label className="mb-1.5 block text-sm font-medium text-gray-700">Select Invoices to Compare</label>
+                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                  {uploads.filter((u) => u.status === 'RECONCILED').map((u) => (
+                    <label key={u.id}
+                      className={`flex cursor-pointer items-center gap-2.5 rounded-lg border px-3 py-2.5 transition-colors ${
+                        discrepancyInvoiceIds.has(u.id)
+                          ? 'border-emerald-500 bg-emerald-50'
+                          : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                      }`}>
+                      <input type="checkbox"
+                        checked={discrepancyInvoiceIds.has(u.id)}
+                        onChange={() => {
+                          setDiscrepancyInvoiceIds((prev) => {
+                            const n = new Set(prev);
+                            n.has(u.id) ? n.delete(u.id) : n.add(u.id);
+                            return n;
+                          });
+                        }}
+                        className="h-4 w-4 rounded border-gray-300 text-emerald-600" />
+                      <div className="min-w-0 flex-1">
+                        <div className="text-sm font-medium text-gray-900 truncate">
+                          {u.invoiceNumber ? `#${u.invoiceNumber}` : u.fileName}
+                        </div>
+                        <div className="text-[11px] text-gray-400">
+                          {fmtDate(u.invoiceDate) ?? fmtDate(u.createdAt)} &middot; {fmt(u.invoiceTotalCents)} &middot; {u.matchedCount} matched
+                        </div>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+                {uploads.filter((u) => u.status === 'RECONCILED').length === 0 && (
+                  <p className="text-sm text-gray-400 mt-2">No reconciled invoices available. Upload and reconcile an invoice first.</p>
+                )}
+              </div>
+
+              {/* Date Range */}
+              <div className="flex flex-wrap items-end gap-3">
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-gray-600">Prescriptions From</label>
+                  <input type="date" value={discrepancyStartDate}
+                    onChange={(e) => setDiscrepancyStartDate(e.target.value)}
+                    className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-gray-600">To</label>
+                  <input type="date" value={discrepancyEndDate}
+                    onChange={(e) => setDiscrepancyEndDate(e.target.value)}
+                    className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+                </div>
+                <button onClick={fetchDiscrepancy}
+                  disabled={discrepancyInvoiceIds.size === 0 || discrepancyLoading}
+                  className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50">
+                  {discrepancyLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <GitCompare className="h-4 w-4" />}
+                  Run Comparison
+                </button>
+                {discrepancyData && (
+                  <button onClick={exportDiscrepancyCsv}
+                    className="flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50">
+                    <Download className="h-4 w-4" /> Export CSV
+                  </button>
+                )}
+              </div>
+
+              {discrepancyError && (
+                <div className="mt-3 flex items-center gap-2 text-sm text-red-600">
+                  <AlertTriangle className="h-4 w-4" /> {discrepancyError}
+                </div>
+              )}
+            </div>
+
+            {/* Results */}
+            {discrepancyData && (
+              <>
+                {/* Summary Cards */}
+                <div className="grid gap-3 sm:grid-cols-4">
+                  <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+                    <div className="text-xs font-medium text-gray-500">Invoice Patients</div>
+                    <div className="mt-1 text-2xl font-bold text-gray-900">{discrepancyData.invoicePatientCount}</div>
+                  </div>
+                  <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+                    <div className="text-xs font-medium text-gray-500">System Patients</div>
+                    <div className="mt-1 text-2xl font-bold text-gray-900">{discrepancyData.systemPatientCount}</div>
+                  </div>
+                  <div className="rounded-xl border border-red-200 bg-red-50 p-4 shadow-sm">
+                    <div className="text-xs font-medium text-red-600">On Invoice Only</div>
+                    <div className="mt-1 text-2xl font-bold text-red-700">{discrepancyData.summary.onInvoiceOnlyCount}</div>
+                    <div className="text-[11px] text-red-500">Billed but no Rx sent</div>
+                  </div>
+                  <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 shadow-sm">
+                    <div className="text-xs font-medium text-amber-600">In System Only</div>
+                    <div className="mt-1 text-2xl font-bold text-amber-700">{discrepancyData.summary.inSystemOnlyCount}</div>
+                    <div className="text-[11px] text-amber-500">Rx sent but not on invoice</div>
+                  </div>
+                </div>
+
+                {/* Difference indicator */}
+                {(discrepancyData.summary.onInvoiceOnlyCount > 0 || discrepancyData.summary.inSystemOnlyCount > 0) && (
+                  <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 shadow-sm">
+                    <div className="flex items-center gap-2 text-sm font-medium text-blue-800">
+                      <GitCompare className="h-4 w-4" />
+                      Net difference: {Math.abs(discrepancyData.invoicePatientCount - discrepancyData.systemPatientCount)} patients
+                      {discrepancyData.invoicePatientCount > discrepancyData.systemPatientCount
+                        ? ' (invoice has more)'
+                        : discrepancyData.invoicePatientCount < discrepancyData.systemPatientCount
+                        ? ' (system has more)'
+                        : ''}
+                    </div>
+                    <div className="mt-1 text-xs text-blue-600">
+                      {discrepancyData.summary.matchedCount} patients match between invoice and system &middot;{' '}
+                      {discrepancyData.summary.onInvoiceOnlyCount} on invoice only &middot;{' '}
+                      {discrepancyData.summary.inSystemOnlyCount} in system only
+                    </div>
+                  </div>
+                )}
+
+                {/* Sub-tabs + Search */}
+                <div className="flex items-center justify-between">
+                  <div className="flex border-b border-gray-200">
+                    <button onClick={() => setDiscrepancyView('invoiceOnly')}
+                      className={`border-b-2 px-3 py-2 text-sm font-medium ${
+                        discrepancyView === 'invoiceOnly' ? 'border-red-500 text-red-600' : 'border-transparent text-gray-500'
+                      }`}>
+                      On Invoice Only ({discrepancyData.summary.onInvoiceOnlyCount})
+                    </button>
+                    <button onClick={() => setDiscrepancyView('systemOnly')}
+                      className={`border-b-2 px-3 py-2 text-sm font-medium ${
+                        discrepancyView === 'systemOnly' ? 'border-amber-500 text-amber-600' : 'border-transparent text-gray-500'
+                      }`}>
+                      In System Only ({discrepancyData.summary.inSystemOnlyCount})
+                    </button>
+                    <button onClick={() => setDiscrepancyView('matched')}
+                      className={`border-b-2 px-3 py-2 text-sm font-medium ${
+                        discrepancyView === 'matched' ? 'border-emerald-500 text-emerald-600' : 'border-transparent text-gray-500'
+                      }`}>
+                      Matched ({discrepancyData.summary.matchedCount})
+                    </button>
+                  </div>
+                  <div className="relative">
+                    <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
+                    <input type="text" value={discrepancySearch}
+                      onChange={(e) => setDiscrepancySearch(e.target.value)}
+                      placeholder="Search patients..."
+                      className="w-56 rounded-lg border border-gray-300 py-1.5 pl-8 pr-3 text-sm" />
+                  </div>
+                </div>
+
+                {/* On Invoice Only list */}
+                {discrepancyView === 'invoiceOnly' && (
+                  <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+                    {discrepancyData.onInvoiceOnly.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center py-12 text-gray-400">
+                        <CheckCircle className="mb-2 h-8 w-8 text-emerald-400" />
+                        <span className="text-sm font-medium text-emerald-600">No discrepancies</span>
+                        <span className="text-xs">All invoice patients have matching prescriptions in the system</span>
+                      </div>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="w-full">
+                          <thead>
+                            <tr className="border-b border-gray-100 bg-gray-50 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                              <th className="px-5 py-3">#</th>
+                              <th className="px-5 py-3">Patient Name (Invoice)</th>
+                              <th className="px-5 py-3">Orders</th>
+                              <th className="px-5 py-3">Amount Billed</th>
+                              <th className="px-5 py-3">Lifefile Order IDs</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-100">
+                            {discrepancyData.onInvoiceOnly
+                              .filter((p) => !discrepancySearch || p.patientName.toLowerCase().includes(discrepancySearch.toLowerCase()))
+                              .map((p, i) => (
+                              <tr key={i} className="hover:bg-red-50/50">
+                                <td className="px-5 py-2.5 text-xs text-gray-400">{i + 1}</td>
+                                <td className="px-5 py-2.5 text-sm font-medium text-gray-900">{p.patientName}</td>
+                                <td className="px-5 py-2.5 text-sm text-gray-600">{p.orderCount}</td>
+                                <td className="px-5 py-2.5 text-sm font-semibold text-red-600">{fmt(p.totalAmountCents)}</td>
+                                <td className="px-5 py-2.5 text-xs text-gray-400 font-mono">{p.lifefileOrderIds.join(', ')}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* In System Only list */}
+                {discrepancyView === 'systemOnly' && (
+                  <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+                    {discrepancyData.inSystemOnly.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center py-12 text-gray-400">
+                        <CheckCircle className="mb-2 h-8 w-8 text-emerald-400" />
+                        <span className="text-sm font-medium text-emerald-600">No discrepancies</span>
+                        <span className="text-xs">All system prescriptions appear on the selected invoices</span>
+                      </div>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="w-full">
+                          <thead>
+                            <tr className="border-b border-gray-100 bg-gray-50 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                              <th className="px-5 py-3">#</th>
+                              <th className="px-5 py-3">Patient Name (System)</th>
+                              <th className="px-5 py-3">Orders</th>
+                              <th className="px-5 py-3">Medications</th>
+                              <th className="px-5 py-3">Latest Order</th>
+                              <th className="px-5 py-3">Lifefile Order IDs</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-100">
+                            {discrepancyData.inSystemOnly
+                              .filter((p) => !discrepancySearch || p.patientName.toLowerCase().includes(discrepancySearch.toLowerCase()))
+                              .map((p, i) => (
+                              <tr key={i} className="hover:bg-amber-50/50">
+                                <td className="px-5 py-2.5 text-xs text-gray-400">{i + 1}</td>
+                                <td className="px-5 py-2.5 text-sm font-medium text-gray-900">{p.patientName}</td>
+                                <td className="px-5 py-2.5 text-sm text-gray-600">{p.orderCount}</td>
+                                <td className="px-5 py-2.5 text-xs text-gray-500 max-w-xs truncate">{p.medications}</td>
+                                <td className="px-5 py-2.5 text-sm text-gray-500">{fmtDate(p.latestOrderDate)}</td>
+                                <td className="px-5 py-2.5 text-xs text-gray-400 font-mono">{p.lifefileOrderIds.join(', ')}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Matched list */}
+                {discrepancyView === 'matched' && (
+                  <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+                    {discrepancyData.matched.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center py-12 text-gray-400">
+                        <AlertTriangle className="mb-2 h-8 w-8" />
+                        <span className="text-sm">No matching patients found</span>
+                      </div>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="w-full">
+                          <thead>
+                            <tr className="border-b border-gray-100 bg-gray-50 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                              <th className="px-5 py-3">#</th>
+                              <th className="px-5 py-3">Invoice Name</th>
+                              <th className="px-5 py-3"><ArrowRight className="inline h-3 w-3" /></th>
+                              <th className="px-5 py-3">System Name</th>
+                              <th className="px-5 py-3">Invoice Orders</th>
+                              <th className="px-5 py-3">System Orders</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-100">
+                            {discrepancyData.matched
+                              .filter((p) => !discrepancySearch || p.invoiceName.toLowerCase().includes(discrepancySearch.toLowerCase()) || p.systemName.toLowerCase().includes(discrepancySearch.toLowerCase()))
+                              .map((p, i) => (
+                              <tr key={i} className="hover:bg-gray-50">
+                                <td className="px-5 py-2.5 text-xs text-gray-400">{i + 1}</td>
+                                <td className="px-5 py-2.5 text-sm text-gray-700">{p.invoiceName}</td>
+                                <td className="px-5 py-2.5 text-emerald-400"><ArrowRight className="h-3.5 w-3.5" /></td>
+                                <td className="px-5 py-2.5 text-sm text-gray-700">{p.systemName}</td>
+                                <td className="px-5 py-2.5 text-sm text-gray-600">{p.invoiceOrderCount}</td>
+                                <td className="px-5 py-2.5 text-sm text-gray-600">{p.systemOrderCount}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </>
             )}
           </div>
         )}

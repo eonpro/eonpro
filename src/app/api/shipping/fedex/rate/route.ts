@@ -5,6 +5,7 @@ import { handleApiError } from '@/domains/shared/errors';
 import { resolveCredentialsWithAttribution, getRateQuote } from '@/lib/fedex';
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
+import { Prisma } from '@prisma/client';
 
 const addressSchema = z.object({
   address1: z.string().min(1),
@@ -99,17 +100,40 @@ async function handleGetRate(req: NextRequest, user: AuthUser) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 
-    const clinic = await prisma.clinic.findUnique({
-      where: { id: patient.clinicId },
-      select: {
-        id: true,
-        name: true,
-        fedexClientId: true,
-        fedexClientSecret: true,
-        fedexAccountNumber: true,
-        fedexEnabled: true,
-      },
-    });
+    let clinic;
+    try {
+      clinic = await prisma.clinic.findUnique({
+        where: { id: patient.clinicId },
+        select: {
+          id: true,
+          name: true,
+          fedexClientId: true,
+          fedexClientSecret: true,
+          fedexAccountNumber: true,
+          fedexEnabled: true,
+        },
+      });
+    } catch (dbErr) {
+      if (
+        dbErr instanceof Prisma.PrismaClientKnownRequestError &&
+        (dbErr.code === 'P2021' || dbErr.code === 'P2022')
+      ) {
+        return NextResponse.json(
+          { error: 'FedEx shipping is not yet configured for this clinic. Please contact your administrator to complete the setup.' },
+          { status: 422 },
+        );
+      }
+      if (dbErr instanceof Prisma.PrismaClientValidationError) {
+        const msg = dbErr.message.toLowerCase();
+        if (msg.includes('unknown field') || msg.includes('does not exist')) {
+          return NextResponse.json(
+            { error: 'FedEx shipping is not yet configured for this clinic. Please contact your administrator to complete the setup.' },
+            { status: 422 },
+          );
+        }
+      }
+      throw dbErr;
+    }
 
     const allowEnvFallback = process.env.FEDEX_ALLOW_ENV_FALLBACK_FOR_CLINIC_SHIPPING === 'true';
     let resolution;

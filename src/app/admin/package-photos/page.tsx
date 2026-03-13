@@ -23,6 +23,12 @@ import {
   ArrowUpDown,
   Shield,
   Download,
+  BarChart3,
+  TrendingUp,
+  Users,
+  ChevronDown,
+  ChevronUp,
+  Activity,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api/fetch';
 
@@ -63,10 +69,41 @@ interface UploadResult {
 interface AuditStats {
   today: number;
   thisWeek: number;
+  thisMonth: number;
   matched: number;
   total: number;
   matchRate: number;
   unmatched: number;
+}
+
+interface DailyVolume {
+  date: string;
+  total: number;
+  matched: number;
+  unmatched: number;
+}
+
+interface RepBreakdown {
+  userId: number;
+  name: string;
+  total: number;
+  matched: number;
+  matchRate: number;
+}
+
+interface TrackingSourceBreakdown {
+  source: string;
+  total: number;
+}
+
+interface Demographics {
+  dailyVolume: DailyVolume[];
+  avgDaily: number;
+  repBreakdown: RepBreakdown[];
+  trackingSourceBreakdown: TrackingSourceBreakdown[];
+  monthlyMatchRate: { matched: number; unmatched: number; total: number; rate: number };
+  hourlyDistribution: Array<{ hour: number; total: number }>;
+  peakHour: { hour: number; count: number };
 }
 
 // ---------------------------------------------------------------------------
@@ -787,14 +824,23 @@ function AuditLog() {
   const [total, setTotal] = useState(0);
   const [selectedPhoto, setSelectedPhoto] = useState<PackagePhotoRecord | null>(null);
   const [stats, setStats] = useState<AuditStats | null>(null);
+  const [demographics, setDemographics] = useState<Demographics | null>(null);
+  const [showDemographics, setShowDemographics] = useState(true);
   const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const fetchStats = useCallback(async () => {
     try {
-      const res = await apiFetch('/api/package-photos?stats=true');
-      if (res.ok) {
-        const json = await res.json();
+      const [statsRes, demoRes] = await Promise.all([
+        apiFetch('/api/package-photos?stats=true'),
+        apiFetch('/api/package-photos?demographics=true'),
+      ]);
+      if (statsRes.ok) {
+        const json = await statsRes.json();
         setStats(json.data);
+      }
+      if (demoRes.ok) {
+        const json = await demoRes.json();
+        setDemographics(json.data);
       }
     } catch { /* non-critical */ }
   }, []);
@@ -857,7 +903,7 @@ function AuditLog() {
     <div>
       {/* Stats banner */}
       {stats && (
-        <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-5">
           <div className="rounded-xl border border-gray-200 bg-white px-4 py-3">
             <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
               <Camera className="h-3.5 w-3.5" /> Today
@@ -872,6 +918,12 @@ function AuditLog() {
           </div>
           <div className="rounded-xl border border-gray-200 bg-white px-4 py-3">
             <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+              <BarChart3 className="h-3.5 w-3.5" /> This Month
+            </p>
+            <p className="mt-1 text-2xl font-bold text-gray-900">{stats.thisMonth}</p>
+          </div>
+          <div className="rounded-xl border border-gray-200 bg-white px-4 py-3">
+            <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
               <CheckCircle className="h-3.5 w-3.5" /> Match Rate
             </p>
             <p className="mt-1 text-2xl font-bold text-emerald-600">{stats.matchRate}%</p>
@@ -881,6 +933,226 @@ function AuditLog() {
               <XCircle className="h-3.5 w-3.5" /> Unmatched
             </p>
             <p className="mt-1 text-2xl font-bold text-amber-600">{stats.unmatched}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Demographics toggle */}
+      <button
+        onClick={() => setShowDemographics((v) => !v)}
+        className="mb-4 flex w-full items-center justify-between rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-left transition-colors hover:bg-gray-50"
+      >
+        <span className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+          <Activity className="h-4 w-4 text-violet-500" />
+          Package Processing Analytics
+        </span>
+        {showDemographics ? <ChevronUp className="h-4 w-4 text-gray-400" /> : <ChevronDown className="h-4 w-4 text-gray-400" />}
+      </button>
+
+      {/* Demographics dashboard */}
+      {showDemographics && demographics && (
+        <div className="mb-6 space-y-4">
+          {/* Row 1: Daily volume chart + summary */}
+          <div className="grid gap-4 lg:grid-cols-3">
+            {/* Daily volume bar chart */}
+            <div className="rounded-xl border border-gray-200 bg-white p-4 lg:col-span-2">
+              <div className="mb-3 flex items-center justify-between">
+                <h3 className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+                  <TrendingUp className="h-4 w-4 text-violet-500" />
+                  Daily Volume (Last 14 Days)
+                </h3>
+                <span className="text-xs text-gray-400">
+                  Avg: {demographics.avgDaily}/day
+                </span>
+              </div>
+              <div className="flex items-end gap-[3px]" style={{ height: 120 }}>
+                {demographics.dailyVolume.map((d) => {
+                  const maxVal = Math.max(...demographics.dailyVolume.map((v) => v.total), 1);
+                  const matchedH = (d.matched / maxVal) * 100;
+                  const unmatchedH = (d.unmatched / maxVal) * 100;
+                  const dayLabel = new Date(d.date + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'short' });
+                  const dateLabel = new Date(d.date + 'T12:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+                  const isToday = d.date === new Date().toISOString().split('T')[0];
+                  return (
+                    <div key={d.date} className="group relative flex flex-1 flex-col items-center">
+                      <div className="absolute -top-10 z-10 hidden rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-center shadow-lg group-hover:block">
+                        <p className="text-[10px] font-medium text-gray-500">{dateLabel}</p>
+                        <p className="text-xs font-bold text-gray-900">{d.total} pkgs</p>
+                        <p className="text-[10px] text-emerald-600">{d.matched} matched</p>
+                      </div>
+                      <div className="flex w-full flex-col items-stretch" style={{ height: 100 }}>
+                        <div className="flex-1" />
+                        {d.unmatched > 0 && (
+                          <div
+                            className="w-full rounded-t bg-amber-300 transition-all"
+                            style={{ height: `${unmatchedH}%`, minHeight: d.unmatched > 0 ? 2 : 0 }}
+                          />
+                        )}
+                        {d.matched > 0 && (
+                          <div
+                            className={`w-full ${d.unmatched > 0 ? '' : 'rounded-t'} rounded-b bg-emerald-500 transition-all`}
+                            style={{ height: `${matchedH}%`, minHeight: d.matched > 0 ? 2 : 0 }}
+                          />
+                        )}
+                      </div>
+                      <span className={`mt-1 text-[9px] ${isToday ? 'font-bold text-violet-600' : 'text-gray-400'}`}>
+                        {dayLabel}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="mt-2 flex items-center justify-center gap-4 text-[10px] text-gray-400">
+                <span className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-sm bg-emerald-500" /> Matched</span>
+                <span className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-sm bg-amber-300" /> Unmatched</span>
+              </div>
+            </div>
+
+            {/* Monthly summary + peak hours */}
+            <div className="space-y-4">
+              <div className="rounded-xl border border-gray-200 bg-white p-4">
+                <h3 className="mb-2 text-sm font-semibold text-gray-700">This Month</h3>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-gray-500">Total Packages</span>
+                    <span className="font-bold text-gray-900">{demographics.monthlyMatchRate.total}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-gray-500">Match Rate</span>
+                    <span className="font-bold text-emerald-600">{demographics.monthlyMatchRate.rate}%</span>
+                  </div>
+                  {/* Match rate bar */}
+                  <div className="h-2 overflow-hidden rounded-full bg-gray-100">
+                    <div
+                      className="h-full rounded-full bg-emerald-500 transition-all"
+                      style={{ width: `${demographics.monthlyMatchRate.rate}%` }}
+                    />
+                  </div>
+                  <div className="flex justify-between text-[10px] text-gray-400">
+                    <span>{demographics.monthlyMatchRate.matched} matched</span>
+                    <span>{demographics.monthlyMatchRate.unmatched} unmatched</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-gray-200 bg-white p-4">
+                <h3 className="mb-2 text-sm font-semibold text-gray-700">Peak Activity</h3>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-gray-500">Peak Hour Today</span>
+                  <span className="font-bold text-gray-900">
+                    {demographics.peakHour.count > 0
+                      ? `${demographics.peakHour.hour % 12 || 12}${demographics.peakHour.hour < 12 ? 'AM' : 'PM'} (${demographics.peakHour.count})`
+                      : 'No data'}
+                  </span>
+                </div>
+                <div className="mt-2 flex items-end gap-px" style={{ height: 32 }}>
+                  {demographics.hourlyDistribution.map((h) => {
+                    const maxH = Math.max(...demographics.hourlyDistribution.map((v) => v.total), 1);
+                    const pct = (h.total / maxH) * 100;
+                    const isNow = new Date().getHours() === h.hour;
+                    return (
+                      <div
+                        key={h.hour}
+                        className={`flex-1 rounded-t transition-all ${isNow ? 'bg-violet-500' : h.total > 0 ? 'bg-violet-200' : 'bg-gray-100'}`}
+                        style={{ height: `${Math.max(pct, 4)}%` }}
+                        title={`${h.hour % 12 || 12}${h.hour < 12 ? 'AM' : 'PM'}: ${h.total} packages`}
+                      />
+                    );
+                  })}
+                </div>
+                <div className="mt-1 flex justify-between text-[9px] text-gray-300">
+                  <span>12AM</span>
+                  <span>12PM</span>
+                  <span>11PM</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Row 2: Rep breakdown + Tracking source */}
+          <div className="grid gap-4 lg:grid-cols-2">
+            {/* Rep breakdown */}
+            <div className="rounded-xl border border-gray-200 bg-white p-4">
+              <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-700">
+                <Users className="h-4 w-4 text-violet-500" />
+                Rep Activity (This Month)
+              </h3>
+              {demographics.repBreakdown.length === 0 ? (
+                <p className="py-4 text-center text-xs text-gray-400">No data this month</p>
+              ) : (
+                <div className="space-y-2">
+                  {demographics.repBreakdown.map((rep, idx) => {
+                    const maxTotal = demographics.repBreakdown[0]?.total || 1;
+                    return (
+                      <div key={rep.userId} className="flex items-center gap-3">
+                        <span className="w-5 text-right text-xs font-bold text-gray-300">
+                          {idx + 1}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center justify-between">
+                            <span className="truncate text-sm font-medium text-gray-700">{rep.name}</span>
+                            <span className="ml-2 flex-shrink-0 text-xs text-gray-400">
+                              {rep.total} pkgs &middot; {rep.matchRate}% match
+                            </span>
+                          </div>
+                          <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-gray-100">
+                            <div className="flex h-full">
+                              <div
+                                className="rounded-l-full bg-emerald-500 transition-all"
+                                style={{ width: `${(rep.matched / maxTotal) * 100}%` }}
+                              />
+                              <div
+                                className="bg-amber-300 transition-all"
+                                style={{ width: `${((rep.total - rep.matched) / maxTotal) * 100}%` }}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Tracking source breakdown */}
+            <div className="rounded-xl border border-gray-200 bg-white p-4">
+              <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-700">
+                <Truck className="h-4 w-4 text-violet-500" />
+                Tracking Sources (This Month)
+              </h3>
+              {demographics.trackingSourceBreakdown.length === 0 ? (
+                <p className="py-4 text-center text-xs text-gray-400">No data this month</p>
+              ) : (
+                <div className="space-y-3">
+                  {demographics.trackingSourceBreakdown.map((src) => {
+                    const totalMonth = demographics.monthlyMatchRate.total || 1;
+                    const pct = Math.round((src.total / totalMonth) * 100);
+                    const label = TRACKING_SOURCE_LABELS[src.source] ?? src.source;
+                    const colors: Record<string, string> = {
+                      order: 'bg-blue-500',
+                      lifefile_webhook: 'bg-violet-500',
+                      shipping_update: 'bg-cyan-500',
+                      fedex_label: 'bg-orange-500',
+                      manual: 'bg-gray-400',
+                      unknown: 'bg-gray-300',
+                    };
+                    const barColor = colors[src.source] ?? 'bg-gray-400';
+                    return (
+                      <div key={src.source}>
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-gray-600">{label}</span>
+                          <span className="font-medium text-gray-900">{src.total} <span className="text-xs text-gray-400">({pct}%)</span></span>
+                        </div>
+                        <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-gray-100">
+                          <div className={`h-full rounded-full ${barColor} transition-all`} style={{ width: `${pct}%` }} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}

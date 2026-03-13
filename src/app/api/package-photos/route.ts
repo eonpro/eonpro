@@ -258,10 +258,12 @@ async function getHandler(req: NextRequest, user: AuthUser) {
       const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
       const weekStart = new Date(todayStart);
       weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
-      const [today, thisWeek, matched, total] = await Promise.all([
+      const [today, thisWeek, thisMonth, matched, total] = await Promise.all([
         prisma.packagePhoto.count({ where: { createdAt: { gte: todayStart } } }),
         prisma.packagePhoto.count({ where: { createdAt: { gte: weekStart } } }),
+        prisma.packagePhoto.count({ where: { createdAt: { gte: monthStart } } }),
         prisma.packagePhoto.count({ where: { matched: true } }),
         prisma.packagePhoto.count(),
       ]);
@@ -271,10 +273,151 @@ async function getHandler(req: NextRequest, user: AuthUser) {
         data: {
           today,
           thisWeek,
+          thisMonth,
           matched,
           total,
           matchRate: total > 0 ? Math.round((matched / total) * 100) : 0,
           unmatched: total - matched,
+        },
+      });
+    }
+
+    // Demographics mode — detailed breakdowns for the analytics dashboard
+    if (url.searchParams.get('demographics') === 'true') {
+      const now = new Date();
+      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+      // Last 14 days for daily volume chart
+      const fourteenDaysAgo = new Date(todayStart);
+      fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 13);
+
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+      const [
+        dailyVolumeRaw,
+        repBreakdownRaw,
+        trackingSourceRaw,
+        matchedThisMonth,
+        unmatchedThisMonth,
+        hourlyRaw,
+      ] = await Promise.all([
+        // Daily volume for last 14 days
+        prisma.$queryRaw<Array<{ day: Date; total: bigint; matched: bigint }>>`
+          SELECT
+            DATE("createdAt") as day,
+            COUNT(*)::bigint as total,
+            COUNT(*) FILTER (WHERE matched = true)::bigint as matched
+          FROM "PackagePhoto"
+          WHERE "createdAt" >= ${fourteenDaysAgo}
+          GROUP BY DATE("createdAt")
+          ORDER BY day ASC
+        `,
+
+        // Per-rep breakdown (this month)
+        prisma.$queryRaw<Array<{ captured_by_id: number; first_name: string; last_name: string; total: bigint; matched: bigint }>>`
+          SELECT
+            pp."capturedById" as captured_by_id,
+            u."firstName" as first_name,
+            u."lastName" as last_name,
+            COUNT(*)::bigint as total,
+            COUNT(*) FILTER (WHERE pp.matched = true)::bigint as matched
+          FROM "PackagePhoto" pp
+          JOIN "User" u ON u.id = pp."capturedById"
+          WHERE pp."createdAt" >= ${monthStart}
+          GROUP BY pp."capturedById", u."firstName", u."lastName"
+          ORDER BY total DESC
+          LIMIT 20
+        `,
+
+        // Tracking source breakdown (this month)
+        prisma.$queryRaw<Array<{ source: string | null; total: bigint }>>`
+          SELECT
+            "trackingSource" as source,
+            COUNT(*)::bigint as total
+          FROM "PackagePhoto"
+          WHERE "createdAt" >= ${monthStart}
+          GROUP BY "trackingSource"
+          ORDER BY total DESC
+        `,
+
+        // Matched this month
+        prisma.packagePhoto.count({ where: { createdAt: { gte: monthStart }, matched: true } }),
+
+        // Unmatched this month
+        prisma.packagePhoto.count({ where: { createdAt: { gte: monthStart }, matched: false } }),
+
+        // Hourly distribution (today)
+        prisma.$queryRaw<Array<{ hour: number; total: bigint }>>`
+          SELECT
+            EXTRACT(HOUR FROM "createdAt")::int as hour,
+            COUNT(*)::bigint as total
+          FROM "PackagePhoto"
+          WHERE "createdAt" >= ${todayStart}
+          GROUP BY EXTRACT(HOUR FROM "createdAt")
+          ORDER BY hour ASC
+        `,
+      ]);
+
+      // Fill in missing days with zeros for the daily chart
+      const dailyVolume: Array<{ date: string; total: number; matched: number; unmatched: number }> = [];
+      const dayMap = new Map(dailyVolumeRaw.map((r) => [
+        new Date(r.day).toISOString().split('T')[0],
+        { total: Number(r.total), matched: Number(r.matched) },
+      ]));
+
+      for (let i = 0; i < 14; i++) {
+        const d = new Date(fourteenDaysAgo);
+        d.setDate(d.getDate() + i);
+        const key = d.toISOString().split('T')[0];
+        const data = dayMap.get(key) ?? { total: 0, matched: 0 };
+        dailyVolume.push({
+          date: key,
+          total: data.total,
+          matched: data.matched,
+          unmatched: data.total - data.matched,
+        });
+      }
+
+      // Calculate avg daily volume (last 14 days)
+      const totalLast14 = dailyVolume.reduce((s, d) => s + d.total, 0);
+      const avgDaily = Math.round(totalLast14 / 14);
+
+      // Fill hourly distribution (0-23)
+      const hourMap = new Map(hourlyRaw.map((r) => [r.hour, Number(r.total)]));
+      const hourlyDistribution = Array.from({ length: 24 }, (_, h) => ({
+        hour: h,
+        total: hourMap.get(h) ?? 0,
+      }));
+
+      // Peak hour
+      const peakHour = hourlyDistribution.reduce((max, h) => h.total > max.total ? h : max, hourlyDistribution[0]);
+
+      return NextResponse.json({
+        success: true,
+        data: {
+          dailyVolume,
+          avgDaily,
+          repBreakdown: repBreakdownRaw.map((r) => ({
+            userId: r.captured_by_id,
+            name: `${r.first_name} ${r.last_name}`,
+            total: Number(r.total),
+            matched: Number(r.matched),
+            matchRate: Number(r.total) > 0 ? Math.round((Number(r.matched) / Number(r.total)) * 100) : 0,
+          })),
+          trackingSourceBreakdown: trackingSourceRaw.map((r) => ({
+            source: r.source ?? 'unknown',
+            total: Number(r.total),
+          })),
+          monthlyMatchRate: {
+            matched: matchedThisMonth,
+            unmatched: unmatchedThisMonth,
+            total: matchedThisMonth + unmatchedThisMonth,
+            rate: (matchedThisMonth + unmatchedThisMonth) > 0
+              ? Math.round((matchedThisMonth / (matchedThisMonth + unmatchedThisMonth)) * 100)
+              : 0,
+          },
+          hourlyDistribution,
+          peakHour: { hour: peakHour.hour, count: peakHour.total },
         },
       });
     }

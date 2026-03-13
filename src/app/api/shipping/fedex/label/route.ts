@@ -11,6 +11,7 @@ import { FileCategory } from '@/lib/integrations/aws/s3Config';
 import { sendTrackingNotificationSMS } from '@/lib/shipping/tracking-sms';
 import { logger } from '@/lib/logger';
 import { z } from 'zod';
+import { Prisma } from '@prisma/client';
 
 const addressSchema = z.object({
   personName: z.string().min(1),
@@ -50,6 +51,25 @@ function encryptAddressJson(addr: Record<string, unknown>): Record<string, unkno
   }
   return encrypted;
 }
+
+function isShippingSchemaMissing(error: unknown): boolean {
+  if (error instanceof Prisma.PrismaClientKnownRequestError) {
+    return error.code === 'P2021' || error.code === 'P2022';
+  }
+  if (error instanceof Prisma.PrismaClientValidationError) {
+    const msg = error.message.toLowerCase();
+    return (
+      msg.includes('unknown field') ||
+      msg.includes('unknown argument') ||
+      msg.includes('does not exist') ||
+      msg.includes('unknown type')
+    );
+  }
+  return false;
+}
+
+const SHIPPING_SCHEMA_ERROR =
+  'FedEx shipping is not yet configured for this clinic. Please contact your administrator to complete the setup.';
 
 function classifyFedExLabelError(error: unknown): { status: number; message: string } {
   const raw = error instanceof Error ? error.message : String(error ?? '');
@@ -127,17 +147,26 @@ async function handleCreateLabel(req: NextRequest, user: AuthUser) {
 
     const clinicId = patient.clinicId;
 
-    const clinic = await prisma.clinic.findUnique({
-      where: { id: clinicId },
-      select: {
-        id: true,
-        name: true,
-        fedexClientId: true,
-        fedexClientSecret: true,
-        fedexAccountNumber: true,
-        fedexEnabled: true,
-      },
-    });
+    let clinic;
+    try {
+      clinic = await prisma.clinic.findUnique({
+        where: { id: clinicId },
+        select: {
+          id: true,
+          name: true,
+          fedexClientId: true,
+          fedexClientSecret: true,
+          fedexAccountNumber: true,
+          fedexEnabled: true,
+        },
+      });
+    } catch (dbErr) {
+      if (isShippingSchemaMissing(dbErr)) {
+        logger.warn('[FedExLabel] Shipping schema not available', { clinicId });
+        return NextResponse.json({ error: SHIPPING_SCHEMA_ERROR }, { status: 422 });
+      }
+      throw dbErr;
+    }
 
     const allowEnvFallback = process.env.FEDEX_ALLOW_ENV_FALLBACK_FOR_CLINIC_SHIPPING === 'true';
     let resolution;
@@ -200,7 +229,9 @@ async function handleCreateLabel(req: NextRequest, user: AuthUser) {
 
     const trackingUrl = `https://www.fedex.com/fedextrack/?trknbr=${result.trackingNumber}`;
 
-    const label = await prisma.$transaction(async (tx) => {
+    let label;
+    try {
+    label = await prisma.$transaction(async (tx) => {
       const shipmentLabel = await tx.shipmentLabel.create({
         data: {
           clinicId,
@@ -280,6 +311,13 @@ async function handleCreateLabel(req: NextRequest, user: AuthUser) {
 
       return shipmentLabel;
     }, { timeout: 15000 });
+    } catch (txErr) {
+      if (isShippingSchemaMissing(txErr)) {
+        logger.warn('[FedExLabel] ShipmentLabel table not available', { clinicId, patientId });
+        return NextResponse.json({ error: SHIPPING_SCHEMA_ERROR }, { status: 422 });
+      }
+      throw txErr;
+    }
 
     await logPHIAccess(req, user, 'ShipmentLabel', label.id, patientId, {
       action: 'fedex_label_created',
@@ -379,21 +417,29 @@ async function handleGetLabel(req: NextRequest, user: AuthUser) {
       return NextResponse.json({ error: 'Invalid label id' }, { status: 400 });
     }
 
-    const label = await prisma.shipmentLabel.findUnique({
-      where: { id },
-      select: {
-        id: true,
-        clinicId: true,
-        patientId: true,
-        trackingNumber: true,
-        serviceType: true,
-        status: true,
-        labelPdfBase64: true,
-        labelS3Key: true,
-        labelFormat: true,
-        createdAt: true,
-      },
-    });
+    let label;
+    try {
+      label = await prisma.shipmentLabel.findUnique({
+        where: { id },
+        select: {
+          id: true,
+          clinicId: true,
+          patientId: true,
+          trackingNumber: true,
+          serviceType: true,
+          status: true,
+          labelPdfBase64: true,
+          labelS3Key: true,
+          labelFormat: true,
+          createdAt: true,
+        },
+      });
+    } catch (dbErr) {
+      if (isShippingSchemaMissing(dbErr)) {
+        return NextResponse.json({ error: SHIPPING_SCHEMA_ERROR }, { status: 422 });
+      }
+      throw dbErr;
+    }
 
     if (!label) {
       return NextResponse.json({ error: 'Label not found' }, { status: 404 });
@@ -470,9 +516,17 @@ async function handleVoidLabel(req: NextRequest, user: AuthUser) {
       return NextResponse.json({ error: 'Invalid label id' }, { status: 400 });
     }
 
-    const label = await prisma.shipmentLabel.findUnique({
-      where: { id },
-    });
+    let label;
+    try {
+      label = await prisma.shipmentLabel.findUnique({
+        where: { id },
+      });
+    } catch (dbErr) {
+      if (isShippingSchemaMissing(dbErr)) {
+        return NextResponse.json({ error: SHIPPING_SCHEMA_ERROR }, { status: 422 });
+      }
+      throw dbErr;
+    }
 
     if (!label) {
       return NextResponse.json({ error: 'Label not found' }, { status: 404 });
@@ -486,7 +540,9 @@ async function handleVoidLabel(req: NextRequest, user: AuthUser) {
       return NextResponse.json({ error: 'Label already voided' }, { status: 400 });
     }
 
-    const clinic = await prisma.clinic.findUnique({
+    let clinic;
+    try {
+    clinic = await prisma.clinic.findUnique({
       where: { id: label.clinicId },
       select: {
         id: true,
@@ -496,6 +552,12 @@ async function handleVoidLabel(req: NextRequest, user: AuthUser) {
         fedexEnabled: true,
       },
     });
+    } catch (dbErr) {
+      if (isShippingSchemaMissing(dbErr)) {
+        return NextResponse.json({ error: SHIPPING_SCHEMA_ERROR }, { status: 422 });
+      }
+      throw dbErr;
+    }
 
     const allowEnvFallback = process.env.FEDEX_ALLOW_ENV_FALLBACK_FOR_CLINIC_SHIPPING === 'true';
     let resolution;

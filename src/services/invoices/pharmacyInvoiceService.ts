@@ -1198,3 +1198,214 @@ export async function getUnmatchedOrders(
     limit,
   };
 }
+
+// ---------------------------------------------------------------------------
+// Patient Discrepancy Report
+// ---------------------------------------------------------------------------
+
+function normalizeName(name: string): string {
+  return name.replace(/[^a-zA-Z,\s]/g, '').trim().toUpperCase().replace(/\s+/g, ' ');
+}
+
+export interface PatientDiscrepancyResult {
+  invoicePatientCount: number;
+  systemPatientCount: number;
+  onInvoiceOnly: Array<{
+    patientName: string;
+    orderCount: number;
+    totalAmountCents: number;
+    lifefileOrderIds: string[];
+  }>;
+  inSystemOnly: Array<{
+    patientId: number;
+    patientName: string;
+    orderCount: number;
+    lifefileOrderIds: string[];
+    medications: string;
+    latestOrderDate: string;
+  }>;
+  matched: Array<{
+    patientName: string;
+    invoiceName: string;
+    systemName: string;
+    invoiceOrderCount: number;
+    systemOrderCount: number;
+  }>;
+  summary: {
+    onInvoiceOnlyCount: number;
+    inSystemOnlyCount: number;
+    matchedCount: number;
+  };
+}
+
+/**
+ * Compares patients on selected invoices with patients who had prescriptions
+ * sent during the given date range. Returns the set difference both ways.
+ */
+export async function getPatientDiscrepancy(
+  clinicId: number,
+  invoiceUploadIds: number[],
+  startDate: Date,
+  endDate: Date
+): Promise<PatientDiscrepancyResult> {
+  // 1. Get all invoice line items for the selected invoices (medication lines only)
+  const invoiceLineItems = await prisma.pharmacyInvoiceLineItem.findMany({
+    where: {
+      invoiceUploadId: { in: invoiceUploadIds },
+      invoiceUpload: { clinicId },
+      lineType: 'MEDICATION',
+      patientName: { not: null },
+    },
+    select: {
+      patientName: true,
+      lifefileOrderId: true,
+      amountCents: true,
+    },
+  });
+
+  // Build map of normalized patient name → invoice data
+  const invoicePatientMap = new Map<string, {
+    originalName: string;
+    orderIds: Set<string>;
+    totalAmountCents: number;
+  }>();
+
+  for (const li of invoiceLineItems) {
+    if (!li.patientName) continue;
+    const normalized = normalizeName(li.patientName);
+    if (!normalized) continue;
+
+    const existing = invoicePatientMap.get(normalized);
+    if (existing) {
+      if (li.lifefileOrderId) existing.orderIds.add(li.lifefileOrderId);
+      existing.totalAmountCents += li.amountCents;
+    } else {
+      invoicePatientMap.set(normalized, {
+        originalName: li.patientName,
+        orderIds: new Set(li.lifefileOrderId ? [li.lifefileOrderId] : []),
+        totalAmountCents: li.amountCents,
+      });
+    }
+  }
+
+  // 2. Get all orders from the system for this clinic in the date range
+  const endOfDay = new Date(endDate);
+  endOfDay.setHours(23, 59, 59, 999);
+
+  const systemOrders = await prisma.order.findMany({
+    where: {
+      clinicId,
+      createdAt: { gte: startDate, lte: endOfDay },
+      lifefileOrderId: { not: null },
+      cancelledAt: null,
+      status: { notIn: ['error', 'cancelled', 'declined'] },
+    },
+    include: {
+      patient: { select: { id: true, firstName: true, lastName: true } },
+      rxs: { select: { medName: true, strength: true } },
+    },
+    orderBy: { createdAt: 'desc' },
+  });
+
+  // Build map of normalized patient name → system data
+  const systemPatientMap = new Map<string, {
+    patientId: number;
+    originalName: string;
+    orderIds: Set<string>;
+    medications: Set<string>;
+    latestOrderDate: Date;
+  }>();
+
+  for (const order of systemOrders) {
+    if (!order.patient) continue;
+
+    let firstName: string;
+    let lastName: string;
+    try {
+      lastName = decryptPHI(order.patient.lastName) ?? order.patient.lastName;
+      firstName = decryptPHI(order.patient.firstName) ?? order.patient.firstName;
+    } catch {
+      lastName = order.patient.lastName;
+      firstName = order.patient.firstName;
+    }
+
+    const displayName = `${lastName}, ${firstName}`;
+    const normalized = normalizeName(displayName);
+    if (!normalized) continue;
+
+    const existing = systemPatientMap.get(normalized);
+    if (existing) {
+      if (order.lifefileOrderId) existing.orderIds.add(order.lifefileOrderId);
+      for (const rx of order.rxs) {
+        existing.medications.add(`${rx.medName} ${rx.strength}`);
+      }
+      if (order.createdAt > existing.latestOrderDate) {
+        existing.latestOrderDate = order.createdAt;
+      }
+    } else {
+      systemPatientMap.set(normalized, {
+        patientId: order.patient.id,
+        originalName: displayName,
+        orderIds: new Set(order.lifefileOrderId ? [order.lifefileOrderId] : []),
+        medications: new Set(order.rxs.map((rx) => `${rx.medName} ${rx.strength}`)),
+        latestOrderDate: order.createdAt,
+      });
+    }
+  }
+
+  // 3. Compute set differences
+  const onInvoiceOnly: PatientDiscrepancyResult['onInvoiceOnly'] = [];
+  const inSystemOnly: PatientDiscrepancyResult['inSystemOnly'] = [];
+  const matched: PatientDiscrepancyResult['matched'] = [];
+
+  for (const [normalized, invData] of invoicePatientMap) {
+    const sysData = systemPatientMap.get(normalized);
+    if (sysData) {
+      matched.push({
+        patientName: normalized,
+        invoiceName: invData.originalName,
+        systemName: sysData.originalName,
+        invoiceOrderCount: invData.orderIds.size,
+        systemOrderCount: sysData.orderIds.size,
+      });
+    } else {
+      onInvoiceOnly.push({
+        patientName: invData.originalName,
+        orderCount: invData.orderIds.size,
+        totalAmountCents: invData.totalAmountCents,
+        lifefileOrderIds: [...invData.orderIds],
+      });
+    }
+  }
+
+  for (const [normalized, sysData] of systemPatientMap) {
+    if (!invoicePatientMap.has(normalized)) {
+      inSystemOnly.push({
+        patientId: sysData.patientId,
+        patientName: sysData.originalName,
+        orderCount: sysData.orderIds.size,
+        lifefileOrderIds: [...sysData.orderIds],
+        medications: [...sysData.medications].join(', '),
+        latestOrderDate: sysData.latestOrderDate.toISOString(),
+      });
+    }
+  }
+
+  // Sort by name
+  onInvoiceOnly.sort((a, b) => a.patientName.localeCompare(b.patientName));
+  inSystemOnly.sort((a, b) => a.patientName.localeCompare(b.patientName));
+  matched.sort((a, b) => a.patientName.localeCompare(b.patientName));
+
+  return {
+    invoicePatientCount: invoicePatientMap.size,
+    systemPatientCount: systemPatientMap.size,
+    onInvoiceOnly,
+    inSystemOnly,
+    matched,
+    summary: {
+      onInvoiceOnlyCount: onInvoiceOnly.length,
+      inSystemOnlyCount: inSystemOnly.length,
+      matchedCount: matched.length,
+    },
+  };
+}

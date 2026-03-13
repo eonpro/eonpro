@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { withAuthParams, type AuthUser } from '@/lib/auth/middleware-with-params';
 import { prisma } from '@/lib/db';
 import { handleApiError } from '@/domains/shared/errors';
+import { Prisma } from '@prisma/client';
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -32,23 +33,36 @@ async function handleGetLabels(
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 
-    const labels = await prisma.shipmentLabel.findMany({
-      where: { patientId, clinicId: patient.clinicId },
-      select: {
-        id: true,
-        trackingNumber: true,
-        serviceType: true,
-        carrier: true,
-        status: true,
-        createdAt: true,
-        weightLbs: true,
-        labelFormat: true,
-        labelS3Key: true,
-        labelPdfBase64: true,
-      },
-      orderBy: { createdAt: 'desc' },
-      take: 20,
-    });
+    let labels;
+    try {
+      labels = await prisma.shipmentLabel.findMany({
+        where: { patientId, clinicId: patient.clinicId },
+        select: {
+          id: true,
+          trackingNumber: true,
+          serviceType: true,
+          carrier: true,
+          status: true,
+          createdAt: true,
+          weightLbs: true,
+          labelFormat: true,
+          labelS3Key: true,
+          labelPdfBase64: true,
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 20,
+      });
+    } catch (dbErr) {
+      if (
+        (dbErr instanceof Prisma.PrismaClientKnownRequestError &&
+          (dbErr.code === 'P2021' || dbErr.code === 'P2022')) ||
+        (dbErr instanceof Prisma.PrismaClientValidationError &&
+          /unknown field|does not exist/i.test(dbErr.message))
+      ) {
+        return NextResponse.json({ labels: [] });
+      }
+      throw dbErr;
+    }
 
     const result = labels.map((l) => ({
       id: l.id,
