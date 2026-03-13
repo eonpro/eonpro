@@ -328,14 +328,8 @@ export const GET = withAuthParams(
         unmatchedPrescriptions,
       });
     } catch (error) {
-      const errMsg = error instanceof Error ? error.message : String(error);
-      const errName = error instanceof Error ? error.constructor.name : 'Unknown';
-      const errStack = error instanceof Error ? error.stack?.split('\n').slice(0, 5).join('\n') : undefined;
-      logger.error('Error fetching patient tracking:', { errorName: errName, errorMessage: errMsg, userId: user?.id, role: user?.role });
-      return NextResponse.json({
-        error: 'Failed to fetch tracking data',
-        _debug: { errorName: errName, errorMessage: errMsg, stack: errStack },
-      }, { status: 500 });
+      logger.error('Error fetching patient tracking:', error);
+      return NextResponse.json({ error: 'Failed to fetch tracking data' }, { status: 500 });
     }
   }
 );
