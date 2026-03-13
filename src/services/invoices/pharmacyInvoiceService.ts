@@ -11,8 +11,7 @@
 import { prisma } from '@/lib/db';
 import { uploadToS3, generateSignedUrl } from '@/lib/integrations/aws/s3Service';
 import { FileCategory } from '@/lib/integrations/aws/s3Config';
-// PHI decryption is intentionally not used in reconciliation matching.
-// The lifefileOrderId match is deterministic and sufficient.
+import { decryptPHI } from '@/lib/security/phi-encryption';
 import { parseWellmedrInvoicePdf, parseWellmedrInvoiceCsv } from '@/lib/invoices/wellmedr-parser';
 import type { ParsedInvoice, ParsedInvoiceLineItem } from '@/lib/invoices/wellmedr-parser';
 import { logger } from '@/lib/logger';
@@ -795,12 +794,19 @@ function formatOrderForSearch(order: {
   provider: { id: number; firstName: string; lastName: string };
   rxs: Array<{ id: number; medName: string; strength: string; form: string }>;
 }) {
+  let patientName = `${order.patient.lastName}, ${order.patient.firstName}`;
+  try {
+    const lastName = decryptPHI(order.patient.lastName) ?? order.patient.lastName;
+    const firstName = decryptPHI(order.patient.firstName) ?? order.patient.firstName;
+    patientName = `${lastName}, ${firstName}`;
+  } catch { /* use raw values */ }
+
   return {
     id: order.id,
     lifefileOrderId: order.lifefileOrderId,
     createdAt: order.createdAt.toISOString(),
     status: order.status,
-    patientName: `${order.patient.lastName}, ${order.patient.firstName}`,
+    patientName,
     patientId: order.patient.id,
     providerName: `${order.provider.lastName}, ${order.provider.firstName}`,
     providerId: order.provider.id,
@@ -1094,16 +1100,28 @@ export async function getUnmatchedOrders(
     .filter((o) => o.lifefileOrderId && !invoicedSet.has(o.lifefileOrderId))
     .slice(0, limit);
 
-  const formattedOrders = unmatchedOrders.map((o) => ({
-    id: o.id,
-    lifefileOrderId: o.lifefileOrderId,
-    createdAt: o.createdAt.toISOString(),
-    status: o.status,
-    patientName: o.patient ? `${o.patient.lastName}, ${o.patient.firstName}` : '—',
-    providerName: o.provider ? `${o.provider.lastName}, ${o.provider.firstName}` : '—',
-    medications: o.rxs.map((rx) => `${rx.medName} ${rx.strength}`).join(', '),
-    rxCount: o.rxs.length,
-  }));
+  const formattedOrders = unmatchedOrders.map((o) => {
+    let patientName = '—';
+    if (o.patient) {
+      try {
+        const lastName = decryptPHI(o.patient.lastName) ?? o.patient.lastName;
+        const firstName = decryptPHI(o.patient.firstName) ?? o.patient.firstName;
+        patientName = `${lastName}, ${firstName}`;
+      } catch {
+        patientName = `${o.patient.lastName}, ${o.patient.firstName}`;
+      }
+    }
+    return {
+      id: o.id,
+      lifefileOrderId: o.lifefileOrderId,
+      createdAt: o.createdAt.toISOString(),
+      status: o.status,
+      patientName,
+      providerName: o.provider ? `${o.provider.lastName}, ${o.provider.firstName}` : '—',
+      medications: o.rxs.map((rx) => `${rx.medName} ${rx.strength}`).join(', '),
+      rxCount: o.rxs.length,
+    };
+  });
 
   return {
     orders: formattedOrders,
