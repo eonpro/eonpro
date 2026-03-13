@@ -285,6 +285,33 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
     }));
   }, [userRole]);
 
+  // Pharmacy nav fix: Next.js App Router intercepts <a> clicks for client-side
+  // navigation which silently fails for pharmacy_rep. Attach native DOM listeners
+  // that call window.location.href directly, bypassing Next.js entirely.
+  useEffect(() => {
+    if (!isPharmacyExperience || loading) return;
+
+    const handler = (e: Event) => {
+      const anchor = (e.target as HTMLElement).closest('a[href]') as HTMLAnchorElement | null;
+      if (!anchor) return;
+      const href = anchor.getAttribute('href');
+      if (!href || href.startsWith('http') || href.startsWith('#')) return;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      window.location.href = href;
+    };
+
+    const sidebar = document.querySelector('aside');
+    const bottomNav = document.querySelector('nav.fixed.bottom-0');
+    sidebar?.addEventListener('click', handler, true);
+    bottomNav?.addEventListener('click', handler, true);
+
+    return () => {
+      sidebar?.removeEventListener('click', handler, true);
+      bottomNav?.removeEventListener('click', handler, true);
+    };
+  }, [isPharmacyExperience, loading]);
+
   // Handle clinic switching with password confirmation
   const handleClinicSwitch = async () => {
     if (!selectedClinicId || !password) {
@@ -454,7 +481,6 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
                   <a
                     key={item.path}
                     href={item.path}
-                    onClick={isPharmacyExperience ? (e: React.MouseEvent) => { e.preventDefault(); window.location.href = item.path; } : undefined}
                     title={!sidebarExpanded ? item.label : undefined}
                     className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left no-underline transition-colors ${
                       active ? '' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
@@ -537,7 +563,6 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
               <a
                 key={item.path}
                 href={item.path}
-                onClick={isPharmacyExperience ? (e: React.MouseEvent) => { e.preventDefault(); window.location.href = item.path; } : undefined}
                 className={`flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 py-3 no-underline transition-colors ${
                   active ? '' : 'text-gray-400 active:text-gray-600'
                 }`}
