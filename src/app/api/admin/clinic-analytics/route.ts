@@ -16,7 +16,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { withAdminAuth, AuthUser } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
 import { handleApiError } from '@/domains/shared/errors';
-import { getReadPrisma } from '@/lib/database/read-replica';
+import { getReadPrisma, hasReadReplica } from '@/lib/database/read-replica';
+import { prisma as primaryPrisma } from '@/lib/db';
+import { PrismaClient } from '@prisma/client';
 import {
   RevenueAnalyticsService,
   PatientAnalyticsService,
@@ -32,6 +34,29 @@ import {
   eachMonthOfInterval,
   eachDayOfInterval,
 } from 'date-fns';
+
+const TRANSIENT_PRISMA_CODES = new Set(['P2035', 'P2024', 'P1001', 'P1002', 'P1008', 'P1017']);
+
+function isTransientDbError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
+  const code = (error as any).code;
+  if (typeof code === 'string' && TRANSIENT_PRISMA_CODES.has(code)) return true;
+  const msg = (error instanceof Error ? error.message : '').toLowerCase();
+  return msg.includes('connection pool') || msg.includes('timed out fetching') || msg.includes('assertion violation');
+}
+
+/**
+ * Get a database client for read-only analytics queries.
+ * Falls back to the primary if the read replica is unavailable.
+ */
+function getAnalyticsDb(): PrismaClient {
+  try {
+    return getReadPrisma();
+  } catch {
+    logger.warn('[CLINIC-ANALYTICS] Read replica unavailable, using primary');
+    return primaryPrisma as unknown as PrismaClient;
+  }
+}
 
 type Period = '7d' | '30d' | '90d' | '12m';
 type Section = 'overview' | 'revenue' | 'patients' | 'subscriptions' | 'orders';
@@ -75,7 +100,7 @@ function getGranularity(period: Period) {
 
 async function getOverviewData(clinicId: number, period: Period) {
   const dateRange = getDateRange(period);
-  const db = getReadPrisma();
+  const db = getAnalyticsDb();
 
   const [
     revenueOverview,
@@ -172,7 +197,7 @@ async function getSubscriptionData(clinicId: number) {
 
 async function getOrderData(clinicId: number, period: Period) {
   const dateRange = getDateRange(period);
-  const db = getReadPrisma();
+  const db = getAnalyticsDb();
 
   const [statusCounts, recentOrders, dailyOrders] = await Promise.all([
     db.order
@@ -207,7 +232,7 @@ async function getOrderData(clinicId: number, period: Period) {
 
 async function getNewPatientsTimeline(clinicId: number, period: Period) {
   const dateRange = getDateRange(period);
-  const db = getReadPrisma();
+  const db = getAnalyticsDb();
 
   const patients = await db.patient.findMany({
     where: {
@@ -241,7 +266,7 @@ async function getNewPatientsTimeline(clinicId: number, period: Period) {
 
 async function getOrderTimeline(clinicId: number, period: Period) {
   const dateRange = getDateRange(period);
-  const db = getReadPrisma();
+  const db = getAnalyticsDb();
 
   const orders = await db.order.findMany({
     where: {
@@ -310,23 +335,37 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       requestId,
     });
 
+    const fetchSection = async (): Promise<unknown> => {
+      switch (section) {
+        case 'overview':
+          return getOverviewData(effectiveClinicId, period);
+        case 'revenue':
+          return getRevenueData(effectiveClinicId, period);
+        case 'patients':
+          return getPatientData(effectiveClinicId);
+        case 'subscriptions':
+          return getSubscriptionData(effectiveClinicId);
+        case 'orders':
+          return getOrderData(effectiveClinicId, period);
+      }
+    };
+
     let data: unknown;
-    switch (section) {
-      case 'overview':
-        data = await getOverviewData(effectiveClinicId, period);
-        break;
-      case 'revenue':
-        data = await getRevenueData(effectiveClinicId, period);
-        break;
-      case 'patients':
-        data = await getPatientData(effectiveClinicId);
-        break;
-      case 'subscriptions':
-        data = await getSubscriptionData(effectiveClinicId);
-        break;
-      case 'orders':
-        data = await getOrderData(effectiveClinicId, period);
-        break;
+    try {
+      data = await fetchSection();
+    } catch (firstError) {
+      const isTransient = isTransientDbError(firstError);
+      if (isTransient && hasReadReplica) {
+        logger.warn('[CLINIC-ANALYTICS] Transient DB error on read replica, retrying with primary', {
+          clinicId: effectiveClinicId,
+          section,
+          errorCode: (firstError as any)?.code,
+          requestId,
+        });
+        data = await fetchSection();
+      } else {
+        throw firstError;
+      }
     }
 
     return NextResponse.json({ success: true, section, period, data });

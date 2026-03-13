@@ -78,58 +78,10 @@ export async function GET(request: NextRequest) {
       search,
     });
 
-    // Batch-load events and SMS status to avoid N+1 queries
     const orderIds = result.orders.map((o) => o.id);
-
-    // Single query: all events for all orders on this page
-    const allEvents = orderIds.length > 0
-      ? await prisma.orderEvent.findMany({
-          where: { orderId: { in: orderIds } },
-          orderBy: { createdAt: 'desc' },
-          take: 500,
-        })
-      : [];
-
-    const eventsByOrderId = new Map<number, typeof allEvents>();
-    for (const event of allEvents) {
-      const list = eventsByOrderId.get(event.orderId) || [];
-      if (list.length < 5) list.push(event);
-      eventsByOrderId.set(event.orderId, list);
-    }
-
-    // Single query: SMS status for all orders with tracking numbers
     const trackingOrders = result.orders.filter((o) => o.trackingNumber && o.patientId);
-    const smsStatusMap = new Map<number, string | null>();
 
-    if (trackingOrders.length > 0) {
-      const smsLogs = await prisma.smsLog.findMany({
-        where: {
-          patientId: { in: trackingOrders.map((o) => o.patientId) },
-          templateType: 'SHIPPING_TRACKING',
-        },
-        orderBy: { createdAt: 'desc' },
-        select: { patientId: true, status: true, body: true },
-        take: 500,
-      });
-
-      for (const order of trackingOrders) {
-        const match = smsLogs.find(
-          (sms) =>
-            sms.patientId === order.patientId &&
-            order.trackingNumber &&
-            sms.body?.includes(order.trackingNumber)
-        );
-        smsStatusMap.set(order.id, match?.status || null);
-      }
-    }
-
-    const ordersWithEvents = result.orders.map((order) => ({
-      ...order,
-      events: eventsByOrderId.get(order.id) || [],
-      smsStatus: smsStatusMap.get(order.id) || null,
-    }));
-
-    // Awaiting fulfillment path: return orders with aging stats
+    // Awaiting fulfillment path: minimal queries needed
     if (awaitingFulfillment === 'true') {
       const now = Date.now();
       const agingDays = result.orders.map((o) =>
@@ -154,46 +106,91 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // If requesting orders with tracking numbers, also fetch from PatientShippingUpdate
-    // This catches shipments that weren't linked to an Order record
+    // Build the shipment where clause once (used for both findMany and count)
+    const shipmentWhere = hasTrackingNumber === 'true'
+      ? {
+          where: {
+            ...(userContext.role === 'super_admin' ? {} : { clinicId: userContext.clinicId }),
+            OR: [{ orderId: null }, { order: { trackingNumber: null } }, { order: { is: null } }],
+          } as any,
+        }
+      : null;
+
+    // Parallelize ALL independent queries in a single Promise.all to minimize
+    // connection hold time and reduce P2024 (pool exhaustion) risk on serverless.
+    const [allEvents, orderSmsLogs, patientShipments, shipmentOnlyTotal] = await Promise.all([
+      // 1. Events for all orders
+      orderIds.length > 0
+        ? prisma.orderEvent.findMany({
+            where: { orderId: { in: orderIds } },
+            orderBy: { createdAt: 'desc' },
+            take: 500,
+          })
+        : Promise.resolve([]),
+
+      // 2. SMS status for tracked orders
+      trackingOrders.length > 0
+        ? prisma.smsLog.findMany({
+            where: {
+              patientId: { in: trackingOrders.map((o) => o.patientId) },
+              templateType: 'SHIPPING_TRACKING',
+            },
+            orderBy: { createdAt: 'desc' },
+            select: { patientId: true, status: true, body: true },
+            take: 500,
+          })
+        : Promise.resolve([]),
+
+      // 3. Shipment-only records (when hasTrackingNumber=true)
+      shipmentWhere
+        ? prisma.patientShippingUpdate.findMany({
+            ...shipmentWhere,
+            include: {
+              patient: { select: { id: true, firstName: true, lastName: true } },
+              order: { select: { id: true, primaryMedName: true, primaryMedStrength: true } },
+            },
+            orderBy: { createdAt: 'desc' },
+            take: trackedMergeWindow,
+          })
+        : Promise.resolve([]),
+
+      // 4. Total shipment-only count (when hasTrackingNumber=true)
+      shipmentWhere
+        ? prisma.patientShippingUpdate.count(shipmentWhere as any)
+        : Promise.resolve(0),
+    ]);
+
+    // Build events map
+    const eventsByOrderId = new Map<number, typeof allEvents>();
+    for (const event of allEvents) {
+      const list = eventsByOrderId.get(event.orderId) || [];
+      if (list.length < 5) list.push(event);
+      eventsByOrderId.set(event.orderId, list);
+    }
+
+    // Build SMS status map for orders
+    const smsStatusMap = new Map<number, string | null>();
+    for (const order of trackingOrders) {
+      const match = orderSmsLogs.find(
+        (sms) =>
+          sms.patientId === order.patientId &&
+          order.trackingNumber &&
+          sms.body?.includes(order.trackingNumber)
+      );
+      smsStatusMap.set(order.id, match?.status || null);
+    }
+
+    const ordersWithEvents = result.orders.map((order) => ({
+      ...order,
+      events: eventsByOrderId.get(order.id) || [],
+      smsStatus: smsStatusMap.get(order.id) || null,
+    }));
+
     if (hasTrackingNumber === 'true') {
-      const shipmentWhere = {
-        where: {
-          ...(userContext.role === 'super_admin' ? {} : { clinicId: userContext.clinicId }),
-          // Only include shipment-only records; exclude shipments linked to tracked orders.
-          OR: [{ orderId: null }, { order: { trackingNumber: null } }, { order: { is: null } }],
-        } as any,
-      };
-
-      // Fetch shipment-only records in the same dynamic window used for tracked orders.
-      const patientShipments = await prisma.patientShippingUpdate.findMany({
-        ...shipmentWhere,
-        include: {
-          patient: {
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-            },
-          },
-          order: {
-            select: {
-              id: true,
-              primaryMedName: true,
-              primaryMedStrength: true,
-            },
-          },
-        },
-        orderBy: { createdAt: 'desc' },
-        take: trackedMergeWindow,
-      });
-
-      // Batch-load SMS status for all shipments
-      const filteredShipments = patientShipments;
-
+      // Fetch SMS status for shipments (depends on patientShipments result)
       const shipmentPatientIds = [
         ...new Set(
-          filteredShipments
+          patientShipments
             .filter((s: any) => s.patientId && s.trackingNumber)
             .map((s: any) => s.patientId as number)
         ),
@@ -212,7 +209,7 @@ export async function GET(request: NextRequest) {
             })
           : [];
 
-      const shippingOnlyRecords = filteredShipments.map((shipment: any) => {
+      const shippingOnlyRecords = patientShipments.map((shipment: any) => {
         let smsStatus: string | null = null;
         if (shipment.trackingNumber && shipment.patientId) {
           const match = shipmentSmsLogs.find(
@@ -249,14 +246,12 @@ export async function GET(request: NextRequest) {
         };
       });
 
-      // Merge and sort by most recent activity (tracking date or creation date)
       const allOrders = [...ordersWithEvents, ...shippingOnlyRecords].sort((a, b) => {
         const dateA = (a as any).lastWebhookAt || a.updatedAt || a.createdAt;
         const dateB = (b as any).lastWebhookAt || b.updatedAt || b.createdAt;
         return new Date(dateB).getTime() - new Date(dateA).getTime();
       });
 
-      const shipmentOnlyTotal = await prisma.patientShippingUpdate.count(shipmentWhere as any);
       const total = result.total + shipmentOnlyTotal;
       const start = (page - 1) * pageSize;
       const paginatedOrders = allOrders.slice(start, start + pageSize);

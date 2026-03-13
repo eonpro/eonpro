@@ -355,6 +355,13 @@ function convertPrismaError(
           10 // Retry-After: 10 seconds
         );
 
+      // P2035: Assertion violation on the database level (transient - e.g. replica lag, query planner)
+      case 'P2035':
+        return new ServiceUnavailableError(
+          'Database is temporarily unable to process this request. Please try again.',
+          5
+        );
+
       // Default - check for connection/pool errors that may slip through
       default: {
         const code = String(error.code || '');
