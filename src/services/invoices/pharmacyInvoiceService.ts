@@ -489,7 +489,6 @@ export async function getLineItemsGroupedByOrder(
     ];
   }
 
-  // Get all items matching filter (trimmed fields for performance)
   const items = await prisma.pharmacyInvoiceLineItem.findMany({
     where,
     orderBy: [{ lifefileOrderId: 'asc' }, { lineNumber: 'asc' }],
@@ -516,6 +515,9 @@ export async function getLineItemsGroupedByOrder(
       matchedOrderId: true,
       matchConfidence: true,
       matchNotes: true,
+      adminNotes: true,
+      disputed: true,
+      adjustedAmountCents: true,
     },
   });
 
@@ -528,13 +530,30 @@ export async function getLineItemsGroupedByOrder(
     groups.set(key, group);
   }
 
-  const allGroups = Array.from(groups.entries()).map(([orderId, lineItems]) => ({
-    lifefileOrderId: orderId,
-    lineItems,
-    subtotalCents: lineItems.reduce((sum, li) => sum + li.amountCents, 0),
-    matchStatus: lineItems[0]?.matchStatus ?? 'PENDING',
-    matchedOrderId: lineItems[0]?.matchedOrderId ?? null,
-  }));
+  // Batch-load prescription dates from matched orders
+  const matchedOrderIds = [
+    ...new Set(items.map((i) => i.matchedOrderId).filter((id): id is number => id !== null)),
+  ];
+  const orderDates = new Map<number, Date>();
+  if (matchedOrderIds.length > 0) {
+    const orders = await prisma.order.findMany({
+      where: { id: { in: matchedOrderIds } },
+      select: { id: true, createdAt: true },
+    });
+    for (const o of orders) orderDates.set(o.id, o.createdAt);
+  }
+
+  const allGroups = Array.from(groups.entries()).map(([orderId, lineItems]) => {
+    const matchedOrderId = lineItems[0]?.matchedOrderId ?? null;
+    return {
+      lifefileOrderId: orderId,
+      lineItems,
+      subtotalCents: lineItems.reduce((sum, li) => sum + li.amountCents, 0),
+      matchStatus: lineItems[0]?.matchStatus ?? 'PENDING',
+      matchedOrderId,
+      prescriptionDate: matchedOrderId ? (orderDates.get(matchedOrderId)?.toISOString() ?? null) : null,
+    };
+  });
 
   // Paginate the order groups
   const totalGroups = allGroups.length;
@@ -566,4 +585,190 @@ export async function deleteUpload(id: number, clinicId: number): Promise<boolea
   });
 
   return true;
+}
+
+// ---------------------------------------------------------------------------
+// Line Item Editing
+// ---------------------------------------------------------------------------
+
+export async function updateLineItem(
+  lineItemId: number,
+  invoiceUploadId: number,
+  data: {
+    adminNotes?: string | null;
+    disputed?: boolean;
+    adjustedAmountCents?: number | null;
+    matchStatus?: PharmacyInvoiceMatchStatus;
+  }
+) {
+  const item = await prisma.pharmacyInvoiceLineItem.findFirst({
+    where: { id: lineItemId, invoiceUploadId },
+  });
+  if (!item) return null;
+
+  return prisma.pharmacyInvoiceLineItem.update({
+    where: { id: lineItemId },
+    data: {
+      ...(data.adminNotes !== undefined && { adminNotes: data.adminNotes }),
+      ...(data.disputed !== undefined && { disputed: data.disputed }),
+      ...(data.adjustedAmountCents !== undefined && { adjustedAmountCents: data.adjustedAmountCents }),
+      ...(data.matchStatus !== undefined && { matchStatus: data.matchStatus }),
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Manual Matching
+// ---------------------------------------------------------------------------
+
+export async function manualMatchLineItems(
+  invoiceUploadId: number,
+  lineItemIds: number[],
+  orderId: number,
+  userId: number
+) {
+  const order = await prisma.order.findUnique({
+    where: { id: orderId },
+    select: { id: true, patientId: true, providerId: true, createdAt: true },
+  });
+  if (!order) throw new Error('Order not found');
+
+  await prisma.pharmacyInvoiceLineItem.updateMany({
+    where: {
+      id: { in: lineItemIds },
+      invoiceUploadId,
+    },
+    data: {
+      matchStatus: 'MANUALLY_MATCHED',
+      matchedOrderId: order.id,
+      matchedPatientId: order.patientId,
+      matchedProviderId: order.providerId,
+      matchConfidence: 1.0,
+      matchNotes: 'Manually matched by admin',
+      manuallyMatchedBy: userId,
+      manuallyMatchedAt: new Date(),
+    },
+  });
+
+  // Recount matched/unmatched on the upload
+  await recountUploadSummary(invoiceUploadId);
+
+  return { orderId: order.id, prescriptionDate: order.createdAt };
+}
+
+export async function manualMatchByLifefileOrderId(
+  invoiceUploadId: number,
+  lineItemIds: number[],
+  lifefileOrderId: string,
+  clinicId: number,
+  userId: number
+) {
+  const order = await prisma.order.findFirst({
+    where: { lifefileOrderId, clinicId },
+    select: { id: true, patientId: true, providerId: true, createdAt: true },
+  });
+  if (!order) throw new Error(`No order found with Lifefile ID ${lifefileOrderId}`);
+
+  return manualMatchLineItems(invoiceUploadId, lineItemIds, order.id, userId);
+}
+
+async function recountUploadSummary(invoiceUploadId: number) {
+  const matched = await prisma.pharmacyInvoiceLineItem.count({
+    where: { invoiceUploadId, matchStatus: { in: ['MATCHED', 'MANUALLY_MATCHED'] } },
+  });
+  const unmatched = await prisma.pharmacyInvoiceLineItem.count({
+    where: { invoiceUploadId, matchStatus: 'UNMATCHED' },
+  });
+  const discrepancy = await prisma.pharmacyInvoiceLineItem.count({
+    where: { invoiceUploadId, matchStatus: { in: ['DISCREPANCY', 'DISPUTED'] } },
+  });
+
+  const matchedSum = await prisma.pharmacyInvoiceLineItem.aggregate({
+    where: { invoiceUploadId, matchStatus: { in: ['MATCHED', 'MANUALLY_MATCHED'] } },
+    _sum: { amountCents: true },
+  });
+  const unmatchedSum = await prisma.pharmacyInvoiceLineItem.aggregate({
+    where: { invoiceUploadId, matchStatus: 'UNMATCHED' },
+    _sum: { amountCents: true },
+  });
+
+  await prisma.pharmacyInvoiceUpload.update({
+    where: { id: invoiceUploadId },
+    data: {
+      matchedCount: matched,
+      unmatchedCount: unmatched,
+      discrepancyCount: discrepancy,
+      matchedTotalCents: matchedSum._sum.amountCents ?? 0,
+      unmatchedTotalCents: unmatchedSum._sum.amountCents ?? 0,
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Order Search (for manual matching)
+// ---------------------------------------------------------------------------
+
+export async function searchOrdersForMatch(
+  clinicId: number,
+  query: { q?: string; lifefileOrderId?: string }
+) {
+  if (query.lifefileOrderId) {
+    const orders = await prisma.order.findMany({
+      where: { clinicId, lifefileOrderId: query.lifefileOrderId },
+      include: {
+        patient: { select: { id: true, firstName: true, lastName: true } },
+        provider: { select: { id: true, firstName: true, lastName: true } },
+        rxs: { select: { id: true, medName: true, strength: true, form: true } },
+      },
+      take: 10,
+      orderBy: { createdAt: 'desc' },
+    });
+    return orders.map(formatOrderForSearch);
+  }
+
+  if (query.q && query.q.length >= 2) {
+    const orders = await prisma.order.findMany({
+      where: {
+        clinicId,
+        OR: [
+          { lifefileOrderId: { contains: query.q } },
+          { patient: { lastName: { contains: query.q, mode: 'insensitive' } } },
+          { patient: { firstName: { contains: query.q, mode: 'insensitive' } } },
+        ],
+      },
+      include: {
+        patient: { select: { id: true, firstName: true, lastName: true } },
+        provider: { select: { id: true, firstName: true, lastName: true } },
+        rxs: { select: { id: true, medName: true, strength: true, form: true } },
+      },
+      take: 20,
+      orderBy: { createdAt: 'desc' },
+    });
+    return orders.map(formatOrderForSearch);
+  }
+
+  return [];
+}
+
+function formatOrderForSearch(order: {
+  id: number;
+  lifefileOrderId: string | null;
+  createdAt: Date;
+  status: string | null;
+  patient: { id: number; firstName: string; lastName: string };
+  provider: { id: number; firstName: string; lastName: string };
+  rxs: Array<{ id: number; medName: string; strength: string; form: string }>;
+}) {
+  return {
+    id: order.id,
+    lifefileOrderId: order.lifefileOrderId,
+    createdAt: order.createdAt.toISOString(),
+    status: order.status,
+    patientName: `${order.patient.lastName}, ${order.patient.firstName}`,
+    patientId: order.patient.id,
+    providerName: `${order.provider.lastName}, ${order.provider.firstName}`,
+    providerId: order.provider.id,
+    medications: order.rxs.map((rx) => `${rx.medName} ${rx.strength}`).join(', '),
+    rxCount: order.rxs.length,
+  };
 }

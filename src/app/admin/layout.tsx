@@ -399,113 +399,51 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
     return pathname === path || pathname?.startsWith(path + '/');
   };
 
+  const sidebarNav = (
+    <nav className="flex min-h-0 flex-1 flex-col space-y-1 overflow-y-auto px-3">
+      {navItems.map((item) => {
+        const Icon = item.icon;
+        const active = isActive(item.path);
+        const isClinicsTab = item.path === '/admin/clinics';
+        const isClinicSwitch = isClinicsTab && hasMultipleClinics && userRole !== 'super_admin';
+
+        if (isClinicSwitch) {
+          return (
+            <button
+              key={item.path}
+              onClick={() => {
+                setMobileNavOpen(false);
+                setShowClinicSwitchModal(true);
+              }}
+              className="flex min-h-[44px] w-full cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+            >
+              <Icon className="h-5 w-5 flex-shrink-0" />
+              <span className="whitespace-nowrap text-sm font-medium">Switch Clinic</span>
+            </button>
+          );
+        }
+
+        return (
+          <button
+            key={item.path}
+            type="button"
+            onClick={() => { window.location.href = item.path; }}
+            className={`flex min-h-[44px] w-full cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors ${
+              active ? '' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
+            }`}
+            style={active ? { backgroundColor: `${primaryColor}15`, color: primaryColor } : {}}
+          >
+            <Icon className="h-5 w-5 flex-shrink-0" />
+            <span className="whitespace-nowrap text-sm font-medium">{item.label}</span>
+          </button>
+        );
+      })}
+    </nav>
+  );
+
   return (
     <div className="flex min-h-screen bg-[#efece7]">
-      {/* ============================================================
-          DESKTOP SIDEBAR — hidden on mobile, visible on md+
-          Uses the original proven pattern: hidden/md:flex, z-50, no transform.
-          ============================================================ */}
-      <aside
-        className={`fixed bottom-0 left-0 top-0 z-50 hidden flex-col border-r border-gray-200 bg-white py-4 transition-all duration-300 md:flex ${
-          sidebarExpanded ? 'w-56' : 'w-20'
-        }`}
-      >
-        {!loading ? (
-          <>
-            <div className="mb-6 flex flex-col items-center px-4">
-              <a href={isPharmacyExperience ? '/admin' : '/'}>
-                {sidebarExpanded ? (
-                  <img src={clinicLogo} alt={clinicName} className="h-10 w-auto max-w-[140px] object-contain" />
-                ) : (
-                  <img src={clinicIcon} alt={clinicName} className="h-10 w-10 object-contain" />
-                )}
-              </a>
-              {isWhiteLabeled && sidebarExpanded && (
-                <span className="mt-1 flex items-center justify-center gap-1 text-[10px] text-gray-400">
-                  Powered by{' '}
-                  <img src={EONPRO_LOGO} alt="EONPRO" className="h-[21px] w-auto" />
-                </span>
-              )}
-            </div>
-
-            <button
-              onClick={() => setSidebarExpanded(!sidebarExpanded)}
-              className={`absolute -right-3 top-20 flex h-6 w-6 items-center justify-center rounded-full border border-gray-200 bg-white shadow-sm transition-all hover:bg-gray-50 focus:outline-none ${
-                sidebarExpanded ? 'rotate-180' : ''
-              }`}
-            >
-              <ChevronRight className="h-3 w-3 text-gray-400" />
-            </button>
-
-            <nav className="flex min-h-0 flex-1 flex-col space-y-1 overflow-y-auto px-3">
-              {navItems.map((item) => {
-                const Icon = item.icon;
-                const active = isActive(item.path);
-                const isClinicsTab = item.path === '/admin/clinics';
-                const isClinicSwitch = isClinicsTab && hasMultipleClinics && userRole !== 'super_admin';
-
-                if (isClinicSwitch) {
-                  return (
-                    <button
-                      key={item.path}
-                      onClick={() => setShowClinicSwitchModal(true)}
-                      title={!sidebarExpanded ? 'Switch Clinic' : undefined}
-                      className="flex w-full cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-                    >
-                      <Icon className="h-5 w-5 flex-shrink-0" />
-                      {sidebarExpanded && (
-                        <span className="whitespace-nowrap text-sm font-medium">Switch Clinic</span>
-                      )}
-                    </button>
-                  );
-                }
-
-                return (
-                  <a
-                    key={item.path}
-                    href={item.path}
-                    target="_top"
-                    title={!sidebarExpanded ? item.label : undefined}
-                    className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left no-underline transition-colors ${
-                      active ? '' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
-                    }`}
-                    style={active ? { backgroundColor: `${primaryColor}15`, color: primaryColor } : {}}
-                  >
-                    <Icon className="h-5 w-5 flex-shrink-0" />
-                    {sidebarExpanded && (
-                      <span className="whitespace-nowrap text-sm font-medium">{item.label}</span>
-                    )}
-                  </a>
-                );
-              })}
-            </nav>
-
-            <div className="space-y-2 border-t border-gray-100 px-3 pt-4">
-              <button
-                type="button"
-                onClick={handleLogout}
-                title={!sidebarExpanded ? 'Logout' : undefined}
-                className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-gray-400 transition-all hover:bg-gray-100 hover:text-gray-600"
-              >
-                <LogOut className="h-5 w-5 flex-shrink-0" />
-                {sidebarExpanded && (
-                  <span className="whitespace-nowrap text-sm font-medium">Logout</span>
-                )}
-              </button>
-            </div>
-          </>
-        ) : (
-          <div className="flex flex-1 items-center justify-center">
-            <img src={EONPRO_ICON} alt="Loading" className="h-8 w-8 animate-pulse object-contain" />
-          </div>
-        )}
-      </aside>
-
-      {/* ============================================================
-          MOBILE DRAWER — separate element, only on mobile (md:hidden)
-          Uses translate-x for animation. Completely independent from
-          the desktop sidebar above.
-          ============================================================ */}
+      {/* MOBILE DRAWER overlay */}
       {!loading && mobileNavOpen && (
         <div
           className="fixed inset-0 z-[100] bg-black/40 md:hidden"
@@ -513,6 +451,7 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
           onClick={() => setMobileNavOpen(false)}
         />
       )}
+      {/* MOBILE DRAWER */}
       <div
         className={`fixed bottom-0 left-0 top-0 z-[101] flex w-[280px] flex-col border-r border-gray-200 bg-white py-4 transition-transform duration-300 md:hidden ${
           mobileNavOpen ? 'translate-x-0' : '-translate-x-full'
@@ -533,53 +472,9 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
                 <X className="h-6 w-6" />
               </button>
             </div>
-
-            <nav className="flex min-h-0 flex-1 flex-col space-y-1 overflow-y-auto px-3">
-              {navItems.map((item) => {
-                const Icon = item.icon;
-                const active = isActive(item.path);
-                const isClinicsTab = item.path === '/admin/clinics';
-                const isClinicSwitch = isClinicsTab && hasMultipleClinics && userRole !== 'super_admin';
-
-                if (isClinicSwitch) {
-                  return (
-                    <button
-                      key={item.path}
-                      onClick={() => {
-                        setMobileNavOpen(false);
-                        setShowClinicSwitchModal(true);
-                      }}
-                      className="flex min-h-[44px] w-full cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 text-left text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-                    >
-                      <Icon className="h-5 w-5 flex-shrink-0" />
-                      <span className="whitespace-nowrap text-sm font-medium">Switch Clinic</span>
-                    </button>
-                  );
-                }
-
-                return (
-                  <a
-                    key={item.path}
-                    href={item.path}
-                    target="_top"
-                    className={`flex min-h-[44px] w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left no-underline touch-manipulation ${
-                      active ? '' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600 active:bg-gray-100'
-                    }`}
-                    style={active ? { backgroundColor: `${primaryColor}15`, color: primaryColor } : {}}
-                  >
-                    <Icon className="h-5 w-5 flex-shrink-0" />
-                    <span className="whitespace-nowrap text-sm font-medium">{item.label}</span>
-                  </a>
-                );
-              })}
-            </nav>
-
+            {sidebarNav}
             <div className="space-y-2 border-t border-gray-100 px-3 pt-4">
-              <button
-                type="button"
-                onClick={handleLogout}
-                className="flex min-h-[44px] w-full items-center gap-3 rounded-xl px-3 py-2.5 text-gray-400 hover:bg-red-50 hover:text-red-600"
-              >
+              <button type="button" onClick={handleLogout} className="flex min-h-[44px] w-full items-center gap-3 rounded-xl px-3 py-2.5 text-gray-400 hover:bg-red-50 hover:text-red-600">
                 <LogOut className="h-5 w-5 flex-shrink-0" />
                 <span className="whitespace-nowrap text-sm font-medium">Sign Out</span>
               </button>
@@ -588,8 +483,51 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
         )}
       </div>
 
-      {/* Main Content */}
+      {/* Main Content — sidebar is rendered INSIDE main so it shares the same DOM context */}
       <main className={`flex-1 pb-20 transition-all duration-300 md:pb-0 ${sidebarExpanded ? 'md:ml-56' : 'md:ml-20'}`}>
+        {/* DESKTOP SIDEBAR — rendered inside <main> as a fixed div */}
+        {!loading && (
+          <div
+            className={`fixed bottom-0 left-0 top-0 z-50 hidden flex-col border-r border-gray-200 bg-white py-4 md:flex ${
+              sidebarExpanded ? 'w-56' : 'w-20'
+            }`}
+          >
+            <div className="mb-6 flex flex-col items-center px-4">
+              <button type="button" onClick={() => { window.location.href = isPharmacyExperience ? '/admin' : '/'; }} className="cursor-pointer">
+                {sidebarExpanded ? (
+                  <img src={clinicLogo} alt={clinicName} className="h-10 w-auto max-w-[140px] object-contain" />
+                ) : (
+                  <img src={clinicIcon} alt={clinicName} className="h-10 w-10 object-contain" />
+                )}
+              </button>
+              {isWhiteLabeled && sidebarExpanded && (
+                <span className="mt-1 flex items-center justify-center gap-1 text-[10px] text-gray-400">
+                  Powered by{' '}
+                  <img src={EONPRO_LOGO} alt="EONPRO" className="h-[21px] w-auto" />
+                </span>
+              )}
+            </div>
+
+            <button
+              onClick={() => setSidebarExpanded(!sidebarExpanded)}
+              className={`absolute -right-3 top-20 flex h-6 w-6 items-center justify-center rounded-full border border-gray-200 bg-white shadow-sm hover:bg-gray-50 focus:outline-none ${
+                sidebarExpanded ? 'rotate-180' : ''
+              }`}
+            >
+              <ChevronRight className="h-3 w-3 text-gray-400" />
+            </button>
+
+            {sidebarNav}
+
+            <div className="space-y-2 border-t border-gray-100 px-3 pt-4">
+              <button type="button" onClick={handleLogout} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600">
+                <LogOut className="h-5 w-5 flex-shrink-0" />
+                {sidebarExpanded && <span className="whitespace-nowrap text-sm font-medium">Logout</span>}
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Top Bar */}
         <div className="sticky top-0 z-40 border-b border-gray-200/50 bg-[#efece7]/95 px-4 py-2.5 backdrop-blur-sm md:px-6 md:py-3" style={{ paddingTop: 'max(0.625rem, env(safe-area-inset-top))' }}>
           <div className="flex items-center justify-between">

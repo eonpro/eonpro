@@ -95,6 +95,13 @@ model PharmacyInvoiceLineItem {
   matchConfidence   Float?
   matchNotes        String?
 
+  // Admin corrections and manual matching
+  adminNotes         String?
+  disputed           Boolean   @default(false)
+  adjustedAmountCents Int?
+  manuallyMatchedBy  Int?
+  manuallyMatchedAt  DateTime?
+
   @@index([invoiceUploadId])
   @@index([lifefileOrderId])
   @@index([matchStatus])
@@ -122,4 +129,6 @@ enum PharmacyInvoiceMatchStatus {
   MATCHED
   UNMATCHED
   DISCREPANCY
+  MANUALLY_MATCHED
+  DISPUTED
 }
