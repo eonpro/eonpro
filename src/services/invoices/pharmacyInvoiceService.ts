@@ -1215,6 +1215,8 @@ export interface PatientDiscrepancyResult {
     orderCount: number;
     totalAmountCents: number;
     lifefileOrderIds: string[];
+    systemOrderDates: Array<{ lifefileOrderId: string; createdAt: string; status: string | null }>;
+    foundInSystem: boolean;
   }>;
   inSystemOnly: Array<{
     patientId: number;
@@ -1354,7 +1356,12 @@ export async function getPatientDiscrepancy(
   }
 
   // 3. Compute set differences
-  const onInvoiceOnly: PatientDiscrepancyResult['onInvoiceOnly'] = [];
+  const onInvoiceOnlyRaw: Array<{
+    patientName: string;
+    orderCount: number;
+    totalAmountCents: number;
+    lifefileOrderIds: string[];
+  }> = [];
   const inSystemOnly: PatientDiscrepancyResult['inSystemOnly'] = [];
   const matched: PatientDiscrepancyResult['matched'] = [];
 
@@ -1369,7 +1376,7 @@ export async function getPatientDiscrepancy(
         systemOrderCount: sysData.orderIds.size,
       });
     } else {
-      onInvoiceOnly.push({
+      onInvoiceOnlyRaw.push({
         patientName: invData.originalName,
         orderCount: invData.orderIds.size,
         totalAmountCents: invData.totalAmountCents,
@@ -1377,6 +1384,49 @@ export async function getPatientDiscrepancy(
       });
     }
   }
+
+  // 4. For "on invoice only" patients, look up their actual order dates in the system
+  //    (without date range filter) to show when the Rx was actually written
+  const invoiceOnlyOrderIds = onInvoiceOnlyRaw.flatMap((p) => p.lifefileOrderIds).filter(Boolean);
+
+  const invoiceOnlySystemOrders = invoiceOnlyOrderIds.length > 0
+    ? await prisma.order.findMany({
+        where: {
+          clinicId,
+          lifefileOrderId: { in: invoiceOnlyOrderIds },
+        },
+        select: {
+          lifefileOrderId: true,
+          createdAt: true,
+          status: true,
+        },
+        orderBy: { createdAt: 'desc' },
+      })
+    : [];
+
+  const orderDateMap = new Map<string, { createdAt: Date; status: string | null }>();
+  for (const o of invoiceOnlySystemOrders) {
+    if (o.lifefileOrderId) {
+      orderDateMap.set(o.lifefileOrderId, { createdAt: o.createdAt, status: o.status });
+    }
+  }
+
+  const onInvoiceOnly: PatientDiscrepancyResult['onInvoiceOnly'] = onInvoiceOnlyRaw.map((p) => {
+    const systemOrderDates = p.lifefileOrderIds
+      .map((id) => {
+        const found = orderDateMap.get(id);
+        return found
+          ? { lifefileOrderId: id, createdAt: found.createdAt.toISOString(), status: found.status }
+          : null;
+      })
+      .filter((x): x is NonNullable<typeof x> => x !== null);
+
+    return {
+      ...p,
+      systemOrderDates,
+      foundInSystem: systemOrderDates.length > 0,
+    };
+  });
 
   for (const [normalized, sysData] of systemPatientMap) {
     if (!invoicePatientMap.has(normalized)) {

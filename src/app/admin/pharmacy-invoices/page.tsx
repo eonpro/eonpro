@@ -101,6 +101,8 @@ interface DiscrepancyData {
     orderCount: number;
     totalAmountCents: number;
     lifefileOrderIds: string[];
+    systemOrderDates: Array<{ lifefileOrderId: string; createdAt: string; status: string | null }>;
+    foundInSystem: boolean;
   }>;
   inSystemOnly: Array<{
     patientId: number;
@@ -227,10 +229,16 @@ export default function PharmacyInvoicesPage() {
 
   const exportDiscrepancyCsv = useCallback(() => {
     if (!discrepancyData) return;
-    const rows: string[] = ['Section,Patient Name,Order Count,Details'];
+    const rows: string[] = ['Section,Patient Name,Order Count,Rx Written Date,Status,Details'];
 
     for (const p of discrepancyData.onInvoiceOnly) {
-      rows.push(`On Invoice Only,"${p.patientName.replace(/"/g, '""')}",${p.orderCount},"$${(p.totalAmountCents / 100).toFixed(2)} | Orders: ${p.lifefileOrderIds.join('; ')}"`);
+      const rxDate = p.foundInSystem
+        ? p.systemOrderDates.map((d) => new Date(d.createdAt).toLocaleDateString()).join('; ')
+        : 'NOT IN SYSTEM';
+      const rxStatus = p.foundInSystem
+        ? p.systemOrderDates.map((d) => d.status ?? 'sent').join('; ')
+        : 'missing';
+      rows.push(`On Invoice Only,"${p.patientName.replace(/"/g, '""')}",${p.orderCount},"${rxDate}","${rxStatus}","$${(p.totalAmountCents / 100).toFixed(2)} | Orders: ${p.lifefileOrderIds.join('; ')}"`);
     }
     for (const p of discrepancyData.inSystemOnly) {
       rows.push(`In System Only,"${p.patientName.replace(/"/g, '""')}",${p.orderCount},"${p.medications} | Orders: ${p.lifefileOrderIds.join('; ')}"`);
@@ -856,6 +864,8 @@ export default function PharmacyInvoicesPage() {
                               <th className="px-5 py-3">Patient Name (Invoice)</th>
                               <th className="px-5 py-3">Orders</th>
                               <th className="px-5 py-3">Amount Billed</th>
+                              <th className="px-5 py-3">Rx Written Date</th>
+                              <th className="px-5 py-3">Status</th>
                               <th className="px-5 py-3">Lifefile Order IDs</th>
                             </tr>
                           </thead>
@@ -868,6 +878,34 @@ export default function PharmacyInvoicesPage() {
                                 <td className="px-5 py-2.5 text-sm font-medium text-gray-900">{p.patientName}</td>
                                 <td className="px-5 py-2.5 text-sm text-gray-600">{p.orderCount}</td>
                                 <td className="px-5 py-2.5 text-sm font-semibold text-red-600">{fmt(p.totalAmountCents)}</td>
+                                <td className="px-5 py-2.5 text-sm">
+                                  {p.foundInSystem ? (
+                                    <div className="space-y-0.5">
+                                      {p.systemOrderDates.map((d) => (
+                                        <div key={d.lifefileOrderId} className="text-xs text-blue-700 font-medium">
+                                          {fmtDate(d.createdAt)}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  ) : (
+                                    <span className="text-xs text-red-500 font-medium">Not in system</span>
+                                  )}
+                                </td>
+                                <td className="px-5 py-2.5">
+                                  {p.foundInSystem ? (
+                                    <div className="space-y-0.5">
+                                      {p.systemOrderDates.map((d) => (
+                                        <span key={d.lifefileOrderId} className="inline-block rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-medium text-blue-700">
+                                          {d.status ?? 'sent'}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  ) : (
+                                    <span className="inline-block rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-medium text-red-600">
+                                      missing
+                                    </span>
+                                  )}
+                                </td>
                                 <td className="px-5 py-2.5 text-xs text-gray-400 font-mono">{p.lifefileOrderIds.join(', ')}</td>
                               </tr>
                             ))}
