@@ -108,7 +108,14 @@ export default function PharmacyInvoicesPage() {
       if (!res.ok) {
         setUploadError(json.error ?? 'Upload failed');
       } else {
+        // Upload + parse succeeded; now trigger reconciliation in background
         fetchUploads();
+        const uploadId = json.data?.upload?.id;
+        if (uploadId) {
+          apiFetch(`/api/admin/pharmacy-invoices/${uploadId}`, { method: 'PATCH' })
+            .then(() => fetchUploads())
+            .catch(() => fetchUploads());
+        }
       }
     } catch {
       setUploadError('Upload failed. Please try again.');

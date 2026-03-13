@@ -92,7 +92,8 @@ export const POST = withAuth(
         fileSize: file.size,
       });
 
-      // Upload + parse
+      // Upload + parse ONLY (reconciliation is triggered separately via PATCH
+      // to avoid Vercel function timeouts on large invoices)
       let uploadResult;
       try {
         uploadResult = await uploadAndParseInvoice({
@@ -115,48 +116,16 @@ export const POST = withAuth(
 
       const { upload, parsed } = uploadResult;
 
-      // Run reconciliation
-      let summary;
-      try {
-        summary = await runReconciliation(upload.id, clinicId);
-      } catch (matchErr) {
-        const msg = matchErr instanceof Error ? matchErr.message : 'Reconciliation failed';
-        logger.error('Pharmacy invoice reconciliation failed', {
-          uploadId: upload.id,
-          error: msg,
-        });
-        return NextResponse.json(
-          {
-            success: true,
-            data: {
-              upload,
-              summary: {
-                totalLineItems: parsed.lineItems.length,
-                orderCount: parsed.orderCount,
-                totalCents: parsed.totalCents,
-                matchedCents: 0,
-                unmatchedCents: 0,
-                matchRate: 0,
-                reconciliationError: msg,
-              },
-            },
-          },
-          { status: 201 }
-        );
-      }
-
       return NextResponse.json(
         {
           success: true,
           data: {
-            upload: summary.upload,
+            upload,
             summary: {
               totalLineItems: parsed.lineItems.length,
               orderCount: parsed.orderCount,
-              totalCents: summary.totalCents,
-              matchedCents: summary.matchedCents,
-              unmatchedCents: summary.unmatchedCents,
-              matchRate: summary.matchRate,
+              totalCents: parsed.totalCents,
+              status: 'PARSED',
             },
           },
         },
