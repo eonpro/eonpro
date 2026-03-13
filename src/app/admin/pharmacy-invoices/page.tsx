@@ -19,6 +19,9 @@ import {
   Check,
   X,
   SquareStack,
+  ChevronDown,
+  ChevronUp,
+  Pill,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api/fetch';
 
@@ -106,7 +109,9 @@ export default function PharmacyInvoicesPage() {
   const [unmatchedOrders, setUnmatchedOrders] = useState<Array<{
     id: number; lifefileOrderId: string | null; createdAt: string; status: string | null;
     patientName: string; providerName: string; medications: string; rxCount: number;
+    rxs: Array<{ id: number; medName: string; strength: string; form: string; quantity: string; sig: string }>;
   }>>([]);
+  const [expandedUnmatched, setExpandedUnmatched] = useState<Set<number>>(new Set());
   const [unmatchedTotal, setUnmatchedTotal] = useState(0);
   const [unmatchedStartDate, setUnmatchedStartDate] = useState('2026-03-04');
   const [unmatchedPage, setUnmatchedPage] = useState(1);
@@ -499,37 +504,70 @@ export default function PharmacyInvoicesPage() {
                 <span className="mt-1 text-xs">Every order from {fmtDate(unmatchedStartDate)} onward appears on an uploaded invoice.</span>
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-gray-100 bg-gray-50 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                      <th className="px-6 py-3">Order ID</th>
-                      <th className="px-6 py-3">Patient</th>
-                      <th className="px-6 py-3">Provider</th>
-                      <th className="px-6 py-3">Medications</th>
-                      <th className="px-6 py-3">Date Sent</th>
-                      <th className="px-6 py-3">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {unmatchedOrders.map((o) => (
-                      <tr key={o.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-3 text-sm font-medium text-gray-900">
-                          #{o.lifefileOrderId ?? o.id}
-                        </td>
-                        <td className="px-6 py-3 text-sm text-gray-600">{o.patientName}</td>
-                        <td className="px-6 py-3 text-sm text-gray-600">{o.providerName}</td>
-                        <td className="max-w-xs truncate px-6 py-3 text-xs text-gray-500">{o.medications || '—'}</td>
-                        <td className="px-6 py-3 text-sm text-gray-600">{fmtDate(o.createdAt)}</td>
-                        <td className="px-6 py-3">
-                          <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-700">
-                            {o.status ?? 'sent'}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="divide-y divide-gray-100">
+                {unmatchedOrders.map((o) => {
+                  const isExpanded = expandedUnmatched.has(o.id);
+                  return (
+                    <div key={o.id}>
+                      <button
+                        onClick={() => setExpandedUnmatched((prev) => {
+                          const n = new Set(prev);
+                          n.has(o.id) ? n.delete(o.id) : n.add(o.id);
+                          return n;
+                        })}
+                        className="flex w-full items-center gap-4 px-6 py-3 text-left hover:bg-gray-50"
+                      >
+                        <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
+                          {o.status ?? 'sent'}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-semibold text-gray-900">#{o.lifefileOrderId ?? o.id}</span>
+                            <span className="text-sm text-gray-600">{o.patientName}</span>
+                            <span className="hidden text-xs text-gray-400 sm:inline">Dr. {o.providerName}</span>
+                          </div>
+                          <div className="mt-0.5 text-xs text-gray-400">
+                            Sent {fmtDate(o.createdAt)} &middot; {o.rxCount} Rx
+                          </div>
+                        </div>
+                        {isExpanded ? <ChevronUp className="h-4 w-4 text-gray-400" /> : <ChevronDown className="h-4 w-4 text-gray-400" />}
+                      </button>
+
+                      {isExpanded && o.rxs && o.rxs.length > 0 && (
+                        <div className="border-t border-gray-100 bg-gray-50 px-6 py-2">
+                          <table className="w-full text-sm">
+                            <thead>
+                              <tr className="text-left text-[11px] font-medium uppercase tracking-wider text-gray-400">
+                                <th className="py-1.5 pr-4"><Pill className="inline h-3 w-3" /> Medication</th>
+                                <th className="py-1.5 pr-4">Strength</th>
+                                <th className="py-1.5 pr-4">Form</th>
+                                <th className="py-1.5 pr-4">Qty</th>
+                                <th className="py-1.5">Directions</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100">
+                              {o.rxs.map((rx) => (
+                                <tr key={rx.id}>
+                                  <td className="py-1.5 pr-4 text-xs font-medium text-gray-700">{rx.medName}</td>
+                                  <td className="py-1.5 pr-4 text-xs text-gray-500">{rx.strength}</td>
+                                  <td className="py-1.5 pr-4 text-xs text-gray-500">{rx.form}</td>
+                                  <td className="py-1.5 pr-4 text-xs text-gray-500">{rx.quantity}</td>
+                                  <td className="py-1.5 text-xs text-gray-400">{rx.sig}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+
+                      {isExpanded && (!o.rxs || o.rxs.length === 0) && (
+                        <div className="border-t border-gray-100 bg-gray-50 px-6 py-4 text-xs text-gray-400">
+                          No prescription details available
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
             {unmatchedTotal > 50 && (

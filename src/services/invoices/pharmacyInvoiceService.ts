@@ -1086,7 +1086,7 @@ export async function getUnmatchedOrders(
       include: {
         patient: { select: { id: true, firstName: true, lastName: true } },
         provider: { select: { id: true, firstName: true, lastName: true } },
-        rxs: { select: { medName: true, strength: true } },
+        rxs: { select: { id: true, medName: true, strength: true, form: true, quantity: true, sig: true } },
       },
       orderBy: { createdAt: 'desc' },
       skip,
@@ -1120,6 +1120,14 @@ export async function getUnmatchedOrders(
       providerName: o.provider ? `${o.provider.lastName}, ${o.provider.firstName}` : '—',
       medications: o.rxs.map((rx) => `${rx.medName} ${rx.strength}`).join(', '),
       rxCount: o.rxs.length,
+      rxs: o.rxs.map((rx) => ({
+        id: rx.id,
+        medName: rx.medName,
+        strength: rx.strength,
+        form: rx.form,
+        quantity: rx.quantity,
+        sig: rx.sig,
+      })),
     };
   });
 
