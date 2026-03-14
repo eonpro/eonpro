@@ -168,15 +168,17 @@ export default function ActiveCallView({
 
       {/* Main Content */}
       <div className="flex min-h-0 flex-1">
-        {/* Video Area — no overflow-hidden so Zoom SDK controls render properly */}
+        {/* Call status area — absolute positioning ensures the dynamic() wrapper gets real dimensions */}
         <div className="relative min-h-0 min-w-0 flex-1">
-          <ZoomEmbeddedMeeting
-            meetingNumber={session.meetingId ?? ''}
-            joinUrl={session.hostUrl ?? session.joinUrl}
-            leaveRef={leaveCallRef}
-            onMeetingStart={handleMeetingStart}
-            onMeetingEnd={handleMeetingEnd}
-          />
+          <div className="absolute inset-0">
+            <ZoomEmbeddedMeeting
+              meetingNumber={session.meetingId ?? ''}
+              joinUrl={session.hostUrl ?? session.joinUrl}
+              leaveRef={leaveCallRef}
+              onMeetingStart={handleMeetingStart}
+              onMeetingEnd={handleMeetingEnd}
+            />
+          </div>
         </div>
 
         {/* Scribe Sidebar */}

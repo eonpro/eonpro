@@ -9,6 +9,7 @@ import {
   PhoneOff,
   Loader2,
   Mic,
+  AlertTriangle,
 } from 'lucide-react';
 
 export interface ZoomEmbeddedMeetingProps {
@@ -34,7 +35,7 @@ export default function ZoomEmbeddedMeeting({
   onMeetingStart,
   onMeetingEnd,
 }: ZoomEmbeddedMeetingProps) {
-  const [status, setStatus] = useState<'ready' | 'active' | 'ended'>('ready');
+  const [status, setStatus] = useState<'ready' | 'active' | 'blocked' | 'ended'>('ready');
   const popupRef = useRef<Window | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const mountedRef = useRef(true);
@@ -63,31 +64,35 @@ export default function ZoomEmbeddedMeeting({
   const launchZoom = useCallback(() => {
     if (!joinUrl) return;
 
-    // Omit 'noopener' so we retain a reference to poll for window closure.
-    // Cross-origin restrictions already prevent the Zoom page from accessing
-    // our window's content (zoom.us is a different origin).
     const zoomWindow = window.open(joinUrl, 'zoom_meeting');
+
+    if (!zoomWindow || zoomWindow.closed) {
+      setStatus('blocked');
+      return;
+    }
+
     popupRef.current = zoomWindow;
     setStatus('active');
     onMeetingStart?.();
 
-    // Poll to detect when the provider closes the Zoom window/tab
-    if (zoomWindow) {
-      pollRef.current = setInterval(() => {
+    pollRef.current = setInterval(() => {
+      try {
         if (zoomWindow.closed) {
           endMeeting('window_closed');
         }
-      }, 2000);
-    }
+      } catch {
+        // Cross-origin access error — window is still open
+      }
+    }, 2000);
   }, [joinUrl, onMeetingStart, endMeeting]);
 
   const focusZoomWindow = useCallback(() => {
     if (popupRef.current && !popupRef.current.closed) {
       popupRef.current.focus();
-    } else if (joinUrl) {
+    } else {
       launchZoom();
     }
-  }, [joinUrl, launchZoom]);
+  }, [launchZoom]);
 
   useEffect(() => {
     if (leaveRef) leaveRef.current = () => endMeeting('provider_ended');
@@ -113,7 +118,7 @@ export default function ZoomEmbeddedMeeting({
 
   if (status === 'ready') {
     return (
-      <div className="flex h-full flex-col items-center justify-center bg-gray-900 p-8">
+      <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-900 p-8">
         <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-blue-600/20">
           <Loader2 className="h-10 w-10 animate-spin text-blue-400" />
         </div>
@@ -134,17 +139,40 @@ export default function ZoomEmbeddedMeeting({
     );
   }
 
+  if (status === 'blocked') {
+    return (
+      <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-900 p-8">
+        <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-amber-600/20">
+          <AlertTriangle className="h-10 w-10 text-amber-400" />
+        </div>
+        <p className="mb-2 text-lg font-semibold text-white">Pop-up Blocked</p>
+        <p className="mb-6 max-w-sm text-center text-sm text-gray-400">
+          Your browser blocked the Zoom window. Click the button below to open it,
+          or allow pop-ups for this site.
+        </p>
+        <button
+          onClick={launchZoom}
+          className="flex items-center gap-2 rounded-lg bg-blue-600 px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-blue-700"
+        >
+          <ExternalLink className="h-4 w-4" />
+          Open Zoom Meeting
+        </button>
+      </div>
+    );
+  }
+
   if (status === 'ended') {
     return (
-      <div className="flex h-full flex-col items-center justify-center bg-gray-900 p-8">
+      <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-900 p-8">
         <VideoOff className="mb-4 h-12 w-12 text-gray-400" />
         <p className="text-lg font-semibold text-white">Meeting Ended</p>
       </div>
     );
   }
 
+  // status === 'active'
   return (
-    <div className="flex h-full flex-col items-center justify-center bg-gray-900 p-8">
+    <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-900 p-8">
       {/* Active call status */}
       <div className="mb-8 flex flex-col items-center">
         <div className="relative mb-6">
