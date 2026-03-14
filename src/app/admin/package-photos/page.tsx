@@ -29,6 +29,9 @@ import {
   ChevronDown,
   ChevronUp,
   Activity,
+  CalendarDays,
+  FileDown,
+  Table,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api/fetch';
 
@@ -105,6 +108,28 @@ interface Demographics {
   monthlyMatchRate: { matched: number; unmatched: number; total: number; rate: number };
   hourlyDistribution: Array<{ hour: number; total: number }>;
   peakHour: { hour: number; count: number };
+}
+
+interface DailyReportDay {
+  date: string;
+  total: number;
+  matched: number;
+  unmatched: number;
+  matchRate: number;
+  reps: Array<{ name: string; total: number; matched: number }>;
+}
+
+interface DailyReportData {
+  days: DailyReportDay[];
+  summary: {
+    totalDays: number;
+    totalPackages: number;
+    totalMatched: number;
+    totalUnmatched: number;
+    matchRate: number;
+    avgPerDay: number;
+  };
+  range: { from: string; to: string };
 }
 
 // ---------------------------------------------------------------------------
@@ -829,6 +854,15 @@ function AuditLog() {
   const [stats, setStats] = useState<AuditStats | null>(null);
   const [demographics, setDemographics] = useState<Demographics | null>(null);
   const [showDemographics, setShowDemographics] = useState(true);
+  const [showDailyReport, setShowDailyReport] = useState(false);
+  const [dailyReport, setDailyReport] = useState<DailyReportData | null>(null);
+  const [dailyReportLoading, setDailyReportLoading] = useState(false);
+  const [reportFrom, setReportFrom] = useState(() => {
+    const d = new Date(); d.setDate(d.getDate() - 6);
+    return d.toISOString().split('T')[0];
+  });
+  const [reportTo, setReportTo] = useState(() => new Date().toISOString().split('T')[0]);
+  const [expandedDay, setExpandedDay] = useState<string | null>(null);
   const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const fetchStats = useCallback(async () => {
@@ -846,6 +880,18 @@ function AuditLog() {
         setDemographics(json.data);
       }
     } catch { /* non-critical */ }
+  }, []);
+
+  const fetchDailyReport = useCallback(async (from: string, to: string) => {
+    setDailyReportLoading(true);
+    try {
+      const res = await apiFetch(`/api/package-photos?daily-report=true&from=${from}&to=${to}`);
+      if (res.ok) {
+        const json = await res.json();
+        setDailyReport(json.data);
+      }
+    } catch { /* non-critical */ }
+    finally { setDailyReportLoading(false); }
   }, []);
 
   const fetchPhotos = useCallback(
@@ -1167,6 +1213,237 @@ function AuditLog() {
               )}
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Daily Report section */}
+      <button
+        onClick={() => {
+          const opening = !showDailyReport;
+          setShowDailyReport(opening);
+          if (opening && !dailyReport) fetchDailyReport(reportFrom, reportTo);
+        }}
+        className="mb-4 flex w-full items-center justify-between rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-left transition-colors hover:bg-gray-50"
+      >
+        <span className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+          <CalendarDays className="h-4 w-4 text-violet-500" />
+          Daily Package Report
+        </span>
+        {showDailyReport ? <ChevronUp className="h-4 w-4 text-gray-400" /> : <ChevronDown className="h-4 w-4 text-gray-400" />}
+      </button>
+
+      {showDailyReport && (
+        <div className="mb-6 rounded-xl border border-gray-200 bg-white p-4">
+          {/* Date range picker + actions */}
+          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:gap-3">
+            <div>
+              <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-gray-400">From</label>
+              <input
+                type="date"
+                value={reportFrom}
+                onChange={(e) => setReportFrom(e.target.value)}
+                className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-gray-400">To</label>
+              <input
+                type="date"
+                value={reportTo}
+                onChange={(e) => setReportTo(e.target.value)}
+                className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
+              />
+            </div>
+            <button
+              onClick={() => fetchDailyReport(reportFrom, reportTo)}
+              disabled={dailyReportLoading}
+              className="inline-flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-violet-700 disabled:opacity-50"
+            >
+              {dailyReportLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Table className="h-4 w-4" />}
+              Pull Report
+            </button>
+            {/* Quick presets */}
+            <div className="flex gap-1.5">
+              {[
+                { label: 'Today', days: 0 },
+                { label: '7 Days', days: 6 },
+                { label: '14 Days', days: 13 },
+                { label: '30 Days', days: 29 },
+              ].map((preset) => (
+                <button
+                  key={preset.label}
+                  onClick={() => {
+                    const to = new Date().toISOString().split('T')[0];
+                    const from = new Date(Date.now() - preset.days * 86400000).toISOString().split('T')[0];
+                    setReportFrom(from);
+                    setReportTo(to);
+                    fetchDailyReport(from, to);
+                  }}
+                  className="rounded-md border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:border-violet-300 hover:bg-violet-50 hover:text-violet-700"
+                >
+                  {preset.label}
+                </button>
+              ))}
+            </div>
+            {/* CSV export */}
+            {dailyReport && dailyReport.days.length > 0 && (
+              <button
+                onClick={() => {
+                  const header = 'Date,Day,Total,Matched,Unmatched,Match Rate,Reps\n';
+                  const rows = dailyReport.days.map((d) => {
+                    const dayName = new Date(d.date + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'long' });
+                    const repStr = d.reps.map((r) => `${r.name}:${r.total}`).join('; ');
+                    return `${d.date},${dayName},${d.total},${d.matched},${d.unmatched},${d.matchRate}%,"${repStr}"`;
+                  }).join('\n');
+                  const summary = `\nSummary,,${dailyReport.summary.totalPackages},${dailyReport.summary.totalMatched},${dailyReport.summary.totalUnmatched},${dailyReport.summary.matchRate}%,Avg ${dailyReport.summary.avgPerDay}/day`;
+                  const blob = new Blob([header + rows + summary], { type: 'text/csv' });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = `package-report-${reportFrom}-to-${reportTo}.csv`;
+                  a.click();
+                  URL.revokeObjectURL(url);
+                }}
+                className="inline-flex items-center gap-1.5 rounded-md border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:border-green-300 hover:bg-green-50 hover:text-green-700"
+              >
+                <FileDown className="h-3.5 w-3.5" />
+                Export CSV
+              </button>
+            )}
+          </div>
+
+          {/* Summary bar */}
+          {dailyReport && (
+            <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-5">
+              <div className="rounded-lg bg-gray-50 px-3 py-2">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Days</p>
+                <p className="text-lg font-bold text-gray-900">{dailyReport.summary.totalDays}</p>
+              </div>
+              <div className="rounded-lg bg-gray-50 px-3 py-2">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Total Pkgs</p>
+                <p className="text-lg font-bold text-gray-900">{dailyReport.summary.totalPackages.toLocaleString()}</p>
+              </div>
+              <div className="rounded-lg bg-gray-50 px-3 py-2">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Matched</p>
+                <p className="text-lg font-bold text-emerald-600">{dailyReport.summary.totalMatched.toLocaleString()}</p>
+              </div>
+              <div className="rounded-lg bg-gray-50 px-3 py-2">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Unmatched</p>
+                <p className="text-lg font-bold text-amber-600">{dailyReport.summary.totalUnmatched.toLocaleString()}</p>
+              </div>
+              <div className="rounded-lg bg-gray-50 px-3 py-2">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Avg/Day</p>
+                <p className="text-lg font-bold text-violet-600">{dailyReport.summary.avgPerDay}</p>
+              </div>
+            </div>
+          )}
+
+          {/* Daily table */}
+          {dailyReportLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-6 w-6 animate-spin text-violet-400" />
+            </div>
+          ) : !dailyReport ? (
+            <div className="py-12 text-center text-sm text-gray-400">
+              Select a date range and click &ldquo;Pull Report&rdquo;
+            </div>
+          ) : dailyReport.days.length === 0 ? (
+            <div className="py-12 text-center text-sm text-gray-400">
+              No packages found in this date range
+            </div>
+          ) : (
+            <div className="overflow-hidden rounded-lg border border-gray-200">
+              {/* Header */}
+              <div className="hidden border-b border-gray-100 bg-gray-50 px-4 py-2 text-[11px] font-semibold uppercase tracking-wider text-gray-400 sm:grid sm:grid-cols-12 sm:gap-2">
+                <div className="col-span-3">Date</div>
+                <div className="col-span-2 text-right">Total</div>
+                <div className="col-span-2 text-right">Matched</div>
+                <div className="col-span-2 text-right">Unmatched</div>
+                <div className="col-span-2 text-right">Match Rate</div>
+                <div className="col-span-1" />
+              </div>
+              {/* Rows */}
+              <div className="divide-y divide-gray-100">
+                {dailyReport.days.map((day) => {
+                  const isExpanded = expandedDay === day.date;
+                  const dayName = new Date(day.date + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+                  const isToday = day.date === new Date().toISOString().split('T')[0];
+                  const aboveAvg = day.total > dailyReport.summary.avgPerDay;
+                  return (
+                    <div key={day.date}>
+                      <button
+                        onClick={() => setExpandedDay(isExpanded ? null : day.date)}
+                        className={`w-full px-4 py-3 text-left transition-colors hover:bg-violet-50/30 ${isToday ? 'bg-violet-50/40' : ''}`}
+                      >
+                        {/* Mobile layout */}
+                        <div className="sm:hidden">
+                          <div className="flex items-center justify-between">
+                            <span className={`text-sm font-semibold ${isToday ? 'text-violet-700' : 'text-gray-900'}`}>
+                              {dayName} {isToday && <span className="ml-1 text-[10px] font-bold text-violet-500">(Today)</span>}
+                            </span>
+                            <span className="text-lg font-bold text-gray-900">{day.total}</span>
+                          </div>
+                          <div className="mt-1 flex items-center gap-3 text-[11px]">
+                            <span className="text-emerald-600">{day.matched} matched</span>
+                            <span className="text-amber-600">{day.unmatched} unmatched</span>
+                            <span className="text-gray-400">{day.matchRate}%</span>
+                            {day.reps.length > 0 && (
+                              <span className="text-gray-300">{day.reps.length} rep{day.reps.length !== 1 ? 's' : ''}</span>
+                            )}
+                          </div>
+                        </div>
+                        {/* Desktop layout */}
+                        <div className="hidden sm:grid sm:grid-cols-12 sm:items-center sm:gap-2">
+                          <div className="col-span-3">
+                            <span className={`text-sm font-semibold ${isToday ? 'text-violet-700' : 'text-gray-900'}`}>
+                              {dayName}
+                            </span>
+                            {isToday && <span className="ml-1.5 rounded bg-violet-100 px-1.5 py-0.5 text-[10px] font-bold text-violet-600">Today</span>}
+                          </div>
+                          <div className="col-span-2 text-right">
+                            <span className={`text-sm font-bold ${aboveAvg ? 'text-gray-900' : 'text-gray-500'}`}>{day.total}</span>
+                            {aboveAvg && <span className="ml-1 text-[10px] text-emerald-500" title="Above average">&#9650;</span>}
+                          </div>
+                          <div className="col-span-2 text-right text-sm font-medium text-emerald-600">{day.matched}</div>
+                          <div className="col-span-2 text-right text-sm font-medium text-amber-600">{day.unmatched}</div>
+                          <div className="col-span-2 text-right">
+                            <span className={`text-sm font-bold ${day.matchRate >= 60 ? 'text-emerald-600' : day.matchRate >= 40 ? 'text-amber-600' : 'text-red-500'}`}>
+                              {day.matchRate}%
+                            </span>
+                          </div>
+                          <div className="col-span-1 text-right">
+                            {day.reps.length > 0 && (
+                              isExpanded
+                                ? <ChevronUp className="ml-auto h-4 w-4 text-gray-400" />
+                                : <ChevronDown className="ml-auto h-4 w-4 text-gray-300" />
+                            )}
+                          </div>
+                        </div>
+                      </button>
+                      {/* Expanded rep breakdown */}
+                      {isExpanded && day.reps.length > 0 && (
+                        <div className="border-t border-gray-100 bg-gray-50/50 px-4 py-3">
+                          <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400">Rep Breakdown</p>
+                          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                            {day.reps.map((rep) => (
+                              <div key={rep.name} className="flex items-center justify-between rounded-lg bg-white px-3 py-2 shadow-sm">
+                                <span className="text-sm font-medium text-gray-700">{rep.name}</span>
+                                <div className="flex items-center gap-2 text-xs">
+                                  <span className="font-bold text-gray-900">{rep.total}</span>
+                                  <span className="text-emerald-600">{rep.matched}m</span>
+                                  <span className="text-amber-600">{rep.total - rep.matched}u</span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
       )}
 

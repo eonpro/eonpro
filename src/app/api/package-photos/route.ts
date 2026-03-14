@@ -434,6 +434,120 @@ async function getHandler(req: NextRequest, user: AuthUser) {
       });
     }
 
+    // Daily report mode — per-day breakdown for a date range with rep details
+    if (url.searchParams.get('daily-report') === 'true') {
+      const tz = await resolveClinicTimezone(user.clinicId);
+      const bounds = getTimezoneAwareBoundaries(tz);
+
+      const fromParam = url.searchParams.get('from');
+      const toParam = url.searchParams.get('to');
+
+      let rangeStart: Date;
+      let rangeEnd: Date;
+
+      if (fromParam) {
+        const [fy, fm, fd] = fromParam.split('-').map(Number);
+        rangeStart = midnightInTz(fy, fm - 1, fd, tz);
+      } else {
+        rangeStart = midnightInTz(bounds.year, bounds.month, bounds.day - 29, tz);
+      }
+
+      if (toParam) {
+        const [ty, tm, td] = toParam.split('-').map(Number);
+        rangeEnd = midnightInTz(ty, tm - 1, td + 1, tz);
+      } else {
+        rangeEnd = midnightInTz(bounds.year, bounds.month, bounds.day + 1, tz);
+      }
+
+      const [dailyRows, repDailyRows] = await Promise.all([
+        prisma.$queryRaw<Array<{
+          day: Date;
+          total: bigint;
+          matched: bigint;
+          unmatched: bigint;
+        }>>`
+          SELECT
+            DATE("createdAt") as day,
+            COUNT(*)::bigint as total,
+            COUNT(*) FILTER (WHERE matched = true)::bigint as matched,
+            COUNT(*) FILTER (WHERE matched = false)::bigint as unmatched
+          FROM "PackagePhoto"
+          WHERE "createdAt" >= ${rangeStart} AND "createdAt" < ${rangeEnd}
+          GROUP BY DATE("createdAt")
+          ORDER BY day DESC
+        `,
+        prisma.$queryRaw<Array<{
+          day: Date;
+          captured_by_id: number;
+          first_name: string;
+          last_name: string;
+          total: bigint;
+          matched: bigint;
+        }>>`
+          SELECT
+            DATE(pp."createdAt") as day,
+            pp."capturedById" as captured_by_id,
+            u."firstName" as first_name,
+            u."lastName" as last_name,
+            COUNT(*)::bigint as total,
+            COUNT(*) FILTER (WHERE pp.matched = true)::bigint as matched
+          FROM "PackagePhoto" pp
+          JOIN "User" u ON u.id = pp."capturedById"
+          WHERE pp."createdAt" >= ${rangeStart} AND pp."createdAt" < ${rangeEnd}
+          GROUP BY DATE(pp."createdAt"), pp."capturedById", u."firstName", u."lastName"
+          ORDER BY day DESC, total DESC
+        `,
+      ]);
+
+      const repsByDay = new Map<string, Array<{ name: string; total: number; matched: number }>>();
+      for (const row of repDailyRows) {
+        const dayKey = new Date(row.day).toISOString().split('T')[0];
+        if (!repsByDay.has(dayKey)) repsByDay.set(dayKey, []);
+        repsByDay.get(dayKey)!.push({
+          name: `${row.first_name} ${row.last_name}`,
+          total: Number(row.total),
+          matched: Number(row.matched),
+        });
+      }
+
+      const grandTotal = dailyRows.reduce((s, r) => s + Number(r.total), 0);
+      const grandMatched = dailyRows.reduce((s, r) => s + Number(r.matched), 0);
+      const daysWithData = dailyRows.length;
+
+      const days = dailyRows.map((row) => {
+        const dayKey = new Date(row.day).toISOString().split('T')[0];
+        const t = Number(row.total);
+        const m = Number(row.matched);
+        return {
+          date: dayKey,
+          total: t,
+          matched: m,
+          unmatched: Number(row.unmatched),
+          matchRate: t > 0 ? Math.round((m / t) * 100) : 0,
+          reps: repsByDay.get(dayKey) ?? [],
+        };
+      });
+
+      return NextResponse.json({
+        success: true,
+        data: {
+          days,
+          summary: {
+            totalDays: daysWithData,
+            totalPackages: grandTotal,
+            totalMatched: grandMatched,
+            totalUnmatched: grandTotal - grandMatched,
+            matchRate: grandTotal > 0 ? Math.round((grandMatched / grandTotal) * 100) : 0,
+            avgPerDay: daysWithData > 0 ? Math.round(grandTotal / daysWithData) : 0,
+          },
+          range: {
+            from: fromParam ?? rangeStart.toISOString().split('T')[0],
+            to: toParam ?? new Date(rangeEnd.getTime() - 86400000).toISOString().split('T')[0],
+          },
+        },
+      });
+    }
+
     const params = searchSchema.parse(Object.fromEntries(url.searchParams));
     const { search, matched, period, from, to, page, limit, sortBy, sortOrder } = params;
 
