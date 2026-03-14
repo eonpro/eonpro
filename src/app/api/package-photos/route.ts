@@ -6,10 +6,25 @@ import { uploadToS3, generateSignedUrl } from '@/lib/integrations/aws/s3Service'
 import { FileCategory, isS3Enabled } from '@/lib/integrations/aws/s3Config';
 import { logger } from '@/lib/logger';
 import { decryptPHI } from '@/lib/security/phi-encryption';
+import { getTimezoneAwareBoundaries, midnightInTz, getDatePartsInTz } from '@/lib/utils/timezone';
 import { z } from 'zod';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/heic', 'image/heif'];
+const DEFAULT_TIMEZONE = 'America/New_York';
+
+async function resolveClinicTimezone(clinicId: number | null): Promise<string> {
+  if (!clinicId) return DEFAULT_TIMEZONE;
+  try {
+    const clinic = await prisma.clinic.findUnique({
+      where: { id: clinicId },
+      select: { timezone: true },
+    });
+    return clinic?.timezone || DEFAULT_TIMEZONE;
+  } catch {
+    return DEFAULT_TIMEZONE;
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Tracking Resolution — check Order, ShippingUpdate, ShipmentLabel
@@ -241,7 +256,9 @@ export const POST = withPharmacyAccessAuth(postHandler);
 const searchSchema = z.object({
   search: z.string().optional(),
   matched: z.enum(['true', 'false', 'all']).optional().default('all'),
-  period: z.enum(['today', 'week', 'month', 'all']).optional().default('all'),
+  period: z.enum(['today', 'yesterday', 'last7', 'last30', 'week', 'month', 'custom', 'all']).optional().default('all'),
+  from: z.string().optional(),
+  to: z.string().optional(),
   page: z.coerce.number().int().positive().optional().default(1),
   limit: z.coerce.number().int().min(1).max(100).optional().default(25),
   sortBy: z.enum(['createdAt', 'lifefileId']).optional().default('createdAt'),
@@ -254,14 +271,12 @@ async function getHandler(req: NextRequest, user: AuthUser) {
 
     // Stats mode — aggregate counts for the audit dashboard
     if (url.searchParams.get('stats') === 'true') {
-      const now = new Date();
-      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      const weekStart = new Date(todayStart);
-      weekStart.setDate(weekStart.getDate() - weekStart.getDay());
-      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      const tz = await resolveClinicTimezone(user.clinicId);
+      const { todayStart, yesterdayStart, weekStart, monthStart } = getTimezoneAwareBoundaries(tz);
 
-      const [today, thisWeek, thisMonth, matched, total] = await Promise.all([
+      const [today, yesterday, thisWeek, thisMonth, matched, total] = await Promise.all([
         prisma.packagePhoto.count({ where: { createdAt: { gte: todayStart } } }),
+        prisma.packagePhoto.count({ where: { createdAt: { gte: yesterdayStart, lt: todayStart } } }),
         prisma.packagePhoto.count({ where: { createdAt: { gte: weekStart } } }),
         prisma.packagePhoto.count({ where: { createdAt: { gte: monthStart } } }),
         prisma.packagePhoto.count({ where: { matched: true } }),
@@ -272,6 +287,7 @@ async function getHandler(req: NextRequest, user: AuthUser) {
         success: true,
         data: {
           today,
+          yesterday,
           thisWeek,
           thisMonth,
           matched,
@@ -284,14 +300,10 @@ async function getHandler(req: NextRequest, user: AuthUser) {
 
     // Demographics mode — detailed breakdowns for the analytics dashboard
     if (url.searchParams.get('demographics') === 'true') {
-      const now = new Date();
-      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const tz = await resolveClinicTimezone(user.clinicId);
+      const { todayStart, monthStart, year, month, day } = getTimezoneAwareBoundaries(tz);
 
-      // Last 14 days for daily volume chart
-      const fourteenDaysAgo = new Date(todayStart);
-      fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 13);
-
-      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      const fourteenDaysAgo = midnightInTz(year, month, day - 13, tz);
 
       const [
         dailyVolumeRaw,
@@ -366,9 +378,9 @@ async function getHandler(req: NextRequest, user: AuthUser) {
       ]));
 
       for (let i = 0; i < 14; i++) {
-        const d = new Date(fourteenDaysAgo);
-        d.setDate(d.getDate() + i);
-        const key = d.toISOString().split('T')[0];
+        const offsetDays = day - 13 + i;
+        const dayMidnight = midnightInTz(year, month, offsetDays, tz);
+        const key = new Date(dayMidnight.getTime() + 12 * 60 * 60 * 1000).toISOString().split('T')[0];
         const data = dayMap.get(key) ?? { total: 0, matched: 0 };
         dailyVolume.push({
           date: key,
@@ -423,7 +435,7 @@ async function getHandler(req: NextRequest, user: AuthUser) {
     }
 
     const params = searchSchema.parse(Object.fromEntries(url.searchParams));
-    const { search, matched, period, page, limit, sortBy, sortOrder } = params;
+    const { search, matched, period, from, to, page, limit, sortBy, sortOrder } = params;
 
     const where: Record<string, unknown> = {};
 
@@ -441,17 +453,34 @@ async function getHandler(req: NextRequest, user: AuthUser) {
     }
 
     if (period !== 'all') {
-      const now = new Date();
-      let periodStart: Date;
+      const tz = await resolveClinicTimezone(user.clinicId);
+      const bounds = getTimezoneAwareBoundaries(tz);
+
       if (period === 'today') {
-        periodStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        where.createdAt = { gte: bounds.todayStart };
+      } else if (period === 'yesterday') {
+        where.createdAt = { gte: bounds.yesterdayStart, lt: bounds.todayStart };
+      } else if (period === 'last7') {
+        const sevenDaysAgo = midnightInTz(bounds.year, bounds.month, bounds.day - 6, tz);
+        where.createdAt = { gte: sevenDaysAgo };
+      } else if (period === 'last30') {
+        const thirtyDaysAgo = midnightInTz(bounds.year, bounds.month, bounds.day - 29, tz);
+        where.createdAt = { gte: thirtyDaysAgo };
       } else if (period === 'week') {
-        periodStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        periodStart.setDate(periodStart.getDate() - periodStart.getDay());
-      } else {
-        periodStart = new Date(now.getFullYear(), now.getMonth(), 1);
+        where.createdAt = { gte: bounds.weekStart };
+      } else if (period === 'month') {
+        where.createdAt = { gte: bounds.monthStart };
+      } else if (period === 'custom' && from) {
+        const [fy, fm, fd] = from.split('-').map(Number);
+        const customStart = midnightInTz(fy, fm - 1, fd, tz);
+        if (to) {
+          const [ty, tm, td] = to.split('-').map(Number);
+          const customEnd = midnightInTz(ty, tm - 1, td + 1, tz);
+          where.createdAt = { gte: customStart, lt: customEnd };
+        } else {
+          where.createdAt = { gte: customStart };
+        }
       }
-      where.createdAt = { gte: periodStart };
     }
 
     const [photos, total] = await Promise.all([

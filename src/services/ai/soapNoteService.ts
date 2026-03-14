@@ -124,16 +124,20 @@ export async function generateSOAPFromIntake(
   });
 
   // Prevent creating SOAP notes for test/dummy patients
-  // Use decrypted values for the check
-  const isTestPatient =
-    patient.firstName?.toLowerCase() === 'unknown' ||
-    patient.lastName?.toLowerCase() === 'unknown' ||
-    patient.firstName?.toLowerCase().includes('test') ||
-    patient.lastName?.toLowerCase().includes('test') ||
-    patient.firstName?.toLowerCase().includes('demo') ||
-    patient.lastName?.toLowerCase().includes('demo') ||
-    patient.email?.toLowerCase().includes('test') ||
-    patient.email?.toLowerCase().includes('demo');
+  // Use exact word matching to avoid false positives on real names
+  const fn = patient.firstName?.toLowerCase().trim() ?? '';
+  const ln = patient.lastName?.toLowerCase().trim() ?? '';
+  const em = patient.email?.toLowerCase().trim() ?? '';
+  const fnLooksEncrypted = fn.includes(':') && fn.length > 30;
+  const lnLooksEncrypted = ln.includes(':') && ln.length > 30;
+
+  const isTestPatient = !fnLooksEncrypted && !lnLooksEncrypted && (
+    fn === 'unknown' || ln === 'unknown' ||
+    fn === 'test' || ln === 'test' || fn === 'demo' || ln === 'demo' ||
+    /^test[\s._-]|[\s._-]test$|^test\d*$/i.test(fn) ||
+    /^test[\s._-]|[\s._-]test$|^test\d*$/i.test(ln) ||
+    /^(test|demo)[.+_-].*@/.test(em) || /^.*[.+_-](test|demo)@/.test(em)
+  );
 
   if (isTestPatient) {
     throw new Error('Cannot generate SOAP notes for test/demo patients');

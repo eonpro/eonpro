@@ -153,18 +153,34 @@ export async function ensureSoapNoteExists(
     });
 
     // Skip test/demo patients (using decrypted values)
-    const isTestPatient =
-      patient.firstName?.toLowerCase() === 'unknown' ||
-      patient.lastName?.toLowerCase() === 'unknown' ||
-      patient.firstName?.toLowerCase().includes('test') ||
-      patient.lastName?.toLowerCase().includes('test') ||
-      patient.firstName?.toLowerCase().includes('demo') ||
-      patient.lastName?.toLowerCase().includes('demo') ||
-      patient.email?.toLowerCase().includes('test') ||
-      patient.email?.toLowerCase().includes('demo');
+    // Use exact word matching to avoid false positives on real names
+    // (e.g., substring "test" in encrypted values or legitimate names)
+    const fn = patient.firstName?.toLowerCase().trim() ?? '';
+    const ln = patient.lastName?.toLowerCase().trim() ?? '';
+    const em = patient.email?.toLowerCase().trim() ?? '';
+    const fnLooksEncrypted = fn.includes(':') && fn.length > 30;
+    const lnLooksEncrypted = ln.includes(':') && ln.length > 30;
 
-    if (isTestPatient) {
-      logger.debug('[SOAP-AUTOMATION] Skipping test/demo patient', logContext);
+    const testPatientReason = fnLooksEncrypted || lnLooksEncrypted
+      ? null // Never flag patients whose names failed to decrypt
+      : fn === 'unknown' || ln === 'unknown'
+        ? 'name_unknown'
+        : fn === 'test' || ln === 'test' || fn === 'demo' || ln === 'demo'
+          ? 'name_exact_test_demo'
+          : /^test[\s._-]|[\s._-]test$|^test\d*$/i.test(fn) || /^test[\s._-]|[\s._-]test$|^test\d*$/i.test(ln)
+            ? 'name_test_pattern'
+            : /^(test|demo)[.+_-].*@/.test(em) || /^.*[.+_-](test|demo)@/.test(em)
+              ? 'email_test_pattern'
+              : null;
+
+    if (testPatientReason) {
+      logger.info('[SOAP-AUTOMATION] Skipping test/demo patient', {
+        ...logContext,
+        testPatientReason,
+        firstNamePrefix: fn.substring(0, 4),
+        lastNamePrefix: ln.substring(0, 4),
+        emailDomain: em.includes('@') ? em.split('@')[1] : 'none',
+      });
       return {
         success: false,
         soapNoteId: null,

@@ -68,6 +68,7 @@ interface UploadResult {
 
 interface AuditStats {
   today: number;
+  yesterday: number;
   thisWeek: number;
   thisMonth: number;
   matched: number;
@@ -816,7 +817,9 @@ function AuditLog() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [matchFilter, setMatchFilter] = useState<'all' | 'true' | 'false'>('all');
-  const [periodFilter, setPeriodFilter] = useState<'all' | 'today' | 'week' | 'month'>('all');
+  const [periodFilter, setPeriodFilter] = useState<string>('all');
+  const [customFrom, setCustomFrom] = useState('');
+  const [customTo, setCustomTo] = useState('');
   const [sortBy, setSortBy] = useState<'createdAt' | 'lifefileId'>('createdAt');
   const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
   const [page, setPage] = useState(1);
@@ -846,13 +849,17 @@ function AuditLog() {
   }, []);
 
   const fetchPhotos = useCallback(
-    async (searchVal: string, matchVal: string, periodVal: string, sortByVal: string, sortOrderVal: string, pageVal: number) => {
+    async (searchVal: string, matchVal: string, periodVal: string, sortByVal: string, sortOrderVal: string, pageVal: number, fromVal?: string, toVal?: string) => {
       setLoading(true);
       try {
         const params = new URLSearchParams();
         if (searchVal) params.set('search', searchVal);
         if (matchVal !== 'all') params.set('matched', matchVal);
         if (periodVal !== 'all') params.set('period', periodVal);
+        if (periodVal === 'custom' && fromVal) {
+          params.set('from', fromVal);
+          if (toVal) params.set('to', toVal);
+        }
         params.set('sortBy', sortByVal);
         params.set('sortOrder', sortOrderVal);
         params.set('page', String(pageVal));
@@ -874,8 +881,8 @@ function AuditLog() {
   useEffect(() => { fetchStats(); }, [fetchStats]);
 
   useEffect(() => {
-    fetchPhotos(search, matchFilter, periodFilter, sortBy, sortOrder, page);
-  }, [fetchPhotos, matchFilter, periodFilter, sortBy, sortOrder, page]); // eslint-disable-line react-hooks/exhaustive-deps
+    fetchPhotos(search, matchFilter, periodFilter, sortBy, sortOrder, page, customFrom, customTo);
+  }, [fetchPhotos, matchFilter, periodFilter, sortBy, sortOrder, page, customFrom, customTo]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSearchChange = useCallback(
     (value: string) => {
@@ -883,10 +890,10 @@ function AuditLog() {
       if (searchTimeout.current) clearTimeout(searchTimeout.current);
       searchTimeout.current = setTimeout(() => {
         setPage(1);
-        fetchPhotos(value, matchFilter, periodFilter, sortBy, sortOrder, 1);
+        fetchPhotos(value, matchFilter, periodFilter, sortBy, sortOrder, 1, customFrom, customTo);
       }, 350);
     },
-    [fetchPhotos, matchFilter, periodFilter, sortBy, sortOrder],
+    [fetchPhotos, matchFilter, periodFilter, sortBy, sortOrder, customFrom, customTo],
   );
 
   const toggleSort = (col: 'createdAt' | 'lifefileId') => {
@@ -903,12 +910,18 @@ function AuditLog() {
     <div>
       {/* Stats banner */}
       {stats && (
-        <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-5">
+        <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
           <div className="rounded-xl border border-gray-200 bg-white px-4 py-3">
             <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
               <Camera className="h-3.5 w-3.5" /> Today
             </p>
             <p className="mt-1 text-2xl font-bold text-gray-900">{stats.today}</p>
+          </div>
+          <div className="rounded-xl border border-gray-200 bg-white px-4 py-3">
+            <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+              <Clock className="h-3.5 w-3.5" /> Yesterday
+            </p>
+            <p className="mt-1 text-2xl font-bold text-gray-900">{stats.yesterday}</p>
           </div>
           <div className="rounded-xl border border-gray-200 bg-white px-4 py-3">
             <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
@@ -1181,16 +1194,55 @@ function AuditLog() {
           </select>
           <select
             value={periodFilter}
-            onChange={(e) => { setPeriodFilter(e.target.value as 'all' | 'today' | 'week' | 'month'); setPage(1); }}
+            onChange={(e) => {
+              setPeriodFilter(e.target.value);
+              if (e.target.value !== 'custom') {
+                setCustomFrom('');
+                setCustomTo('');
+              }
+              setPage(1);
+            }}
             className="flex-1 rounded-lg border border-gray-200 bg-white px-3 py-3 text-sm font-medium text-gray-700 focus:border-violet-500 focus:outline-none sm:flex-none sm:py-2.5 sm:text-xs"
           >
             <option value="all">All Time</option>
             <option value="today">Today</option>
+            <option value="yesterday">Yesterday</option>
+            <option value="last7">Last 7 Days</option>
+            <option value="last30">Last 30 Days</option>
             <option value="week">This Week</option>
             <option value="month">This Month</option>
+            <option value="custom">Custom Range</option>
           </select>
         </div>
       </div>
+
+      {/* Custom date range picker */}
+      {periodFilter === 'custom' && (
+        <div className="mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-violet-200 bg-violet-50 px-3 py-2.5">
+          <span className="text-xs font-semibold text-violet-700">From:</span>
+          <input
+            type="date"
+            value={customFrom}
+            onChange={(e) => { setCustomFrom(e.target.value); setPage(1); }}
+            className="rounded-md border border-gray-200 bg-white px-2 py-1.5 text-xs text-gray-700 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500/20"
+          />
+          <span className="text-xs font-semibold text-violet-700">To:</span>
+          <input
+            type="date"
+            value={customTo}
+            onChange={(e) => { setCustomTo(e.target.value); setPage(1); }}
+            className="rounded-md border border-gray-200 bg-white px-2 py-1.5 text-xs text-gray-700 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500/20"
+          />
+          {customFrom && (
+            <button
+              onClick={() => { setCustomFrom(''); setCustomTo(''); setPeriodFilter('all'); setPage(1); }}
+              className="ml-auto flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-violet-600 transition-colors hover:bg-violet-100"
+            >
+              <X className="h-3 w-3" /> Clear
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Results count */}
       <div className="mb-3 text-xs font-medium text-gray-400">
