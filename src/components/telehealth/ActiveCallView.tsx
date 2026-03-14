@@ -10,6 +10,7 @@ import {
   Copy,
   CheckCircle,
   Shield,
+  PhoneOff,
 } from 'lucide-react';
 
 import { safeParseJsonString } from '@/lib/utils/safe-json';
@@ -46,6 +47,7 @@ export default function ActiveCallView({
   const callStartRef = useRef<Date | null>(null);
   const onCallEndRef = useRef(onCallEnd);
   onCallEndRef.current = onCallEnd;
+  const leaveCallRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     try {
@@ -83,6 +85,10 @@ export default function ActiveCallView({
 
   const handleTranscriptUpdate = useCallback((transcript: string) => {
     transcriptRef.current = transcript;
+  }, []);
+
+  const handleEndCallClick = useCallback(() => {
+    leaveCallRef.current?.();
   }, []);
 
   const copyPatientLink = () => {
@@ -149,28 +155,28 @@ export default function ActiveCallView({
               <span className="hidden sm:inline">AI Scribe</span>
             </button>
           )}
+
+          <button
+            onClick={handleEndCallClick}
+            className="flex items-center gap-1.5 rounded-lg bg-red-600 px-2.5 py-1.5 text-xs font-medium text-white transition-colors hover:bg-red-700 sm:px-3"
+          >
+            <PhoneOff className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">End Call</span>
+          </button>
         </div>
       </div>
 
       {/* Main Content */}
-      <div className="flex flex-1 overflow-hidden">
-        {/* Video Area */}
-        <div className="flex flex-1 items-center justify-center p-2 sm:p-4">
-          <div className="w-full max-w-5xl">
-            <ZoomEmbeddedMeeting
-              meetingNumber={session.meetingId ?? ''}
-              password={session.password}
-              userName={userName}
-              userEmail={userEmail}
-              role={1}
-              joinUrl={session.hostUrl ?? session.joinUrl}
-              onMeetingStart={handleMeetingStart}
-              onMeetingEnd={handleMeetingEnd}
-              onError={() => {
-                // Error is shown inside ZoomEmbeddedMeeting
-              }}
-            />
-          </div>
+      <div className="flex min-h-0 flex-1">
+        {/* Video Area — no overflow-hidden so Zoom SDK controls render properly */}
+        <div className="relative min-h-0 min-w-0 flex-1">
+          <ZoomEmbeddedMeeting
+            meetingNumber={session.meetingId ?? ''}
+            joinUrl={session.hostUrl ?? session.joinUrl}
+            leaveRef={leaveCallRef}
+            onMeetingStart={handleMeetingStart}
+            onMeetingEnd={handleMeetingEnd}
+          />
         </div>
 
         {/* Scribe Sidebar */}
