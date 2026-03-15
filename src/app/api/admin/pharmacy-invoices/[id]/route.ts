@@ -112,11 +112,6 @@ export const PATCH = withAuth(
 export const DELETE = withAuth(
   async (req: NextRequest, user: AuthUser, context?: RouteContext) => {
     try {
-      // Only super_admin can delete invoices
-      if (user.role !== 'super_admin') {
-        return NextResponse.json({ error: 'Only super admins can delete invoices' }, { status: 403 });
-      }
-
       const { id } = await context!.params;
       const uploadId = parseInt(id, 10);
       if (isNaN(uploadId)) {
@@ -153,11 +148,11 @@ export const DELETE = withAuth(
       const deleted = await deleteUpload(uploadId, clinicId);
       if (!deleted) throw new NotFoundError('Invoice upload not found');
 
-      logger.info('Pharmacy invoice deleted by super admin', { uploadId, userId: user.id });
+      logger.info('Pharmacy invoice deleted', { uploadId, userId: user.id, userRole: user.role });
       return NextResponse.json({ success: true });
     } catch (error) {
       return handleApiError(error, { context: { route: 'DELETE /api/admin/pharmacy-invoices/[id]' } });
     }
   },
-  { roles: ['super_admin'] }
+  { roles: ['admin', 'super_admin'] }
 );

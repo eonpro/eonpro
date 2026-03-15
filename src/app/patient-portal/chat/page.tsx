@@ -47,12 +47,19 @@ export default function PatientChatPage() {
   const { t } = usePatientPortalLanguage();
   const primaryColor = branding?.primaryColor || '#4fa77e';
 
-  const { patientId } = usePatientId();
+  const { patientId, loading: patientIdLoading } = usePatientId();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (!patientIdLoading && !patientId) {
+      setLoading(false);
+      setError('Unable to load your profile. Please log out and log back in.');
+    }
+  }, [patientIdLoading, patientId]);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);

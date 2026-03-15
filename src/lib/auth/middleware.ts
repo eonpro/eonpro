@@ -759,10 +759,27 @@ export function withAuth<T = unknown>(
       });
 
       // Pass user with effective clinic so handlers see subdomain clinic when overridden
-      const userForHandler: AuthUser =
+      let userForHandler: AuthUser =
         effectiveClinicId !== user.clinicId
           ? { ...user, clinicId: effectiveClinicId }
           : user;
+
+      // Resolve patientId for patient role when missing from JWT.
+      // This handles cases where User.patientId was never linked (e.g. encrypted-email
+      // fallback failure during login). Resolution is via searchIndex + decrypt
+      // verification. Once resolved, the link is persisted to DB (non-blocking) so
+      // future requests (and re-logins) skip this path.
+      if (userForHandler.role === 'patient' && !userForHandler.patientId) {
+        try {
+          const { resolvePatientId } = await import('@/lib/auth/resolve-patient-id');
+          const resolvedPid = await resolvePatientId(userForHandler);
+          if (resolvedPid) {
+            userForHandler = { ...userForHandler, patientId: resolvedPid };
+          }
+        } catch {
+          // Non-fatal — handler will see patientId as undefined and can return its own error
+        }
+      }
 
       // Execute handler within clinic + request context (thread-safe using AsyncLocalStorage)
       // runWithRequestContext ensures getRequestId() works in all service functions

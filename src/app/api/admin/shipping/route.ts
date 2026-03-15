@@ -22,6 +22,7 @@ function safeDecrypt(value: string | null | undefined): string {
   }
 }
 
+
 async function handleGetShipping(req: NextRequest, user: AuthUser) {
   try {
     const { searchParams } = new URL(req.url);
@@ -156,8 +157,40 @@ async function handleGetShipping(req: NextRequest, user: AuthUser) {
         ]
       : [];
 
+    // Deduplicate: exclude subordinate records (LABEL_CREATED/PENDING) when a
+    // higher-status record exists for the same trackingNumber + patientId.
+    const subordinateRecords = await prisma.patientShippingUpdate.findMany({
+      where: {
+        ...clinicFilter,
+        status: { in: ['LABEL_CREATED', 'PENDING'] },
+      },
+      select: { id: true, trackingNumber: true, patientId: true },
+    });
+
+    let excludeIds: number[] = [];
+    if (subordinateRecords.length > 0) {
+      const trackingNumbers = [...new Set(subordinateRecords.map((r) => r.trackingNumber))];
+      const advancedRecords = await prisma.patientShippingUpdate.findMany({
+        where: {
+          ...clinicFilter,
+          trackingNumber: { in: trackingNumbers },
+          status: { notIn: ['LABEL_CREATED', 'PENDING'] },
+        },
+        select: { trackingNumber: true, patientId: true },
+      });
+
+      const advancedKeys = new Set(
+        advancedRecords.map((r) => `${r.trackingNumber}::${r.patientId}`),
+      );
+
+      excludeIds = subordinateRecords
+        .filter((r) => advancedKeys.has(`${r.trackingNumber}::${r.patientId}`))
+        .map((r) => r.id);
+    }
+
     const where: Prisma.PatientShippingUpdateWhereInput = {
       ...clinicFilter,
+      ...(excludeIds.length > 0 ? { id: { notIn: excludeIds } } : {}),
       ...(status && status !== 'all' ? { status: status as any } : {}),
       ...(carrier && carrier !== 'all'
         ? { carrier: { contains: carrier, mode: 'insensitive' as const } }

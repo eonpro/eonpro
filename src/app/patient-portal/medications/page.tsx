@@ -194,7 +194,7 @@ export default function MedicationsPage() {
     shippedAt: string | null;
   }
 
-  const { patientId } = usePatientId();
+  const { patientId, loading: patientIdLoading, error: patientIdError } = usePatientId();
   const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
   const [billingPlan, setBillingPlan] = useState<BillingPlan | null>(null);
   const [invoiceHistory, setInvoiceHistory] = useState<InvoiceRecord[]>([]);
@@ -213,8 +213,13 @@ export default function MedicationsPage() {
   useEffect(() => {
     if (patientId) {
       loadData();
+    } else if (!patientIdLoading) {
+      setLoading(false);
+      if (patientIdError) {
+        setLoadError('Unable to load your profile. Please log out and log back in.');
+      }
     }
-  }, [patientId]);
+  }, [patientId, patientIdLoading, patientIdError]);
 
   const loadData = async () => {
     setLoadError(null);

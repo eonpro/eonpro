@@ -12,6 +12,7 @@ import { prisma, withoutClinicFilter } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { sendTemplatedEmail, EmailTemplate } from '@/lib/email';
 import { buildPatientSearchIndex } from '@/lib/utils/search';
+import { decryptPHI } from '@/lib/security/phi-encryption';
 
 // Configuration
 const VERIFICATION_TOKEN_LENGTH = 32;
@@ -247,30 +248,71 @@ export async function registerPatient(
       };
     }
 
-    // Match patient by email first, then fall back to phone within the clinic
-    let existingPatient = await prisma.patient.findFirst({
-      where: {
-        email: normalizedEmail,
-        clinicId: inviteCode.clinicId,
-      },
+    // Match patient by email (using searchIndex for encrypted-email support).
+    // Patient.email is AES-256-GCM encrypted, so direct WHERE won't match.
+    // searchIndex is a plain-text GIN-indexed column containing email for search.
+    let existingPatient: Awaited<ReturnType<typeof prisma.patient.findFirst>> & { user?: unknown } | null = null;
+
+    // 1) Try plain text email match first (legacy non-encrypted records)
+    existingPatient = await prisma.patient.findFirst({
+      where: { email: normalizedEmail, clinicId: inviteCode.clinicId },
       include: { user: true },
     });
 
-    // Phone-based fallback: if no email match, try matching by phone + name + DOB
+    // 2) searchIndex-based lookup: find candidates, verify by decrypting
+    if (!existingPatient) {
+      const candidates = await prisma.patient.findMany({
+        where: {
+          clinicId: inviteCode.clinicId,
+          searchIndex: { contains: normalizedEmail, mode: 'insensitive' },
+        },
+        include: { user: true },
+        take: 10,
+      });
+      for (const candidate of candidates) {
+        try {
+          const decryptedEmail = decryptPHI(candidate.email);
+          if (decryptedEmail && decryptedEmail.toLowerCase() === normalizedEmail) {
+            existingPatient = candidate;
+            break;
+          }
+        } catch {
+          if (candidate.email.toLowerCase() === normalizedEmail) {
+            existingPatient = candidate;
+            break;
+          }
+        }
+      }
+    }
+
+    // 3) Phone-based fallback using searchIndex (phone is also encrypted)
     if (!existingPatient && normalizedPhone) {
       const phoneDigits = phone.replace(/\D/g, '');
-      existingPatient = await prisma.patient.findFirst({
+      const phoneCandidates = await prisma.patient.findMany({
         where: {
           clinicId: inviteCode.clinicId,
           user: null,
-          OR: [
-            { phone: normalizedPhone },
-            { phone: phoneDigits },
-            ...(phoneDigits.length === 10 ? [{ phone: `+1${phoneDigits}` }] : []),
-          ],
+          searchIndex: { contains: phoneDigits, mode: 'insensitive' },
         },
         include: { user: true },
+        take: 10,
       });
+      for (const candidate of phoneCandidates) {
+        try {
+          const decryptedPhone = decryptPHI(candidate.phone);
+          const candidateDigits = (decryptedPhone || candidate.phone).replace(/\D/g, '');
+          if (candidateDigits === phoneDigits || candidateDigits === `1${phoneDigits}`) {
+            existingPatient = candidate;
+            break;
+          }
+        } catch {
+          const candidateDigits = candidate.phone.replace(/\D/g, '');
+          if (candidateDigits === phoneDigits || candidateDigits === `1${phoneDigits}`) {
+            existingPatient = candidate;
+            break;
+          }
+        }
+      }
     }
 
     if (existingPatient?.user) {
@@ -285,15 +327,20 @@ export async function registerPatient(
       };
     }
 
-    // Verify identity by matching name + DOB before linking to existing record
+    // Verify identity by matching name + DOB before linking to existing record.
+    // PHI fields (firstName, lastName, dob) may be encrypted — decrypt before comparing.
     let linkToExistingPatient = false;
     if (existingPatient && !existingPatient.user) {
-      const existingFirstName = existingPatient.firstName?.toLowerCase().trim() || '';
-      const existingLastName = existingPatient.lastName?.toLowerCase().trim() || '';
+      const safeDecrypt = (val: string | null | undefined): string => {
+        if (!val) return '';
+        try { return decryptPHI(val) || val; } catch { return val; }
+      };
+      const existingFirstName = safeDecrypt(existingPatient.firstName).toLowerCase().trim();
+      const existingLastName = safeDecrypt(existingPatient.lastName).toLowerCase().trim();
       const inputFirstName = firstName.toLowerCase().trim();
       const inputLastName = lastName.toLowerCase().trim();
 
-      const existingDOB = existingPatient.dob?.replace(/[\/\-]/g, '') || '';
+      const existingDOB = safeDecrypt(existingPatient.dob).replace(/[\/\-]/g, '') || '';
       const inputDOBNormalized = normalizedDOB.replace(/[\/\-]/g, '');
 
       const nameMatches =

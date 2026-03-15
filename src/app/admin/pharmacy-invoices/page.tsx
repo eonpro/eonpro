@@ -536,7 +536,7 @@ export default function PharmacyInvoicesPage() {
                                   className="text-xs font-medium text-gray-500 hover:text-emerald-600">View</a>
                                 <button onClick={() => handleRerun(u.id)} className="text-gray-400 hover:text-blue-500" title="Re-run"><RefreshCw className="h-3.5 w-3.5" /></button>
                                 <button onClick={() => { setDeleteModal(u.id); setDeletePassword(''); setDeleteError(''); }} disabled={deletingId === u.id}
-                                  className="text-gray-400 hover:text-red-500 disabled:opacity-50" title="Delete (Super Admin only)">
+                                  className="text-gray-400 hover:text-red-500 disabled:opacity-50" title="Delete invoice">
                                   {deletingId === u.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
                                 </button>
                               </div>
@@ -1189,13 +1189,13 @@ export default function PharmacyInvoicesPage() {
         </div>
       )}
 
-      {/* Delete Confirmation Modal (Super Admin Password Required) */}
+      {/* Delete Confirmation Modal (Password Required) */}
       {deleteModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setDeleteModal(null)}>
           <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <h2 className="mb-2 text-lg font-bold text-red-600">Delete Invoice</h2>
             <p className="mb-4 text-sm text-gray-500">
-              This will permanently delete the invoice and all its line items. Enter your super admin password to confirm.
+              This will permanently delete the invoice and all its line items. Enter your password to confirm.
             </p>
             {deleteError && (
               <div className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{deleteError}</div>

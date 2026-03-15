@@ -47,6 +47,7 @@ export default function PatientPortalDocuments() {
     const run = async () => {
       const userJson = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
       if (!userJson) {
+        setIsLoading(false);
         router.push(`/patient-login?redirect=${encodeURIComponent(`${PATIENT_PORTAL_PATH}/documents`)}&reason=no_session`);
         return;
       }
@@ -348,6 +349,25 @@ export default function PatientPortalDocuments() {
     if (mimeType.startsWith('text/')) return '📝';
     return '📎';
   };
+
+  if (!patientId && !isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center p-4">
+        <div className="max-w-md rounded-lg border border-amber-200 bg-amber-50 p-4 text-center text-amber-900">
+          <p className="mb-2 font-medium">Unable to load your profile</p>
+          <p className="text-sm">Please log out and log back in to continue.</p>
+          <div className="mt-4">
+            <Link
+              href={`/patient-login?redirect=${encodeURIComponent(`${PATIENT_PORTAL_PATH}/documents`)}&reason=session_expired`}
+              className="rounded-lg bg-amber-200 px-4 py-2 text-sm font-medium text-amber-900 hover:bg-amber-300"
+            >
+              Log in
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (!patientId) {
     return null;

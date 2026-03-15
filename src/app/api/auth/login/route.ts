@@ -24,6 +24,7 @@ import { authRateLimiter } from '@/lib/security/enterprise-rate-limiter';
 import { logger } from '@/lib/logger';
 import { getRequestHost, getRequestHostWithUrlFallback, shouldUseEonproCookieDomain } from '@/lib/request-host';
 import { hashRefreshToken } from '@/lib/auth/refresh-token-rotation';
+import { decryptPHI } from '@/lib/security/phi-encryption';
 import { withApiHandler } from '@/domains/shared/errors';
 
 const AUTH_LOCKOUT_AFTER_ATTEMPTS = parseInt(process.env.AUTH_LOCKOUT_AFTER_ATTEMPTS || '10', 10);
@@ -774,21 +775,49 @@ async function loginHandler(req: NextRequest) {
           })
         : Promise.resolve(null),
       // FALLBACK: Look up patient by email if not already linked
-      // Use basePrisma — clinic context is not yet set during login; clinicId is explicit in the WHERE clause
+      // Patient.email is AES-256-GCM encrypted — direct WHERE on email will NOT match.
+      // Strategy: (1) try plain email match (non-encrypted legacy), (2) searchIndex + decrypt verify.
       needsPatientFallback
-        ? basePrisma.patient.findFirst({
-            where: {
-              email: user.email.toLowerCase(),
-              clinicId: activeClinicId,
-            },
-            select: { id: true },
-          }).catch((error: unknown) => {
-            logger.debug('[Login] Patient fallback lookup failed', {
-              error: error instanceof Error ? error.message : 'Unknown error',
-              email: user.email,
-            });
-            return null;
-          })
+        ? (async (): Promise<{ id: number } | null> => {
+            const emailLower = user.email.toLowerCase();
+            try {
+              // 1) Plain text email lookup (works for non-encrypted records)
+              const directMatch = await basePrisma.patient.findFirst({
+                where: { email: emailLower, ...(activeClinicId ? { clinicId: activeClinicId } : {}) },
+                select: { id: true },
+              });
+              if (directMatch) return directMatch;
+
+              // 2) searchIndex contains lowercase plaintext of email — use it as a candidate filter,
+              //    then verify by decrypting the actual email field.
+              const candidates = await basePrisma.patient.findMany({
+                where: {
+                  ...(activeClinicId ? { clinicId: activeClinicId } : {}),
+                  searchIndex: { contains: emailLower, mode: 'insensitive' },
+                },
+                select: { id: true, email: true },
+                take: 10,
+              });
+              for (const candidate of candidates) {
+                try {
+                  const decryptedEmail = decryptPHI(candidate.email);
+                  if (decryptedEmail && decryptedEmail.toLowerCase() === emailLower) {
+                    return { id: candidate.id };
+                  }
+                } catch {
+                  if (candidate.email.toLowerCase() === emailLower) {
+                    return { id: candidate.id };
+                  }
+                }
+              }
+              return null;
+            } catch (error: unknown) {
+              logger.debug('[Login] Patient fallback lookup failed', {
+                error: error instanceof Error ? error.message : 'Unknown error',
+              });
+              return null;
+            }
+          })()
         : Promise.resolve(null),
     ]);
 
@@ -806,13 +835,23 @@ async function loginHandler(req: NextRequest) {
       });
     }
 
-    // Apply patient fallback result
+    // Apply patient fallback result and persist the link so future logins skip the fallback
+    // and the provider-side "Portal access" block shows "Activated".
     if (patientFallback) {
       tokenPayload.patientId = patientFallback.id;
       logger.info('[Login] Found patient by email fallback', {
         userId: user.id,
         patientId: patientFallback.id,
-        email: user.email,
+      });
+      basePrisma.user.update({
+        where: { id: user.id },
+        data: { patientId: patientFallback.id },
+      }).catch((err: unknown) => {
+        logger.warn('[Login] Failed to persist User.patientId link', {
+          userId: user.id,
+          patientId: patientFallback.id,
+          error: err instanceof Error ? err.message : String(err),
+        });
       });
     }
 

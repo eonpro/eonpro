@@ -106,8 +106,10 @@ function safeDate(value: string | number | Date | null | undefined): string | nu
 
 async function getHandler(req: NextRequest, user: AuthUser) {
   try {
+    // patientId is resolved by the withAuth middleware (via resolvePatientId)
+    // when missing from the JWT. If it's still null here, resolution failed.
     if (!user.patientId) {
-      logger.warn('[Portal Tracking] No patientId in JWT', { userId: user.id, role: user.role });
+      logger.warn('[Portal Tracking] No patientId after middleware resolution', { userId: user.id, role: user.role });
       return NextResponse.json({ error: 'Patient profile not found' }, { status: 404 });
     }
 
