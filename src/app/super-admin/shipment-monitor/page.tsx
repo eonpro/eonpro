@@ -414,14 +414,19 @@ export default function ShipmentMonitorPage() {
                       {tab === 'delivered' && (
                         <td className="px-4 py-3">
                           <div className="space-y-1.5">
-                            {s.signedBy && <span className="block text-xs text-gray-600">Signed: <span className="font-medium">{s.signedBy}</span></span>}
-                            <button
-                              onClick={() => handleViewProof(s.trackingNumber)}
+                            {s.signedBy && s.signedBy !== 'Signature Not Req' && (
+                              <span className="block text-xs text-gray-600">Signed: <span className="font-medium">{s.signedBy}</span></span>
+                            )}
+                            <a
+                              href={`https://www.fedex.com/fedextrack/?trknbr=${s.trackingNumber}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
                               className="inline-flex items-center gap-1.5 rounded-lg bg-[#4fa77e]/10 px-2.5 py-1.5 text-xs font-medium text-[#4fa77e] transition-all hover:bg-[#4fa77e]/20"
                             >
                               <Camera className="h-3.5 w-3.5" />
-                              View Proof
-                            </button>
+                              View Photo
+                              <ExternalLink className="h-3 w-3" />
+                            </a>
                           </div>
                         </td>
                       )}
