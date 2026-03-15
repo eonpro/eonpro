@@ -2,7 +2,6 @@
 
 import React, { useEffect, useState, useMemo, Component, ErrorInfo } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import Link from 'next/link';
 import {
   Home,
   Users,
@@ -478,9 +477,8 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
                   );
                 }
 
-                const NavTag = isPharmacyExperience ? 'a' : Link;
                 return (
-                  <NavTag
+                  <a
                     key={item.path}
                     href={item.path}
                     title={!sidebarExpanded ? item.label : undefined}
@@ -493,7 +491,7 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
                     {sidebarExpanded && (
                       <span className="whitespace-nowrap text-sm font-medium">{item.label}</span>
                     )}
-                  </NavTag>
+                  </a>
                 );
               })}
             </nav>
