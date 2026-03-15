@@ -18,6 +18,8 @@ import {
   Download,
   Clock,
   TrendingUp,
+  Camera,
+  X,
   BarChart3,
   ShieldAlert,
 } from 'lucide-react';
@@ -127,6 +129,7 @@ export default function ShipmentMonitorPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [bulkRefreshing, setBulkRefreshing] = useState(false);
   const [bulkResult, setBulkResult] = useState<{ totalUpdated: number; totalDelivered: number; totalPolled: number; totalNoData: number } | null>(null);
+  const [proofModal, setProofModal] = useState<{ trackingNumber: string; imageBase64: string | null; format: string; loading: boolean; error: string | null } | null>(null);
 
   const fetchData = useCallback(async (currentTab: Tab, currentPage: number, currentSearch: string, currentDateRange: string, currentClinicId: string) => {
     try {
@@ -178,6 +181,20 @@ export default function ShipmentMonitorPage() {
       }
     } catch { /* non-blocking */ } finally {
       setBulkRefreshing(false);
+    }
+  };
+  const handleViewProof = async (trackingNumber: string) => {
+    setProofModal({ trackingNumber, imageBase64: null, format: 'PNG', loading: true, error: null });
+    try {
+      const res = await apiFetch(`/api/super-admin/shipment-monitor/delivery-proof?trackingNumber=${encodeURIComponent(trackingNumber)}`);
+      const data = await res.json();
+      if (data.success && data.documentBase64) {
+        setProofModal({ trackingNumber, imageBase64: data.documentBase64, format: data.documentFormat || 'PNG', loading: false, error: null });
+      } else {
+        setProofModal({ trackingNumber, imageBase64: null, format: 'PNG', loading: false, error: data.message || 'Proof of delivery not available for this shipment' });
+      }
+    } catch {
+      setProofModal((prev) => prev ? { ...prev, loading: false, error: 'Failed to load delivery proof' } : null);
     }
   };
   const handleExport = () => {
@@ -396,13 +413,15 @@ export default function ShipmentMonitorPage() {
                       )}
                       {tab === 'delivered' && (
                         <td className="px-4 py-3">
-                          <div className="space-y-1">
-                            {s.signedBy && <span className="block text-xs text-gray-600">Received by: <span className="font-medium">{s.signedBy}</span></span>}
-                            {s.deliveryPhotoUrl ? (
-                              <a href={s.deliveryPhotoUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs font-medium text-[#4fa77e] hover:underline">View Photo <ExternalLink className="h-3 w-3" /></a>
-                            ) : s.deliveryDetails ? (
-                              <span className="text-[11px] text-gray-400">Details captured</span>
-                            ) : <span className="text-[11px] text-gray-400">—</span>}
+                          <div className="space-y-1.5">
+                            {s.signedBy && <span className="block text-xs text-gray-600">Signed: <span className="font-medium">{s.signedBy}</span></span>}
+                            <button
+                              onClick={() => handleViewProof(s.trackingNumber)}
+                              className="inline-flex items-center gap-1.5 rounded-lg bg-[#4fa77e]/10 px-2.5 py-1.5 text-xs font-medium text-[#4fa77e] transition-all hover:bg-[#4fa77e]/20"
+                            >
+                              <Camera className="h-3.5 w-3.5" />
+                              View Proof
+                            </button>
                           </div>
                         </td>
                       )}
@@ -435,6 +454,61 @@ export default function ShipmentMonitorPage() {
           </div>
         )}
       </div>
+
+      {/* Proof of Delivery Modal */}
+      {proofModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4" onClick={() => setProofModal(null)}>
+          <div className="relative max-h-[90vh] w-full max-w-2xl overflow-auto rounded-2xl bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-gray-100 bg-white px-6 py-4">
+              <div>
+                <h3 className="font-semibold text-gray-900">Delivery Proof</h3>
+                <p className="mt-0.5 font-mono text-xs text-gray-500">{proofModal.trackingNumber}</p>
+              </div>
+              <button onClick={() => setProofModal(null)} className="rounded-lg p-2 text-gray-400 transition-all hover:bg-gray-100 hover:text-gray-600">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="p-6">
+              {proofModal.loading ? (
+                <div className="flex flex-col items-center py-16">
+                  <div className="h-8 w-8 animate-spin rounded-full border-3 border-gray-200 border-t-[#4fa77e]" />
+                  <p className="mt-4 text-sm text-gray-500">Loading delivery proof from FedEx...</p>
+                </div>
+              ) : proofModal.error ? (
+                <div className="flex flex-col items-center py-16">
+                  <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-amber-50">
+                    <AlertTriangle className="h-6 w-6 text-amber-500" />
+                  </div>
+                  <p className="text-sm font-medium text-gray-700">{proofModal.error}</p>
+                  <p className="mt-2 text-xs text-gray-400">FedEx may not provide delivery photos for all shipments. Signature Proof of Delivery is typically available for Express and Ground shipments.</p>
+                </div>
+              ) : proofModal.imageBase64 ? (
+                <div className="flex flex-col items-center">
+                  {proofModal.format === 'PDF' ? (
+                    <div className="flex flex-col items-center gap-4">
+                      <p className="text-sm text-gray-600">Delivery proof is available as a PDF document.</p>
+                      <a
+                        href={`data:application/pdf;base64,${proofModal.imageBase64}`}
+                        download={`delivery-proof-${proofModal.trackingNumber}.pdf`}
+                        className="inline-flex items-center gap-2 rounded-xl bg-[#4fa77e] px-6 py-3 font-semibold text-white transition-all hover:bg-[#429468]"
+                      >
+                        <Download className="h-5 w-5" />
+                        Download PDF
+                      </a>
+                    </div>
+                  ) : (
+                    <img
+                      src={`data:image/${proofModal.format.toLowerCase() === 'png' ? 'png' : 'jpeg'};base64,${proofModal.imageBase64}`}
+                      alt={`Delivery proof for ${proofModal.trackingNumber}`}
+                      className="max-w-full rounded-lg border border-gray-200 shadow-sm"
+                    />
+                  )}
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

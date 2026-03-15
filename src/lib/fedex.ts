@@ -654,12 +654,18 @@ export type TrackingScanEvent = {
   statusCode: string;
 };
 
+export type AvailableImage = {
+  type: string;
+  size?: string;
+};
+
 export type DeliveryDetail = {
   receivedByName: string | null;
   deliveryLocation: string | null;
   deliveryLocationType: string | null;
   signatureUrl: string | null;
   photoUrl: string | null;
+  availableImages: AvailableImage[];
   rawDeliveryDetails: Record<string, unknown> | null;
 };
 
@@ -830,6 +836,12 @@ function parseTrackResult(trackingNumber: string, trackResult: any): TrackingRes
       return null;
     };
 
+    const rawAvailableImages: any[] = trackResult.availableImages || [];
+    const availableImages: AvailableImage[] = rawAvailableImages.map((img: any) => ({
+      type: img.type || '',
+      size: img.size || undefined,
+    }));
+
     deliveryDetail = {
       receivedByName: dd.receivedByName || null,
       deliveryLocation: dd.actualDeliveryAddress
@@ -838,7 +850,19 @@ function parseTrackResult(trackingNumber: string, trackResult: any): TrackingRes
       deliveryLocationType: dd.locationType || attempt?.deliveryOptionEligibilityDetails?.[0]?.option || null,
       signatureUrl: findUrl('signatureUrl', 'proofOfDeliveryURL', 'signatureImageUrl', 'signatureProofOfDeliveryURL'),
       photoUrl: findUrl('photoUrl', 'pictureProofOfDeliveryURL', 'pictureProofURL', 'deliveryPhotoUrl', 'imageUrl', 'proofOfDeliveryImageURL'),
+      availableImages,
       rawDeliveryDetails: dd,
+    };
+  } else if (trackResult.availableImages) {
+    const rawAvailableImages: any[] = trackResult.availableImages || [];
+    deliveryDetail = {
+      receivedByName: null,
+      deliveryLocation: null,
+      deliveryLocationType: null,
+      signatureUrl: null,
+      photoUrl: null,
+      availableImages: rawAvailableImages.map((img: any) => ({ type: img.type || '', size: img.size || undefined })),
+      rawDeliveryDetails: null,
     };
   }
 
@@ -1020,50 +1044,71 @@ export async function trackShipmentBatch(
 }
 
 // ---------------------------------------------------------------------------
-// Track API — Signature Proof of Delivery (SPOD)
+// Track API — Proof of Delivery Document (SPOD / Picture POD)
 // ---------------------------------------------------------------------------
 
 export type ProofOfDeliveryResult = {
   trackingNumber: string;
   documentBase64: string;
+  documentFormat: string;
   documentType: string;
 };
 
 export async function getProofOfDelivery(
   credentials: FedExCredentials,
-  trackingNumber: string
+  trackingNumber: string,
+  options?: { format?: 'PNG' | 'PDF' }
 ): Promise<ProofOfDeliveryResult | null> {
+  const effectiveCreds = getEffectiveTrackCredentials(credentials);
+  const format = options?.format || 'PNG';
+
   const payload = {
-    trackingNumberInfo: { trackingNumber },
-    additionalDocFormat: 'PDF',
+    trackDocumentSpecification: [
+      {
+        trackingNumberInfo: { trackingNumber },
+        documentType: 'SIGNATURE_PROOF_OF_DELIVERY',
+        documentFormat: format,
+      },
+    ],
+    accountNumber: { value: effectiveCreds.accountNumber },
   };
 
   try {
     const response = await fedexRequest<any>(
-      credentials,
+      effectiveCreds,
       'POST',
-      '/track/v1/referencenumbers',
+      '/track/v1/trackingdocuments',
       payload
     );
 
-    const doc = response.output?.completeTrackResults?.[0]?.trackResults?.[0]?.signatureProofOfDelivery;
-    if (!doc?.image) {
-      const letterDoc = response.output?.locator;
-      if (letterDoc) {
-        return {
-          trackingNumber,
-          documentBase64: letterDoc,
-          documentType: 'PDF',
-        };
-      }
-      return null;
+    const docResponse = response.output?.documentResultList?.[0];
+    const doc = docResponse?.documents?.[0];
+
+    if (doc?.encodedDocuments) {
+      return {
+        trackingNumber,
+        documentBase64: doc.encodedDocuments,
+        documentFormat: doc.documentFormat || format,
+        documentType: doc.documentType || 'SIGNATURE_PROOF_OF_DELIVERY',
+      };
     }
 
-    return {
+    const alertDoc = docResponse?.trackDocumentDetail;
+    if (alertDoc?.document) {
+      return {
+        trackingNumber,
+        documentBase64: alertDoc.document,
+        documentFormat: format,
+        documentType: 'SIGNATURE_PROOF_OF_DELIVERY',
+      };
+    }
+
+    logger.info('[FedEx SPOD] No document returned', {
       trackingNumber,
-      documentBase64: doc.image,
-      documentType: doc.imageType || 'PDF',
-    };
+      hasOutput: !!response.output,
+      resultCount: response.output?.documentResultList?.length,
+    });
+    return null;
   } catch (err) {
     logger.warn('[FedEx SPOD] Proof of delivery request failed', {
       trackingNumber,

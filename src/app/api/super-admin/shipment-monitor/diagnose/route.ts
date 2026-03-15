@@ -20,17 +20,28 @@ async function handleDiagnose(_req: NextRequest, _user: AuthUser) {
   diagnostics.usingDedicatedTrackCredentials = !!(process.env.FEDEX_TRACK_CLIENT_ID && process.env.FEDEX_TRACK_CLIENT_SECRET);
 
   // 2. Get a sample tracking number from the DB
+  const { searchParams } = new URL(_req.url);
+  const mode = searchParams.get('mode') || 'active';
+  const specificTn = searchParams.get('trackingNumber');
+  diagnostics.mode = mode;
+
+  let sampleWhere: any;
+  if (specificTn) {
+    sampleWhere = { trackingNumber: specificTn };
+  } else if (mode === 'delivered') {
+    sampleWhere = { carrier: { in: ['FedEx', 'FEDEX', 'fedex'] }, status: 'DELIVERED' };
+  } else {
+    sampleWhere = { carrier: { in: ['FedEx', 'FEDEX', 'fedex'] }, status: { notIn: ['DELIVERED', 'CANCELLED', 'RETURNED'] } };
+  }
+
   const sample = await basePrisma.patientShippingUpdate.findFirst({
-    where: {
-      carrier: { in: ['FedEx', 'FEDEX', 'fedex'] },
-      status: { notIn: ['DELIVERED', 'CANCELLED', 'RETURNED'] },
-    },
+    where: sampleWhere,
     select: { trackingNumber: true, clinicId: true, carrier: true, status: true, createdAt: true },
     orderBy: { createdAt: 'desc' },
   });
 
   if (!sample) {
-    diagnostics.error = 'No active FedEx shipments found to test';
+    diagnostics.error = `No ${mode} FedEx shipments found to test`;
     return NextResponse.json({ success: false, diagnostics });
   }
 
@@ -133,6 +144,7 @@ async function handleDiagnose(_req: NextRequest, _user: AuthUser) {
     diagnostics.trackResultError = trackResult?.error || null;
     diagnostics.latestStatus = trackResult?.latestStatusDetail || null;
     diagnostics.dateAndTimes = trackResult?.dateAndTimes || null;
+    diagnostics.availableImages = trackResult?.availableImages || null;
     diagnostics.deliveryDetails = trackResult?.deliveryDetails || null;
     diagnostics.rawResponseKeys = trackResult ? Object.keys(trackResult) : null;
 
