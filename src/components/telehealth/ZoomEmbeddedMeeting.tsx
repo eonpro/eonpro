@@ -35,7 +35,7 @@ export default function ZoomEmbeddedMeeting({
   onMeetingStart,
   onMeetingEnd,
 }: ZoomEmbeddedMeetingProps) {
-  const [status, setStatus] = useState<'ready' | 'active' | 'blocked' | 'ended'>('ready');
+  const [status, setStatus] = useState<'ready' | 'active' | 'blocked' | 'ended' | 'closed'>('ready');
   const popupRef = useRef<Window | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const mountedRef = useRef(true);
@@ -78,7 +78,11 @@ export default function ZoomEmbeddedMeeting({
     pollRef.current = setInterval(() => {
       try {
         if (zoomWindow.closed) {
-          endMeeting('window_closed');
+          stopPolling();
+          popupRef.current = null;
+          if (mountedRef.current) {
+            setStatus('closed');
+          }
         }
       } catch {
         // Cross-origin access error — window is still open
@@ -157,6 +161,39 @@ export default function ZoomEmbeddedMeeting({
           <ExternalLink className="h-4 w-4" />
           Open Zoom Meeting
         </button>
+      </div>
+    );
+  }
+
+  if (status === 'closed') {
+    return (
+      <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-900 p-8">
+        <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-amber-600/20">
+          <AlertTriangle className="h-10 w-10 text-amber-400" />
+        </div>
+        <p className="mb-2 text-lg font-semibold text-white">Zoom Window Closed</p>
+        <p className="mb-6 max-w-sm text-center text-sm text-gray-400">
+          The Zoom window was closed. The meeting may still be active.
+        </p>
+        <div className="flex flex-col items-center gap-3">
+          <button
+            onClick={() => {
+              setStatus('active');
+              launchZoom();
+            }}
+            className="flex items-center gap-2 rounded-lg bg-blue-600 px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-blue-700"
+          >
+            <ExternalLink className="h-4 w-4" />
+            Rejoin Meeting
+          </button>
+          <button
+            onClick={() => endMeeting('provider_ended')}
+            className="flex items-center gap-2 rounded-lg bg-red-600/20 px-6 py-2.5 text-sm font-medium text-red-400 transition-colors hover:bg-red-600/30"
+          >
+            <PhoneOff className="h-4 w-4" />
+            End Call
+          </button>
+        </div>
       </div>
     );
   }

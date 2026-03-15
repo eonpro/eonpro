@@ -5,7 +5,7 @@
  * Handles meeting lifecycle, participant tracking, and calendar sync.
  */
 
-import { prisma } from '@/lib/db';
+import { prisma, withoutClinicFilter } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import {
   createZoomMeeting,
@@ -22,6 +22,7 @@ import {
 } from '@/lib/clinic-zoom';
 import crypto from 'crypto';
 import { encrypt } from '@/lib/security/encryption';
+import { decryptPHI } from '@/lib/security/phi-encryption';
 import { auditLog, AuditEventType } from '@/lib/audit/hipaa-audit';
 
 // Telehealth session status (matches Prisma enum once generated)
@@ -72,6 +73,7 @@ export interface WebhookPayload {
       participant?: {
         id?: string;
         user_id?: string;
+        participant_uuid?: string;
         user_name?: string;
         email?: string;
         join_time?: string;
@@ -300,27 +302,29 @@ export async function cancelTelehealthSession(
       }
     }
 
-    // Update session status
-    const updatedSession = await prisma.telehealthSession.update({
-      where: { id: sessionId },
-      data: {
-        status: 'CANCELLED',
-        endReason: reason || 'Cancelled',
-        endedAt: new Date(),
-      },
-    });
-
-    // Clear appointment Zoom fields if linked
-    if (session.appointmentId) {
-      await prisma.appointment.update({
-        where: { id: session.appointmentId },
+    const updatedSession = await prisma.$transaction(async (tx) => {
+      const updated = await tx.telehealthSession.update({
+        where: { id: sessionId },
         data: {
-          zoomMeetingId: null,
-          zoomJoinUrl: null,
-          videoLink: null,
+          status: 'CANCELLED',
+          endReason: reason || 'Cancelled',
+          endedAt: new Date(),
         },
       });
-    }
+
+      if (session.appointmentId) {
+        await tx.appointment.update({
+          where: { id: session.appointmentId },
+          data: {
+            zoomMeetingId: null,
+            zoomJoinUrl: null,
+            videoLink: null,
+          },
+        });
+      }
+
+      return updated;
+    });
 
     auditLog(null, {
       eventType: AuditEventType.PHI_UPDATE,
@@ -576,11 +580,13 @@ export async function handleParticipantJoined(payload: WebhookPayload): Promise<
     return;
   }
 
-  // Create participant record
+  const participantIdentifier =
+    participant.user_id || participant.participant_uuid || participant.id || `anon-${Date.now()}`;
+
   await prisma.telehealthParticipant.create({
     data: {
       sessionId: session.id,
-      participantId: participant.user_id,
+      participantId: participantIdentifier,
       name: participant.user_name || 'Unknown',
       email: participant.email,
       role: participant.user_id === payload.payload.object.host_id ? 'host' : 'participant',
@@ -588,19 +594,29 @@ export async function handleParticipantJoined(payload: WebhookPayload): Promise<
     },
   });
 
-  // Update session status if patient joined
-  const isPatientEmail =
-    session.patient?.email &&
-    participant.email?.toLowerCase() === session.patient.email.toLowerCase();
+  // Detect patient join by decrypting the stored (encrypted) patient email
+  let isPatientJoin = false;
+  if (participant.email && session.patient?.email) {
+    try {
+      const decryptedPatientEmail = decryptPHI(session.patient.email);
+      if (decryptedPatientEmail) {
+        isPatientJoin =
+          participant.email.toLowerCase() === decryptedPatientEmail.toLowerCase();
+      }
+    } catch {
+      // Decryption failure — fall back to direct comparison for unencrypted legacy data
+      isPatientJoin =
+        participant.email.toLowerCase() === session.patient.email.toLowerCase();
+    }
+  }
 
-  if (isPatientEmail) {
+  if (isPatientJoin) {
     await prisma.telehealthSession.update({
       where: { id: session.id },
       data: { patientJoinedAt: new Date() },
     });
   }
 
-  // If this is the first participant and session is WAITING, move to IN_PROGRESS
   if (session.status === 'WAITING') {
     await prisma.telehealthSession.update({
       where: { id: session.id },
@@ -628,14 +644,25 @@ export async function handleParticipantLeft(payload: WebhookPayload): Promise<vo
   const session = await getSessionByMeetingId(meetingId);
   if (!session) return;
 
-  // Find and update participant record
-  const participantRecord = await prisma.telehealthParticipant.findFirst({
-    where: {
-      sessionId: session.id,
-      participantId: participant.user_id,
-      leftAt: null,
-    },
-  });
+  const participantIdentifier =
+    participant.user_id || participant.participant_uuid || participant.id;
+
+  const participantRecord = participantIdentifier
+    ? await prisma.telehealthParticipant.findFirst({
+        where: {
+          sessionId: session.id,
+          participantId: participantIdentifier,
+          leftAt: null,
+        },
+      })
+    : await prisma.telehealthParticipant.findFirst({
+        where: {
+          sessionId: session.id,
+          name: participant.user_name || 'Unknown',
+          leftAt: null,
+        },
+        orderBy: { joinedAt: 'desc' },
+      });
 
   if (participantRecord) {
     const leftAt = participant.leave_time ? new Date(participant.leave_time) : new Date();
@@ -753,41 +780,45 @@ export async function handleRecordingCompleted(payload: WebhookPayload): Promise
 }
 
 /**
- * Main webhook dispatcher
+ * Main webhook dispatcher.
+ * Wrapped in withoutClinicFilter because webhooks have no clinic context
+ * but TelehealthSession is in CLINIC_ISOLATED_MODELS.
  */
 export async function handleZoomWebhook(payload: WebhookPayload): Promise<void> {
   const eventType = payload.event;
 
   logger.info('Zoom webhook received', { event: eventType });
 
-  switch (eventType) {
-    case ZOOM_WEBHOOK_EVENTS.MEETING_STARTED:
-      await handleMeetingStarted(payload);
-      break;
+  await withoutClinicFilter(async () => {
+    switch (eventType) {
+      case ZOOM_WEBHOOK_EVENTS.MEETING_STARTED:
+        await handleMeetingStarted(payload);
+        break;
 
-    case ZOOM_WEBHOOK_EVENTS.MEETING_ENDED:
-      await handleMeetingEnded(payload);
-      break;
+      case ZOOM_WEBHOOK_EVENTS.MEETING_ENDED:
+        await handleMeetingEnded(payload);
+        break;
 
-    case ZOOM_WEBHOOK_EVENTS.MEETING_PARTICIPANT_JOINED:
-      await handleParticipantJoined(payload);
-      break;
+      case ZOOM_WEBHOOK_EVENTS.MEETING_PARTICIPANT_JOINED:
+        await handleParticipantJoined(payload);
+        break;
 
-    case ZOOM_WEBHOOK_EVENTS.MEETING_PARTICIPANT_LEFT:
-      await handleParticipantLeft(payload);
-      break;
+      case ZOOM_WEBHOOK_EVENTS.MEETING_PARTICIPANT_LEFT:
+        await handleParticipantLeft(payload);
+        break;
 
-    case ZOOM_WEBHOOK_EVENTS.PARTICIPANT_WAITING:
-      await handleParticipantWaiting(payload);
-      break;
+      case ZOOM_WEBHOOK_EVENTS.PARTICIPANT_WAITING:
+        await handleParticipantWaiting(payload);
+        break;
 
-    case ZOOM_WEBHOOK_EVENTS.RECORDING_COMPLETED:
-      await handleRecordingCompleted(payload);
-      break;
+      case ZOOM_WEBHOOK_EVENTS.RECORDING_COMPLETED:
+        await handleRecordingCompleted(payload);
+        break;
 
-    default:
-      logger.info('Unhandled Zoom webhook event', { event: eventType });
-  }
+      default:
+        logger.info('Unhandled Zoom webhook event', { event: eventType });
+    }
+  });
 }
 
 // ============================================================================

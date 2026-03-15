@@ -7,7 +7,7 @@
  * Similar to Stripe Connect and Lifefile integration flows.
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Video,
   CheckCircle,
@@ -56,7 +56,20 @@ export default function ClinicZoomIntegration() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  // Form state
+  const showSuccess = useCallback((msg: string) => {
+    setSuccess(msg);
+    setError(null);
+    const timer = setTimeout(() => setSuccess(null), 5000);
+    return () => clearTimeout(timer);
+  }, []);
+
+  const showError = useCallback((msg: string) => {
+    setError(msg);
+    setSuccess(null);
+    const timer = setTimeout(() => setError(null), 8000);
+    return () => clearTimeout(timer);
+  }, []);
+
   const [formData, setFormData] = useState({
     accountId: '',
     clientId: '',
@@ -111,15 +124,15 @@ export default function ClinicZoomIntegration() {
       const data = await res.json();
 
       if (!res.ok) {
-        setError(data.error || 'Failed to connect Zoom');
+        showError(data.error || 'Failed to connect Zoom');
         return;
       }
 
-      setSuccess(data.message);
+      showSuccess(data.message);
       setShowForm(false);
       await fetchStatus();
-    } catch (error) {
-      setError('Failed to connect Zoom account');
+    } catch {
+      showError('Failed to connect Zoom account');
     } finally {
       setSaving(false);
     }
@@ -145,14 +158,14 @@ export default function ClinicZoomIntegration() {
       const data = await res.json();
 
       if (!res.ok) {
-        setError(data.error || 'Failed to disconnect Zoom');
+        showError(data.error || 'Failed to disconnect Zoom');
         return;
       }
 
-      setSuccess(data.message);
+      showSuccess(data.message);
       await fetchStatus();
-    } catch (error) {
-      setError('Failed to disconnect Zoom account');
+    } catch {
+      showError('Failed to disconnect Zoom account');
     } finally {
       setSaving(false);
     }
@@ -172,14 +185,14 @@ export default function ClinicZoomIntegration() {
       const data = await res.json();
 
       if (!res.ok) {
-        setError(data.error || 'Failed to update settings');
+        showError(data.error || 'Failed to update settings');
         return;
       }
 
-      setSuccess('Settings updated successfully');
+      showSuccess('Settings updated successfully');
       await fetchStatus();
-    } catch (error) {
-      setError('Failed to update settings');
+    } catch {
+      showError('Failed to update settings');
     } finally {
       setSaving(false);
     }

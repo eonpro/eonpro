@@ -131,12 +131,27 @@ export async function createZoomMeeting(params: CreateMeetingParams): Promise<Zo
   try {
     const accessToken = await getZoomAccessToken();
 
+    let clinicTimezone = 'America/New_York';
+    if (params.patientId) {
+      try {
+        const patient = await prisma.patient.findUnique({
+          where: { id: params.patientId },
+          select: { clinic: { select: { timezone: true } } },
+        });
+        if (patient?.clinic?.timezone) {
+          clinicTimezone = patient.clinic.timezone;
+        }
+      } catch {
+        // Fall back to default timezone
+      }
+    }
+
     const meetingData = {
       topic: params.topic,
       type: params.scheduledAt ? MeetingType.SCHEDULED : MeetingType.INSTANT,
       start_time: params.scheduledAt?.toISOString(),
       duration: params.duration,
-      timezone: 'America/New_York',
+      timezone: clinicTimezone,
       password: params.password || generateMeetingPassword(),
       agenda: params.agenda || 'Telehealth consultation',
       settings: {

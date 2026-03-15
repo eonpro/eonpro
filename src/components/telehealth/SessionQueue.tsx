@@ -63,9 +63,20 @@ export default function SessionQueue({ onSelectSession, onScheduleNew }: Session
     return () => clearInterval(interval);
   }, [fetchSessions]);
 
-  const copyLink = (session: TelehealthSessionData) => {
+  const copyLink = async (session: TelehealthSessionData) => {
     if (!session.joinUrl) return;
-    void navigator.clipboard.writeText(session.joinUrl);
+    try {
+      await navigator.clipboard.writeText(session.joinUrl);
+    } catch {
+      const textarea = document.createElement('textarea');
+      textarea.value = session.joinUrl;
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textarea);
+    }
     setCopiedId(session.id);
     setTimeout(() => setCopiedId(null), 2000);
   };

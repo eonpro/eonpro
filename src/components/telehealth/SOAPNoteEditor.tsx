@@ -78,22 +78,21 @@ export default function SOAPNoteEditor({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           patientId,
-          appointmentId,
-          subjective: soapNote.subjective,
-          objective: soapNote.objective,
-          assessment: soapNote.assessment,
-          plan: soapNote.plan,
-          medicalNecessity: soapNote.medicalNecessity,
-          sourceType: 'AI_GENERATED',
-          generatedByAI: true,
+          manualContent: {
+            subjective: soapNote.subjective,
+            objective: soapNote.objective,
+            assessment: soapNote.assessment,
+            plan: soapNote.plan,
+          },
         }),
       });
       if (res.ok) {
-        const data = await res.json();
-        if (data.id) {
-          onUpdate({ ...soapNote, id: data.id });
+        const responseData = await res.json();
+        const noteId = responseData.id ?? responseData.data?.id;
+        if (noteId) {
+          onUpdate({ ...soapNote, id: noteId });
           setLastSaved(new Date());
-          return data.id as number;
+          return noteId as number;
         }
       }
     } catch {
@@ -113,15 +112,20 @@ export default function SOAPNoteEditor({
 
     setSigning(true);
     try {
-      const res = await apiFetch(`/api/soap-notes/${noteId}/sign`, {
+      const res = await apiFetch(`/api/soap-notes/${noteId}/approve`, {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
       });
       if (res.ok) {
         onUpdate({ ...soapNote, id: noteId, status: 'APPROVED' });
         onSign();
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        console.warn('[SOAPNoteEditor] Approval failed', errData);
       }
     } catch {
-      // Silently fail
+      // Non-blocking — user can retry
     } finally {
       setSigning(false);
     }

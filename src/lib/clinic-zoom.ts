@@ -529,6 +529,19 @@ export async function createClinicZoomMeeting(
     return null;
   }
 
+  let clinicTimezone = 'America/New_York';
+  try {
+    const clinicRecord = await prisma.clinic.findUnique({
+      where: { id: clinicId },
+      select: { timezone: true },
+    });
+    if (clinicRecord?.timezone) {
+      clinicTimezone = clinicRecord.timezone;
+    }
+  } catch {
+    // Fall back to default
+  }
+
   try {
     return await circuitBreakers.zoom.execute(async () => {
       const response = await fetch('https://api.zoom.us/v2/users/me/meetings', {
@@ -543,7 +556,7 @@ export async function createClinicZoomMeeting(
           type: options.startTime ? 2 : 1,
           start_time: options.startTime?.toISOString(),
           duration: options.duration,
-          timezone: 'America/New_York',
+          timezone: clinicTimezone,
           agenda: options.agenda,
           settings: {
             host_video: true,

@@ -16,6 +16,7 @@ import {
   getActiveSession,
 } from '@/lib/ai-scribe/transcription.service';
 import { prisma } from '@/lib/db';
+import { decryptPHI } from '@/lib/security/phi-encryption';
 
 /**
  * POST /api/ai-scribe/transcribe
@@ -62,7 +63,9 @@ export const POST = withProviderAuth(async (req: NextRequest, user) => {
           select: { firstName: true, lastName: true },
         });
         if (patient) {
-          patientName = `${patient.firstName} ${patient.lastName}`;
+          const firstName = decryptPHI(patient.firstName) ?? patient.firstName;
+          const lastName = decryptPHI(patient.lastName) ?? patient.lastName;
+          patientName = `${firstName} ${lastName}`;
         }
       }
 

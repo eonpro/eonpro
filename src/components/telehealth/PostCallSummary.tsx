@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 
 import { apiFetch } from '@/lib/api/fetch';
+import { safeParseJsonString } from '@/lib/utils/safe-json';
 
 import SOAPNoteEditor from './SOAPNoteEditor';
 import { type PostCallData } from './types';
@@ -45,15 +46,27 @@ export default function PostCallSummary({ data, onBackToQueue }: PostCallSummary
   );
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSigned, setIsSigned] = useState(false);
+  const [providerId, setProviderId] = useState<number | undefined>();
 
   useEffect(() => {
-    if (!data.soapNote && data.transcript && data.session.appointment?.id) {
+    try {
+      const user = localStorage.getItem('user');
+      if (user) {
+        const parsed = safeParseJsonString(user);
+        if (parsed?.providerId) setProviderId(Number(parsed.providerId));
+        else if (parsed?.id) setProviderId(Number(parsed.id));
+      }
+    } catch { /* ignore */ }
+  }, []);
+
+  useEffect(() => {
+    if (!data.soapNote && data.transcript && data.session.appointment?.id && providerId) {
       void generateSOAP();
     }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [providerId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const generateSOAP = async () => {
-    if (!data.session.appointment?.id) return;
+    if (!data.session.appointment?.id || !providerId) return;
 
     setIsGenerating(true);
     try {
@@ -63,7 +76,8 @@ export default function PostCallSummary({ data, onBackToQueue }: PostCallSummary
         body: JSON.stringify({
           appointmentId: data.session.appointment.id,
           patientId: data.session.patient.id,
-          autoSave: true,
+          providerId,
+          saveNote: true,
         }),
       });
 

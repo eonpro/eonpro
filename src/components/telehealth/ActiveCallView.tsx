@@ -91,9 +91,20 @@ export default function ActiveCallView({
     leaveCallRef.current?.();
   }, []);
 
-  const copyPatientLink = () => {
+  const copyPatientLink = async () => {
     if (!session.joinUrl) return;
-    void navigator.clipboard.writeText(session.joinUrl);
+    try {
+      await navigator.clipboard.writeText(session.joinUrl);
+    } catch {
+      const textarea = document.createElement('textarea');
+      textarea.value = session.joinUrl;
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textarea);
+    }
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };

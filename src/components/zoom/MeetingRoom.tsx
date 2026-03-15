@@ -78,12 +78,26 @@ export default function MeetingRoom({
     setLaunchedAt(Date.now());
   }, [zoomUrl]);
 
-  const copyLink = useCallback(() => {
+  const copyLink = useCallback(async () => {
     const link = joinUrl || '';
     if (!link) return;
-    navigator.clipboard.writeText(link);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    try {
+      await navigator.clipboard.writeText(link);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Fallback for non-HTTPS or restricted contexts
+      const textarea = document.createElement('textarea');
+      textarea.value = link;
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textarea);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
   }, [joinUrl]);
 
   if (!isEnabled) {

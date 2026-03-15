@@ -313,18 +313,14 @@ function ProviderCalendarContent() {
                           <div className="mt-2 flex items-center gap-2">
                             <Video className="h-3 w-3 text-blue-500" />
                             <span className="text-xs text-blue-600">Telehealth</span>
-                            {apt.zoomLink && (
-                              <a
-                                href={apt.zoomLink}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                onClick={(e) => e.stopPropagation()}
-                                className="ml-auto flex items-center gap-1 rounded-md bg-blue-600 px-2 py-1 text-xs font-medium text-white hover:bg-blue-700"
-                              >
-                                <Video className="h-3 w-3" />
-                                Join
-                              </a>
-                            )}
+                            <a
+                              href={`/provider/telehealth?consultationId=${apt.id}`}
+                              onClick={(e) => e.stopPropagation()}
+                              className="ml-auto flex items-center gap-1 rounded-md bg-blue-600 px-2 py-1 text-xs font-medium text-white hover:bg-blue-700"
+                            >
+                              <Video className="h-3 w-3" />
+                              Join
+                            </a>
                           </div>
                         )}
                       </div>

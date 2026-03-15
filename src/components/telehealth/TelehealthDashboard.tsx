@@ -40,10 +40,62 @@ export default function TelehealthDashboard({
   const [scribeEnabled, setScribeEnabled] = useState(true);
   const [provisioningDeepLink, setProvisioningDeepLink] = useState(false);
 
+  // Handle ?postCall=true&appointmentId=X (returning from ended page)
+  useEffect(() => {
+    const isPostCall = searchParams.get('postCall') === 'true';
+    const appointmentId = searchParams.get('appointmentId');
+    if (!isPostCall || !appointmentId || postCallData) return;
+
+    const loadPostCall = async () => {
+      try {
+        const res = await apiFetch('/api/provider/telehealth/upcoming');
+        if (!res.ok) return;
+        const data = await res.json();
+        const sessions: TelehealthSessionData[] = data.sessions ?? [];
+        const match = sessions.find(
+          (s) => s.appointment?.id === Number(appointmentId) || s.id === Number(appointmentId)
+        );
+
+        if (!match) {
+          const aptRes = await apiFetch(`/api/scheduling/appointments?appointmentId=${appointmentId}`);
+          if (aptRes.ok) {
+            const aptData = await aptRes.json();
+            const apt = aptData.appointment ?? aptData;
+            if (apt?.id) {
+              const sessionData: TelehealthSessionData = {
+                id: apt.id,
+                topic: apt.title || apt.reason || 'Video Consultation',
+                scheduledAt: apt.startTime,
+                duration: apt.duration || 30,
+                status: 'COMPLETED',
+                joinUrl: apt.zoomJoinUrl || apt.videoLink || '',
+                patient: apt.patient
+                  ? { id: apt.patient.id, firstName: apt.patient.firstName || '', lastName: apt.patient.lastName || '' }
+                  : { id: 0, firstName: 'Unknown', lastName: 'Patient' },
+                appointment: { id: apt.id, title: apt.title || '', reason: apt.reason || '' },
+              };
+              setPostCallData({ session: sessionData, duration: 0 });
+              changePhase('postCall');
+              return;
+            }
+          }
+          return;
+        }
+
+        setPostCallData({ session: match, duration: 0 });
+        changePhase('postCall');
+      } catch {
+        // Fall through to queue
+      }
+    };
+
+    void loadPostCall();
+  }, [searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Auto-open lobby when navigated with ?consultationId=X (from consultations page)
   useEffect(() => {
     const consultationId = searchParams.get('consultationId');
-    if (!consultationId || selectedSession) return;
+    if (!consultationId || selectedSession || searchParams.get('postCall')) return;
 
     const loadSession = async () => {
       try {

@@ -138,11 +138,12 @@ async function handleGet(req: NextRequest, user: AuthUser) {
           where: { ...baseFilter, status: { in: TAB_STATUS_MAP[t] } },
         }).then((groups: any[]) => groups.length)
       ),
-      basePrisma.$queryRaw<[{ avg_days: number | null; on_time: number | null; total_delivered: number | null }]>(
+      basePrisma.$queryRaw<[{ avg_days: number | null; on_time: number | null; on_time_total: number | null; total_delivered: number | null }]>(
         Prisma.sql`
           SELECT
             AVG(EXTRACT(EPOCH FROM ("actualDelivery" - "shippedAt")) / 86400)::numeric(10,1) AS avg_days,
-            SUM(CASE WHEN "actualDelivery" <= "estimatedDelivery" THEN 1 ELSE 0 END)::int AS on_time,
+            SUM(CASE WHEN "estimatedDelivery" IS NOT NULL AND "actualDelivery" <= "estimatedDelivery" THEN 1 ELSE 0 END)::int AS on_time,
+            SUM(CASE WHEN "estimatedDelivery" IS NOT NULL THEN 1 ELSE 0 END)::int AS on_time_total,
             COUNT(*)::int AS total_delivered
           FROM "PatientShippingUpdate"
           WHERE status = 'DELIVERED' AND "actualDelivery" IS NOT NULL AND "shippedAt" IS NOT NULL
@@ -161,15 +162,15 @@ async function handleGet(req: NextRequest, user: AuthUser) {
     const counts: Record<Tab, number> = {} as any;
     TABS.forEach((t, i) => { counts[t] = rest[i] as number; });
 
-    const analyticsRaw = rest[TABS.length] as [{ avg_days: number | null; on_time: number | null; total_delivered: number | null }];
+    const analyticsRaw = rest[TABS.length] as [{ avg_days: number | null; on_time: number | null; on_time_total: number | null; total_delivered: number | null }];
     const shippedThisWeek = rest[TABS.length + 1] as number;
     const row = analyticsRaw?.[0];
-    const totalDelivered = Number(row?.total_delivered) || 0;
+    const onTimeTotal = Number(row?.on_time_total) || 0;
     const grandTotal = Object.values(counts).reduce((a, b) => a + b, 0) || 0;
 
     const analytics = {
       avgDeliveryDays: row?.avg_days != null ? Number(Number(row.avg_days).toFixed(1)) : null,
-      onTimeRate: totalDelivered > 0 && row?.on_time != null ? Number(((Number(row.on_time) / totalDelivered) * 100).toFixed(1)) : null,
+      onTimeRate: onTimeTotal > 0 && row?.on_time != null ? Number(((Number(row.on_time) / onTimeTotal) * 100).toFixed(1)) : null,
       shippedThisWeek,
       issueRate: grandTotal > 0 ? Number((((counts.issues || 0) / grandTotal) * 100).toFixed(2)) : 0,
       totalShipments: grandTotal,

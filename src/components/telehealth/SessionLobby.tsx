@@ -43,6 +43,8 @@ export default function SessionLobby({ session, userName, onJoinCall, onBack }: 
   const [showConsentModal, setShowConsentModal] = useState(false);
   const [provisioning, setProvisioning] = useState(false);
   const [meetingReady, setMeetingReady] = useState(!!(session.meetingId && session.joinUrl));
+  const [patientWaiting, setPatientWaiting] = useState(session.status === 'WAITING');
+  const [sessionStatus, setSessionStatus] = useState(session.status);
 
   const handleProvision = async () => {
     if (!session.appointment?.id) return;
@@ -106,7 +108,29 @@ export default function SessionLobby({ session, userName, onJoinCall, onBack }: 
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Attach stream to video element once both are available
+  useEffect(() => {
+    if (!session.appointment?.id) return;
+    const pollStatus = async () => {
+      try {
+        const res = await apiFetch('/api/provider/telehealth/upcoming');
+        if (!res.ok) return;
+        const data = await res.json();
+        const sessions: Array<{ id: number; status: string; appointment?: { id: number } }> = data.sessions ?? [];
+        const match = sessions.find(
+          (s) => s.appointment?.id === session.appointment?.id || s.id === session.id
+        );
+        if (match) {
+          setSessionStatus(match.status);
+          if (match.status === 'WAITING') setPatientWaiting(true);
+        }
+      } catch {
+        // Non-blocking
+      }
+    };
+    const interval = setInterval(() => void pollStatus(), 10000);
+    return () => clearInterval(interval);
+  }, [session.appointment?.id, session.id]);
+
   useEffect(() => {
     if (videoRef.current && streamRef.current && devices.camera === 'granted' && cameraOn) {
       videoRef.current.srcObject = streamRef.current;
@@ -314,6 +338,19 @@ export default function SessionLobby({ session, userName, onJoinCall, onBack }: 
               )}
             </div>
           </div>
+
+          {/* Patient Waiting Alert */}
+          {patientWaiting && (
+            <div className="flex items-center gap-3 rounded-xl border border-amber-200 bg-gradient-to-r from-amber-50 to-orange-50 p-3">
+              <span className="relative flex h-3 w-3 shrink-0">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-75" />
+                <span className="relative inline-flex h-3 w-3 rounded-full bg-amber-500" />
+              </span>
+              <span className="text-xs font-semibold text-amber-800">
+                Patient is in the waiting room
+              </span>
+            </div>
+          )}
 
           {/* Security Badge */}
           <div className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-3">

@@ -80,7 +80,9 @@ export default function ScribePanel({
       });
 
       if (!startRes.ok) throw new Error('Failed to start scribe session');
-      const { sessionId: sid } = await startRes.json();
+      const startData = await startRes.json();
+      const sid = startData.sessionId ?? startData.session?.id;
+      if (!sid) throw new Error('No session ID returned from scribe service');
       setSessionId(sid);
 
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -249,6 +251,11 @@ export default function ScribePanel({
                 ? 'Listening... Transcript will appear here.'
                 : 'AI Scribe will start when the call begins.'}
             </p>
+            {recording && (
+              <p className="mt-2 text-[10px] text-gray-400">
+                Captures audio from your microphone. For best results, use speakers instead of headphones so patient audio is picked up.
+              </p>
+            )}
           </div>
         )}
 

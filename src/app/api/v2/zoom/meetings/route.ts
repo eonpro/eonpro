@@ -87,6 +87,34 @@ export const POST = withProviderAuth(async (req: NextRequest, user: AuthUser) =>
 
 export const GET = withProviderAuth(async (req: NextRequest, user: AuthUser) => {
   try {
+    const { searchParams } = new URL(req.url);
+    const action = searchParams.get('action');
+
+    if (action === 'status') {
+      const enabled = isFeatureEnabled('ZOOM_TELEHEALTH');
+      const configured = isZoomConfigured();
+      let waitingRoomEnabled = false;
+      let accountEmail: string | undefined;
+
+      if (configured && user.clinicId) {
+        try {
+          const { getClinicZoomStatus } = await import('@/lib/clinic-zoom');
+          const clinicStatus = await getClinicZoomStatus(user.clinicId);
+          waitingRoomEnabled = clinicStatus.settings.waitingRoomEnabled;
+          accountEmail = clinicStatus.accountEmail;
+        } catch {
+          // Fall back to defaults
+        }
+      }
+
+      return NextResponse.json({
+        configured,
+        enabled,
+        waitingRoomEnabled,
+        accountEmail,
+      });
+    }
+
     if (!isFeatureEnabled('ZOOM_TELEHEALTH')) {
       return NextResponse.json(
         { error: 'Zoom Telehealth feature is not enabled' },
@@ -94,7 +122,6 @@ export const GET = withProviderAuth(async (req: NextRequest, user: AuthUser) => 
       );
     }
 
-    const { searchParams } = new URL(req.url);
     const meetingId = searchParams.get('meetingId');
 
     if (!meetingId) {

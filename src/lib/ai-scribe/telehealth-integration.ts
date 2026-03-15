@@ -288,13 +288,14 @@ export async function cancelScribeSession(appointmentId: number): Promise<void> 
  * Handle Zoom webhook events for automatic scribe management
  */
 export async function handleZoomWebhook(event: string, payload: any): Promise<void> {
-  const meetingId = payload.object?.id;
+  const rawMeetingId = payload.object?.id;
 
-  if (!meetingId) {
+  if (!rawMeetingId) {
     return;
   }
 
-  // Find appointment with this Zoom meeting ID
+  const meetingId = String(rawMeetingId);
+
   const appointment = await prisma.appointment.findFirst({
     where: { zoomMeetingId: meetingId },
   });

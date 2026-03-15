@@ -373,13 +373,20 @@ class NotificationEventsService {
         minute: '2-digit',
       });
 
+      const isVideoAppointment =
+        input.appointmentType?.toUpperCase() === 'VIDEO' ||
+        input.appointmentType?.toLowerCase() === 'telehealth';
+      const actionUrl = isVideoAppointment
+        ? `/provider/telehealth?consultationId=${input.appointmentId}`
+        : `/provider/consultations`;
+
       await notificationService.notifyProviders({
         clinicId: input.clinicId,
         category: 'APPOINTMENT' as NotificationCategory,
-        priority: 'NORMAL',
-        title: 'Upcoming Appointment',
+        priority: isVideoAppointment ? 'HIGH' : 'NORMAL',
+        title: isVideoAppointment ? 'Upcoming Video Consultation' : 'Upcoming Appointment',
         message: `${input.patientName} - ${timeFormatted}${input.appointmentType ? ` (${input.appointmentType})` : ''}`,
-        actionUrl: `/provider/appointments/${input.appointmentId}`,
+        actionUrl,
         sourceType: 'appointment_reminder',
         sourceId: `appt_${input.appointmentId}`,
         metadata: {

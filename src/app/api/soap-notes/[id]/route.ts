@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
+import { prisma } from '@/lib/db';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import {
   getSOAPNoteById,
@@ -106,6 +107,43 @@ async function patchHandler(request: NextRequest, user: AuthUser, context?: Rout
         ok: true,
         data: edited,
         message: 'SOAP note updated successfully',
+      });
+    } else if (!body.action) {
+      // Direct content update (save draft) — no action specified
+      const allowedFields = ['subjective', 'objective', 'assessment', 'plan', 'medicalNecessity'] as const;
+      const updateData: Record<string, string> = {};
+      for (const field of allowedFields) {
+        if (typeof body[field] === 'string') {
+          updateData[field] = body[field];
+        }
+      }
+
+      if (Object.keys(updateData).length === 0) {
+        return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 });
+      }
+
+      const existing = await prisma.sOAPNote.findUnique({
+        where: { id: soapNoteId },
+        select: { status: true, patientId: true },
+      });
+
+      if (!existing) {
+        return NextResponse.json({ error: 'SOAP note not found' }, { status: 404 });
+      }
+
+      if (existing.status === 'LOCKED') {
+        return NextResponse.json({ error: 'Cannot edit a locked SOAP note' }, { status: 400 });
+      }
+
+      const updated = await prisma.sOAPNote.update({
+        where: { id: soapNoteId },
+        data: updateData,
+      });
+
+      return NextResponse.json({
+        ok: true,
+        data: updated,
+        message: 'SOAP note updated',
       });
     } else {
       return NextResponse.json(

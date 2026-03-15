@@ -67,8 +67,10 @@ export default function ProviderSOAPNotesPage() {
 
     setActionLoading(true);
     try {
-      const response = await apiFetch(`/api/soap-notes/${noteId}/sign`, {
+      const response = await apiFetch(`/api/soap-notes/${noteId}/approve`, {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
       });
 
       if (!response.ok) {
