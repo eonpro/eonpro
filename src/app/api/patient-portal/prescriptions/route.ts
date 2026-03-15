@@ -146,50 +146,38 @@ async function fetchPatientPrescriptions(req: NextRequest, user: AuthUser, patie
     };
   }
 
-  // Deduplicate invoices: multiple DB records can represent the same Stripe payment
-  // (e.g. invoice.paid, subscription.created, payment_intent.succeeded webhooks each
-  // create a separate Invoice row). Strategy:
-  //  1. Filter out generic event records ("Subscription creation", "Payment received")
-  //     when a real Stripe invoice exists for the same day.
-  //  2. Group remaining by stripeInvoiceId (if present) or same-day to catch any leftovers.
-  const GENERIC_DESCRIPTION = /subscription creation|payment received|payment successful/i;
+  // Deduplicate invoices for the patient portal.
+  // Multiple Stripe webhooks (invoice.paid, subscription.created, payment_intent.succeeded)
+  // each create a separate Invoice DB row for the same real-world payment.
+  // Patients should see ONE entry per actual charge.
+  //
+  // Strategy: group all PAID invoices on the same calendar day into one entry,
+  // keeping the record with the most informative description. This is safe because
+  // patients virtually never have two separate charges on the exact same day.
+  const byDay = new Map<string, typeof invoices[number]>();
+  const GENERIC = /subscription creation|payment received|payment successful/i;
 
-  // Partition: real invoices vs generic event records
-  const real: typeof invoices = [];
-  const generic: typeof invoices = [];
   for (const inv of invoices) {
-    if (GENERIC_DESCRIPTION.test(inv.description ?? '')) {
-      generic.push(inv);
-    } else {
-      real.push(inv);
-    }
-  }
-
-  // Build a set of days that already have a real invoice — generic records on those days are dropped
-  const coveredDays = new Set(real.map((inv) => inv.createdAt.toISOString().slice(0, 10)));
-
-  // Keep generic records only for days with NO real invoice (edge case: only webhook records exist)
-  const survivingGeneric = generic.filter(
-    (inv) => !coveredDays.has(inv.createdAt.toISOString().slice(0, 10))
-  );
-
-  // Final dedup within real invoices: group by stripeInvoiceId, then same-day fallback
-  const deduped = new Map<string, typeof invoices[number]>();
-  for (const inv of [...real, ...survivingGeneric]) {
     const dayKey = inv.createdAt.toISOString().slice(0, 10);
-    const key = inv.stripeInvoiceId
-      ? `sid:${inv.stripeInvoiceId}`
-      : inv.stripeInvoiceNumber
-        ? `snum:${inv.stripeInvoiceNumber}`
-        : `day:${dayKey}:${inv.amountPaid || inv.amount || 0}`;
+    const isPaid = inv.status === 'PAID';
+    const key = isPaid ? `paid:${dayKey}` : `${inv.status}:${dayKey}:${inv.id}`;
 
-    const existing = deduped.get(key);
-    if (!existing || (inv.description?.length ?? 0) > (existing.description?.length ?? 0)) {
-      deduped.set(key, inv);
+    const existing = byDay.get(key);
+    if (!existing) {
+      byDay.set(key, inv);
+    } else {
+      // Prefer real line-item descriptions over generic webhook labels
+      const existingIsGeneric = GENERIC.test(existing.description ?? '');
+      const newIsGeneric = GENERIC.test(inv.description ?? '');
+      if (existingIsGeneric && !newIsGeneric) {
+        byDay.set(key, inv);
+      } else if (existingIsGeneric === newIsGeneric && (inv.description?.length ?? 0) > (existing.description?.length ?? 0)) {
+        byDay.set(key, inv);
+      }
     }
   }
 
-  const invoiceHistory = Array.from(deduped.values()).map((inv) => ({
+  const invoiceHistory = Array.from(byDay.values()).map((inv) => ({
     id: inv.id,
     invoiceNumber: inv.stripeInvoiceNumber ?? `INV-${inv.id}`,
     date: inv.createdAt.toISOString(),
