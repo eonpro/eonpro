@@ -10,10 +10,14 @@
  * Uses basePrisma (no tenant filter) for the lookup because this route
  * does its own clinic-access check and must work regardless of how the
  * middleware resolved the effective clinicId.
+ *
+ * Uses withAuth (not withAuthParams) because withAuth creates a proper
+ * NextRequest preserving nextUrl; withAuthParams uses req.clone() which
+ * drops NextRequest properties and causes 500 in addSecurityHeaders.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { withAuthParams, AuthUser } from '@/lib/auth/middleware-with-params';
+import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { basePrisma } from '@/lib/db';
 import { downloadFromS3 } from '@/lib/integrations/aws/s3Service';
 import { logger } from '@/lib/logger';
@@ -25,9 +29,9 @@ type RouteContext = {
   params: Promise<{ id: string }>;
 };
 
-export const GET = withAuthParams(async (req: NextRequest, user: AuthUser, context: RouteContext) => {
+export const GET = withAuth<RouteContext>(async (req: NextRequest, user: AuthUser, context?: RouteContext) => {
   try {
-    const { id } = await context.params;
+    const { id } = await context!.params;
     const photoId = parseInt(id, 10);
     if (isNaN(photoId)) {
       return new NextResponse('Invalid photo ID', { status: 400 });
@@ -53,11 +57,7 @@ export const GET = withAuthParams(async (req: NextRequest, user: AuthUser, conte
         photoId,
         error: dbError instanceof Error ? dbError.message : String(dbError),
       });
-      return NextResponse.json({
-        error: 'DB_LOOKUP_FAILED',
-        message: dbError instanceof Error ? dbError.message : String(dbError),
-        stack: dbError instanceof Error ? dbError.stack?.split('\n').slice(0, 3) : undefined,
-      }, { status: 503 });
+      return new NextResponse('Service temporarily unavailable', { status: 503 });
     }
 
     if (!photo || photo.isDeleted) {
@@ -95,22 +95,15 @@ export const GET = withAuthParams(async (req: NextRequest, user: AuthUser, conte
         error: s3Error instanceof Error ? s3Error.message : String(s3Error),
         errorName: s3Error instanceof Error ? s3Error.constructor.name : undefined,
       });
-      return NextResponse.json({
-        error: 'S3_DOWNLOAD_FAILED',
-        message: s3Error instanceof Error ? s3Error.message : String(s3Error),
-        s3Key: s3Key.substring(0, 60),
-      }, { status: 502 });
+      return new NextResponse('Failed to load image', { status: 502 });
     }
   } catch (outerError) {
     logger.error('[PatientPhoto] Unhandled error in image proxy', {
       error: outerError instanceof Error ? outerError.message : String(outerError),
-      stack: outerError instanceof Error ? outerError.stack : undefined,
     });
     return NextResponse.json({
       error: 'UNHANDLED_ERROR',
       message: outerError instanceof Error ? outerError.message : String(outerError),
-      name: outerError instanceof Error ? outerError.constructor.name : typeof outerError,
-      stack: outerError instanceof Error ? outerError.stack?.split('\n').slice(0, 5) : undefined,
     }, { status: 500 });
   }
 });
