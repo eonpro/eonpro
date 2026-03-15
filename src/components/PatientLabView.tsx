@@ -253,7 +253,7 @@ export default function PatientLabView({ patientId, patientName }: PatientLabVie
           >
             <ArrowLeft className="h-4 w-4" /> Back to lab results
           </button>
-          <div className="flex items-center justify-center rounded-2xl border border-gray-200 bg-white p-12">
+          <div className="flex items-center justify-center rounded-2xl border border-gray-200 bg-white p-6 md:p-12">
             <div
               className="h-10 w-10 animate-spin rounded-full border-2 border-gray-200 border-t-gray-600"
               style={{ borderTopColor: PRIMARY }}
@@ -286,7 +286,7 @@ export default function PatientLabView({ patientId, patientName }: PatientLabVie
           <ArrowLeft className="h-4 w-4" /> Back to lab results
         </button>
 
-        <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+        <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm md:p-6">
           <h2 className="text-xl font-bold text-gray-900">{report.labName}</h2>
           <p className="mt-1 text-sm text-gray-500">
             Report date: {formatDate(report.reportedAt ?? report.createdAt)}
@@ -432,7 +432,7 @@ export default function PatientLabView({ patientId, patientName }: PatientLabVie
 
       {/* Flagship hero: latest report summary or empty state */}
       <div
-        className="rounded-2xl border-2 border-gray-200 bg-white p-6 shadow-sm"
+        className="rounded-2xl border-2 border-gray-200 bg-white p-4 shadow-sm md:p-6"
         style={{
           borderColor: latestReport
             ? 'var(--brand-primary-light, rgba(79, 167, 126, 0.3))'
@@ -476,7 +476,7 @@ export default function PatientLabView({ patientId, patientName }: PatientLabVie
       </div>
 
       {/* Upload */}
-      <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+      <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm md:p-6">
         <h2 className="text-lg font-semibold text-gray-900">Upload Quest bloodwork</h2>
         <p className="mt-1 text-sm text-gray-600">
           PDF only. The patient name on the report must match this profile ({patientName}).
@@ -531,7 +531,7 @@ export default function PatientLabView({ patientId, patientName }: PatientLabVie
             />
           </div>
         ) : reports.length === 0 ? (
-          <div className="flex flex-col items-center justify-center p-12 text-center text-gray-500">
+          <div className="flex flex-col items-center justify-center p-6 text-center text-gray-500 md:p-12">
             <TestTube className="mb-2 h-12 w-12 text-gray-300" />
             <p>No lab reports yet. Upload a Quest PDF above.</p>
           </div>

@@ -264,9 +264,9 @@ export default function PatientSOAPNotesView({
   return (
     <div className="space-y-6">
       {/* Header Actions */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h2 className="text-lg font-semibold">SOAP Notes</h2>
-        <div className="flex items-center space-x-4">
+        <div className="flex flex-wrap items-center gap-3">
           {/* Generate Button */}
           <button
             onClick={handleGenerateFromIntake}
@@ -426,7 +426,7 @@ export default function PatientSOAPNotesView({
           return filteredNotes.map((note: any) => (
             <div
               key={note.id}
-              className="cursor-pointer rounded-lg border bg-white p-6 transition-shadow hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-[var(--brand-primary)]"
+              className="cursor-pointer rounded-lg border bg-white p-4 transition-shadow hover:shadow-lg md:p-6 focus:outline-none focus:ring-2 focus:ring-[var(--brand-primary)]"
               onClick={() => setSelectedNote(note)}
               onKeyDown={(e) => { if (e.key === 'Enter') setSelectedNote(note); }}
               tabIndex={0}
@@ -454,7 +454,7 @@ export default function PatientSOAPNotesView({
                     </p>
                   )}
                 </div>
-                <div className="flex space-x-2">
+                <div className="flex flex-wrap gap-2">
                   {note.status === 'DRAFT' && (
                     <button
                       onClick={(e: any) => {
@@ -517,7 +517,7 @@ export default function PatientSOAPNotesView({
       {/* Detail Modal */}
       {selectedNote && !showApprovalModal && !showEditModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
-          <div className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-lg bg-white p-6">
+          <div className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-lg bg-white p-4 md:p-6">
             <div className="mb-6 flex items-start justify-between">
               <h2 className="text-2xl font-bold">SOAP Note #{selectedNote.id}</h2>
               <button
@@ -574,7 +574,7 @@ export default function PatientSOAPNotesView({
       {/* Approval Modal */}
       {showApprovalModal && selectedNote && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
-          <div className="w-full max-w-md rounded-lg bg-white p-6">
+          <div className="w-full max-w-md rounded-lg bg-white p-4 md:p-6">
             <h2 className="mb-4 text-xl font-bold">Approve SOAP Note</h2>
             <p className="mb-4 text-gray-600">
               By approving this SOAP note, you are confirming its accuracy and locking it for future
@@ -619,7 +619,7 @@ export default function PatientSOAPNotesView({
       {/* Edit Modal */}
       {showEditModal && selectedNote && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
-          <div className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-lg bg-white p-6">
+          <div className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-lg bg-white p-4 md:p-6">
             <h2 className="mb-4 text-xl font-bold">Edit Approved SOAP Note</h2>
             <p className="mb-4 flex items-center gap-2 text-yellow-600">
               <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

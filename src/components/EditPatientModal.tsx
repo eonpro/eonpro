@@ -140,7 +140,7 @@ export default function EditPatientModal({ patient, onClose, onSave }: EditPatie
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white">
         {/* Header */}
-        <div className="flex items-center justify-between border-b p-6">
+        <div className="flex items-center justify-between border-b p-4 md:p-6">
           <h2 className="text-xl font-bold text-gray-900">Edit Patient Information</h2>
           <button onClick={onClose} className="rounded-lg p-2 transition-colors hover:bg-gray-100">
             <X className="h-5 w-5" />
@@ -148,7 +148,7 @@ export default function EditPatientModal({ patient, onClose, onSave }: EditPatie
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="space-y-6 p-6">
+        <form onSubmit={handleSubmit} className="space-y-4 p-4 md:space-y-6 md:p-6">
           {error && (
             <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
               {error}
@@ -156,7 +156,7 @@ export default function EditPatientModal({ patient, onClose, onSave }: EditPatie
           )}
 
           {/* Name */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
             <div>
               <label className="mb-1 block text-sm font-medium text-gray-700">
                 First Name <span className="text-red-500">*</span>
@@ -184,7 +184,7 @@ export default function EditPatientModal({ patient, onClose, onSave }: EditPatie
           </div>
 
           {/* Contact */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
             <div>
               <label className="mb-1 block text-sm font-medium text-gray-700">
                 Email <span className="text-red-500">*</span>
@@ -212,7 +212,7 @@ export default function EditPatientModal({ patient, onClose, onSave }: EditPatie
           </div>
 
           {/* DOB and Gender */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
             <div>
               <label className="mb-1 block text-sm font-medium text-gray-700">
                 Date of Birth <span className="text-red-500">*</span>
@@ -279,7 +279,7 @@ export default function EditPatientModal({ patient, onClose, onSave }: EditPatie
             />
           </div>
 
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
             <div>
               <label className="mb-1 block text-sm font-medium text-gray-700">City</label>
               <input

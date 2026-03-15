@@ -371,7 +371,7 @@ export default function PatientPrescriptionSummary({ patientId }: PatientPrescri
 
   if (loading) {
     return (
-      <div className="rounded-xl border bg-white p-6 shadow">
+      <div className="rounded-xl border bg-white p-4 shadow md:p-6">
         <div className="flex items-center justify-center py-4">
           <div className="h-6 w-6 animate-spin rounded-full border-b-2 border-[#4fa77e]"></div>
           <span className="ml-2 text-sm text-gray-500">Loading prescription data...</span>
@@ -384,7 +384,7 @@ export default function PatientPrescriptionSummary({ patientId }: PatientPrescri
   // This prevents confusing "Failed to fetch" messages when there's simply no data
 
   return (
-    <div className="rounded-xl border bg-white p-6 shadow">
+    <div className="rounded-xl border bg-white p-4 shadow md:p-6">
       {/* Header */}
       <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -896,7 +896,7 @@ export default function PatientPrescriptionSummary({ patientId }: PatientPrescri
       {/* Edit/Delete Confirmation Modal */}
       {actionModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="mx-4 w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+          <div className="mx-4 w-full max-w-md rounded-xl bg-white p-4 shadow-xl md:p-6">
             {actionModal.type === 'delete' ? (
               <>
                 <div className="mb-4 flex items-center gap-3">

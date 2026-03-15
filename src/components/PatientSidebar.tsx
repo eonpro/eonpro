@@ -757,11 +757,11 @@ export default function PatientSidebar({
   return (
     <>
       {/* ── Mobile Patient Header ── */}
-      <div className="space-y-3 md:hidden">
-        <div className="rounded-2xl border border-gray-200 bg-white p-4">
-          <div className="flex items-center gap-3">
+      <div className="md:hidden">
+        <div className="rounded-2xl border border-gray-200 bg-white">
+          <div className="flex items-center gap-3 p-3.5 pb-0">
             <div
-              className="flex h-12 w-12 flex-shrink-0 items-center justify-center overflow-hidden rounded-full"
+              className="flex h-14 w-14 flex-shrink-0 items-center justify-center overflow-hidden rounded-2xl"
               style={{ backgroundColor: 'var(--brand-primary-light, rgba(79, 167, 126, 0.1))' }}
             >
               {avatarUrl ? (
@@ -771,99 +771,131 @@ export default function PatientSidebar({
                   className="h-full w-full object-cover"
                 />
               ) : (
-                <span className="text-lg font-bold" style={{ color: 'var(--brand-primary, #4fa77e)' }}>
+                <span className="text-xl font-bold" style={{ color: 'var(--brand-primary, #4fa77e)' }}>
                   {patient.firstName?.[0]}{patient.lastName?.[0]}
                 </span>
               )}
             </div>
 
             <div className="min-w-0 flex-1">
-              <h2 className="flex items-center gap-1 truncate text-base font-bold text-gray-900">
+              <h2 className="flex items-center gap-1.5 truncate text-[17px] font-bold leading-tight text-gray-900">
                 {patient.firstName} {patient.lastName}
                 {patient.identityVerified && <VerifiedBadge size="md" />}
               </h2>
-              <p className="text-xs text-gray-500" suppressHydrationWarning>
-                {age ? `${age}y · ` : ''}{genderLabel} · ID #{formatPatientDisplayId(patient.patientId, patient.id)}
-              </p>
+              <div className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-xs text-gray-500" suppressHydrationWarning>
+                {age ? <span>{age}y</span> : null}
+                {age && genderLabel !== 'Not set' ? <span>·</span> : null}
+                {genderLabel !== 'Not set' && <span>{genderLabel}</span>}
+                <span className="text-gray-300">|</span>
+                <span className="font-medium text-gray-600">#{formatPatientDisplayId(patient.patientId, patient.id)}</span>
+              </div>
             </div>
 
             <button
               onClick={() => setShowMobileActions((v) => !v)}
-              className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl text-gray-400 transition-colors hover:bg-gray-100 active:bg-gray-200"
+              className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl transition-colors ${
+                showMobileActions ? 'bg-gray-100 text-gray-700' : 'text-gray-400 active:bg-gray-100'
+              }`}
               aria-label="Patient actions"
             >
-              <MoreVertical className="h-5 w-5" />
+              {showMobileActions ? <X className="h-5 w-5" /> : <MoreVertical className="h-5 w-5" />}
             </button>
           </div>
 
-          <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500">
-            {formatEmail(patient.email) !== '-' && <span>{formatEmail(patient.email)}</span>}
-            {formatPhone(patient.phone) !== '—' && <span>{formatPhone(patient.phone)}</span>}
-            {patient.dob && formatDob(patient.dob) !== '—' && (
-              <span>DOB: {formatDob(patient.dob)}</span>
+          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 px-3.5 pb-3 pt-2 text-[13px] text-gray-500">
+            {formatPhone(patient.phone) !== '—' && (
+              <a href={`tel:${patient.phone}`} className="active:text-gray-900">{formatPhone(patient.phone)}</a>
+            )}
+            {formatPhone(patient.phone) !== '—' && formatEmail(patient.email) !== '-' && (
+              <span className="text-gray-300">·</span>
+            )}
+            {formatEmail(patient.email) !== '-' && (
+              <span className="truncate">{formatEmail(patient.email)}</span>
             )}
           </div>
 
-          {activeMembership && (
-            <span
-              className="mt-2 inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium"
-              style={{
-                backgroundColor: 'var(--brand-primary-light, #e8f5e9)',
-                color: 'var(--brand-primary, #4fa77e)',
-              }}
-            >
-              Active membership{activeMembership.planName ? ` · ${activeMembership.planName}` : ''}
-            </span>
+          {(activeMembership || affiliateAttribution || affiliateCode) && (
+            <div className="flex flex-wrap items-center gap-1.5 border-t border-gray-100 px-3.5 py-2.5">
+              {activeMembership && (
+                <span
+                  className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold"
+                  style={{
+                    backgroundColor: 'var(--brand-primary-light, #e8f5e9)',
+                    color: 'var(--brand-primary, #4fa77e)',
+                  }}
+                >
+                  Active{activeMembership.planName ? ` · ${activeMembership.planName}` : ''}
+                </span>
+              )}
+              {(affiliateAttribution || affiliateCode) && (
+                <span className="inline-flex items-center rounded-full bg-violet-50 px-2.5 py-1 text-xs font-semibold text-violet-700">
+                  Affiliate{affiliateAttribution?.refCode ? `: ${affiliateAttribution.refCode}` : affiliateCode ? `: ${affiliateCode}` : ''}
+                </span>
+              )}
+            </div>
           )}
 
-          {showMobileActions && (
-            <div className="mt-3 space-y-0.5 border-t border-gray-100 pt-3">
+          <div
+            className={`overflow-hidden transition-all duration-200 ease-in-out ${
+              showMobileActions ? 'max-h-80 opacity-100' : 'max-h-0 opacity-0'
+            }`}
+          >
+            <div className="space-y-0.5 border-t border-gray-100 px-2 py-2">
               {!isPharmacyRep && (
                 <button
                   onClick={() => { setShowEditModal(true); setShowMobileActions(false); }}
-                  className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-medium text-gray-700 transition-colors active:bg-gray-100"
+                  className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-[15px] font-medium text-gray-700 active:bg-gray-50"
                 >
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-100">
+                    <svg className="h-4 w-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                  </div>
                   Edit Patient
                 </button>
               )}
               {canManageShipping && (
                 <button
                   onClick={() => { setShowFedExModal(true); setShowMobileActions(false); }}
-                  className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-medium text-[#4D148C] transition-colors active:bg-purple-50"
+                  className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-[15px] font-medium text-[#4D148C] active:bg-purple-50"
                 >
-                  <Truck className="h-4 w-4" />
-                  Print FedEx Label
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-purple-50">
+                    <Truck className="h-4 w-4" />
+                  </div>
+                  FedEx Label
                 </button>
               )}
               {!isPharmacyRep && (
                 <>
                   <button
                     onClick={() => { setShowMergeModal(true); setShowMobileActions(false); }}
-                    className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-medium text-gray-700 transition-colors active:bg-gray-100"
+                    className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-[15px] font-medium text-gray-700 active:bg-gray-50"
                   >
-                    <GitMerge className="h-4 w-4" />
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-100">
+                      <GitMerge className="h-4 w-4 text-gray-600" />
+                    </div>
                     Merge Patient
                   </button>
                   <button
                     onClick={() => { setShowDeleteModal(true); setShowMobileActions(false); }}
-                    className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-medium text-red-600 transition-colors active:bg-red-50"
+                    className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-[15px] font-medium text-red-600 active:bg-red-50"
                   >
-                    <Trash2 className="h-4 w-4" />
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-50">
+                      <Trash2 className="h-4 w-4" />
+                    </div>
                     Delete Patient
                   </button>
                 </>
               )}
             </div>
-          )}
+          </div>
         </div>
 
-        {/* Scrollable Tab Bar */}
+        {/* Sticky Scrollable Tab Bar */}
         <div
           ref={mobileTabBarRef}
-          className="overflow-x-auto [&::-webkit-scrollbar]:hidden"
+          className="sticky top-0 z-20 -mx-3 mt-3 overflow-x-auto bg-[#efece7] px-3 py-1.5 [&::-webkit-scrollbar]:hidden"
           style={{ scrollbarWidth: 'none' }}
         >
-          <div className="flex gap-1.5 pb-0.5">
+          <div className="flex gap-1.5">
             {(showLabsTab === false ? navItems.filter((i) => i.id !== 'lab') : navItems)
               .filter((item) => !isPharmacyRep || ['profile', 'prescriptions'].includes(item.id))
               .map((item) => {
@@ -874,10 +906,10 @@ export default function PatientSidebar({
                     key={item.id}
                     href={href}
                     data-active={isActive}
-                    className={`flex-shrink-0 whitespace-nowrap rounded-full px-3.5 py-2 text-sm font-medium transition-colors ${
+                    className={`flex-shrink-0 whitespace-nowrap rounded-full px-3.5 py-2 text-[13px] font-semibold transition-colors ${
                       isActive
                         ? 'text-white shadow-sm'
-                        : 'border border-gray-200 bg-white text-gray-600 active:bg-gray-100'
+                        : 'bg-white text-gray-500 shadow-sm ring-1 ring-gray-200/60 active:bg-gray-50'
                     }`}
                     style={isActive ? { backgroundColor: 'var(--brand-primary, #4fa77e)' } : {}}
                   >

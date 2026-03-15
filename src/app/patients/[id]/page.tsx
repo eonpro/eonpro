@@ -1072,9 +1072,9 @@ export default async function PatientDetailPage({
             )}
 
             {currentTab === 'profile' ? (
-              <div className="space-y-6">
+              <div className="space-y-4 md:space-y-6">
                 {/* Title */}
-                <h1 className="text-2xl font-bold text-gray-900">Patient Overview</h1>
+                <h1 className="text-xl font-bold text-gray-900 md:text-2xl">Patient Overview</h1>
 
                 {/* Portal access + Send invite */}
                 <PatientPortalAccessBlock
@@ -1121,12 +1121,12 @@ export default async function PatientDetailPage({
                     <h2 className="text-lg font-semibold text-gray-900">Vitals</h2>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-                    {/* Height - No health indicator (neutral) */}
-                    <div className="rounded-xl bg-[#efece7] p-4">
-                      <p className="mb-1 text-sm text-gray-500">Height</p>
-                      <p className="text-2xl font-bold text-gray-900">{vitals.height || '—'}</p>
-                      <div className="mt-3 h-2 overflow-hidden rounded-full bg-gray-300">
+                  <div className="grid grid-cols-2 gap-2.5 md:gap-4 lg:grid-cols-4">
+                    {/* Height */}
+                    <div className="rounded-xl bg-[#efece7] p-3 md:p-4">
+                      <p className="mb-0.5 text-xs text-gray-500 md:mb-1 md:text-sm">Height</p>
+                      <p className="text-lg font-bold text-gray-900 md:text-2xl">{vitals.height || '—'}</p>
+                      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-gray-300 md:mt-3 md:h-2">
                         <div
                           className="h-full rounded-full bg-gray-500"
                           style={{ width: vitals.height ? '100%' : '0%' }}
@@ -1134,15 +1134,15 @@ export default async function PatientDetailPage({
                       </div>
                     </div>
 
-                    {/* Weight - Color based on BMI */}
-                    <div className="rounded-xl bg-[#efece7] p-4">
-                      <p className="mb-1 text-sm text-gray-500">Weight</p>
+                    {/* Weight */}
+                    <div className="rounded-xl bg-[#efece7] p-3 md:p-4">
+                      <p className="mb-0.5 text-xs text-gray-500 md:mb-1 md:text-sm">Weight</p>
                       <p
-                        className={`text-2xl font-bold ${vitals.weight ? weightColor.text : 'text-gray-900'}`}
+                        className={`text-lg font-bold md:text-2xl ${vitals.weight ? weightColor.text : 'text-gray-900'}`}
                       >
                         {vitals.weight ? `${vitals.weight}lbs` : '—'}
                       </p>
-                      <div className="mt-3 h-2 overflow-hidden rounded-full bg-gray-300">
+                      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-gray-300 md:mt-3 md:h-2">
                         <div
                           className={`h-full ${weightColor.bar} rounded-full transition-all duration-500`}
                           style={{ width: weightColor.width }}
@@ -1150,15 +1150,15 @@ export default async function PatientDetailPage({
                       </div>
                     </div>
 
-                    {/* BMI - Color coded by obesity level */}
-                    <div className="rounded-xl bg-[#efece7] p-4">
-                      <p className="mb-1 text-sm text-gray-500">BMI</p>
+                    {/* BMI */}
+                    <div className="rounded-xl bg-[#efece7] p-3 md:p-4">
+                      <p className="mb-0.5 text-xs text-gray-500 md:mb-1 md:text-sm">BMI</p>
                       <p
-                        className={`text-2xl font-bold ${vitals.bmi ? bmiColor.text : 'text-gray-900'}`}
+                        className={`text-lg font-bold md:text-2xl ${vitals.bmi ? bmiColor.text : 'text-gray-900'}`}
                       >
                         {vitals.bmi || '—'}
                       </p>
-                      <div className="mt-3 h-2 overflow-hidden rounded-full bg-gray-300">
+                      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-gray-300 md:mt-3 md:h-2">
                         <div
                           className={`h-full ${bmiColor.bar} rounded-full transition-all duration-500`}
                           style={{ width: bmiColor.width }}
@@ -1166,17 +1166,17 @@ export default async function PatientDetailPage({
                       </div>
                     </div>
 
-                    {/* Blood Pressure - Color coded by hypertension level */}
-                    <div className="rounded-xl bg-[#efece7] p-4">
-                      <p className="mb-1 text-sm text-gray-500">Blood pressure</p>
+                    {/* Blood Pressure */}
+                    <div className="rounded-xl bg-[#efece7] p-3 md:p-4">
+                      <p className="mb-0.5 text-xs text-gray-500 md:mb-1 md:text-sm">BP</p>
                       <p
-                        className={`text-2xl font-bold ${vitals.bloodPressure && vitals.bloodPressure !== 'unknown' ? bpColor.text : 'text-gray-900'}`}
+                        className={`text-lg font-bold md:text-2xl ${vitals.bloodPressure && vitals.bloodPressure !== 'unknown' ? bpColor.text : 'text-gray-900'}`}
                       >
                         {vitals.bloodPressure && vitals.bloodPressure.toLowerCase() !== 'unknown'
                           ? vitals.bloodPressure
                           : '—'}
                       </p>
-                      <div className="mt-3 h-2 overflow-hidden rounded-full bg-gray-300">
+                      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-gray-300 md:mt-3 md:h-2">
                         <div
                           className={`h-full ${bpColor.bar} rounded-full transition-all duration-500`}
                           style={{ width: bpColor.width }}

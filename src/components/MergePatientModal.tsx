@@ -451,7 +451,7 @@ export default function MergePatientModal({
         )}
 
         {/* Side by side comparison */}
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           {/* Source (will be deleted) */}
           <div className="rounded-lg border border-red-200 bg-red-50/50 p-4">
             <div className="mb-3 flex items-center gap-2">
@@ -536,7 +536,7 @@ export default function MergePatientModal({
               <p className="text-xs text-[#4fa77e]">Combined profile data</p>
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4 text-sm">
+          <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2 sm:gap-4">
             <div className="space-y-2">
               <p>
                 <span className="text-gray-500">Name:</span> {mergedProfile.firstName}{' '}
@@ -566,7 +566,7 @@ export default function MergePatientModal({
           <h4 className="mb-3 font-medium text-gray-900">
             Records to be moved ({totalRecordsToMove} total)
           </h4>
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
             {relationGroups.map((group) => (
               <div key={group.name}>
                 <h5 className="mb-2 text-sm font-medium text-gray-700">{group.name}</h5>

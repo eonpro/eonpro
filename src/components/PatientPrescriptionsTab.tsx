@@ -127,7 +127,7 @@ export default function PatientPrescriptionsTab({
   return (
     <div className="space-y-6">
       {/* Prescription History */}
-      <section className="rounded-xl border bg-white p-6 shadow">
+      <section className="rounded-xl border bg-white p-3 shadow sm:p-4 md:p-6">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-xl font-semibold">Prescription History</h2>
           <span className="text-sm text-gray-500">Total prescriptions: {orders.length}</span>
@@ -338,7 +338,7 @@ export default function PatientPrescriptionsTab({
 
       {/* New Prescription Button */}
       {orders.length > 0 && (
-        <section className="rounded-xl border bg-white p-6 shadow">
+        <section className="rounded-xl border bg-white p-3 shadow sm:p-4 md:p-6">
           <div className="text-center">
             <h3 className="mb-2 text-lg font-medium">Need a New Prescription?</h3>
             <p className="mb-4 text-sm text-gray-600">

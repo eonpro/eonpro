@@ -114,7 +114,7 @@ export default function PatientPortalAccessBlock({
   const canSend = hasEmail || hasPhone;
 
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white p-6">
+    <div className="rounded-2xl border border-gray-200 bg-white p-4 md:p-6">
       <div className="mb-4 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           {hasPortalAccess && !resetDone ? (
