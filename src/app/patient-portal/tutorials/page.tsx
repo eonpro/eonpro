@@ -4,8 +4,21 @@ import { useState, useCallback } from 'react';
 import Link from 'next/link';
 import { ChevronLeft, Play, Clock, Star, X, Syringe } from 'lucide-react';
 import { useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
+import { usePatientPortalLanguage } from '@/lib/contexts/PatientPortalLanguageContext';
 
-const INJECTION_VIDEO_ID = 'RUxd5uk_lAc';
+const INJECTION_VIDEO = {
+  en: {
+    id: 'RUxd5uk_lAc',
+    thumbnail: 'https://static.wixstatic.com/media/c49a9b_c5588b4357604ce39ae7ba80c6f83edd~mv2.webp',
+    title: 'How to Safely Apply a Semaglutide Injection at Home',
+  },
+  es: {
+    id: 'ETqz2fmh5ww',
+    thumbnail: 'https://static.wixstatic.com/media/c49a9b_bd7ba147288b4395a7a43faa4f0dd4d4~mv2.webp',
+    title: 'Cómo aplicar una inyección de Semaglutida en casa de forma segura',
+  },
+} as const;
+
 const INJECTION_VIDEO_CLINICS = ['eonmeds', 'wellmedr'];
 
 interface Video {
@@ -23,10 +36,12 @@ export default function TutorialVideosPage() {
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [playingVideoId, setPlayingVideoId] = useState<string | null>(null);
   const { branding } = useClinicBranding();
+  const { language } = usePatientPortalLanguage();
 
   const subdomain = branding?.subdomain?.toLowerCase() ?? '';
   const showInjectionVideo = INJECTION_VIDEO_CLINICS.includes(subdomain);
   const primaryColor = branding?.primaryColor || '#f97316';
+  const injVid = INJECTION_VIDEO[language] ?? INJECTION_VIDEO.en;
 
   const categories = [
     { id: 'all', label: 'All', color: 'bg-gray-500' },
@@ -41,11 +56,11 @@ export default function TutorialVideosPage() {
       ? [
           {
             id: 'eon-inject',
-            title: 'How to Safely Apply a Semaglutide Injection at Home',
+            title: injVid.title,
             duration: '2:32',
             category: 'injection',
-            thumbnail: 'https://static.wixstatic.com/media/c49a9b_c5588b4357604ce39ae7ba80c6f83edd~mv2.webp',
-            youtubeId: INJECTION_VIDEO_ID,
+            thumbnail: injVid.thumbnail,
+            youtubeId: injVid.id,
             rating: 4.9,
             views: 2100,
           },
@@ -169,17 +184,17 @@ export default function TutorialVideosPage() {
         {/* Featured Injection Video (eonmeds & wellmedr only) */}
         {showInjectionVideo && (selectedCategory === 'all' || selectedCategory === 'injection') && (
           <button
-            onClick={() => setPlayingVideoId(INJECTION_VIDEO_ID)}
+            onClick={() => setPlayingVideoId(injVid.id)}
             className="mb-6 w-full overflow-hidden rounded-2xl text-left shadow-md transition-shadow hover:shadow-lg"
             style={{ background: `linear-gradient(135deg, ${primaryColor}, ${primaryColor}dd)` }}
           >
             <div className="relative">
               <img
-                src={`https://img.youtube.com/vi/${INJECTION_VIDEO_ID}/maxresdefault.jpg`}
-                alt="How to inject semaglutide"
+                src={injVid.thumbnail}
+                alt={injVid.title}
                 className="aspect-video w-full object-cover opacity-80"
                 onError={(e) => {
-                  (e.target as HTMLImageElement).src = `https://img.youtube.com/vi/${INJECTION_VIDEO_ID}/hqdefault.jpg`;
+                  (e.target as HTMLImageElement).src = `https://img.youtube.com/vi/${injVid.id}/hqdefault.jpg`;
                 }}
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
@@ -192,17 +207,17 @@ export default function TutorialVideosPage() {
                 <div className="mb-2 flex items-center gap-2">
                   <span className="flex items-center gap-1 rounded-full bg-white/20 px-2.5 py-1 text-xs font-medium backdrop-blur-sm">
                     <Syringe className="h-3 w-3" />
-                    Featured Guide
+                    {language === 'es' ? 'Guía destacada' : 'Featured Guide'}
                   </span>
                   <span className="rounded-full bg-white/20 px-2.5 py-1 text-xs backdrop-blur-sm">
                     2:32
                   </span>
                 </div>
                 <h2 className="text-lg font-semibold leading-tight">
-                  How to Safely Apply a Semaglutide Injection at Home
+                  {injVid.title}
                 </h2>
                 <p className="mt-1 text-sm text-white/80">
-                  Step-by-step guide from EONPro
+                  {language === 'es' ? 'Guía paso a paso de EONPro' : 'Step-by-step guide from EONPro'}
                 </p>
               </div>
             </div>

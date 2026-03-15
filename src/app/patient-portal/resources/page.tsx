@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import dynamic from 'next/dynamic';
 import { useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
+import { usePatientPortalLanguage } from '@/lib/contexts/PatientPortalLanguageContext';
 import { ringColorStyle } from '@/lib/utils/css-ring-color';
 import { BookOpen, Video, FileQuestion } from 'lucide-react';
 
@@ -27,10 +28,11 @@ const ResourcesTabContent = dynamic(
   },
 );
 
-const categories = ['All', 'Tutorials', 'Education', 'Nutrition', 'Fitness', 'Guides'];
+const categories = ['All', 'Tutorials', 'Education', 'Wellness', 'Nutrition', 'Fitness', 'Guides'];
 
 export default function ResourcesPage() {
   const { branding } = useClinicBranding();
+  const { language } = usePatientPortalLanguage();
   const primaryColor = branding?.primaryColor || '#4fa77e';
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -122,6 +124,7 @@ export default function ResourcesPage() {
         primaryColor={primaryColor}
         subdomain={branding?.subdomain}
         resourceVideos={branding?.resourceVideos}
+        language={language}
       />
 
       {/* Help Card */}

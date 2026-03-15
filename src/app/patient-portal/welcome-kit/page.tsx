@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useClinicBranding, getContrastTextColor } from '@/lib/contexts/ClinicBrandingContext';
+import { usePatientPortalLanguage } from '@/lib/contexts/PatientPortalLanguageContext';
 import { portalFetch } from '@/lib/api/patient-portal-client';
 import { safeParseJson } from '@/lib/utils/safe-json';
 import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
@@ -20,6 +21,11 @@ import {
   ArrowLeft,
   PackageCheck,
 } from 'lucide-react';
+
+const INJECTION_VIDEO = {
+  en: { id: 'RUxd5uk_lAc', title: 'How to Safely Apply a Semaglutide Injection at Home' },
+  es: { id: 'ETqz2fmh5ww', title: 'Cómo aplicar una inyección de Semaglutida en casa de forma segura' },
+} as const;
 
 // ---------------------------------------------------------------------------
 // Types (mirrored from medications page)
@@ -148,9 +154,11 @@ function formatDate(iso: string): string {
 
 export default function WelcomeKitPage() {
   const { branding } = useClinicBranding();
+  const { language } = usePatientPortalLanguage();
   const primaryColor = branding?.primaryColor || '#4fa77e';
   const accentColor = branding?.accentColor || '#d3f931';
   const accentText = getContrastTextColor(accentColor) === 'light' ? '#ffffff' : '#1f2937';
+  const injVid = INJECTION_VIDEO[language] ?? INJECTION_VIDEO.en;
 
   const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
   const [loading, setLoading] = useState(true);
@@ -285,8 +293,14 @@ export default function WelcomeKitPage() {
               <Play className="h-5 w-5" style={{ color: primaryColor }} />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-gray-900">How to Inject</h2>
-              <p className="text-sm text-gray-500">Watch this short video before your first injection</p>
+              <h2 className="text-lg font-bold text-gray-900">
+                {language === 'es' ? 'Cómo inyectar' : 'How to Inject'}
+              </h2>
+              <p className="text-sm text-gray-500">
+                {language === 'es'
+                  ? 'Mire este breve video antes de su primera inyección'
+                  : 'Watch this short video before your first injection'}
+              </p>
             </div>
           </div>
         </div>
@@ -294,11 +308,74 @@ export default function WelcomeKitPage() {
           <div className="relative overflow-hidden rounded-2xl bg-black" style={{ paddingBottom: '56.25%' }}>
             <iframe
               className="absolute inset-0 h-full w-full"
-              src="https://www.youtube.com/embed/RUxd5uk_lAc?rel=0"
-              title="How to Safely Apply a Semaglutide Injection at Home"
+              src={`https://www.youtube.com/embed/${injVid.id}?rel=0`}
+              title={injVid.title}
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
               allowFullScreen
             />
+          </div>
+        </div>
+      </section>
+
+      {/* ── Section A2: Injection Site Guide ── */}
+      <section className="mb-8 overflow-hidden rounded-3xl bg-white shadow-xl shadow-gray-200/50">
+        <div className="border-b border-gray-100 px-5 py-4 sm:px-6">
+          <div className="flex items-center gap-3">
+            <div
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
+              style={{ backgroundColor: `${primaryColor}15` }}
+            >
+              <Syringe className="h-5 w-5" style={{ color: primaryColor }} />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-gray-900">
+                {language === 'es' ? 'Sitios de inyección' : 'Injection Sites'}
+              </h2>
+              <p className="text-sm text-gray-500">
+                {language === 'es'
+                  ? 'Rote entre estas áreas cada semana'
+                  : 'Rotate between these areas each week'}
+              </p>
+            </div>
+          </div>
+        </div>
+        <div className="flex flex-col items-center gap-4 p-5 sm:flex-row sm:p-6">
+          <div className="w-40 flex-shrink-0 sm:w-48">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="https://static.wixstatic.com/shapes/c49a9b_c10e908eadc04b2b89ee7cae6ef4b981.svg"
+              alt={language === 'es' ? 'Sitios de inyección en el cuerpo' : 'Injection sites on body'}
+              className="h-auto w-full"
+            />
+          </div>
+          <div className="flex-1 space-y-3 text-sm text-gray-700">
+            <div className="flex items-start gap-2">
+              <span className="mt-1 h-2 w-2 flex-shrink-0 rounded-full" style={{ backgroundColor: primaryColor }} />
+              <span>
+                <strong>{language === 'es' ? 'Abdomen' : 'Abdomen'}</strong>{' '}
+                — {language === 'es'
+                  ? 'Al menos 2 pulgadas del ombligo'
+                  : 'At least 2 inches from the belly button'}
+              </span>
+            </div>
+            <div className="flex items-start gap-2">
+              <span className="mt-1 h-2 w-2 flex-shrink-0 rounded-full" style={{ backgroundColor: primaryColor }} />
+              <span>
+                <strong>{language === 'es' ? 'Muslo' : 'Thigh'}</strong>{' '}
+                — {language === 'es'
+                  ? 'Parte frontal del muslo, a media distancia entre la rodilla y la cadera'
+                  : 'Front of the thigh, midway between the knee and hip'}
+              </span>
+            </div>
+            <div className="flex items-start gap-2">
+              <span className="mt-1 h-2 w-2 flex-shrink-0 rounded-full" style={{ backgroundColor: primaryColor }} />
+              <span>
+                <strong>{language === 'es' ? 'Parte superior del brazo' : 'Upper arm'}</strong>{' '}
+                — {language === 'es'
+                  ? 'Parte posterior del brazo (puede necesitar ayuda)'
+                  : 'Back of the arm (may need help from someone)'}
+              </span>
+            </div>
           </div>
         </div>
       </section>

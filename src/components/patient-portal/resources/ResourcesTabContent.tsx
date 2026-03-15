@@ -24,29 +24,41 @@ interface Resource {
   duration?: string;
 }
 
-const INJECTION_VIDEO_ID = 'RUxd5uk_lAc';
+const INJECTION_VIDEO = {
+  en: {
+    id: 'RUxd5uk_lAc',
+    thumbnail: 'https://static.wixstatic.com/media/c49a9b_c5588b4357604ce39ae7ba80c6f83edd~mv2.webp',
+    title: 'How to Safely Apply a Semaglutide Injection at Home',
+    description:
+      'Step-by-step guide from EONPro covering preparation, dosage, injection technique, and post-injection care.',
+  },
+  es: {
+    id: 'ETqz2fmh5ww',
+    thumbnail: 'https://static.wixstatic.com/media/c49a9b_bd7ba147288b4395a7a43faa4f0dd4d4~mv2.webp',
+    title: 'Cómo aplicar una inyección de Semaglutida en casa de forma segura',
+    description:
+      'Guía paso a paso de EONPro sobre preparación, dosificación, técnica de inyección y cuidados posteriores.',
+  },
+} as const;
+
 const INJECTION_VIDEO_CLINICS = ['eonmeds', 'wellmedr'];
 
 const defaultResources: Resource[] = [
   {
-    id: 'v2',
+    id: 'a-glp1',
     title: 'Understanding GLP-1 Medications',
     description: 'Learn how Semaglutide and Tirzepatide work for weight loss',
-    type: 'video',
+    type: 'article',
     category: 'Education',
-    url: 'https://www.youtube.com/watch?v=example2',
-    thumbnail: '/images/glp1-education-thumb.jpg',
-    duration: '12:30',
+    url: '/patient-portal/resources/understanding-glp1-medications',
   },
   {
-    id: 'v3',
+    id: 'a-side-effects',
     title: 'Managing Side Effects',
     description: 'Tips for managing common side effects of weight loss medications',
-    type: 'video',
-    category: 'Tutorials',
-    url: 'https://www.youtube.com/watch?v=example3',
-    thumbnail: '/images/side-effects-thumb.jpg',
-    duration: '6:15',
+    type: 'article',
+    category: 'Wellness',
+    url: '/patient-portal/resources/managing-side-effects',
   },
   {
     id: 'a1',
@@ -127,6 +139,7 @@ export default function ResourcesTabContent({
   primaryColor,
   subdomain,
   resourceVideos,
+  language = 'en',
 }: {
   activeTab: 'videos' | 'articles' | 'faq';
   searchQuery: string;
@@ -141,21 +154,22 @@ export default function ResourcesTabContent({
     thumbnail: string;
     category: string;
   }>;
+  language?: 'en' | 'es';
 }) {
   const [expandedFaq, setExpandedFaq] = useState<string | null>(null);
 
   const resources = useMemo<Resource[]>(() => {
     const normalizedSubdomain = subdomain?.toLowerCase() ?? '';
+    const vid = INJECTION_VIDEO[language] ?? INJECTION_VIDEO.en;
     const injectionVideo: Resource | null = INJECTION_VIDEO_CLINICS.includes(normalizedSubdomain)
       ? {
           id: 'v-injection-eon',
-          title: 'How to Safely Apply a Semaglutide Injection at Home',
-          description:
-            'Step-by-step guide from EONPro covering preparation, dosage, injection technique, and post-injection care.',
+          title: vid.title,
+          description: vid.description,
           type: 'video',
           category: 'Tutorials',
-          url: `https://www.youtube.com/watch?v=${INJECTION_VIDEO_ID}`,
-          thumbnail: 'https://static.wixstatic.com/media/c49a9b_c5588b4357604ce39ae7ba80c6f83edd~mv2.webp',
+          url: `https://www.youtube.com/watch?v=${vid.id}`,
+          thumbnail: vid.thumbnail,
           duration: '2:32',
         }
       : null;
@@ -174,7 +188,7 @@ export default function ResourcesTabContent({
         : [];
 
     return [...(injectionVideo ? [injectionVideo] : []), ...clinicResources, ...defaultResources];
-  }, [resourceVideos, subdomain]);
+  }, [resourceVideos, subdomain, language]);
 
   const filteredResources = resources.filter((resource) => {
     const matchesSearch =
@@ -235,8 +249,7 @@ export default function ResourcesTabContent({
             <a
               key={resource.id}
               href={resource.url}
-              target="_blank"
-              rel="noopener noreferrer"
+              {...(resource.url.startsWith('/') ? {} : { target: '_blank', rel: 'noopener noreferrer' })}
               className="group overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm transition-all hover:shadow-md"
             >
               {resource.type === 'video' && (
