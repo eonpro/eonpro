@@ -216,6 +216,13 @@ interface QueueItem {
   queuedByUserId?: number | null;
   // Indicates source of GLP-1 info for refills: 'last_prescription' | 'medication_info'
   glp1Source?: string;
+  // Previous prescription details for renewals/refills
+  lastRxDetails?: {
+    medName: string;
+    strength: string;
+    sig: string;
+    dose: number | null;
+  } | null;
   // Hold status (provider needs more information)
   holdReason?: string | null;
   heldAt?: string | null;
@@ -1648,13 +1655,16 @@ export default function PrescriptionQueuePage() {
             {filteredItems.map((item) => {
               const itemKey = item.orderId ?? item.invoiceId ?? item.refillId ?? item.patientId;
               const isQueuedOrder = item.queueType === 'queued_order';
+              const isRenewal = item.queueType === 'refill';
               return (
                 <div
                   key={itemKey}
                   className={`overflow-hidden rounded-2xl border shadow-sm transition-all hover:shadow-md ${
                     isQueuedOrder
                       ? 'border-amber-200 bg-amber-50/30'
-                      : 'border-gray-100 bg-white'
+                      : isRenewal
+                        ? 'border-orange-200 bg-orange-50/20 border-l-4 border-l-orange-400'
+                        : 'border-gray-100 bg-white'
                   }`}
                 >
                   {/* Main Card Content - stacked on mobile, grid on xl */}
@@ -1680,6 +1690,16 @@ export default function PrescriptionQueuePage() {
                                 Admin Queued
                               </span>
                             )}
+                            {item.queueType === 'refill' ? (
+                              <span className="inline-flex items-center gap-0.5 rounded-full border border-orange-300 bg-orange-100 px-1.5 py-0.5 text-[9px] font-bold text-orange-700">
+                                <RefreshCw className="h-2.5 w-2.5" />
+                                RENEWAL
+                              </span>
+                            ) : !isQueuedOrder ? (
+                              <span className="inline-flex items-center gap-0.5 rounded-full border border-emerald-300 bg-emerald-100 px-1.5 py-0.5 text-[9px] font-bold text-emerald-700">
+                                NEW
+                              </span>
+                            ) : null}
                             {item.recentPrescription?.hasDuplicate && (
                               <span
                                 className="inline-flex items-center gap-0.5 rounded-full border border-red-300 bg-red-100 px-1.5 py-0.5 text-[9px] font-bold text-red-700"
@@ -1767,45 +1787,57 @@ export default function PrescriptionQueuePage() {
                         </div>
                       </div>
 
-                      {/* GLP-1 History - Col 3 (hidden on mobile to reduce density) */}
+                      {/* GLP-1 History / Previous Rx - Col 3 (hidden on mobile) */}
                       <div className="hidden min-w-0 items-center gap-1.5 xl:flex">
-                        <div
-                          className={`rounded p-1 ${item.glp1Info?.usedGlp1 ? 'bg-blue-100' : 'bg-gray-100'}`}
-                        >
-                          <Activity
-                            className={`h-3 w-3 ${item.glp1Info?.usedGlp1 ? 'text-blue-600' : 'text-gray-400'}`}
-                          />
-                        </div>
-                        <div className="min-w-0">
-                          {item.queueType === 'refill' && item.glp1Info?.usedGlp1 ? (
-                            <>
-                              <p className="truncate text-[10px] font-semibold text-blue-700">
-                                {item.glp1Info.glp1Type || 'GLP-1'}
+                        {item.queueType === 'refill' ? (
+                          <>
+                            <div className="rounded p-1 bg-orange-100">
+                              <FileText className="h-3 w-3 text-orange-600" />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="truncate text-[10px] font-semibold text-orange-700">
+                                Previous Rx
                               </p>
-                              <p className="text-[10px] text-blue-600">
-                                {item.glp1Info.lastDose
-                                  ? `Last Rx: ${item.glp1Info.lastDose}mg`
-                                  : 'Refill'}
-                              </p>
-                            </>
-                          ) : item.glp1Info?.usedGlp1 ? (
-                            <>
-                              <p className="truncate text-[10px] font-semibold text-blue-700">
-                                {item.glp1Info.glp1Type || 'Prior GLP-1'}
-                              </p>
-                              <p className="text-[10px] text-blue-600">
-                                {item.glp1Info.lastDose
-                                  ? `${item.glp1Info.lastDose}mg`
-                                  : 'Has history'}
-                              </p>
-                            </>
-                          ) : (
-                            <>
-                              <p className="text-[10px] font-medium text-gray-600">New Patient</p>
-                              <p className="text-[10px] text-gray-400">No GLP-1 history</p>
-                            </>
-                          )}
-                        </div>
+                              {item.lastRxDetails ? (
+                                <>
+                                  <p className="truncate text-[10px] text-orange-600">
+                                    {item.lastRxDetails.medName}
+                                    {item.lastRxDetails.dose ? ` ${item.lastRxDetails.dose}mg` : ` ${item.lastRxDetails.strength}`}
+                                  </p>
+                                </>
+                              ) : item.glp1Info?.lastDose ? (
+                                <p className="truncate text-[10px] text-orange-600">
+                                  {item.glp1Info.glp1Type || 'GLP-1'} {item.glp1Info.lastDose}mg
+                                </p>
+                              ) : (
+                                <p className="text-[10px] text-orange-500">Details unavailable</p>
+                              )}
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <div className={`rounded p-1 ${item.glp1Info?.usedGlp1 ? 'bg-blue-100' : 'bg-gray-100'}`}>
+                              <Activity className={`h-3 w-3 ${item.glp1Info?.usedGlp1 ? 'text-blue-600' : 'text-gray-400'}`} />
+                            </div>
+                            <div className="min-w-0">
+                              {item.glp1Info?.usedGlp1 ? (
+                                <>
+                                  <p className="truncate text-[10px] font-semibold text-blue-700">
+                                    {item.glp1Info.glp1Type || 'Prior GLP-1'}
+                                  </p>
+                                  <p className="text-[10px] text-blue-600">
+                                    {item.glp1Info.lastDose ? `${item.glp1Info.lastDose}mg` : 'Has history'}
+                                  </p>
+                                </>
+                              ) : (
+                                <>
+                                  <p className="text-[10px] font-medium text-gray-600">New Patient</p>
+                                  <p className="text-[10px] text-gray-400">No GLP-1 history</p>
+                                </>
+                              )}
+                            </div>
+                          </>
+                        )}
                       </div>
 
                       {/* Clinic - Col 4 (hidden on mobile) */}
@@ -2177,34 +2209,53 @@ export default function PrescriptionQueuePage() {
                                   </div>
                                 )}
 
-                                {/* GLP-1 History */}
-                                <div className="rounded-lg bg-purple-50 border border-purple-100 p-3">
-                                  <div className="flex items-center gap-2 font-medium text-purple-700 mb-1">
-                                    <Pill className="h-4 w-4" />
-                                    GLP-1 History
+                                {/* GLP-1 History / Previous Prescription */}
+                                {item.queueType === 'refill' && item.lastRxDetails ? (
+                                  <div className="rounded-lg bg-orange-50 border border-orange-100 p-3">
+                                    <div className="flex items-center gap-2 font-medium text-orange-700 mb-1">
+                                      <FileText className="h-4 w-4" />
+                                      Previous Prescription Sent
+                                    </div>
+                                    <div className="space-y-1.5 text-orange-700">
+                                      <div>Medication: <span className="font-medium">{item.lastRxDetails.medName}</span></div>
+                                      <div>Strength: <span className="font-medium">{item.lastRxDetails.strength}</span>
+                                        {item.lastRxDetails.dose !== null && <span className="font-medium"> ({item.lastRxDetails.dose}mg)</span>}
+                                      </div>
+                                      <div className="rounded bg-orange-100/60 p-2 text-sm">
+                                        <span className="text-xs font-medium text-orange-600">Sig:</span>{' '}
+                                        <span className="text-orange-800">{item.lastRxDetails.sig}</span>
+                                      </div>
+                                    </div>
                                   </div>
-                                  {patientDetails.clinicalContext.glp1History.used ? (
-                                    <div className="space-y-1 text-purple-600">
-                                      <div>Used in last 30 days: <span className="font-medium">Yes</span></div>
-                                      {patientDetails.clinicalContext.glp1History.type && (
-                                        <div>Type: <span className="font-medium">{patientDetails.clinicalContext.glp1History.type}</span></div>
-                                      )}
-                                      {patientDetails.clinicalContext.glp1History.dose && (
-                                        <div>Last Dose: <span className="font-medium">{patientDetails.clinicalContext.glp1History.dose}mg</span></div>
-                                      )}
-                                      {patientDetails.clinicalContext.glp1History.sideEffects && (
-                                        <div>Side Effects: <span className="font-medium">{patientDetails.clinicalContext.glp1History.sideEffects}</span></div>
-                                      )}
+                                ) : (
+                                  <div className="rounded-lg bg-purple-50 border border-purple-100 p-3">
+                                    <div className="flex items-center gap-2 font-medium text-purple-700 mb-1">
+                                      <Pill className="h-4 w-4" />
+                                      GLP-1 History
                                     </div>
-                                  ) : (
-                                    <div className="text-purple-600">No prior GLP-1 use (new patient)</div>
-                                  )}
-                                  {patientDetails.clinicalContext.preferredMedication && (
-                                    <div className="mt-1 text-purple-600">
-                                      Preferred: <span className="font-medium">{patientDetails.clinicalContext.preferredMedication}</span>
-                                    </div>
-                                  )}
-                                </div>
+                                    {patientDetails.clinicalContext.glp1History.used ? (
+                                      <div className="space-y-1 text-purple-600">
+                                        <div>Used in last 30 days: <span className="font-medium">Yes</span></div>
+                                        {patientDetails.clinicalContext.glp1History.type && (
+                                          <div>Type: <span className="font-medium">{patientDetails.clinicalContext.glp1History.type}</span></div>
+                                        )}
+                                        {patientDetails.clinicalContext.glp1History.dose && (
+                                          <div>Last Dose: <span className="font-medium">{patientDetails.clinicalContext.glp1History.dose}mg</span></div>
+                                        )}
+                                        {patientDetails.clinicalContext.glp1History.sideEffects && (
+                                          <div>Side Effects: <span className="font-medium">{patientDetails.clinicalContext.glp1History.sideEffects}</span></div>
+                                        )}
+                                      </div>
+                                    ) : (
+                                      <div className="text-purple-600">No prior GLP-1 use (new patient)</div>
+                                    )}
+                                    {patientDetails.clinicalContext.preferredMedication && (
+                                      <div className="mt-1 text-purple-600">
+                                        Preferred: <span className="font-medium">{patientDetails.clinicalContext.preferredMedication}</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
 
                                 {/* Health Conditions */}
                                 {patientDetails.clinicalContext.healthConditions.length > 0 && (
@@ -3185,50 +3236,95 @@ export default function PrescriptionQueuePage() {
 
                       {/* Previous Dosage & Amount Paid cards */}
                       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                        {/* Previous Dosage Card */}
-                        <div className="rounded-xl border border-blue-200 bg-blue-50 p-4">
-                          <h3 className="mb-2 flex items-center gap-2 text-sm font-medium text-blue-800">
-                            <Pill className="h-4 w-4 text-blue-600" />
-                            {prescriptionPanel.item.queueType === 'refill' ? 'Last Prescribed' : 'Previous Dosage'}
-                          </h3>
-                          {(() => {
-                            const glp1 = prescriptionPanel.item.glp1Info;
-                            const ctx = prescriptionPanel.details.clinicalContext?.glp1History;
-                            const isRefill = prescriptionPanel.item.queueType === 'refill';
-                            const medType = isRefill ? glp1?.glp1Type : (ctx?.type || glp1?.glp1Type);
-                            const dose = isRefill ? glp1?.lastDose : (ctx?.dose || glp1?.lastDose);
-                            const hasHistory = isRefill ? glp1?.usedGlp1 : (glp1?.usedGlp1 || ctx?.used);
-
-                            if (hasHistory && (medType || dose)) {
+                        {/* Previous Dosage / Previous Prescription Card */}
+                        {prescriptionPanel.item.queueType === 'refill' ? (
+                          <div className="rounded-xl border border-orange-200 bg-orange-50 p-4">
+                            <h3 className="mb-2 flex items-center gap-2 text-sm font-medium text-orange-800">
+                              <FileText className="h-4 w-4 text-orange-600" />
+                              Previous Prescription
+                            </h3>
+                            {(() => {
+                              const rxDetails = prescriptionPanel.item.lastRxDetails;
+                              const glp1 = prescriptionPanel.item.glp1Info;
+                              if (rxDetails) {
+                                return (
+                                  <div className="space-y-1.5">
+                                    <p className="text-lg font-bold text-orange-900">
+                                      {rxDetails.medName}
+                                    </p>
+                                    <p className="text-sm font-medium text-orange-700">
+                                      Strength: {rxDetails.strength}
+                                      {rxDetails.dose !== null && ` (${rxDetails.dose}mg)`}
+                                    </p>
+                                    <div className="rounded-lg bg-orange-100/60 p-2">
+                                      <p className="text-xs font-medium text-orange-600">Sig (Directions)</p>
+                                      <p className="mt-0.5 text-sm text-orange-800">{rxDetails.sig}</p>
+                                    </div>
+                                    {prescriptionPanel.item.glp1Source === 'last_prescription' && (
+                                      <p className="text-xs text-emerald-600">
+                                        From last prescription sent
+                                      </p>
+                                    )}
+                                  </div>
+                                );
+                              }
+                              if (glp1?.usedGlp1 && (glp1.glp1Type || glp1.lastDose)) {
+                                return (
+                                  <div>
+                                    <p className="text-2xl font-bold text-orange-900">
+                                      {glp1.lastDose ? `${glp1.lastDose}mg` : 'N/A'}
+                                    </p>
+                                    <p className="mt-1 text-sm font-medium text-orange-700">
+                                      {glp1.glp1Type || 'GLP-1 Medication'}
+                                    </p>
+                                  </div>
+                                );
+                              }
                               return (
-                                <div>
-                                  <p className="text-2xl font-bold text-blue-900">
-                                    {dose ? `${dose}mg` : 'N/A'}
-                                    {isRefill && dose && <span className="text-sm font-normal text-blue-500">/week</span>}
-                                  </p>
-                                  <p className="mt-1 text-sm font-medium text-blue-700">
-                                    {medType || 'GLP-1 Medication'}
-                                  </p>
-                                  {isRefill && prescriptionPanel.item.glp1Source === 'last_prescription' && (
-                                    <p className="mt-1 text-xs text-emerald-600">
-                                      Based on last prescription sent
-                                    </p>
-                                  )}
-                                  {!isRefill && ctx?.sideEffects && (
-                                    <p className="mt-2 text-xs text-blue-600">
-                                      Side effects: {ctx.sideEffects}
-                                    </p>
-                                  )}
-                                </div>
+                                <p className="text-lg font-semibold text-orange-400">
+                                  Previous Rx details unavailable
+                                </p>
                               );
-                            }
-                            return (
-                              <p className="text-lg font-semibold text-blue-400">
-                                No prior GLP-1 history
-                              </p>
-                            );
-                          })()}
-                        </div>
+                            })()}
+                          </div>
+                        ) : (
+                          <div className="rounded-xl border border-blue-200 bg-blue-50 p-4">
+                            <h3 className="mb-2 flex items-center gap-2 text-sm font-medium text-blue-800">
+                              <Pill className="h-4 w-4 text-blue-600" />
+                              Previous Dosage
+                            </h3>
+                            {(() => {
+                              const glp1 = prescriptionPanel.item.glp1Info;
+                              const ctx = prescriptionPanel.details.clinicalContext?.glp1History;
+                              const medType = ctx?.type || glp1?.glp1Type;
+                              const dose = ctx?.dose || glp1?.lastDose;
+                              const hasHistory = glp1?.usedGlp1 || ctx?.used;
+
+                              if (hasHistory && (medType || dose)) {
+                                return (
+                                  <div>
+                                    <p className="text-2xl font-bold text-blue-900">
+                                      {dose ? `${dose}mg` : 'N/A'}
+                                    </p>
+                                    <p className="mt-1 text-sm font-medium text-blue-700">
+                                      {medType || 'GLP-1 Medication'}
+                                    </p>
+                                    {ctx?.sideEffects && (
+                                      <p className="mt-2 text-xs text-blue-600">
+                                        Side effects: {ctx.sideEffects}
+                                      </p>
+                                    )}
+                                  </div>
+                                );
+                              }
+                              return (
+                                <p className="text-lg font-semibold text-blue-400">
+                                  No prior GLP-1 history
+                                </p>
+                              );
+                            })()}
+                          </div>
+                        )}
 
                         {/* Amount Paid Card */}
                         <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
@@ -3834,68 +3930,94 @@ export default function PrescriptionQueuePage() {
                   </div>
 
                   <div className="flex-1 space-y-4 p-4 sm:p-6">
-                    {/* Card 1: GLP-1 History */}
-                    <div className="overflow-hidden rounded-xl border border-amber-200 bg-amber-50">
-                      <div className="flex items-center gap-2 border-b border-amber-200 bg-amber-100/60 px-4 py-2.5">
-                        <Activity className="h-4 w-4 text-amber-700" />
-                        <h3 className="text-sm font-semibold text-amber-900">GLP-1 History</h3>
-                      </div>
-                      <div className="px-4 py-3">
-                        {prescriptionPanel.item.queueType === 'refill' && prescriptionPanel.item.glp1Info?.usedGlp1 ? (
-                          <div className="space-y-1.5">
-                            <div className="flex items-center gap-2">
-                              <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-800">
-                                Returning Patient
-                              </span>
-                              {prescriptionPanel.item.glp1Source === 'last_prescription' && (
-                                <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">
-                                  From last Rx
-                                </span>
+                    {/* Card 1: Previous Prescription / GLP-1 History */}
+                    {prescriptionPanel.item.queueType === 'refill' ? (
+                      <div className="overflow-hidden rounded-xl border border-orange-200 bg-orange-50">
+                        <div className="flex items-center gap-2 border-b border-orange-200 bg-orange-100/60 px-4 py-2.5">
+                          <FileText className="h-4 w-4 text-orange-700" />
+                          <h3 className="text-sm font-semibold text-orange-900">Previous Prescription</h3>
+                          <span className="rounded-full bg-orange-200 px-2 py-0.5 text-[10px] font-bold text-orange-800">
+                            RENEWAL
+                          </span>
+                        </div>
+                        <div className="px-4 py-3">
+                          {prescriptionPanel.item.lastRxDetails ? (
+                            <div className="space-y-1.5">
+                              <p className="text-sm text-orange-900">
+                                <span className="font-medium">Medication:</span>{' '}
+                                {prescriptionPanel.item.lastRxDetails.medName}
+                              </p>
+                              <p className="text-sm text-orange-900">
+                                <span className="font-medium">Strength:</span>{' '}
+                                {prescriptionPanel.item.lastRxDetails.strength}
+                                {prescriptionPanel.item.lastRxDetails.dose !== null && ` (${prescriptionPanel.item.lastRxDetails.dose}mg)`}
+                              </p>
+                              <div className="rounded bg-orange-100/60 p-2 text-sm">
+                                <span className="text-xs font-medium text-orange-600">Sig:</span>{' '}
+                                <span className="text-orange-800">{prescriptionPanel.item.lastRxDetails.sig}</span>
+                              </div>
+                            </div>
+                          ) : prescriptionPanel.item.glp1Info?.usedGlp1 ? (
+                            <div className="space-y-1.5">
+                              {prescriptionPanel.item.glp1Info.glp1Type && (
+                                <p className="text-sm text-orange-900">
+                                  <span className="font-medium">Medication:</span>{' '}
+                                  {prescriptionPanel.item.glp1Info.glp1Type}
+                                </p>
+                              )}
+                              {prescriptionPanel.item.glp1Info.lastDose && (
+                                <p className="text-sm text-orange-900">
+                                  <span className="font-medium">Last Dose:</span>{' '}
+                                  {prescriptionPanel.item.glp1Info.lastDose} mg/week
+                                </p>
                               )}
                             </div>
-                            {prescriptionPanel.item.glp1Info.glp1Type && (
-                              <p className="text-sm text-amber-900">
-                                <span className="font-medium">Medication:</span>{' '}
-                                {prescriptionPanel.item.glp1Info.glp1Type}
-                              </p>
-                            )}
-                            {prescriptionPanel.item.glp1Info.lastDose && (
-                              <p className="text-sm text-amber-900">
-                                <span className="font-medium">Last Prescribed Dose:</span>{' '}
-                                {prescriptionPanel.item.glp1Info.lastDose} mg/week
-                              </p>
-                            )}
-                          </div>
-                        ) : prescriptionPanel.item.glp1Info?.usedGlp1 ? (
-                          <div className="space-y-1.5">
-                            <div className="flex items-center gap-2">
-                              <span className="rounded-full bg-amber-200 px-2 py-0.5 text-xs font-semibold text-amber-800">
-                                Previous User
-                              </span>
-                            </div>
-                            {prescriptionPanel.item.glp1Info.glp1Type && (
-                              <p className="text-sm text-amber-900">
-                                <span className="font-medium">Medication:</span>{' '}
-                                {prescriptionPanel.item.glp1Info.glp1Type}
-                              </p>
-                            )}
-                            {prescriptionPanel.item.glp1Info.lastDose && (
-                              <p className="text-sm text-amber-900">
-                                <span className="font-medium">Last Dose:</span>{' '}
-                                {prescriptionPanel.item.glp1Info.lastDose} mg
-                              </p>
-                            )}
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-2">
-                            <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-semibold text-green-800">
-                              New Patient
-                            </span>
-                            <span className="text-sm text-gray-600">No previous GLP-1 history</span>
-                          </div>
-                        )}
+                          ) : (
+                            <p className="text-sm text-orange-600">Previous Rx details unavailable</p>
+                          )}
+                        </div>
                       </div>
-                    </div>
+                    ) : (
+                      <div className="overflow-hidden rounded-xl border border-amber-200 bg-amber-50">
+                        <div className="flex items-center gap-2 border-b border-amber-200 bg-amber-100/60 px-4 py-2.5">
+                          <Activity className="h-4 w-4 text-amber-700" />
+                          <h3 className="text-sm font-semibold text-amber-900">GLP-1 History</h3>
+                          <span className="rounded-full bg-emerald-200 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
+                            NEW PATIENT
+                          </span>
+                        </div>
+                        <div className="px-4 py-3">
+                          {prescriptionPanel.item.glp1Info?.usedGlp1 ? (
+                            <div className="space-y-1.5">
+                              <div className="flex items-center gap-2">
+                                <span className="rounded-full bg-amber-200 px-2 py-0.5 text-xs font-semibold text-amber-800">
+                                  Prior GLP-1 User
+                                </span>
+                              </div>
+                              {prescriptionPanel.item.glp1Info.glp1Type && (
+                                <p className="text-sm text-amber-900">
+                                  <span className="font-medium">Medication:</span>{' '}
+                                  {prescriptionPanel.item.glp1Info.glp1Type}
+                                </p>
+                              )}
+                              {prescriptionPanel.item.glp1Info.lastDose && (
+                                <p className="text-sm text-amber-900">
+                                  <span className="font-medium">Last Dose:</span>{' '}
+                                  {prescriptionPanel.item.glp1Info.lastDose} mg
+                                </p>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-semibold text-green-800">
+                                New Patient
+                              </span>
+                              <span className="text-sm text-gray-600">No previous GLP-1 history</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
 
                     {/* Card 2: What Patient Paid For */}
                     <div className="overflow-hidden rounded-xl border border-blue-200 bg-blue-50">

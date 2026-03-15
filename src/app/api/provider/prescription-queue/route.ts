@@ -1433,6 +1433,13 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         },
         // Source indicator for UI labeling
         glp1Source: lastRxData ? 'last_prescription' : 'medication_info',
+        // Full previous Rx details for renewal display
+        lastRxDetails: lastRxData ? {
+          medName: lastRxData.medName,
+          strength: lastRxData.strength,
+          sig: lastRxData.sig,
+          dose: lastRxData.dose,
+        } : null,
         // SOAP Note status
         soapNote: soapNote
           ? {
