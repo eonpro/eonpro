@@ -39,6 +39,7 @@ export type PollerResult = {
   totalDelivered: number;
   totalBackfilled: number;
   totalErrors: number;
+  totalNoData: number;
   clinicsProcessed: number;
   durationMs: number;
 };
@@ -105,6 +106,7 @@ export async function pollActiveFedExShipments(): Promise<PollerResult> {
       totalDelivered: 0,
       totalBackfilled: 0,
       totalErrors: 0,
+      totalNoData: 0,
       clinicsProcessed: 0,
       durationMs: Date.now() - start,
     };
@@ -129,6 +131,7 @@ export async function pollActiveFedExShipments(): Promise<PollerResult> {
   let totalDelivered = 0;
   let totalBackfilled = 0;
   let totalErrors = 0;
+  let totalNoData = 0;
 
   const allowEnvFallback = process.env.FEDEX_ALLOW_ENV_FALLBACK_FOR_CLINIC_SHIPPING === 'true';
 
@@ -175,6 +178,21 @@ export async function pollActiveFedExShipments(): Promise<PollerResult> {
       });
       totalErrors += allTrackingNumbers.length;
       continue;
+    }
+
+    // Count tracking numbers with no FedEx data (NOTFOUND or API error)
+    let clinicNoData = 0;
+    for (const [, r] of results) {
+      if (!r) clinicNoData++;
+    }
+    totalNoData += clinicNoData;
+    if (clinicNoData > 0) {
+      logger.warn('[FedEx Poller] No tracking data returned for some shipments', {
+        clinicId,
+        total: allTrackingNumbers.length,
+        noData: clinicNoData,
+        sampleTrackingNumbers: allTrackingNumbers.filter((tn) => !results.get(tn)).slice(0, 3),
+      });
     }
 
     // Update existing PatientShippingUpdate records
@@ -270,6 +288,7 @@ export async function pollActiveFedExShipments(): Promise<PollerResult> {
     totalDelivered,
     totalBackfilled,
     totalErrors,
+    totalNoData,
     clinicsProcessed: byClinic.size,
     durationMs: Date.now() - start,
   };
