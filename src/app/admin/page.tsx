@@ -20,7 +20,7 @@ import {
   Users,
   Pill,
 } from 'lucide-react';
-import { apiFetch } from '@/lib/api/fetch';
+import { apiFetch, SESSION_EXPIRED_EVENT, redirectToLogin } from '@/lib/api/fetch';
 import { AdminDashboardSkeleton } from '@/components/dashboards/AdminDashboardSkeleton';
 const USMapChart = dynamic_import(
   () => import('@/components/dashboards/USMapChart').then((mod) => mod.USMapChart),
@@ -108,6 +108,17 @@ export default function AdminPage() {
     setIsLogosRxHost(checkIsLogosRxHost());
   }, []);
 
+  // Safety net: if the session expires while on this page and the
+  // SessionExpirationHandler event listener wasn't yet wired (timing gap
+  // during client-side navigation from a public page), redirect directly.
+  useEffect(() => {
+    const onSessionExpired = () => {
+      redirectToLogin('session_expired');
+    };
+    window.addEventListener(SESSION_EXPIRED_EVENT, onSessionExpired);
+    return () => window.removeEventListener(SESSION_EXPIRED_EVENT, onSessionExpired);
+  }, []);
+
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const user = localStorage.getItem('user');
@@ -168,7 +179,10 @@ export default function AdminPage() {
         setRecentIntakes(data.recentIntakes ?? []);
       } catch (e: unknown) {
         if (cancelled) return;
-        if ((e as { isAuthError?: boolean }).isAuthError) return;
+        if ((e as { isAuthError?: boolean }).isAuthError) {
+          redirectToLogin('session_expired');
+          return;
+        }
         setError('Failed to connect');
         setStats(defaultStats());
       }

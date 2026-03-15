@@ -34,7 +34,7 @@ import {
 } from '@/components/notifications';
 import { ClinicBrandingProvider, useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
 import { SubdomainClinicBanner } from '@/components/SubdomainClinicBanner';
-import { apiFetch } from '@/lib/api/fetch';
+import { apiFetch, SESSION_EXPIRED_EVENT, redirectToLogin } from '@/lib/api/fetch';
 import { EONPRO_LOGO, EONPRO_ICON } from '@/lib/constants/brand-assets';
 import { safeParseJsonString } from '@/lib/utils/safe-json';
 
@@ -95,6 +95,14 @@ function ProviderLayoutInner({ children }: { children: React.ReactNode }) {
     } catch (err) {
       process.env.NODE_ENV === 'development' && console.error('Error fetching queue count:', err);
     }
+  }, []);
+
+  useEffect(() => {
+    const onSessionExpired = () => {
+      redirectToLogin('session_expired');
+    };
+    window.addEventListener(SESSION_EXPIRED_EVENT, onSessionExpired);
+    return () => window.removeEventListener(SESSION_EXPIRED_EVENT, onSessionExpired);
   }, []);
 
   useEffect(() => {

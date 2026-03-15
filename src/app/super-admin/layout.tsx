@@ -18,6 +18,7 @@ import {
   Pill,
   BadgeDollarSign,
 } from 'lucide-react';
+import { SESSION_EXPIRED_EVENT, redirectToLogin } from '@/lib/api/fetch';
 import { isBrowser, safeLocalStorage } from '@/lib/utils/ssr-safe';
 import InternalChat from '@/components/InternalChat';
 import {
@@ -51,6 +52,14 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
   const [loading, setLoading] = useState(true);
   const [userName, setUserName] = useState('');
   const [userId, setUserId] = useState<number | null>(null);
+
+  useEffect(() => {
+    const onSessionExpired = () => {
+      redirectToLogin('session_expired');
+    };
+    window.addEventListener(SESSION_EXPIRED_EVENT, onSessionExpired);
+    return () => window.removeEventListener(SESSION_EXPIRED_EVENT, onSessionExpired);
+  }, []);
 
   useEffect(() => {
     const user = localStorage.getItem('user');

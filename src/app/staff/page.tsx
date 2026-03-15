@@ -12,7 +12,7 @@ import {
   Pill,
   TrendingUp,
 } from 'lucide-react';
-import { apiFetch } from '@/lib/api/fetch';
+import { apiFetch, redirectToLogin } from '@/lib/api/fetch';
 import { safeParseJsonString } from '@/lib/utils/safe-json';
 
 const isEncryptedData = (value: string | null | undefined): boolean => {
@@ -155,7 +155,10 @@ export default function StaffDashboard() {
         setRecentIntakes(data.recentIntakes ?? []);
       } catch (e: unknown) {
         if (cancelled) return;
-        if ((e as { isAuthError?: boolean }).isAuthError) return;
+        if ((e as { isAuthError?: boolean }).isAuthError) {
+          redirectToLogin('session_expired');
+          return;
+        }
         setError('Failed to connect');
         setStats(defaultStats());
       }

@@ -24,6 +24,7 @@ import {
 import { ClinicBrandingProvider, useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
 import { getAdminNavConfig } from '@/lib/nav/adminNav';
 import { EONPRO_LOGO, EONPRO_ICON } from '@/lib/constants/brand-assets';
+import { SESSION_EXPIRED_EVENT, redirectToLogin } from '@/lib/api/fetch';
 import { safeParseJsonString } from '@/lib/utils/safe-json';
 
 const staffNavIconMap = {
@@ -50,6 +51,14 @@ function StaffLayoutInner({ children }: { children: React.ReactNode }) {
   const clinicIcon = branding?.iconUrl || EONPRO_ICON;
   const clinicName = branding?.clinicName || 'EONPRO';
   const isWhiteLabeled = branding?.clinicName && branding.clinicName !== 'EONPRO';
+
+  useEffect(() => {
+    const onSessionExpired = () => {
+      redirectToLogin('session_expired');
+    };
+    window.addEventListener(SESSION_EXPIRED_EVENT, onSessionExpired);
+    return () => window.removeEventListener(SESSION_EXPIRED_EVENT, onSessionExpired);
+  }, []);
 
   useEffect(() => {
     try {

@@ -45,7 +45,7 @@ import { SubdomainClinicBanner } from '@/components/SubdomainClinicBanner';
 import { getAdminNavConfig } from '@/lib/nav/adminNav';
 import { logger } from '@/lib/logger';
 import * as Sentry from '@sentry/nextjs';
-import { apiFetch } from '@/lib/api/fetch';
+import { apiFetch, SESSION_EXPIRED_EVENT, redirectToLogin } from '@/lib/api/fetch';
 import { EONPRO_LOGO, EONPRO_ICON, LOGOSRX, isLogosRxHost as checkIsLogosRxHost } from '@/lib/constants/brand-assets';
 import { safeParseJsonString } from '@/lib/utils/safe-json';
 
@@ -170,6 +170,19 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
     setIsLogosRx(checkIsLogosRxHost());
   }, []);
 
+  // Safety net: redirect to login immediately when session expires.
+  // Covers all child pages (patient detail, orders, etc.) that may not
+  // have their own listener. Prevents stuck skeletons when the root-level
+  // SessionExpirationHandler hasn't wired its listener yet (timing gap
+  // during client-side navigation from a public page like /login).
+  useEffect(() => {
+    const onSessionExpired = () => {
+      redirectToLogin('session_expired');
+    };
+    window.addEventListener(SESSION_EXPIRED_EVENT, onSessionExpired);
+    return () => window.removeEventListener(SESSION_EXPIRED_EVENT, onSessionExpired);
+  }, []);
+
   const isPharmacyExperience = isPharmacyRep || isLogosRx;
 
   // LogosRx pharmacy reps always see LogosRx branding, regardless of active clinic
@@ -193,7 +206,10 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
         console.warn('Failed to fetch user clinics:', response.status);
       }
     } catch (error) {
-      // Non-blocking - just log the error
+      if ((error as { isAuthError?: boolean }).isAuthError) {
+        redirectToLogin('session_expired');
+        return;
+      }
       console.error('Error fetching user clinics:', error);
     }
   };

@@ -29,7 +29,7 @@ import {
   Calendar,
   MessageSquare,
 } from 'lucide-react';
-import { apiFetch, dispatchSessionExpired } from '@/lib/api/fetch';
+import { apiFetch, dispatchSessionExpired, SESSION_EXPIRED_EVENT, redirectToLogin } from '@/lib/api/fetch';
 import { ClinicBrandingProvider, useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
 import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
 import { USMapChart } from '@/components/dashboards/USMapChart';
@@ -132,6 +132,14 @@ function HomePageInner() {
     setCurrentTime(new Date());
     const timer = setInterval(() => setCurrentTime(new Date()), 60000);
     return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    const onSessionExpired = () => {
+      redirectToLogin('session_expired');
+    };
+    window.addEventListener(SESSION_EXPIRED_EVENT, onSessionExpired);
+    return () => window.removeEventListener(SESSION_EXPIRED_EVENT, onSessionExpired);
   }, []);
 
   useEffect(() => {
@@ -339,8 +347,8 @@ function HomePageInner() {
             setRecentIntakes(patients);
           }
         } catch (e: unknown) {
-          if (e.isAuthError) throw e;
-          console.warn('[Dashboard] Sales rep stats fetch failed:', e.message);
+          if ((e as { isAuthError?: boolean }).isAuthError) throw e;
+          console.warn('[Dashboard] Sales rep stats fetch failed:', (e as Error).message);
         } finally {
           setIntakesLoading(false);
           setGeoLoading(false);
@@ -364,8 +372,8 @@ function HomePageInner() {
           }));
         }
       } catch (e: unknown) {
-        if (e.isAuthError) throw e;
-        console.warn('[Dashboard] Patients fetch failed:', e.message);
+        if ((e as { isAuthError?: boolean }).isAuthError) throw e;
+        console.warn('[Dashboard] Patients fetch failed:', (e as Error).message);
       }
 
       // 2. Fetch revenue stats (staggered after patients)
@@ -378,8 +386,8 @@ function HomePageInner() {
           setStats((prev) => ({ ...prev, newRevenue, recurringRevenue }));
         }
       } catch (e: unknown) {
-        if (e.isAuthError) throw e;
-        console.warn('[Dashboard] Finance metrics fetch failed:', e.message);
+        if ((e as { isAuthError?: boolean }).isAuthError) throw e;
+        console.warn('[Dashboard] Finance metrics fetch failed:', (e as Error).message);
       }
 
       // 3. Fetch prescriptions/scripts count (staggered after metrics)
@@ -390,8 +398,8 @@ function HomePageInner() {
           setStats((prev) => ({ ...prev, newPrescriptions: ordersData.total ?? 0 }));
         }
       } catch (e: unknown) {
-        if (e.isAuthError) throw e;
-        console.warn('[Dashboard] Orders fetch failed:', e.message);
+        if ((e as { isAuthError?: boolean }).isAuthError) throw e;
+        console.warn('[Dashboard] Orders fetch failed:', (e as Error).message);
       }
 
       // 3b. Fetch daily scripts breakdown (14-day window)
@@ -403,8 +411,8 @@ function HomePageInner() {
           setScriptsBreakdown(dailyData);
         }
       } catch (e: unknown) {
-        if (e.isAuthError) throw e;
-        console.warn('[Dashboard] Daily scripts fetch failed:', e.message);
+        if ((e as { isAuthError?: boolean }).isAuthError) throw e;
+        console.warn('[Dashboard] Daily scripts fetch failed:', (e as Error).message);
       } finally {
         setScriptsBreakdownLoading(false);
       }
@@ -417,15 +425,18 @@ function HomePageInner() {
           setGeoData(geoPayload);
         }
       } catch (e: unknown) {
-        if (e.isAuthError) throw e;
-        console.warn('[Dashboard] Geo data fetch failed:', e.message);
+        if ((e as { isAuthError?: boolean }).isAuthError) throw e;
+        console.warn('[Dashboard] Geo data fetch failed:', (e as Error).message);
       } finally {
         setGeoLoading(false);
       }
 
       setIntakesLoading(false);
     } catch (error: unknown) {
-      if (error.isAuthError) return;
+      if ((error as { isAuthError?: boolean }).isAuthError) {
+        redirectToLogin('session_expired');
+        return;
+      }
       console.error('Failed to load dashboard data:', error);
       setIntakesLoading(false);
       setGeoLoading(false);

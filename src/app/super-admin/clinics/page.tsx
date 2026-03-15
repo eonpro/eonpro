@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Building2, Plus, Filter, Globe, Users, Edit, Eye, Settings } from 'lucide-react';
-import { apiGet } from '@/lib/api/fetch';
+import { apiGet, redirectToLogin } from '@/lib/api/fetch';
 import { normalizedIncludes } from '@/lib/utils/search';
 
 interface Clinic {
@@ -47,7 +47,7 @@ export default function ClinicsListPage() {
     } catch (error: unknown) {
       const err = error as { isAuthError?: boolean; message?: string };
       if (err?.isAuthError) {
-        // Session expired: SessionExpirationHandler will show modal and redirect
+        redirectToLogin('session_expired');
         return;
       }
       setLoadError(err?.message ?? 'Failed to load clinics');
