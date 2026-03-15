@@ -2,8 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { withSuperAdminAuth, type AuthUser } from '@/lib/auth/middleware';
 import { basePrisma } from '@/lib/db';
 import { handleApiError } from '@/domains/shared/errors';
+import { decryptPHI } from '@/lib/security/phi-encryption';
 import { z } from 'zod';
 import { ShippingStatus, Prisma } from '@prisma/client';
+
+function safeDecrypt(val: string | null | undefined): string | null {
+  if (!val) return null;
+  try { return decryptPHI(val) || val; } catch { return val; }
+}
 
 const TABS = [
   'label_created',
@@ -114,6 +120,7 @@ async function handleGet(req: NextRequest, _user: AuthUser) {
           medicationStrength: true,
           rawPayload: true,
           clinic: { select: { id: true, name: true } },
+          patient: { select: { id: true, firstName: true, lastName: true } },
           order: { select: { id: true, lifefileOrderId: true } },
         },
       }),
@@ -188,29 +195,34 @@ async function handleGet(req: NextRequest, _user: AuthUser) {
     return NextResponse.json({
       success: true,
       tab,
-      shipments: shipments.map((s: any) => ({
-        id: s.id,
-        trackingNumber: s.trackingNumber,
-        carrier: s.carrier,
-        status: s.status,
-        statusNote: s.statusNote,
-        lifefileOrderId: s.lifefileOrderId || s.order?.lifefileOrderId || null,
-        shippedAt: s.shippedAt,
-        estimatedDelivery: s.estimatedDelivery,
-        actualDelivery: s.actualDelivery,
-        source: s.source,
-        createdAt: s.createdAt,
-        updatedAt: s.updatedAt,
-        clinicName: s.clinic?.name || null,
-        clinicId: s.clinicId,
-        patientId: s.patientId,
-        orderId: s.orderId,
-        medicationName: s.medicationName,
-        medicationStrength: s.medicationStrength,
-        signedBy: (s.rawPayload as any)?.signedBy || null,
-        deliveryPhotoUrl: (s.rawPayload as any)?.photoUrl || null,
-        deliveryDetails: (s.rawPayload as any)?.fedexDeliveryDetails || null,
-      })),
+      shipments: shipments.map((s: any) => {
+        const firstName = safeDecrypt(s.patient?.firstName);
+        const lastName = safeDecrypt(s.patient?.lastName);
+        const patientName = [firstName, lastName].filter(Boolean).join(' ') || null;
+
+        return {
+          id: s.id,
+          trackingNumber: s.trackingNumber,
+          carrier: s.carrier,
+          status: s.status,
+          statusNote: s.statusNote,
+          lifefileOrderId: s.lifefileOrderId || s.order?.lifefileOrderId || null,
+          shippedAt: s.shippedAt,
+          estimatedDelivery: s.estimatedDelivery,
+          actualDelivery: s.actualDelivery,
+          source: s.source,
+          createdAt: s.createdAt,
+          updatedAt: s.updatedAt,
+          clinicName: s.clinic?.name || null,
+          clinicId: s.clinicId,
+          patientId: s.patientId,
+          patientName,
+          orderId: s.orderId,
+          signedBy: (s.rawPayload as any)?.signedBy || null,
+          deliveryPhotoUrl: (s.rawPayload as any)?.photoUrl || null,
+          deliveryDetails: (s.rawPayload as any)?.fedexDeliveryDetails || null,
+        };
+      }),
       pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
       counts,
       analytics,

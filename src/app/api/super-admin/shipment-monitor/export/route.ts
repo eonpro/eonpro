@@ -2,8 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { withSuperAdminAuth, type AuthUser } from '@/lib/auth/middleware';
 import { basePrisma } from '@/lib/db';
 import { handleApiError } from '@/domains/shared/errors';
+import { decryptPHI } from '@/lib/security/phi-encryption';
 import { z } from 'zod';
 import { ShippingStatus } from '@prisma/client';
+
+function safeDecrypt(val: string | null | undefined): string | null {
+  if (!val) return null;
+  try { return decryptPHI(val) || val; } catch { return val; }
+}
 
 const TABS = ['label_created', 'shipped', 'in_transit', 'out_for_delivery', 'delivered', 'issues'] as const;
 type Tab = (typeof TABS)[number];
@@ -86,14 +92,13 @@ async function handleExport(req: NextRequest, _user: AuthUser) {
         status: true,
         statusNote: true,
         carrier: true,
-        medicationName: true,
-        medicationStrength: true,
         shippedAt: true,
         estimatedDelivery: true,
         actualDelivery: true,
         source: true,
         createdAt: true,
         clinic: { select: { name: true } },
+        patient: { select: { firstName: true, lastName: true } },
         order: { select: { lifefileOrderId: true } },
         rawPayload: true,
       },
@@ -101,25 +106,28 @@ async function handleExport(req: NextRequest, _user: AuthUser) {
 
     const header = [
       'Lifefile ID', 'Tracking Number', 'Status', 'Status Note', 'Carrier',
-      'Medication', 'Clinic', 'Shipped', 'Est. Delivery', 'Actual Delivery',
+      'Patient Name', 'Clinic', 'Shipped', 'Est. Delivery', 'Actual Delivery',
       'Signed By', 'Source', 'Created',
     ].join(',');
 
-    const rows = records.map((r: any) => [
-      escapeCsv(r.lifefileOrderId || r.order?.lifefileOrderId),
-      escapeCsv(r.trackingNumber),
-      escapeCsv(r.status),
-      escapeCsv(r.statusNote),
-      escapeCsv(r.carrier),
-      escapeCsv([r.medicationName, r.medicationStrength].filter(Boolean).join(' ')),
-      escapeCsv(r.clinic?.name),
-      formatCsvDate(r.shippedAt),
-      formatCsvDate(r.estimatedDelivery),
-      formatCsvDate(r.actualDelivery),
-      escapeCsv((r.rawPayload as any)?.signedBy),
-      escapeCsv(r.source),
-      formatCsvDate(r.createdAt),
-    ].join(','));
+    const rows = records.map((r: any) => {
+      const patientName = [safeDecrypt(r.patient?.firstName), safeDecrypt(r.patient?.lastName)].filter(Boolean).join(' ');
+      return [
+        escapeCsv(r.lifefileOrderId || r.order?.lifefileOrderId),
+        escapeCsv(r.trackingNumber),
+        escapeCsv(r.status),
+        escapeCsv(r.statusNote),
+        escapeCsv(r.carrier),
+        escapeCsv(patientName),
+        escapeCsv(r.clinic?.name),
+        formatCsvDate(r.shippedAt),
+        formatCsvDate(r.estimatedDelivery),
+        formatCsvDate(r.actualDelivery),
+        escapeCsv((r.rawPayload as any)?.signedBy),
+        escapeCsv(r.source),
+        formatCsvDate(r.createdAt),
+      ].join(',');
+    });
 
     const csv = [header, ...rows].join('\n');
     const filename = `shipment-monitor-${new Date().toISOString().split('T')[0]}.csv`;

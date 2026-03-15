@@ -41,8 +41,7 @@ interface Shipment {
   clinicId: number;
   patientId: number | null;
   orderId: number | null;
-  medicationName: string | null;
-  medicationStrength: string | null;
+  patientName: string | null;
   signedBy: string | null;
   deliveryPhotoUrl: string | null;
   deliveryDetails: Record<string, unknown> | null;
@@ -344,7 +343,7 @@ export default function ShipmentMonitorPage() {
                 <th className="px-4 py-3 font-semibold text-gray-600">Tracking Number</th>
                 <th className="px-4 py-3 font-semibold text-gray-600">Status</th>
                 <th className="px-4 py-3 font-semibold text-gray-600">Carrier</th>
-                <th className="px-4 py-3 font-semibold text-gray-600">Medication</th>
+                <th className="px-4 py-3 font-semibold text-gray-600">Patient</th>
                 <th className="px-4 py-3 font-semibold text-gray-600">Clinic</th>
                 <th className="px-4 py-3 font-semibold text-gray-600">{dateColumnLabel}</th>
                 {(tab === 'in_transit' || tab === 'shipped') && <th className="px-4 py-3 font-semibold text-gray-600">Est. Delivery</th>}
@@ -380,7 +379,13 @@ export default function ShipmentMonitorPage() {
                       </td>
                       <td className="px-4 py-3 text-xs text-gray-700">{s.carrier}</td>
                       <td className="px-4 py-3">
-                        {s.medicationName ? (<div><span className="text-xs font-medium text-gray-800">{s.medicationName}</span>{s.medicationStrength && <span className="ml-1 text-xs text-gray-500">{s.medicationStrength}</span>}</div>) : <span className="text-xs text-gray-400">—</span>}
+                        {s.patientName ? (
+                          s.patientId ? (
+                            <a href={`/patients/${s.patientId}`} className="text-xs font-medium text-gray-800 hover:text-[#4fa77e] hover:underline">{s.patientName}</a>
+                          ) : (
+                            <span className="text-xs font-medium text-gray-800">{s.patientName}</span>
+                          )
+                        ) : <span className="text-xs text-gray-400">—</span>}
                       </td>
                       <td className="px-4 py-3 text-xs text-gray-600">{s.clinicName || `Clinic #${s.clinicId}`}</td>
                       <td className="px-4 py-3 text-xs text-gray-600">{dateColumnValue(s)}</td>
