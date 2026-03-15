@@ -3,7 +3,7 @@ import { withSuperAdminAuth, type AuthUser } from '@/lib/auth/middleware';
 import { basePrisma } from '@/lib/db';
 import { handleApiError } from '@/domains/shared/errors';
 import { z } from 'zod';
-import { ShippingStatus } from '@prisma/client';
+import { ShippingStatus, Prisma } from '@prisma/client';
 
 const TABS = [
   'label_created',
@@ -25,10 +25,34 @@ const TAB_STATUS_MAP: Record<Tab, ShippingStatus[]> = {
   issues: [ShippingStatus.RETURNED, ShippingStatus.EXCEPTION, ShippingStatus.CANCELLED],
 };
 
+const ISSUE_STATUSES: ShippingStatus[] = [
+  ShippingStatus.RETURNED,
+  ShippingStatus.EXCEPTION,
+  ShippingStatus.CANCELLED,
+];
+
+function parseDateRange(range: string | undefined): { dateFrom?: Date; dateTo?: Date } {
+  if (!range) return {};
+  const now = new Date();
+  switch (range) {
+    case '7d':
+      return { dateFrom: new Date(now.getTime() - 7 * 86400000) };
+    case '30d':
+      return { dateFrom: new Date(now.getTime() - 30 * 86400000) };
+    case '90d':
+      return { dateFrom: new Date(now.getTime() - 90 * 86400000) };
+    default: {
+      const d = new Date(range);
+      return isNaN(d.getTime()) ? {} : { dateFrom: d };
+    }
+  }
+}
+
 const querySchema = z.object({
   tab: z.enum(TABS).default('in_transit'),
   search: z.string().optional(),
   clinicId: z.coerce.number().int().positive().optional(),
+  dateRange: z.string().optional(),
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(25),
 });
@@ -41,17 +65,16 @@ async function handleGet(req: NextRequest, _user: AuthUser) {
       return NextResponse.json({ error: 'Invalid parameters' }, { status: 400 });
     }
 
-    const { tab, search, clinicId, page, limit } = parsed.data;
+    const { tab, search, clinicId, dateRange, page, limit } = parsed.data;
     const skip = (page - 1) * limit;
     const statusFilter = TAB_STATUS_MAP[tab];
+    const { dateFrom } = parseDateRange(dateRange);
 
-    const where: any = {
-      status: { in: statusFilter },
-    };
+    const baseFilter: any = {};
+    if (clinicId) baseFilter.clinicId = clinicId;
+    if (dateFrom) baseFilter.createdAt = { gte: dateFrom };
 
-    if (clinicId) {
-      where.clinicId = clinicId;
-    }
+    const where: any = { ...baseFilter, status: { in: statusFilter } };
 
     if (search?.trim()) {
       const term = search.trim();
@@ -61,9 +84,7 @@ async function handleGet(req: NextRequest, _user: AuthUser) {
       ];
     }
 
-    const clinicFilter = clinicId ? { clinicId } : {};
-
-    const [shipments, total, ...countResults] = await Promise.all([
+    const [shipments, total, ...rest] = await Promise.all([
       basePrisma.patientShippingUpdate.findMany({
         where,
         orderBy: tab === 'issues'
@@ -97,17 +118,72 @@ async function handleGet(req: NextRequest, _user: AuthUser) {
         },
       }),
       basePrisma.patientShippingUpdate.count({ where }),
+      // Per-tab counts
       ...TABS.map((t) =>
         basePrisma.patientShippingUpdate.count({
-          where: { status: { in: TAB_STATUS_MAP[t] }, ...clinicFilter },
+          where: { ...baseFilter, status: { in: TAB_STATUS_MAP[t] } },
         })
       ),
+      // Analytics: avg delivery days (raw SQL for efficiency)
+      basePrisma.$queryRaw<[{ avg_days: number | null; on_time: number | null; total_delivered: number | null }]>(
+        Prisma.sql`
+          SELECT
+            AVG(EXTRACT(EPOCH FROM ("actualDelivery" - "shippedAt")) / 86400)::numeric(10,1) AS avg_days,
+            SUM(CASE WHEN "actualDelivery" <= "estimatedDelivery" THEN 1 ELSE 0 END)::int AS on_time,
+            COUNT(*)::int AS total_delivered
+          FROM "PatientShippingUpdate"
+          WHERE status = 'DELIVERED'
+            AND "actualDelivery" IS NOT NULL
+            AND "shippedAt" IS NOT NULL
+            ${clinicId ? Prisma.sql`AND "clinicId" = ${clinicId}` : Prisma.empty}
+            ${dateFrom ? Prisma.sql`AND "createdAt" >= ${dateFrom}` : Prisma.empty}
+        `
+      ),
+      // Shipped this week
+      basePrisma.patientShippingUpdate.count({
+        where: {
+          ...baseFilter,
+          shippedAt: { gte: new Date(Date.now() - 7 * 86400000) },
+        },
+      }),
+      // Total across all statuses (for percentages)
+      basePrisma.patientShippingUpdate.count({ where: baseFilter }),
+      // Distinct clinics for filter dropdown
+      basePrisma.patientShippingUpdate.findMany({
+        where: dateFrom ? { createdAt: { gte: dateFrom } } : {},
+        select: { clinicId: true, clinic: { select: { id: true, name: true } } },
+        distinct: ['clinicId'],
+        orderBy: { clinicId: 'asc' },
+      }),
     ]);
 
     const counts: Record<Tab, number> = {} as any;
     TABS.forEach((t, i) => {
-      counts[t] = countResults[i] as number;
+      counts[t] = rest[i] as number;
     });
+
+    const analyticsRaw = rest[TABS.length] as [{ avg_days: number | null; on_time: number | null; total_delivered: number | null }];
+    const shippedThisWeek = rest[TABS.length + 1] as number;
+    const grandTotal = rest[TABS.length + 2] as number;
+    const clinicRows = rest[TABS.length + 3] as Array<{ clinicId: number; clinic: { id: number; name: string } | null }>;
+
+    const row = analyticsRaw?.[0];
+    const totalDelivered = Number(row?.total_delivered) || 0;
+    const issueCount = (counts.issues || 0);
+
+    const analytics = {
+      avgDeliveryDays: row?.avg_days != null ? Number(Number(row.avg_days).toFixed(1)) : null,
+      onTimeRate: totalDelivered > 0 && row?.on_time != null
+        ? Number(((Number(row.on_time) / totalDelivered) * 100).toFixed(1))
+        : null,
+      shippedThisWeek,
+      issueRate: grandTotal > 0 ? Number(((issueCount / grandTotal) * 100).toFixed(2)) : 0,
+      totalShipments: grandTotal,
+    };
+
+    const clinics = clinicRows
+      .filter((c) => c.clinic)
+      .map((c) => ({ id: c.clinic!.id, name: c.clinic!.name }));
 
     return NextResponse.json({
       success: true,
@@ -137,6 +213,8 @@ async function handleGet(req: NextRequest, _user: AuthUser) {
       })),
       pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
       counts,
+      analytics,
+      clinics,
     });
   } catch (error) {
     return handleApiError(error, { route: 'GET /api/super-admin/shipment-monitor' });
