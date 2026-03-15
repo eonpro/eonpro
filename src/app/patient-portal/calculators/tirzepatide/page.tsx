@@ -120,99 +120,136 @@ export default function TirzepatideDoseCalculatorPage() {
               </p>
             </div>
 
-            {/* Realistic Syringe Visualization - 100 Units */}
-            <div className="mt-6 flex items-center justify-center">
-              <div className="relative">
-                {/* Plunger handle */}
-                <div
-                  className="absolute left-1/2 -translate-x-1/2 transition-all duration-500 ease-out"
-                  style={{ bottom: `calc(${fillPercentage}% + 200px)` }}
-                >
-                  <div className="h-4 w-16 rounded-t-md bg-gradient-to-b from-gray-400 to-gray-500 shadow-md" />
-                  <div className="mx-auto h-2 w-3 bg-gradient-to-b from-gray-500 to-gray-600" />
-                </div>
+            {/* Syringe Visualization */}
+            <div className="w-full py-4">
+              <svg
+                viewBox="0 0 400 100"
+                xmlns="http://www.w3.org/2000/svg"
+                className="w-full"
+                role="img"
+                aria-label={`Syringe showing ${selectedMl || 0} mL`}
+              >
+                <defs>
+                  <linearGradient id="syrGlass" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#f0f2f5" />
+                    <stop offset="15%" stopColor="#fafbfc" />
+                    <stop offset="50%" stopColor="#ffffff" />
+                    <stop offset="85%" stopColor="#f4f5f7" />
+                    <stop offset="100%" stopColor="#e8eaed" />
+                  </linearGradient>
+                  <linearGradient id="syrLiquid" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#f5e6a0" />
+                    <stop offset="50%" stopColor="#e8c766" />
+                    <stop offset="100%" stopColor="#d4ad3e" />
+                  </linearGradient>
+                  <linearGradient id="syrMetal" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#d4d8de" />
+                    <stop offset="30%" stopColor="#eceef1" />
+                    <stop offset="70%" stopColor="#e6e8ec" />
+                    <stop offset="100%" stopColor="#c5c9d0" />
+                  </linearGradient>
+                  <linearGradient id="syrNeedle" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#d0d5db" />
+                    <stop offset="50%" stopColor="#b8bfc8" />
+                    <stop offset="100%" stopColor="#a0a8b2" />
+                  </linearGradient>
+                  <linearGradient id="syrRubber" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#5a6270" />
+                    <stop offset="50%" stopColor="#3d4450" />
+                    <stop offset="100%" stopColor="#2a303a" />
+                  </linearGradient>
+                  <linearGradient id="syrHub" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#dee1e6" />
+                    <stop offset="50%" stopColor="#c5c9d0" />
+                    <stop offset="100%" stopColor="#adb3bc" />
+                  </linearGradient>
+                  <clipPath id="syrClip">
+                    <rect x="74" y="34" width="236" height="16" rx="3" />
+                  </clipPath>
+                  <filter id="syrShadow" x="-2%" y="-12%" width="104%" height="135%">
+                    <feDropShadow dx="0" dy="1" stdDeviation="1.5" floodColor="#000" floodOpacity="0.06" />
+                  </filter>
+                </defs>
 
-                {/* Plunger rod */}
-                <div
-                  className="absolute left-1/2 w-2 -translate-x-1/2 bg-gradient-to-r from-gray-300 via-gray-200 to-gray-300 transition-all duration-500 ease-out"
-                  style={{
-                    bottom: `calc(${fillPercentage}% + 6px)`,
-                    height: `calc(200px - ${fillPercentage}% - 6px)`,
-                    minHeight: '10px',
-                  }}
-                />
+                {/* Plunger rod (behind barrel) */}
+                <rect x="100" y="40" width="248" height="5" rx="1.5" fill="url(#syrMetal)" stroke="#c0c5cc" strokeWidth="0.4" />
+                {[0, 5, 10].map((d) => (
+                  <line key={d} x1={330 + d} y1="40.5" x2={330 + d} y2="44.5" stroke="#b0b6be" strokeWidth="0.5" strokeLinecap="round" />
+                ))}
 
-                {/* Plunger stopper (rubber) */}
-                <div
-                  className="absolute left-1/2 h-2 w-8 -translate-x-1/2 rounded-sm bg-gradient-to-b from-gray-700 to-gray-800 transition-all duration-500 ease-out"
-                  style={{ bottom: `calc(${fillPercentage}%)` }}
-                />
+                {/* Thumb rest */}
+                <rect x="346" y="37.5" width="6" height="10" rx="2" fill="url(#syrMetal)" stroke="#b0b6be" strokeWidth="0.5" />
+                <rect x="350" y="35" width="5" height="15" rx="2.5" fill="url(#syrMetal)" stroke="#b0b6be" strokeWidth="0.5" />
 
-                {/* Syringe barrel */}
-                <div className="relative h-[200px] w-12 overflow-hidden rounded-lg border-2 border-gray-300 bg-gradient-to-r from-gray-100 via-white to-gray-100 shadow-inner">
-                  {/* Liquid fill */}
-                  <div
-                    className="absolute bottom-0 left-0 right-0 transition-all duration-500 ease-out"
+                {/* Barrel body */}
+                <rect x="72" y="32" width="240" height="20" rx="4" fill="url(#syrGlass)" stroke="#c5c9d0" strokeWidth="1" filter="url(#syrShadow)" />
+                <rect x="80" y="34" width="224" height="2.5" rx="1.25" fill="white" opacity="0.5" />
+
+                {/* Liquid fill */}
+                <g clipPath="url(#syrClip)">
+                  <rect
+                    x="74" y="34" width="236" height="16" rx="3"
+                    fill="url(#syrLiquid)" opacity="0.55"
                     style={{
-                      height: `${fillPercentage}%`,
-                      background:
-                        'linear-gradient(to top, rgba(59, 130, 246, 0.6), rgba(96, 165, 250, 0.4))',
+                      transformOrigin: '74px 42px',
+                      transform: `scaleX(${fillPercentage / 100})`,
+                      transition: 'transform 700ms ease-out',
                     }}
                   />
+                </g>
 
-                  {/* Unit markings - 100 units scale */}
-                  {[0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100].map((mark) => (
-                    <div
-                      key={mark}
-                      className="absolute right-0 flex items-center justify-end"
-                      style={{ bottom: `${mark}%`, transform: 'translateY(50%)' }}
-                    >
-                      <span className="mr-1 text-[8px] font-medium text-gray-500">{mark}</span>
-                      <div
-                        className={`h-[1px] ${mark % 50 === 0 ? 'w-3 bg-gray-500' : mark % 10 === 0 ? 'w-2 bg-gray-400' : 'w-1 bg-gray-300'}`}
-                      />
-                    </div>
-                  ))}
+                {/* Stopper */}
+                <g style={{ transform: `translateX(${230 * (fillPercentage / 100)}px)`, transition: 'transform 700ms ease-out' }}>
+                  <rect x="74" y="33" width="6" height="18" rx="1.5" fill="url(#syrRubber)" />
+                  <line x1="76" y1="35" x2="76" y2="49" stroke="#6b7280" strokeWidth="0.3" opacity="0.3" />
+                  <line x1="78" y1="35" x2="78" y2="49" stroke="#6b7280" strokeWidth="0.3" opacity="0.3" />
+                </g>
 
-                  {/* Minor tick marks (every 5 units) */}
-                  {[5, 15, 25, 35, 45, 55, 65, 75, 85, 95].map((mark) => (
-                    <div
-                      key={mark}
-                      className="absolute right-0 flex items-center justify-end"
-                      style={{ bottom: `${mark}%`, transform: 'translateY(50%)' }}
-                    >
-                      <div className="h-[1px] w-1.5 bg-gray-300" />
-                    </div>
-                  ))}
+                {/* mg indicator */}
+                {result && fillPercentage > 0 && (
+                  <g style={{ transform: `translateX(${230 * (fillPercentage / 100)}px)`, transition: 'transform 700ms ease-out' }}>
+                    <line x1="77" y1="24" x2="77" y2="32" stroke="#c9a84c" strokeWidth="0.6" opacity="0.5" />
+                    <rect x="58" y="11" width="38" height="14" rx="4" fill="#fef9eb" stroke="#e8c766" strokeWidth="0.6" />
+                    <text x="77" y="21" textAnchor="middle" fill="#a8861e" fontSize="7" fontWeight="700" fontFamily="system-ui, sans-serif" className="select-none">
+                      {result.mg} mg
+                    </text>
+                  </g>
+                )}
 
-                  {/* Barrel flange (top) */}
-                  <div className="absolute -left-1 -right-1 top-0 h-2 rounded-t bg-gradient-to-b from-gray-200 to-gray-300" />
-                </div>
+                {/* Measurement ticks & labels */}
+                {[0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100].map((mark) => {
+                  const x = 76 + (230 * mark) / 100;
+                  const isMajor = mark % 50 === 0;
+                  const tickLen = isMajor ? 6 : 4;
+                  return (
+                    <g key={mark}>
+                      <line x1={x} y1={32} x2={x} y2={32 + tickLen} stroke={isMajor ? '#6b7280' : '#b0b6be'} strokeWidth={isMajor ? 0.8 : 0.5} strokeLinecap="round" />
+                      <line x1={x} y1={52} x2={x} y2={52 - tickLen} stroke={isMajor ? '#6b7280' : '#b0b6be'} strokeWidth={isMajor ? 0.8 : 0.5} strokeLinecap="round" />
+                      {mark > 0 && (
+                        <text x={x} y={64} textAnchor="middle" fill={isMajor ? '#6b7280' : '#9ca3af'} fontSize={isMajor ? '9' : '7.5'} fontWeight={isMajor ? '600' : '500'} fontFamily="system-ui, sans-serif" className="select-none">
+                          {mark}
+                        </text>
+                      )}
+                    </g>
+                  );
+                })}
 
-                {/* Needle hub (Luer lock) */}
-                <div className="absolute -bottom-4 left-1/2 -translate-x-1/2">
-                  <div className="h-3 w-6 rounded-b-sm bg-gradient-to-b from-gray-300 to-gray-400" />
-                  <div className="mx-auto h-1 w-4 bg-gradient-to-b from-gray-400 to-gray-500" />
-                </div>
+                {/* Hub connector */}
+                <path d="M 72 36 L 62 39 L 62 45 L 72 48 Z" fill="url(#syrHub)" stroke="#adb3bc" strokeWidth="0.5" strokeLinejoin="round" />
+                <line x1="67" y1="38" x2="67" y2="46" stroke="#b8bfc8" strokeWidth="0.4" opacity="0.4" />
 
                 {/* Needle */}
-                <div className="absolute -bottom-12 left-1/2 -translate-x-1/2">
-                  <div className="mx-auto h-6 w-[2px] bg-gradient-to-b from-gray-400 to-gray-500" />
-                  <div
-                    className="mx-auto h-2 w-[1px] bg-gray-500"
-                    style={{
-                      clipPath: 'polygon(0 0, 100% 0, 50% 100%)',
-                    }}
-                  />
-                </div>
-              </div>
-            </div>
+                <rect x="42" y="41.2" width="22" height="1.6" rx="0.8" fill="url(#syrNeedle)" />
+                <polygon points="42,41.2 38,42 42,42.8" fill="#a0a8b2" />
 
-            {/* Units display below syringe */}
-            <div className="mt-14 text-center">
-              <p className="text-xs font-medium uppercase tracking-wider text-gray-400">
-                {(selectedMl || 0) * 100} units ({selectedMl || 0} mL)
-              </p>
+                {/* Finger flange */}
+                <rect x="312" y="24" width="4" height="36" rx="2" fill="#d4d8de" stroke="#b8bfc8" strokeWidth="0.5" />
+
+                {/* UNITS label */}
+                <text x="190" y="77" textAnchor="middle" fill="#b0b6be" fontSize="7" fontWeight="600" fontFamily="system-ui, sans-serif" letterSpacing="0.1em" className="select-none">
+                  UNITS
+                </text>
+              </svg>
             </div>
           </div>
 
