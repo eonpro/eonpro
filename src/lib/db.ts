@@ -222,6 +222,7 @@ const BASE_PRISMA_ALLOWLIST: readonly string[] = [
   'salesreprefcode', // public track endpoint: lookup by refCode to resolve clinicId/salesRepId
   'salesrepcommissionplan', // admin [id] route: lookup by id to get clinicId for access check
   'salesrepplanassignment',
+  'patientphoto', // image proxy route: lookup by PK then manual clinic-access check (avoids TenantContextRequiredError)
 ];
 
 /**
