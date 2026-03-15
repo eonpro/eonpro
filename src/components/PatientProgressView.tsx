@@ -446,13 +446,13 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       {/* ================================================================== */}
       {/* Progress Overview Cards                                            */}
       {/* ================================================================== */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
         {/* Current Weight */}
-        <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
+        <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm md:p-6">
           <div className="mb-2 flex items-center justify-between">
             <h3 className="text-sm font-medium text-gray-600">Current Weight</h3>
             {progress?.trend === 'down' ? (
@@ -475,7 +475,7 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
         </div>
 
         {/* Today's Water */}
-        <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
+        <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm md:p-6">
           <div className="mb-2 flex items-center justify-between">
             <h3 className="text-sm font-medium text-gray-600">Today&apos;s Water</h3>
             <Droplets className="h-5 w-5 text-blue-500" />
@@ -489,7 +489,7 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
         </div>
 
         {/* Weekly Exercise */}
-        <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
+        <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm md:p-6">
           <div className="mb-2 flex items-center justify-between">
             <h3 className="text-sm font-medium text-gray-600">Weekly Exercise</h3>
             <Dumbbell className="h-5 w-5 text-orange-500" />
@@ -503,7 +503,7 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
         </div>
 
         {/* Activity Summary */}
-        <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
+        <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm md:p-6">
           <div className="mb-2 flex items-center justify-between">
             <h3 className="text-sm font-medium text-gray-600">Total Activities</h3>
             <Activity className="h-5 w-5 text-[var(--brand-primary,#4fa77e)]" />
@@ -519,15 +519,15 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
       {/* Weight Tracker                                                     */}
       {/* ================================================================== */}
       <div
-        className="rounded-xl border p-6"
+        className="rounded-xl border p-4 md:p-6"
         style={{ backgroundColor: `${brandPrimary}10`, borderColor: `${brandPrimary}40` }}
       >
-        <div className="mb-6 flex items-center justify-between">
+        <div className="mb-4 flex flex-col gap-3 sm:mb-6 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 className="text-xl font-bold text-gray-900">Weight Tracker</h2>
-            <p className="mt-1 text-sm text-gray-600">Track patient&apos;s weight loss journey</p>
+            <h2 className="text-lg font-bold text-gray-900 md:text-xl">Weight Tracker</h2>
+            <p className="mt-0.5 text-xs text-gray-600 sm:text-sm">Track patient&apos;s weight loss journey</p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {saveSuccess && (
               <span className="flex items-center gap-1 rounded-full bg-green-500 px-3 py-1 text-xs text-white">
                 <Check className="h-3 w-3" /> Saved!
@@ -750,7 +750,7 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
       {/* ================================================================== */}
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
         {/* Water Intake Panel */}
-        <div className="rounded-xl border border-blue-100 bg-white p-6 shadow-sm">
+        <div className="rounded-xl border border-blue-100 bg-white p-4 shadow-sm md:p-6">
           <div className="mb-4 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div className="rounded-lg bg-blue-50 p-2">
@@ -771,7 +771,7 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
               {/* Today's summary */}
               <div className="mb-4 rounded-lg bg-blue-50 p-4">
                 <p className="text-sm text-blue-700">Today&apos;s Total</p>
-                <p className="text-3xl font-bold text-blue-900">{waterMeta?.todayTotal || 0} oz</p>
+                <p className="text-2xl font-bold text-blue-900 md:text-3xl">{waterMeta?.todayTotal || 0} oz</p>
                 <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-blue-200">
                   <div
                     className="h-full rounded-full bg-blue-500 transition-all"
@@ -811,7 +811,7 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
         </div>
 
         {/* Sleep Panel */}
-        <div className="rounded-xl border border-indigo-100 bg-white p-6 shadow-sm">
+        <div className="rounded-xl border border-indigo-100 bg-white p-4 shadow-sm md:p-6">
           <div className="mb-4 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div className="rounded-lg bg-indigo-50 p-2">
@@ -833,14 +833,14 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
               <div className="mb-4 grid grid-cols-2 gap-3">
                 <div className="rounded-lg bg-indigo-50 p-4">
                   <p className="text-xs text-indigo-600">Avg Sleep</p>
-                  <p className="text-2xl font-bold text-indigo-900">
+                  <p className="text-xl font-bold text-indigo-900 md:text-2xl">
                     {sleepMeta?.avgSleepHours || 0}h
                   </p>
                   <p className="text-xs text-indigo-500">per night (7d)</p>
                 </div>
                 <div className="rounded-lg bg-indigo-50 p-4">
                   <p className="text-xs text-indigo-600">Avg Quality</p>
-                  <p className="text-2xl font-bold text-indigo-900">
+                  <p className="text-xl font-bold text-indigo-900 md:text-2xl">
                     {sleepMeta?.avgQuality != null ? `${sleepMeta.avgQuality}/10` : '--'}
                   </p>
                   <p className="text-xs text-indigo-500">self-reported</p>
@@ -891,7 +891,7 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
       {/* ================================================================== */}
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
         {/* Exercise Panel */}
-        <div className="rounded-xl border border-orange-100 bg-white p-6 shadow-sm">
+        <div className="rounded-xl border border-orange-100 bg-white p-4 shadow-sm md:p-6">
           <div className="mb-4 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div className="rounded-lg bg-orange-50 p-2">
@@ -916,7 +916,7 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
                     <Clock className="h-3 w-3 text-orange-500" />
                     <p className="text-xs text-orange-600">This Week</p>
                   </div>
-                  <p className="text-2xl font-bold text-orange-900">
+                  <p className="text-xl font-bold text-orange-900 md:text-2xl">
                     {exerciseMeta?.weeklyMinutes || 0}
                   </p>
                   <p className="text-xs text-orange-500">minutes</p>
@@ -926,7 +926,7 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
                     <Flame className="h-3 w-3 text-orange-500" />
                     <p className="text-xs text-orange-600">Calories</p>
                   </div>
-                  <p className="text-2xl font-bold text-orange-900">
+                  <p className="text-xl font-bold text-orange-900 md:text-2xl">
                     {exerciseMeta?.weeklyCalories || 0}
                   </p>
                   <p className="text-xs text-orange-500">burned (7d)</p>
@@ -975,7 +975,7 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
         </div>
 
         {/* Nutrition Panel */}
-        <div className="rounded-xl border border-emerald-100 bg-white p-6 shadow-sm">
+        <div className="rounded-xl border border-emerald-100 bg-white p-4 shadow-sm md:p-6">
           <div className="mb-4 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div className="rounded-lg bg-emerald-50 p-2">
@@ -1079,7 +1079,7 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
       {/* ================================================================== */}
       {/* Medication Reminders                                               */}
       {/* ================================================================== */}
-      <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
+      <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm md:p-6">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-xl font-bold text-gray-900">Medication Reminders</h2>
           <span className="text-sm text-gray-500">Patient-Configured</span>
@@ -1138,7 +1138,7 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
       {/* ================================================================== */}
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
         {/* Dietary Plans */}
-        <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
+        <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm md:p-6">
           <h2 className="mb-4 text-xl font-bold text-gray-900">Dietary Plans</h2>
           <div className="space-y-3">
             <a
@@ -1169,7 +1169,7 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
         </div>
 
         {/* Tutorial Videos */}
-        <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
+        <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm md:p-6">
           <h2 className="mb-4 text-xl font-bold text-gray-900">Tutorial Videos</h2>
           <div className="space-y-3">
             <button className="w-full rounded-lg bg-gray-50 p-3 text-left transition-colors hover:bg-gray-100">

@@ -326,7 +326,7 @@ export default function PatientPhotosView({ patientId, patientName }: PatientPho
 
   if (error) {
     return (
-      <div className="rounded-xl bg-red-50 p-6 text-center">
+      <div className="rounded-xl bg-red-50 p-4 text-center md:p-6">
         <AlertCircle className="mx-auto h-8 w-8 text-red-500" />
         <p className="mt-2 text-red-700">{error}</p>
         <button
@@ -341,9 +341,9 @@ export default function PatientPhotosView({ patientId, patientName }: PatientPho
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-lg font-semibold text-gray-900">Patient Photos</h2>
           <p className="text-sm text-gray-500">
@@ -395,7 +395,7 @@ export default function PatientPhotosView({ patientId, patientName }: PatientPho
       </div>
 
       {/* Category Filter Tabs */}
-      <div className="flex gap-2 border-b border-gray-200 pb-2 overflow-x-auto">
+      <div className="flex gap-2 overflow-x-auto border-b border-gray-200 pb-2 [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none' as any }}>
         {['all', 'progress', 'verification', 'medical', 'pharmacy'].map((cat) => (
           <button
             key={cat}

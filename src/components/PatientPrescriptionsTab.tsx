@@ -125,12 +125,12 @@ export default function PatientPrescriptionsTab({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       {/* Prescription History */}
       <section className="rounded-xl border bg-white p-3 shadow sm:p-4 md:p-6">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-xl font-semibold">Prescription History</h2>
-          <span className="text-sm text-gray-500">Total prescriptions: {orders.length}</span>
+        <div className="mb-3 flex flex-col gap-1 sm:mb-4 sm:flex-row sm:items-center sm:justify-between">
+          <h2 className="text-lg font-semibold md:text-xl">Prescription History</h2>
+          <span className="text-xs text-gray-500 sm:text-sm">{orders.length} prescription{orders.length !== 1 ? 's' : ''}</span>
         </div>
 
         {orders.length === 0 ? (
@@ -162,7 +162,95 @@ export default function PatientPrescriptionsTab({
             </div>
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+          {/* Mobile Card View */}
+          <div className="space-y-3 md:hidden">
+            {orders.map((order: any) => (
+              <div key={`m-${order.id}`} className="rounded-xl border border-gray-200 bg-gray-50 p-3.5">
+                <div className="mb-2 flex items-center justify-between">
+                  <span className="text-xs text-gray-500" suppressHydrationWarning>
+                    {new Date(order.createdAt).toLocaleDateString()}
+                  </span>
+                  <div className="flex items-center gap-1.5">
+                    {order.fulfillmentChannel === 'dosespot' && (
+                      <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-semibold text-indigo-700">
+                        External Rx
+                      </span>
+                    )}
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-[10px] font-semibold capitalize ${
+                        order.status === 'success'
+                          ? 'bg-green-100 text-green-800'
+                          : order.status === 'error'
+                            ? 'bg-red-100 text-red-800'
+                            : order.status === 'awaiting_webhook' || order.status === 'processing'
+                              ? 'bg-yellow-100 text-yellow-800'
+                              : 'bg-gray-100 text-gray-800'
+                      }`}
+                    >
+                      {order.status === 'awaiting_webhook' ? 'Processing' : (order.status ?? 'pending')}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Medications */}
+                <div className="mb-2">
+                  {order.rxs?.map((rx: any) => (
+                    <p key={rx.id} className="text-sm font-medium text-gray-900">
+                      {rx.medName || rx.medicationName || rx.medicationKey}
+                      {rx.strength && <span className="font-normal text-gray-500"> ({rx.strength})</span>}
+                      {rx.quantity && <span className="text-xs font-normal text-gray-400"> Qty: {rx.quantity}</span>}
+                    </p>
+                  ))}
+                </div>
+
+                {/* Provider + Shipping */}
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500">
+                  {order.provider && (
+                    <span>Dr. {order.provider.lastName}</span>
+                  )}
+                  {order.shippingMethod && (
+                    <span>{shippingLabelMap.get(order.shippingMethod) ?? order.shippingMethod}</span>
+                  )}
+                  {order.lifefileOrderId && (
+                    <span>Order #{order.lifefileOrderId}</span>
+                  )}
+                </div>
+
+                {/* Tracking */}
+                {order.trackingNumber && (
+                  <div className="mt-2 flex items-center gap-1.5 rounded-lg bg-white px-2.5 py-1.5 text-xs">
+                    <span className="text-gray-500">Tracking:</span>
+                    {order.trackingUrl ? (
+                      <a
+                        href={order.trackingUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="truncate font-mono text-[#4fa77e] underline"
+                      >
+                        {order.trackingNumber}
+                      </a>
+                    ) : (
+                      <span className="truncate font-mono">{order.trackingNumber}</span>
+                    )}
+                  </div>
+                )}
+
+                {/* Action */}
+                <div className="mt-2.5 flex gap-2">
+                  <button
+                    onClick={() => handleNewPrescriptionClick(order)}
+                    className="flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-center text-xs font-medium text-gray-700 active:bg-gray-50"
+                  >
+                    Refill / Adjust
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Desktop Table */}
+          <div className="hidden overflow-x-auto md:block">
             <table className="min-w-full border text-sm">
               <thead className="bg-gray-100">
                 <tr>
@@ -333,6 +421,7 @@ export default function PatientPrescriptionsTab({
               </tbody>
             </table>
           </div>
+          </>
         )}
       </section>
 

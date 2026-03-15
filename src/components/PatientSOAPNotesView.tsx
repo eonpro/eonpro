@@ -262,7 +262,7 @@ export default function PatientSOAPNotesView({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       {/* Header Actions */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h2 className="text-lg font-semibold">SOAP Notes</h2>
@@ -432,9 +432,9 @@ export default function PatientSOAPNotesView({
               tabIndex={0}
               role="button"
             >
-              <div className="mb-4 flex items-start justify-between">
+              <div className="mb-3 flex flex-col gap-2 sm:mb-4 sm:flex-row sm:items-start sm:justify-between">
                 <div>
-                  <div className="flex items-center space-x-3">
+                  <div className="flex flex-wrap items-center gap-2">
                     <h3 className="font-semibold">SOAP Note #{note.id}</h3>
                     {getStatusBadge(note.status)}
                     {note.generatedByAI && (
