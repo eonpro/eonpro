@@ -95,6 +95,7 @@ async function handleGet(req: NextRequest, _user: AuthUser) {
           orderId: true,
           medicationName: true,
           medicationStrength: true,
+          rawPayload: true,
           clinic: { select: { id: true, name: true } },
           order: { select: { id: true, lifefileOrderId: true } },
         },
@@ -137,6 +138,9 @@ async function handleGet(req: NextRequest, _user: AuthUser) {
         orderId: s.orderId,
         medicationName: s.medicationName,
         medicationStrength: s.medicationStrength,
+        signedBy: (s.rawPayload as any)?.signedBy || null,
+        deliveryPhotoUrl: (s.rawPayload as any)?.photoUrl || null,
+        deliveryDetails: (s.rawPayload as any)?.fedexDeliveryDetails || null,
       })),
       pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
       counts: {

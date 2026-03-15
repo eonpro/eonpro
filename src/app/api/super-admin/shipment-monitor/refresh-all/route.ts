@@ -88,14 +88,26 @@ async function handleRefreshAll(_req: NextRequest, _user: AuthUser) {
         if (TERMINAL_STATUSES.includes(currentStatus)) continue;
 
         try {
+          const updateData: any = {
+            status: result.status,
+            statusNote: result.statusDetail || result.statusDescription,
+            estimatedDelivery: result.estimatedDelivery,
+            actualDelivery: result.actualDelivery,
+          };
+
+          if (result.status === 'DELIVERED' && result.deliveryDetail?.rawDeliveryDetails) {
+            updateData.rawPayload = {
+              fedexDeliveryDetails: result.deliveryDetail.rawDeliveryDetails,
+              signedBy: result.signedBy,
+              photoUrl: result.deliveryDetail.photoUrl,
+              signatureUrl: result.deliveryDetail.signatureUrl,
+              refreshedAt: new Date().toISOString(),
+            };
+          }
+
           await basePrisma.patientShippingUpdate.update({
             where: { id: shipment.id },
-            data: {
-              status: result.status,
-              statusNote: result.statusDetail || result.statusDescription,
-              estimatedDelivery: result.estimatedDelivery,
-              actualDelivery: result.actualDelivery,
-            },
+            data: updateData,
           });
 
           if (shipment.orderId) {

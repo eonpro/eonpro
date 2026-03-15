@@ -35,6 +35,9 @@ interface Shipment {
   orderId: number | null;
   medicationName: string | null;
   medicationStrength: string | null;
+  signedBy: string | null;
+  deliveryPhotoUrl: string | null;
+  deliveryDetails: Record<string, unknown> | null;
 }
 
 interface Pagination {
@@ -303,13 +306,16 @@ export default function ShipmentMonitorPage() {
                 {tab === 'in_transit' && (
                   <th className="px-4 py-3 font-semibold text-gray-600">Est. Delivery</th>
                 )}
+                {tab === 'delivered' && (
+                  <th className="px-4 py-3 font-semibold text-gray-600">Delivery Proof</th>
+                )}
                 <th className="px-4 py-3 font-semibold text-gray-600">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
               {loading ? (
                 <tr>
-                  <td colSpan={9} className="py-16 text-center">
+                  <td colSpan={10} className="py-16 text-center">
                     <div className="inline-flex items-center gap-3 text-gray-400">
                       <div className="h-5 w-5 animate-spin rounded-full border-2 border-gray-200 border-t-[#4fa77e]" />
                       Loading shipments...
@@ -318,7 +324,7 @@ export default function ShipmentMonitorPage() {
                 </tr>
               ) : shipments.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="py-16 text-center">
+                  <td colSpan={10} className="py-16 text-center">
                     <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-gray-100">
                       <Package className="h-6 w-6 text-gray-400" />
                     </div>
@@ -414,6 +420,34 @@ export default function ShipmentMonitorPage() {
                       {tab === 'in_transit' && (
                         <td className="px-4 py-3 text-xs text-gray-600">
                           {formatDate(s.estimatedDelivery)}
+                        </td>
+                      )}
+
+                      {/* Delivery Proof (delivered only) */}
+                      {tab === 'delivered' && (
+                        <td className="px-4 py-3">
+                          <div className="space-y-1">
+                            {s.signedBy && (
+                              <span className="block text-xs text-gray-600">
+                                Received by: <span className="font-medium">{s.signedBy}</span>
+                              </span>
+                            )}
+                            {s.deliveryPhotoUrl ? (
+                              <a
+                                href={s.deliveryPhotoUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 text-xs font-medium text-[#4fa77e] hover:underline"
+                              >
+                                View Photo
+                                <ExternalLink className="h-3 w-3" />
+                              </a>
+                            ) : s.deliveryDetails ? (
+                              <span className="text-[11px] text-gray-400">Photo captured by FedEx</span>
+                            ) : (
+                              <span className="text-[11px] text-gray-400">—</span>
+                            )}
+                          </div>
                         </td>
                       )}
 

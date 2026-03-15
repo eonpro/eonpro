@@ -643,6 +643,7 @@ export type DeliveryDetail = {
   deliveryLocationType: string | null;
   signatureUrl: string | null;
   photoUrl: string | null;
+  rawDeliveryDetails: Record<string, unknown> | null;
 };
 
 export type TrackingResult = {
@@ -802,14 +803,25 @@ function parseTrackResult(trackingNumber: string, trackResult: any): TrackingRes
   if (trackResult.deliveryDetails) {
     const dd = trackResult.deliveryDetails;
     const attempt = dd.deliveryAttempts?.[0];
+
+    // FedEx may nest photo/signature URLs under various keys; search broadly
+    const findUrl = (...keys: string[]): string | null => {
+      for (const k of keys) {
+        if (dd[k] && typeof dd[k] === 'string') return dd[k];
+        if (attempt?.[k] && typeof attempt[k] === 'string') return attempt[k];
+      }
+      return null;
+    };
+
     deliveryDetail = {
       receivedByName: dd.receivedByName || null,
       deliveryLocation: dd.actualDeliveryAddress
         ? buildLocationString(dd.actualDeliveryAddress)
         : null,
       deliveryLocationType: dd.locationType || attempt?.deliveryOptionEligibilityDetails?.[0]?.option || null,
-      signatureUrl: dd.signatureUrl || dd.proofOfDeliveryURL || null,
-      photoUrl: dd.photoUrl || dd.pictureProofOfDeliveryURL || null,
+      signatureUrl: findUrl('signatureUrl', 'proofOfDeliveryURL', 'signatureImageUrl', 'signatureProofOfDeliveryURL'),
+      photoUrl: findUrl('photoUrl', 'pictureProofOfDeliveryURL', 'pictureProofURL', 'deliveryPhotoUrl', 'imageUrl', 'proofOfDeliveryImageURL'),
+      rawDeliveryDetails: dd,
     };
   }
 
