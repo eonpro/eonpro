@@ -98,6 +98,8 @@ export default function ShipmentMonitorPage() {
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [bulkRefreshing, setBulkRefreshing] = useState(false);
+  const [bulkResult, setBulkResult] = useState<{ totalUpdated: number; totalDelivered: number; totalPolled: number } | null>(null);
 
   const fetchData = useCallback(async (currentTab: Tab, currentPage: number, currentSearch: string) => {
     try {
@@ -141,6 +143,24 @@ export default function ShipmentMonitorPage() {
     setRefreshing(false);
   };
 
+  const handleBulkRefresh = async () => {
+    if (bulkRefreshing) return;
+    setBulkRefreshing(true);
+    setBulkResult(null);
+    try {
+      const res = await apiFetch('/api/super-admin/shipment-monitor/refresh-all', { method: 'POST' });
+      if (res.ok) {
+        const data = await res.json();
+        setBulkResult({ totalUpdated: data.totalUpdated, totalDelivered: data.totalDelivered, totalPolled: data.totalPolled });
+        await fetchData(tab, pagination.page, search);
+      }
+    } catch {
+      // Non-blocking
+    } finally {
+      setBulkRefreshing(false);
+    }
+  };
+
   const tabs: { key: Tab; label: string; icon: typeof Package; count: number; color: string }[] = [
     { key: 'in_transit', label: 'In Transit', icon: Truck, count: counts.inTransit, color: 'text-yellow-600' },
     { key: 'delivered', label: 'Delivered', icon: CheckCircle2, count: counts.delivered, color: 'text-emerald-600' },
@@ -157,15 +177,59 @@ export default function ShipmentMonitorPage() {
             Track every shipment from generation through delivery across all clinics
           </p>
         </div>
-        <button
-          onClick={handleRefresh}
-          disabled={refreshing}
-          className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 shadow-sm transition-all hover:bg-gray-50 disabled:opacity-50"
-        >
-          <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
-          Refresh
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={handleBulkRefresh}
+            disabled={bulkRefreshing}
+            className="flex items-center gap-2 rounded-xl bg-[#4fa77e] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-[#429468] disabled:opacity-60"
+          >
+            {bulkRefreshing ? (
+              <>
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                Refreshing FedEx...
+              </>
+            ) : (
+              <>
+                <Truck className="h-4 w-4" />
+                Refresh All Tracking
+              </>
+            )}
+          </button>
+          <button
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 shadow-sm transition-all hover:bg-gray-50 disabled:opacity-50"
+          >
+            <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+            Reload
+          </button>
+        </div>
       </div>
+
+      {/* Bulk refresh result banner */}
+      {bulkResult && (
+        <div className="mb-4 flex items-center justify-between rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+          <div className="flex items-center gap-2 text-sm text-emerald-800">
+            <CheckCircle2 className="h-4 w-4" />
+            <span>
+              FedEx tracking refreshed: <strong>{bulkResult.totalPolled}</strong> tracked,{' '}
+              <strong>{bulkResult.totalUpdated}</strong> updated,{' '}
+              <strong>{bulkResult.totalDelivered}</strong> newly delivered
+            </span>
+          </div>
+          <button onClick={() => setBulkResult(null)} className="text-xs text-emerald-600 hover:underline">
+            Dismiss
+          </button>
+        </div>
+      )}
+
+      {/* Bulk refreshing indicator */}
+      {bulkRefreshing && (
+        <div className="mb-4 flex items-center gap-3 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+          Contacting FedEx Track API for up to 500 shipments... This may take 15–30 seconds.
+        </div>
+      )}
 
       {/* Sub-tabs */}
       <div className="mb-6 flex gap-2 rounded-xl border border-gray-200 bg-white p-1.5 shadow-sm">

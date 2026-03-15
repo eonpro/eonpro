@@ -637,6 +637,14 @@ export type TrackingScanEvent = {
   statusCode: string;
 };
 
+export type DeliveryDetail = {
+  receivedByName: string | null;
+  deliveryLocation: string | null;
+  deliveryLocationType: string | null;
+  signatureUrl: string | null;
+  photoUrl: string | null;
+};
+
 export type TrackingResult = {
   trackingNumber: string;
   status: ShippingStatusValue;
@@ -646,6 +654,7 @@ export type TrackingResult = {
   actualDelivery: Date | null;
   signedBy: string | null;
   location: { city?: string; state?: string; countryCode?: string } | null;
+  deliveryDetail: DeliveryDetail | null;
   scanEvents: TrackingScanEvent[];
   raw: unknown;
 };
@@ -789,6 +798,21 @@ function parseTrackResult(trackingNumber: string, trackResult: any): TrackingRes
 
   const signedBy: string | null = trackResult.deliveryDetails?.receivedByName || null;
 
+  let deliveryDetail: DeliveryDetail | null = null;
+  if (trackResult.deliveryDetails) {
+    const dd = trackResult.deliveryDetails;
+    const attempt = dd.deliveryAttempts?.[0];
+    deliveryDetail = {
+      receivedByName: dd.receivedByName || null,
+      deliveryLocation: dd.actualDeliveryAddress
+        ? buildLocationString(dd.actualDeliveryAddress)
+        : null,
+      deliveryLocationType: dd.locationType || attempt?.deliveryOptionEligibilityDetails?.[0]?.option || null,
+      signatureUrl: dd.signatureUrl || dd.proofOfDeliveryURL || null,
+      photoUrl: dd.photoUrl || dd.pictureProofOfDeliveryURL || null,
+    };
+  }
+
   const rawScanEvents: any[] = trackResult.scanEvents || [];
   const scanEvents: TrackingScanEvent[] = rawScanEvents.slice(0, 50).map((ev: any) => ({
     date: ev.date || '',
@@ -815,6 +839,7 @@ function parseTrackResult(trackingNumber: string, trackResult: any): TrackingRes
     actualDelivery,
     signedBy,
     location,
+    deliveryDetail,
     scanEvents,
     raw: trackResult,
   };
@@ -955,6 +980,60 @@ export async function trackShipmentBatch(
   }
 
   return results;
+}
+
+// ---------------------------------------------------------------------------
+// Track API — Signature Proof of Delivery (SPOD)
+// ---------------------------------------------------------------------------
+
+export type ProofOfDeliveryResult = {
+  trackingNumber: string;
+  documentBase64: string;
+  documentType: string;
+};
+
+export async function getProofOfDelivery(
+  credentials: FedExCredentials,
+  trackingNumber: string
+): Promise<ProofOfDeliveryResult | null> {
+  const payload = {
+    trackingNumberInfo: { trackingNumber },
+    additionalDocFormat: 'PDF',
+  };
+
+  try {
+    const response = await fedexRequest<any>(
+      credentials,
+      'POST',
+      '/track/v1/referencenumbers',
+      payload
+    );
+
+    const doc = response.output?.completeTrackResults?.[0]?.trackResults?.[0]?.signatureProofOfDelivery;
+    if (!doc?.image) {
+      const letterDoc = response.output?.locator;
+      if (letterDoc) {
+        return {
+          trackingNumber,
+          documentBase64: letterDoc,
+          documentType: 'PDF',
+        };
+      }
+      return null;
+    }
+
+    return {
+      trackingNumber,
+      documentBase64: doc.image,
+      documentType: doc.imageType || 'PDF',
+    };
+  } catch (err) {
+    logger.warn('[FedEx SPOD] Proof of delivery request failed', {
+      trackingNumber,
+      error: err instanceof Error ? err.message : String(err),
+    });
+    return null;
+  }
 }
 
 // ---------------------------------------------------------------------------
