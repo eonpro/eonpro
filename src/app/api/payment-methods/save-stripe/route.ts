@@ -47,20 +47,68 @@ async function handler(req: NextRequest, user: AuthUser) {
       ? await stripe.paymentMethods.retrieve(stripePaymentMethodId, connectOpts)
       : await stripe.paymentMethods.retrieve(stripePaymentMethodId);
 
+    const brand = pm.card?.brand
+      ? pm.card.brand.charAt(0).toUpperCase() + pm.card.brand.slice(1)
+      : 'Unknown';
+
+    // Check ALL existing records (including soft-deleted) to handle the unique constraint
     const existing = await prisma.paymentMethod.findFirst({
-      where: { stripePaymentMethodId, patientId, isActive: true },
+      where: { stripePaymentMethodId, patientId },
     });
 
     if (existing) {
+      // If the record is still active, just return it
+      if (existing.isActive) {
+        return NextResponse.json({
+          success: true,
+          data: {
+            id: existing.id,
+            last4: existing.cardLast4,
+            brand: existing.cardBrand,
+            isDefault: existing.isDefault,
+          },
+          message: 'Card already saved',
+        });
+      }
+
+      // Reactivate a previously soft-deleted card
+      if (setAsDefault) {
+        await prisma.paymentMethod.updateMany({
+          where: { patientId, isDefault: true },
+          data: { isDefault: false },
+        });
+      }
+
+      const reactivated = await prisma.paymentMethod.update({
+        where: { id: existing.id },
+        data: {
+          isActive: true,
+          cardLast4: pm.card?.last4 || existing.cardLast4,
+          cardBrand: brand,
+          expiryMonth: pm.card?.exp_month ?? existing.expiryMonth,
+          expiryYear: pm.card?.exp_year ?? existing.expiryYear,
+          cardholderName: pm.billing_details?.name || existing.cardholderName,
+          billingZip: pm.billing_details?.address?.postal_code || existing.billingZip,
+          isDefault: setAsDefault || false,
+        },
+      });
+
+      logger.info('[SaveStripe] Payment method reactivated', {
+        patientId,
+        paymentMethodId: reactivated.id,
+        stripePaymentMethodId,
+      });
+
       return NextResponse.json({
         success: true,
         data: {
-          id: existing.id,
-          last4: existing.cardLast4,
-          brand: existing.cardBrand,
-          isDefault: existing.isDefault,
+          id: reactivated.id,
+          last4: reactivated.cardLast4,
+          brand: reactivated.cardBrand,
+          expiryMonth: reactivated.expiryMonth,
+          expiryYear: reactivated.expiryYear,
+          isDefault: reactivated.isDefault,
         },
-        message: 'Card already saved',
       });
     }
 
@@ -71,19 +119,19 @@ async function handler(req: NextRequest, user: AuthUser) {
       });
     }
 
+    // DB columns are NOT NULL — provide non-null fallbacks for Stripe-sourced cards
     const saved = await prisma.paymentMethod.create({
       data: {
         patientId,
         clinicId: patient.clinicId,
         stripePaymentMethodId,
+        encryptedCardNumber: '',
         cardLast4: pm.card?.last4 || '????',
-        cardBrand: pm.card?.brand
-          ? pm.card.brand.charAt(0).toUpperCase() + pm.card.brand.slice(1)
-          : 'Unknown',
-        expiryMonth: pm.card?.exp_month || null,
-        expiryYear: pm.card?.exp_year || null,
-        cardholderName: pm.billing_details?.name || null,
-        billingZip: pm.billing_details?.address?.postal_code || null,
+        cardBrand: brand,
+        expiryMonth: pm.card?.exp_month ?? 0,
+        expiryYear: pm.card?.exp_year ?? 0,
+        cardholderName: pm.billing_details?.name || '',
+        billingZip: pm.billing_details?.address?.postal_code || '',
         isDefault: setAsDefault || false,
         encryptionKeyId: 'stripe',
       },
@@ -107,8 +155,9 @@ async function handler(req: NextRequest, user: AuthUser) {
       },
     });
   } catch (error) {
-    logger.error('[SaveStripe] Error:', error instanceof Error ? error : new Error(String(error)));
-    return NextResponse.json({ error: 'Failed to save payment method' }, { status: 500 });
+    const msg = error instanceof Error ? error.message : String(error);
+    logger.error('[SaveStripe] Error:', { message: msg, stack: error instanceof Error ? error.stack : undefined });
+    return NextResponse.json({ error: `Failed to save payment method: ${msg}` }, { status: 500 });
   }
 }
 

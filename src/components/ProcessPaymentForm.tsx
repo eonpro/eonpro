@@ -77,18 +77,47 @@ export function ProcessPaymentForm({ patientId, patientName, clinicSubdomain, on
   const stripeElementRef = useRef<StripeCardElement | null>(null);
   const stripeInstanceRef = useRef<Stripe | null>(null);
 
-  // Mount Stripe CardElement for new card entry on component load
+  // Eagerly load the Stripe instance (runs once, no DOM dependency)
   useEffect(() => {
-    let mounted = true;
-
-    const mountCard = async () => {
+    let cancelled = false;
+    const init = async () => {
       const stripeP = getStripeInstance();
       if (!stripeP) return;
-      const stripeInstance = await stripeP;
-      if (!stripeInstance || !mounted) return;
-      stripeInstanceRef.current = stripeInstance;
+      const instance = await stripeP;
+      if (!cancelled && instance) {
+        stripeInstanceRef.current = instance;
+      }
+    };
+    init();
+    return () => { cancelled = true; };
+  }, []);
 
-      const elements = stripeInstance.elements();
+  // Mount the CardElement once the container div is actually in the DOM
+  useEffect(() => {
+    if (loadingCards || paymentMode !== 'new') return;
+
+    let cancelled = false;
+
+    const mountCard = async () => {
+      // Wait for Stripe instance if it hasn't resolved yet
+      if (!stripeInstanceRef.current) {
+        const stripeP = getStripeInstance();
+        if (!stripeP) return;
+        const instance = await stripeP;
+        if (cancelled || !instance) return;
+        stripeInstanceRef.current = instance;
+      }
+
+      const stripe = stripeInstanceRef.current;
+      if (!stripe || !stripeCardRef.current) return;
+
+      // Already mounted in this container — nothing to do
+      if (stripeElementRef.current) {
+        setStripeReady(true);
+        return;
+      }
+
+      const elements = stripe.elements();
       const card = elements.create('card', {
         style: {
           base: {
@@ -100,20 +129,23 @@ export function ProcessPaymentForm({ patientId, patientName, clinicSubdomain, on
           invalid: { color: '#ef4444' },
         },
       });
-      if (stripeCardRef.current) {
+
+      if (!cancelled && stripeCardRef.current) {
         card.mount(stripeCardRef.current);
         stripeElementRef.current = card;
         setStripeReady(true);
       }
     };
+
     mountCard();
 
     return () => {
-      mounted = false;
+      cancelled = true;
       stripeElementRef.current?.unmount();
       stripeElementRef.current = null;
+      setStripeReady(false);
     };
-  }, []);
+  }, [loadingCards, paymentMode]);
 
   useEffect(() => {
     const fetchSavedCards = async () => {

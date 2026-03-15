@@ -6,7 +6,11 @@ import { apiFetch } from '@/lib/api/fetch';
 import { getCardNetworkLogo } from '@/lib/constants/brand-assets';
 import { loadStripe, Stripe, StripeCardElement } from '@stripe/stripe-js';
 
-const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || '');
+const stripePublishableKey =
+  process.env.NEXT_PUBLIC_EONMEDS_STRIPE_PUBLISHABLE_KEY ||
+  process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ||
+  '';
+const stripePromise = stripePublishableKey ? loadStripe(stripePublishableKey) : null;
 
 // Icon components
 const CreditCard = ({ className }: { className?: string }) => (
@@ -132,6 +136,10 @@ export default function PatientPaymentMethods({
 
     let mounted = true;
     const mountCard = async () => {
+      if (!stripePromise) {
+        logger.error('Stripe publishable key not configured');
+        return;
+      }
       const stripeInstance = await stripePromise;
       if (!stripeInstance || !mounted) return;
       stripeInstanceRef.current = stripeInstance;
