@@ -179,13 +179,15 @@ export default function WelcomeKitPage() {
       medName: string;
       directions: string;
       dose: { mg: string; units: string } | null;
-      isActive: boolean;
       isTitration: boolean;
+      periodStart: Date;
+      periodEnd: Date;
     }> = [];
 
     let monthNum = 0;
     let weekCursor = 1;
     let prevDoseKey = '';
+    const firstPrescribedDate = sorted.length > 0 ? new Date(sorted[0].prescribedDate) : new Date();
 
     for (const order of sorted) {
       const injectables = (order.medications ?? []).filter(
@@ -204,22 +206,24 @@ export default function WelcomeKitPage() {
         const weekEnd = weekCursor + weeks - 1;
         weekCursor = weekEnd + 1;
 
+        const periodStart = new Date(firstPrescribedDate);
+        periodStart.setDate(periodStart.getDate() + (weekStart - 1) * 7);
+        const periodEnd = new Date(firstPrescribedDate);
+        periodEnd.setDate(periodEnd.getDate() + weekEnd * 7);
+
         const dose = parseDoseFromDirections(med.directions);
         const doseKey = dose ? `${dose.mg}-${dose.units}` : med.directions;
         const isTitration = prevDoseKey !== '' && doseKey !== prevDoseKey;
         prevDoseKey = doseKey;
 
-        const isActive = ['pending', 'processing', 'shipped', 'active', 'approved', 'submitted', 'in_progress'].includes(
-          (order.status || '').toLowerCase(),
-        );
-
-        items.push({ monthNumber: monthStart, monthEnd, weekStart, weekEnd, date: order.prescribedDate, medName: getMedicationDisplayName(med), directions: reformatDirectionsUnitsFirst(med.directions), dose, isActive, isTitration });
+        items.push({ monthNumber: monthStart, monthEnd, weekStart, weekEnd, date: order.prescribedDate, medName: getMedicationDisplayName(med), directions: reformatDirectionsUnitsFirst(med.directions), dose, isTitration, periodStart, periodEnd });
       }
     }
     return items;
   })();
 
-  const currentIdx = dosingItems.findIndex((d) => d.isActive);
+  const now = new Date();
+  const currentIdx = dosingItems.findIndex((d) => now >= d.periodStart && now < d.periodEnd);
 
   return (
     <div className="min-h-[100dvh] px-3 py-4 sm:px-4 sm:py-6">
@@ -312,9 +316,8 @@ export default function WelcomeKitPage() {
           <div className="divide-y divide-gray-50">
             {dosingItems.map((item, idx) => {
               const isCurrent = idx === currentIdx;
-              const hasCurrentDose = currentIdx >= 0;
-              const isPast = hasCurrentDose ? idx < currentIdx : !item.isActive;
-              const isGrayed = hasCurrentDose && idx < currentIdx;
+              const isPast = now >= item.periodEnd;
+              const isGrayed = currentIdx >= 0 && idx < currentIdx;
               return (
                 <div
                   key={`${item.monthNumber}`}

@@ -523,14 +523,17 @@ END:VCALENDAR`;
       medName: string;
       directions: string;
       dose: { mg: string; units: string } | null;
-      isActive: boolean;
       isTitration: boolean;
       status: string;
+      periodStart: Date;
+      periodEnd: Date;
     }> = [];
 
     let monthNum = 0;
     let weekCursor = 1;
     let prevDoseKey = '';
+    const firstPrescribedDate = allOrders.length > 0 ? new Date(allOrders[0].prescribedDate) : new Date();
+
     for (const order of allOrders) {
       const injectableMeds = (order.medications ?? []).filter(
         (m) => isInjectableMedication(m.name) && !isSupplyMedication(m.name)
@@ -548,14 +551,16 @@ END:VCALENDAR`;
         const weekEnd = weekCursor + weeksInSupply - 1;
         weekCursor = weekEnd + 1;
 
+        const periodStart = new Date(firstPrescribedDate);
+        periodStart.setDate(periodStart.getDate() + (weekStart - 1) * 7);
+        const periodEnd = new Date(firstPrescribedDate);
+        periodEnd.setDate(periodEnd.getDate() + weekEnd * 7);
+
         const dose = parseDoseFromDirections(med.directions);
         const doseKey = dose ? `${dose.mg}-${dose.units}` : med.directions;
         const isTitration = prevDoseKey !== '' && doseKey !== prevDoseKey;
         prevDoseKey = doseKey;
 
-        const isActive = ['pending', 'processing', 'shipped', 'active', 'approved', 'submitted', 'in_progress'].includes(
-          (order.status || '').toLowerCase()
-        );
         items.push({
           monthNumber: monthStart,
           monthEnd,
@@ -566,9 +571,10 @@ END:VCALENDAR`;
           medName: getMedicationDisplayName(med),
           directions: reformatDirectionsUnitsFirst(med.directions),
           dose,
-          isActive,
           isTitration,
           status: order.status,
+          periodStart,
+          periodEnd,
         });
       }
     }
@@ -576,7 +582,10 @@ END:VCALENDAR`;
     return items;
   })();
 
-  const currentDoseIndex = dosingScheduleItems.findIndex((d) => d.isActive);
+  const now = new Date();
+  const currentDoseIndex = dosingScheduleItems.findIndex(
+    (d) => now >= d.periodStart && now < d.periodEnd
+  );
 
   if (loading) {
     return <MedicationsPageSkeleton />;
@@ -870,9 +879,8 @@ END:VCALENDAR`;
               <div className="divide-y divide-gray-50">
                 {dosingScheduleItems.map((item, idx) => {
                   const isCurrent = idx === currentDoseIndex;
-                  const hasCurrentDose = currentDoseIndex >= 0;
-                  const isPast = hasCurrentDose ? idx < currentDoseIndex : !item.isActive;
-                  const isGrayed = hasCurrentDose && idx < currentDoseIndex;
+                  const isPast = now >= item.periodEnd;
+                  const isGrayed = currentDoseIndex >= 0 && idx < currentDoseIndex;
                   return (
                     <div
                       key={`${item.prescriptionId}-${item.monthNumber}`}
