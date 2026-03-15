@@ -205,44 +205,73 @@ export default function InjectionTrackerPage() {
 
             {/* Body Outline with Clickable Sites */}
             <div className="relative mx-auto aspect-[3/4] w-full max-w-xs">
-              {/* Simple body outline SVG */}
               <svg viewBox="0 0 100 130" className="h-full w-full">
+                <defs>
+                  <radialGradient id="bodyHL" cx="0.5" cy="0.35" r="0.55">
+                    <stop offset="0%" stopColor="#eef0f3" />
+                    <stop offset="100%" stopColor="#dde0e5" />
+                  </radialGradient>
+                  <linearGradient id="bodyLimb" x1="0.5" y1="0" x2="0.5" y2="1">
+                    <stop offset="0%" stopColor="#e4e7ec" />
+                    <stop offset="100%" stopColor="#d0d4da" />
+                  </linearGradient>
+                  <filter id="bodySoft" x="-2%" y="-1%" width="104%" height="102%">
+                    <feDropShadow dx="0" dy="0.5" stdDeviation="0.8" floodColor="#000" floodOpacity="0.06" />
+                  </filter>
+                </defs>
+
                 {/* Head */}
-                <circle cx="50" cy="12" r="10" fill="#E5E7EB" stroke="#D1D5DB" strokeWidth="1" />
-                {/* Torso */}
+                <ellipse cx="50" cy="10.5" rx="7.5" ry="8.5" fill="url(#bodyHL)" stroke="#c8ccd2" strokeWidth="0.5" filter="url(#bodySoft)" />
+
+                {/* Neck */}
                 <path
-                  d="M30 25 L30 70 L70 70 L70 25 Q50 20 30 25"
-                  fill="#E5E7EB"
-                  stroke="#D1D5DB"
-                  strokeWidth="1"
+                  d="M 45 18.5 C 45 17.5 47 17 50 17 C 53 17 55 17.5 55 18.5 L 55 23 C 55 23.5 53 24 50 24 C 47 24 45 23.5 45 23 Z"
+                  fill="url(#bodyLimb)"
                 />
+
+                {/* Torso (shoulders through hips) */}
+                <path
+                  d="M 50 23 C 43 23 34 24.5 30 27 C 26 29.5 26 32 27 36 L 29 48 C 30 53 32 57 35 60 C 37 62.5 37 65 36 68 C 35 70.5 36 72 38 73 C 41 74.5 45 75 50 75 C 55 75 59 74.5 62 73 C 64 72 65 70.5 64 68 C 63 65 63 62.5 65 60 C 68 57 70 53 71 48 L 73 36 C 74 32 74 29.5 70 27 C 66 24.5 57 23 50 23 Z"
+                  fill="url(#bodyHL)"
+                  stroke="#c8ccd2"
+                  strokeWidth="0.5"
+                  filter="url(#bodySoft)"
+                />
+
                 {/* Left Arm */}
                 <path
-                  d="M30 28 L15 30 L10 55 L20 55 L25 35 L30 35"
-                  fill="#E5E7EB"
-                  stroke="#D1D5DB"
-                  strokeWidth="1"
+                  d="M 28 28 C 23 29.5 18 33 16 38 C 14 43 12 49 11 55 C 10.5 58.5 11 60.5 13 61 C 15 61.5 17 59 18 55 C 19.5 50 21 44 23 38 L 25 33 C 26.5 30 28.5 28.5 30 28 Z"
+                  fill="url(#bodyLimb)"
+                  stroke="#c8ccd2"
+                  strokeWidth="0.5"
+                  filter="url(#bodySoft)"
                 />
+
                 {/* Right Arm */}
                 <path
-                  d="M70 28 L85 30 L90 55 L80 55 L75 35 L70 35"
-                  fill="#E5E7EB"
-                  stroke="#D1D5DB"
-                  strokeWidth="1"
+                  d="M 72 28 C 77 29.5 82 33 84 38 C 86 43 88 49 89 55 C 89.5 58.5 89 60.5 87 61 C 85 61.5 83 59 82 55 C 80.5 50 79 44 77 38 L 75 33 C 73.5 30 71.5 28.5 70 28 Z"
+                  fill="url(#bodyLimb)"
+                  stroke="#c8ccd2"
+                  strokeWidth="0.5"
+                  filter="url(#bodySoft)"
                 />
+
                 {/* Left Leg */}
                 <path
-                  d="M30 70 L30 120 L45 120 L45 70"
-                  fill="#E5E7EB"
-                  stroke="#D1D5DB"
-                  strokeWidth="1"
+                  d="M 37 73 C 36 80 34 90 33 100 C 32 110 32.5 117 34 121 C 35 123.5 37 125 39.5 125 C 42 125 43.5 123 43.5 121 C 44.5 117 44.5 110 44 100 C 43.5 90 44 80 45 73 Z"
+                  fill="url(#bodyLimb)"
+                  stroke="#c8ccd2"
+                  strokeWidth="0.5"
+                  filter="url(#bodySoft)"
                 />
+
                 {/* Right Leg */}
                 <path
-                  d="M55 70 L55 120 L70 120 L70 70"
-                  fill="#E5E7EB"
-                  stroke="#D1D5DB"
-                  strokeWidth="1"
+                  d="M 55 73 C 56 80 56.5 90 56 100 C 55.5 110 55.5 117 56.5 121 C 57 123.5 58 125 60.5 125 C 63 125 65 123 66 121 C 67.5 117 68 110 67 100 C 66 90 64 80 63 73 Z"
+                  fill="url(#bodyLimb)"
+                  stroke="#c8ccd2"
+                  strokeWidth="0.5"
+                  filter="url(#bodySoft)"
                 />
               </svg>
 
