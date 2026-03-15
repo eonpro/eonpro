@@ -207,72 +207,43 @@ export default function InjectionTrackerPage() {
             <div className="relative mx-auto aspect-[3/4] w-full max-w-xs">
               <svg viewBox="0 0 100 130" className="h-full w-full">
                 <defs>
-                  <radialGradient id="bodyHL" cx="0.5" cy="0.35" r="0.55">
-                    <stop offset="0%" stopColor="#eef0f3" />
-                    <stop offset="100%" stopColor="#dde0e5" />
-                  </radialGradient>
-                  <linearGradient id="bodyLimb" x1="0.5" y1="0" x2="0.5" y2="1">
-                    <stop offset="0%" stopColor="#e4e7ec" />
-                    <stop offset="100%" stopColor="#d0d4da" />
+                  <linearGradient id="bodyFill" x1="0.5" y1="0" x2="0.5" y2="1">
+                    <stop offset="0%" stopColor="#e6e9ed" />
+                    <stop offset="100%" stopColor="#d3d7dd" />
                   </linearGradient>
-                  <filter id="bodySoft" x="-2%" y="-1%" width="104%" height="102%">
-                    <feDropShadow dx="0" dy="0.5" stdDeviation="0.8" floodColor="#000" floodOpacity="0.06" />
+                  <filter id="bodyGlow" x="-3%" y="-1.5%" width="106%" height="103%">
+                    <feDropShadow dx="0" dy="0.3" stdDeviation="0.5" floodColor="#8a919b" floodOpacity="0.12" />
                   </filter>
                 </defs>
 
-                {/* Head */}
-                <ellipse cx="50" cy="10.5" rx="7.5" ry="8.5" fill="url(#bodyHL)" stroke="#c8ccd2" strokeWidth="0.5" filter="url(#bodySoft)" />
+                <g filter="url(#bodyGlow)">
+                  {/* Head */}
+                  <ellipse cx="50" cy="7" rx="5.5" ry="6.5" fill="url(#bodyFill)" />
 
-                {/* Neck */}
-                <path
-                  d="M 45 18.5 C 45 17.5 47 17 50 17 C 53 17 55 17.5 55 18.5 L 55 23 C 55 23.5 53 24 50 24 C 47 24 45 23.5 45 23 Z"
-                  fill="url(#bodyLimb)"
-                />
+                  {/* Neck */}
+                  <path
+                    d="M 47.5 13 L 47 22 Q 47 23 50 23 Q 53 23 53 22 L 52.5 13 Z"
+                    fill="url(#bodyFill)"
+                  />
 
-                {/* Torso (shoulders through hips) */}
-                <path
-                  d="M 50 23 C 43 23 34 24.5 30 27 C 26 29.5 26 32 27 36 L 29 48 C 30 53 32 57 35 60 C 37 62.5 37 65 36 68 C 35 70.5 36 72 38 73 C 41 74.5 45 75 50 75 C 55 75 59 74.5 62 73 C 64 72 65 70.5 64 68 C 63 65 63 62.5 65 60 C 68 57 70 53 71 48 L 73 36 C 74 32 74 29.5 70 27 C 66 24.5 57 23 50 23 Z"
-                  fill="url(#bodyHL)"
-                  stroke="#c8ccd2"
-                  strokeWidth="0.5"
-                  filter="url(#bodySoft)"
-                />
+                  {/* Torso + Legs (single connected shape) */}
+                  <path
+                    d="M 50 21 C 45 21 40 22 36 24 C 33 26 32 29 33 33 C 34 39 36 45 38 49 C 39 52 40 55 39 58 C 38 61 38 63 39 65 C 38 70 37 78 36 87 C 35 95 35 103 36 110 C 37 116 38 121 39 124 C 40 126 42 127 43 125 C 44 122 45 118 45 113 C 46 106 46 98 46 90 C 46 82 47 74 47.5 68 C 48 66 49 65 50 65 C 51 65 52 66 52.5 68 C 53 74 54 82 54 90 C 54 98 55 106 56 113 C 57 118 58 122 59 125 C 60 127 62 126 63 124 C 64 121 65 116 65 110 C 66 103 65 95 64 87 C 63 78 62 70 62 65 C 63 63 62 61 61 58 C 60 55 61 52 62 49 C 64 45 66 39 67 33 C 68 29 67 26 64 24 C 60 22 55 21 50 21 Z"
+                    fill="url(#bodyFill)"
+                  />
 
-                {/* Left Arm */}
-                <path
-                  d="M 28 28 C 23 29.5 18 33 16 38 C 14 43 12 49 11 55 C 10.5 58.5 11 60.5 13 61 C 15 61.5 17 59 18 55 C 19.5 50 21 44 23 38 L 25 33 C 26.5 30 28.5 28.5 30 28 Z"
-                  fill="url(#bodyLimb)"
-                  stroke="#c8ccd2"
-                  strokeWidth="0.5"
-                  filter="url(#bodySoft)"
-                />
+                  {/* Left Arm */}
+                  <path
+                    d="M 34 25 C 30 28 25 35 21 43 C 18 50 16 56 15 61 C 14 65 15 69 15 72 C 15 74 17 75 18 74 C 20 73 20 71 20 68 C 21 64 22 60 23 55 C 25 49 27 43 29 38 C 31 33 33 29 35 26 Z"
+                    fill="url(#bodyFill)"
+                  />
 
-                {/* Right Arm */}
-                <path
-                  d="M 72 28 C 77 29.5 82 33 84 38 C 86 43 88 49 89 55 C 89.5 58.5 89 60.5 87 61 C 85 61.5 83 59 82 55 C 80.5 50 79 44 77 38 L 75 33 C 73.5 30 71.5 28.5 70 28 Z"
-                  fill="url(#bodyLimb)"
-                  stroke="#c8ccd2"
-                  strokeWidth="0.5"
-                  filter="url(#bodySoft)"
-                />
-
-                {/* Left Leg */}
-                <path
-                  d="M 37 73 C 36 80 34 90 33 100 C 32 110 32.5 117 34 121 C 35 123.5 37 125 39.5 125 C 42 125 43.5 123 43.5 121 C 44.5 117 44.5 110 44 100 C 43.5 90 44 80 45 73 Z"
-                  fill="url(#bodyLimb)"
-                  stroke="#c8ccd2"
-                  strokeWidth="0.5"
-                  filter="url(#bodySoft)"
-                />
-
-                {/* Right Leg */}
-                <path
-                  d="M 55 73 C 56 80 56.5 90 56 100 C 55.5 110 55.5 117 56.5 121 C 57 123.5 58 125 60.5 125 C 63 125 65 123 66 121 C 67.5 117 68 110 67 100 C 66 90 64 80 63 73 Z"
-                  fill="url(#bodyLimb)"
-                  stroke="#c8ccd2"
-                  strokeWidth="0.5"
-                  filter="url(#bodySoft)"
-                />
+                  {/* Right Arm */}
+                  <path
+                    d="M 66 25 C 70 28 75 35 79 43 C 82 50 84 56 85 61 C 86 65 85 69 85 72 C 85 74 83 75 82 74 C 80 73 80 71 80 68 C 79 64 78 60 77 55 C 75 49 73 43 71 38 C 69 33 67 29 65 26 Z"
+                    fill="url(#bodyFill)"
+                  />
+                </g>
               </svg>
 
               {/* Clickable injection site markers */}
