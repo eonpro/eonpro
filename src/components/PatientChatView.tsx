@@ -266,7 +266,7 @@ export default function PatientChatView({ patient }: PatientChatViewProps) {
   );
 
   return (
-    <div className="flex h-[600px] flex-col rounded-lg border bg-white">
+    <div className="flex h-[calc(100vh-16rem)] flex-col rounded-lg border bg-white md:h-[600px]">
       {/* Header */}
       <div className="flex items-center justify-between border-b px-6 py-4">
         <div className="flex items-center gap-3">

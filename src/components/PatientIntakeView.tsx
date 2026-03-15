@@ -1377,7 +1377,7 @@ export default function PatientIntakeView({
       )}
 
       {!hasIntakeData && !isEditing ? (
-        <div className="rounded-2xl border border-gray-200 bg-white p-8 text-center">
+        <div className="rounded-2xl border border-gray-200 bg-white p-4 text-center md:p-8">
           <FileText className="mx-auto mb-4 h-12 w-12 text-gray-400" />
           <h3 className="mb-2 text-lg font-medium text-gray-900">No Intake Form Submitted</h3>
           <p className="mb-4 text-gray-500">This patient has not completed an intake form yet.</p>

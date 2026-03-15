@@ -15,7 +15,7 @@ import {
   Loader2,
   ExternalLink,
 } from 'lucide-react';
-import { apiFetch } from '@/lib/api/fetch';
+import { portalFetch } from '@/lib/api/patient-portal-client';
 
 interface AppointmentData {
   id: number;
@@ -43,6 +43,7 @@ function TelehealthJoinContent() {
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [devicesReady, setDevicesReady] = useState(false);
   const [joined, setJoined] = useState(false);
+  const [, setCountdownTick] = useState(0);
 
   const fetchAppointment = useCallback(async () => {
     if (!appointmentId) {
@@ -52,7 +53,7 @@ function TelehealthJoinContent() {
     }
 
     try {
-      const res = await apiFetch(`/api/patient-portal/appointments?appointmentId=${appointmentId}`);
+      const res = await portalFetch(`/api/patient-portal/appointments?appointmentId=${appointmentId}`);
       if (res.ok) {
         const data = await res.json();
         const appt = data.appointment ?? data;
@@ -107,6 +108,12 @@ function TelehealthJoinContent() {
       stream?.getTracks().forEach((t) => t.stop());
     };
   }, [stream]);
+
+  useEffect(() => {
+    if (!appointment?.startTime) return;
+    const interval = setInterval(() => setCountdownTick((t) => t + 1), 60000);
+    return () => clearInterval(interval);
+  }, [appointment?.startTime]);
 
   const toggleCamera = () => {
     stream?.getVideoTracks().forEach((t) => { t.enabled = !cameraOn; });

@@ -993,8 +993,8 @@ export default async function PatientDetailPage({
     }
 
     return (
-      <div className="min-h-screen bg-[#efece7] p-6">
-        <div className="flex gap-6">
+      <div className="min-h-screen bg-[#efece7] p-3 md:p-6">
+        <div className="flex flex-col gap-3 md:flex-row md:gap-6">
           {/* Left Sidebar - Patient Info & Navigation */}
           <PatientSidebar
             patient={patientCore}
@@ -1103,7 +1103,7 @@ export default async function PatientDetailPage({
                 />
 
                 {/* Vitals Section */}
-                <div className="rounded-2xl border border-gray-200 bg-white p-6">
+                <div className="rounded-2xl border border-gray-200 bg-white p-4 md:p-6">
                   <div className="mb-4 flex items-center gap-2">
                     <svg
                       className="h-5 w-5 text-gray-600"
@@ -1190,7 +1190,7 @@ export default async function PatientDetailPage({
                 <PatientPrescriptionSummary patientId={patientWithDecryptedPHI.id} />
 
                 {/* Tags and Overview */}
-                <div className="rounded-2xl border border-gray-200 bg-white p-6">
+                <div className="rounded-2xl border border-gray-200 bg-white p-4 md:p-6">
                   {/* Editable Tags Component */}
                   <PatientTags patientId={patientWithDecryptedPHI.id} initialTags={patientTags} />
 
@@ -1213,7 +1213,7 @@ export default async function PatientDetailPage({
 
                 {/* Audit Log for admins */}
                 {resolvedSearchParams?.admin === 'true' && (
-                  <div className="rounded-2xl border border-gray-200 bg-white p-6">
+                  <div className="rounded-2xl border border-gray-200 bg-white p-4 md:p-6">
                     <div className="mb-4 flex items-center justify-between">
                       <h2 className="text-lg font-semibold">Patient Audit Log</h2>
                       <span className="rounded bg-red-100 px-2 py-1 text-xs text-red-700">
@@ -1280,7 +1280,7 @@ export default async function PatientDetailPage({
                   patientName={`${patientWithDecryptedPHI.firstName} ${patientWithDecryptedPHI.lastName}`}
                   clinicSubdomain={patientWithDecryptedPHI.clinic?.subdomain ?? resolveFallbackSubdomain(patientWithDecryptedPHI.clinic?.subdomain, patientWithDecryptedPHI.clinicId)}
                 />
-                <div className="rounded-2xl border border-gray-200 bg-white p-6">
+                <div className="rounded-2xl border border-gray-200 bg-white p-4 md:p-6">
                   <h3 className="mb-4 border-b border-gray-200 pb-3 text-lg font-semibold">
                     Payment Methods
                   </h3>

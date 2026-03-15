@@ -302,7 +302,7 @@ export default function PatientDocumentsView({
         </div>
 
         <div
-          className="relative rounded-lg border-2 border-dashed p-8 text-center transition-colors"
+          className="relative rounded-lg border-2 border-dashed p-4 text-center transition-colors md:p-8"
           style={{
             borderColor: dragActive ? 'var(--brand-primary, #4fa77e)' : '#d1d5db',
             backgroundColor: dragActive

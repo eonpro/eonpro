@@ -59,6 +59,10 @@ export const POST = withProviderAuth(async (req: NextRequest, user) => {
       checkRedFlags,
     } = parsed.data;
 
+    if (providerId !== (user.providerId ?? user.id)) {
+      return NextResponse.json({ error: 'Provider ID mismatch' }, { status: 403 });
+    }
+
     let transcript: string;
     let segments: any[] = [];
 

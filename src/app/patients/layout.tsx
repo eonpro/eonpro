@@ -178,7 +178,7 @@ function PatientsLayoutInner({ children }: { children: React.ReactNode }) {
     <div className="flex min-h-screen bg-[#efece7]">
       {/* Sidebar - render skeleton sidebar while loading, full sidebar when ready */}
       <aside
-        className={`fixed bottom-0 left-0 top-0 z-50 flex flex-col border-r border-gray-200 bg-white py-4 transition-all duration-300 ${
+        className={`fixed bottom-0 left-0 top-0 z-50 hidden flex-col border-r border-gray-200 bg-white py-4 transition-all duration-300 md:flex ${
           sidebarExpanded ? 'w-56' : 'w-20'
         }`}
       >
@@ -266,9 +266,34 @@ function PatientsLayoutInner({ children }: { children: React.ReactNode }) {
       </aside>
 
       {/* Main Content - always rendered so page-level loading.tsx skeleton shows */}
-      <main className={`flex-1 transition-all duration-300 ${sidebarExpanded ? 'ml-56' : 'ml-20'}`}>
+      <main className={`flex-1 pb-16 transition-all duration-300 md:pb-0 ${sidebarExpanded ? 'md:ml-56' : 'md:ml-20'}`}>
         {children}
       </main>
+
+      {/* Mobile Bottom Navigation */}
+      {layoutReady && (
+        <nav className="fixed bottom-0 left-0 right-0 z-[55] border-t border-gray-200 bg-white pb-[env(safe-area-inset-bottom)] md:hidden">
+          <div className="flex">
+            {navItems.slice(0, 5).map((item) => {
+              const Icon = item.icon;
+              const active = isActive(item.path);
+              return (
+                <a
+                  key={item.path}
+                  href={item.path}
+                  className={`flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 py-3 ${
+                    active ? '' : 'text-gray-400 active:text-gray-600'
+                  }`}
+                  style={active ? { color: primaryColor } : {}}
+                >
+                  <Icon className="h-5 w-5 flex-shrink-0" />
+                  <span className="truncate text-[10px] font-medium leading-tight">{item.label}</span>
+                </a>
+              );
+            })}
+          </div>
+        </nav>
+      )}
     </div>
   );
 }

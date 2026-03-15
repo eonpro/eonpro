@@ -488,36 +488,39 @@ export async function handleMeetingStarted(payload: WebhookPayload): Promise<voi
   const meetingId = payload.payload.object.id?.toString();
   if (!meetingId) return;
 
-  const session = await getSessionByMeetingId(meetingId);
-  if (!session) {
-    logger.warn('Webhook: Meeting started for unknown session', { meetingId });
-    return;
-  }
+  try {
+    const session = await getSessionByMeetingId(meetingId);
+    if (!session) {
+      logger.warn('Webhook: Meeting started for unknown session', { meetingId });
+      return;
+    }
 
-  await prisma.telehealthSession.update({
-    where: { id: session.id },
-    data: {
-      status: 'IN_PROGRESS',
-      startedAt: new Date(),
-      hostJoinedAt: new Date(),
-    },
-  });
-
-  // Update appointment status
-  if (session.appointmentId) {
-    await prisma.appointment.update({
-      where: { id: session.appointmentId },
+    await prisma.telehealthSession.update({
+      where: { id: session.id },
       data: {
         status: 'IN_PROGRESS',
         startedAt: new Date(),
+        hostJoinedAt: new Date(),
       },
     });
-  }
 
-  logger.info('Webhook: Meeting started', {
-    sessionId: session.id,
-    meetingId,
-  });
+    if (session.appointmentId) {
+      await prisma.appointment.update({
+        where: { id: session.appointmentId },
+        data: {
+          status: 'IN_PROGRESS',
+          startedAt: new Date(),
+        },
+      });
+    }
+
+    logger.info('Webhook: Meeting started', { sessionId: session.id, meetingId });
+  } catch (error) {
+    logger.error('Webhook: handleMeetingStarted failed', {
+      meetingId,
+      error: error instanceof Error ? error.message : 'Unknown',
+    });
+  }
 }
 
 /**
@@ -527,43 +530,45 @@ export async function handleMeetingEnded(payload: WebhookPayload): Promise<void>
   const meetingId = payload.payload.object.id?.toString();
   if (!meetingId) return;
 
-  const session = await getSessionByMeetingId(meetingId);
-  if (!session) {
-    logger.warn('Webhook: Meeting ended for unknown session', { meetingId });
-    return;
-  }
+  try {
+    const session = await getSessionByMeetingId(meetingId);
+    if (!session) {
+      logger.warn('Webhook: Meeting ended for unknown session', { meetingId });
+      return;
+    }
 
-  const endedAt = new Date();
-  const actualDuration = session.startedAt
-    ? Math.round((endedAt.getTime() - session.startedAt.getTime()) / 60000)
-    : null;
+    const endedAt = new Date();
+    const actualDuration = session.startedAt
+      ? Math.round((endedAt.getTime() - session.startedAt.getTime()) / 60000)
+      : null;
 
-  await prisma.telehealthSession.update({
-    where: { id: session.id },
-    data: {
-      status: 'COMPLETED',
-      endedAt,
-      actualDuration,
-      participantCount: session.participants?.length || 0,
-    },
-  });
-
-  // Update appointment status
-  if (session.appointmentId) {
-    await prisma.appointment.update({
-      where: { id: session.appointmentId },
+    await prisma.telehealthSession.update({
+      where: { id: session.id },
       data: {
         status: 'COMPLETED',
-        completedAt: endedAt,
+        endedAt,
+        actualDuration,
+        participantCount: session.participants?.length || 0,
       },
     });
-  }
 
-  logger.info('Webhook: Meeting ended', {
-    sessionId: session.id,
-    meetingId,
-    actualDuration,
-  });
+    if (session.appointmentId) {
+      await prisma.appointment.update({
+        where: { id: session.appointmentId },
+        data: {
+          status: 'COMPLETED',
+          completedAt: endedAt,
+        },
+      });
+    }
+
+    logger.info('Webhook: Meeting ended', { sessionId: session.id, meetingId, actualDuration });
+  } catch (error) {
+    logger.error('Webhook: handleMeetingEnded failed', {
+      meetingId,
+      error: error instanceof Error ? error.message : 'Unknown',
+    });
+  }
 }
 
 /**

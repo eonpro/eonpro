@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { Trash2, GitMerge, Link2, X, Check, Loader2, Unlink, Truck, Download } from 'lucide-react';
+import { Trash2, GitMerge, Link2, X, Check, Loader2, Unlink, Truck, Download, MoreVertical } from 'lucide-react';
 import EditPatientModal from './EditPatientModal';
 import DeletePatientModal from './DeletePatientModal';
 import MergePatientModal from './MergePatientModal';
@@ -482,6 +482,8 @@ export default function PatientSidebar({
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showMergeModal, setShowMergeModal] = useState(false);
   const [showFedExModal, setShowFedExModal] = useState(false);
+  const [showMobileActions, setShowMobileActions] = useState(false);
+  const mobileTabBarRef = useRef<HTMLDivElement>(null);
 
   type FedExLabelSummary = {
     id: number;
@@ -525,6 +527,13 @@ export default function PatientSidebar({
   }, [patient.id, canManageShipping]);
 
   useEffect(() => { fetchLabels(); }, [fetchLabels]);
+
+  useEffect(() => {
+    if (mobileTabBarRef.current) {
+      const activeEl = mobileTabBarRef.current.querySelector<HTMLElement>('[data-active="true"]');
+      activeEl?.scrollIntoView({ block: 'nearest', inline: 'center' });
+    }
+  }, [currentTab]);
 
   const handleDownloadLabel = async (label: FedExLabelSummary) => {
     setDownloadingLabelId(label.id);
@@ -747,7 +756,141 @@ export default function PatientSidebar({
 
   return (
     <>
-      <div className="sticky top-6 flex max-h-[calc(100vh-3rem)] w-72 flex-shrink-0 flex-col overflow-y-auto overscroll-contain rounded-2xl border border-gray-200 bg-white p-6">
+      {/* ── Mobile Patient Header ── */}
+      <div className="space-y-3 md:hidden">
+        <div className="rounded-2xl border border-gray-200 bg-white p-4">
+          <div className="flex items-center gap-3">
+            <div
+              className="flex h-12 w-12 flex-shrink-0 items-center justify-center overflow-hidden rounded-full"
+              style={{ backgroundColor: 'var(--brand-primary-light, rgba(79, 167, 126, 0.1))' }}
+            >
+              {avatarUrl ? (
+                <img
+                  src={avatarUrl}
+                  alt={`${patient.firstName} ${patient.lastName}`}
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <span className="text-lg font-bold" style={{ color: 'var(--brand-primary, #4fa77e)' }}>
+                  {patient.firstName?.[0]}{patient.lastName?.[0]}
+                </span>
+              )}
+            </div>
+
+            <div className="min-w-0 flex-1">
+              <h2 className="flex items-center gap-1 truncate text-base font-bold text-gray-900">
+                {patient.firstName} {patient.lastName}
+                {patient.identityVerified && <VerifiedBadge size="md" />}
+              </h2>
+              <p className="text-xs text-gray-500">
+                {age ? `${age}y · ` : ''}{genderLabel} · ID #{formatPatientDisplayId(patient.patientId, patient.id)}
+              </p>
+            </div>
+
+            <button
+              onClick={() => setShowMobileActions((v) => !v)}
+              className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl text-gray-400 transition-colors hover:bg-gray-100 active:bg-gray-200"
+              aria-label="Patient actions"
+            >
+              <MoreVertical className="h-5 w-5" />
+            </button>
+          </div>
+
+          <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500">
+            {formatEmail(patient.email) !== '-' && <span>{formatEmail(patient.email)}</span>}
+            {formatPhone(patient.phone) !== '—' && <span>{formatPhone(patient.phone)}</span>}
+            {patient.dob && formatDob(patient.dob) !== '—' && (
+              <span>DOB: {formatDob(patient.dob)}</span>
+            )}
+          </div>
+
+          {activeMembership && (
+            <span
+              className="mt-2 inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium"
+              style={{
+                backgroundColor: 'var(--brand-primary-light, #e8f5e9)',
+                color: 'var(--brand-primary, #4fa77e)',
+              }}
+            >
+              Active membership{activeMembership.planName ? ` · ${activeMembership.planName}` : ''}
+            </span>
+          )}
+
+          {showMobileActions && (
+            <div className="mt-3 space-y-0.5 border-t border-gray-100 pt-3">
+              {!isPharmacyRep && (
+                <button
+                  onClick={() => { setShowEditModal(true); setShowMobileActions(false); }}
+                  className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-medium text-gray-700 transition-colors active:bg-gray-100"
+                >
+                  Edit Patient
+                </button>
+              )}
+              {canManageShipping && (
+                <button
+                  onClick={() => { setShowFedExModal(true); setShowMobileActions(false); }}
+                  className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-medium text-[#4D148C] transition-colors active:bg-purple-50"
+                >
+                  <Truck className="h-4 w-4" />
+                  Print FedEx Label
+                </button>
+              )}
+              {!isPharmacyRep && (
+                <>
+                  <button
+                    onClick={() => { setShowMergeModal(true); setShowMobileActions(false); }}
+                    className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-medium text-gray-700 transition-colors active:bg-gray-100"
+                  >
+                    <GitMerge className="h-4 w-4" />
+                    Merge Patient
+                  </button>
+                  <button
+                    onClick={() => { setShowDeleteModal(true); setShowMobileActions(false); }}
+                    className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-medium text-red-600 transition-colors active:bg-red-50"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    Delete Patient
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Scrollable Tab Bar */}
+        <div
+          ref={mobileTabBarRef}
+          className="overflow-x-auto [&::-webkit-scrollbar]:hidden"
+          style={{ scrollbarWidth: 'none' }}
+        >
+          <div className="flex gap-1.5 pb-0.5">
+            {(showLabsTab === false ? navItems.filter((i) => i.id !== 'lab') : navItems)
+              .filter((item) => !isPharmacyRep || ['profile', 'prescriptions'].includes(item.id))
+              .map((item) => {
+                const isActive = currentTab === item.id;
+                const href = `${patientDetailBasePath}/${patient.id}?tab=${item.id}`;
+                return (
+                  <a
+                    key={item.id}
+                    href={href}
+                    data-active={isActive}
+                    className={`flex-shrink-0 whitespace-nowrap rounded-full px-3.5 py-2 text-sm font-medium transition-colors ${
+                      isActive
+                        ? 'text-white shadow-sm'
+                        : 'border border-gray-200 bg-white text-gray-600 active:bg-gray-100'
+                    }`}
+                    style={isActive ? { backgroundColor: 'var(--brand-primary, #4fa77e)' } : {}}
+                  >
+                    {item.label}
+                  </a>
+                );
+              })}
+          </div>
+        </div>
+      </div>
+
+      {/* ── Desktop Sidebar ── */}
+      <div className="sticky top-6 hidden max-h-[calc(100vh-3rem)] w-72 flex-shrink-0 flex-col overflow-y-auto overscroll-contain rounded-2xl border border-gray-200 bg-white p-6 md:flex">
         {/* Avatar and Edit */}
         <div className="mb-4 flex items-start justify-between">
           <div

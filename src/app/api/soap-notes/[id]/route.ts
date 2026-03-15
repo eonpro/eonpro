@@ -29,6 +29,10 @@ async function getHandler(request: NextRequest, user: AuthUser, context?: RouteC
 
     const soapNote = await getSOAPNoteById(soapNoteId, includeRevisions);
 
+    if (user.role !== 'super_admin' && soapNote.clinicId && soapNote.clinicId !== user.clinicId) {
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+    }
+
     if (format === 'text') {
       // Return formatted text version
       const formatted = formatSOAPNote(soapNote);
@@ -124,11 +128,15 @@ async function patchHandler(request: NextRequest, user: AuthUser, context?: Rout
 
       const existing = await prisma.sOAPNote.findUnique({
         where: { id: soapNoteId },
-        select: { status: true, patientId: true },
+        select: { status: true, patientId: true, clinicId: true },
       });
 
       if (!existing) {
         return NextResponse.json({ error: 'SOAP note not found' }, { status: 404 });
+      }
+
+      if (user.role !== 'super_admin' && existing.clinicId && existing.clinicId !== user.clinicId) {
+        return NextResponse.json({ error: 'Access denied' }, { status: 403 });
       }
 
       if (existing.status === 'LOCKED') {

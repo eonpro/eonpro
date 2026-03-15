@@ -269,18 +269,36 @@ export async function generateSOAPNote(input: SOAPGenerationInput): Promise<SOAP
   const isRenewal = input.isRenewal && input.previousPrescriptions && input.previousPrescriptions.length > 0;
   const prevRx = isRenewal ? input.previousPrescriptions![0] : null;
 
+  // Determine if patient is at maximum dose (no further titration possible)
+  const prevDose = prevRx?.dose ?? null;
+  const prevMedLower = (prevRx?.medName || '').toLowerCase();
+  const isTirzepatide = prevMedLower.includes('tirzepatide');
+  const isSemaglutide = prevMedLower.includes('semaglutide');
+  const isAtMaxDose = isRenewal && prevDose !== null && (
+    (isTirzepatide && prevDose >= 15) ||
+    (isSemaglutide && prevDose >= 2.4)
+  );
+  const doseAction = isAtMaxDose ? 'maintenance' : 'titration';
+
   const baseSystemPrompt = `You are a licensed prescribing provider (MD/DO/NP/PA) creating a comprehensive SOAP note for a telehealth weight management ${isRenewal ? 'follow-up / renewal visit' : 'evaluation'}.
 
-You must generate a professional, clinical-grade SOAP note for GLP-1 receptor agonist therapy ${isRenewal ? 'continuation and dose titration' : 'evaluation'} (semaglutide/tirzepatide).
-
+You must generate a professional, clinical-grade SOAP note for GLP-1 receptor agonist therapy ${isRenewal ? (isAtMaxDose ? 'maintenance at maximum therapeutic dose' : 'continuation and dose titration') : 'evaluation'} (semaglutide/tirzepatide).
+${isRenewal && isAtMaxDose ? `
+IMPORTANT — MAXIMUM DOSE REACHED:
+The patient is currently at the MAXIMUM weekly dose for their medication:
+${isTirzepatide ? '• Tirzepatide maximum weekly dose: 15mg' : ''}${isSemaglutide ? '• Semaglutide maximum weekly dose: 2.4mg' : ''}
+• Current dose: ${prevDose}mg
+DO NOT recommend titrating up. The plan should MAINTAIN the current dose.
+Rationale should focus on continued efficacy at maximum dose and ongoing monitoring.
+` : ''}
 CRITICAL: Return your response in JSON format with ALL fields as plain text STRINGS. Each field should be detailed and formatted professionally:
 
 {
-  "subjective": "${isRenewal ? 'Narrative of follow-up visit: tolerability of current dose, side effects, weight progress, adherence, and readiness for dose titration' : 'Detailed narrative of patient\'s weight history, goals, GLP-1 experience, symptoms, medications, and treatment interest'}",
+  "subjective": "${isRenewal ? 'Narrative of follow-up visit: tolerability of current dose, side effects, weight progress, adherence' + (isAtMaxDose ? ', and continued benefit at maximum dose' : ', and readiness for dose titration') : 'Detailed narrative of patient\'s weight history, goals, GLP-1 experience, symptoms, medications, and treatment interest'}",
   "objective": "Anthropometrics (height, weight, BMI with classification, ideal weight, excess weight), vital signs, activity level, complete medical/surgical history, current medications, allergies, GLP-1 history${isRenewal ? ', current prescription details, treatment duration' : ''}",
-  "assessment": "Primary diagnosis with ICD-10 code, ${isRenewal ? 'treatment response assessment, tolerability evaluation, dose titration rationale' : 'clinical assessment of candidacy, contraindication screening, medical necessity rationale for compounded therapy with B12 or Glycine additive explanation'}",
-  "plan": "${isRenewal ? 'Dose titration plan (from current dose to next dose), specific new prescription details, monitoring schedule' : 'Medication plan (specific compound, dosing, titration), monitoring & follow-up schedule, patient education provided, disposition'}",
-  "medicalNecessity": "${isRenewal ? 'Rationale for continued therapy and dose escalation including treatment response, clinical benefit, and titration protocol adherence' : 'Detailed rationale for compounded GLP-1 formulation including: gradual dose titration needs, personalized dosing flexibility, adjunctive B12/Glycine benefits'}"
+  "assessment": "Primary diagnosis with ICD-10 code, ${isRenewal ? (isAtMaxDose ? 'treatment response at maximum dose, tolerability evaluation, rationale for maintenance therapy' : 'treatment response assessment, tolerability evaluation, dose titration rationale') : 'clinical assessment of candidacy, contraindication screening, medical necessity rationale for compounded therapy with B12 or Glycine additive explanation'}",
+  "plan": "${isRenewal ? (isAtMaxDose ? 'Maintain current maximum dose, monitoring schedule, continued therapy plan' : 'Dose titration plan (from current dose to next dose), specific new prescription details, monitoring schedule') : 'Medication plan (specific compound, dosing, titration), monitoring & follow-up schedule, patient education provided, disposition'}",
+  "medicalNecessity": "${isRenewal ? (isAtMaxDose ? 'Rationale for continued therapy at maximum therapeutic dose including sustained clinical benefit, weight management progress, and maintenance protocol' : 'Rationale for continued therapy and dose escalation including treatment response, clinical benefit, and titration protocol adherence') : 'Detailed rationale for compounded GLP-1 formulation including: gradual dose titration needs, personalized dosing flexibility, adjunctive B12/Glycine benefits'}"
 }
 
 BMI Classifications:
@@ -315,7 +333,7 @@ ${rx.providerName ? `• Provider: ${rx.providerName}` : ''}
 
   const userPrompt = isRenewal ? `Create a professional TELEHEALTH WEIGHT MANAGEMENT FOLLOW-UP / RENEWAL SOAP note for this returning patient.
 
-This is a RENEWAL visit — the patient has been on GLP-1 therapy and is returning for continued treatment with dose titration.
+This is a RENEWAL visit — the patient has been on GLP-1 therapy and is returning for continued treatment ${isAtMaxDose ? 'at MAXIMUM therapeutic dose (maintain current dose, do NOT titrate up)' : 'with dose titration'}.
 
 IMPORTANT: Use these EXACT placeholders in your response - they will be replaced with real data:
 - For patient name, use exactly: ${PLACEHOLDER_NAME}
@@ -344,7 +362,7 @@ Write a detailed narrative paragraph covering:
 - Continued motivation for weight management
 - Denies new contraindications: gastroparesis, pancreatitis, thyroid malignancy, MEN-2
 - No new medical concerns or medication changes
-- Ready for dose titration per protocol
+${isAtMaxDose ? '- Currently at maximum therapeutic dose and reports continued benefit\n- Interested in maintaining current regimen' : '- Ready for dose titration per protocol'}
 
 ═══════════════════════════════════════════════════════════════════════════════
 

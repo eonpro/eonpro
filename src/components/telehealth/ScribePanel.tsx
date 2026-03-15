@@ -141,6 +141,10 @@ export default function ScribePanel({
 
       sendIntervalRef.current = sendInterval;
     } catch (err) {
+      if (mediaRecorderRef.current) {
+        try { mediaRecorderRef.current.stop(); } catch { /* already stopped */ }
+        mediaRecorderRef.current = null;
+      }
       const msg = err instanceof Error ? err.message : 'Failed to start recording';
       setError(msg);
     } finally {

@@ -39,6 +39,10 @@ export const POST = withProviderAuth(async (req: NextRequest, user) => {
         return NextResponse.json({ error: 'No audio file provided' }, { status: 400 });
       }
 
+      if (providerId && Number(providerId) !== (user.providerId ?? user.id)) {
+        return NextResponse.json({ error: 'Provider ID mismatch' }, { status: 403 });
+      }
+
       // Convert file to buffer
       const arrayBuffer = await audioFile.arrayBuffer();
       const buffer = Buffer.from(arrayBuffer);
@@ -100,9 +104,12 @@ export const POST = withProviderAuth(async (req: NextRequest, user) => {
     const body = await req.json();
     const { action, sessionId, patientId, providerId, appointmentId } = body;
 
+    if (providerId && Number(providerId) !== (user.providerId ?? user.id)) {
+      return NextResponse.json({ error: 'Provider ID mismatch' }, { status: 403 });
+    }
+
     switch (action) {
       case 'start':
-        // Start a new transcription session
         if (!patientId || !providerId) {
           return NextResponse.json(
             { error: 'patientId and providerId are required' },

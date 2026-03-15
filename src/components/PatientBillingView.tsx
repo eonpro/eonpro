@@ -484,7 +484,7 @@ export function PatientBillingView({ patientId, patientName, clinicSubdomain }: 
       {activeTab === 'invoices' && (
         <div>
           {invoices.length === 0 ? (
-            <div className="rounded-xl border border-gray-200 bg-white p-8 text-center text-gray-500">
+            <div className="rounded-xl border border-gray-200 bg-white p-4 text-center text-gray-500 md:p-8">
               <svg
                 className="mx-auto mb-3 h-12 w-12 text-gray-300"
                 fill="none"
@@ -812,7 +812,7 @@ export function PatientBillingView({ patientId, patientName, clinicSubdomain }: 
       {activeTab === 'payments' && (
         <div>
           {payments.length === 0 ? (
-            <div className="rounded-xl border border-gray-200 bg-white p-8 text-center text-gray-500">
+            <div className="rounded-xl border border-gray-200 bg-white p-4 text-center text-gray-500 md:p-8">
               <svg
                 className="mx-auto mb-3 h-12 w-12 text-gray-300"
                 fill="none"

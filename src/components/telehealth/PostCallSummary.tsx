@@ -90,7 +90,7 @@ export default function PostCallSummary({ data, onBackToQueue, onSelectNextPatie
   }, [providerId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const generateSOAP = async () => {
-    if (!data.session.appointment?.id || !providerId) return;
+    if (!data.session.appointment?.id || !providerId || isGenerating) return;
 
     setIsGenerating(true);
     try {

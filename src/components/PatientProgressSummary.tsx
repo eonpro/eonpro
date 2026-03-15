@@ -95,7 +95,7 @@ export default function PatientProgressSummary({ patientId, basePath = '/patient
       <div className="mt-4 rounded-xl bg-[#efece7] p-4">
         <div className="animate-pulse">
           <div className="mb-3 h-4 w-40 rounded bg-gray-300" />
-          <div className="grid grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
             {[1, 2, 3, 4].map((i) => (
               <div key={i} className="rounded-lg bg-white p-3">
                 <div className="mb-2 h-3 w-16 rounded bg-gray-200" />
@@ -122,7 +122,7 @@ export default function PatientProgressSummary({ patientId, basePath = '/patient
         </a>
       </div>
 
-      <div className="grid grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         {/* Water */}
         <div className="rounded-lg bg-white p-3 text-center">
           <Droplets className="mx-auto mb-1 h-4 w-4 text-blue-500" />

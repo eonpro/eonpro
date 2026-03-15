@@ -547,7 +547,7 @@ export default function PatientAppointmentsView({
       </div>
 
       {/* Quick Stats */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
         <div className="rounded-lg border border-gray-200 bg-white p-4">
           <div className="text-2xl font-bold text-gray-900">
             {appointments.filter((a) => a.status === 'completed').length}

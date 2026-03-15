@@ -51,6 +51,8 @@ export default function SOAPNoteEditor({
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingAutoSave = useRef(false);
+  const soapNoteRef = useRef(soapNote);
+  soapNoteRef.current = soapNote;
 
   const handleFieldChange = (key: keyof SOAPNoteData, value: string) => {
     onUpdate({ ...soapNote, [key]: value });
@@ -65,7 +67,24 @@ export default function SOAPNoteEditor({
     if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
     autoSaveTimer.current = setTimeout(() => {
       pendingAutoSave.current = false;
-      void handleSave();
+      const current = soapNoteRef.current;
+      if (!current.id) return;
+      setSaving(true);
+      void apiFetch(`/api/soap-notes/${current.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          subjective: current.subjective,
+          objective: current.objective,
+          assessment: current.assessment,
+          plan: current.plan,
+          medicalNecessity: current.medicalNecessity,
+        }),
+      }).then(() => {
+        setLastSaved(new Date());
+      }).catch(() => {}).finally(() => {
+        setSaving(false);
+      });
     }, 5000);
 
     return () => {

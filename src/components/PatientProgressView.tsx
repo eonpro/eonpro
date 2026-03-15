@@ -996,7 +996,7 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
               {/* Today's macros */}
               <div className="mb-4 rounded-lg bg-emerald-50 p-4">
                 <p className="mb-2 text-xs font-medium text-emerald-600">Today&apos;s Intake</p>
-                <div className="grid grid-cols-4 gap-2 text-center">
+                <div className="grid grid-cols-2 gap-2 text-center md:grid-cols-4">
                   <div>
                     <p className="text-lg font-bold text-emerald-900">
                       {nutritionMeta?.todayCalories || 0}

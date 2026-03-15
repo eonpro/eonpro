@@ -46,6 +46,8 @@ export default function SessionLobby({ session, userName, onJoinCall, onBack }: 
   const [showConsentModal, setShowConsentModal] = useState(false);
   const [provisioning, setProvisioning] = useState(false);
   const [meetingReady, setMeetingReady] = useState(!!(session.meetingId && session.joinUrl));
+  const [localMeetingId, setLocalMeetingId] = useState(session.meetingId);
+  const [localJoinUrl, setLocalJoinUrl] = useState(session.joinUrl);
   const [patientWaiting, setPatientWaiting] = useState(session.status === 'WAITING');
   const [sessionStatus, setSessionStatus] = useState(session.status);
   const [clinicalContext, setClinicalContext] = useState<{
@@ -67,8 +69,8 @@ export default function SessionLobby({ session, userName, onJoinCall, onBack }: 
       if (res.ok) {
         const data = await res.json();
         if (data.appointment?.zoomMeetingId) {
-          session.meetingId = data.appointment.zoomMeetingId;
-          session.joinUrl = data.appointment.zoomJoinUrl || session.joinUrl;
+          setLocalMeetingId(data.appointment.zoomMeetingId);
+          setLocalJoinUrl(data.appointment.zoomJoinUrl || session.joinUrl);
           setMeetingReady(true);
         }
       }
@@ -162,9 +164,16 @@ export default function SessionLobby({ session, userName, onJoinCall, onBack }: 
           if (match.status === 'WAITING' && !patientWaiting) {
             setPatientWaiting(true);
             try {
-              const audio = new Audio('data:audio/wav;base64,UklGRl9vT19telehealth');
-              audio.volume = 0.3;
-              void audio.play().catch(() => {});
+              const ctx = new AudioContext();
+              const osc = ctx.createOscillator();
+              const gain = ctx.createGain();
+              osc.connect(gain);
+              gain.connect(ctx.destination);
+              osc.frequency.value = 880;
+              gain.gain.value = 0.15;
+              osc.start();
+              gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+              osc.stop(ctx.currentTime + 0.5);
             } catch { /* audio not supported */ }
             if ('Notification' in window && Notification.permission === 'granted') {
               new Notification('Patient Waiting', {

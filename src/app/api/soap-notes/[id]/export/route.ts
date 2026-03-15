@@ -51,6 +51,10 @@ export const GET = withAuth<RouteContext>(
         return NextResponse.json({ error: 'SOAP note not found' }, { status: 404 });
       }
 
+      if (!soapNote.patient) {
+        return NextResponse.json({ error: 'Patient record not found for this SOAP note' }, { status: 404 });
+      }
+
       if (user.role !== 'super_admin' && soapNote.patient.clinicId !== user.clinicId) {
         return NextResponse.json({ error: 'Access denied' }, { status: 403 });
       }

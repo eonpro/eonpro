@@ -123,41 +123,43 @@ export const POST = withProviderAuth(async (req: NextRequest, user: AuthUser) =>
       return NextResponse.json({ error: 'Zoom credentials not configured' }, { status: 503 });
     }
 
-    await prisma.appointment.update({
-      where: { id: appointmentId },
-      data: {
-        zoomMeetingId: meetingId,
-        zoomJoinUrl: joinUrl,
-        videoLink: joinUrl,
-      },
-    });
-
-    try {
-      await prisma.telehealthSession.create({
+    await prisma.$transaction(async (tx) => {
+      await tx.appointment.update({
+        where: { id: appointmentId },
         data: {
-          clinicId: appointment.clinicId,
-          appointmentId: appointment.id,
-          patientId: appointment.patientId,
-          providerId: appointment.providerId,
-          meetingId,
-          meetingUuid: uuid,
-          joinUrl,
-          hostUrl: startUrl,
-          password,
-          topic,
-          scheduledAt: appointment.startTime,
-          duration,
-          status: 'SCHEDULED',
-          platform: 'zoom',
+          zoomMeetingId: meetingId,
+          zoomJoinUrl: joinUrl,
+          videoLink: joinUrl,
         },
       });
-    } catch (sessionErr) {
-      logger.warn('[ZOOM_PROVISION] TelehealthSession creation failed (non-blocking)', {
-        appointmentId,
-        meetingId,
-        error: sessionErr instanceof Error ? sessionErr.message : 'Unknown',
-      });
-    }
+
+      try {
+        await tx.telehealthSession.create({
+          data: {
+            clinicId: appointment.clinicId,
+            appointmentId: appointment.id,
+            patientId: appointment.patientId,
+            providerId: appointment.providerId,
+            meetingId,
+            meetingUuid: uuid,
+            joinUrl,
+            hostUrl: startUrl,
+            password,
+            topic,
+            scheduledAt: appointment.startTime,
+            duration,
+            status: 'SCHEDULED',
+            platform: 'zoom',
+          },
+        });
+      } catch (sessionErr) {
+        logger.warn('[ZOOM_PROVISION] TelehealthSession creation failed (non-blocking)', {
+          appointmentId,
+          meetingId,
+          error: sessionErr instanceof Error ? sessionErr.message : 'Unknown',
+        });
+      }
+    });
 
     return NextResponse.json({
       success: true,

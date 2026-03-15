@@ -91,7 +91,7 @@ export default function WeightProgressSummary({ patientId, basePath = '/patients
       <div className="mt-6 rounded-xl bg-[#efece7] p-4">
         <div className="animate-pulse">
           <div className="mb-3 h-4 w-32 rounded bg-gray-300"></div>
-          <div className="grid grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
             {[1, 2, 3, 4].map((i) => (
               <div key={i} className="rounded-lg bg-white p-3">
                 <div className="mb-2 h-3 w-16 rounded bg-gray-200"></div>
@@ -144,7 +144,7 @@ export default function WeightProgressSummary({ patientId, basePath = '/patients
       )}
 
       {/* Stats grid */}
-      <div className="grid grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         {/* Starting Weight */}
         <div className="rounded-lg bg-white p-3 text-center">
           <p className="mb-1 text-xs font-medium uppercase tracking-wide text-gray-500">Starting</p>

@@ -46,6 +46,7 @@ export default function TelehealthDashboard({
     const appointmentId = searchParams.get('appointmentId');
     if (!isPostCall || !appointmentId || postCallData) return;
 
+    let cancelled = false;
     const loadPostCall = async () => {
       try {
         const res = await apiFetch('/api/provider/telehealth/upcoming');
@@ -82,14 +83,17 @@ export default function TelehealthDashboard({
           return;
         }
 
-        setPostCallData({ session: match, duration: 0 });
-        changePhase('postCall');
+        if (!cancelled) {
+          setPostCallData({ session: match, duration: 0 });
+          changePhase('postCall');
+        }
       } catch {
         // Fall through to queue
       }
     };
 
     void loadPostCall();
+    return () => { cancelled = true; };
   }, [searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-open lobby when navigated with ?consultationId=X (from consultations page)

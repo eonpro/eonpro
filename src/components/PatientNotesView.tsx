@@ -179,11 +179,11 @@ export default function PatientNotesView({ patientId }: PatientNotesViewProps) {
       )}
 
       {loading ? (
-        <div className="rounded-2xl border border-gray-200 bg-white p-8 text-center text-gray-500">
+        <div className="rounded-2xl border border-gray-200 bg-white p-4 text-center text-gray-500 md:p-8">
           Loading notes…
         </div>
       ) : notes.length === 0 ? (
-        <div className="rounded-2xl border border-gray-200 bg-white p-8 text-center text-gray-500">
+        <div className="rounded-2xl border border-gray-200 bg-white p-4 text-center text-gray-500 md:p-8">
           No notes yet. Add one with the &quot;+ Note&quot; button.
         </div>
       ) : (
