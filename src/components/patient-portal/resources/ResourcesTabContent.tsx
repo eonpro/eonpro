@@ -151,11 +151,11 @@ export default function ResourcesTabContent({
           id: 'v-injection-eon',
           title: 'How to Safely Apply a Semaglutide Injection at Home',
           description:
-            'Step-by-step guide from EON Medical + Wellness covering preparation, dosage, injection technique, and post-injection care.',
+            'Step-by-step guide from EONPro covering preparation, dosage, injection technique, and post-injection care.',
           type: 'video',
           category: 'Tutorials',
           url: `https://www.youtube.com/watch?v=${INJECTION_VIDEO_ID}`,
-          thumbnail: `https://img.youtube.com/vi/${INJECTION_VIDEO_ID}/mqdefault.jpg`,
+          thumbnail: 'https://static.wixstatic.com/media/c49a9b_c5588b4357604ce39ae7ba80c6f83edd~mv2.webp',
           duration: '2:32',
         }
       : null;

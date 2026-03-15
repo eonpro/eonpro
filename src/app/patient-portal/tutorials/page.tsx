@@ -44,7 +44,7 @@ export default function TutorialVideosPage() {
             title: 'How to Safely Apply a Semaglutide Injection at Home',
             duration: '2:32',
             category: 'injection',
-            thumbnail: `https://img.youtube.com/vi/${INJECTION_VIDEO_ID}/mqdefault.jpg`,
+            thumbnail: 'https://static.wixstatic.com/media/c49a9b_c5588b4357604ce39ae7ba80c6f83edd~mv2.webp',
             youtubeId: INJECTION_VIDEO_ID,
             rating: 4.9,
             views: 2100,
@@ -202,7 +202,7 @@ export default function TutorialVideosPage() {
                   How to Safely Apply a Semaglutide Injection at Home
                 </h2>
                 <p className="mt-1 text-sm text-white/80">
-                  Step-by-step guide from EON Medical + Wellness
+                  Step-by-step guide from EONPro
                 </p>
               </div>
             </div>
