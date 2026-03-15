@@ -17,6 +17,7 @@ import {
   Receipt,
   Pill,
   BadgeDollarSign,
+  Truck,
 } from 'lucide-react';
 import { useAuthStore } from '@/lib/stores/authStore';
 import { isBrowser, safeLocalStorage } from '@/lib/utils/ssr-safe';
@@ -40,6 +41,7 @@ const navItems = [
   { icon: Activity, path: '/super-admin/user-activity', label: 'User Activity' },
   { icon: DollarSign, path: '/super-admin/commission-plans', label: 'Commission Plans' },
   { icon: Pill, path: '/super-admin/prescription-reports', label: 'Rx Reports' },
+  { icon: Truck, path: '/super-admin/shipment-monitor', label: 'Shipments' },
   // Clinic Billing (config, invoices, reports) — super-admin only; do not add to tickets or admin nav
   { icon: Receipt, path: '/super-admin/clinic-billing', label: 'Clinic Billing' },
   { icon: Settings, path: '/super-admin/settings', label: 'Settings' },
