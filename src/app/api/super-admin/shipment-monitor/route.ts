@@ -2,31 +2,36 @@ import { NextRequest, NextResponse } from 'next/server';
 import { withSuperAdminAuth, type AuthUser } from '@/lib/auth/middleware';
 import { basePrisma } from '@/lib/db';
 import { handleApiError } from '@/domains/shared/errors';
-import { logger } from '@/lib/logger';
 import { z } from 'zod';
 import { ShippingStatus } from '@prisma/client';
 
+const TABS = [
+  'label_created',
+  'shipped',
+  'in_transit',
+  'out_for_delivery',
+  'delivered',
+  'issues',
+] as const;
+
+type Tab = (typeof TABS)[number];
+
+const TAB_STATUS_MAP: Record<Tab, ShippingStatus[]> = {
+  label_created: [ShippingStatus.PENDING, ShippingStatus.LABEL_CREATED],
+  shipped: [ShippingStatus.SHIPPED],
+  in_transit: [ShippingStatus.IN_TRANSIT],
+  out_for_delivery: [ShippingStatus.OUT_FOR_DELIVERY],
+  delivered: [ShippingStatus.DELIVERED],
+  issues: [ShippingStatus.RETURNED, ShippingStatus.EXCEPTION, ShippingStatus.CANCELLED],
+};
+
 const querySchema = z.object({
-  tab: z.enum(['in_transit', 'delivered', 'issues']).default('in_transit'),
+  tab: z.enum(TABS).default('in_transit'),
   search: z.string().optional(),
   clinicId: z.coerce.number().int().positive().optional(),
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(25),
 });
-
-const IN_TRANSIT_STATUSES: ShippingStatus[] = [
-  ShippingStatus.PENDING,
-  ShippingStatus.LABEL_CREATED,
-  ShippingStatus.SHIPPED,
-  ShippingStatus.IN_TRANSIT,
-  ShippingStatus.OUT_FOR_DELIVERY,
-];
-const DELIVERED_STATUSES: ShippingStatus[] = [ShippingStatus.DELIVERED];
-const ISSUE_STATUSES: ShippingStatus[] = [
-  ShippingStatus.RETURNED,
-  ShippingStatus.EXCEPTION,
-  ShippingStatus.CANCELLED,
-];
 
 async function handleGet(req: NextRequest, _user: AuthUser) {
   try {
@@ -38,18 +43,7 @@ async function handleGet(req: NextRequest, _user: AuthUser) {
 
     const { tab, search, clinicId, page, limit } = parsed.data;
     const skip = (page - 1) * limit;
-
-    let statusFilter: ShippingStatus[];
-    switch (tab) {
-      case 'delivered':
-        statusFilter = DELIVERED_STATUSES;
-        break;
-      case 'issues':
-        statusFilter = ISSUE_STATUSES;
-        break;
-      default:
-        statusFilter = IN_TRANSIT_STATUSES;
-    }
+    const statusFilter = TAB_STATUS_MAP[tab];
 
     const where: any = {
       status: { in: statusFilter },
@@ -67,7 +61,9 @@ async function handleGet(req: NextRequest, _user: AuthUser) {
       ];
     }
 
-    const [shipments, total, tabCounts] = await Promise.all([
+    const clinicFilter = clinicId ? { clinicId } : {};
+
+    const [shipments, total, ...countResults] = await Promise.all([
       basePrisma.patientShippingUpdate.findMany({
         where,
         orderBy: tab === 'issues'
@@ -101,20 +97,17 @@ async function handleGet(req: NextRequest, _user: AuthUser) {
         },
       }),
       basePrisma.patientShippingUpdate.count({ where }),
-      Promise.all([
+      ...TABS.map((t) =>
         basePrisma.patientShippingUpdate.count({
-          where: { status: { in: IN_TRANSIT_STATUSES }, ...(clinicId ? { clinicId } : {}) },
-        }),
-        basePrisma.patientShippingUpdate.count({
-          where: { status: { in: DELIVERED_STATUSES }, ...(clinicId ? { clinicId } : {}) },
-        }),
-        basePrisma.patientShippingUpdate.count({
-          where: { status: { in: ISSUE_STATUSES }, ...(clinicId ? { clinicId } : {}) },
-        }),
-      ]),
+          where: { status: { in: TAB_STATUS_MAP[t] }, ...clinicFilter },
+        })
+      ),
     ]);
 
-    const [inTransitCount, deliveredCount, issuesCount] = tabCounts;
+    const counts: Record<Tab, number> = {} as any;
+    TABS.forEach((t, i) => {
+      counts[t] = countResults[i] as number;
+    });
 
     return NextResponse.json({
       success: true,
@@ -143,11 +136,7 @@ async function handleGet(req: NextRequest, _user: AuthUser) {
         deliveryDetails: (s.rawPayload as any)?.fedexDeliveryDetails || null,
       })),
       pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
-      counts: {
-        inTransit: inTransitCount,
-        delivered: deliveredCount,
-        issues: issuesCount,
-      },
+      counts,
     });
   } catch (error) {
     return handleApiError(error, { route: 'GET /api/super-admin/shipment-monitor' });

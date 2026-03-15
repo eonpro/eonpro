@@ -12,9 +12,12 @@ import {
   ExternalLink,
   ChevronLeft,
   ChevronRight,
+  Tag,
+  PackageCheck,
+  MapPin,
 } from 'lucide-react';
 
-type Tab = 'in_transit' | 'delivered' | 'issues';
+type Tab = 'label_created' | 'shipped' | 'in_transit' | 'out_for_delivery' | 'delivered' | 'issues';
 
 interface Shipment {
   id: number;
@@ -47,11 +50,7 @@ interface Pagination {
   totalPages: number;
 }
 
-interface Counts {
-  inTransit: number;
-  delivered: number;
-  issues: number;
-}
+type Counts = Record<Tab, number>;
 
 const STATUS_BADGES: Record<string, { bg: string; text: string; label: string }> = {
   PENDING: { bg: 'bg-gray-100', text: 'text-gray-700', label: 'Pending' },
@@ -64,6 +63,15 @@ const STATUS_BADGES: Record<string, { bg: string; text: string; label: string }>
   EXCEPTION: { bg: 'bg-red-100', text: 'text-red-800', label: 'Exception' },
   CANCELLED: { bg: 'bg-gray-100', text: 'text-gray-600', label: 'Cancelled' },
 };
+
+const TAB_CONFIG: { key: Tab; label: string; icon: typeof Package; color: string; activeColor: string }[] = [
+  { key: 'label_created', label: 'Label Created', icon: Tag, color: 'text-blue-600', activeColor: 'bg-blue-600' },
+  { key: 'shipped', label: 'Shipped', icon: Package, color: 'text-indigo-600', activeColor: 'bg-indigo-600' },
+  { key: 'in_transit', label: 'In Transit', icon: Truck, color: 'text-yellow-600', activeColor: 'bg-yellow-600' },
+  { key: 'out_for_delivery', label: 'Out for Delivery', icon: MapPin, color: 'text-orange-600', activeColor: 'bg-orange-600' },
+  { key: 'delivered', label: 'Delivered', icon: CheckCircle2, color: 'text-emerald-600', activeColor: 'bg-emerald-600' },
+  { key: 'issues', label: 'Issues', icon: AlertTriangle, color: 'text-red-600', activeColor: 'bg-red-600' },
+];
 
 function getTrackingUrl(carrier: string, trackingNumber: string): string | null {
   const c = carrier.toLowerCase();
@@ -79,11 +87,6 @@ function formatDate(d: string | null): string {
   return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-function formatDateTime(d: string | null): string {
-  if (!d) return '—';
-  return new Date(d).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
-}
-
 function timeSince(d: string): string {
   const ms = Date.now() - new Date(d).getTime();
   const hours = Math.floor(ms / 3600000);
@@ -94,10 +97,10 @@ function timeSince(d: string): string {
 }
 
 export default function ShipmentMonitorPage() {
-  const [tab, setTab] = useState<Tab>('in_transit');
+  const [tab, setTab] = useState<Tab>('label_created');
   const [shipments, setShipments] = useState<Shipment[]>([]);
   const [pagination, setPagination] = useState<Pagination>({ page: 1, limit: 25, total: 0, totalPages: 0 });
-  const [counts, setCounts] = useState<Counts>({ inTransit: 0, delivered: 0, issues: 0 });
+  const [counts, setCounts] = useState<Counts>({ label_created: 0, shipped: 0, in_transit: 0, out_for_delivery: 0, delivered: 0, issues: 0 });
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -106,20 +109,14 @@ export default function ShipmentMonitorPage() {
 
   const fetchData = useCallback(async (currentTab: Tab, currentPage: number, currentSearch: string) => {
     try {
-      const params = new URLSearchParams({
-        tab: currentTab,
-        page: String(currentPage),
-        limit: '25',
-      });
+      const params = new URLSearchParams({ tab: currentTab, page: String(currentPage), limit: '25' });
       if (currentSearch.trim()) params.set('search', currentSearch.trim());
-
       const res = await apiFetch(`/api/super-admin/shipment-monitor?${params}`);
       if (!res.ok) throw new Error('Failed to fetch');
       const data = await res.json();
-
       setShipments(data.shipments || []);
       setPagination(data.pagination || { page: 1, limit: 25, total: 0, totalPages: 0 });
-      setCounts(data.counts || { inTransit: 0, delivered: 0, issues: 0 });
+      setCounts(data.counts || { label_created: 0, shipped: 0, in_transit: 0, out_for_delivery: 0, delivered: 0, issues: 0 });
     } catch {
       setShipments([]);
     }
@@ -164,11 +161,21 @@ export default function ShipmentMonitorPage() {
     }
   };
 
-  const tabs: { key: Tab; label: string; icon: typeof Package; count: number; color: string }[] = [
-    { key: 'in_transit', label: 'In Transit', icon: Truck, count: counts.inTransit, color: 'text-yellow-600' },
-    { key: 'delivered', label: 'Delivered', icon: CheckCircle2, count: counts.delivered, color: 'text-emerald-600' },
-    { key: 'issues', label: 'Delivery Issues', icon: AlertTriangle, count: counts.issues, color: 'text-red-600' },
-  ];
+  const dateColumnLabel = (() => {
+    switch (tab) {
+      case 'delivered': return 'Delivered';
+      case 'issues': return 'Last Update';
+      default: return 'Shipped';
+    }
+  })();
+
+  const dateColumnValue = (s: Shipment) => {
+    switch (tab) {
+      case 'delivered': return formatDate(s.actualDelivery);
+      case 'issues': return timeSince(s.updatedAt);
+      default: return formatDate(s.shippedAt || s.createdAt);
+    }
+  };
 
   return (
     <div className="p-6 lg:p-8">
@@ -176,9 +183,7 @@ export default function ShipmentMonitorPage() {
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Shipment Monitor</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            Track every shipment from generation through delivery across all clinics
-          </p>
+          <p className="mt-1 text-sm text-gray-500">Track every shipment from label creation through delivery across all clinics</p>
         </div>
         <div className="flex items-center gap-3">
           <button
@@ -189,7 +194,7 @@ export default function ShipmentMonitorPage() {
             {bulkRefreshing ? (
               <>
                 <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                Refreshing FedEx...
+                Refreshing...
               </>
             ) : (
               <>
@@ -209,7 +214,7 @@ export default function ShipmentMonitorPage() {
         </div>
       </div>
 
-      {/* Bulk refresh result banner */}
+      {/* Bulk refresh banners */}
       {bulkResult && (
         <div className="mb-4 flex items-center justify-between rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
           <div className="flex items-center gap-2 text-sm text-emerald-800">
@@ -220,13 +225,9 @@ export default function ShipmentMonitorPage() {
               <strong>{bulkResult.totalDelivered}</strong> newly delivered
             </span>
           </div>
-          <button onClick={() => setBulkResult(null)} className="text-xs text-emerald-600 hover:underline">
-            Dismiss
-          </button>
+          <button onClick={() => setBulkResult(null)} className="text-xs text-emerald-600 hover:underline">Dismiss</button>
         </div>
       )}
-
-      {/* Bulk refreshing indicator */}
       {bulkRefreshing && (
         <div className="mb-4 flex items-center gap-3 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
           <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
@@ -234,33 +235,34 @@ export default function ShipmentMonitorPage() {
         </div>
       )}
 
-      {/* Sub-tabs */}
-      <div className="mb-6 flex gap-2 rounded-xl border border-gray-200 bg-white p-1.5 shadow-sm">
-        {tabs.map((t) => {
+      {/* Tabs — individual per status */}
+      <div className="mb-6 flex gap-1 overflow-x-auto rounded-xl border border-gray-200 bg-white p-1.5 shadow-sm">
+        {TAB_CONFIG.map((t) => {
           const Icon = t.icon;
           const isActive = tab === t.key;
+          const count = counts[t.key] || 0;
           return (
             <button
               key={t.key}
-              onClick={() => { setTab(t.key); }}
-              className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-medium transition-all ${
+              onClick={() => setTab(t.key)}
+              className={`flex items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-2.5 text-sm font-medium transition-all ${
                 isActive
-                  ? 'bg-[#4fa77e] text-white shadow-sm'
+                  ? `${t.activeColor} text-white shadow-sm`
                   : 'text-gray-500 hover:bg-gray-50 hover:text-gray-700'
               }`}
             >
-              <Icon className={`h-4.5 w-4.5 ${isActive ? 'text-white' : t.color}`} />
+              <Icon className={`h-4 w-4 ${isActive ? 'text-white' : t.color}`} />
               {t.label}
               <span
-                className={`ml-1 rounded-full px-2 py-0.5 text-xs font-bold ${
+                className={`ml-0.5 rounded-full px-1.5 py-0.5 text-[11px] font-bold leading-none ${
                   isActive
                     ? 'bg-white/20 text-white'
-                    : t.key === 'issues' && t.count > 0
+                    : t.key === 'issues' && count > 0
                       ? 'bg-red-100 text-red-700'
                       : 'bg-gray-100 text-gray-600'
                 }`}
               >
-                {t.count.toLocaleString()}
+                {count.toLocaleString()}
               </span>
             </button>
           );
@@ -280,10 +282,7 @@ export default function ShipmentMonitorPage() {
             className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-10 pr-4 text-sm shadow-sm transition-all focus:border-[#4fa77e] focus:outline-none focus:ring-2 focus:ring-[#4fa77e]/20"
           />
         </div>
-        <button
-          onClick={handleSearch}
-          className="rounded-xl bg-[#4fa77e] px-5 py-2.5 text-sm font-medium text-white shadow-sm transition-all hover:bg-[#429468]"
-        >
+        <button onClick={handleSearch} className="rounded-xl bg-[#4fa77e] px-5 py-2.5 text-sm font-medium text-white shadow-sm transition-all hover:bg-[#429468]">
           Search
         </button>
       </div>
@@ -300,10 +299,8 @@ export default function ShipmentMonitorPage() {
                 <th className="px-4 py-3 font-semibold text-gray-600">Carrier</th>
                 <th className="px-4 py-3 font-semibold text-gray-600">Medication</th>
                 <th className="px-4 py-3 font-semibold text-gray-600">Clinic</th>
-                <th className="px-4 py-3 font-semibold text-gray-600">
-                  {tab === 'delivered' ? 'Delivered' : tab === 'issues' ? 'Last Update' : 'Shipped'}
-                </th>
-                {tab === 'in_transit' && (
+                <th className="px-4 py-3 font-semibold text-gray-600">{dateColumnLabel}</th>
+                {(tab === 'in_transit' || tab === 'shipped') && (
                   <th className="px-4 py-3 font-semibold text-gray-600">Est. Delivery</th>
                 )}
                 {tab === 'delivered' && (
@@ -326,7 +323,7 @@ export default function ShipmentMonitorPage() {
                 <tr>
                   <td colSpan={10} className="py-16 text-center">
                     <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-gray-100">
-                      <Package className="h-6 w-6 text-gray-400" />
+                      <PackageCheck className="h-6 w-6 text-gray-400" />
                     </div>
                     <p className="font-medium text-gray-500">No shipments found</p>
                     <p className="mt-1 text-xs text-gray-400">
@@ -341,26 +338,13 @@ export default function ShipmentMonitorPage() {
                   const isIssue = ['RETURNED', 'EXCEPTION', 'CANCELLED'].includes(s.status);
 
                   return (
-                    <tr
-                      key={s.id}
-                      className={`transition-colors hover:bg-gray-50/50 ${isIssue ? 'bg-red-50/30' : ''}`}
-                    >
-                      {/* Lifefile ID */}
+                    <tr key={s.id} className={`transition-colors hover:bg-gray-50/50 ${isIssue ? 'bg-red-50/30' : ''}`}>
                       <td className="px-4 py-3">
-                        <span className="font-mono text-xs font-medium text-gray-800">
-                          {s.lifefileOrderId || '—'}
-                        </span>
+                        <span className="font-mono text-xs font-medium text-gray-800">{s.lifefileOrderId || '—'}</span>
                       </td>
-
-                      {/* Tracking Number */}
                       <td className="px-4 py-3">
                         {trackingUrl ? (
-                          <a
-                            href={trackingUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 font-mono text-xs text-[#4fa77e] hover:underline"
-                          >
+                          <a href={trackingUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 font-mono text-xs text-[#4fa77e] hover:underline">
                             {s.trackingNumber}
                             <ExternalLink className="h-3 w-3" />
                           </a>
@@ -368,62 +352,32 @@ export default function ShipmentMonitorPage() {
                           <span className="font-mono text-xs text-gray-700">{s.trackingNumber}</span>
                         )}
                       </td>
-
-                      {/* Status */}
                       <td className="px-4 py-3">
                         <div>
                           <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${badge.bg} ${badge.text}`}>
                             {badge.label}
                           </span>
                           {s.statusNote && (
-                            <p className="mt-1 max-w-[200px] truncate text-[11px] text-gray-500" title={s.statusNote}>
-                              {s.statusNote}
-                            </p>
+                            <p className="mt-1 max-w-[200px] truncate text-[11px] text-gray-500" title={s.statusNote}>{s.statusNote}</p>
                           )}
                         </div>
                       </td>
-
-                      {/* Carrier */}
                       <td className="px-4 py-3 text-xs text-gray-700">{s.carrier}</td>
-
-                      {/* Medication */}
                       <td className="px-4 py-3">
                         {s.medicationName ? (
                           <div>
                             <span className="text-xs font-medium text-gray-800">{s.medicationName}</span>
-                            {s.medicationStrength && (
-                              <span className="ml-1 text-xs text-gray-500">{s.medicationStrength}</span>
-                            )}
+                            {s.medicationStrength && <span className="ml-1 text-xs text-gray-500">{s.medicationStrength}</span>}
                           </div>
                         ) : (
                           <span className="text-xs text-gray-400">—</span>
                         )}
                       </td>
-
-                      {/* Clinic */}
                       <td className="px-4 py-3 text-xs text-gray-600">{s.clinicName || `Clinic #${s.clinicId}`}</td>
-
-                      {/* Date column */}
-                      <td className="px-4 py-3 text-xs text-gray-600">
-                        {tab === 'delivered'
-                          ? formatDate(s.actualDelivery)
-                          : tab === 'issues'
-                            ? (
-                              <span title={formatDateTime(s.updatedAt)}>
-                                {timeSince(s.updatedAt)}
-                              </span>
-                            )
-                            : formatDate(s.shippedAt)}
-                      </td>
-
-                      {/* Est. Delivery (in transit only) */}
-                      {tab === 'in_transit' && (
-                        <td className="px-4 py-3 text-xs text-gray-600">
-                          {formatDate(s.estimatedDelivery)}
-                        </td>
+                      <td className="px-4 py-3 text-xs text-gray-600">{dateColumnValue(s)}</td>
+                      {(tab === 'in_transit' || tab === 'shipped') && (
+                        <td className="px-4 py-3 text-xs text-gray-600">{formatDate(s.estimatedDelivery)}</td>
                       )}
-
-                      {/* Delivery Proof (delivered only) */}
                       {tab === 'delivered' && (
                         <td className="px-4 py-3">
                           <div className="space-y-1">
@@ -433,42 +387,24 @@ export default function ShipmentMonitorPage() {
                               </span>
                             )}
                             {s.deliveryPhotoUrl ? (
-                              <a
-                                href={s.deliveryPhotoUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1 text-xs font-medium text-[#4fa77e] hover:underline"
-                              >
-                                View Photo
-                                <ExternalLink className="h-3 w-3" />
+                              <a href={s.deliveryPhotoUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs font-medium text-[#4fa77e] hover:underline">
+                                View Photo <ExternalLink className="h-3 w-3" />
                               </a>
                             ) : s.deliveryDetails ? (
-                              <span className="text-[11px] text-gray-400">Photo captured by FedEx</span>
+                              <span className="text-[11px] text-gray-400">Details captured</span>
                             ) : (
                               <span className="text-[11px] text-gray-400">—</span>
                             )}
                           </div>
                         </td>
                       )}
-
-                      {/* Actions */}
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
                           {s.patientId && (
-                            <a
-                              href={`/patients/${s.patientId}`}
-                              className="rounded-lg px-2.5 py-1.5 text-xs font-medium text-[#4fa77e] hover:bg-[#4fa77e]/10"
-                            >
-                              Patient
-                            </a>
+                            <a href={`/patients/${s.patientId}`} className="rounded-lg px-2.5 py-1.5 text-xs font-medium text-[#4fa77e] hover:bg-[#4fa77e]/10">Patient</a>
                           )}
                           {s.orderId && (
-                            <a
-                              href={`/admin/orders?id=${s.orderId}`}
-                              className="rounded-lg px-2.5 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-100"
-                            >
-                              Order
-                            </a>
+                            <a href={`/admin/orders?id=${s.orderId}`} className="rounded-lg px-2.5 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-100">Order</a>
                           )}
                         </div>
                       </td>
@@ -484,15 +420,10 @@ export default function ShipmentMonitorPage() {
         {pagination.totalPages > 1 && (
           <div className="flex items-center justify-between border-t border-gray-100 px-4 py-3">
             <span className="text-xs text-gray-500">
-              Showing {(pagination.page - 1) * pagination.limit + 1}–
-              {Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total.toLocaleString()}
+              Showing {(pagination.page - 1) * pagination.limit + 1}–{Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total.toLocaleString()}
             </span>
             <div className="flex items-center gap-1">
-              <button
-                onClick={() => handlePageChange(pagination.page - 1)}
-                disabled={pagination.page <= 1}
-                className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 disabled:opacity-30"
-              >
+              <button onClick={() => handlePageChange(pagination.page - 1)} disabled={pagination.page <= 1} className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 disabled:opacity-30">
                 <ChevronLeft className="h-4 w-4" />
               </button>
               {Array.from({ length: Math.min(pagination.totalPages, 5) }, (_, i) => {
@@ -500,24 +431,12 @@ export default function ShipmentMonitorPage() {
                 const p = startPage + i;
                 if (p > pagination.totalPages) return null;
                 return (
-                  <button
-                    key={p}
-                    onClick={() => handlePageChange(p)}
-                    className={`rounded-lg px-3 py-1.5 text-xs font-medium ${
-                      p === pagination.page
-                        ? 'bg-[#4fa77e] text-white'
-                        : 'text-gray-500 hover:bg-gray-100'
-                    }`}
-                  >
+                  <button key={p} onClick={() => handlePageChange(p)} className={`rounded-lg px-3 py-1.5 text-xs font-medium ${p === pagination.page ? 'bg-[#4fa77e] text-white' : 'text-gray-500 hover:bg-gray-100'}`}>
                     {p}
                   </button>
                 );
               })}
-              <button
-                onClick={() => handlePageChange(pagination.page + 1)}
-                disabled={pagination.page >= pagination.totalPages}
-                className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 disabled:opacity-30"
-              >
+              <button onClick={() => handlePageChange(pagination.page + 1)} disabled={pagination.page >= pagination.totalPages} className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 disabled:opacity-30">
                 <ChevronRight className="h-4 w-4" />
               </button>
             </div>
