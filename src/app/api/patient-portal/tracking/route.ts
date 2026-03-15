@@ -7,11 +7,18 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma, runWithClinicContext } from '@/lib/db';
+import { prisma, basePrisma, runWithClinicContext } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { auditLog, AuditEventType } from '@/lib/audit/hipaa-audit';
 import { handleApiError } from '@/domains/shared/errors';
+import {
+  resolveCredentialsWithAttribution,
+  trackShipmentBatch,
+  isFedExTrackingNumber,
+  type TrackingResult,
+  type ShippingStatusValue,
+} from '@/lib/fedex';
 
 export const maxDuration = 30;
 
@@ -104,6 +111,155 @@ function safeDate(value: string | number | Date | null | undefined): string | nu
   return isNaN(d.getTime()) ? null : d.toISOString();
 }
 
+const TERMINAL_STATUSES: ShippingStatusValue[] = ['DELIVERED', 'CANCELLED', 'RETURNED'];
+const TERMINAL_ORDER_STATUSES = ['DELIVERED', 'CANCELLED', 'RETURNED'];
+
+async function refreshFedExTrackingForPatient(
+  patientId: number,
+  clinicId: number
+): Promise<void> {
+  try {
+    // --- Source 1: PatientShippingUpdate records with FedEx carrier ---
+    const activeUpdates = await basePrisma.patientShippingUpdate.findMany({
+      where: {
+        patientId,
+        clinicId,
+        carrier: { in: ['FedEx', 'FEDEX', 'fedex'] },
+        status: { notIn: TERMINAL_STATUSES },
+      },
+      select: { id: true, trackingNumber: true, orderId: true, status: true },
+    });
+
+    const coveredTrackingNumbers = new Set(activeUpdates.map((u) => u.trackingNumber));
+
+    // --- Source 2: Orders with FedEx tracking numbers that have no PatientShippingUpdate ---
+    const ordersWithTracking = await basePrisma.order.findMany({
+      where: {
+        patientId,
+        clinicId,
+        trackingNumber: { not: null },
+        shippingStatus: { notIn: TERMINAL_ORDER_STATUSES },
+      },
+      select: { id: true, trackingNumber: true, shippingStatus: true, primaryMedName: true, primaryMedStrength: true },
+    });
+
+    const bareOrders = ordersWithTracking.filter(
+      (o) => o.trackingNumber && !coveredTrackingNumbers.has(o.trackingNumber) && isFedExTrackingNumber(o.trackingNumber)
+    );
+
+    const allTrackingNumbers = [
+      ...coveredTrackingNumbers,
+      ...bareOrders.map((o) => o.trackingNumber!),
+    ];
+
+    const uniqueTrackingNumbers = [...new Set(allTrackingNumbers)];
+    if (uniqueTrackingNumbers.length === 0) return;
+
+    const allowEnvFallback = process.env.FEDEX_ALLOW_ENV_FALLBACK_FOR_CLINIC_SHIPPING === 'true';
+    const clinic = await basePrisma.clinic.findUnique({
+      where: { id: clinicId },
+      select: {
+        id: true,
+        fedexClientId: true,
+        fedexClientSecret: true,
+        fedexAccountNumber: true,
+        fedexEnabled: true,
+      },
+    });
+
+    let resolution;
+    try {
+      resolution = resolveCredentialsWithAttribution(clinic ?? undefined, { allowEnvFallback });
+    } catch {
+      return;
+    }
+
+    const results = await trackShipmentBatch(resolution.credentials, uniqueTrackingNumbers);
+
+    // Update existing PatientShippingUpdate records
+    for (const update of activeUpdates) {
+      const result = results.get(update.trackingNumber);
+      if (!result) continue;
+
+      const currentStatus = update.status as ShippingStatusValue;
+      if (TERMINAL_STATUSES.includes(currentStatus)) continue;
+
+      await basePrisma.patientShippingUpdate.update({
+        where: { id: update.id },
+        data: {
+          status: result.status,
+          statusNote: result.statusDetail || result.statusDescription,
+          estimatedDelivery: result.estimatedDelivery,
+          actualDelivery: result.actualDelivery,
+        },
+      });
+
+      if (update.orderId) {
+        await basePrisma.order.update({
+          where: { id: update.orderId },
+          data: { shippingStatus: result.status, lastWebhookAt: new Date() },
+        });
+      }
+    }
+
+    // For bare Orders (no PatientShippingUpdate yet): create one so the
+    // tracking data is normalized and future refreshes pick it up
+    for (const order of bareOrders) {
+      const result = results.get(order.trackingNumber!);
+      if (!result) continue;
+
+      try {
+        await basePrisma.patientShippingUpdate.create({
+          data: {
+            clinicId,
+            patientId,
+            orderId: order.id,
+            trackingNumber: order.trackingNumber!,
+            carrier: 'FedEx',
+            trackingUrl: `https://www.fedex.com/fedextrack/?trknbr=${order.trackingNumber}`,
+            status: result.status,
+            statusNote: result.statusDetail || result.statusDescription,
+            estimatedDelivery: result.estimatedDelivery,
+            actualDelivery: result.actualDelivery,
+            shippedAt: new Date(),
+            medicationName: order.primaryMedName,
+            medicationStrength: order.primaryMedStrength,
+            source: 'fedex_tracking_sync',
+            matchedAt: new Date(),
+            matchStrategy: 'order_tracking_number',
+            processedAt: new Date(),
+          },
+        });
+
+        await basePrisma.order.update({
+          where: { id: order.id },
+          data: { shippingStatus: result.status, lastWebhookAt: new Date() },
+        });
+      } catch (createErr) {
+        logger.warn('[Portal Tracking] Failed to backfill PatientShippingUpdate for bare order', {
+          orderId: order.id,
+          trackingNumber: order.trackingNumber,
+          error: createErr instanceof Error ? createErr.message : String(createErr),
+        });
+      }
+    }
+
+    logger.info('[Portal Tracking] FedEx refresh complete', {
+      patientId,
+      clinicId,
+      fromShippingUpdates: activeUpdates.length,
+      fromBareOrders: bareOrders.length,
+      totalTracked: uniqueTrackingNumbers.length,
+    });
+  } catch (err) {
+    logger.warn('[Portal Tracking] FedEx refresh failed (non-blocking)', {
+      patientId,
+      clinicId,
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
+}
+
 async function getHandler(req: NextRequest, user: AuthUser) {
   try {
     // patientId is resolved by the withAuth middleware (via resolvePatientId)
@@ -173,6 +329,10 @@ async function getHandler(req: NextRequest, user: AuthUser) {
       jwtClinicId: user.clinicId,
       effectiveClinicId,
     });
+
+    // Refresh FedEx tracking for active shipments before returning data.
+    // Non-blocking: if it fails, we still return cached/stored data.
+    await refreshFedExTrackingForPatient(patientId, effectiveClinicId);
 
     const result = await runWithClinicContext(effectiveClinicId, async () => {
       const [shippingUpdates, ordersWithTracking, allRecentOrders, paidInvoicesAwaitingRx] =

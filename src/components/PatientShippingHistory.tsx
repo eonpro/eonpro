@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { apiFetch } from '@/lib/api/fetch';
 
 type ShippingUpdate = {
@@ -38,6 +38,8 @@ type PatientShippingHistoryProps = {
   patientId: number;
   showTitle?: boolean;
 };
+
+const TERMINAL_STATUSES = ['DELIVERED', 'CANCELLED', 'RETURNED'];
 
 // Status icon and color mapping
 const statusConfig: Record<
@@ -106,30 +108,80 @@ export default function PatientShippingHistory({
 }: PatientShippingHistoryProps) {
   const [shippingUpdates, setShippingUpdates] = useState<ShippingUpdate[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const fetchShippingUpdates = async () => {
-      try {
-        setLoading(true);
-        const response = await apiFetch(`/api/patients/${patientId}/shipping-updates`);
+  const fetchShippingUpdates = useCallback(async () => {
+    try {
+      const response = await apiFetch(`/api/patients/${patientId}/shipping-updates`);
+      if (!response.ok) throw new Error('Failed to fetch shipping updates');
+      const data = await response.json();
+      setShippingUpdates(data.shippingUpdates || []);
+    } catch (err) {
+      console.error('Error fetching shipping updates:', err);
+      setError(err instanceof Error ? err.message : 'Failed to load shipping history');
+    }
+  }, [patientId]);
 
-        if (!response.ok) {
-          throw new Error('Failed to fetch shipping updates');
-        }
+  const refreshFedExTracking = useCallback(async (updates: ShippingUpdate[]) => {
+    const fedexActive = updates.filter(
+      (u) =>
+        u.carrier.toUpperCase().includes('FEDEX') &&
+        !TERMINAL_STATUSES.includes(u.status)
+    );
 
-        const data = await response.json();
-        setShippingUpdates(data.shippingUpdates || []);
-      } catch (err) {
-        console.error('Error fetching shipping updates:', err);
-        setError(err instanceof Error ? err.message : 'Failed to load shipping history');
-      } finally {
-        setLoading(false);
+    if (fedexActive.length === 0) return;
+
+    const uniqueTrackingNumbers = [...new Set(fedexActive.map((u) => u.trackingNumber))];
+
+    setRefreshing(true);
+    try {
+      const payload =
+        uniqueTrackingNumbers.length === 1
+          ? { trackingNumber: uniqueTrackingNumbers[0] }
+          : { trackingNumbers: uniqueTrackingNumbers };
+
+      const res = await apiFetch('/api/shipping/fedex/track', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (res.ok) {
+        await fetchShippingUpdates();
       }
+    } catch {
+      // Non-blocking: tracking refresh failure shouldn't break the page
+    } finally {
+      setRefreshing(false);
+    }
+  }, [fetchShippingUpdates]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const load = async () => {
+      setLoading(true);
+      await fetchShippingUpdates();
+      setLoading(false);
     };
 
-    fetchShippingUpdates();
-  }, [patientId]);
+    load().then(() => {
+      if (!cancelled) {
+        setShippingUpdates((current) => {
+          refreshFedExTracking(current);
+          return current;
+        });
+      }
+    });
+
+    return () => { cancelled = true; };
+  }, [patientId, fetchShippingUpdates, refreshFedExTracking]);
+
+  const handleManualRefresh = async () => {
+    if (refreshing) return;
+    await refreshFedExTracking(shippingUpdates);
+  };
 
   const formatDate = (dateStr: string | null | undefined): string => {
     if (!dateStr) return '—';
@@ -240,9 +292,44 @@ export default function PatientShippingHistory({
       {showTitle && (
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-xl font-semibold">Shipping History</h2>
-          <span className="text-sm text-gray-500">
-            {shippingUpdates.length} shipment{shippingUpdates.length !== 1 ? 's' : ''}
-          </span>
+          <div className="flex items-center gap-3">
+            {refreshing && (
+              <span className="flex items-center gap-1.5 text-xs text-gray-400">
+                <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-gray-300 border-t-[#4fa77e]" />
+                Refreshing tracking...
+              </span>
+            )}
+            {shippingUpdates.some(
+              (u) =>
+                u.carrier.toUpperCase().includes('FEDEX') &&
+                !TERMINAL_STATUSES.includes(u.status)
+            ) && (
+              <button
+                onClick={handleManualRefresh}
+                disabled={refreshing}
+                className="rounded-md border border-gray-200 px-2.5 py-1 text-xs font-medium text-gray-600 transition-colors hover:border-gray-300 hover:bg-gray-50 disabled:opacity-50"
+                title="Refresh FedEx tracking status"
+              >
+                <svg
+                  className={`mr-1 inline-block h-3.5 w-3.5 ${refreshing ? 'animate-spin' : ''}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                  />
+                </svg>
+                Refresh
+              </button>
+            )}
+            <span className="text-sm text-gray-500">
+              {shippingUpdates.length} shipment{shippingUpdates.length !== 1 ? 's' : ''}
+            </span>
+          </div>
         </div>
       )}
 

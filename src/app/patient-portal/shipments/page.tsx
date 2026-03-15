@@ -32,6 +32,7 @@ interface Shipment {
   orderNumber: string;
   status: string;
   statusLabel: string;
+  step?: number;
   carrier: string;
   trackingNumber: string;
   trackingUrl: string | null;
@@ -39,10 +40,20 @@ interface Shipment {
   orderedAt: string;
   shippedAt: string | null;
   estimatedDelivery: string | null;
+  deliveredAt?: string | null;
   lastUpdate: string;
+  lastLocation?: string | null;
   patientConfirmedAt: string | null;
   canConfirmReceipt: boolean;
 }
+
+const DELIVERY_STEPS = [
+  { key: 'processing', label: 'Processing', minStep: 1 },
+  { key: 'shipped', label: 'Shipped', minStep: 2 },
+  { key: 'in_transit', label: 'In Transit', minStep: 3 },
+  { key: 'out_for_delivery', label: 'Out for Delivery', minStep: 4 },
+  { key: 'delivered', label: 'Delivered', minStep: 5 },
+];
 
 interface PrescriptionJourney {
   stage: 1 | 2 | 3 | 4;
@@ -123,6 +134,11 @@ export default function ShipmentsPage() {
 
   const handleRefresh = async () => {
     setRefreshing(true);
+    try {
+      await portalFetch('/api/patient-portal/tracking/refresh', { method: 'POST' });
+    } catch {
+      // Non-blocking — we still re-fetch the data below
+    }
     await mutate();
     setRefreshing(false);
   };
@@ -214,7 +230,11 @@ export default function ShipmentsPage() {
         </div>
       ) : (
         <div className="space-y-4">
-          {allShipments.map((shipment) => (
+          {allShipments.map((shipment) => {
+            const currentStep = shipment.step ?? 1;
+            const isException = shipment.status === 'exception';
+
+            return (
             <div
               key={shipment.id}
               className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm"
@@ -225,13 +245,20 @@ export default function ShipmentsPage() {
                   <div className="flex items-center gap-3">
                     <div
                       className="flex h-10 w-10 items-center justify-center rounded-xl"
-                      style={{ backgroundColor: `${primaryColor}15` }}
+                      style={{ backgroundColor: isException ? '#FEE2E2' : `${primaryColor}15` }}
                     >
-                      <Truck className="h-5 w-5" style={{ color: primaryColor }} />
+                      <Truck className="h-5 w-5" style={{ color: isException ? '#DC2626' : primaryColor }} />
                     </div>
                     <div>
-                      <p className="font-semibold text-gray-900">{shipment.carrier}</p>
-                      <p className="font-mono text-sm text-gray-500">{shipment.trackingNumber}</p>
+                      <p className="font-semibold text-gray-900">
+                        {shipment.statusLabel}
+                        {isException && (
+                          <span className="ml-2 inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">
+                            Attention needed
+                          </span>
+                        )}
+                      </p>
+                      <p className="text-sm text-gray-500">{shipment.carrier} · <span className="font-mono">{shipment.trackingNumber}</span></p>
                     </div>
                   </div>
                   {shipment.trackingUrl && (
@@ -249,7 +276,74 @@ export default function ShipmentsPage() {
                 </div>
               </div>
 
-              {/* Medications & date */}
+              {/* Delivery Progress Steps */}
+              {!isException && (
+                <div className="border-b border-gray-100 px-5 py-4">
+                  <div className="flex items-center justify-between">
+                    {DELIVERY_STEPS.map((step, idx) => {
+                      const isCompleted = currentStep > step.minStep;
+                      const isCurrent = currentStep === step.minStep;
+                      return (
+                        <div key={step.key} className="flex flex-1 items-center">
+                          <div className="flex flex-col items-center">
+                            <div
+                              className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold transition-all ${
+                                isCompleted
+                                  ? 'text-white'
+                                  : isCurrent
+                                    ? 'text-white ring-4'
+                                    : 'bg-gray-100 text-gray-400'
+                              }`}
+                              style={{
+                                ...(isCompleted || isCurrent
+                                  ? { backgroundColor: primaryColor }
+                                  : {}),
+                                ...(isCurrent
+                                  ? { ringColor: `${primaryColor}30` }
+                                  : {}),
+                              }}
+                            >
+                              {isCompleted ? (
+                                <Check className="h-3.5 w-3.5" />
+                              ) : (
+                                idx + 1
+                              )}
+                            </div>
+                            <span
+                              className={`mt-1.5 text-center text-[10px] font-medium leading-tight ${
+                                isCompleted || isCurrent ? '' : 'text-gray-400'
+                              }`}
+                              style={isCompleted || isCurrent ? { color: primaryColor } : undefined}
+                            >
+                              {step.label}
+                            </span>
+                          </div>
+                          {idx < DELIVERY_STEPS.length - 1 && (
+                            <div className="mx-1 mb-5 h-0.5 flex-1" style={{ backgroundColor: isCompleted ? primaryColor : '#e5e7eb' }} />
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Status detail / last location */}
+              {shipment.lastLocation && (
+                <div className="border-b border-gray-100 px-5 py-3">
+                  <div className="flex items-center gap-2 text-sm">
+                    <div
+                      className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full"
+                      style={{ backgroundColor: `${primaryColor}10` }}
+                    >
+                      <Package className="h-3.5 w-3.5" style={{ color: primaryColor }} />
+                    </div>
+                    <span className="text-gray-700">{shipment.lastLocation}</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Medications, dates & actions */}
               <div className="px-5 py-4">
                 <div className="space-y-2">
                   {(shipment.items ?? []).map((item, idx) => (
@@ -263,11 +357,32 @@ export default function ShipmentsPage() {
                   ))}
                 </div>
 
-                <div className="mt-3 flex items-center gap-2 text-xs text-gray-500">
-                  <Calendar className="h-3.5 w-3.5" />
-                  {shipment.shippedAt
-                    ? `Shipped ${formatDate(shipment.shippedAt)}`
-                    : `Ordered ${formatDate(shipment.orderedAt)}`}
+                {/* Dates row */}
+                <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-500">
+                  {shipment.shippedAt && (
+                    <span className="flex items-center gap-1">
+                      <Calendar className="h-3.5 w-3.5" />
+                      Shipped {formatDate(shipment.shippedAt)}
+                    </span>
+                  )}
+                  {shipment.estimatedDelivery && shipment.status !== 'delivered' && (
+                    <span className="flex items-center gap-1 font-medium" style={{ color: primaryColor }}>
+                      <Clock className="h-3.5 w-3.5" />
+                      Est. delivery {formatDate(shipment.estimatedDelivery)}
+                    </span>
+                  )}
+                  {shipment.deliveredAt && (
+                    <span className="flex items-center gap-1 font-medium text-emerald-600">
+                      <Check className="h-3.5 w-3.5" />
+                      Delivered {formatDate(shipment.deliveredAt)}
+                    </span>
+                  )}
+                  {!shipment.shippedAt && !shipment.estimatedDelivery && (
+                    <span className="flex items-center gap-1">
+                      <Calendar className="h-3.5 w-3.5" />
+                      Ordered {formatDate(shipment.orderedAt)}
+                    </span>
+                  )}
                 </div>
 
                 {/* Delivery confirmation */}
@@ -301,7 +416,8 @@ export default function ShipmentsPage() {
                 ) : null}
               </div>
             </div>
-          ))}
+            );
+          })}
           {confirmError && (
             <div className="rounded-2xl border border-red-100 bg-red-50 p-4 text-sm text-red-700">
               {confirmError}

@@ -614,6 +614,350 @@ export async function getRateQuote(
 }
 
 // ---------------------------------------------------------------------------
+// Track API — Shipment Tracking
+// ---------------------------------------------------------------------------
+
+export type ShippingStatusValue =
+  | 'PENDING'
+  | 'LABEL_CREATED'
+  | 'SHIPPED'
+  | 'IN_TRANSIT'
+  | 'OUT_FOR_DELIVERY'
+  | 'DELIVERED'
+  | 'RETURNED'
+  | 'EXCEPTION'
+  | 'CANCELLED';
+
+export type TrackingScanEvent = {
+  date: string;
+  description: string;
+  city?: string;
+  state?: string;
+  countryCode?: string;
+  statusCode: string;
+};
+
+export type TrackingResult = {
+  trackingNumber: string;
+  status: ShippingStatusValue;
+  statusDescription: string;
+  statusDetail: string | null;
+  estimatedDelivery: Date | null;
+  actualDelivery: Date | null;
+  signedBy: string | null;
+  location: { city?: string; state?: string; countryCode?: string } | null;
+  scanEvents: TrackingScanEvent[];
+  raw: unknown;
+};
+
+const FEDEX_STATUS_MAP: Record<string, ShippingStatusValue> = {
+  // Ready for shipment / label created
+  OC: 'LABEL_CREATED',
+  OF: 'LABEL_CREATED',
+
+  // Picked up
+  PU: 'SHIPPED',
+
+  // In transit
+  IT: 'IN_TRANSIT',
+  AA: 'IN_TRANSIT',
+  AC: 'IN_TRANSIT',
+  AD: 'IN_TRANSIT',
+  AF: 'IN_TRANSIT',
+  AP: 'IN_TRANSIT',
+  AR: 'IN_TRANSIT',
+  AX: 'IN_TRANSIT',
+  CC: 'IN_TRANSIT',
+  CP: 'IN_TRANSIT',
+  DP: 'IN_TRANSIT',
+  DR: 'IN_TRANSIT',
+  DS: 'IN_TRANSIT',
+  EA: 'IN_TRANSIT',
+  ED: 'IN_TRANSIT',
+  EO: 'IN_TRANSIT',
+  EP: 'IN_TRANSIT',
+  FD: 'IN_TRANSIT',
+  LO: 'IN_TRANSIT',
+  OX: 'IN_TRANSIT',
+  PF: 'IN_TRANSIT',
+  PL: 'IN_TRANSIT',
+  PM: 'IN_TRANSIT',
+  SF: 'IN_TRANSIT',
+  SP: 'IN_TRANSIT',
+  TR: 'IN_TRANSIT',
+
+  // Out for delivery / ready for pickup
+  OD: 'OUT_FOR_DELIVERY',
+  HL: 'OUT_FOR_DELIVERY',
+
+  // Delivered
+  DL: 'DELIVERED',
+
+  // Returning to sender
+  RS: 'RETURNED',
+  RP: 'RETURNED',
+
+  // Delivery problems / exceptions
+  CA: 'EXCEPTION',
+  CD: 'EXCEPTION',
+  CH: 'EXCEPTION',
+  DD: 'EXCEPTION',
+  DE: 'EXCEPTION',
+  DY: 'EXCEPTION',
+  IX: 'EXCEPTION',
+  LP: 'EXCEPTION',
+  PD: 'EXCEPTION',
+  PX: 'EXCEPTION',
+  RC: 'EXCEPTION',
+  RD: 'EXCEPTION',
+  RG: 'EXCEPTION',
+  RM: 'EXCEPTION',
+  RR: 'EXCEPTION',
+  SE: 'EXCEPTION',
+};
+
+export function isFedExTrackingNumber(tn: string): boolean {
+  return /^\d{12}$|^\d{15}$|^\d{20}$|^\d{22}$/.test(tn.trim());
+}
+
+function mapFedExStatus(code: string | undefined): ShippingStatusValue {
+  if (!code) return 'PENDING';
+  return FEDEX_STATUS_MAP[code.toUpperCase()] ?? 'IN_TRANSIT';
+}
+
+function parseFedExDateTime(dateStr: string | undefined | null): Date | null {
+  if (!dateStr) return null;
+  const d = new Date(dateStr);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+function extractDateByType(
+  dateAndTimes: Array<{ type?: string; dateTime?: string }> | undefined,
+  type: string
+): Date | null {
+  if (!dateAndTimes) return null;
+  const entry = dateAndTimes.find(
+    (d) => d.type?.toUpperCase() === type.toUpperCase()
+  );
+  return parseFedExDateTime(entry?.dateTime);
+}
+
+function buildLocationString(loc: { city?: string; stateOrProvinceCode?: string; state?: string } | undefined): string {
+  if (!loc) return '';
+  const city = loc.city || '';
+  const state = loc.stateOrProvinceCode || loc.state || '';
+  return [city, state].filter(Boolean).join(', ');
+}
+
+function parseTrackResult(trackingNumber: string, trackResult: any): TrackingResult | null {
+  if (!trackResult) return null;
+
+  const errorCode = trackResult.error?.code;
+  if (errorCode === 'TRACKING.TRACKINGNUMBER.NOTFOUND') {
+    logger.info('[FedEx Track] Tracking number not found (may be sandbox)', { trackingNumber });
+    return null;
+  }
+  if (trackResult.error) {
+    logger.warn('[FedEx Track] Track result error', {
+      trackingNumber,
+      errorCode,
+      errorMessage: trackResult.error?.message?.slice(0, 200),
+    });
+    return null;
+  }
+
+  const latest = trackResult.latestStatusDetail || {};
+  const statusCode: string = latest.code || '';
+  const status = mapFedExStatus(statusCode);
+  const statusDescription = latest.statusByLocale || latest.description || statusCode;
+  const statusDetail = latest.ancillaryDetail?.reason || latest.ancillaryDetail?.reasonDetail || null;
+
+  const scanLocation = latest.scanLocation || {};
+  const location = (scanLocation.city || scanLocation.stateOrProvinceCode)
+    ? {
+        city: scanLocation.city,
+        state: scanLocation.stateOrProvinceCode,
+        countryCode: scanLocation.countryCode,
+      }
+    : null;
+
+  const dateAndTimes: Array<{ type?: string; dateTime?: string }> = trackResult.dateAndTimes || [];
+  const estimatedDelivery =
+    extractDateByType(dateAndTimes, 'ESTIMATED_DELIVERY') ||
+    extractDateByType(dateAndTimes, 'ANTICIPATED_TENDER');
+  const actualDelivery = extractDateByType(dateAndTimes, 'ACTUAL_DELIVERY');
+
+  const signedBy: string | null = trackResult.deliveryDetails?.receivedByName || null;
+
+  const rawScanEvents: any[] = trackResult.scanEvents || [];
+  const scanEvents: TrackingScanEvent[] = rawScanEvents.slice(0, 50).map((ev: any) => ({
+    date: ev.date || '',
+    description: ev.eventDescription || ev.eventType || '',
+    city: ev.scanLocation?.city,
+    state: ev.scanLocation?.stateOrProvinceCode,
+    countryCode: ev.scanLocation?.countryCode,
+    statusCode: ev.derivedStatusCode || ev.eventType || '',
+  }));
+
+  const locationStr = buildLocationString(scanLocation);
+  const fullStatusDetail = [
+    statusDescription,
+    locationStr ? `- ${locationStr}` : '',
+    signedBy ? `Signed by: ${signedBy}` : '',
+  ].filter(Boolean).join(' ');
+
+  return {
+    trackingNumber,
+    status,
+    statusDescription,
+    statusDetail: fullStatusDetail || statusDetail,
+    estimatedDelivery,
+    actualDelivery,
+    signedBy,
+    location,
+    scanEvents,
+    raw: trackResult,
+  };
+}
+
+// TTL cache: don't re-poll the same tracking number within TRACK_CACHE_TTL_MS
+const TRACK_CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
+const trackingCache = new Map<string, { result: TrackingResult | null; cachedAt: number }>();
+
+function getCachedTracking(trackingNumber: string): TrackingResult | null | undefined {
+  const entry = trackingCache.get(trackingNumber);
+  if (!entry) return undefined;
+  if (Date.now() - entry.cachedAt > TRACK_CACHE_TTL_MS) {
+    trackingCache.delete(trackingNumber);
+    return undefined;
+  }
+  return entry.result;
+}
+
+function setCachedTracking(trackingNumber: string, result: TrackingResult | null): void {
+  trackingCache.set(trackingNumber, { result, cachedAt: Date.now() });
+  // Evict old entries if cache grows beyond 500
+  if (trackingCache.size > 500) {
+    const now = Date.now();
+    for (const [key, val] of trackingCache) {
+      if (now - val.cachedAt > TRACK_CACHE_TTL_MS) trackingCache.delete(key);
+    }
+  }
+}
+
+export async function trackShipment(
+  credentials: FedExCredentials,
+  trackingNumber: string,
+  options?: { skipCache?: boolean }
+): Promise<TrackingResult | null> {
+  if (!options?.skipCache) {
+    const cached = getCachedTracking(trackingNumber);
+    if (cached !== undefined) return cached;
+  }
+
+  const payload = {
+    trackingInfo: [
+      { trackingNumberInfo: { trackingNumber } },
+    ],
+    includeDetailedScans: true,
+  };
+
+  let response: any;
+  try {
+    response = await fedexRequest<any>(
+      credentials,
+      'POST',
+      '/track/v1/trackingnumbers',
+      payload
+    );
+  } catch (err) {
+    logger.error('[FedEx Track] API call failed', {
+      trackingNumber,
+      error: err instanceof Error ? err.message : String(err),
+    });
+    return null;
+  }
+
+  const completeTrackResult = response.output?.completeTrackResults?.[0];
+  const trackResult = completeTrackResult?.trackResults?.[0];
+
+  const result = parseTrackResult(trackingNumber, trackResult);
+  setCachedTracking(trackingNumber, result);
+  return result;
+}
+
+export async function trackShipmentBatch(
+  credentials: FedExCredentials,
+  trackingNumbers: string[],
+  options?: { skipCache?: boolean }
+): Promise<Map<string, TrackingResult | null>> {
+  const results = new Map<string, TrackingResult | null>();
+
+  // Separate cached vs. uncached
+  const toFetch: string[] = [];
+  for (const tn of trackingNumbers) {
+    if (!options?.skipCache) {
+      const cached = getCachedTracking(tn);
+      if (cached !== undefined) {
+        results.set(tn, cached);
+        continue;
+      }
+    }
+    toFetch.push(tn);
+  }
+
+  if (toFetch.length === 0) return results;
+
+  // FedEx allows up to 30 tracking numbers per request
+  const BATCH_SIZE = 30;
+  for (let i = 0; i < toFetch.length; i += BATCH_SIZE) {
+    const batch = toFetch.slice(i, i + BATCH_SIZE);
+    const payload = {
+      trackingInfo: batch.map((tn) => ({
+        trackingNumberInfo: { trackingNumber: tn },
+      })),
+      includeDetailedScans: true,
+    };
+
+    let response: any;
+    try {
+      response = await fedexRequest<any>(
+        credentials,
+        'POST',
+        '/track/v1/trackingnumbers',
+        payload
+      );
+    } catch (err) {
+      logger.error('[FedEx Track] Batch API call failed', {
+        batchSize: batch.length,
+        error: err instanceof Error ? err.message : String(err),
+      });
+      for (const tn of batch) results.set(tn, null);
+      continue;
+    }
+
+    const completeTrackResults: any[] = response.output?.completeTrackResults || [];
+    for (const ctr of completeTrackResults) {
+      const tn: string = ctr.trackingNumber || '';
+      const trackResult = ctr.trackResults?.[0];
+      const parsed = parseTrackResult(tn, trackResult);
+      setCachedTracking(tn, parsed);
+      results.set(tn, parsed);
+    }
+
+    // Mark any tracking numbers not returned as null
+    for (const tn of batch) {
+      if (!results.has(tn)) {
+        setCachedTracking(tn, null);
+        results.set(tn, null);
+      }
+    }
+  }
+
+  return results;
+}
+
+// ---------------------------------------------------------------------------
 // Integration Adapter Registration
 // ---------------------------------------------------------------------------
 
