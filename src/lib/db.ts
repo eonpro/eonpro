@@ -223,6 +223,9 @@ const BASE_PRISMA_ALLOWLIST: readonly string[] = [
   'salesrepcommissionplan', // admin [id] route: lookup by id to get clinicId for access check
   'salesrepplanassignment',
   'patientphoto', // image proxy route: lookup by PK then manual clinic-access check (avoids TenantContextRequiredError)
+  'patientshippingupdate', // super-admin shipment monitor + FedEx tracking poller: cross-tenant tracking (guarded by withSuperAdminAuth / verifyCronAuth)
+  'order', // super-admin shipment monitor + FedEx tracking poller: cross-tenant order status sync (guarded by withSuperAdminAuth / verifyCronAuth)
+  'shipmentlabel', // FedEx label route: cross-tenant label lookup by ID then manual clinic-access check
 ];
 
 /**
