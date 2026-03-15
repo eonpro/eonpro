@@ -29,7 +29,7 @@ import {
   Calendar,
   MessageSquare,
 } from 'lucide-react';
-import { apiFetch, dispatchSessionExpired, SESSION_EXPIRED_EVENT, redirectToLogin } from '@/lib/api/fetch';
+import { apiFetch, dispatchSessionExpired, redirectToLogin } from '@/lib/api/fetch';
 import { ClinicBrandingProvider, useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
 import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
 import { USMapChart } from '@/components/dashboards/USMapChart';
@@ -134,13 +134,7 @@ function HomePageInner() {
     return () => clearInterval(timer);
   }, []);
 
-  useEffect(() => {
-    const onSessionExpired = () => {
-      redirectToLogin('session_expired');
-    };
-    window.addEventListener(SESSION_EXPIRED_EVENT, onSessionExpired);
-    return () => window.removeEventListener(SESSION_EXPIRED_EVENT, onSessionExpired);
-  }, []);
+  // SESSION_EXPIRED_EVENT is handled globally by the Zustand authStore.
 
   useEffect(() => {
     const checkAuthAndRedirect = async () => {

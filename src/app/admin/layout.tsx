@@ -45,9 +45,10 @@ import { SubdomainClinicBanner } from '@/components/SubdomainClinicBanner';
 import { getAdminNavConfig } from '@/lib/nav/adminNav';
 import { logger } from '@/lib/logger';
 import * as Sentry from '@sentry/nextjs';
-import { apiFetch, SESSION_EXPIRED_EVENT, redirectToLogin } from '@/lib/api/fetch';
+import { apiFetch, redirectToLogin } from '@/lib/api/fetch';
 import { EONPRO_LOGO, EONPRO_ICON, LOGOSRX, isLogosRxHost as checkIsLogosRxHost } from '@/lib/constants/brand-assets';
 import { safeParseJsonString } from '@/lib/utils/safe-json';
+import { useAuthStore } from '@/lib/stores/authStore';
 
 const LOGOSRX_LOGO = LOGOSRX.LOGO;
 const LOGOSRX_ICON = LOGOSRX.ICON;
@@ -150,6 +151,10 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const { branding, isLoading: brandingLoading } = useClinicBranding();
+  const authUser = useAuthStore((s) => s.user);
+  const authRole = useAuthStore((s) => s.role);
+  const isHydrated = useAuthStore((s) => s.isHydrated);
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<number | null>(null);
@@ -170,18 +175,8 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
     setIsLogosRx(checkIsLogosRxHost());
   }, []);
 
-  // Safety net: redirect to login immediately when session expires.
-  // Covers all child pages (patient detail, orders, etc.) that may not
-  // have their own listener. Prevents stuck skeletons when the root-level
-  // SessionExpirationHandler hasn't wired its listener yet (timing gap
-  // during client-side navigation from a public page like /login).
-  useEffect(() => {
-    const onSessionExpired = () => {
-      redirectToLogin('session_expired');
-    };
-    window.addEventListener(SESSION_EXPIRED_EVENT, onSessionExpired);
-    return () => window.removeEventListener(SESSION_EXPIRED_EVENT, onSessionExpired);
-  }, []);
+  // SESSION_EXPIRED_EVENT is handled globally by the Zustand authStore
+  // (src/lib/stores/authStore.ts) — no per-layout listener needed.
 
   const isPharmacyExperience = isPharmacyRep || isLogosRx;
 
@@ -214,64 +209,54 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // Auth check: read from the Zustand store (hydrated from localStorage once in
+  // root layout) instead of reading localStorage directly in every layout.
   useEffect(() => {
-    try {
-      const user = localStorage.getItem('user');
-      if (!user) {
-        setLoading(false);
-        router.push('/login');
-        return;
-      }
+    if (!isHydrated) return;
 
-      const parsedUser = safeParseJsonString(user);
-      if (!parsedUser) {
-        setLoading(false);
-        router.push('/login');
-        return;
-      }
-      const role = parsedUser.role?.toLowerCase();
-      const allowedAdminRoles = ['admin', 'super_admin', 'sales_rep', 'provider', 'staff', 'pharmacy_rep'];
-      if (!role || !allowedAdminRoles.includes(role)) {
-        setLoading(false);
-        router.push('/login');
-        return;
-      }
-      if (role === 'super_admin' && pathname === '/admin') {
-        setLoading(false);
-        router.push('/super-admin');
-        return;
-      }
-      if (role === 'sales_rep') {
-        const restrictedPaths = [
-          '/admin/affiliates',
-          '/admin/finance',
-          '/admin/products',
-          '/admin/analytics',
-          '/admin/stripe-dashboard',
-          '/admin/finance/pending-profiles',
-          '/admin/registration-codes',
-          '/admin/sales-rep/commission-plans',
-        ];
-        if (restrictedPaths.some((p) => pathname === p || pathname?.startsWith(p + '/'))) {
-          setLoading(false);
-          router.replace('/admin');
-          return;
-        }
-      }
-      setUserId(parsedUser.id ? Number(parsedUser.id) : null);
-      setUserRole(role);
-      setLoading(false);
-
-      fetchUserClinics().catch((err) => {
-        console.error('Error fetching user clinics:', err);
-      });
-    } catch (error) {
-      console.error('Error initializing admin layout:', error);
-      localStorage.removeItem('user');
+    if (!isAuthenticated || !authUser || !authRole) {
       setLoading(false);
       router.push('/login');
+      return;
     }
-  }, [router]);
+
+    const role = authRole;
+    const allowedAdminRoles = ['admin', 'super_admin', 'sales_rep', 'provider', 'staff', 'pharmacy_rep'];
+    if (!allowedAdminRoles.includes(role)) {
+      setLoading(false);
+      router.push('/login');
+      return;
+    }
+    if (role === 'super_admin' && pathname === '/admin') {
+      setLoading(false);
+      router.push('/super-admin');
+      return;
+    }
+    if (role === 'sales_rep') {
+      const restrictedPaths = [
+        '/admin/affiliates',
+        '/admin/finance',
+        '/admin/products',
+        '/admin/analytics',
+        '/admin/stripe-dashboard',
+        '/admin/finance/pending-profiles',
+        '/admin/registration-codes',
+        '/admin/sales-rep/commission-plans',
+      ];
+      if (restrictedPaths.some((p) => pathname === p || pathname?.startsWith(p + '/'))) {
+        setLoading(false);
+        router.replace('/admin');
+        return;
+      }
+    }
+    setUserId(authUser.id ?? null);
+    setUserRole(role);
+    setLoading(false);
+
+    fetchUserClinics().catch((err) => {
+      console.error('Error fetching user clinics:', err);
+    });
+  }, [isHydrated, isAuthenticated, authUser, authRole, router, pathname]);
 
   // Redirect sales rep away from company-level routes (e.g. direct URL or client nav)
   useEffect(() => {
@@ -493,8 +478,9 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
                   );
                 }
 
+                const NavTag = isPharmacyExperience ? 'a' : Link;
                 return (
-                  <a
+                  <NavTag
                     key={item.path}
                     href={item.path}
                     title={!sidebarExpanded ? item.label : undefined}
@@ -507,7 +493,7 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
                     {sidebarExpanded && (
                       <span className="whitespace-nowrap text-sm font-medium">{item.label}</span>
                     )}
-                  </a>
+                  </NavTag>
                 );
               })}
             </nav>

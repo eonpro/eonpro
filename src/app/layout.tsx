@@ -9,6 +9,8 @@ import ErrorBoundary from '@/components/ErrorBoundary';
 import ConditionalLayout from '@/components/ConditionalLayout';
 import SessionExpirationHandler from '@/components/SessionExpirationHandler';
 import GlobalFetchInterceptor from '@/components/GlobalFetchInterceptor';
+import AuthHydrator from '@/components/AuthHydrator';
+import QueryProvider from '@/components/providers/QueryProvider';
 import AffiliateTracker from '@/components/AffiliateTracker';
 import { ToastProvider } from '@/components/Toast';
 import { SpeedInsights } from '@vercel/speed-insights/next';
@@ -50,10 +52,12 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       <body className={sofiaPro.className} suppressHydrationWarning>
         <ErrorBoundary>
           <ClientProviders>
+            <QueryProvider>
             <ToastProvider>
               <Suspense fallback={null}>
                 <AffiliateTracker />
               </Suspense>
+              <AuthHydrator />
               <GlobalFetchInterceptor />
               <SessionExpirationHandler />
               <ConditionalHeader />
@@ -61,6 +65,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
               {/* Becca AI Assistant - Only shown for authenticated users with proper roles */}
               <BeccaAIGlobalChat />
             </ToastProvider>
+            </QueryProvider>
           </ClientProviders>
           {mapsKey ? (
             <Script

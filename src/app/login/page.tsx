@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Eye, EyeOff, X, Mail, Phone, ArrowRight, RefreshCw, Building2, Check } from 'lucide-react';
+import { useAuthStore, type AuthUser, type ClinicInfo } from '@/lib/stores/authStore';
 import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
 import { EONPRO_LOGO, LOGOSRX } from '@/lib/constants/brand-assets';
 import { isBrowser } from '@/lib/utils/ssr-safe';
@@ -1011,6 +1012,15 @@ function LoginContent() {
       localStorage.setItem('activeClinicId', String(data.activeClinicId || data.clinics[0]?.id));
     }
 
+    // Sync auth state into the global Zustand store so any mounted component
+    // (e.g. SessionExpirationHandler) can react without reading localStorage.
+    const storeUser = { ...(data.user as Record<string, unknown>), id: 0, role: data.user?.role?.toLowerCase() ?? '' };
+    useAuthStore.getState().setAuth(
+      storeUser as AuthUser,
+      data.clinics as ClinicInfo[] | undefined,
+      data.activeClinicId ?? data.clinics?.[0]?.id ?? null,
+    );
+
     // Store role-specific tokens
     const userRole = data.user?.role?.toLowerCase();
     if (userRole === 'super_admin') {
@@ -1038,51 +1048,47 @@ function LoginContent() {
     ];
     const wasSystemLogout = systemLogoutReasons.includes(reason);
 
+    // Full page navigation (window.location.href) instead of client-side router.push
+    // guarantees cookies are set before the destination page renders and avoids
+    // race conditions between localStorage writes and useEffect reads.
     const redirectTo = wasSystemLogout ? null : searchParams.get('redirect');
     if (redirectTo) {
-      // Validate that the redirect path is appropriate for the user's actual role.
-      // If the redirect targets a role-specific area (e.g. /provider, /admin) but the user
-      // doesn't have that role, skip the redirect and fall through to role-based routing.
       const redirectTargetRole = getLoginRoleFromRedirect(redirectTo);
       const isRoleSpecificRedirect = !!redirectTargetRole;
 
       if (!isRoleSpecificRedirect || redirectTargetRole === userRole) {
-        // Redirect is either non-role-specific (e.g. /portal, /settings) or matches the user's role
-        router.push(redirectTo);
+        window.location.href = redirectTo;
         return;
       }
-      // Otherwise, the redirect targets a different role's area (e.g. patient on /provider)
-      // Fall through to role-based routing below
     }
 
-    // Otherwise redirect based on role (home for that role)
     switch (userRole) {
       case 'super_admin':
-        router.push('/super-admin/clinics');
+        window.location.href = '/super-admin/clinics';
         break;
       case 'admin':
-        router.push('/admin');
+        window.location.href = '/admin';
         break;
       case 'provider':
-        router.push('/provider');
+        window.location.href = '/provider';
         break;
       case 'staff':
-        router.push('/staff');
+        window.location.href = '/staff';
         break;
       case 'pharmacy_rep':
-        router.push('/admin');
+        window.location.href = '/admin';
         break;
       case 'support':
-        router.push('/support');
+        window.location.href = '/support';
         break;
       case 'patient':
-        router.push(PATIENT_PORTAL_PATH);
+        window.location.href = PATIENT_PORTAL_PATH;
         break;
       case 'affiliate':
-        router.push('/affiliate');
+        window.location.href = '/affiliate';
         break;
       default:
-        router.push('/');
+        window.location.href = '/';
     }
   };
 

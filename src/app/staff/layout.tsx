@@ -24,8 +24,8 @@ import {
 import { ClinicBrandingProvider, useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
 import { getAdminNavConfig } from '@/lib/nav/adminNav';
 import { EONPRO_LOGO, EONPRO_ICON } from '@/lib/constants/brand-assets';
-import { SESSION_EXPIRED_EVENT, redirectToLogin } from '@/lib/api/fetch';
 import { safeParseJsonString } from '@/lib/utils/safe-json';
+import { useAuthStore } from '@/lib/stores/authStore';
 
 const staffNavIconMap = {
   Home,
@@ -43,6 +43,9 @@ function StaffLayoutInner({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const { branding, isLoading: brandingLoading } = useClinicBranding();
+  const authRole = useAuthStore((s) => s.role);
+  const isHydrated = useAuthStore((s) => s.isHydrated);
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -53,40 +56,14 @@ function StaffLayoutInner({ children }: { children: React.ReactNode }) {
   const isWhiteLabeled = branding?.clinicName && branding.clinicName !== 'EONPRO';
 
   useEffect(() => {
-    const onSessionExpired = () => {
-      redirectToLogin('session_expired');
-    };
-    window.addEventListener(SESSION_EXPIRED_EVENT, onSessionExpired);
-    return () => window.removeEventListener(SESSION_EXPIRED_EVENT, onSessionExpired);
-  }, []);
-
-  useEffect(() => {
-    try {
-      const user = localStorage.getItem('user');
-      if (!user) {
-        setLoading(false);
-        router.push('/login');
-        return;
-      }
-      const parsedUser = safeParseJsonString(user);
-      if (!parsedUser) {
-        setLoading(false);
-        router.push('/login');
-        return;
-      }
-      const role = parsedUser.role?.toLowerCase();
-      if (role !== 'staff') {
-        setLoading(false);
-        router.push('/login');
-        return;
-      }
-      setLoading(false);
-    } catch {
-      localStorage.removeItem('user');
+    if (!isHydrated) return;
+    if (!isAuthenticated || authRole !== 'staff') {
       setLoading(false);
       router.push('/login');
+      return;
     }
-  }, [router]);
+    setLoading(false);
+  }, [isHydrated, isAuthenticated, authRole, router]);
 
   const navItems = useMemo(() => {
     const config = getAdminNavConfig('staff');

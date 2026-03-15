@@ -34,9 +34,10 @@ import {
 } from '@/components/notifications';
 import { ClinicBrandingProvider, useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
 import { SubdomainClinicBanner } from '@/components/SubdomainClinicBanner';
-import { apiFetch, SESSION_EXPIRED_EVENT, redirectToLogin } from '@/lib/api/fetch';
+import { apiFetch, redirectToLogin } from '@/lib/api/fetch';
 import { EONPRO_LOGO, EONPRO_ICON } from '@/lib/constants/brand-assets';
 import { safeParseJsonString } from '@/lib/utils/safe-json';
+import { useAuthStore } from '@/lib/stores/authStore';
 
 const mainNavItems = [
   { icon: Home, path: '/provider', label: 'Dashboard', exact: true },
@@ -66,6 +67,10 @@ function ProviderLayoutInner({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const { branding, isLoading: brandingLoading } = useClinicBranding();
+  const authUser = useAuthStore((s) => s.user);
+  const authRole = useAuthStore((s) => s.role);
+  const isHydrated = useAuthStore((s) => s.isHydrated);
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -97,41 +102,24 @@ function ProviderLayoutInner({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  useEffect(() => {
-    const onSessionExpired = () => {
-      redirectToLogin('session_expired');
-    };
-    window.addEventListener(SESSION_EXPIRED_EVENT, onSessionExpired);
-    return () => window.removeEventListener(SESSION_EXPIRED_EVENT, onSessionExpired);
-  }, []);
+  // SESSION_EXPIRED_EVENT is handled globally by the Zustand authStore.
 
   useEffect(() => {
-    const user = localStorage.getItem('user');
-    if (!user) {
+    if (!isHydrated) return;
+
+    if (!isAuthenticated || !authUser || authRole !== 'provider') {
       setLoading(false);
       router.push('/login');
       return;
     }
 
     try {
-      const parsedUser = safeParseJsonString(user);
-      if (!parsedUser) {
-        setLoading(false);
-        router.push('/login');
-        return;
-      }
-      const role = parsedUser.role?.toLowerCase();
-      if (role !== 'provider') {
-        setLoading(false);
-        router.push('/login');
-        return;
-      }
       const displayName =
-        parsedUser.firstName && parsedUser.lastName
-          ? `${parsedUser.firstName} ${parsedUser.lastName}`
-          : parsedUser.name || parsedUser.email?.split('@')[0] || '';
+        authUser.firstName && authUser.lastName
+          ? `${authUser.firstName} ${authUser.lastName}`
+          : (authUser as Record<string, unknown>).name as string || authUser.email?.split('@')[0] || '';
       setUserName(`Dr. ${displayName}`.trim());
-      setUserId(parsedUser.id ? Number(parsedUser.id) : null);
+      setUserId(authUser.id ?? null);
       setLoading(false);
 
       fetchQueueCount();

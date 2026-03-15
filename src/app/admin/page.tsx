@@ -20,8 +20,9 @@ import {
   Users,
   Pill,
 } from 'lucide-react';
-import { apiFetch, SESSION_EXPIRED_EVENT, redirectToLogin } from '@/lib/api/fetch';
+import { apiFetch, redirectToLogin } from '@/lib/api/fetch';
 import { AdminDashboardSkeleton } from '@/components/dashboards/AdminDashboardSkeleton';
+import { useAdminDashboard, useAdminGeo } from '@/hooks/useAdminDashboard';
 const USMapChart = dynamic_import(
   () => import('@/components/dashboards/USMapChart').then((mod) => mod.USMapChart),
   {
@@ -108,16 +109,7 @@ export default function AdminPage() {
     setIsLogosRxHost(checkIsLogosRxHost());
   }, []);
 
-  // Safety net: if the session expires while on this page and the
-  // SessionExpirationHandler event listener wasn't yet wired (timing gap
-  // during client-side navigation from a public page), redirect directly.
-  useEffect(() => {
-    const onSessionExpired = () => {
-      redirectToLogin('session_expired');
-    };
-    window.addEventListener(SESSION_EXPIRED_EVENT, onSessionExpired);
-    return () => window.removeEventListener(SESSION_EXPIRED_EVENT, onSessionExpired);
-  }, []);
+  // Session expiration is handled globally by the Zustand authStore.
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -154,67 +146,49 @@ export default function AdminPage() {
     }
   }, []);
 
-  // Single API call for dashboard
-  useEffect(() => {
-    if (!userData) return;
-    let cancelled = false;
+  // React Query: dashboard data (cached across navigations)
+  const isPharmacyShortCircuit = (() => {
     const role = String((userData?.role as string | undefined) ?? '').toLowerCase();
-    if (role === 'pharmacy_rep' || isLogosRxHost) {
-      setStats(defaultStats());
-      return;
-    }
-    (async () => {
-      try {
-        const res = await apiFetch('/api/admin/dashboard');
-        if (cancelled) return;
-        if (!res.ok) {
-          const err = await res.json().catch(() => ({}));
-          setError((err.error as string) || 'Failed to load dashboard');
-          setStats(defaultStats());
-          return;
-        }
-        const data = await res.json();
-        if (cancelled) return;
-        setStats(data.stats ?? defaultStats());
-        setRecentIntakes(data.recentIntakes ?? []);
-      } catch (e: unknown) {
-        if (cancelled) return;
-        if ((e as { isAuthError?: boolean }).isAuthError) {
-          redirectToLogin('session_expired');
-          return;
-        }
-        setError('Failed to connect');
-        setStats(defaultStats());
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [userData, isLogosRxHost]);
+    return role === 'pharmacy_rep' || isLogosRxHost;
+  })();
 
-  // Fetch geographic data for the map
+  const dashboardQuery = useAdminDashboard(!!userData && !isPharmacyShortCircuit);
+  const geoQuery = useAdminGeo(!!userData && !isPharmacyShortCircuit);
+
+  // Sync React Query results into existing state variables so the rest of the
+  // component (render, search filter, etc.) works without a larger refactor.
   useEffect(() => {
-    if (!userData) return;
-    const role = String((userData?.role as string | undefined) ?? '').toLowerCase();
-    if (role === 'pharmacy_rep' || isLogosRxHost) {
+    if (isPharmacyShortCircuit && userData) {
+      setStats(defaultStats());
       setGeoLoading(false);
       return;
     }
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await apiFetch('/api/admin/dashboard/geo');
-        if (cancelled) return;
-        if (res.ok) {
-          const data = await res.json();
-          if (!cancelled) setGeoData(data);
-        }
-      } catch {
-        // Non-critical - map just won't show data
-      } finally {
-        if (!cancelled) setGeoLoading(false);
+    if (dashboardQuery.data) {
+      setStats(dashboardQuery.data.stats);
+      setRecentIntakes(dashboardQuery.data.recentIntakes);
+    }
+    if (dashboardQuery.error) {
+      if ((dashboardQuery.error as { isAuthError?: boolean }).isAuthError) {
+        redirectToLogin('session_expired');
+        return;
       }
-    })();
-    return () => { cancelled = true; };
-  }, [userData, isLogosRxHost]);
+      setError('Failed to connect');
+      setStats(defaultStats());
+    }
+  }, [dashboardQuery.data, dashboardQuery.error, isPharmacyShortCircuit, userData]);
+
+  useEffect(() => {
+    if (geoQuery.data !== undefined) {
+      setGeoData(geoQuery.data);
+      setGeoLoading(false);
+    }
+    if (geoQuery.error) {
+      setGeoLoading(false);
+    }
+    if (!geoQuery.isFetching && geoQuery.data === undefined) {
+      setGeoLoading(false);
+    }
+  }, [geoQuery.data, geoQuery.error, geoQuery.isFetching]);
 
   useEffect(() => {
     if (!userData) return;

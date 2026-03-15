@@ -18,7 +18,7 @@ import {
   Pill,
   BadgeDollarSign,
 } from 'lucide-react';
-import { SESSION_EXPIRED_EVENT, redirectToLogin } from '@/lib/api/fetch';
+import { useAuthStore } from '@/lib/stores/authStore';
 import { isBrowser, safeLocalStorage } from '@/lib/utils/ssr-safe';
 import InternalChat from '@/components/InternalChat';
 import {
@@ -48,45 +48,29 @@ const navItems = [
 export default function SuperAdminLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
+  const authUser = useAuthStore((s) => s.user);
+  const authRole = useAuthStore((s) => s.role);
+  const isHydrated = useAuthStore((s) => s.isHydrated);
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
   const [loading, setLoading] = useState(true);
   const [userName, setUserName] = useState('');
   const [userId, setUserId] = useState<number | null>(null);
 
   useEffect(() => {
-    const onSessionExpired = () => {
-      redirectToLogin('session_expired');
-    };
-    window.addEventListener(SESSION_EXPIRED_EVENT, onSessionExpired);
-    return () => window.removeEventListener(SESSION_EXPIRED_EVENT, onSessionExpired);
-  }, []);
+    if (!isHydrated) return;
 
-  useEffect(() => {
-    const user = localStorage.getItem('user');
-    if (!user) {
+    if (!isAuthenticated || !authUser || authRole !== 'super_admin') {
       router.push('/login');
       return;
     }
 
-    try {
-      const parsedUser = safeParseJsonString(user);
-      if (!parsedUser) { router.push('/login'); return; }
-      const role = parsedUser.role?.toLowerCase();
-      if (role !== 'super_admin') {
-        router.push('/login');
-        return;
-      }
-      // Ensure userId is always a number (might be string from localStorage)
-      setUserId(parsedUser.id ? Number(parsedUser.id) : null);
-      setUserName(
-        `${parsedUser.firstName || ''} ${parsedUser.lastName || ''}`.trim() || parsedUser.email
-      );
-      setLoading(false);
-    } catch {
-      localStorage.removeItem('user');
-      router.push('/login');
-    }
-  }, [router]);
+    setUserId(authUser.id ?? null);
+    setUserName(
+      `${authUser.firstName || ''} ${authUser.lastName || ''}`.trim() || authUser.email || ''
+    );
+    setLoading(false);
+  }, [isHydrated, isAuthenticated, authUser, authRole, router]);
 
   const handleLogout = (e: React.MouseEvent) => {
     e.preventDefault();

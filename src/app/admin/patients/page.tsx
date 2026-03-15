@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { formatPatientDisplayId } from '@/lib/utils/formatPatientDisplayId';
 import { isLogosRxHost as checkIsLogosRxHost } from '@/lib/constants/brand-assets';
 import {
@@ -627,6 +628,14 @@ export default function AdminPatientsPage() {
                     role="link"
                     onClick={() => (window.location.href = `/admin/patients/${patient.id}`)}
                     onKeyDown={(e) => { if (e.key === 'Enter') window.location.href = `/admin/patients/${patient.id}`; }}
+                    onMouseEnter={() => {
+                      const link = document.createElement('link');
+                      link.rel = 'prefetch';
+                      link.href = `/admin/patients/${patient.id}`;
+                      if (!document.querySelector(`link[href="${link.href}"]`)) {
+                        document.head.appendChild(link);
+                      }
+                    }}
                   >
                     <td className="whitespace-nowrap px-6 py-4">
                       <div className="flex items-center">
