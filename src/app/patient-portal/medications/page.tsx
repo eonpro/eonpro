@@ -551,7 +551,20 @@ END:VCALENDAR`;
       if (injectableMeds.length === 0) continue;
 
       for (const med of injectableMeds) {
-        const weeksInSupply = med.daysSupply > 0 ? Math.round(med.daysSupply / 7) : 4;
+        const weeksFromDaysSupply = med.daysSupply > 0 ? Math.round(med.daysSupply / 7) : 4;
+
+        // Estimate weeks from vial volume / weekly dose as fallback
+        let weeksFromVial = 0;
+        const vialMl = extractMlValue(med.quantity, med.name, med.form);
+        const parsedDose = parseDoseFromDirections(med.directions);
+        if (vialMl && parsedDose?.units) {
+          const mlPerInjection = parseFloat(parsedDose.units) / 100;
+          if (mlPerInjection > 0) {
+            weeksFromVial = Math.floor(parseFloat(vialMl) / mlPerInjection);
+          }
+        }
+
+        const weeksInSupply = Math.max(weeksFromDaysSupply, weeksFromVial);
         const monthsCovered = Math.max(1, Math.ceil(weeksInSupply / WEEKS_PER_MONTH));
 
         const dose = parseDoseFromDirections(med.directions);

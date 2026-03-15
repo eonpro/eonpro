@@ -28,7 +28,6 @@ const SemaglutideSupportPanels = dynamic(
 const concentrations = [
   { value: 2.5, label: '2.5 mg/mL', color: '#3B82F6' },
   { value: 5, label: '5 mg/mL', color: '#10B981' },
-  { value: 10, label: '10 mg/mL', color: '#8B5CF6' },
 ];
 
 const dosingSchedule = [
@@ -89,7 +88,7 @@ export default function SemaglutideDoseCalculatorPage() {
             </div>
 
             <div className="p-6">
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 gap-3">
                 {concentrations.map((c) => (
                   <button
                     key={c.value}
