@@ -8,7 +8,7 @@
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { generateSOAPFromIntake } from '@/services/ai/soapNoteService';
-import { generateSOAPNote, type SOAPGenerationInput } from '@/services/ai/openaiService';
+import { generateSOAPNote, type SOAPGenerationInput, type PreviousRxInfo } from '@/services/ai/openaiService';
 import type { SOAPNote, Patient, PatientDocument, Invoice } from '@prisma/client';
 import { decryptPatientPHI, DEFAULT_PHI_FIELDS } from '@/lib/security/phi-encryption';
 
@@ -108,6 +108,61 @@ export async function ensureSoapNoteExists(
       hasDecryptedDob: !!patient.dob && !String(patient.dob).includes(':'),
     });
 
+    // Step 2b: Check for previous prescriptions (renewal detection)
+    let previousPrescriptions: PreviousRxInfo[] = [];
+    let isRenewal = false;
+    try {
+      const previousOrders = await prisma.order.findMany({
+        where: {
+          patientId,
+          cancelledAt: null,
+          status: { notIn: ['error', 'cancelled', 'declined'] },
+        },
+        select: {
+          id: true,
+          createdAt: true,
+          provider: { select: { firstName: true, lastName: true } },
+          rxs: {
+            select: { medName: true, strength: true, sig: true },
+            take: 1,
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 3,
+      });
+
+      if (previousOrders.length > 0) {
+        isRenewal = true;
+        previousPrescriptions = previousOrders
+          .filter((o) => o.rxs.length > 0)
+          .map((o) => {
+            const rx = o.rxs[0];
+            const doseMatch = rx.sig.match(/(?:inject|administer)\s+([\d.]+)\s*mg/i);
+            return {
+              medName: rx.medName,
+              strength: rx.strength,
+              sig: rx.sig,
+              dose: doseMatch ? parseFloat(doseMatch[1]) : null,
+              prescribedAt: o.createdAt.toISOString().split('T')[0],
+              providerName: o.provider ? `${o.provider.firstName} ${o.provider.lastName}` : undefined,
+            };
+          });
+
+        logger.info('[SOAP-AUTOMATION] Patient is a RENEWAL - has previous prescriptions', {
+          ...logContext,
+          previousOrderCount: previousOrders.length,
+          previousRxCount: previousPrescriptions.length,
+          lastRxMed: previousPrescriptions[0]?.medName,
+          lastRxDose: previousPrescriptions[0]?.dose,
+        });
+      }
+    } catch (rxErr) {
+      logger.warn('[SOAP-AUTOMATION] Failed to check previous prescriptions', {
+        ...logContext,
+        error: rxErr instanceof Error ? rxErr.message : String(rxErr),
+      });
+    }
+
     const documents = await prisma.patientDocument.findMany({
       where: {
         patientId,
@@ -203,7 +258,11 @@ export async function ensureSoapNoteExists(
       });
 
       try {
-        const soapNote = await generateSOAPFromIntake(patientId, intakeDoc.id);
+        const soapNote = await generateSOAPFromIntake(
+          patientId,
+          intakeDoc.id,
+          isRenewal ? { isRenewal, previousPrescriptions } : undefined
+        );
 
         logger.info('[SOAP-AUTOMATION] ✓ SOAP note generated successfully', {
           ...logContext,
@@ -304,7 +363,11 @@ export async function ensureSoapNoteExists(
         });
 
         try {
-          const soapNote = await generateSoapFromInvoiceMetadata(patient, metadata);
+          const soapNote = await generateSoapFromInvoiceMetadata(
+            patient,
+            metadata,
+            isRenewal ? { isRenewal, previousPrescriptions } : undefined
+          );
 
           logger.info('[SOAP-AUTOMATION] ✓ SOAP note generated from invoice metadata', {
             ...logContext,
@@ -374,7 +437,11 @@ export async function ensureSoapNoteExists(
       });
 
       try {
-        const soapNote = await generateSoapFromIntakeSubmission(patient, intakeSubmission);
+        const soapNote = await generateSoapFromIntakeSubmission(
+          patient,
+          intakeSubmission,
+          isRenewal ? { isRenewal, previousPrescriptions } : undefined
+        );
 
         logger.info('[SOAP-AUTOMATION] ✓ SOAP note generated from intake submission', {
           ...logContext,
@@ -445,7 +512,8 @@ export async function ensureSoapNoteExists(
  */
 async function generateSoapFromInvoiceMetadata(
   patient: Patient,
-  metadata: Record<string, unknown>
+  metadata: Record<string, unknown>,
+  renewalContext?: { isRenewal: boolean; previousPrescriptions: PreviousRxInfo[] }
 ): Promise<SOAPNote> {
   // Build intake data from metadata fields
   const intakeData: Record<string, unknown> = {
@@ -500,7 +568,9 @@ async function generateSoapFromInvoiceMetadata(
     chiefComplaint:
       (metadata.goals as string) ||
       (metadata.primary_fitness_goal as string) ||
-      'Weight loss evaluation',
+      (renewalContext?.isRenewal ? 'Follow-up weight management evaluation and dose titration' : 'Weight loss evaluation'),
+    isRenewal: renewalContext?.isRenewal,
+    previousPrescriptions: renewalContext?.previousPrescriptions,
   };
 
   const generatedSOAP = await generateSOAPNote(soapInput);
@@ -544,7 +614,8 @@ interface IntakeSubmissionWithResponses {
 
 async function generateSoapFromIntakeSubmission(
   patient: Patient,
-  submission: IntakeSubmissionWithResponses
+  submission: IntakeSubmissionWithResponses,
+  renewalContext?: { isRenewal: boolean; previousPrescriptions: PreviousRxInfo[] }
 ): Promise<SOAPNote> {
   // Convert responses to a structured format
   const responsesBySection: Record<string, Record<string, string>> = {};
@@ -654,7 +725,11 @@ async function generateSoapFromIntakeSubmission(
     intakeData: cleanedIntakeData,
     patientName: `${patient.firstName} ${patient.lastName}`,
     dateOfBirth: patient.dob || undefined,
-    chiefComplaint,
+    chiefComplaint: renewalContext?.isRenewal
+      ? 'Follow-up weight management evaluation and dose titration'
+      : chiefComplaint,
+    isRenewal: renewalContext?.isRenewal,
+    previousPrescriptions: renewalContext?.previousPrescriptions,
   };
 
   logger.debug('[SOAP-AUTOMATION] Generating SOAP from intake submission', {

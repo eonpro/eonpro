@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import bcrypt from 'bcryptjs';
 import { prisma } from '@/lib/db';
-import { generateSOAPNote, type SOAPGenerationInput } from './openaiService';
+import { generateSOAPNote, type SOAPGenerationInput, type PreviousRxInfo } from './openaiService';
 import type {
   Patient as PrismaPatient,
   PatientDocument,
@@ -56,7 +56,8 @@ export const editSOAPNoteSchema = z.object({
  */
 export async function generateSOAPFromIntake(
   patientId: number,
-  intakeDocumentId?: number
+  intakeDocumentId?: number,
+  renewalContext?: { isRenewal: boolean; previousPrescriptions: PreviousRxInfo[] }
 ): Promise<PrismaSOAPNote> {
   // Fetch patient and intake data
   const rawPatient = await prisma.patient.findUnique({
@@ -197,7 +198,9 @@ export async function generateSOAPFromIntake(
       intakeData['How would your life change by losing weight?'] ||
       intakeData.chiefComplaint ||
       intakeData.reasonForVisit ||
-      'Weight loss evaluation',
+      (renewalContext?.isRenewal ? 'Follow-up weight management evaluation and dose titration' : 'Weight loss evaluation'),
+    isRenewal: renewalContext?.isRenewal,
+    previousPrescriptions: renewalContext?.previousPrescriptions,
   };
 
   logger.debug('[SOAP Service] Generating SOAP note for patient:', { value: patient.id });

@@ -189,11 +189,22 @@ function calculateCost(usage: UsageMetrics): number {
 /**
  * SOAP Note Generation from Intake Data
  */
+export interface PreviousRxInfo {
+  medName: string;
+  strength: string;
+  sig: string;
+  dose: number | null;
+  prescribedAt: string;
+  providerName?: string;
+}
+
 export interface SOAPGenerationInput {
   intakeData: Record<string, unknown>;
   patientName: string;
   dateOfBirth?: string;
   chiefComplaint?: string;
+  isRenewal?: boolean;
+  previousPrescriptions?: PreviousRxInfo[];
 }
 
 export interface SOAPNote {
@@ -255,18 +266,21 @@ export async function generateSOAPNote(input: SOAPGenerationInput): Promise<SOAP
     OPENAI_MAX_TOKENS: process.env.OPENAI_MAX_TOKENS,
   });
 
-  const systemPrompt = `You are a licensed prescribing provider (MD/DO/NP/PA) creating a comprehensive SOAP note for a telehealth weight management evaluation.
+  const isRenewal = input.isRenewal && input.previousPrescriptions && input.previousPrescriptions.length > 0;
+  const prevRx = isRenewal ? input.previousPrescriptions![0] : null;
 
-You must generate a professional, clinical-grade SOAP note for GLP-1 receptor agonist therapy evaluation (semaglutide/tirzepatide).
+  const baseSystemPrompt = `You are a licensed prescribing provider (MD/DO/NP/PA) creating a comprehensive SOAP note for a telehealth weight management ${isRenewal ? 'follow-up / renewal visit' : 'evaluation'}.
+
+You must generate a professional, clinical-grade SOAP note for GLP-1 receptor agonist therapy ${isRenewal ? 'continuation and dose titration' : 'evaluation'} (semaglutide/tirzepatide).
 
 CRITICAL: Return your response in JSON format with ALL fields as plain text STRINGS. Each field should be detailed and formatted professionally:
 
 {
-  "subjective": "Detailed narrative of patient's weight history, goals, GLP-1 experience, symptoms, medications, and treatment interest",
-  "objective": "Anthropometrics (height, weight, BMI with classification, ideal weight, excess weight), vital signs, activity level, complete medical/surgical history, current medications, allergies, GLP-1 history",
-  "assessment": "Primary diagnosis with ICD-10 code, clinical assessment of candidacy, contraindication screening, medical necessity rationale for compounded therapy with B12 or Glycine additive explanation",
-  "plan": "Medication plan (specific compound, dosing, titration), monitoring & follow-up schedule, patient education provided, disposition",
-  "medicalNecessity": "Detailed rationale for compounded GLP-1 formulation including: gradual dose titration needs, personalized dosing flexibility, adjunctive B12/Glycine benefits"
+  "subjective": "${isRenewal ? 'Narrative of follow-up visit: tolerability of current dose, side effects, weight progress, adherence, and readiness for dose titration' : 'Detailed narrative of patient\'s weight history, goals, GLP-1 experience, symptoms, medications, and treatment interest'}",
+  "objective": "Anthropometrics (height, weight, BMI with classification, ideal weight, excess weight), vital signs, activity level, complete medical/surgical history, current medications, allergies, GLP-1 history${isRenewal ? ', current prescription details, treatment duration' : ''}",
+  "assessment": "Primary diagnosis with ICD-10 code, ${isRenewal ? 'treatment response assessment, tolerability evaluation, dose titration rationale' : 'clinical assessment of candidacy, contraindication screening, medical necessity rationale for compounded therapy with B12 or Glycine additive explanation'}",
+  "plan": "${isRenewal ? 'Dose titration plan (from current dose to next dose), specific new prescription details, monitoring schedule' : 'Medication plan (specific compound, dosing, titration), monitoring & follow-up schedule, patient education provided, disposition'}",
+  "medicalNecessity": "${isRenewal ? 'Rationale for continued therapy and dose escalation including treatment response, clinical benefit, and titration protocol adherence' : 'Detailed rationale for compounded GLP-1 formulation including: gradual dose titration needs, personalized dosing flexibility, adjunctive B12/Glycine benefits'}"
 }
 
 BMI Classifications:
@@ -283,7 +297,140 @@ ICD-10 Codes to use:
 
 DO NOT return nested objects. Each field must be a comprehensive plain text string.`;
 
-  const userPrompt = `Create a professional TELEHEALTH WEIGHT MANAGEMENT SOAP note for this patient evaluation.
+  const renewalPrescriptionContext = isRenewal ? `
+═══════════════════════════════════════════════════════════════════════════════
+PREVIOUS PRESCRIPTION HISTORY (from actual prescriptions sent):
+${input.previousPrescriptions!.map((rx, i) => `
+Prescription ${i + 1}:
+• Medication: ${rx.medName}
+• Strength: ${rx.strength}
+• Dose: ${rx.dose !== null ? rx.dose + 'mg' : 'See sig'}
+• Sig (Directions): ${rx.sig}
+• Prescribed: ${rx.prescribedAt}
+${rx.providerName ? `• Provider: ${rx.providerName}` : ''}
+`).join('')}
+═══════════════════════════════════════════════════════════════════════════════` : '';
+
+  const systemPrompt = baseSystemPrompt;
+
+  const userPrompt = isRenewal ? `Create a professional TELEHEALTH WEIGHT MANAGEMENT FOLLOW-UP / RENEWAL SOAP note for this returning patient.
+
+This is a RENEWAL visit — the patient has been on GLP-1 therapy and is returning for continued treatment with dose titration.
+
+IMPORTANT: Use these EXACT placeholders in your response - they will be replaced with real data:
+- For patient name, use exactly: ${PLACEHOLDER_NAME}
+- For patient age, use exactly: ${PLACEHOLDER_AGE}
+
+Patient Reference: ${PLACEHOLDER_NAME}
+Patient Age: ${PLACEHOLDER_AGE}
+DOB Reference: ${anonymizedInput.dateOfBirth || 'See intake data'}
+${renewalPrescriptionContext}
+
+INTAKE FORM DATA (from original intake):
+${JSON.stringify(anonymizedInput.intakeData, null, 2)}
+
+Generate a comprehensive RENEWAL/FOLLOW-UP SOAP note following this structure:
+
+═══════════════════════════════════════════════════════════════════════════════
+
+S – SUBJECTIVE:
+Write a detailed narrative paragraph covering:
+- Start with: "${PLACEHOLDER_NAME}, a ${PLACEHOLDER_AGE}-year-old [sex from intake], presents for follow-up evaluation of weight management."
+- This is a RENEWAL/FOLLOW-UP visit — reference that patient has been on GLP-1 therapy
+- Reference the previous prescription: ${prevRx ? `was prescribed ${prevRx.medName} at ${prevRx.dose !== null ? prevRx.dose + 'mg' : prevRx.strength}` : 'has been on GLP-1 therapy'}
+- Reports tolerating current dose well (or note any reported side effects from intake)
+- Weight loss progress since starting therapy
+- Adherence to medication regimen
+- Continued motivation for weight management
+- Denies new contraindications: gastroparesis, pancreatitis, thyroid malignancy, MEN-2
+- No new medical concerns or medication changes
+- Ready for dose titration per protocol
+
+═══════════════════════════════════════════════════════════════════════════════
+
+O – OBJECTIVE:
+Format with bullet points and sections:
+
+Anthropometrics:
+• Height: [from intake]
+• Weight: [from intake] lbs
+• BMI: [calculate] kg/m² ([Classification])
+• Ideal Body Weight: [calculate] lbs
+• Excess Weight: ~[calculate] lbs
+
+Current GLP-1 Therapy:
+• Medication: ${prevRx?.medName || '[from prescription history]'}
+• Current Dose: ${prevRx?.dose !== null ? prevRx?.dose + 'mg' : prevRx?.strength || '[from prescription history]'}
+• Directions: ${prevRx?.sig || '[from prescription history]'}
+
+Vital Signs (Self-Reported):
+• Blood Pressure: [if provided or "Stable" if not specified]
+
+Treatment Tolerability:
+• GI side effects: [assess from intake data - nausea, constipation, etc.]
+• Injection site reactions: None reported
+• Overall tolerance: Good
+
+Medical History (unchanged from initial evaluation):
+• [reference key items from intake]
+
+Medications:
+• [list current medications including GLP-1]
+
+Allergies:
+• [list or "No known drug allergies (NKDA)"]
+
+═══════════════════════════════════════════════════════════════════════════════
+
+A – ASSESSMENT:
+
+Primary Diagnosis:
+• [ICD-10 code] – [Diagnosis description] (BMI [X] kg/m²)
+
+Treatment Response:
+• Patient has been on ${prevRx?.medName || 'GLP-1 therapy'} at ${prevRx?.dose !== null ? prevRx?.dose + 'mg' : prevRx?.strength || 'current dose'}
+• Tolerating current dose well with no significant adverse effects
+• Continued clinical indication for pharmacologic weight management
+• Patient meets criteria for dose titration per standard protocol
+
+Dose Titration Rationale:
+• Current dose has been tolerated — appropriate to advance to next dose level per titration protocol
+• Gradual dose escalation improves efficacy while maintaining tolerability
+• Continued compounded formulation allows precise dosing flexibility
+
+No new contraindications identified. Patient remains an appropriate candidate for continued GLP-1 therapy.
+
+═══════════════════════════════════════════════════════════════════════════════
+
+P – PLAN:
+
+Dose Titration:
+• Previous dose: ${prevRx?.dose !== null ? prevRx?.dose + 'mg' : prevRx?.strength || '[current dose]'} ${prevRx?.medName || ''}
+• Titrate UP to next dose per protocol
+• Continue compounded formulation with Vitamin B12 or Glycine per pharmacy standards
+
+Monitoring & Follow-Up:
+• Monitor weight, BMI, appetite, and tolerance at increased dose
+• Assess for dose-related side effects (nausea, constipation, reflux) at higher dose
+• Reinforce hydration, protein intake, and lifestyle adherence
+• Follow-up evaluation in 4 weeks or sooner if adverse symptoms occur
+
+Patient Education:
+• Reviewed expected effects at higher dose
+• Discussed gradual titration approach and timeline
+• Counseled on signs/symptoms requiring medical attention
+• Reinforced that medication is adjunct to diet and activity
+
+Disposition:
+• Patient remains an appropriate candidate for continued medically supervised weight loss
+• Dose titration approved pending pharmacy processing
+• Next follow-up scheduled per protocol
+
+═══════════════════════════════════════════════════════════════════════════════
+
+Return as valid JSON with keys: subjective, objective, assessment, plan, medicalNecessity`
+
+  : `Create a professional TELEHEALTH WEIGHT MANAGEMENT SOAP note for this patient evaluation.
 
 IMPORTANT: Use these EXACT placeholders in your response - they will be replaced with real data:
 - For patient name, use exactly: ${PLACEHOLDER_NAME}
