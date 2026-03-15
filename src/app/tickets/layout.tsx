@@ -44,7 +44,6 @@ import {
 } from '@/components/notifications';
 import { ClinicBrandingProvider, useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
 import ErrorBoundary from '@/components/ErrorBoundary';
-import { getStoredUserRole } from '@/lib/auth/stored-role';
 import { getAdminNavConfig } from '@/lib/nav/adminNav';
 import { logger } from '@/lib/logger';
 import { EONPRO_LOGO, EONPRO_ICON } from '@/lib/constants/brand-assets';
@@ -134,7 +133,7 @@ function TicketsLayoutInner({ children }: { children: React.ReactNode }) {
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<number | null>(null);
-  const [userRole, setUserRole] = useState<string>(() => getStoredUserRole(TICKETS_ALLOWED_ROLES) ?? 'admin');
+  const [userRole, setUserRole] = useState<string>('admin');
 
   // Get branding colors with fallbacks
   const primaryColor = branding?.primaryColor || '#4fa77e';

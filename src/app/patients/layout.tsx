@@ -28,7 +28,6 @@ import {
   Camera,
 } from 'lucide-react';
 import { ClinicBrandingProvider, useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
-import { getStoredUserRole } from '@/lib/auth/stored-role';
 import { getAdminNavConfig, getNonAdminNavConfig } from '@/lib/nav/adminNav';
 import { logger } from '@/lib/logger';
 import { EONPRO_LOGO, EONPRO_ICON } from '@/lib/constants/brand-assets';
@@ -73,7 +72,7 @@ function PatientsLayoutInner({ children }: { children: React.ReactNode }) {
   const { branding, isLoading: brandingLoading } = useClinicBranding();
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [userRole, setUserRole] = useState<string | null>(() => getStoredUserRole(ALLOWED_ROLES));
+  const [userRole, setUserRole] = useState<string | null>(null);
 
   // Get branding colors with fallbacks
   const primaryColor = branding?.primaryColor || '#4fa77e';
