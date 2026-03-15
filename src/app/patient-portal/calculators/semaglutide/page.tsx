@@ -154,49 +154,208 @@ export default function SemaglutideDoseCalculatorPage() {
               </div>
 
               {/* Syringe Visualization */}
-              <div className="mx-auto flex max-w-xs justify-center">
-                <div className="relative">
-                  {/* Syringe body */}
-                  <div className="relative h-64 w-16 overflow-hidden rounded-xl border-4 border-gray-200 bg-gradient-to-b from-gray-50 to-gray-100 shadow-inner">
-                    {/* Fill */}
-                    <div
-                      className="absolute bottom-0 left-0 right-0 duration-700 ease-out"
+              <div className="w-full py-6">
+                <svg
+                  viewBox="0 0 400 140"
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="w-full"
+                  role="img"
+                  aria-label={`Syringe showing ${units || 0} units`}
+                >
+                  <defs>
+                    <linearGradient id="syrGlass" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#f0f2f5" />
+                      <stop offset="15%" stopColor="#fafbfc" />
+                      <stop offset="50%" stopColor="#ffffff" />
+                      <stop offset="85%" stopColor="#f4f5f7" />
+                      <stop offset="100%" stopColor="#e8eaed" />
+                    </linearGradient>
+                    <linearGradient id="syrLiquid" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor={`${accentColor}88`} />
+                      <stop offset="50%" stopColor={accentColor} />
+                      <stop offset="100%" stopColor={`${accentColor}cc`} />
+                    </linearGradient>
+                    <linearGradient id="syrMetal" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#d4d8de" />
+                      <stop offset="30%" stopColor="#eceef1" />
+                      <stop offset="70%" stopColor="#e6e8ec" />
+                      <stop offset="100%" stopColor="#c5c9d0" />
+                    </linearGradient>
+                    <linearGradient id="syrNeedle" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#d0d5db" />
+                      <stop offset="50%" stopColor="#b8bfc8" />
+                      <stop offset="100%" stopColor="#a0a8b2" />
+                    </linearGradient>
+                    <linearGradient id="syrRubber" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#5a6270" />
+                      <stop offset="50%" stopColor="#3d4450" />
+                      <stop offset="100%" stopColor="#2a303a" />
+                    </linearGradient>
+                    <linearGradient id="syrHub" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#dee1e6" />
+                      <stop offset="50%" stopColor="#c5c9d0" />
+                      <stop offset="100%" stopColor="#adb3bc" />
+                    </linearGradient>
+                    <clipPath id="syrClip">
+                      <rect x="92" y="38" width="186" height="54" rx="5" />
+                    </clipPath>
+                    <filter id="syrShadow" x="-3%" y="-8%" width="106%" height="125%">
+                      <feDropShadow dx="0" dy="1.5" stdDeviation="2.5" floodColor="#000" floodOpacity="0.07" />
+                    </filter>
+                  </defs>
+
+                  {/* Plunger rod — drawn first (behind barrel) */}
+                  <rect
+                    x="100"
+                    y="59"
+                    width="272"
+                    height="12"
+                    rx="2.5"
+                    fill="url(#syrMetal)"
+                    stroke="#c0c5cc"
+                    strokeWidth="0.5"
+                  />
+                  {/* Grip ridges on rod */}
+                  {[0, 6, 12].map((d) => (
+                    <line
+                      key={d}
+                      x1={350 + d}
+                      y1="60"
+                      x2={350 + d}
+                      y2="70"
+                      stroke="#b0b6be"
+                      strokeWidth="0.8"
+                      strokeLinecap="round"
+                    />
+                  ))}
+
+                  {/* Thumb rest */}
+                  <rect x="370" y="52" width="10" height="26" rx="3" fill="url(#syrMetal)" stroke="#b0b6be" strokeWidth="0.8" />
+                  <rect x="378" y="47" width="8" height="36" rx="4" fill="url(#syrMetal)" stroke="#b0b6be" strokeWidth="0.8" />
+
+                  {/* Barrel body */}
+                  <rect
+                    x="90"
+                    y="35"
+                    width="190"
+                    height="60"
+                    rx="7"
+                    fill="url(#syrGlass)"
+                    stroke="#c5c9d0"
+                    strokeWidth="1.2"
+                    filter="url(#syrShadow)"
+                  />
+
+                  {/* Glass highlight streak */}
+                  <rect x="100" y="40" width="170" height="5" rx="2.5" fill="white" opacity="0.55" />
+
+                  {/* Liquid fill */}
+                  <g clipPath="url(#syrClip)">
+                    <rect
+                      x="92"
+                      y="38"
+                      width="186"
+                      height="54"
+                      rx="5"
+                      fill="url(#syrLiquid)"
+                      opacity="0.65"
                       style={{
-                        height: `${fillPercentage}%`,
-                        background: `linear-gradient(to top, ${accentColor}, ${accentColor}99)`,
-                        transition: 'height 700ms ease-out',
+                        transformOrigin: '92px 65px',
+                        transform: `scaleX(${fillPercentage / 100})`,
+                        transition: 'transform 700ms ease-out',
                       }}
                     />
-                    {/* Measurement lines */}
-                    {[0, 20, 40, 60, 80, 100].map((mark) => (
-                      <div
-                        key={mark}
-                        className="absolute left-0 flex w-full items-center"
-                        style={{ bottom: `${mark}%` }}
-                      >
-                        <div className={`${mark % 20 === 0 ? 'w-4' : 'w-2'} h-0.5 bg-gray-300`} />
-                        {mark % 20 === 0 && (
-                          <span className="ml-1 text-[10px] font-semibold text-gray-400">
-                            {mark}
-                          </span>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                  {/* Plunger */}
-                  <div
-                    className="absolute left-1/2 w-10 -translate-x-1/2 rounded-t-lg bg-gradient-to-b from-gray-300 to-gray-400 shadow"
+                  </g>
+
+                  {/* Stopper (rubber gasket) */}
+                  <g
                     style={{
-                      top: `calc(${100 - fillPercentage}% - 40px)`,
-                      height: '60px',
-                      transition: 'top 700ms ease-out',
+                      transform: `translateX(${186 * (fillPercentage / 100)}px)`,
+                      transition: 'transform 700ms ease-out',
                     }}
                   >
-                    <div className="absolute -top-4 left-1/2 h-6 w-6 -translate-x-1/2 rounded-full bg-gray-400 shadow" />
-                  </div>
-                  {/* Needle */}
-                  <div className="absolute -bottom-12 left-1/2 h-12 w-1 -translate-x-1/2 rounded-b bg-gradient-to-b from-gray-300 to-gray-500" />
-                </div>
+                    <rect x="90" y="37" width="9" height="56" rx="2" fill="url(#syrRubber)" />
+                    <line x1="93" y1="40" x2="93" y2="90" stroke="#6b7280" strokeWidth="0.5" opacity="0.35" />
+                    <line x1="96" y1="40" x2="96" y2="90" stroke="#6b7280" strokeWidth="0.5" opacity="0.35" />
+                  </g>
+
+                  {/* Measurement ticks & labels */}
+                  {[0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100].map((mark) => {
+                    const x = 94 + (182 * mark) / 100;
+                    const isMajor = mark % 50 === 0;
+                    const tickLen = isMajor ? 10 : 6;
+                    return (
+                      <g key={mark}>
+                        <line
+                          x1={x} y1={35} x2={x} y2={35 + tickLen}
+                          stroke={isMajor ? '#6b7280' : '#b0b6be'}
+                          strokeWidth={isMajor ? 1.2 : 0.7}
+                          strokeLinecap="round"
+                        />
+                        <line
+                          x1={x} y1={95} x2={x} y2={95 - tickLen}
+                          stroke={isMajor ? '#6b7280' : '#b0b6be'}
+                          strokeWidth={isMajor ? 1.2 : 0.7}
+                          strokeLinecap="round"
+                        />
+                        {isMajor && (
+                          <text
+                            x={x} y={112}
+                            textAnchor="middle"
+                            fill="#6b7280"
+                            fontSize="11"
+                            fontWeight="600"
+                            fontFamily="system-ui, sans-serif"
+                            className="select-none"
+                          >
+                            {mark}
+                          </text>
+                        )}
+                      </g>
+                    );
+                  })}
+
+                  {/* Hub connector (barrel to needle) */}
+                  <path
+                    d="M 90 48 L 74 56 L 74 74 L 90 82 Z"
+                    fill="url(#syrHub)"
+                    stroke="#adb3bc"
+                    strokeWidth="0.8"
+                    strokeLinejoin="round"
+                  />
+                  <line x1="82" y1="53" x2="82" y2="77" stroke="#b8bfc8" strokeWidth="0.6" opacity="0.5" />
+
+                  {/* Needle shaft */}
+                  <rect x="14" y="63" width="62" height="4" rx="1.5" fill="url(#syrNeedle)" />
+                  {/* Needle bevel tip */}
+                  <polygon points="14,63 5,65 14,67" fill="#a0a8b2" />
+
+                  {/* Finger flange */}
+                  <rect
+                    x="280"
+                    y="24"
+                    width="5"
+                    height="82"
+                    rx="2.5"
+                    fill="#d4d8de"
+                    stroke="#b8bfc8"
+                    strokeWidth="0.6"
+                  />
+
+                  {/* "UNITS" label */}
+                  <text
+                    x="185" y="132"
+                    textAnchor="middle"
+                    fill="#b0b6be"
+                    fontSize="9"
+                    fontWeight="600"
+                    fontFamily="system-ui, sans-serif"
+                    letterSpacing="0.1em"
+                    className="select-none"
+                  >
+                    UNITS
+                  </text>
+                </svg>
               </div>
             </div>
           </div>
