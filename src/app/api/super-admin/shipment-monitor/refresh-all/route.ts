@@ -49,6 +49,7 @@ async function handleRefreshAll(_req: NextRequest, _user: AuthUser) {
     let totalDelivered = 0;
     let totalErrors = 0;
     let totalPolled = 0;
+    let totalNoData = 0;
 
     for (const [clinicId, shipments] of byClinic) {
       let credentials: FedExCredentials;
@@ -78,6 +79,20 @@ async function handleRefreshAll(_req: NextRequest, _user: AuthUser) {
         });
         totalErrors += uniqueTrackingNumbers.length;
         continue;
+      }
+
+      let nullCount = 0;
+      for (const [, r] of results) {
+        if (!r) nullCount++;
+      }
+      totalNoData += nullCount;
+      if (nullCount > 0) {
+        logger.warn('[Shipment Monitor Refresh] FedEx returned no data for some tracking numbers', {
+          clinicId,
+          total: uniqueTrackingNumbers.length,
+          nullResults: nullCount,
+          sampleTrackingNumbers: uniqueTrackingNumbers.slice(0, 3),
+        });
       }
 
       for (const shipment of shipments) {
@@ -140,6 +155,7 @@ async function handleRefreshAll(_req: NextRequest, _user: AuthUser) {
       totalPolled,
       totalUpdated,
       totalDelivered,
+      totalNoData,
       totalErrors,
       clinicsProcessed: byClinic.size,
     });

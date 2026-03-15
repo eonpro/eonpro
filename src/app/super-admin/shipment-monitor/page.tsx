@@ -87,6 +87,11 @@ function formatDate(d: string | null): string {
   return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
+function isSameDay(a: string | null, b: string | null): boolean {
+  if (!a || !b) return false;
+  return new Date(a).toDateString() === new Date(b).toDateString();
+}
+
 function timeSince(d: string): string {
   const ms = Date.now() - new Date(d).getTime();
   const hours = Math.floor(ms / 3600000);
@@ -105,7 +110,7 @@ export default function ShipmentMonitorPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [bulkRefreshing, setBulkRefreshing] = useState(false);
-  const [bulkResult, setBulkResult] = useState<{ totalUpdated: number; totalDelivered: number; totalPolled: number } | null>(null);
+  const [bulkResult, setBulkResult] = useState<{ totalUpdated: number; totalDelivered: number; totalPolled: number; totalNoData: number } | null>(null);
 
   const fetchData = useCallback(async (currentTab: Tab, currentPage: number, currentSearch: string) => {
     try {
@@ -151,7 +156,7 @@ export default function ShipmentMonitorPage() {
       const res = await apiFetch('/api/super-admin/shipment-monitor/refresh-all', { method: 'POST' });
       if (res.ok) {
         const data = await res.json();
-        setBulkResult({ totalUpdated: data.totalUpdated, totalDelivered: data.totalDelivered, totalPolled: data.totalPolled });
+        setBulkResult({ totalUpdated: data.totalUpdated, totalDelivered: data.totalDelivered, totalPolled: data.totalPolled, totalNoData: data.totalNoData || 0 });
         await fetchData(tab, pagination.page, search);
       }
     } catch {
@@ -216,16 +221,29 @@ export default function ShipmentMonitorPage() {
 
       {/* Bulk refresh banners */}
       {bulkResult && (
-        <div className="mb-4 flex items-center justify-between rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
-          <div className="flex items-center gap-2 text-sm text-emerald-800">
-            <CheckCircle2 className="h-4 w-4" />
+        <div className={`mb-4 flex items-center justify-between rounded-xl border px-4 py-3 ${
+          bulkResult.totalNoData > 0 && bulkResult.totalUpdated === 0
+            ? 'border-amber-200 bg-amber-50'
+            : 'border-emerald-200 bg-emerald-50'
+        }`}>
+          <div className={`flex items-center gap-2 text-sm ${
+            bulkResult.totalNoData > 0 && bulkResult.totalUpdated === 0 ? 'text-amber-800' : 'text-emerald-800'
+          }`}>
+            {bulkResult.totalNoData > 0 && bulkResult.totalUpdated === 0 ? (
+              <AlertTriangle className="h-4 w-4" />
+            ) : (
+              <CheckCircle2 className="h-4 w-4" />
+            )}
             <span>
-              FedEx tracking refreshed: <strong>{bulkResult.totalPolled}</strong> tracked,{' '}
+              FedEx tracking: <strong>{bulkResult.totalPolled}</strong> sent to FedEx,{' '}
               <strong>{bulkResult.totalUpdated}</strong> updated,{' '}
               <strong>{bulkResult.totalDelivered}</strong> newly delivered
+              {bulkResult.totalNoData > 0 && (
+                <> · <strong>{bulkResult.totalNoData}</strong> returned no data from FedEx (tracking may not be available yet)</>
+              )}
             </span>
           </div>
-          <button onClick={() => setBulkResult(null)} className="text-xs text-emerald-600 hover:underline">Dismiss</button>
+          <button onClick={() => setBulkResult(null)} className="text-xs hover:underline">Dismiss</button>
         </div>
       )}
       {bulkRefreshing && (
@@ -376,7 +394,11 @@ export default function ShipmentMonitorPage() {
                       <td className="px-4 py-3 text-xs text-gray-600">{s.clinicName || `Clinic #${s.clinicId}`}</td>
                       <td className="px-4 py-3 text-xs text-gray-600">{dateColumnValue(s)}</td>
                       {(tab === 'in_transit' || tab === 'shipped') && (
-                        <td className="px-4 py-3 text-xs text-gray-600">{formatDate(s.estimatedDelivery)}</td>
+                        <td className="px-4 py-3 text-xs text-gray-600">
+                          {s.estimatedDelivery && !isSameDay(s.estimatedDelivery, s.shippedAt) && !isSameDay(s.estimatedDelivery, s.createdAt)
+                            ? formatDate(s.estimatedDelivery)
+                            : '—'}
+                        </td>
                       )}
                       {tab === 'delivered' && (
                         <td className="px-4 py-3">
