@@ -1,0 +1,45 @@
+name: Fix Wildcard Domain Alias
+
+# Vercel Git Integration auto-deploys on push to main, but the wildcard
+# *.eonpro.io alias doesn't get reassigned to new deployments automatically.
+# This workflow runs after each push to main and forces the alias update.
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  fix-alias:
+    name: Reassign *.eonpro.io to latest production
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Install Vercel CLI
+        run: npm i -g vercel@latest
+
+      - name: Wait for Vercel deployment
+        run: sleep 300
+        # Vercel builds take ~4-5 minutes; wait for it to finish
+
+      - name: Get latest production deployment
+        id: get-deploy
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: |
+          DEPLOY_URL=$(vercel ls --token "$VERCEL_TOKEN" --scope "$VERCEL_ORG_ID" 2>/dev/null \
+            | grep "● Ready" | grep "Production" | head -1 | awk '{print $2}')
+          echo "Latest production deployment: $DEPLOY_URL"
+          echo "deploy_url=$DEPLOY_URL" >> "$GITHUB_OUTPUT"
+
+      - name: Reassign wildcard alias
+        if: steps.get-deploy.outputs.deploy_url != ''
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+        run: |
+          DEPLOY_URL="${{ steps.get-deploy.outputs.deploy_url }}"
+          echo "Assigning *.eonpro.io → $DEPLOY_URL"
+          vercel alias set "$DEPLOY_URL" '*.eonpro.io' --token "$VERCEL_TOKEN" --scope "$VERCEL_ORG_ID"
+          echo "✅ Wildcard alias updated"
