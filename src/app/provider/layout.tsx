@@ -128,7 +128,7 @@ function ProviderLayoutInner({ children }: { children: React.ReactNode }) {
       setLoading(false);
       router.push('/login');
     }
-  }, [router, fetchQueueCount]);
+  }, [isHydrated, isAuthenticated, authUser, authRole, router, fetchQueueCount]);
 
   // Refresh queue count periodically and when pathname changes
   useEffect(() => {
