@@ -99,6 +99,7 @@ async function fetchPatientPrescriptions(req: NextRequest, user: AuthUser, patie
         amountPaid: true,
         status: true,
         description: true,
+        stripeInvoiceId: true,
         stripeInvoiceNumber: true,
       },
     }), []),
@@ -146,29 +147,45 @@ async function fetchPatientPrescriptions(req: NextRequest, user: AuthUser, patie
   }
 
   // Deduplicate invoices: multiple DB records can represent the same Stripe payment
-  // (e.g. invoice.paid webhook + subscription.created + payment_intent.succeeded).
-  // Group by stripeInvoiceNumber (or fall back to same-day + same-amount) and keep
-  // the record with the richest description.
-  const deduped = new Map<string, typeof invoices[number]>();
+  // (e.g. invoice.paid, subscription.created, payment_intent.succeeded webhooks each
+  // create a separate Invoice row). Strategy:
+  //  1. Filter out generic event records ("Subscription creation", "Payment received")
+  //     when a real Stripe invoice exists for the same day.
+  //  2. Group remaining by stripeInvoiceId (if present) or same-day to catch any leftovers.
+  const GENERIC_DESCRIPTION = /subscription creation|payment received|payment successful/i;
+
+  // Partition: real invoices vs generic event records
+  const real: typeof invoices = [];
+  const generic: typeof invoices = [];
   for (const inv of invoices) {
+    if (GENERIC_DESCRIPTION.test(inv.description ?? '')) {
+      generic.push(inv);
+    } else {
+      real.push(inv);
+    }
+  }
+
+  // Build a set of days that already have a real invoice — generic records on those days are dropped
+  const coveredDays = new Set(real.map((inv) => inv.createdAt.toISOString().slice(0, 10)));
+
+  // Keep generic records only for days with NO real invoice (edge case: only webhook records exist)
+  const survivingGeneric = generic.filter(
+    (inv) => !coveredDays.has(inv.createdAt.toISOString().slice(0, 10))
+  );
+
+  // Final dedup within real invoices: group by stripeInvoiceId, then same-day fallback
+  const deduped = new Map<string, typeof invoices[number]>();
+  for (const inv of [...real, ...survivingGeneric]) {
     const dayKey = inv.createdAt.toISOString().slice(0, 10);
-    const key = inv.stripeInvoiceNumber
-      ? `stripe:${inv.stripeInvoiceNumber}`
-      : `day:${dayKey}:${inv.amountPaid || inv.amount || 0}`;
+    const key = inv.stripeInvoiceId
+      ? `sid:${inv.stripeInvoiceId}`
+      : inv.stripeInvoiceNumber
+        ? `snum:${inv.stripeInvoiceNumber}`
+        : `day:${dayKey}:${inv.amountPaid || inv.amount || 0}`;
 
     const existing = deduped.get(key);
-    if (!existing) {
+    if (!existing || (inv.description?.length ?? 0) > (existing.description?.length ?? 0)) {
       deduped.set(key, inv);
-    } else {
-      // Keep the record with the most informative description (longest, non-generic)
-      const genericPatterns = /subscription creation|payment received/i;
-      const existingIsGeneric = genericPatterns.test(existing.description ?? '');
-      const newIsGeneric = genericPatterns.test(inv.description ?? '');
-      if (existingIsGeneric && !newIsGeneric) {
-        deduped.set(key, inv);
-      } else if (!existingIsGeneric && !newIsGeneric && (inv.description?.length ?? 0) > (existing.description?.length ?? 0)) {
-        deduped.set(key, inv);
-      }
     }
   }
 
