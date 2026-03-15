@@ -34,10 +34,10 @@ interface InjectionLog {
 const SITE_POSITIONS: Record<InjectionSite, { x: number; y: number; label: string }> = {
   abdomen_left: { x: 35, y: 45, label: 'Left Abdomen' },
   abdomen_right: { x: 65, y: 45, label: 'Right Abdomen' },
-  thigh_left: { x: 35, y: 75, label: 'Left Thigh' },
-  thigh_right: { x: 65, y: 75, label: 'Right Thigh' },
-  upper_arm_left: { x: 15, y: 35, label: 'Left Arm' },
-  upper_arm_right: { x: 85, y: 35, label: 'Right Arm' },
+  thigh_left: { x: 37, y: 76, label: 'Left Thigh' },
+  thigh_right: { x: 63, y: 76, label: 'Right Thigh' },
+  upper_arm_left: { x: 17, y: 36, label: 'Left Arm' },
+  upper_arm_right: { x: 83, y: 36, label: 'Right Arm' },
 };
 
 export default function InjectionTrackerPage() {
@@ -208,42 +208,23 @@ export default function InjectionTrackerPage() {
               <svg viewBox="0 0 100 130" className="h-full w-full">
                 <defs>
                   <linearGradient id="bodyFill" x1="0.5" y1="0" x2="0.5" y2="1">
-                    <stop offset="0%" stopColor="#e6e9ed" />
-                    <stop offset="100%" stopColor="#d3d7dd" />
+                    <stop offset="0%" stopColor="#e8ebef" />
+                    <stop offset="100%" stopColor="#d5d8de" />
                   </linearGradient>
-                  <filter id="bodyGlow" x="-3%" y="-1.5%" width="106%" height="103%">
-                    <feDropShadow dx="0" dy="0.3" stdDeviation="0.5" floodColor="#8a919b" floodOpacity="0.12" />
+                  <filter id="bodyGlow" x="-2%" y="-1%" width="104%" height="102%">
+                    <feDropShadow dx="0" dy="0.3" stdDeviation="0.6" floodColor="#8a919b" floodOpacity="0.12" />
                   </filter>
                 </defs>
 
-                <g filter="url(#bodyGlow)">
-                  {/* Head */}
-                  <ellipse cx="50" cy="7" rx="5.5" ry="6.5" fill="url(#bodyFill)" />
+                {/* Head */}
+                <ellipse cx="50" cy="9.5" rx="5.5" ry="6.5" fill="url(#bodyFill)" filter="url(#bodyGlow)" />
 
-                  {/* Neck */}
-                  <path
-                    d="M 47.5 13 L 47 22 Q 47 23 50 23 Q 53 23 53 22 L 52.5 13 Z"
-                    fill="url(#bodyFill)"
-                  />
-
-                  {/* Torso + Legs (single connected shape) */}
-                  <path
-                    d="M 50 21 C 45 21 40 22 36 24 C 33 26 32 29 33 33 C 34 39 36 45 38 49 C 39 52 40 55 39 58 C 38 61 38 63 39 65 C 38 70 37 78 36 87 C 35 95 35 103 36 110 C 37 116 38 121 39 124 C 40 126 42 127 43 125 C 44 122 45 118 45 113 C 46 106 46 98 46 90 C 46 82 47 74 47.5 68 C 48 66 49 65 50 65 C 51 65 52 66 52.5 68 C 53 74 54 82 54 90 C 54 98 55 106 56 113 C 57 118 58 122 59 125 C 60 127 62 126 63 124 C 64 121 65 116 65 110 C 66 103 65 95 64 87 C 63 78 62 70 62 65 C 63 63 62 61 61 58 C 60 55 61 52 62 49 C 64 45 66 39 67 33 C 68 29 67 26 64 24 C 60 22 55 21 50 21 Z"
-                    fill="url(#bodyFill)"
-                  />
-
-                  {/* Left Arm */}
-                  <path
-                    d="M 34 25 C 30 28 25 35 21 43 C 18 50 16 56 15 61 C 14 65 15 69 15 72 C 15 74 17 75 18 74 C 20 73 20 71 20 68 C 21 64 22 60 23 55 C 25 49 27 43 29 38 C 31 33 33 29 35 26 Z"
-                    fill="url(#bodyFill)"
-                  />
-
-                  {/* Right Arm */}
-                  <path
-                    d="M 66 25 C 70 28 75 35 79 43 C 82 50 84 56 85 61 C 86 65 85 69 85 72 C 85 74 83 75 82 74 C 80 73 80 71 80 68 C 79 64 78 60 77 55 C 75 49 73 43 71 38 C 69 33 67 29 65 26 Z"
-                    fill="url(#bodyFill)"
-                  />
-                </g>
+                {/* Body (single continuous path — neck, shoulders, arms, torso, legs, feet) */}
+                <path
+                  filter="url(#bodyGlow)"
+                  fill="url(#bodyFill)"
+                  d="M 50 16.5 C 52 16.5 53 19 54 21 C 56 22.5 61 24 65 26 C 67 27 68 29 67.5 31 C 67 34 73 38 77 44 C 80 49 83 54 84 60 C 84.5 64 84 68 83 72 C 82.5 74 81.5 74 81 73 C 80 71 80.5 68 81 64 C 81.5 60 80 55 78 51 C 75.5 46 72 41 69 37 C 67 34 66.5 32 66 31 C 66 35 66.5 41 66 47 C 65.5 51 64 55 63 58 C 62 61 62 63 62.5 65 C 63 69 63.5 75 63 81 C 62.5 87 62 93 62 99 C 62 104 62.5 110 63 115 C 63.5 119 64 121 65 123 C 66 125 65.5 127 63 127 C 61 127 59 125 58.5 123 C 58 119 57 113 56.5 107 C 56 101 55.5 95 55 89 C 54.5 83 54 77 53.5 71 C 53 68 52 66 51 65 C 50.5 64.5 49.5 64.5 49 65 C 48 66 47 68 46.5 71 C 46 77 45.5 83 45 89 C 44.5 95 44 101 43.5 107 C 43 113 42 119 41.5 123 C 41 125 39 127 37 127 C 34.5 127 34 125 35 123 C 36 121 36.5 119 37 115 C 37.5 110 38 104 38 99 C 38 93 37.5 87 37 81 C 36.5 75 37 69 37.5 65 C 38 63 38 61 37 58 C 36 55 34.5 51 34 47 C 33.5 41 34 35 34 31 C 33.5 32 33 34 31 37 C 28 41 24.5 46 22 51 C 20 55 18.5 60 19 64 C 19.5 68 20 71 19 73 C 18.5 74 17.5 74 17 72 C 16 68 15.5 64 16 60 C 17 54 20 49 23 44 C 27 38 33 34 32.5 31 C 32 29 33 27 35 26 C 39 24 44 22.5 46 21 C 47 19 48 16.5 50 16.5 Z"
+                />
               </svg>
 
               {/* Clickable injection site markers */}
