@@ -197,20 +197,20 @@ export default function SemaglutideDoseCalculatorPage() {
                       <stop offset="100%" stopColor="#adb3bc" />
                     </linearGradient>
                     <clipPath id="syrClip">
-                      <rect x="74" y="27" width="236" height="26" rx="4" />
+                      <rect x="74" y="34" width="236" height="16" rx="3" />
                     </clipPath>
-                    <filter id="syrShadow" x="-2%" y="-10%" width="104%" height="130%">
-                      <feDropShadow dx="0" dy="1" stdDeviation="2" floodColor="#000" floodOpacity="0.06" />
+                    <filter id="syrShadow" x="-2%" y="-12%" width="104%" height="135%">
+                      <feDropShadow dx="0" dy="1" stdDeviation="1.5" floodColor="#000" floodOpacity="0.06" />
                     </filter>
                   </defs>
 
                   {/* Plunger rod (behind barrel) */}
                   <rect
                     x="100"
-                    y="37"
+                    y="40"
                     width="248"
-                    height="7"
-                    rx="2"
+                    height="5"
+                    rx="1.5"
                     fill="url(#syrMetal)"
                     stroke="#c0c5cc"
                     strokeWidth="0.4"
@@ -220,26 +220,26 @@ export default function SemaglutideDoseCalculatorPage() {
                     <line
                       key={d}
                       x1={330 + d}
-                      y1="37.5"
+                      y1="40.5"
                       x2={330 + d}
-                      y2="43.5"
+                      y2="44.5"
                       stroke="#b0b6be"
-                      strokeWidth="0.6"
+                      strokeWidth="0.5"
                       strokeLinecap="round"
                     />
                   ))}
 
                   {/* Thumb rest */}
-                  <rect x="346" y="34" width="7" height="13" rx="2" fill="url(#syrMetal)" stroke="#b0b6be" strokeWidth="0.6" />
-                  <rect x="351" y="31" width="6" height="19" rx="3" fill="url(#syrMetal)" stroke="#b0b6be" strokeWidth="0.6" />
+                  <rect x="346" y="37.5" width="6" height="10" rx="2" fill="url(#syrMetal)" stroke="#b0b6be" strokeWidth="0.5" />
+                  <rect x="350" y="35" width="5" height="15" rx="2.5" fill="url(#syrMetal)" stroke="#b0b6be" strokeWidth="0.5" />
 
                   {/* Barrel body */}
                   <rect
                     x="72"
-                    y="25"
+                    y="32"
                     width="240"
-                    height="30"
-                    rx="5"
+                    height="20"
+                    rx="4"
                     fill="url(#syrGlass)"
                     stroke="#c5c9d0"
                     strokeWidth="1"
@@ -247,20 +247,20 @@ export default function SemaglutideDoseCalculatorPage() {
                   />
 
                   {/* Glass highlight streak */}
-                  <rect x="80" y="28" width="224" height="3" rx="1.5" fill="white" opacity="0.5" />
+                  <rect x="80" y="34" width="224" height="2.5" rx="1.25" fill="white" opacity="0.5" />
 
                   {/* Liquid fill */}
                   <g clipPath="url(#syrClip)">
                     <rect
                       x="74"
-                      y="27"
+                      y="34"
                       width="236"
-                      height="26"
-                      rx="4"
+                      height="16"
+                      rx="3"
                       fill="url(#syrLiquid)"
                       opacity="0.55"
                       style={{
-                        transformOrigin: '74px 40px',
+                        transformOrigin: '74px 42px',
                         transform: `scaleX(${fillPercentage / 100})`,
                         transition: 'transform 700ms ease-out',
                       }}
@@ -270,37 +270,61 @@ export default function SemaglutideDoseCalculatorPage() {
                   {/* Stopper (rubber gasket) */}
                   <g
                     style={{
-                      transform: `translateX(${232 * (fillPercentage / 100)}px)`,
+                      transform: `translateX(${230 * (fillPercentage / 100)}px)`,
                       transition: 'transform 700ms ease-out',
                     }}
                   >
-                    <rect x="74" y="26" width="7" height="28" rx="1.5" fill="url(#syrRubber)" />
-                    <line x1="76.5" y1="28" x2="76.5" y2="52" stroke="#6b7280" strokeWidth="0.4" opacity="0.3" />
-                    <line x1="79" y1="28" x2="79" y2="52" stroke="#6b7280" strokeWidth="0.4" opacity="0.3" />
+                    <rect x="74" y="33" width="6" height="18" rx="1.5" fill="url(#syrRubber)" />
+                    <line x1="76" y1="35" x2="76" y2="49" stroke="#6b7280" strokeWidth="0.3" opacity="0.3" />
+                    <line x1="78" y1="35" x2="78" y2="49" stroke="#6b7280" strokeWidth="0.3" opacity="0.3" />
                   </g>
+
+                  {/* mg indicator above fill level */}
+                  {result && fillPercentage > 0 && (
+                    <g
+                      style={{
+                        transform: `translateX(${230 * (fillPercentage / 100)}px)`,
+                        transition: 'transform 700ms ease-out',
+                      }}
+                    >
+                      <line x1="77" y1="24" x2="77" y2="32" stroke="#c9a84c" strokeWidth="0.6" opacity="0.5" />
+                      <rect x="58" y="11" width="38" height="14" rx="4" fill="#fef9eb" stroke="#e8c766" strokeWidth="0.6" />
+                      <text
+                        x="77" y="21"
+                        textAnchor="middle"
+                        fill="#a8861e"
+                        fontSize="7"
+                        fontWeight="700"
+                        fontFamily="system-ui, sans-serif"
+                        className="select-none"
+                      >
+                        {parseFloat(result.mg)} mg
+                      </text>
+                    </g>
+                  )}
 
                   {/* Measurement ticks & labels */}
                   {[0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100].map((mark) => {
                     const x = 76 + (230 * mark) / 100;
                     const isMajor = mark % 50 === 0;
-                    const tickLen = isMajor ? 7 : 5;
+                    const tickLen = isMajor ? 6 : 4;
                     return (
                       <g key={mark}>
                         <line
-                          x1={x} y1={25} x2={x} y2={25 + tickLen}
+                          x1={x} y1={32} x2={x} y2={32 + tickLen}
                           stroke={isMajor ? '#6b7280' : '#b0b6be'}
-                          strokeWidth={isMajor ? 1 : 0.6}
+                          strokeWidth={isMajor ? 0.8 : 0.5}
                           strokeLinecap="round"
                         />
                         <line
-                          x1={x} y1={55} x2={x} y2={55 - tickLen}
+                          x1={x} y1={52} x2={x} y2={52 - tickLen}
                           stroke={isMajor ? '#6b7280' : '#b0b6be'}
-                          strokeWidth={isMajor ? 1 : 0.6}
+                          strokeWidth={isMajor ? 0.8 : 0.5}
                           strokeLinecap="round"
                         />
                         {mark > 0 && (
                           <text
-                            x={x} y={68}
+                            x={x} y={64}
                             textAnchor="middle"
                             fill={isMajor ? '#6b7280' : '#9ca3af'}
                             fontSize={isMajor ? '9' : '7.5'}
@@ -317,25 +341,25 @@ export default function SemaglutideDoseCalculatorPage() {
 
                   {/* Hub connector (barrel to needle) */}
                   <path
-                    d="M 72 32 L 60 36 L 60 44 L 72 48 Z"
+                    d="M 72 36 L 62 39 L 62 45 L 72 48 Z"
                     fill="url(#syrHub)"
                     stroke="#adb3bc"
-                    strokeWidth="0.6"
+                    strokeWidth="0.5"
                     strokeLinejoin="round"
                   />
-                  <line x1="66" y1="35" x2="66" y2="45" stroke="#b8bfc8" strokeWidth="0.5" opacity="0.4" />
+                  <line x1="67" y1="38" x2="67" y2="46" stroke="#b8bfc8" strokeWidth="0.4" opacity="0.4" />
 
                   {/* Needle shaft */}
-                  <rect x="38" y="39" width="24" height="2.5" rx="1" fill="url(#syrNeedle)" />
+                  <rect x="42" y="41.2" width="22" height="1.6" rx="0.8" fill="url(#syrNeedle)" />
                   {/* Needle bevel tip */}
-                  <polygon points="38,39 33,40.25 38,41.5" fill="#a0a8b2" />
+                  <polygon points="42,41.2 38,42 42,42.8" fill="#a0a8b2" />
 
                   {/* Finger flange */}
                   <rect
                     x="312"
-                    y="18"
+                    y="24"
                     width="4"
-                    height="44"
+                    height="36"
                     rx="2"
                     fill="#d4d8de"
                     stroke="#b8bfc8"
@@ -344,7 +368,7 @@ export default function SemaglutideDoseCalculatorPage() {
 
                   {/* "UNITS" label */}
                   <text
-                    x="190" y="80"
+                    x="190" y="77"
                     textAnchor="middle"
                     fill="#b0b6be"
                     fontSize="7"
