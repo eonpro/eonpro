@@ -57,7 +57,7 @@ export default function PatientChatView({ patient }: PatientChatViewProps) {
   const [unreadCount, setUnreadCount] = useState(0);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
   const patientPhone = patient.phoneNumber || patient.phone;
 
@@ -141,6 +141,7 @@ export default function PatientChatView({ patient }: PatientChatViewProps) {
 
     setMessages((prev) => [...prev, tempMessage]);
     setNewMessage('');
+    if (inputRef.current) inputRef.current.style.height = 'auto';
     setSending(true);
     setError(null);
 
@@ -367,7 +368,7 @@ export default function PatientChatView({ patient }: PatientChatViewProps) {
                           </div>
                         )}
 
-                        <p className="break-all whitespace-pre-wrap text-sm">
+                        <p className="whitespace-pre-wrap break-words text-sm">
                           {decodeHtmlEntities(message.message)}
                         </p>
 
@@ -431,15 +432,24 @@ export default function PatientChatView({ patient }: PatientChatViewProps) {
           </div>
         )}
 
-        <div className="flex gap-3">
-          <input
+        <div className="flex items-end gap-3">
+          <textarea
             ref={inputRef}
-            type="text"
             value={newMessage}
-            onChange={(e) => setNewMessage(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && sendMessage()}
+            onChange={(e) => {
+              setNewMessage(e.target.value);
+              e.target.style.height = 'auto';
+              e.target.style.height = `${Math.min(e.target.scrollHeight, 150)}px`;
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+              }
+            }}
             placeholder={sendViaSms ? 'Type a message to send via SMS...' : 'Type a message...'}
-            className="flex-1 rounded-xl border px-4 py-2.5 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
+            rows={1}
+            className="flex-1 resize-none rounded-xl border px-4 py-2.5 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
           <button
             onClick={sendMessage}
@@ -458,6 +468,8 @@ export default function PatientChatView({ patient }: PatientChatViewProps) {
           {sendViaSms
             ? `SMS will be sent to ${patientPhone}`
             : "Message will appear in patient's app"}
+          {' · '}
+          <span className="text-gray-400">Shift + Enter for new line</span>
         </p>
       </div>
     </div>

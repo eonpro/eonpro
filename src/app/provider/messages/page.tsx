@@ -43,6 +43,7 @@ export default function ProviderMessagesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const providerInputRef = useRef<HTMLTextAreaElement>(null);
 
   // Fetch conversations from API
   useEffect(() => {
@@ -120,6 +121,7 @@ export default function ProviderMessagesPage() {
 
     const content = messageContent.trim();
     setMessageContent('');
+    if (providerInputRef.current) providerInputRef.current.style.height = 'auto';
 
     try {
       const response = await apiFetch(`/api/messages/send`, {
@@ -341,17 +343,27 @@ export default function ProviderMessagesPage() {
 
               {/* Message Input */}
               <div className="min-w-0 border-t p-4">
-                <div className="flex min-w-0 gap-2">
+                <div className="flex min-w-0 items-end gap-2">
                   <button className="rounded p-2 text-gray-600 hover:bg-gray-100">
                     <Paperclip className="h-5 w-5" />
                   </button>
-                  <input
-                    type="text"
+                  <textarea
+                    ref={providerInputRef}
                     value={messageContent}
-                    onChange={(e) => setMessageContent(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                    onChange={(e) => {
+                      setMessageContent(e.target.value);
+                      e.target.style.height = 'auto';
+                      e.target.style.height = `${Math.min(e.target.scrollHeight, 150)}px`;
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        handleSendMessage();
+                      }
+                    }}
                     placeholder="Type a message..."
-                    className="min-w-0 flex-1 rounded-lg border px-4 py-2 focus:ring-2 focus:ring-[var(--brand-primary)]"
+                    rows={1}
+                    className="min-w-0 flex-1 resize-none rounded-lg border px-4 py-2 focus:ring-2 focus:ring-[var(--brand-primary)]"
                   />
                   <button
                     onClick={handleSendMessage}
@@ -360,7 +372,9 @@ export default function ProviderMessagesPage() {
                     <Send className="h-5 w-5" />
                   </button>
                 </div>
-                <div className="mt-2 flex gap-2">
+                <div className="mt-2 flex items-center gap-2">
+                  <span className="text-xs text-gray-400">Shift + Enter for new line</span>
+                  <span className="text-gray-300">·</span>
                   <button className="text-sm text-[var(--brand-primary)] hover:text-[var(--brand-primary)]">
                     Quick Reply
                   </button>
