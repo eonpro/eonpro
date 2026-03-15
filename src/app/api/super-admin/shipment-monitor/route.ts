@@ -90,46 +90,47 @@ async function handleGet(req: NextRequest, _user: AuthUser) {
       ];
     }
 
-    const [shipments, total, ...rest] = await Promise.all([
+    const shipmentSelect = {
+      id: true,
+      trackingNumber: true,
+      carrier: true,
+      status: true,
+      statusNote: true,
+      lifefileOrderId: true,
+      shippedAt: true,
+      estimatedDelivery: true,
+      actualDelivery: true,
+      source: true,
+      createdAt: true,
+      updatedAt: true,
+      clinicId: true,
+      patientId: true,
+      orderId: true,
+      medicationName: true,
+      medicationStrength: true,
+      rawPayload: true,
+      clinic: { select: { id: true, name: true } },
+      patient: { select: { id: true, firstName: true, lastName: true } },
+      order: { select: { id: true, lifefileOrderId: true } },
+    };
+
+    const [rawShipments, ...rest] = await Promise.all([
       basePrisma.patientShippingUpdate.findMany({
         where,
+        distinct: ['trackingNumber'],
         orderBy: tab === 'issues'
           ? { updatedAt: 'desc' }
           : tab === 'delivered'
             ? { actualDelivery: 'desc' }
             : { createdAt: 'desc' },
-        skip,
-        take: limit,
-        select: {
-          id: true,
-          trackingNumber: true,
-          carrier: true,
-          status: true,
-          statusNote: true,
-          lifefileOrderId: true,
-          shippedAt: true,
-          estimatedDelivery: true,
-          actualDelivery: true,
-          source: true,
-          createdAt: true,
-          updatedAt: true,
-          clinicId: true,
-          patientId: true,
-          orderId: true,
-          medicationName: true,
-          medicationStrength: true,
-          rawPayload: true,
-          clinic: { select: { id: true, name: true } },
-          patient: { select: { id: true, firstName: true, lastName: true } },
-          order: { select: { id: true, lifefileOrderId: true } },
-        },
+        select: shipmentSelect,
       }),
-      basePrisma.patientShippingUpdate.count({ where }),
-      // Per-tab counts
+      // Per-tab counts (deduplicated by tracking number via groupBy)
       ...TABS.map((t) =>
-        basePrisma.patientShippingUpdate.count({
+        basePrisma.patientShippingUpdate.groupBy({
+          by: ['trackingNumber'],
           where: { ...baseFilter, status: { in: TAB_STATUS_MAP[t] } },
-        })
+        }).then((groups: any[]) => groups.length)
       ),
       // Analytics: avg delivery days (raw SQL for efficiency)
       basePrisma.$queryRaw<[{ avg_days: number | null; on_time: number | null; total_delivered: number | null }]>(
@@ -153,8 +154,6 @@ async function handleGet(req: NextRequest, _user: AuthUser) {
           shippedAt: { gte: new Date(Date.now() - 7 * 86400000) },
         },
       }),
-      // Total across all statuses (for percentages)
-      basePrisma.patientShippingUpdate.count({ where: baseFilter }),
       // Distinct clinics for filter dropdown
       basePrisma.patientShippingUpdate.findMany({
         where: dateFrom ? { createdAt: { gte: dateFrom } } : {},
@@ -164,6 +163,10 @@ async function handleGet(req: NextRequest, _user: AuthUser) {
       }),
     ]);
 
+    // Paginate the deduplicated results in-memory
+    const total = rawShipments.length;
+    const shipments = rawShipments.slice(skip, skip + limit);
+
     const counts: Record<Tab, number> = {} as any;
     TABS.forEach((t, i) => {
       counts[t] = rest[i] as number;
@@ -171,12 +174,13 @@ async function handleGet(req: NextRequest, _user: AuthUser) {
 
     const analyticsRaw = rest[TABS.length] as [{ avg_days: number | null; on_time: number | null; total_delivered: number | null }];
     const shippedThisWeek = rest[TABS.length + 1] as number;
-    const grandTotal = rest[TABS.length + 2] as number;
-    const clinicRows = rest[TABS.length + 3] as Array<{ clinicId: number; clinic: { id: number; name: string } | null }>;
+    // rest[TABS.length + 2] was grandTotal but we now derive it from deduplicated counts
+    const clinicRows = rest[TABS.length + 2] as Array<{ clinicId: number; clinic: { id: number; name: string } | null }>;
 
     const row = analyticsRaw?.[0];
     const totalDelivered = Number(row?.total_delivered) || 0;
     const issueCount = (counts.issues || 0);
+    const grandTotal = Object.values(counts).reduce((a, b) => a + b, 0) || 0;
 
     const analytics = {
       avgDeliveryDays: row?.avg_days != null ? Number(Number(row.avg_days).toFixed(1)) : null,

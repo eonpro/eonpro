@@ -84,6 +84,7 @@ async function handleExport(req: NextRequest, _user: AuthUser) {
 
     const records = await basePrisma.patientShippingUpdate.findMany({
       where,
+      distinct: ['trackingNumber'],
       orderBy: { createdAt: 'desc' },
       take: 10000,
       select: {
