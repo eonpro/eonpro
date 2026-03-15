@@ -8,6 +8,7 @@ import { handleApiError, BadRequestError, NotFoundError, ForbiddenError } from '
 import { isS3Enabled, STORAGE_CONFIG } from '@/lib/integrations/aws/s3Config';
 import { downloadFromS3 } from '@/lib/integrations/aws/s3Service';
 import { readPdfData } from '@/lib/storage/document-data-store';
+import { tryAutoRegeneratePdf } from '@/lib/documents/auto-regenerate-pdf';
 
 // Helper to convert data field to Buffer
 const toBuffer = (data: any): Buffer | null => {
@@ -80,12 +81,15 @@ const downloadDocumentHandler = withAuthParams(
         select: {
           id: true,
           patientId: true,
+          clinicId: true,
           filename: true,
           mimeType: true,
           category: true,
+          createdAt: true,
           data: true,
           s3DataKey: true,
           externalUrl: true,
+          sourceSubmissionId: true,
         },
       });
 
@@ -138,15 +142,34 @@ const downloadDocumentHandler = withAuthParams(
             });
           }
 
-          // If data looks like JSON, this is a legacy document
+          // If data looks like JSON, this is a legacy document — auto-regenerate the PDF
           const firstChar = buffer.toString('utf8', 0, 1);
           if (firstChar === '{' || firstChar === '[') {
-            logger.warn(
-              `Document ${documentId} has JSON in data field (legacy). PDF needs regeneration.`
-            );
+            logger.info(`Download: document ${documentId} has legacy JSON data, attempting auto-regeneration`);
+
+            const pdfBuffer = await tryAutoRegeneratePdf(buffer, {
+              id: document.id,
+              patientId: document.patientId,
+              clinicId: document.clinicId,
+              filename: document.filename,
+              category: document.category,
+              createdAt: document.createdAt,
+              sourceSubmissionId: document.sourceSubmissionId,
+            });
+
+            if (pdfBuffer) {
+              return new NextResponse(new Uint8Array(pdfBuffer), {
+                headers: {
+                  'Content-Type': 'application/pdf',
+                  'Content-Disposition': `attachment; filename="${document.filename || 'document.pdf'}"`,
+                  'Content-Length': pdfBuffer.length.toString(),
+                },
+              });
+            }
+
             return NextResponse.json(
               {
-                error: 'This document needs PDF regeneration.',
+                error: 'Document file not available. PDF could not be auto-generated.',
                 documentId,
                 needsRegeneration: true,
               },
@@ -200,18 +223,42 @@ const downloadDocumentHandler = withAuthParams(
         }
       }
 
-      const hasLegacyData = document.data && (() => {
-        const buf = toBuffer(document.data);
-        if (!buf || buf.length === 0) return false;
-        const ch = buf.toString('utf8', 0, 1);
-        return ch === '{' || ch === '[';
-      })();
+      // Last resort: try auto-regeneration if legacy JSON exists
+      if (document.data) {
+        const rawBuf = toBuffer(document.data);
+        if (rawBuf && rawBuf.length > 0) {
+          const ch = rawBuf.toString('utf8', 0, 1);
+          if (ch === '{' || ch === '[') {
+            logger.info(`Download fallback: attempting auto-regeneration for document ${documentId}`);
+
+            const pdfBuffer = await tryAutoRegeneratePdf(rawBuf, {
+              id: document.id,
+              patientId: document.patientId,
+              clinicId: document.clinicId,
+              filename: document.filename,
+              category: document.category,
+              createdAt: document.createdAt,
+              sourceSubmissionId: document.sourceSubmissionId,
+            });
+
+            if (pdfBuffer) {
+              return new NextResponse(new Uint8Array(pdfBuffer), {
+                headers: {
+                  'Content-Type': 'application/pdf',
+                  'Content-Disposition': `attachment; filename="${document.filename || 'document.pdf'}"`,
+                  'Content-Length': pdfBuffer.length.toString(),
+                },
+              });
+            }
+          }
+        }
+      }
 
       return NextResponse.json(
         {
           error: 'PDF document not available. File may need to be regenerated.',
           documentId,
-          needsRegeneration: hasLegacyData,
+          needsRegeneration: false,
         },
         { status: 404 }
       );

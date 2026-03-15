@@ -8,6 +8,7 @@ import { auditLog, AuditEventType } from '@/lib/audit/hipaa-audit';
 import { isS3Enabled, STORAGE_CONFIG } from '@/lib/integrations/aws/s3Config';
 import { downloadFromS3, deleteFromS3 } from '@/lib/integrations/aws/s3Service';
 import { readPdfData } from '@/lib/storage/document-data-store';
+import { tryAutoRegeneratePdf } from '@/lib/documents/auto-regenerate-pdf';
 
 // Helper to create safe Content-Disposition header value
 function getSafeContentDisposition(filename: string, defaultName: string = 'document'): string {
@@ -181,16 +182,36 @@ export const GET = withAuthParams(
             });
           }
 
-          // If data looks like JSON, this is a legacy document that needs PDF regeneration
+          // If data looks like JSON, this is a legacy document — auto-regenerate the PDF
           const firstChar = buffer.toString('utf8', 0, 1);
           if (firstChar === '{' || firstChar === '[') {
-            logger.warn(
-              `Document ${documentId} has JSON in data field (legacy). PDF needs regeneration.`
-            );
+            logger.info(`Document ${documentId} has legacy JSON data, attempting auto-regeneration`);
+
+            const pdfBuffer = await tryAutoRegeneratePdf(buffer, {
+              id: document.id,
+              patientId: document.patientId,
+              clinicId: document.clinicId,
+              filename: document.filename,
+              category: document.category,
+              createdAt: document.createdAt,
+              sourceSubmissionId: document.sourceSubmissionId,
+            });
+
+            if (pdfBuffer) {
+              return new NextResponse(new Uint8Array(pdfBuffer), {
+                headers: {
+                  'Content-Type': 'application/pdf',
+                  'Content-Disposition': getSafeContentDisposition(document.filename, 'document.pdf'),
+                  'Content-Length': pdfBuffer.length.toString(),
+                  'X-Content-Type-Options': 'nosniff',
+                  'Cache-Control': 'private, max-age=3600',
+                },
+              });
+            }
+
             return NextResponse.json(
               {
-                error:
-                  'This document was created before PDF storage was implemented. Use the regenerate endpoint to create the PDF.',
+                error: 'Document file not available. PDF could not be auto-generated.',
                 documentId,
                 needsRegeneration: true,
               },
@@ -259,15 +280,38 @@ export const GET = withAuthParams(
         }
       }
 
-      // No valid document source found — check if legacy JSON data exists that could be regenerated
-      const hasLegacyData = document.data && (() => {
-        const buf = document.data;
-        if (!buf || (Buffer.isBuffer(buf) && buf.length === 0)) return false;
-        const raw = Buffer.isBuffer(buf) ? buf : Buffer.from(buf);
-        if (raw.length === 0) return false;
-        const ch = raw.toString('utf8', 0, 1);
-        return ch === '{' || ch === '[';
-      })();
+      // No valid document source found — try auto-regeneration if legacy JSON exists
+      if (document.data) {
+        const rawBuf = Buffer.isBuffer(document.data) ? document.data : Buffer.from(document.data);
+        if (rawBuf.length > 0) {
+          const ch = rawBuf.toString('utf8', 0, 1);
+          if (ch === '{' || ch === '[') {
+            logger.info(`Document ${documentId} fallback: attempting auto-regeneration from legacy JSON`);
+
+            const pdfBuffer = await tryAutoRegeneratePdf(rawBuf, {
+              id: document.id,
+              patientId: document.patientId,
+              clinicId: document.clinicId,
+              filename: document.filename,
+              category: document.category,
+              createdAt: document.createdAt,
+              sourceSubmissionId: document.sourceSubmissionId,
+            });
+
+            if (pdfBuffer) {
+              return new NextResponse(new Uint8Array(pdfBuffer), {
+                headers: {
+                  'Content-Type': 'application/pdf',
+                  'Content-Disposition': getSafeContentDisposition(document.filename, 'document.pdf'),
+                  'Content-Length': pdfBuffer.length.toString(),
+                  'X-Content-Type-Options': 'nosniff',
+                  'Cache-Control': 'private, max-age=3600',
+                },
+              });
+            }
+          }
+        }
+      }
 
       logger.warn(
         `Document ${documentId} has no servable content. externalUrl: ${document.externalUrl}, dataSize: ${document.data?.length || 0}`
@@ -276,7 +320,7 @@ export const GET = withAuthParams(
         {
           error: 'Document file not available. PDF may need to be regenerated.',
           documentId,
-          needsRegeneration: hasLegacyData,
+          needsRegeneration: false,
         },
         { status: 404 }
       );
