@@ -294,22 +294,42 @@ export default function IDVerificationPage() {
       )}
 
       {/* Overall Status Card */}
-      <div className={`rounded-2xl ${statusConfig.bgColor} mb-6 p-5`}>
-        <div className="flex items-start gap-4">
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white">
-            <statusConfig.icon className={`h-6 w-6 ${statusConfig.color}`} />
-          </div>
-          <div className="flex-1">
-            <p className={`font-semibold ${statusConfig.color}`}>{statusConfig.label}</p>
-            <p className="mt-1 text-sm text-gray-600">{statusConfig.description}</p>
-            {overallStatus === 'VERIFIED' && photos[0]?.verifiedAt && (
-              <p className="mt-2 text-xs text-gray-500">
-                Verified on {format(parseISO(photos[0].verifiedAt), 'MMM d, yyyy')}
+      {stepsNeeded.length > 0 && overallStatus === 'PENDING' ? (
+        <div className="mb-6 rounded-2xl p-5" style={{ backgroundColor: `${primaryColor}10` }}>
+          <div className="flex items-start gap-4">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white">
+              <Camera className="h-6 w-6" style={{ color: primaryColor }} />
+            </div>
+            <div className="flex-1">
+              <p className="font-semibold" style={{ color: primaryColor }}>
+                {photos.length === 0 ? 'Upload Your ID' : 'Upload Incomplete'}
               </p>
-            )}
+              <p className="mt-1 text-sm text-gray-600">
+                {photos.length === 0
+                  ? 'Upload a photo of your ID and a selfie to verify your account'
+                  : `You still need to upload ${stepsNeeded.length === 1 ? '1 more photo' : `${stepsNeeded.length} more photos`} to complete verification`}
+              </p>
+            </div>
           </div>
         </div>
-      </div>
+      ) : (
+        <div className={`rounded-2xl ${statusConfig.bgColor} mb-6 p-5`}>
+          <div className="flex items-start gap-4">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white">
+              <statusConfig.icon className={`h-6 w-6 ${statusConfig.color}`} />
+            </div>
+            <div className="flex-1">
+              <p className={`font-semibold ${statusConfig.color}`}>{statusConfig.label}</p>
+              <p className="mt-1 text-sm text-gray-600">{statusConfig.description}</p>
+              {overallStatus === 'VERIFIED' && photos[0]?.verifiedAt && (
+                <p className="mt-2 text-xs text-gray-500">
+                  Verified on {format(parseISO(photos[0].verifiedAt), 'MMM d, yyyy')}
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Document Status List */}
       <div className="mb-6 space-y-3">
