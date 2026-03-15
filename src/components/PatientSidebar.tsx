@@ -782,7 +782,7 @@ export default function PatientSidebar({
                 {patient.firstName} {patient.lastName}
                 {patient.identityVerified && <VerifiedBadge size="md" />}
               </h2>
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-gray-500" suppressHydrationWarning>
                 {age ? `${age}y · ` : ''}{genderLabel} · ID #{formatPatientDisplayId(patient.patientId, patient.id)}
               </p>
             </div>
@@ -948,7 +948,7 @@ export default function PatientSidebar({
             {activeMembership.planName ? ` · ${activeMembership.planName}` : ''}
           </span>
         )}
-        <p className="mb-3 text-sm text-gray-500">
+        <p className="mb-3 text-sm text-gray-500" suppressHydrationWarning>
           {age ? `${age}, ` : ''}
           {genderLabel}
         </p>

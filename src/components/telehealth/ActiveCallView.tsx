@@ -26,7 +26,6 @@ const ZoomEmbeddedMeeting = dynamic(
 interface ActiveCallViewProps {
   session: TelehealthSessionData;
   userName: string;
-  userEmail?: string;
   scribeEnabled?: boolean;
   onCallEnd: (data: PostCallData) => void;
 }
@@ -34,7 +33,6 @@ interface ActiveCallViewProps {
 export default function ActiveCallView({
   session,
   userName,
-  userEmail,
   scribeEnabled = true,
   onCallEnd,
 }: ActiveCallViewProps) {

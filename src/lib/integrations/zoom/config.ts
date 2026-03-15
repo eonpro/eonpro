@@ -4,8 +4,6 @@
  * Handles Zoom SDK/API setup for virtual consultations
  */
 
-import { isFeatureEnabled } from '@/lib/features';
-
 // Zoom Configuration Interface
 export interface ZoomConfig {
   clientId: string;
@@ -33,16 +31,6 @@ export function isZoomConfigured(): boolean {
   return !!(zoomConfig.clientId && zoomConfig.clientSecret && zoomConfig.accountId);
 }
 
-// Check if Zoom is enabled and configured
-export function isZoomEnabled(): boolean {
-  return isFeatureEnabled('ZOOM_TELEHEALTH') && isZoomConfigured();
-}
-
-// Check if waiting room is enabled
-export function isWaitingRoomEnabled(): boolean {
-  return isFeatureEnabled('ZOOM_WAITING_ROOM');
-}
-
 // Meeting Types
 export enum MeetingType {
   INSTANT = 1,
@@ -51,58 +39,8 @@ export enum MeetingType {
   RECURRING_WITH_TIME = 8,
 }
 
-// Meeting Status
-export enum MeetingStatus {
-  WAITING = 'waiting',
-  STARTED = 'started',
-  ENDED = 'ended',
-  CANCELLED = 'cancelled',
-}
-
-// Participant Types
-export enum ParticipantType {
-  PATIENT = 'patient',
-  PROVIDER = 'provider',
-  ADMIN = 'admin',
-  GUEST = 'guest',
-}
-
-// Zoom Meeting Settings
-export interface ZoomMeetingSettings {
-  hostVideo: boolean;
-  participantVideo: boolean;
-  audioOption: 'both' | 'telephony' | 'voip';
-  joinBeforeHost: boolean;
-  muteUponEntry: boolean;
-  watermark: boolean;
-  usePmi: boolean;
-  approvalType: 0 | 1 | 2; // 0=auto, 1=manual, 2=no registration
-  registrationType: number;
-  enforceLogin: boolean;
-  enforceLoginDomains: string;
-  alternativeHosts: string;
-  closeRegistration: boolean;
-  waitingRoom: boolean;
-  globalDialInCountries: string[];
-  contactName: string;
-  contactEmail: string;
-  registrantsEmailNotification: boolean;
-  meetingAuthentication: boolean;
-  authenticationOption: string;
-  authenticationDomains: string;
-  autoRecording: 'none' | 'local' | 'cloud';
-  alternativeHostsEmailNotification: boolean;
-  showShareButton: boolean;
-  allowMultipleDevices: boolean;
-  encryptionType: 'enhanced_encryption' | 'e2ee';
-  breakoutRoom?: {
-    enable: boolean;
-    rooms: number;
-  };
-}
-
 // Default meeting settings for telehealth
-export const TELEHEALTH_SETTINGS: Partial<ZoomMeetingSettings> = {
+export const TELEHEALTH_SETTINGS = {
   hostVideo: true,
   participantVideo: true,
   audioOption: 'both',

@@ -262,43 +262,6 @@ export async function getZoomMeeting(meetingId: string): Promise<ZoomMeetingResp
   }
 }
 
-export async function updateZoomMeeting(
-  meetingId: string,
-  updates: Partial<CreateMeetingParams>
-): Promise<boolean> {
-  if (!isZoomConfigured()) {
-    return true;
-  }
-
-  try {
-    const accessToken = await getZoomAccessToken();
-
-    const response = await fetch(`https://api.zoom.us/v2/meetings/${meetingId}`, {
-      method: 'PATCH',
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        topic: updates.topic,
-        start_time: updates.scheduledAt?.toISOString(),
-        duration: updates.duration,
-        agenda: updates.agenda,
-        settings: updates.settings,
-      }),
-      signal: AbortSignal.timeout(ZOOM_API_TIMEOUT_MS),
-    });
-
-    return response.ok;
-  } catch (error) {
-    logger.error('[ZOOM] Failed to update meeting', {
-      meetingId,
-      error: error instanceof Error ? error.message : 'Unknown error',
-    });
-    return false;
-  }
-}
-
 export async function cancelZoomMeeting(meetingId: string): Promise<boolean> {
   if (!isZoomConfigured()) {
     return true;
@@ -387,36 +350,6 @@ export async function getMeetingParticipants(meetingId: string): Promise<ZoomPar
   }
 }
 
-export async function admitParticipant(meetingId: string, participantId: string): Promise<boolean> {
-  if (!isZoomConfigured()) {
-    return true;
-  }
-
-  try {
-    const accessToken = await getZoomAccessToken();
-
-    const response = await fetch(
-      `https://api.zoom.us/v2/meetings/${meetingId}/participants/${participantId}/admit`,
-      {
-        method: 'PUT',
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-        signal: AbortSignal.timeout(ZOOM_API_TIMEOUT_MS),
-      }
-    );
-
-    return response.ok;
-  } catch (error) {
-    logger.error('[ZOOM] Failed to admit participant', {
-      meetingId,
-      participantId,
-      error: error instanceof Error ? error.message : 'Unknown error',
-    });
-    return false;
-  }
-}
-
 // ============================================================================
 // Helpers
 // ============================================================================
@@ -444,17 +377,3 @@ function createMockMeeting(params: CreateMeetingParams): ZoomMeetingResponse {
     settings: TELEHEALTH_SETTINGS,
   };
 }
-
-export const mockZoomService = {
-  createMeeting: createMockMeeting,
-  getMeeting: () =>
-    createMockMeeting({
-      topic: 'Mock Consultation',
-      duration: 30,
-      patientId: 1,
-      providerId: 1,
-    }),
-  cancelMeeting: () => true,
-  getParticipants: () => [],
-  admitParticipant: () => true,
-};

@@ -15,9 +15,6 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-// Get the model from env or default
-const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-4o-mini';
-
 /**
  * Check if model requires max_completion_tokens instead of max_tokens
  */

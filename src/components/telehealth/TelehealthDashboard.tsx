@@ -227,7 +227,6 @@ export default function TelehealthDashboard({
       <ActiveCallView
         session={selectedSession}
         userName={userName}
-        userEmail={userEmail}
         scribeEnabled={scribeEnabled}
         onCallEnd={handleCallEnd}
       />

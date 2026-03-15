@@ -236,7 +236,7 @@ export default function PatientPortalAccessBlock({
                     ? 'Portal invite expired'
                     : 'Portal invite sent'}
                 </p>
-                <p className="mt-0.5 text-xs opacity-80">
+                <p className="mt-0.5 text-xs opacity-80" suppressHydrationWarning>
                   Sent on {formatInviteDate(lastInvite.sentAt)}
                   {lastInvite.trigger !== 'manual' && (
                     <> &middot; Triggered by {triggerLabel(lastInvite.trigger)}</>

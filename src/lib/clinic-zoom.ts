@@ -190,90 +190,9 @@ export async function isClinicZoomConfigured(clinicId: number): Promise<boolean>
 /**
  * Check if clinic is using their own Zoom account (not platform default)
  */
-export async function isClinicUsingOwnZoom(clinicId: number): Promise<boolean> {
-  const clinic = await prisma.clinic.findUnique({
-    where: { id: clinicId },
-    select: {
-      zoomEnabled: true,
-      zoomOnboardingComplete: true,
-      zoomAccountId: true,
-    },
-  });
-
-  return !!(clinic?.zoomEnabled && clinic?.zoomOnboardingComplete && clinic?.zoomAccountId);
-}
-
 // ============================================================================
 // OAuth Flow
 // ============================================================================
-
-/**
- * Generate OAuth authorization URL for clinic Zoom connection
- */
-export function getZoomOAuthUrl(clinicId: number, redirectUri: string): string {
-  // Use platform client ID for OAuth flow - clinic will provide their own after
-  // Or the clinic can input their client ID first
-  const baseUrl = 'https://zoom.us/oauth/authorize';
-  const state = Buffer.from(JSON.stringify({ clinicId, timestamp: Date.now() })).toString('base64');
-
-  const params = new URLSearchParams({
-    response_type: 'code',
-    client_id: zoomConfig.clientId, // Platform client ID for initial OAuth
-    redirect_uri: redirectUri,
-    state,
-  });
-
-  return `${baseUrl}?${params.toString()}`;
-}
-
-/**
- * Exchange authorization code for tokens
- */
-export async function exchangeZoomCode(
-  code: string,
-  redirectUri: string,
-  clientId: string,
-  clientSecret: string
-): Promise<ZoomOAuthTokens | null> {
-  try {
-    return await circuitBreakers.zoom.execute(async () => {
-      const tokenUrl = 'https://zoom.us/oauth/token';
-      const auth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
-
-      const response = await fetch(tokenUrl, {
-        method: 'POST',
-        headers: {
-          Authorization: `Basic ${auth}`,
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: new URLSearchParams({
-          grant_type: 'authorization_code',
-          code,
-          redirect_uri: redirectUri,
-        }),
-        signal: AbortSignal.timeout(ZOOM_API_TIMEOUT_MS),
-      });
-
-      if (!response.ok) {
-        const error = await response.text();
-        logger.error('Zoom OAuth token exchange failed', { status: response.status, error });
-        throw new Error(`Zoom OAuth failed: ${response.status}`);
-      }
-
-      const data = await response.json();
-      return {
-        accessToken: data.access_token,
-        refreshToken: data.refresh_token,
-        expiresIn: data.expires_in,
-        tokenType: data.token_type,
-        scope: data.scope,
-      };
-    });
-  } catch (error) {
-    logger.error('Zoom OAuth exchange error:', error);
-    return null;
-  }
-}
 
 /**
  * Refresh access token using refresh token
@@ -476,38 +395,6 @@ export async function updateClinicZoomSettings(
 // ============================================================================
 // Zoom API Helpers
 // ============================================================================
-
-/**
- * Get Zoom user info for the connected account
- */
-export async function getClinicZoomUser(clinicId: number): Promise<any | null> {
-  const accessToken = await getClinicZoomAccessToken(clinicId);
-
-  if (!accessToken) {
-    return null;
-  }
-
-  try {
-    return await circuitBreakers.zoom.execute(async () => {
-      const response = await fetch('https://api.zoom.us/v2/users/me', {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-        },
-        signal: AbortSignal.timeout(ZOOM_API_TIMEOUT_MS),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Zoom user info failed: ${response.status}`);
-      }
-
-      return response.json();
-    });
-  } catch (error) {
-    logger.error('Error fetching Zoom user:', error);
-    return null;
-  }
-}
 
 /**
  * Create a Zoom meeting using clinic's credentials
