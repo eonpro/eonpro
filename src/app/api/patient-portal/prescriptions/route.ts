@@ -145,7 +145,34 @@ async function fetchPatientPrescriptions(req: NextRequest, user: AuthUser, patie
     };
   }
 
-  const invoiceHistory = invoices.map((inv) => ({
+  // Deduplicate invoices: multiple DB records can represent the same Stripe payment
+  // (e.g. invoice.paid webhook + subscription.created + payment_intent.succeeded).
+  // Group by stripeInvoiceNumber (or fall back to same-day + same-amount) and keep
+  // the record with the richest description.
+  const deduped = new Map<string, typeof invoices[number]>();
+  for (const inv of invoices) {
+    const dayKey = inv.createdAt.toISOString().slice(0, 10);
+    const key = inv.stripeInvoiceNumber
+      ? `stripe:${inv.stripeInvoiceNumber}`
+      : `day:${dayKey}:${inv.amountPaid || inv.amount || 0}`;
+
+    const existing = deduped.get(key);
+    if (!existing) {
+      deduped.set(key, inv);
+    } else {
+      // Keep the record with the most informative description (longest, non-generic)
+      const genericPatterns = /subscription creation|payment received/i;
+      const existingIsGeneric = genericPatterns.test(existing.description ?? '');
+      const newIsGeneric = genericPatterns.test(inv.description ?? '');
+      if (existingIsGeneric && !newIsGeneric) {
+        deduped.set(key, inv);
+      } else if (!existingIsGeneric && !newIsGeneric && (inv.description?.length ?? 0) > (existing.description?.length ?? 0)) {
+        deduped.set(key, inv);
+      }
+    }
+  }
+
+  const invoiceHistory = Array.from(deduped.values()).map((inv) => ({
     id: inv.id,
     invoiceNumber: inv.stripeInvoiceNumber ?? `INV-${inv.id}`,
     date: inv.createdAt.toISOString(),

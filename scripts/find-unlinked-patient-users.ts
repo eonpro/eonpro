@@ -10,6 +10,11 @@
  * With --fix: attempts to resolve and link each user to their Patient record
  */
 
+import * as dotenv from 'dotenv';
+dotenv.config({ path: '.env.production.local' });
+dotenv.config({ path: '.env.local' });
+dotenv.config({ path: '.env' });
+
 import { PrismaClient } from '@prisma/client';
 import { resolvePatientId } from '../src/lib/auth/resolve-patient-id';
 
