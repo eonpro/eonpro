@@ -192,6 +192,8 @@ export default function TutorialVideosPage() {
               <img
                 src={injVid.thumbnail}
                 alt={injVid.title}
+                width={672}
+                height={378}
                 className="aspect-video w-full object-cover opacity-80"
                 onError={(e) => {
                   (e.target as HTMLImageElement).src = `https://img.youtube.com/vi/${injVid.id}/hqdefault.jpg`;
@@ -246,6 +248,8 @@ export default function TutorialVideosPage() {
                       <img
                         src={video.thumbnail}
                         alt={video.title}
+                        width={128}
+                        height={80}
                         className="h-full w-full object-cover"
                       />
                     ) : null}

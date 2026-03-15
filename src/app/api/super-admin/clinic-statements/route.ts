@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { z } from 'zod';
-import { prisma } from '@/lib/db';
+import { prisma, withoutClinicFilter } from '@/lib/db';
 import { logger } from '@/lib/logger';
 
 function withSuperAdminAuth(handler: (req: NextRequest, user: AuthUser) => Promise<Response>) {
@@ -32,16 +32,17 @@ export const GET = withSuperAdminAuth(async (req: NextRequest, _user: AuthUser) 
 
     const { clinicId, startDate, endDate } = parsed.data;
 
+    const result = await withoutClinicFilter(async () => {
+
     const clinic = await prisma.clinic.findUnique({
       where: { id: clinicId },
       select: { id: true, name: true, adminEmail: true },
     });
 
     if (!clinic) {
-      return NextResponse.json({ error: 'Clinic not found' }, { status: 404 });
+      return { notFound: true as const };
     }
 
-    // Opening balance: sum of outstanding invoices created BEFORE startDate
     const openingInvoices = await prisma.clinicPlatformInvoice.findMany({
       where: {
         clinicId,
@@ -140,7 +141,33 @@ export const GET = withSuperAdminAuth(async (req: NextRequest, _user: AuthUser) 
     const totalCredits = lineItems.reduce((s, l) => s + l.credit, 0);
     const closingBalance = runningBalance;
 
-    return NextResponse.json({
+    // Pending (uninvoiced) fee events for this clinic within the date range
+    const pendingFeeEvents = await prisma.platformFeeEvent.findMany({
+      where: {
+        clinicId,
+        status: 'PENDING',
+        createdAt: { gte: startDate, lte: endDate },
+      },
+      orderBy: { createdAt: 'asc' },
+      select: {
+        id: true,
+        feeType: true,
+        amountCents: true,
+        createdAt: true,
+        description: true,
+      },
+    });
+
+    const pendingFees = {
+      events: pendingFeeEvents,
+      totalCents: pendingFeeEvents.reduce((s, e) => s + e.amountCents, 0),
+      count: pendingFeeEvents.length,
+      prescriptionCount: pendingFeeEvents.filter((e) => e.feeType === 'PRESCRIPTION').length,
+      transmissionCount: pendingFeeEvents.filter((e) => e.feeType === 'TRANSMISSION').length,
+      adminCount: pendingFeeEvents.filter((e) => e.feeType === 'ADMIN').length,
+    };
+
+    return {
       clinic,
       period: { startDate, endDate },
       openingBalance,
@@ -149,7 +176,16 @@ export const GET = withSuperAdminAuth(async (req: NextRequest, _user: AuthUser) 
       totalCredits,
       closingBalance,
       invoiceCount: invoices.length,
-    });
+      pendingFees,
+    };
+
+    }); // end withoutClinicFilter
+
+    if ('notFound' in result) {
+      return NextResponse.json({ error: 'Clinic not found' }, { status: 404 });
+    }
+
+    return NextResponse.json(result);
   } catch (error) {
     logger.error('[SuperAdmin] Statement error', {
       error: error instanceof Error ? error.message : 'Unknown',

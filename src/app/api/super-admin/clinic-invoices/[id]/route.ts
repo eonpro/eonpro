@@ -3,6 +3,7 @@ import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { z } from 'zod';
 import { clinicInvoiceService } from '@/services/billing';
 import { logger } from '@/lib/logger';
+import { withoutClinicFilter } from '@/lib/db';
 
 /**
  * Middleware to check for Super Admin role
@@ -31,7 +32,9 @@ export const GET = withSuperAdminAuth(
         return NextResponse.json({ error: 'Invalid invoice ID' }, { status: 400 });
       }
 
-      const invoice = await clinicInvoiceService.getInvoiceById(invoiceId);
+      const invoice = await withoutClinicFilter(() =>
+        clinicInvoiceService.getInvoiceById(invoiceId)
+      );
 
       if (!invoice) {
         return NextResponse.json({ error: 'Invoice not found' }, { status: 404 });
@@ -98,55 +101,70 @@ export const PATCH = withSuperAdminAuth(
         );
       }
 
-      let invoice;
       const action = result.data;
 
-      switch (action.action) {
-        case 'finalize':
-          invoice = await clinicInvoiceService.finalizeInvoice(invoiceId, user.id);
-          break;
+      const actionResult = await withoutClinicFilter(async () => {
+        let invoice;
 
-        case 'createStripeInvoice':
-          invoice = await clinicInvoiceService.createStripeInvoice(invoiceId);
-          break;
+        switch (action.action) {
+          case 'finalize':
+            invoice = await clinicInvoiceService.finalizeInvoice(invoiceId, user.id);
+            break;
 
-        case 'send':
-          invoice = await clinicInvoiceService.sendInvoice(invoiceId, user.id);
-          break;
+          case 'createStripeInvoice':
+            invoice = await clinicInvoiceService.createStripeInvoice(invoiceId);
+            break;
 
-        case 'markPaid':
-          invoice = await clinicInvoiceService.markAsPaid(
-            invoiceId,
-            {
-              amountCents: action.amountCents,
-              method: action.method,
-              reference: action.reference,
-            },
-            user.id
-          );
-          break;
+          case 'send':
+            invoice = await clinicInvoiceService.sendInvoice(invoiceId, user.id);
+            break;
 
-        case 'cancel':
-          invoice = await clinicInvoiceService.cancelInvoice(invoiceId, action.reason, user.id);
-          break;
+          case 'markPaid':
+            invoice = await clinicInvoiceService.markAsPaid(
+              invoiceId,
+              {
+                amountCents: action.amountCents,
+                method: action.method,
+                reference: action.reference,
+              },
+              user.id
+            );
+            break;
 
-        case 'createCreditNote': {
-          const cn = await clinicInvoiceService.createCreditNote(
-            invoiceId,
-            { amountCents: action.amountCents, reason: action.reason, lineItems: action.lineItems },
-            user.id
-          );
-          return NextResponse.json({ success: true, creditNote: cn });
+          case 'cancel':
+            invoice = await clinicInvoiceService.cancelInvoice(invoiceId, action.reason, user.id);
+            break;
+
+          case 'createCreditNote': {
+            const cn = await clinicInvoiceService.createCreditNote(
+              invoiceId,
+              { amountCents: action.amountCents, reason: action.reason, lineItems: action.lineItems },
+              user.id
+            );
+            return { creditNote: cn };
+          }
+
+          case 'applyCreditNote':
+            await clinicInvoiceService.applyCreditNote(action.creditNoteId, user.id);
+            invoice = await clinicInvoiceService.getInvoiceById(invoiceId);
+            break;
+
+          default:
+            return { unknownAction: true };
         }
 
-        case 'applyCreditNote':
-          await clinicInvoiceService.applyCreditNote(action.creditNoteId, user.id);
-          invoice = await clinicInvoiceService.getInvoiceById(invoiceId);
-          break;
+        return { invoice };
+      });
 
-        default:
-          return NextResponse.json({ error: 'Unknown action' }, { status: 400 });
+      if ('unknownAction' in actionResult) {
+        return NextResponse.json({ error: 'Unknown action' }, { status: 400 });
       }
+
+      if ('creditNote' in actionResult) {
+        return NextResponse.json({ success: true, creditNote: actionResult.creditNote });
+      }
+
+      const { invoice } = actionResult;
 
       logger.info('[SuperAdmin] Invoice action performed', {
         invoiceId,
@@ -184,8 +202,9 @@ export const DELETE = withSuperAdminAuth(
         return NextResponse.json({ error: 'Invalid invoice ID' }, { status: 400 });
       }
 
-      // Get invoice to check status
-      const invoice = await clinicInvoiceService.getInvoiceById(invoiceId);
+      const invoice = await withoutClinicFilter(() =>
+        clinicInvoiceService.getInvoiceById(invoiceId)
+      );
 
       if (!invoice) {
         return NextResponse.json({ error: 'Invoice not found' }, { status: 404 });
@@ -198,11 +217,8 @@ export const DELETE = withSuperAdminAuth(
         );
       }
 
-      // Cancel the invoice (which restores fee events)
-      await clinicInvoiceService.cancelInvoice(
-        invoiceId,
-        `Deleted by super admin ${user.id}`,
-        user.id
+      await withoutClinicFilter(() =>
+        clinicInvoiceService.cancelInvoice(invoiceId, `Deleted by super admin ${user.id}`, user.id)
       );
 
       logger.info('[SuperAdmin] Deleted draft invoice', {

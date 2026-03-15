@@ -3,6 +3,7 @@ import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { clinicInvoiceService } from '@/services/billing';
 import { logger } from '@/lib/logger';
 import { z } from 'zod';
+import { withoutClinicFilter } from '@/lib/db';
 
 function withSuperAdminAuth(handler: (req: NextRequest, user: AuthUser) => Promise<Response>) {
   return withAuth(handler, { roles: ['super_admin'] });
@@ -42,13 +43,11 @@ export const GET = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) =
       );
     }
 
-    const preview = await clinicInvoiceService.previewPendingFees(
-      clinicId,
-      periodStart,
-      periodEnd
+    const preview = await withoutClinicFilter(() =>
+      clinicInvoiceService.previewPendingFees(clinicId, periodStart, periodEnd)
     );
 
-    return NextResponse.json({ preview });
+    return NextResponse.json(preview);
   } catch (error) {
     logger.error('[SuperAdmin] Error previewing clinic invoice', {
       error: error instanceof Error ? error.message : 'Unknown error',

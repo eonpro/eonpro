@@ -119,7 +119,7 @@ export default function Error({
           </p>
           <div className="flex items-center justify-center gap-1.5 text-xs text-gray-400">
             Powered by
-            <img src={EONPRO_LOGO} alt="EONPRO" className="h-[18px] w-auto opacity-50" />
+            <img src={EONPRO_LOGO} alt="EONPRO" width={60} height={18} className="h-[18px] w-auto opacity-50" />
           </div>
         </div>
       </div>

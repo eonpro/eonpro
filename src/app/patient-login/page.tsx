@@ -161,13 +161,20 @@ function PatientLoginPage() {
             buttonTextColor: data.branding.buttonTextColor || 'auto',
           });
           if (data.branding.faviconUrl) {
-            const link =
-              (document.querySelector("link[rel*='icon']") as HTMLLinkElement) ||
-              document.createElement('link');
-            link.type = 'image/x-icon';
-            link.rel = 'shortcut icon';
-            link.href = data.branding.faviconUrl;
-            document.head.appendChild(link);
+            const injectFavicon = () => {
+              let link = document.querySelector("link[rel*='icon']") as HTMLLinkElement | null;
+              if (link) {
+                link.href = data.branding.faviconUrl;
+              } else {
+                link = document.createElement('link');
+                link.rel = 'icon';
+                link.href = data.branding.faviconUrl;
+                document.head.appendChild(link);
+              }
+            };
+            typeof requestIdleCallback !== 'undefined'
+              ? requestIdleCallback(() => injectFavicon())
+              : setTimeout(() => injectFavicon(), 0);
           }
           document.title = `Patient Login | ${data.name}`;
         } else {
@@ -686,16 +693,21 @@ function PatientLoginPage() {
           </p>
 
           {/* Registration success message */}
-          {registeredMessage && (
-            <div className="mb-6 w-full max-w-md rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+          <div
+            className={`w-full max-w-md rounded-2xl border transition-all duration-150 ${
+              registeredMessage ? 'mb-6 opacity-100 border-emerald-200 bg-emerald-50 p-4' : 'mb-0 h-0 overflow-hidden border-transparent p-0 opacity-0'
+            }`}
+            aria-live="polite"
+          >
+            {registeredMessage && (
               <div className="flex items-center justify-center gap-2">
                 <CheckCircle2 className="h-5 w-5 text-emerald-600" />
                 <p className="text-center text-sm font-medium text-emerald-700">
                   {registeredMessage}
                 </p>
               </div>
-            </div>
-          )}
+            )}
+          </div>
 
           {/* Login Form */}
           <div className="w-full max-w-md">
@@ -720,17 +732,27 @@ function PatientLoginPage() {
                   />
                 </div>
 
-                {sessionMessage && (
-                  <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                <div
+                  className={`rounded-2xl border transition-all duration-150 ${
+                    sessionMessage ? 'opacity-100 border-amber-200 bg-amber-50 p-4' : 'h-0 overflow-hidden border-transparent p-0 opacity-0'
+                  }`}
+                  aria-live="polite"
+                >
+                  {sessionMessage && (
                     <p className="text-center text-sm text-amber-700">{sessionMessage}</p>
-                  </div>
-                )}
+                  )}
+                </div>
 
-                {error && (
-                  <div className="rounded-2xl border border-red-200 bg-red-50 p-4">
+                <div
+                  className={`rounded-2xl border transition-all duration-150 ${
+                    error ? 'opacity-100 border-red-200 bg-red-50 p-4' : 'h-0 overflow-hidden border-transparent p-0 opacity-0'
+                  }`}
+                  aria-live="polite"
+                >
+                  {error && (
                     <p className="text-center text-sm text-red-600">{error}</p>
-                  </div>
-                )}
+                  )}
+                </div>
 
                 <button
                   type="submit"
@@ -808,10 +830,16 @@ function PatientLoginPage() {
                   </button>
                 </div>
 
-                {error && (
-                  <div className="space-y-3 rounded-2xl border border-red-200 bg-red-50 p-4">
-                    <p className="text-center text-sm text-red-600">{error}</p>
-                    {error.includes('temporarily locked') && (
+                <div
+                  className={`rounded-2xl border transition-all duration-150 space-y-3 ${
+                    error ? 'opacity-100 border-red-200 bg-red-50 p-4' : 'h-0 overflow-hidden border-transparent p-0 opacity-0'
+                  }`}
+                  aria-live="polite"
+                >
+                  {error && (
+                    <>
+                      <p className="text-center text-sm text-red-600">{error}</p>
+                      {error.includes('temporarily locked') && (
                       <div className="flex justify-center">
                         <button
                           type="button"
@@ -874,8 +902,9 @@ function PatientLoginPage() {
                         </a>
                       </div>
                     )}
-                  </div>
-                )}
+                    </>
+                  )}
+                </div>
 
                 <button
                   type="submit"
@@ -993,11 +1022,16 @@ function PatientLoginPage() {
                   ))}
                 </div>
 
-                {error && (
-                  <div className="rounded-2xl border border-red-200 bg-red-50 p-4">
+                <div
+                  className={`rounded-2xl border transition-all duration-150 ${
+                    error ? 'opacity-100 border-red-200 bg-red-50 p-4' : 'h-0 overflow-hidden border-transparent p-0 opacity-0'
+                  }`}
+                  aria-live="polite"
+                >
+                  {error && (
                     <p className="text-center text-sm text-red-600">{error}</p>
-                  </div>
-                )}
+                  )}
+                </div>
 
                 {loading && (
                   <div className="flex justify-center">
@@ -1112,11 +1146,16 @@ function PatientLoginPage() {
                   ))}
                 </div>
 
-                {error && (
-                  <div className="rounded-2xl border border-red-200 bg-red-50 p-4">
+                <div
+                  className={`rounded-2xl border transition-all duration-150 ${
+                    error ? 'opacity-100 border-red-200 bg-red-50 p-4' : 'h-0 overflow-hidden border-transparent p-0 opacity-0'
+                  }`}
+                  aria-live="polite"
+                >
+                  {error && (
                     <p className="text-center text-sm text-red-600">{error}</p>
-                  </div>
-                )}
+                  )}
+                </div>
 
                 <div className="text-center">
                   {canResendReset ? (
@@ -1264,11 +1303,16 @@ function PatientLoginPage() {
                   Password must be at least 8 characters
                 </p>
 
-                {error && (
-                  <div className="rounded-2xl border border-red-200 bg-red-50 p-4">
+                <div
+                  className={`rounded-2xl border transition-all duration-150 ${
+                    error ? 'opacity-100 border-red-200 bg-red-50 p-4' : 'h-0 overflow-hidden border-transparent p-0 opacity-0'
+                  }`}
+                  aria-live="polite"
+                >
+                  {error && (
                     <p className="text-center text-sm text-red-600">{error}</p>
-                  </div>
-                )}
+                  )}
+                </div>
 
                 <button
                   type="submit"

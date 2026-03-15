@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { useClinicBranding, getContrastTextColor } from '@/lib/contexts/ClinicBrandingContext';
 import { usePatientPortalLanguage } from '@/lib/contexts/PatientPortalLanguageContext';
@@ -498,7 +498,7 @@ END:VCALENDAR`;
     billingPlan &&
     (billingPlan.interval === '6-month' || billingPlan.interval === 'annual');
 
-  const shipmentSchedule = (() => {
+  const shipmentSchedule = useMemo(() => {
     if (!isMultiMonthPlan || !billingPlan?.startDate) return null;
     const start = new Date(billingPlan.startDate);
     const isAnnual = billingPlan.interval === 'annual';
@@ -515,9 +515,9 @@ END:VCALENDAR`;
     const remaining = upcoming.filter((d) => d > now);
 
     return { totalMonths, upcoming, remaining };
-  })();
+  }, [isMultiMonthPlan, billingPlan?.startDate, billingPlan?.interval]);
 
-  const dosingScheduleItems = (() => {
+  const dosingScheduleItems = useMemo(() => {
     const allOrders = [...prescriptions].sort(
       (a, b) => new Date(a.prescribedDate).getTime() - new Date(b.prescribedDate).getTime()
     );
@@ -553,7 +553,6 @@ END:VCALENDAR`;
       for (const med of injectableMeds) {
         const weeksFromDaysSupply = med.daysSupply > 0 ? Math.round(med.daysSupply / 7) : 4;
 
-        // Estimate weeks from vial volume / weekly dose as fallback
         let weeksFromVial = 0;
         const vialMl = extractMlValue(med.quantity, med.name, med.form);
         const parsedDose = parseDoseFromDirections(med.directions);
@@ -613,7 +612,7 @@ END:VCALENDAR`;
     }
 
     return items;
-  })();
+  }, [prescriptions]);
 
   const now = new Date();
   const currentDoseIndex = dosingScheduleItems.findIndex(
@@ -626,31 +625,38 @@ END:VCALENDAR`;
 
   return (
     <div className="min-h-[100dvh] px-3 py-4 sm:px-4 sm:py-6">
-      {/* Success Toast */}
-      {showSuccess && (
-        <div className="animate-in slide-in-from-top-2 fixed right-4 top-4 z-50 flex items-center gap-3 rounded-2xl bg-gray-900 px-5 py-4 text-white shadow-2xl">
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500">
-            <Check className="h-4 w-4" />
-          </div>
-          <span className="font-medium">{showSuccess}</span>
+      {/* Success Toast — always rendered, visibility via opacity to avoid CLS */}
+      <div
+        className={`fixed right-4 top-4 z-50 flex items-center gap-3 rounded-2xl bg-gray-900 px-5 py-4 text-white shadow-2xl transition-all duration-200 ${
+          showSuccess ? 'translate-y-0 opacity-100' : 'pointer-events-none -translate-y-2 opacity-0'
+        }`}
+        aria-live="polite"
+      >
+        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500">
+          <Check className="h-4 w-4" />
         </div>
-      )}
+        <span className="font-medium">{showSuccess}</span>
+      </div>
 
-      {loadError && (
-        <div
-          className="mb-6 flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4"
-          role="alert"
-        >
-          <AlertCircle className="h-5 w-5 shrink-0 text-amber-600" />
-          <p className="flex-1 text-sm font-medium text-amber-900">{loadError}</p>
-          <Link
-            href={`/patient-login?redirect=${encodeURIComponent(`${PATIENT_PORTAL_PATH}/medications`)}&reason=session_expired`}
-            className="shrink-0 rounded-lg bg-amber-200 px-3 py-1.5 text-sm font-medium text-amber-900 hover:bg-amber-300"
-          >
-            Log in
-          </Link>
-        </div>
-      )}
+      <div
+        className={`flex items-center gap-3 rounded-xl border p-4 transition-all duration-150 ${
+          loadError ? 'mb-6 border-amber-200 bg-amber-50 opacity-100' : 'pointer-events-none h-0 overflow-hidden border-transparent p-0 opacity-0'
+        }`}
+        role="alert"
+      >
+        {loadError && (
+          <>
+            <AlertCircle className="h-5 w-5 shrink-0 text-amber-600" />
+            <p className="flex-1 text-sm font-medium text-amber-900">{loadError}</p>
+            <Link
+              href={`/patient-login?redirect=${encodeURIComponent(`${PATIENT_PORTAL_PATH}/medications`)}&reason=session_expired`}
+              className="shrink-0 rounded-lg bg-amber-200 px-3 py-1.5 text-sm font-medium text-amber-900 hover:bg-amber-300"
+            >
+              Log in
+            </Link>
+          </>
+        )}
+      </div>
 
       {/* Header */}
       <div className="mb-8">

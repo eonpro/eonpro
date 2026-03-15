@@ -3,6 +3,7 @@ import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { z } from 'zod';
 import { clinicInvoiceService } from '@/services/billing';
 import { logger } from '@/lib/logger';
+import { withoutClinicFilter } from '@/lib/db';
 
 /**
  * Middleware to check for Super Admin role
@@ -17,7 +18,7 @@ const listQuerySchema = z.object({
     .string()
     .optional()
     .transform((v) => (v ? parseInt(v) : undefined)),
-  status: z.enum(['DRAFT', 'PENDING', 'SENT', 'PAID', 'OVERDUE', 'CANCELLED']).optional(),
+  status: z.enum(['DRAFT', 'PENDING', 'SENT', 'PAID', 'PARTIALLY_PAID', 'OVERDUE', 'CANCELLED']).optional(),
   periodType: z.enum(['WEEKLY', 'MONTHLY', 'QUARTERLY', 'YEARLY', 'CUSTOM']).optional(),
   startDate: z
     .string()
@@ -56,19 +57,12 @@ export const GET = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) =
 
     const { clinicId, status, periodType, startDate, endDate, limit, offset } = result.data;
 
-    // Get invoices
-    const { invoices, total } = await clinicInvoiceService.listInvoices({
-      clinicId,
-      status,
-      periodType,
-      startDate,
-      endDate,
-      limit,
-      offset,
-    });
-
-    // Get summary
-    const summary = await clinicInvoiceService.getInvoiceSummary(clinicId);
+    const [{ invoices, total }, summary] = await withoutClinicFilter(() =>
+      Promise.all([
+        clinicInvoiceService.listInvoices({ clinicId, status, periodType, startDate, endDate, limit, offset }),
+        clinicInvoiceService.getInvoiceSummary(clinicId),
+      ])
+    );
 
     return NextResponse.json({
       invoices,
@@ -126,20 +120,22 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) 
       createStripeInvoice,
     } = result.data;
 
-    // Generate invoice
-    let invoice = await clinicInvoiceService.generateInvoice({
-      clinicId,
-      periodType,
-      periodStart,
-      periodEnd,
-      actorId: user.id,
-      notes,
-      externalNotes,
-    });
+    let invoice = await withoutClinicFilter(() =>
+      clinicInvoiceService.generateInvoice({
+        clinicId,
+        periodType,
+        periodStart,
+        periodEnd,
+        actorId: user.id,
+        notes,
+        externalNotes,
+      })
+    );
 
-    // Optionally create Stripe invoice
     if (createStripeInvoice) {
-      invoice = await clinicInvoiceService.createStripeInvoice(invoice.id);
+      invoice = await withoutClinicFilter(() =>
+        clinicInvoiceService.createStripeInvoice(invoice.id)
+      );
     }
 
     logger.info('[SuperAdmin] Generated clinic invoice', {

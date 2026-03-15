@@ -3,6 +3,7 @@ import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { z } from 'zod';
 import { clinicInvoiceService, platformFeeService } from '@/services/billing';
 import { logger } from '@/lib/logger';
+import { withoutClinicFilter } from '@/lib/db';
 
 function withSuperAdminAuth(handler: (req: NextRequest, user: AuthUser) => Promise<Response>) {
   return withAuth(handler, { roles: ['super_admin'] });

@@ -7,8 +7,6 @@ import {
   Building2,
   DollarSign,
   Settings,
-  FileText,
-  ChevronRight,
   Check,
   X,
   AlertCircle,
@@ -16,8 +14,6 @@ import {
   Trash2,
   ChevronDown,
   ChevronUp,
-  BarChart3,
-  ScrollText,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api/fetch';
 import { normalizedIncludes } from '@/lib/utils/search';
@@ -246,42 +242,7 @@ export default function ClinicBillingPage() {
   );
 
   return (
-    <div className="min-h-screen p-6 lg:p-8">
-      {/* Page Header */}
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Clinic Billing</h1>
-          <p className="mt-1 text-gray-500">Configure platform fees and manage clinic invoices</p>
-        </div>
-      </div>
-
-      {/* Sub-Navigation */}
-      <div className="mb-6 flex flex-wrap gap-2 rounded-2xl border border-gray-100 bg-white p-2 shadow-sm">
-        {[
-          { label: 'Overview', path: '/super-admin/clinic-billing', icon: Building2, active: true },
-          { label: 'Analytics', path: '/super-admin/clinic-billing/analytics', icon: BarChart3, active: false },
-          { label: 'Invoices', path: '/super-admin/clinic-billing/invoices', icon: Receipt, active: false },
-          { label: 'Reports', path: '/super-admin/clinic-billing/reports', icon: FileText, active: false },
-          { label: 'Statements', path: '/super-admin/clinic-billing/statements', icon: ScrollText, active: false },
-        ].map((item) => {
-          const Icon = item.icon;
-          return (
-            <button
-              key={item.path}
-              onClick={() => router.push(item.path)}
-              className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition-colors ${
-                item.active
-                  ? 'bg-[#4fa77e]/10 text-[#4fa77e]'
-                  : 'text-gray-600 hover:bg-gray-100'
-              }`}
-            >
-              <Icon className="h-4 w-4" />
-              {item.label}
-            </button>
-          );
-        })}
-      </div>
-
+    <div>
       {/* Summary Cards */}
       {summary && (
         <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-4">

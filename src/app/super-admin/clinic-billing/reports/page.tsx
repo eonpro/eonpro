@@ -1,9 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
 import {
-  ChevronLeft,
   FileText,
   DollarSign,
   Clock,
@@ -35,7 +33,6 @@ const formatCurrencyFull = (cents: number) =>
 const COLORS = ['#4fa77e', '#3b82f6', '#f59e0b', '#f97316', '#ef4444', '#8b5cf6', '#06b6d4'];
 
 export default function BillingReportsPage() {
-  const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabId>('fees');
   const [loading, setLoading] = useState(true);
 
@@ -133,16 +130,9 @@ export default function BillingReportsPage() {
   };
 
   return (
-    <div className="min-h-screen p-6 lg:p-8">
-      {/* Header */}
-      <div className="mb-6 flex items-center gap-4">
-        <button onClick={() => router.push('/super-admin/clinic-billing')} className="rounded-lg p-2 hover:bg-gray-100">
-          <ChevronLeft className="h-5 w-5 text-gray-500" />
-        </button>
-        <div className="flex-1">
-          <h1 className="text-2xl font-bold text-gray-900">Billing Reports</h1>
-          <p className="mt-1 text-gray-500">Detailed financial reports and analytics</p>
-        </div>
+    <div>
+      {/* Actions */}
+      <div className="mb-6 flex items-center justify-end">
         <button onClick={exportCSV} className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2 text-gray-700 shadow-sm hover:bg-gray-50">
           <Download className="h-5 w-5" /> Export CSV
         </button>

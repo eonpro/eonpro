@@ -65,14 +65,19 @@ export interface InvoiceListFilters {
   offset?: number;
 }
 
+export interface InvoiceSummaryBucket {
+  count: number;
+  amount: number;
+}
+
 export interface InvoiceSummary {
+  draft: InvoiceSummaryBucket;
+  pending: InvoiceSummaryBucket;
+  sent: InvoiceSummaryBucket;
+  overdue: InvoiceSummaryBucket;
+  paid: InvoiceSummaryBucket;
   totalInvoices: number;
   totalAmountCents: number;
-  draftCount: number;
-  pendingCount: number;
-  sentCount: number;
-  paidCount: number;
-  overdueCount: number;
   paidAmountCents: number;
   outstandingAmountCents: number;
 }
@@ -885,11 +890,11 @@ export const clinicInvoiceService = {
       },
     });
 
-    let draftCount = 0;
-    let pendingCount = 0;
-    let sentCount = 0;
-    let paidCount = 0;
-    let overdueCount = 0;
+    const draft: InvoiceSummaryBucket = { count: 0, amount: 0 };
+    const pending: InvoiceSummaryBucket = { count: 0, amount: 0 };
+    const sent: InvoiceSummaryBucket = { count: 0, amount: 0 };
+    const paid: InvoiceSummaryBucket = { count: 0, amount: 0 };
+    const overdue: InvoiceSummaryBucket = { count: 0, amount: 0 };
     let totalAmountCents = 0;
     let paidAmountCents = 0;
 
@@ -898,20 +903,30 @@ export const clinicInvoiceService = {
 
       switch (inv.status) {
         case 'DRAFT':
-          draftCount++;
+          draft.count++;
+          draft.amount += inv.totalAmountCents;
           break;
         case 'PENDING':
-          pendingCount++;
+          pending.count++;
+          pending.amount += inv.totalAmountCents;
           break;
         case 'SENT':
-          sentCount++;
+          sent.count++;
+          sent.amount += inv.totalAmountCents;
           break;
         case 'PAID':
-          paidCount++;
+          paid.count++;
+          paid.amount += inv.totalAmountCents;
           paidAmountCents += inv.paidAmountCents || inv.totalAmountCents;
           break;
         case 'OVERDUE':
-          overdueCount++;
+          overdue.count++;
+          overdue.amount += inv.totalAmountCents;
+          break;
+        case 'PARTIALLY_PAID':
+          pending.count++;
+          pending.amount += inv.totalAmountCents;
+          paidAmountCents += inv.paidAmountCents || 0;
           break;
       }
     }
@@ -919,13 +934,13 @@ export const clinicInvoiceService = {
     const outstandingAmountCents = totalAmountCents - paidAmountCents;
 
     return {
+      draft,
+      pending,
+      sent,
+      overdue,
+      paid,
       totalInvoices: invoices.length,
       totalAmountCents,
-      draftCount,
-      pendingCount,
-      sentCount,
-      paidCount,
-      overdueCount,
       paidAmountCents,
       outstandingAmountCents,
     };
@@ -935,26 +950,201 @@ export const clinicInvoiceService = {
   // PDF Generation
   // --------------------------------------------------------------------------
 
-  /**
-   * Generate PDF report for invoice
-   * Note: This is a placeholder - actual PDF generation would use a library like pdfkit or puppeteer
-   */
   async generatePdfReport(invoiceId: number): Promise<{ url: string; s3Key: string }> {
     const invoice = await this.getInvoiceById(invoiceId);
     if (!invoice) {
       throw new Error('Invoice not found');
     }
 
-    // TODO: Implement actual PDF generation
-    // For now, return the Stripe PDF URL if available
     if (invoice.stripePdfUrl) {
-      return {
-        url: invoice.stripePdfUrl,
-        s3Key: '',
-      };
+      return { url: invoice.stripePdfUrl, s3Key: '' };
     }
 
-    throw new Error('PDF generation not yet implemented');
+    const { PDFDocument, rgb, StandardFonts } = await import('pdf-lib');
+    const doc = await PDFDocument.create();
+    const font = await doc.embedFont(StandardFonts.Helvetica);
+    const fontBold = await doc.embedFont(StandardFonts.HelveticaBold);
+    const page = doc.addPage([612, 792]); // US Letter
+    const { width, height } = page.getSize();
+    const margin = 50;
+    let y = height - margin;
+
+    const drawText = (text: string, x: number, yPos: number, opts?: { font?: typeof font; size?: number; color?: ReturnType<typeof rgb> }) => {
+      page.drawText(text, {
+        x,
+        y: yPos,
+        size: opts?.size ?? 10,
+        font: opts?.font ?? font,
+        color: opts?.color ?? rgb(0.2, 0.2, 0.2),
+      });
+    };
+
+    const fmtCurrency = (cents: number) => `$${(cents / 100).toFixed(2)}`;
+    const fmtDate = (d: Date) => new Date(d).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+
+    // Header
+    drawText('EONPRO', margin, y, { font: fontBold, size: 22, color: rgb(0.31, 0.65, 0.49) });
+    drawText('PLATFORM INVOICE', width - margin - 160, y, { font: fontBold, size: 14 });
+    y -= 30;
+
+    // Invoice info
+    drawText(`Invoice: ${invoice.invoiceNumber}`, width - margin - 200, y, { font: fontBold, size: 10 });
+    y -= 16;
+    drawText(`Date: ${fmtDate(invoice.createdAt)}`, width - margin - 200, y);
+    y -= 16;
+    drawText(`Due Date: ${fmtDate(invoice.dueDate)}`, width - margin - 200, y);
+    y -= 16;
+    drawText(`Status: ${invoice.status}`, width - margin - 200, y);
+
+    // Bill To
+    const billY = y + 48;
+    drawText('Bill To:', margin, billY, { font: fontBold });
+    drawText(invoice.clinic.name, margin, billY - 16);
+    drawText(invoice.config.billingEmail || invoice.clinic.adminEmail, margin, billY - 32);
+
+    y -= 30;
+
+    // Separator
+    page.drawLine({
+      start: { x: margin, y },
+      end: { x: width - margin, y },
+      thickness: 1,
+      color: rgb(0.85, 0.85, 0.85),
+    });
+    y -= 10;
+
+    // Period
+    drawText(`Period: ${fmtDate(invoice.periodStart)} — ${fmtDate(invoice.periodEnd)}`, margin, y, { font: fontBold, size: 11 });
+    y -= 30;
+
+    // Table header
+    const col1 = margin;
+    const col2 = margin + 280;
+    const col3 = margin + 360;
+    const col4 = width - margin - 80;
+
+    drawText('Description', col1, y, { font: fontBold, size: 10, color: rgb(0.4, 0.4, 0.4) });
+    drawText('Qty', col2, y, { font: fontBold, size: 10, color: rgb(0.4, 0.4, 0.4) });
+    drawText('Rate', col3, y, { font: fontBold, size: 10, color: rgb(0.4, 0.4, 0.4) });
+    drawText('Amount', col4, y, { font: fontBold, size: 10, color: rgb(0.4, 0.4, 0.4) });
+    y -= 6;
+    page.drawLine({
+      start: { x: margin, y },
+      end: { x: width - margin, y },
+      thickness: 0.5,
+      color: rgb(0.85, 0.85, 0.85),
+    });
+    y -= 18;
+
+    // Line items
+    if (invoice.prescriptionFeeTotal > 0) {
+      const rate = invoice.prescriptionCount > 0 ? invoice.prescriptionFeeTotal / invoice.prescriptionCount : 0;
+      drawText('Medical Prescription Fees', col1, y);
+      drawText(String(invoice.prescriptionCount), col2, y);
+      drawText(fmtCurrency(rate), col3, y);
+      drawText(fmtCurrency(invoice.prescriptionFeeTotal), col4, y);
+      y -= 20;
+    }
+
+    if (invoice.transmissionFeeTotal > 0) {
+      const rate = invoice.transmissionCount > 0 ? invoice.transmissionFeeTotal / invoice.transmissionCount : 0;
+      drawText('Prescription Transmission Fees', col1, y);
+      drawText(String(invoice.transmissionCount), col2, y);
+      drawText(fmtCurrency(rate), col3, y);
+      drawText(fmtCurrency(invoice.transmissionFeeTotal), col4, y);
+      y -= 20;
+    }
+
+    if (invoice.adminFeeTotal > 0) {
+      drawText('Weekly Admin/Platform Fee', col1, y);
+      drawText('-', col2, y);
+      drawText('-', col3, y);
+      drawText(fmtCurrency(invoice.adminFeeTotal), col4, y);
+      y -= 20;
+    }
+
+    // Total line
+    y -= 5;
+    page.drawLine({
+      start: { x: col3 - 20, y },
+      end: { x: width - margin, y },
+      thickness: 1,
+      color: rgb(0.3, 0.3, 0.3),
+    });
+    y -= 18;
+    drawText('Total Due', col3 - 20, y, { font: fontBold, size: 12 });
+    drawText(fmtCurrency(invoice.totalAmountCents), col4, y, { font: fontBold, size: 12, color: rgb(0.31, 0.65, 0.49) });
+
+    if ((invoice.paidAmountCents ?? 0) > 0 && invoice.paidAmountCents < invoice.totalAmountCents) {
+      y -= 20;
+      drawText('Paid', col3 - 20, y);
+      drawText(fmtCurrency(invoice.paidAmountCents ?? 0), col4, y);
+      y -= 16;
+      drawText('Balance Due', col3 - 20, y, { font: fontBold, size: 11 });
+      drawText(fmtCurrency(invoice.totalAmountCents - (invoice.paidAmountCents ?? 0)), col4, y, { font: fontBold, size: 11 });
+    }
+
+    // Footer
+    const footerY = margin + 30;
+    page.drawLine({
+      start: { x: margin, y: footerY + 15 },
+      end: { x: width - margin, y: footerY + 15 },
+      thickness: 0.5,
+      color: rgb(0.85, 0.85, 0.85),
+    });
+    drawText('Questions? Contact billing@eonpro.com', margin, footerY, { size: 8, color: rgb(0.5, 0.5, 0.5) });
+    drawText('EONPRO Healthcare Platform', width - margin - 140, footerY, { size: 8, color: rgb(0.5, 0.5, 0.5) });
+
+    // Notes
+    if (invoice.externalNotes) {
+      y -= 40;
+      drawText('Notes:', margin, y, { font: fontBold });
+      y -= 16;
+      const noteLines = invoice.externalNotes.split('\n');
+      for (const line of noteLines) {
+        if (y < footerY + 50) break;
+        drawText(line, margin, y, { size: 9, color: rgb(0.4, 0.4, 0.4) });
+        y -= 14;
+      }
+    }
+
+    const pdfBytes = await doc.save();
+    const buffer = Buffer.from(pdfBytes);
+
+    try {
+      const { uploadToS3 } = await import('@/lib/integrations/aws/s3Service');
+      const { FileCategory } = await import('@/lib/integrations/aws/s3Config');
+
+      const result = await uploadToS3({
+        file: buffer,
+        fileName: `${invoice.invoiceNumber}.pdf`,
+        category: FileCategory.OTHER,
+        contentType: 'application/pdf',
+        metadata: {
+          invoiceId: String(invoice.id),
+          clinicId: String(invoice.clinicId),
+        },
+      });
+
+      await prisma.clinicPlatformInvoice.update({
+        where: { id: invoiceId },
+        data: { pdfUrl: result.url },
+      });
+
+      logger.info('[ClinicInvoiceService] PDF generated', {
+        invoiceId,
+        s3Key: result.key,
+      });
+
+      return { url: result.url, s3Key: result.key };
+    } catch (s3Err) {
+      logger.warn('[ClinicInvoiceService] S3 upload failed, returning inline PDF', {
+        invoiceId,
+        error: s3Err instanceof Error ? s3Err.message : 'Unknown',
+      });
+      const base64 = buffer.toString('base64');
+      return { url: `data:application/pdf;base64,${base64}`, s3Key: '' };
+    }
   },
 
   // --------------------------------------------------------------------------

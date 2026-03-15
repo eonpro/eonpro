@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import {
   FileText,
   Download,
-  ChevronLeft,
   Plus,
   Clock,
   AlertCircle,
@@ -310,16 +309,9 @@ export default function InvoicesPage() {
   );
 
   return (
-    <div className="min-h-screen p-6 lg:p-8">
-      {/* Header */}
-      <div className="mb-8 flex items-center gap-4">
-        <button onClick={() => router.push('/super-admin/clinic-billing')} className="rounded-lg p-2 transition-colors hover:bg-gray-100">
-          <ChevronLeft className="h-5 w-5 text-gray-500" />
-        </button>
-        <div className="flex-1">
-          <h1 className="text-2xl font-bold text-gray-900">Clinic Invoices</h1>
-          <p className="mt-1 text-gray-500">Generate and manage platform fee invoices</p>
-        </div>
+    <div>
+      {/* Action Buttons */}
+      <div className="mb-6 flex items-center justify-end">
         <div className="flex gap-2">
           <button
             onClick={() => { setBatchResults(null); setBatchModalOpen(true); }}

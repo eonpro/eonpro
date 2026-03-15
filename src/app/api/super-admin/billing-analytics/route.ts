@@ -3,6 +3,7 @@ import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { z } from 'zod';
 import { billingAnalyticsService } from '@/services/billing';
 import { logger } from '@/lib/logger';
+import { withoutClinicFilter } from '@/lib/db';
 
 function withSuperAdminAuth(handler: (req: NextRequest, user: AuthUser) => Promise<Response>) {
   return withAuth(handler, { roles: ['super_admin'] });
@@ -52,38 +53,29 @@ export const GET = withSuperAdminAuth(async (req: NextRequest, _user: AuthUser) 
     const defaultStart = startDate ?? new Date(now.getFullYear() - 1, now.getMonth(), 1);
     const defaultEnd = endDate ?? now;
 
-    switch (type) {
-      case 'dashboard': {
-        const data = await billingAnalyticsService.getDashboardSummary();
-        return NextResponse.json({ data });
+    const data = await withoutClinicFilter(async () => {
+      switch (type) {
+        case 'dashboard':
+          return billingAnalyticsService.getDashboardSummary();
+        case 'revenue-trend':
+          return billingAnalyticsService.getRevenueTrend(months);
+        case 'ar-aging':
+          return billingAnalyticsService.getARAgingReport();
+        case 'fee-breakdown':
+          return billingAnalyticsService.getFeeTypeBreakdown(defaultStart, defaultEnd);
+        case 'collection':
+          return billingAnalyticsService.getCollectionMetrics(defaultStart, defaultEnd);
+        case 'top-clinics':
+          return billingAnalyticsService.getTopClinicsByRevenue(limit, startDate, endDate);
+        default:
+          return null;
       }
-      case 'revenue-trend': {
-        const data = await billingAnalyticsService.getRevenueTrend(months);
-        return NextResponse.json({ data });
-      }
-      case 'ar-aging': {
-        const data = await billingAnalyticsService.getARAgingReport();
-        return NextResponse.json({ data });
-      }
-      case 'fee-breakdown': {
-        const data = await billingAnalyticsService.getFeeTypeBreakdown(defaultStart, defaultEnd);
-        return NextResponse.json({ data });
-      }
-      case 'collection': {
-        const data = await billingAnalyticsService.getCollectionMetrics(defaultStart, defaultEnd);
-        return NextResponse.json({ data });
-      }
-      case 'top-clinics': {
-        const data = await billingAnalyticsService.getTopClinicsByRevenue(
-          limit,
-          startDate,
-          endDate
-        );
-        return NextResponse.json({ data });
-      }
-      default:
-        return NextResponse.json({ error: 'Unknown analytics type' }, { status: 400 });
+    });
+
+    if (data === null) {
+      return NextResponse.json({ error: 'Unknown analytics type' }, { status: 400 });
     }
+    return NextResponse.json({ data });
   } catch (error) {
     logger.error('[SuperAdmin] Billing analytics error', {
       error: error instanceof Error ? error.message : 'Unknown error',

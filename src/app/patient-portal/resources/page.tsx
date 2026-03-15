@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useDeferredValue } from 'react';
 import dynamic from 'next/dynamic';
 import { useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
 import { usePatientPortalLanguage } from '@/lib/contexts/PatientPortalLanguageContext';
@@ -36,6 +36,7 @@ export default function ResourcesPage() {
   const primaryColor = branding?.primaryColor || '#4fa77e';
 
   const [searchQuery, setSearchQuery] = useState('');
+  const deferredSearchQuery = useDeferredValue(searchQuery);
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [activeTab, setActiveTab] = useState<'videos' | 'articles' | 'faq'>('videos');
 
@@ -119,7 +120,7 @@ export default function ResourcesPage() {
 
       <ResourcesTabContent
         activeTab={activeTab}
-        searchQuery={searchQuery}
+        searchQuery={deferredSearchQuery}
         selectedCategory={selectedCategory}
         primaryColor={primaryColor}
         subdomain={branding?.subdomain}

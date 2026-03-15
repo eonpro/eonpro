@@ -83,14 +83,45 @@ export function BillingPageSkeleton() {
 
 export function MedicationsPageSkeleton() {
   return (
-    <div className="min-h-[100dvh] animate-pulse px-4 py-6">
-      {/* Header */}
+    <div className="min-h-[100dvh] animate-pulse px-3 py-4 sm:px-4 sm:py-6">
+      {/* Header — matches actual page header */}
       <div className="mb-8">
-        <Skeleton className="mb-2 h-9 w-48" />
+        <Skeleton className="mb-2 h-9 w-48 rounded-lg" />
         <Skeleton className="h-4 w-64" />
       </div>
 
-      {/* Reminders Card */}
+      {/* Active Medications — matches actual med cards */}
+      <div className="mb-8">
+        <div className="mb-4 flex items-center gap-2">
+          <Skeleton className="h-5 w-5 rounded" />
+          <Skeleton className="h-6 w-40" />
+          <Skeleton className="h-5 w-8 rounded-full" />
+        </div>
+        <div className="space-y-4">
+          {Array.from({ length: 2 }).map((_, i) => (
+            <div key={i} className="overflow-hidden rounded-2xl bg-white shadow-lg shadow-gray-200/40">
+              <div className="p-4 sm:p-5">
+                <div className="flex items-start gap-3">
+                  <Skeleton className="mt-0.5 h-10 w-10 shrink-0 rounded-xl sm:h-12 sm:w-12" />
+                  <div className="min-w-0 flex-1">
+                    <Skeleton className="mb-2 h-5 w-48 sm:w-56" />
+                    <Skeleton className="h-3 w-full rounded" />
+                  </div>
+                  <Skeleton className="h-5 w-16 shrink-0 rounded-full" />
+                </div>
+                <Skeleton className="mt-3 h-16 w-full rounded-xl" />
+                <div className="mt-3 flex gap-3">
+                  <Skeleton className="h-3 w-20" />
+                  <Skeleton className="h-3 w-20" />
+                  <Skeleton className="h-3 w-24" />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Reminders Card — matches actual reminders section */}
       <div className="mb-10 overflow-hidden rounded-3xl bg-white shadow-xl shadow-gray-200/50">
         <div className="border-b border-gray-100 p-6">
           <div className="flex items-center justify-between">
@@ -100,7 +131,6 @@ export function MedicationsPageSkeleton() {
             </div>
             <Skeleton className="h-10 w-32 rounded-xl" />
           </div>
-          <Skeleton className="mt-2 h-4 w-72" />
         </div>
         <div className="space-y-3 p-6">
           {Array.from({ length: 2 }).map((_, i) => (
@@ -121,7 +151,32 @@ export function MedicationsPageSkeleton() {
         </div>
       </div>
 
-      {/* Quick Actions */}
+      {/* Dosing Schedule — matches collapsible section (starts expanded) */}
+      <div className="mb-8">
+        <div className="mb-4 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Skeleton className="h-5 w-5 rounded" />
+            <Skeleton className="h-6 w-44" />
+          </div>
+          <Skeleton className="h-5 w-5 rounded" />
+        </div>
+        <div className="overflow-hidden rounded-2xl bg-white shadow-lg shadow-gray-200/40">
+          <Skeleton className="h-10 w-full rounded-none" />
+          <div className="space-y-3 p-4">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="flex items-center gap-3 rounded-xl bg-gray-50 p-3">
+                <Skeleton className="h-10 w-10 rounded-lg" />
+                <div className="flex-1">
+                  <Skeleton className="mb-1 h-4 w-40" />
+                  <Skeleton className="h-3 w-28" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Quick Actions — matches actual links */}
       <div className="grid gap-4 sm:grid-cols-2">
         {Array.from({ length: 2 }).map((_, i) => (
           <div key={i} className="rounded-3xl bg-white p-6 shadow-xl shadow-gray-200/50">

@@ -4,7 +4,7 @@
  * Patient Portal - New Support Request
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Send, Loader2, AlertTriangle } from 'lucide-react';
@@ -26,6 +26,11 @@ export default function NewSupportRequestPage() {
   const [category, setCategory] = useState('GENERAL');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Clear error when user starts editing (decoupled from onChange for INP)
+  useEffect(() => {
+    if (error && (title || description)) setError(null);
+  }, [title, description]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -70,12 +75,15 @@ export default function NewSupportRequestPage() {
         </div>
       </div>
 
-      {error && (
-        <div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-          <AlertTriangle className="h-4 w-4 flex-shrink-0" />
-          {error}
-        </div>
-      )}
+      <div
+        className={`flex items-center gap-2 rounded-xl border p-4 text-sm transition-opacity duration-150 ${
+          error ? 'border-red-200 bg-red-50 text-red-700 opacity-100' : 'pointer-events-none h-0 overflow-hidden border-transparent p-0 opacity-0'
+        }`}
+        aria-live="polite"
+      >
+        {error && <AlertTriangle className="h-4 w-4 flex-shrink-0" />}
+        {error}
+      </div>
 
       <form onSubmit={handleSubmit} className="space-y-5 rounded-xl border border-gray-200 bg-white p-6">
         <div>
@@ -98,7 +106,7 @@ export default function NewSupportRequestPage() {
             id="title"
             type="text"
             value={title}
-            onChange={(e) => { setTitle(e.target.value); setError(null); }}
+            onChange={(e) => setTitle(e.target.value)}
             placeholder="Brief summary of your issue"
             required
             className="w-full rounded-xl border border-gray-300 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
@@ -110,7 +118,7 @@ export default function NewSupportRequestPage() {
           <textarea
             id="description"
             value={description}
-            onChange={(e) => { setDescription(e.target.value); setError(null); }}
+            onChange={(e) => setDescription(e.target.value)}
             placeholder="Please describe your issue in detail. Include any relevant information such as order numbers, medication names, or error messages."
             required
             rows={6}

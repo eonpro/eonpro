@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { usePatientId } from '@/hooks/usePatientId';
 import { decodeHtmlEntities } from '@/lib/utils';
@@ -271,18 +271,19 @@ export default function PatientChatPage() {
     }
   };
 
-  // Group messages by date
-  const groupedMessages = messages.reduce(
-    (groups, message) => {
-      const date = formatDate(message.createdAt);
-      if (!groups[date]) {
-        groups[date] = [];
-      }
-      groups[date].push(message);
-      return groups;
-    },
-    {} as Record<string, ChatMessage[]>
-  );
+  // Group messages by date (memoized to avoid re-computation on every render)
+  const groupedMessages = useMemo(() =>
+    messages.reduce(
+      (groups, message) => {
+        const date = formatDate(message.createdAt);
+        if (!groups[date]) {
+          groups[date] = [];
+        }
+        groups[date].push(message);
+        return groups;
+      },
+      {} as Record<string, ChatMessage[]>
+    ), [messages]);
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -502,17 +503,11 @@ export default function PatientChatPage() {
             <textarea
               ref={inputRef}
               value={newMessage}
-              onChange={(e) => {
-                setNewMessage(e.target.value);
-                // Auto-resize textarea
-                e.target.style.height = 'auto';
-                e.target.style.height = `${Math.min(e.target.scrollHeight, 120)}px`;
-              }}
+              onChange={(e) => setNewMessage(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder={t('chatTypePlaceholder')}
               rows={1}
-              className="w-full resize-none rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 pr-12 text-[15px] outline-none transition-all focus:border-gray-300 focus:bg-white"
-              style={{ maxHeight: '120px' }}
+              className="chat-textarea w-full resize-none rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 pr-12 text-[15px] outline-none transition-colors focus:border-gray-300 focus:bg-white"
             />
             <button
               aria-label="Emoji"

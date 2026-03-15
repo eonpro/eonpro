@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { isBrowser } from '@/lib/utils/ssr-safe';
 import Link from 'next/link';
@@ -120,14 +120,13 @@ export default function RegisterPage() {
     };
   }, [searchParams]);
 
-  // Password validation
-  const passwordRequirements = [
+  const passwordRequirements = useMemo(() => [
     { label: 'At least 12 characters', met: password.length >= 12 },
     { label: 'One uppercase letter', met: /[A-Z]/.test(password) },
     { label: 'One lowercase letter', met: /[a-z]/.test(password) },
     { label: 'One number', met: /\d/.test(password) },
     { label: 'One special character', met: /[!@#$%^&*(),.?":{}|<>]/.test(password) },
-  ];
+  ], [password]);
 
   const isPasswordValid = passwordRequirements.every((req) => req.met);
   const passwordsMatch = password === confirmPassword && password.length > 0;
@@ -336,12 +335,15 @@ export default function RegisterPage() {
                   />
                 </div>
 
-                {error && (
-                  <div className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4">
-                    <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-red-500" />
-                    <p className="text-sm text-red-600">{error}</p>
-                  </div>
-                )}
+                <div
+                  className={`flex items-start gap-3 rounded-xl border transition-all duration-150 ${
+                    error ? 'border-red-200 bg-red-50 p-4 opacity-100' : 'h-0 overflow-hidden border-transparent p-0 opacity-0'
+                  }`}
+                  aria-live="polite"
+                >
+                  {error && <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-red-500" />}
+                  {error && <p className="text-sm text-red-600">{error}</p>}
+                </div>
 
                 <button
                   type="submit"
@@ -422,22 +424,22 @@ export default function RegisterPage() {
                       {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                     </button>
                   </div>
-                  {password && (
-                    <div className="mt-2 space-y-1">
-                      {passwordRequirements.map((req, i) => (
-                        <div key={i} className="flex items-center gap-2 text-xs">
-                          {req.met ? (
-                            <Check className="h-3.5 w-3.5 text-emerald-500" />
-                          ) : (
-                            <div className="h-3.5 w-3.5 rounded-full border border-gray-300" />
-                          )}
-                          <span className={req.met ? 'text-emerald-600' : 'text-gray-500'}>
-                            {req.label}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                  <div className="mt-2 min-h-[110px] space-y-1">
+                    {password ? passwordRequirements.map((req, i) => (
+                      <div key={i} className="flex items-center gap-2 text-xs">
+                        {req.met ? (
+                          <Check className="h-3.5 w-3.5 text-emerald-500" />
+                        ) : (
+                          <div className="h-3.5 w-3.5 rounded-full border border-gray-300" />
+                        )}
+                        <span className={req.met ? 'text-emerald-600' : 'text-gray-500'}>
+                          {req.label}
+                        </span>
+                      </div>
+                    )) : (
+                      <p className="text-xs text-gray-400">Must be at least 12 characters with uppercase, lowercase, number, and special character</p>
+                    )}
+                  </div>
                 </div>
                 <div>
                   <label
@@ -466,9 +468,9 @@ export default function RegisterPage() {
                       {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                     </button>
                   </div>
-                  {confirmPassword && !passwordsMatch && (
-                    <p className="mt-1 text-xs text-red-500">Passwords do not match</p>
-                  )}
+                  <p className={`mt-1 text-xs text-red-500 transition-opacity duration-150 ${confirmPassword && !passwordsMatch ? 'opacity-100' : 'pointer-events-none h-0 overflow-hidden opacity-0'}`}>
+                    Passwords do not match
+                  </p>
                 </div>
                 <div className="flex items-start gap-3">
                   <label
@@ -507,23 +509,30 @@ export default function RegisterPage() {
                     </a>
                   </label>
                 </div>
-                {error && (
-                  <div className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4">
-                    <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-red-500" />
-                    <div className="text-sm text-red-600">
-                      <p>{error}</p>
-                      {(error.toLowerCase().includes('already exists') || error.toLowerCase().includes('log in')) && (
-                        <Link
-                          href="/patient-login"
-                          className="mt-2 inline-flex items-center gap-1 font-semibold text-emerald-700 underline underline-offset-2 hover:text-emerald-900"
-                        >
-                          <ArrowRight className="h-3.5 w-3.5" />
-                          Go to login
-                        </Link>
-                      )}
-                    </div>
-                  </div>
-                )}
+                <div
+                  className={`flex items-start gap-3 rounded-xl border transition-all duration-150 ${
+                    error ? 'border-red-200 bg-red-50 p-4 opacity-100' : 'h-0 overflow-hidden border-transparent p-0 opacity-0'
+                  }`}
+                  aria-live="polite"
+                >
+                  {error && (
+                    <>
+                      <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-red-500" />
+                      <div className="text-sm text-red-600">
+                        <p>{error}</p>
+                        {(error.toLowerCase().includes('already exists') || error.toLowerCase().includes('log in')) && (
+                          <Link
+                            href="/patient-login"
+                            className="mt-2 inline-flex items-center gap-1 font-semibold text-emerald-700 underline underline-offset-2 hover:text-emerald-900"
+                          >
+                            <ArrowRight className="h-3.5 w-3.5" />
+                            Go to login
+                          </Link>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </div>
                 <button
                   type="submit"
                   disabled={loading || !isPasswordValid || !passwordsMatch || !agreedToTerms}
@@ -700,23 +709,23 @@ export default function RegisterPage() {
                     </button>
                   </div>
 
-                  {/* Password Requirements */}
-                  {password && (
-                    <div className="mt-2 space-y-1">
-                      {passwordRequirements.map((req, i) => (
-                        <div key={i} className="flex items-center gap-2 text-xs">
-                          {req.met ? (
-                            <Check className="h-3.5 w-3.5 text-emerald-500" />
-                          ) : (
-                            <div className="h-3.5 w-3.5 rounded-full border border-gray-300" />
-                          )}
-                          <span className={req.met ? 'text-emerald-600' : 'text-gray-500'}>
-                            {req.label}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                  {/* Password Requirements — fixed height to prevent CLS */}
+                  <div className="mt-2 min-h-[110px] space-y-1">
+                    {password ? passwordRequirements.map((req, i) => (
+                      <div key={i} className="flex items-center gap-2 text-xs">
+                        {req.met ? (
+                          <Check className="h-3.5 w-3.5 text-emerald-500" />
+                        ) : (
+                          <div className="h-3.5 w-3.5 rounded-full border border-gray-300" />
+                        )}
+                        <span className={req.met ? 'text-emerald-600' : 'text-gray-500'}>
+                          {req.label}
+                        </span>
+                      </div>
+                    )) : (
+                      <p className="text-xs text-gray-400">Must be at least 12 characters with uppercase, lowercase, number, and special character</p>
+                    )}
+                  </div>
                 </div>
 
                 {/* Confirm Password */}
@@ -751,9 +760,9 @@ export default function RegisterPage() {
                       )}
                     </button>
                   </div>
-                  {confirmPassword && !passwordsMatch && (
-                    <p className="mt-1 text-xs text-red-500">Passwords do not match</p>
-                  )}
+                  <p className={`mt-1 text-xs text-red-500 transition-opacity duration-150 ${confirmPassword && !passwordsMatch ? 'opacity-100' : 'pointer-events-none h-0 overflow-hidden opacity-0'}`}>
+                    Passwords do not match
+                  </p>
                 </div>
 
                 {/* Terms Agreement - Mobile-optimized with 44px touch targets */}
@@ -807,24 +816,31 @@ export default function RegisterPage() {
                   </label>
                 </div>
 
-                {error && (
-                  <div className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4">
-                    <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-red-500" />
-                    <div className="text-sm text-red-600">
-                      <p>{error}</p>
-                      {(error.toLowerCase().includes('already exists') ||
-                        error.toLowerCase().includes('log in')) && (
-                        <Link
-                          href="/patient-login"
-                          className="mt-2 inline-flex items-center gap-1 font-semibold text-emerald-700 underline underline-offset-2 hover:text-emerald-900"
-                        >
-                          <ArrowRight className="h-3.5 w-3.5" />
-                          Go to login
-                        </Link>
-                      )}
-                    </div>
-                  </div>
-                )}
+                <div
+                  className={`flex items-start gap-3 rounded-xl border transition-all duration-150 ${
+                    error ? 'border-red-200 bg-red-50 p-4 opacity-100' : 'h-0 overflow-hidden border-transparent p-0 opacity-0'
+                  }`}
+                  aria-live="polite"
+                >
+                  {error && (
+                    <>
+                      <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-red-500" />
+                      <div className="text-sm text-red-600">
+                        <p>{error}</p>
+                        {(error.toLowerCase().includes('already exists') ||
+                          error.toLowerCase().includes('log in')) && (
+                          <Link
+                            href="/patient-login"
+                            className="mt-2 inline-flex items-center gap-1 font-semibold text-emerald-700 underline underline-offset-2 hover:text-emerald-900"
+                          >
+                            <ArrowRight className="h-3.5 w-3.5" />
+                            Go to login
+                          </Link>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </div>
 
                 <div className="flex gap-3 pt-2">
                   {!inviteToken && (

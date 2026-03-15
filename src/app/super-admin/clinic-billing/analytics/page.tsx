@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import {
   TrendingUp,
   TrendingDown,
@@ -11,7 +10,6 @@ import {
   BarChart3,
   ArrowUpRight,
   ArrowDownRight,
-  ChevronLeft,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api/fetch';
 import RevenueAreaChart from '@/components/billing/RevenueAreaChart';
@@ -29,7 +27,6 @@ const formatCurrency = (cents: number) =>
   }).format(cents / 100);
 
 export default function BillingAnalyticsPage() {
-  const router = useRouter();
   const [data, setData] = useState<FullDashboard | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -72,21 +69,7 @@ export default function BillingAnalyticsPage() {
   const { overview, revenueTrend, arAging, feeBreakdown, collectionMetrics, topClinics, monthComparison } = data;
 
   return (
-    <div className="min-h-screen p-6 lg:p-8">
-      {/* Header */}
-      <div className="mb-8 flex items-center gap-4">
-        <button
-          onClick={() => router.push('/super-admin/clinic-billing')}
-          className="rounded-lg p-2 transition-colors hover:bg-gray-100"
-        >
-          <ChevronLeft className="h-5 w-5 text-gray-500" />
-        </button>
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Financial Analytics</h1>
-          <p className="mt-1 text-gray-500">Platform billing performance and insights</p>
-        </div>
-      </div>
-
+    <div>
       {/* KPI Cards */}
       <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4 xl:grid-cols-6">
         <KPICard

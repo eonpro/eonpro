@@ -23,7 +23,7 @@ function withSuperAdminAuth(
 
 const VALID_ROLES = [
   'SUPER_ADMIN', 'ADMIN', 'PROVIDER', 'INFLUENCER',
-  'AFFILIATE', 'PATIENT', 'STAFF', 'SUPPORT', 'SALES_REP',
+  'AFFILIATE', 'PATIENT', 'STAFF', 'SUPPORT', 'SALES_REP', 'PHARMACY_REP',
 ] as const;
 
 const VALID_STATUSES = ['ACTIVE', 'INACTIVE', 'SUSPENDED'] as const;

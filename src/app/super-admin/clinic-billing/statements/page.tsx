@@ -1,8 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { ChevronLeft, FileText, Download, Building2 } from 'lucide-react';
+import { FileText, Download, Building2 } from 'lucide-react';
 import { apiFetch } from '@/lib/api/fetch';
 
 interface Clinic { id: number; name: string }
@@ -17,6 +16,23 @@ interface LineItem {
   balance: number;
 }
 
+interface PendingFeeEvent {
+  id: number;
+  feeType: string;
+  amountCents: number;
+  createdAt: string;
+  description: string | null;
+}
+
+interface PendingFees {
+  events: PendingFeeEvent[];
+  totalCents: number;
+  count: number;
+  prescriptionCount: number;
+  transmissionCount: number;
+  adminCount: number;
+}
+
 interface StatementData {
   clinic: { id: number; name: string; adminEmail: string };
   period: { startDate: string; endDate: string };
@@ -26,6 +42,7 @@ interface StatementData {
   totalCredits: number;
   closingBalance: number;
   invoiceCount: number;
+  pendingFees: PendingFees;
 }
 
 const formatCurrency = (cents: number) =>
@@ -35,7 +52,6 @@ const formatDate = (d: string) =>
   new Date(d).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
 
 export default function StatementsPage() {
-  const router = useRouter();
   const [clinics, setClinics] = useState<Clinic[]>([]);
   const [selectedClinic, setSelectedClinic] = useState('');
   const [startDate, setStartDate] = useState(() => {
@@ -96,17 +112,7 @@ export default function StatementsPage() {
   };
 
   return (
-    <div className="min-h-screen p-6 lg:p-8">
-      <div className="mb-6 flex items-center gap-4">
-        <button onClick={() => router.push('/super-admin/clinic-billing')} className="rounded-lg p-2 hover:bg-gray-100">
-          <ChevronLeft className="h-5 w-5 text-gray-500" />
-        </button>
-        <div className="flex-1">
-          <h1 className="text-2xl font-bold text-gray-900">Account Statements</h1>
-          <p className="mt-1 text-gray-500">Generate statements of account per clinic</p>
-        </div>
-      </div>
-
+    <div>
       {/* Filters */}
       <div className="mb-6 flex flex-wrap items-end gap-4 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
         <div className="flex-1 min-w-[200px]">
@@ -218,10 +224,73 @@ export default function StatementsPage() {
             </table>
           </div>
 
-          {statement.lineItems.length === 0 && (
+          {/* Pending (Uninvoiced) Fees */}
+          {statement.pendingFees.count > 0 && (
+            <div className="rounded-2xl border border-yellow-200 bg-yellow-50 p-6 shadow-sm">
+              <div className="mb-4 flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900">Pending Fees (Uninvoiced)</h3>
+                  <p className="text-sm text-gray-500">
+                    {statement.pendingFees.count} fee event{statement.pendingFees.count !== 1 ? 's' : ''} not yet included in an invoice
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-2xl font-bold text-yellow-700">{formatCurrency(statement.pendingFees.totalCents)}</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-4 mb-4">
+                {statement.pendingFees.prescriptionCount > 0 && (
+                  <div className="rounded-xl bg-white p-3 text-center">
+                    <p className="text-xs text-gray-500">Prescription</p>
+                    <p className="text-lg font-bold text-gray-900">{statement.pendingFees.prescriptionCount}</p>
+                  </div>
+                )}
+                {statement.pendingFees.transmissionCount > 0 && (
+                  <div className="rounded-xl bg-white p-3 text-center">
+                    <p className="text-xs text-gray-500">Transmission</p>
+                    <p className="text-lg font-bold text-gray-900">{statement.pendingFees.transmissionCount}</p>
+                  </div>
+                )}
+                {statement.pendingFees.adminCount > 0 && (
+                  <div className="rounded-xl bg-white p-3 text-center">
+                    <p className="text-xs text-gray-500">Admin</p>
+                    <p className="text-lg font-bold text-gray-900">{statement.pendingFees.adminCount}</p>
+                  </div>
+                )}
+              </div>
+              <div className="overflow-hidden rounded-xl bg-white">
+                <table className="w-full">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-2 text-left text-xs font-medium uppercase text-gray-500">Date</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium uppercase text-gray-500">Type</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium uppercase text-gray-500">Description</th>
+                      <th className="px-4 py-2 text-right text-xs font-medium uppercase text-gray-500">Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {statement.pendingFees.events.map((evt) => (
+                      <tr key={evt.id}>
+                        <td className="px-4 py-2 text-sm text-gray-600">{formatDate(evt.createdAt)}</td>
+                        <td className="px-4 py-2">
+                          <span className="inline-flex rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-700">
+                            {evt.feeType}
+                          </span>
+                        </td>
+                        <td className="px-4 py-2 text-sm text-gray-900">{evt.description || `${evt.feeType} fee`}</td>
+                        <td className="px-4 py-2 text-right text-sm font-medium text-gray-900">{formatCurrency(evt.amountCents)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {statement.lineItems.length === 0 && statement.pendingFees.count === 0 && (
             <div className="py-12 text-center">
               <FileText className="mx-auto mb-4 h-12 w-12 text-gray-300" />
-              <p className="text-gray-500">No transactions found for this period</p>
+              <p className="text-gray-500">No transactions or pending fees found for this period</p>
             </div>
           )}
         </div>

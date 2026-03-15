@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useTransition } from 'react';
 import { useClinicBranding, usePortalFeatures } from '@/lib/contexts/ClinicBrandingContext';
 import { usePatientPortalLanguage } from '@/lib/contexts/PatientPortalLanguageContext';
 import { portalFetch } from '@/lib/api/patient-portal-client';
@@ -12,7 +12,22 @@ import { toast } from '@/components/Toast';
 import dynamic from 'next/dynamic';
 
 const WeightTracker = dynamic(() => import('@/components/WeightTracker'), {
-  loading: () => <div className="animate-pulse rounded-2xl bg-gray-100 h-80 w-full" />,
+  loading: () => (
+    <div className="animate-pulse space-y-4">
+      <div className="rounded-2xl bg-white p-4 shadow-lg shadow-gray-200/40">
+        <div className="mb-4 flex items-center justify-between">
+          <div className="h-5 w-24 rounded bg-gray-200" />
+          <div className="h-8 w-20 rounded-lg bg-gray-100" />
+        </div>
+        <div className="h-52 w-full rounded-xl bg-gray-100" />
+      </div>
+      <div className="rounded-2xl bg-white p-4 shadow-sm">
+        <div className="mb-3 h-5 w-28 rounded bg-gray-200" />
+        <div className="h-12 w-full rounded-xl bg-gray-100" />
+        <div className="mt-3 h-11 w-full rounded-xl bg-gray-200" />
+      </div>
+    </div>
+  ),
   ssr: false,
 });
 
@@ -112,6 +127,7 @@ export default function ProgressPage() {
 
   const [patientId, setPatientId] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState<TabType>('weight');
+  const [, startTabTransition] = useTransition();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -554,21 +570,51 @@ export default function ProgressPage() {
     }
   };
 
-  // Calculate weight stats
-  const sortedLogs = [...weightLogs].sort(
-    (a, b) => new Date(a.recordedAt).getTime() - new Date(b.recordedAt).getTime()
-  );
-  const latestWeight = sortedLogs[sortedLogs.length - 1]?.weight;
-  const startingWeight = sortedLogs[0]?.weight;
-  const totalChange = latestWeight && startingWeight ? latestWeight - startingWeight : 0;
+  const { sortedLogs, latestWeight, startingWeight, totalChange } = useMemo(() => {
+    const sorted = [...weightLogs].sort(
+      (a, b) => new Date(a.recordedAt).getTime() - new Date(b.recordedAt).getTime()
+    );
+    const latest = sorted[sorted.length - 1]?.weight;
+    const starting = sorted[0]?.weight;
+    return {
+      sortedLogs: sorted,
+      latestWeight: latest,
+      startingWeight: starting,
+      totalChange: latest && starting ? latest - starting : 0,
+    };
+  }, [weightLogs]);
 
   if (loading) {
     return (
-      <div className="flex min-h-[50vh] items-center justify-center">
-        <div
-          className="h-10 w-10 animate-spin rounded-full border-[3px] border-t-transparent"
-          style={{ borderColor: `${primaryColor} transparent ${primaryColor} ${primaryColor}` }}
-        />
+      <div className="safe-left safe-right min-h-[100dvh] w-full min-w-0 max-w-full animate-pulse overflow-x-hidden px-4 py-4 pb-36 md:mx-auto md:max-w-2xl md:pb-6">
+        {/* Header skeleton */}
+        <div className="mb-6">
+          <div className="h-8 w-40 rounded-lg bg-gray-200" />
+          <div className="mt-2 h-4 w-64 rounded bg-gray-100" />
+        </div>
+        {/* Tab bar skeleton */}
+        <div className="mb-6 flex gap-2">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="h-10 w-20 rounded-xl bg-gray-200" />
+          ))}
+        </div>
+        {/* Stats skeleton */}
+        <div className="mb-6 grid grid-cols-3 gap-3">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="rounded-2xl bg-white p-4 shadow-sm">
+              <div className="mb-2 h-3 w-16 rounded bg-gray-200" />
+              <div className="h-6 w-20 rounded bg-gray-100" />
+            </div>
+          ))}
+        </div>
+        {/* Chart skeleton */}
+        <div className="h-80 w-full rounded-2xl bg-white p-4 shadow-lg shadow-gray-200/40">
+          <div className="mb-4 flex items-center justify-between">
+            <div className="h-5 w-24 rounded bg-gray-200" />
+            <div className="h-8 w-20 rounded-lg bg-gray-100" />
+          </div>
+          <div className="h-52 w-full rounded-xl bg-gray-100" />
+        </div>
       </div>
     );
   }
@@ -608,18 +654,19 @@ export default function ProgressPage() {
 
   return (
     <div className="safe-left safe-right min-h-[100dvh] w-full min-w-0 max-w-full overflow-x-hidden px-4 py-4 pb-36 md:mx-auto md:max-w-2xl md:pb-6">
-      {/* Success Toast - below status bar on mobile */}
-      {showSuccess && (
-        <div
-          className="animate-in slide-in-from-top-2 fixed left-4 right-4 z-50 flex items-center gap-3 rounded-2xl bg-gray-900 px-4 py-3 text-white shadow-2xl md:left-auto md:right-4 md:min-w-0"
-          style={{ top: 'calc(56px + env(safe-area-inset-top, 0px) + 8px)' }}
-        >
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-500">
-            <Check className="h-4 w-4" />
-          </div>
-          <span className="truncate font-medium">{showSuccess}</span>
+      {/* Success Toast - fixed position to avoid CLS */}
+      <div
+        className={`fixed left-4 right-4 z-50 flex items-center gap-3 rounded-2xl bg-gray-900 px-4 py-3 text-white shadow-2xl transition-all duration-200 md:left-auto md:right-4 md:min-w-0 ${
+          showSuccess ? 'translate-y-0 opacity-100' : 'pointer-events-none -translate-y-2 opacity-0'
+        }`}
+        style={{ top: 'calc(56px + env(safe-area-inset-top, 0px) + 8px)' }}
+        aria-live="polite"
+      >
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-500">
+          <Check className="h-4 w-4" />
         </div>
-      )}
+        <span className="truncate font-medium">{showSuccess}</span>
+      </div>
 
       {/* Header - compact on mobile for native feel */}
       <div className="mb-4">
@@ -639,7 +686,7 @@ export default function ProgressPage() {
             return (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
+                onClick={() => startTabTransition(() => setActiveTab(tab.id))}
                 className={`flex min-h-[44px] min-w-[44px] items-center gap-2 rounded-xl px-4 py-2.5 font-medium transition-all active:scale-[0.98] ${
                   isActive
                     ? 'bg-gray-900 text-white shadow-lg'

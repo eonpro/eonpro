@@ -345,6 +345,8 @@ export default function WelcomeKitPage() {
             <img
               src="https://static.wixstatic.com/shapes/c49a9b_c10e908eadc04b2b89ee7cae6ef4b981.svg"
               alt={language === 'es' ? 'Sitios de inyección en el cuerpo' : 'Injection sites on body'}
+              width={192}
+              height={320}
               className="h-auto w-full"
             />
           </div>

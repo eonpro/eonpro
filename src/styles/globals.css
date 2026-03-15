@@ -51,6 +51,20 @@ body {
   min-height: 100dvh; /* Dynamic viewport height for mobile */
 }
 
+/* Portal body: white background on mobile so safe-area strips are white, not #efece7 */
+@media (max-width: 1023px) {
+  body.portal-body {
+    background-color: #ffffff;
+  }
+}
+
+/* Chat textarea: CSS-based auto-resize to avoid JS DOM mutation CLS */
+.chat-textarea {
+  field-sizing: content;
+  min-height: 44px;
+  max-height: 120px;
+}
+
 /* Hide layout chrome (header/nav/chat FAB) when camera is fullscreen */
 html.camera-fullscreen .portal-header,
 html.camera-fullscreen .portal-bottom-nav,

@@ -331,7 +331,7 @@ export default function AffiliateWelcomePage() {
         {/* Logo */}
         <div className="flex flex-col items-center pb-4 pt-10">
           {data?.clinic.logoUrl ? (
-            <img src={data.clinic.logoUrl} alt={data.clinic.name} className="h-10 max-w-[180px] object-contain" />
+            <img src={data.clinic.logoUrl} alt={data.clinic.name} width={180} height={40} className="h-10 max-w-[180px] object-contain" />
           ) : (
             <h1 className="text-2xl font-bold" style={{ color: primaryColor }}>
               {data?.clinic.name || 'Partner Portal'}

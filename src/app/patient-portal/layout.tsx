@@ -311,14 +311,11 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
   }, [pathname]);
 
   // White body background on mobile so top/bottom strips (safe areas) are white, not #efece7
+  // Uses a CSS class instead of direct DOM style mutation to avoid CLS/reflow
   useEffect(() => {
-    const isMobile =
-      typeof window !== 'undefined' && window.matchMedia('(max-width: 1023px)').matches;
-    if (!isMobile) return;
-    const prev = document.body.style.backgroundColor;
-    document.body.style.backgroundColor = '#ffffff';
+    document.body.classList.add('portal-body');
     return () => {
-      document.body.style.backgroundColor = prev;
+      document.body.classList.remove('portal-body');
     };
   }, []);
 
@@ -384,15 +381,47 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
           </div>
         </header>
 
-        {/* Content skeleton */}
+        {/* Content skeleton — matches dashboard structure to prevent CLS on transition */}
         <main className="min-w-0 flex-1 lg:ml-20">
           <div className="min-h-[100dvh] w-full pb-24 pt-[calc(56px+env(safe-area-inset-top,0px))] lg:pb-0 lg:pt-0">
-            <div className="space-y-4 p-4 lg:p-6">
-              <div className="h-8 w-48 animate-pulse rounded-lg bg-gray-200" />
-              <div className="grid gap-4 sm:grid-cols-2">
-                {Array.from({ length: 4 }).map((_, i) => (
-                  <div key={i} className="h-32 animate-pulse rounded-2xl bg-gray-100" />
+            <div className="animate-pulse p-4 lg:p-6">
+              {/* Welcome header */}
+              <div className="mb-6">
+                <div className="h-4 w-28 rounded bg-gray-200" />
+                <div className="mt-2 h-8 w-56 rounded bg-gray-200" />
+              </div>
+              {/* Vitals row */}
+              <div className="mb-6 grid grid-cols-3 gap-3">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <div key={i} className="rounded-2xl bg-white p-4 shadow-sm">
+                    <div className="mb-2 h-3 w-14 rounded bg-gray-200" />
+                    <div className="h-7 w-16 rounded bg-gray-200" />
+                    <div className="mt-2 h-2 w-full rounded-full bg-gray-100" />
+                  </div>
                 ))}
+              </div>
+              {/* Weight progress hero */}
+              <div className="mb-6 rounded-2xl bg-gray-200 p-5">
+                <div className="mb-3 flex items-center justify-between">
+                  <div className="h-5 w-32 rounded bg-gray-300" />
+                  <div className="h-4 w-16 rounded bg-gray-300" />
+                </div>
+                <div className="h-12 w-full rounded-xl bg-gray-300" />
+              </div>
+              {/* Quick stats */}
+              <div className="mb-6 grid grid-cols-2 gap-3">
+                {Array.from({ length: 2 }).map((_, i) => (
+                  <div key={i} className="h-24 rounded-2xl bg-white shadow-sm" />
+                ))}
+              </div>
+              {/* Quick actions */}
+              <div className="mb-6">
+                <div className="mb-3 h-5 w-28 rounded bg-gray-200" />
+                <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+                  {Array.from({ length: 4 }).map((_, i) => (
+                    <div key={i} className="h-20 rounded-xl bg-white shadow-sm" />
+                  ))}
+                </div>
               </div>
             </div>
           </div>

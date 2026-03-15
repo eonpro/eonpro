@@ -35,18 +35,7 @@ const ActiveShipmentTracker = dynamic(
   () => import('@/components/patient-portal/ActiveShipmentTracker'),
   {
     ssr: false,
-    loading: () => (
-      <div className="animate-pulse rounded-2xl bg-white p-5 shadow-sm">
-        <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-xl bg-gray-200" />
-          <div className="flex-1 space-y-2">
-            <div className="h-4 w-32 rounded bg-gray-200" />
-            <div className="h-3 w-48 rounded bg-gray-100" />
-          </div>
-        </div>
-        <div className="mt-3 h-2 w-full rounded-full bg-gray-100" />
-      </div>
-    ),
+    loading: () => null,
   },
 );
 import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
