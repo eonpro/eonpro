@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useState, useEffect, useRef } from 'react';
+import { Suspense, useState, useEffect, useRef, startTransition } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Eye, EyeOff, X, Mail, ArrowRight, RefreshCw, CheckCircle2, Smartphone } from 'lucide-react';
 import { isBrowser } from '@/lib/utils/ssr-safe';
@@ -470,7 +470,7 @@ function PatientLoginPage() {
     }
 
     if (digit && index === 5 && newOtp.every((d) => d)) {
-      verifyEmailOtp(newOtp.join(''));
+      startTransition(() => { verifyEmailOtp(newOtp.join('')); });
     }
   };
 

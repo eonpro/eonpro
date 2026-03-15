@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withSuperAdminAuth, type AuthUser } from '@/lib/auth/middleware';
 import { basePrisma } from '@/lib/db';
-import { resolveCredentialsWithAttribution, fedexEnvironment } from '@/lib/fedex';
+import { resolveCredentialsWithAttribution, resolveTrackCredentials, fedexEnvironment } from '@/lib/fedex';
 import { logger } from '@/lib/logger';
 
 export const maxDuration = 30;
@@ -15,6 +15,9 @@ async function handleDiagnose(_req: NextRequest, _user: AuthUser) {
   diagnostics.hasClientId = !!process.env.FEDEX_CLIENT_ID;
   diagnostics.hasClientSecret = !!process.env.FEDEX_CLIENT_SECRET;
   diagnostics.hasAccountNumber = !!process.env.FEDEX_ACCOUNT_NUMBER;
+  diagnostics.hasTrackClientId = !!process.env.FEDEX_TRACK_CLIENT_ID;
+  diagnostics.hasTrackClientSecret = !!process.env.FEDEX_TRACK_CLIENT_SECRET;
+  diagnostics.usingDedicatedTrackCredentials = !!(process.env.FEDEX_TRACK_CLIENT_ID && process.env.FEDEX_TRACK_CLIENT_SECRET);
 
   // 2. Get a sample tracking number from the DB
   const sample = await basePrisma.patientShippingUpdate.findFirst({
@@ -54,7 +57,14 @@ async function handleDiagnose(_req: NextRequest, _user: AuthUser) {
     return NextResponse.json({ success: false, diagnostics });
   }
 
-  // 4. Get OAuth token
+  // 4. Resolve Track-specific credentials (may differ from Ship credentials)
+  const trackCreds = resolveTrackCredentials();
+  const effectiveTrackCreds = trackCreds || credentials;
+  diagnostics.trackCredentialSource = trackCreds
+    ? (process.env.FEDEX_TRACK_CLIENT_ID ? 'dedicated_track_credentials' : 'shared_ship_credentials')
+    : 'shared_ship_credentials';
+
+  // 5. Get OAuth token using Track credentials
   const fedexApiBase = process.env.FEDEX_SANDBOX === 'true'
     ? 'https://apis-sandbox.fedex.com'
     : 'https://apis.fedex.com';
@@ -66,8 +76,8 @@ async function handleDiagnose(_req: NextRequest, _user: AuthUser) {
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
         grant_type: 'client_credentials',
-        client_id: credentials.clientId,
-        client_secret: credentials.clientSecret,
+        client_id: effectiveTrackCreds.clientId,
+        client_secret: effectiveTrackCreds.clientSecret,
       }),
       signal: AbortSignal.timeout(15000),
     });

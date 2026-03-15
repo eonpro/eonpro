@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, Suspense } from 'react';
+import { useState, useEffect, useRef, Suspense, startTransition } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Eye, EyeOff, X, Mail, Phone, ArrowRight, RefreshCw, Building2, Check } from 'lucide-react';
 import { useAuthStore, type AuthUser, type ClinicInfo } from '@/lib/stores/authStore';
@@ -527,7 +527,6 @@ function LoginContent() {
     await sendEmailOtp();
   };
 
-  // Handle email OTP input change
   const handleEmailOtpChange = (index: number, value: string) => {
     const digit = value.replace(/\D/g, '').slice(-1);
     const newOtp = [...emailOtp];
@@ -539,7 +538,7 @@ function LoginContent() {
     }
 
     if (digit && index === 5 && newOtp.every((d) => d)) {
-      verifyEmailOtp(newOtp.join(''));
+      startTransition(() => { verifyEmailOtp(newOtp.join('')); });
     }
   };
 
@@ -719,23 +718,19 @@ function LoginContent() {
     }
   };
 
-  // Handle OTP input change
   const handleOtpChange = (index: number, value: string) => {
-    // Only allow digits
     const digit = value.replace(/\D/g, '').slice(-1);
 
     const newOtp = [...otp];
     newOtp[index] = digit;
     setOtp(newOtp);
 
-    // Auto-focus next input
     if (digit && index < 5) {
       otpRefs.current[index + 1]?.focus();
     }
 
-    // Auto-submit when all digits entered
     if (digit && index === 5 && newOtp.every((d) => d)) {
-      verifyOtp(newOtp.join(''));
+      startTransition(() => { verifyOtp(newOtp.join('')); });
     }
   };
 

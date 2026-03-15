@@ -46,79 +46,83 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) 
 
     const { periodType, periodStart, periodEnd, clinicIds, createStripeInvoice } = parsed.data;
 
-    const allConfigs = await platformFeeService.getAllFeeConfigs();
-    const configs = clinicIds
-      ? allConfigs.filter((c) => clinicIds.includes(c.clinicId))
-      : allConfigs;
+    const results = await withoutClinicFilter(async () => {
+      const allConfigs = await platformFeeService.getAllFeeConfigs();
+      const configs = clinicIds
+        ? allConfigs.filter((c) => clinicIds.includes(c.clinicId))
+        : allConfigs;
 
-    const results: BatchResult[] = [];
+      const batchResults: BatchResult[] = [];
 
-    for (const config of configs) {
-      if (!config.isActive) {
-        results.push({
-          clinicId: config.clinicId,
-          clinicName: config.clinic?.name ?? `Clinic #${config.clinicId}`,
-          status: 'skipped',
-          reason: 'Billing inactive',
-        });
-        continue;
-      }
-
-      try {
-        const preview = await clinicInvoiceService.previewPendingFees(
-          config.clinicId,
-          periodStart,
-          periodEnd
-        );
-
-        if (preview.feeCount === 0) {
-          results.push({
+      for (const config of configs) {
+        if (!config.isActive) {
+          batchResults.push({
             clinicId: config.clinicId,
             clinicName: config.clinic?.name ?? `Clinic #${config.clinicId}`,
             status: 'skipped',
-            reason: 'No pending fees',
+            reason: 'Billing inactive',
           });
           continue;
         }
 
-        let invoice = await clinicInvoiceService.generateInvoice({
-          clinicId: config.clinicId,
-          periodType,
-          periodStart,
-          periodEnd,
-          actorId: user.id,
-        });
+        try {
+          const preview = await clinicInvoiceService.previewPendingFees(
+            config.clinicId,
+            periodStart,
+            periodEnd
+          );
 
-        if (createStripeInvoice) {
-          try {
-            invoice = await clinicInvoiceService.createStripeInvoice(invoice.id);
-          } catch (stripeErr) {
-            logger.warn('[BatchInvoice] Stripe invoice creation failed', {
-              invoiceId: invoice.id,
+          if (preview.feeCount === 0) {
+            batchResults.push({
               clinicId: config.clinicId,
-              error: stripeErr instanceof Error ? stripeErr.message : 'Unknown',
+              clinicName: config.clinic?.name ?? `Clinic #${config.clinicId}`,
+              status: 'skipped',
+              reason: 'No pending fees',
             });
+            continue;
           }
-        }
 
-        results.push({
-          clinicId: config.clinicId,
-          clinicName: config.clinic?.name ?? `Clinic #${config.clinicId}`,
-          status: 'created',
-          invoiceId: invoice.id,
-          invoiceNumber: invoice.invoiceNumber,
-          totalAmountCents: invoice.totalAmountCents,
-          feeCount: preview.feeCount,
-        });
-      } catch (err) {
-        results.push({
-          clinicId: config.clinicId,
-          clinicName: config.clinic?.name ?? `Clinic #${config.clinicId}`,
-          status: 'error',
-          reason: err instanceof Error ? err.message : 'Unknown error',
-        });
+          let invoice = await clinicInvoiceService.generateInvoice({
+            clinicId: config.clinicId,
+            periodType,
+            periodStart,
+            periodEnd,
+            actorId: user.id,
+          });
+
+          if (createStripeInvoice) {
+            try {
+              invoice = await clinicInvoiceService.createStripeInvoice(invoice.id);
+            } catch (stripeErr) {
+              logger.warn('[BatchInvoice] Stripe invoice creation failed', {
+                invoiceId: invoice.id,
+                clinicId: config.clinicId,
+                error: stripeErr instanceof Error ? stripeErr.message : 'Unknown',
+              });
+            }
+          }
+
+          batchResults.push({
+            clinicId: config.clinicId,
+            clinicName: config.clinic?.name ?? `Clinic #${config.clinicId}`,
+            status: 'created',
+            invoiceId: invoice.id,
+            invoiceNumber: invoice.invoiceNumber,
+            totalAmountCents: invoice.totalAmountCents,
+            feeCount: preview.feeCount,
+          });
+        } catch (err) {
+          batchResults.push({
+            clinicId: config.clinicId,
+            clinicName: config.clinic?.name ?? `Clinic #${config.clinicId}`,
+            status: 'error',
+            reason: err instanceof Error ? err.message : 'Unknown error',
+          });
+        }
       }
-    }
+
+      return batchResults;
+    });
 
     const summary = {
       total: results.length,

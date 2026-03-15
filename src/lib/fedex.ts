@@ -204,6 +204,23 @@ function getEnvCredentials(): FedExCredentials | null {
   return { clientId, clientSecret, accountNumber };
 }
 
+/**
+ * Resolve credentials for Track API specifically.
+ * FedEx may require Track API on a separate project with different credentials.
+ * Falls back to the main Ship API credentials if track-specific ones aren't set.
+ */
+export function resolveTrackCredentials(): FedExCredentials | null {
+  const trackClientId = process.env.FEDEX_TRACK_CLIENT_ID;
+  const trackClientSecret = process.env.FEDEX_TRACK_CLIENT_SECRET;
+  const trackAccountNumber = process.env.FEDEX_TRACK_ACCOUNT_NUMBER || process.env.FEDEX_ACCOUNT_NUMBER;
+
+  if (trackClientId && trackClientSecret && trackAccountNumber) {
+    return { clientId: trackClientId, clientSecret: trackClientSecret, accountNumber: trackAccountNumber };
+  }
+
+  return getEnvCredentials();
+}
+
 function maybeDecrypt(value: string): string {
   return isEncrypted(value) ? (decryptPHI(value) || '') : value;
 }
@@ -882,6 +899,11 @@ function setCachedTracking(trackingNumber: string, result: TrackingResult | null
   }
 }
 
+function getEffectiveTrackCredentials(credentials: FedExCredentials): FedExCredentials {
+  const trackCreds = resolveTrackCredentials();
+  return trackCreds || credentials;
+}
+
 export async function trackShipment(
   credentials: FedExCredentials,
   trackingNumber: string,
@@ -891,6 +913,8 @@ export async function trackShipment(
     const cached = getCachedTracking(trackingNumber);
     if (cached !== undefined) return cached;
   }
+
+  const effectiveCreds = getEffectiveTrackCredentials(credentials);
 
   const payload = {
     trackingInfo: [
@@ -902,7 +926,7 @@ export async function trackShipment(
   let response: any;
   try {
     response = await fedexRequest<any>(
-      credentials,
+      effectiveCreds,
       'POST',
       '/track/v1/trackingnumbers',
       payload
@@ -928,6 +952,7 @@ export async function trackShipmentBatch(
   trackingNumbers: string[],
   options?: { skipCache?: boolean }
 ): Promise<Map<string, TrackingResult | null>> {
+  const effectiveCreds = getEffectiveTrackCredentials(credentials);
   const results = new Map<string, TrackingResult | null>();
 
   // Separate cached vs. uncached
@@ -959,7 +984,7 @@ export async function trackShipmentBatch(
     let response: any;
     try {
       response = await fedexRequest<any>(
-        credentials,
+        effectiveCreds,
         'POST',
         '/track/v1/trackingnumbers',
         payload
