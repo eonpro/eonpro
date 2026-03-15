@@ -20,7 +20,7 @@ import { z } from 'zod';
 import type { Prisma } from '@prisma/client';
 import { ReconciliationStatus } from '@prisma/client';
 import { prisma, getClinicContext, withClinicContext } from '@/lib/db';
-import { getAuthUser } from '@/lib/auth';
+import { withAdminAuth, AuthUser } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
 import { verifyClinicAccess } from '@/lib/auth/clinic-access';
 import {
@@ -39,16 +39,8 @@ const querySchema = z.object({
   limit: z.coerce.number().int().min(1).max(200).default(100),
 });
 
-export async function GET(request: NextRequest) {
+async function getHandler(request: NextRequest, user: AuthUser) {
   try {
-    const user = await getAuthUser(request);
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    if (!['admin', 'super_admin', 'staff', 'provider'].includes(user.role)) {
-      throw new ForbiddenError('Finance access required');
-    }
 
     const contextClinicId = getClinicContext();
     const clinicId = contextClinicId ?? user.clinicId ?? null;
@@ -187,3 +179,5 @@ export async function GET(request: NextRequest) {
     });
   }
 }
+
+export const GET = withAdminAuth(getHandler);

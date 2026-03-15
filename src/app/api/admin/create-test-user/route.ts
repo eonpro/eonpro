@@ -1,7 +1,7 @@
 /**
  * CREATE TEST USER API
  * ====================
- * Creates a test admin user (protected by init key)
+ * Creates a test admin user (protected by auth + init key)
  *
  * ⚠️ SECURITY: This endpoint is DISABLED in production environments.
  * No environment variable can override this restriction.
@@ -11,10 +11,11 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { basePrisma as prisma } from '@/lib/db';
+import { withAdminAuth, AuthUser } from '@/lib/auth/middleware';
 import bcrypt from 'bcryptjs';
 import { logger } from '@/lib/logger';
 
-export async function POST(req: NextRequest) {
+async function handler(req: NextRequest, user: AuthUser) {
   try {
     // SECURITY: HARD BLOCK in production - NO EXCEPTIONS
     // This cannot be overridden by any environment variable
@@ -182,3 +183,5 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Failed to create user' }, { status: 500 });
   }
 }
+
+export const POST = withAdminAuth(handler);

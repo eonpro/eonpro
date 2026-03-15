@@ -1,15 +1,13 @@
 /**
  * API Route for Twilio Message History
  * GET: Retrieve message history for a patient
- * Works in demo mode without authentication
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
 import twilio from 'twilio';
-
-// Note: PHI decryption removed - phone numbers are stored unencrypted for Twilio integration
 
 interface RouteParams {
   params: Promise<{
@@ -17,15 +15,11 @@ interface RouteParams {
   }>;
 }
 
-/**
- * GET /api/twilio/messages/[patientId]
- * Get message history for a patient
- */
-export async function GET(req: NextRequest, context: RouteParams) {
+async function handler(req: NextRequest, user: AuthUser, context?: RouteParams) {
   let patientId: number;
 
   try {
-    const resolvedParams = await context.params;
+    const resolvedParams = await context!.params;
     patientId = parseInt(resolvedParams.patientId);
 
     if (isNaN(patientId)) {
@@ -55,7 +49,7 @@ export async function GET(req: NextRequest, context: RouteParams) {
 
     // Use phone directly - no encryption for this field
     const patientPhone = patient.phone;
-    logger.info('[Messages] Phone from DB:', { phone: patientPhone, patientId });
+    logger.info('[Messages] Phone retrieved from DB', { patientId });
 
     if (!patientPhone) {
       logger.warn('[Messages] No phone number found for patient', { patientId });
@@ -81,9 +75,7 @@ export async function GET(req: NextRequest, context: RouteParams) {
         const twilioPhone = process.env.TWILIO_PHONE_NUMBER;
 
         logger.info('[Messages] Fetching Twilio messages', {
-          patientPhone: formattedPhone,
-          twilioPhone,
-          originalPhone: patientPhone,
+          patientId,
           twilioConfigured: !!(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN),
         });
 
@@ -117,7 +109,7 @@ export async function GET(req: NextRequest, context: RouteParams) {
         logger.info('[Messages] Twilio messages fetched', {
           outbound: outboundMessages.length,
           inbound: inboundMessages.length,
-          patientPhone: formattedPhone,
+          patientId,
         });
 
         // Combine and sort all messages by date
@@ -185,7 +177,7 @@ export async function GET(req: NextRequest, context: RouteParams) {
         logger.error('Twilio error fetching messages', {
           error: twilioError.message,
           code: twilioError.code,
-          patientPhone,
+          patientId,
         });
 
         // Fall back to local database only
@@ -295,3 +287,5 @@ export async function GET(req: NextRequest, context: RouteParams) {
     });
   }
 }
+
+export const GET = withAuth<RouteParams>(handler);

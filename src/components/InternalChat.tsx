@@ -229,23 +229,10 @@ export default function InternalChat({ currentUserId, currentUserRole }: Interna
         const myId = Number(currentUserId);
         const theirId = Number(selectedRecipient.id);
 
-        // Debug logging - enhanced
         console.log('[InternalChat] Filtering messages:', {
-          currentUserId,
           myId,
-          apiAuthenticatedUserId: apiUserId,
-          authMatch: apiUserId ? Number(apiUserId) === myId : 'N/A',
-          selectedRecipientId: selectedRecipient.id,
           theirId,
           totalMessages: messageList.length,
-          // Show ALL messages for debugging
-          allMessages: messageList.map((m: Message) => ({
-            id: m.id,
-            senderId: m.senderId,
-            recipientId: m.recipientId,
-            senderName: m.sender ? `${m.sender.firstName} ${m.sender.lastName}` : 'unknown',
-            msg: m.message?.substring(0, 30),
-          })),
         });
 
         // Use Number() to ensure numeric comparison

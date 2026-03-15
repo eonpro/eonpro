@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import { withAdminAuth, AuthUser } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
 
 /**
@@ -13,22 +14,13 @@ import { logger } from '@/lib/logger';
  * The database constraint prevents orphaned patients from being created, so this
  * migration script is no longer needed. It's kept for backwards compatibility but
  * will always return 0 orphaned patients.
- *
- * Requires X-Webhook-Secret header for authentication
  */
 
-export async function POST(req: NextRequest) {
-  const configuredSecret = process.env.WEIGHTLOSSINTAKE_WEBHOOK_SECRET;
-  const providedSecret = req.headers.get('x-webhook-secret');
-
-  if (!configuredSecret || providedSecret !== configuredSecret) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
+async function postHandler(req: NextRequest, user: AuthUser) {
   try {
-    // Since Patient.clinicId is now required (NOT NULL), there cannot be orphaned patients
-    // The database constraint prevents null clinicId values
-    logger.info('[FIX ORPHANED] Endpoint called - no action needed (clinicId is now required)');
+    logger.info('[FIX ORPHANED] Endpoint called - no action needed (clinicId is now required)', {
+      userId: user.id,
+    });
 
     return NextResponse.json({
       success: true,
@@ -48,18 +40,8 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// GET - Show orphaned patients status
-export async function GET(req: NextRequest) {
-  const configuredSecret = process.env.WEIGHTLOSSINTAKE_WEBHOOK_SECRET;
-  const providedSecret = req.headers.get('x-webhook-secret');
-
-  if (!configuredSecret || providedSecret !== configuredSecret) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
+async function getHandler(req: NextRequest, user: AuthUser) {
   try {
-    // Since Patient.clinicId is now required (NOT NULL), there cannot be orphaned patients
-    // Get total patient count for reference
     const totalPatients = await prisma.patient.count();
 
     return NextResponse.json({
@@ -78,3 +60,6 @@ export async function GET(req: NextRequest) {
     );
   }
 }
+
+export const POST = withAdminAuth(postHandler);
+export const GET = withAdminAuth(getHandler);

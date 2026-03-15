@@ -182,9 +182,10 @@ async function ensureValidToken(): Promise<string | null> {
 export function clearAuthTokens() {
   if (typeof window === 'undefined') return;
 
-  // Clear localStorage
+  // Clear localStorage — must include ALL keys set during login
   const tokenKeys = [
     'auth-token',
+    'token',
     'access_token',
     'refresh-token',
     'refresh_token',
@@ -198,6 +199,8 @@ export function clearAuthTokens() {
     'patient-token',
     'token_timestamp',
     'user',
+    'clinics',
+    'activeClinicId',
   ];
 
   tokenKeys.forEach((key) => localStorage.removeItem(key));

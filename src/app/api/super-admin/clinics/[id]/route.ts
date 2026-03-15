@@ -312,28 +312,28 @@ export const DELETE = withSuperAdminAuth(
         async (tx) => {
           // ===== Phase 1: Collect IDs for tables that lack a direct clinicId =====
           const patientIds = (
-            await tx.patient.findMany({ where: { clinicId }, select: { id: true } })
+            await tx.patient.findMany({ where: { clinicId }, select: { id: true }, take: 10000 })
           ).map((p) => p.id);
           const orderIds = (
-            await tx.order.findMany({ where: { clinicId }, select: { id: true } })
+            await tx.order.findMany({ where: { clinicId }, select: { id: true }, take: 10000 })
           ).map((o) => o.id);
           const providerIds = (
-            await tx.provider.findMany({ where: { clinicId }, select: { id: true } })
+            await tx.provider.findMany({ where: { clinicId }, select: { id: true }, take: 10000 })
           ).map((p) => p.id);
           const subscriptionIds = (
-            await tx.subscription.findMany({ where: { clinicId }, select: { id: true } })
+            await tx.subscription.findMany({ where: { clinicId }, select: { id: true }, take: 10000 })
           ).map((s) => s.id);
           const integrationIds = (
-            await tx.integration.findMany({ where: { clinicId }, select: { id: true } })
+            await tx.integration.findMany({ where: { clinicId }, select: { id: true }, take: 10000 })
           ).map((i) => i.id);
           const webhookIds = (
-            await tx.webhookConfig.findMany({ where: { clinicId }, select: { id: true } })
+            await tx.webhookConfig.findMany({ where: { clinicId }, select: { id: true }, take: 10000 })
           ).map((w) => w.id);
           const userIds = (
-            await tx.user.findMany({ where: { clinicId }, select: { id: true } })
+            await tx.user.findMany({ where: { clinicId }, select: { id: true }, take: 10000 })
           ).map((u) => u.id);
           const templateIds = (
-            await tx.intakeFormTemplate.findMany({ where: { clinicId }, select: { id: true } })
+            await tx.intakeFormTemplate.findMany({ where: { clinicId }, select: { id: true }, take: 10000 })
           ).map((t) => t.id);
 
           // ===== Phase 2: Deepest leaf tables (no clinicId, no cascade) =====

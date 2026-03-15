@@ -1332,6 +1332,7 @@ export class InvoiceManager {
         status: 'OPEN',
         ...(this.clinicId && { clinicId: this.clinicId }),
       },
+      take: 10000,
       include: { patient: true, clinic: true },
     });
 

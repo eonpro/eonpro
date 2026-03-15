@@ -47,21 +47,32 @@ export const GET = withProviderAuth(async (req: NextRequest, user: AuthUser) => 
 
       // Fallback: use raw SQL to avoid Prisma client initialization issues
       try {
-        const clinicFilter = user.clinicId ? `AND a."clinicId" = ${user.clinicId}` : '';
-        const rows = await prisma.$queryRawUnsafe<any[]>(`
-          SELECT a.id, a.title, a.reason, a."startTime", a.duration, a.status,
-                 a."zoomJoinUrl", a."videoLink", a."zoomMeetingId",
-                 p.id as "patientId", p."firstName", p."lastName"
-          FROM "Appointment" a
-          LEFT JOIN "Patient" p ON a."patientId" = p.id
-          WHERE a.type = 'VIDEO'
-            AND a."startTime" >= NOW() - INTERVAL '7 days'
-            AND a."startTime" <= NOW() + INTERVAL '7 days'
-            AND a.status IN ('SCHEDULED', 'CONFIRMED', 'IN_PROGRESS')
-            ${clinicFilter}
-          ORDER BY a."startTime" ASC
-          LIMIT 20
-        `);
+        const rows = user.clinicId
+          ? await prisma.$queryRaw<any[]>`
+              SELECT a.id, a.title, a.reason, a."startTime", a.duration, a.status,
+                     a."zoomJoinUrl", a."videoLink", a."zoomMeetingId",
+                     p.id as "patientId", p."firstName", p."lastName"
+              FROM "Appointment" a
+              LEFT JOIN "Patient" p ON a."patientId" = p.id
+              WHERE a.type = 'VIDEO'
+                AND a."startTime" >= NOW() - INTERVAL '7 days'
+                AND a."startTime" <= NOW() + INTERVAL '7 days'
+                AND a.status IN ('SCHEDULED', 'CONFIRMED', 'IN_PROGRESS')
+                AND a."clinicId" = ${user.clinicId}
+              ORDER BY a."startTime" ASC
+              LIMIT 20`
+          : await prisma.$queryRaw<any[]>`
+              SELECT a.id, a.title, a.reason, a."startTime", a.duration, a.status,
+                     a."zoomJoinUrl", a."videoLink", a."zoomMeetingId",
+                     p.id as "patientId", p."firstName", p."lastName"
+              FROM "Appointment" a
+              LEFT JOIN "Patient" p ON a."patientId" = p.id
+              WHERE a.type = 'VIDEO'
+                AND a."startTime" >= NOW() - INTERVAL '7 days'
+                AND a."startTime" <= NOW() + INTERVAL '7 days'
+                AND a.status IN ('SCHEDULED', 'CONFIRMED', 'IN_PROGRESS')
+              ORDER BY a."startTime" ASC
+              LIMIT 20`;
 
         const fallbackSessions = await Promise.all(rows.map(async (r: any) => ({
           id: r.id,

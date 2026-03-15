@@ -13,7 +13,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getClinicContext } from '@/lib/db';
-import { getAuthUser } from '@/lib/auth';
+import { withAdminAuth, AuthUser } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
 import { subDays, subMonths, startOfYear, startOfQuarter, endOfQuarter } from 'date-fns';
 import { RevenueAnalyticsService, type Granularity } from '@/services/analytics/revenueAnalytics';
@@ -27,12 +27,8 @@ function getSemesterBounds(date: Date): { start: Date; end: Date } {
   return { start: new Date(year, 6, 1), end: new Date(year, 11, 31, 23, 59, 59) };
 }
 
-export async function GET(request: NextRequest) {
+async function getHandler(request: NextRequest, user: AuthUser) {
   try {
-    const user = await getAuthUser(request);
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
 
     const contextClinicId = getClinicContext();
     const clinicId = contextClinicId || user.clinicId;
@@ -129,3 +125,5 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Failed to fetch revenue analytics' }, { status: 500 });
   }
 }
+
+export const GET = withAdminAuth(getHandler);

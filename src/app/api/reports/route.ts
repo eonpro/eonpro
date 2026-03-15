@@ -8,7 +8,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma, getClinicContext, runWithClinicContext } from '@/lib/db';
-import { getAuthUser } from '@/lib/auth';
+import { withAdminAuth, AuthUser } from '@/lib/auth/middleware';
 import { requirePermission, toPermissionContext } from '@/lib/rbac/permissions';
 import { logger } from '@/lib/logger';
 import {
@@ -18,12 +18,8 @@ import {
   calculateDateRange,
 } from '@/services/reporting/ReportingService';
 
-export async function GET(request: NextRequest) {
+async function getHandler(request: NextRequest, user: AuthUser) {
   try {
-    const user = await getAuthUser(request);
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
     requirePermission(toPermissionContext(user), 'report:run');
 
     const clinicId = getClinicContext();
@@ -77,12 +73,8 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function POST(request: NextRequest) {
+async function postHandler(request: NextRequest, user: AuthUser) {
   try {
-    const user = await getAuthUser(request);
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
     requirePermission(toPermissionContext(user), 'report:run');
 
     const clinicId = getClinicContext();
@@ -117,3 +109,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Failed to create report' }, { status: 500 });
   }
 }
+
+export const GET = withAdminAuth(getHandler);
+export const POST = withAdminAuth(postHandler);

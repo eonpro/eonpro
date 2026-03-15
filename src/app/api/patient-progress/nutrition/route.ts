@@ -175,7 +175,7 @@ const postHandler = withAuth(async (request: NextRequest, user) => {
       },
     });
 
-    logPHICreate(request, user, 'PatientNutritionLog', nutritionLog.id, patientId).catch(() => {});
+    logPHICreate(request, user, 'PatientNutritionLog', nutritionLog.id, patientId).catch((err) => { logger.error('PHI audit log failed', { error: err instanceof Error ? err.message : String(err) }); });
 
     return NextResponse.json(nutritionLog, { status: 201 });
   } catch (error) {
@@ -241,7 +241,7 @@ const getHandler = withAuth(async (request: NextRequest, user) => {
     );
     const todayFat = todayLogs.reduce((sum: number, log: NutritionLog) => sum + (log.fat || 0), 0);
 
-    logPHIAccess(request, user, 'PatientNutritionLog', 'list', patientId).catch(() => {});
+    logPHIAccess(request, user, 'PatientNutritionLog', 'list', patientId).catch((err) => { logger.error('PHI audit log failed', { error: err instanceof Error ? err.message : String(err) }); });
 
     return NextResponse.json({
       data: nutritionLogs,
@@ -358,7 +358,7 @@ const patchHandler = withAuth(async (request: NextRequest, user) => {
       id,
       log.patientId,
       Object.keys(updateData)
-    ).catch(() => {});
+    ).catch((err) => { logger.error('PHI audit log failed', { error: err instanceof Error ? err.message : String(err) }); });
 
     return NextResponse.json(updated);
   } catch (error) {
@@ -409,7 +409,7 @@ const deleteHandler = withAuth(async (request: NextRequest, user) => {
       id,
       log.patientId,
       'user_request'
-    ).catch(() => {});
+    ).catch((err) => { logger.error('PHI audit log failed', { error: err instanceof Error ? err.message : String(err) }); });
 
     return NextResponse.json({ success: true, deletedId: id });
   } catch (error) {

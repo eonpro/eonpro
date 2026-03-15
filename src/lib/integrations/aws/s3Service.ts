@@ -139,8 +139,11 @@ export async function uploadToS3(params: UploadFileParams): Promise<S3FileRespon
       metadata: params.metadata,
     };
   } catch (error: unknown) {
-    const awsCode = error?.Code || error?.name;
-    logger.error('[S3] Upload failed:', { error, awsCode });
+    const awsCode = (error as any)?.Code ?? (error as any)?.name;
+    logger.error('[S3] Upload failed', {
+      errorName: awsCode,
+      message: error instanceof Error ? error.message : String(error),
+    });
     const err = new Error(S3_ERRORS.UPLOAD_FAILED) as Error & { awsCode?: string };
     err.awsCode = awsCode;
     throw err;
@@ -176,10 +179,16 @@ export async function downloadFromS3(key: string): Promise<Buffer> {
 
     return Buffer.concat(chunks);
   } catch (error: unknown) {
-    
-    logger.error('[S3] Download failed:', error);
+    const errName = error instanceof Error ? (error as Error & { name?: string }).name : undefined;
+    const errCode = (error as any)?.Code ?? (error as any)?.$metadata?.httpStatusCode;
+    logger.error('[S3] Download failed', {
+      key: key.substring(0, 60),
+      errorName: errName,
+      errorCode: errCode,
+      message: error instanceof Error ? error.message : String(error),
+    });
 
-    if (error.Code === 'NoSuchKey') {
+    if (errName === 'NoSuchKey' || errCode === 'NoSuchKey') {
       throw new Error(S3_ERRORS.FILE_NOT_FOUND);
     }
 
@@ -355,10 +364,14 @@ export async function getFileMetadata(key: string): Promise<Record<string, any>>
       serverSideEncryption: response.ServerSideEncryption,
     };
   } catch (error: unknown) {
-    
-    logger.error('[S3] Failed to get metadata:', error);
+    const errName = error instanceof Error ? (error as Error & { name?: string }).name : undefined;
+    logger.error('[S3] Failed to get metadata', {
+      key: key.substring(0, 60),
+      errorName: errName,
+      message: error instanceof Error ? error.message : String(error),
+    });
 
-    if (error.Code === 'NoSuchKey') {
+    if (errName === 'NoSuchKey') {
       throw new Error(S3_ERRORS.FILE_NOT_FOUND);
     }
 

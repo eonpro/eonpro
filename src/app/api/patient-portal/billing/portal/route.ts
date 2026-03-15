@@ -10,12 +10,14 @@ import { prisma } from '@/lib/db';
 import { logPHIAccess } from '@/lib/audit/hipaa-audit';
 import Stripe from 'stripe';
 
-if (!process.env.STRIPE_SECRET_KEY) {
-  throw new Error('STRIPE_SECRET_KEY environment variable is not configured');
+function getStripe(): Stripe {
+  if (!process.env.STRIPE_SECRET_KEY) {
+    throw new Error('STRIPE_SECRET_KEY environment variable is not configured');
+  }
+  return new Stripe(process.env.STRIPE_SECRET_KEY, {
+    apiVersion: '2026-01-28.clover',
+  });
 }
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: '2026-01-28.clover',
-});
 
 /**
  * POST /api/patient-portal/billing/portal
@@ -23,6 +25,7 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
  */
 export const POST = withAuth(async (req: NextRequest, user: AuthUser) => {
   try {
+    const stripe = getStripe();
     if (!user.patientId) {
       return NextResponse.json(
         { error: 'Patient ID required', code: 'PATIENT_ID_REQUIRED' },

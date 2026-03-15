@@ -159,6 +159,7 @@ export const billingExportService = {
       where,
       include: { clinic: { select: { name: true } } },
       orderBy: { createdAt: 'desc' },
+      take: 10000,
     });
 
     invSheet.columns = [
@@ -220,6 +221,7 @@ export const billingExportService = {
       },
       include: { clinic: { select: { name: true } } },
       orderBy: { createdAt: 'asc' },
+      take: 10000,
     });
 
     const lines: string[] = [
@@ -265,6 +267,7 @@ export const billingExportService = {
         config: { select: { billingEmail: true } },
       },
       orderBy: { createdAt: 'asc' },
+      take: 10000,
     });
 
     const escCSV = (s: string) => `"${s.replace(/"/g, '""')}"`;
@@ -320,6 +323,7 @@ export const billingExportService = {
         config: { select: { billingEmail: true } },
       },
       orderBy: { createdAt: 'desc' },
+      take: 10000,
     });
 
     const esc = (v: string | number | null | undefined) => {

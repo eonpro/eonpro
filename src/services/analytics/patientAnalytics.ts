@@ -221,6 +221,7 @@ export class PatientAnalyticsService {
       // Get all patients with payments
       const patients = await prisma.patient.findMany({
         where: { clinicId },
+        take: 5000,
         select: {
           id: true,
           createdAt: true,
@@ -381,6 +382,7 @@ export class PatientAnalyticsService {
             lte: end,
           },
         },
+        take: 10000,
         include: {
           invoice: {
             select: {
@@ -451,6 +453,7 @@ export class PatientAnalyticsService {
       // Get patients with their payment and subscription data
       const patients = await prisma.patient.findMany({
         where: { clinicId },
+        take: 5000,
         select: {
           id: true,
           firstName: true,
@@ -565,6 +568,7 @@ export class PatientAnalyticsService {
     return withClinicContext(clinicId, async () => {
       const patients = await prisma.patient.findMany({
         where: { clinicId },
+        take: 5000,
         select: {
           id: true,
           payments: {
@@ -788,6 +792,7 @@ export class PatientAnalyticsService {
       // Get all patients with payment totals
       const patients = await prisma.patient.findMany({
         where: { clinicId },
+        take: 5000,
         select: {
           id: true,
           payments: {

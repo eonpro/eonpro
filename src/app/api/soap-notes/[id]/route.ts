@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
+import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import {
   getSOAPNoteById,
   approveSOAPNote,
@@ -11,12 +12,14 @@ import {
   editSOAPNoteSchema,
 } from '@/services/ai/soapNoteService';
 
+type RouteContext = { params: Promise<{ id: string }> };
+
 /**
  * GET /api/soap-notes/[id] - Get a specific SOAP note
  */
-export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+async function getHandler(request: NextRequest, user: AuthUser, context?: RouteContext) {
   try {
-    const resolvedParams = await params;
+    const resolvedParams = await context!.params;
     const { searchParams } = new URL(request.url);
     const includeRevisions = searchParams.get('includeRevisions') === 'true';
     const format = searchParams.get('format');
@@ -54,9 +57,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 /**
  * PATCH /api/soap-notes/[id] - Update a SOAP note (edit or approve)
  */
-export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+async function patchHandler(request: NextRequest, user: AuthUser, context?: RouteContext) {
   try {
-    const resolvedParams = await params;
+    const resolvedParams = await context!.params;
     const body = await request.json();
     const soapNoteId = parseInt(resolvedParams.id, 10);
 
@@ -132,3 +135,6 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     );
   }
 }
+
+export const GET = withAuth<RouteContext>(getHandler);
+export const PATCH = withAuth<RouteContext>(patchHandler);

@@ -11,7 +11,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyAuth } from '@/lib/auth/middleware';
+import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { prisma, runWithClinicContext } from '@/lib/db';
 import { orderService, orderRepository, type UserContext } from '@/domains/order';
 import { handleApiError } from '@/domains/shared/errors';
@@ -30,15 +30,8 @@ export const dynamic = 'force-dynamic';
  * When hasTrackingNumber=true, also includes shipments from PatientShippingUpdate
  * that may not have an associated Order record.
  */
-export async function GET(request: NextRequest) {
+async function getHandler(request: NextRequest, user: AuthUser) {
   try {
-    // Verify authentication (security fix - was previously unauthenticated!)
-    const authResult = await verifyAuth(request);
-    if (!authResult.success) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const user = authResult.user!;
 
     // Sales reps see only assigned patients; they must not access the full orders list
     if (user.role === 'sales_rep') {
@@ -285,3 +278,5 @@ export async function GET(request: NextRequest) {
     });
   }
 }
+
+export const GET = withAuth(getHandler);

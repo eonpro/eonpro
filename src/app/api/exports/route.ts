@@ -7,16 +7,12 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma, getClinicContext, withClinicContext } from '@/lib/db';
-import { getAuthUser } from '@/lib/auth';
+import { withAdminAuth, AuthUser } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
 import { ExportService } from '@/services/export/exportService';
 
-export async function POST(request: NextRequest) {
+async function postHandler(request: NextRequest, user: AuthUser) {
   try {
-    const user = await getAuthUser(request);
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
 
     const clinicId = getClinicContext();
     if (!clinicId) {
@@ -59,12 +55,8 @@ export async function POST(request: NextRequest) {
   }
 }
 
-export async function GET(request: NextRequest) {
+async function getHandler(request: NextRequest, user: AuthUser) {
   try {
-    const user = await getAuthUser(request);
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
 
     const clinicId = getClinicContext();
     if (!clinicId) {
@@ -94,3 +86,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Failed to fetch exports' }, { status: 500 });
   }
 }
+
+export const GET = withAdminAuth(getHandler);
+export const POST = withAdminAuth(postHandler);

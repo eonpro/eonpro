@@ -352,6 +352,7 @@ export async function POST(req: NextRequest) {
   };
   let patient: WellMedRPatient | null = null;
   let wasAutoCreated = false;
+  let stubPatientCreateData: Record<string, unknown> | null = null;
 
   let matchStrategy = 'none';
   try {
@@ -626,48 +627,47 @@ export async function POST(req: NextRequest) {
         phone: '0000000000',
         dob: '1900-01-01',
       });
-      const stubPatient = await prisma.patient.create({
-        data: {
-          patientId: stubPatientId,
+      // Defer actual creation to a transaction with the invoice —
+      // prevents orphaned stub patients if invoice creation fails
+      stubPatientCreateData = {
+        patientId: stubPatientId,
+        clinicId,
+        ...encryptedStubPHI,
+        gender: 'm',
+        address1: stubAddress1,
+        city: stubCity,
+        state: stubState,
+        zip: stubZip,
+        profileStatus: 'ACTIVE',
+        source: 'webhook',
+        tags: ['wellmedr', 'stub-from-invoice', 'needs-intake-merge'],
+        notes: `[${new Date().toISOString()}] Auto-created from invoice webhook — intake form not yet received or matched. Payment: ${payload.method_payment_id?.substring(0, 15)}...`,
+        searchIndex,
+        sourceMetadata: {
+          type: 'wellmedr-invoice-stub',
+          submissionId: payload.submission_id || '',
+          paymentMethodId: payload.method_payment_id,
+          createdByInvoiceWebhook: true,
+          originalEmail: email,
+          originalName: paymentName,
+          timestamp: new Date().toISOString(),
           clinicId,
-          ...encryptedStubPHI,
-          gender: 'm',
-          address1: stubAddress1,
-          city: stubCity,
-          state: stubState,
-          zip: stubZip,
-          profileStatus: 'ACTIVE',
-          source: 'webhook',
-          tags: ['wellmedr', 'stub-from-invoice', 'needs-intake-merge'],
-          notes: `[${new Date().toISOString()}] Auto-created from invoice webhook — intake form not yet received or matched. Payment: ${payload.method_payment_id?.substring(0, 15)}...`,
-          searchIndex,
-          sourceMetadata: {
-            type: 'wellmedr-invoice-stub',
-            submissionId: payload.submission_id || '',
-            paymentMethodId: payload.method_payment_id,
-            createdByInvoiceWebhook: true,
-            originalEmail: email,
-            originalName: paymentName,
-            timestamp: new Date().toISOString(),
-            clinicId,
-            clinicName: 'Wellmedr',
-          },
+          clinicName: 'Wellmedr',
         },
-        select: {
-          id: true,
-          patientId: true,
-          firstName: true,
-          lastName: true,
-          email: true,
-        },
-      });
+      };
 
-      patient = stubPatient as WellMedRPatient;
+      // Placeholder for intermediate logic; real DB ID assigned after transaction
+      patient = {
+        id: 0,
+        patientId: stubPatientId,
+        firstName: encryptedStubPHI.firstName ?? null,
+        lastName: encryptedStubPHI.lastName ?? null,
+        email: encryptedStubPHI.email ?? null,
+      } as WellMedRPatient;
       wasAutoCreated = true;
 
-      logger.info(`[WELLMEDR-INVOICE ${requestId}] ✓ Stub patient created`, {
-        patientId: patient.id,
-        patientIdStr: patient.patientId,
+      logger.info(`[WELLMEDR-INVOICE ${requestId}] Stub patient data prepared (deferred to transaction)`, {
+        patientIdStr: stubPatientId,
         email: email,
         tags: ['stub-from-invoice', 'needs-intake-merge'],
       });
@@ -711,7 +711,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const verifiedPatient = patient!;
+  let verifiedPatient = patient!;
 
   // Log when the payment/cardholder name differs from the patient name (from intake).
   // This is expected — a spouse or family member may pay for the patient.
@@ -727,59 +727,61 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  // STEP 6: Check for duplicate invoice
+  // STEP 6: Check for duplicate invoice (skip for auto-created stub patients — no existing invoices possible)
   // IMPORTANT: A Stripe payment_method_id (pm_...) represents a CARD, not a transaction.
   // The same card is reused across multiple purchases by the same customer.
   // We must use submission_id (unique per Airtable order record) as the primary dedup key.
   // Fall back to payment_method_id only when no submission_id is available.
-  try {
-    let existingInvoice = null;
+  if (!wasAutoCreated) {
+    try {
+      let existingInvoice = null;
 
-    if (payload.submission_id) {
-      existingInvoice = await prisma.invoice.findFirst({
-        where: {
-          patientId: verifiedPatient.id,
-          clinicId: clinicId,
-          metadata: {
-            path: ['submissionId'],
-            equals: payload.submission_id,
+      if (payload.submission_id) {
+        existingInvoice = await prisma.invoice.findFirst({
+          where: {
+            patientId: verifiedPatient.id,
+            clinicId: clinicId,
+            metadata: {
+              path: ['submissionId'],
+              equals: payload.submission_id,
+            },
           },
-        },
-      });
-    }
+        });
+      }
 
-    if (!existingInvoice && !payload.submission_id) {
-      existingInvoice = await prisma.invoice.findFirst({
-        where: {
-          patientId: verifiedPatient.id,
-          clinicId: clinicId,
-          metadata: {
-            path: ['stripePaymentMethodId'],
-            equals: payload.method_payment_id,
+      if (!existingInvoice && !payload.submission_id) {
+        existingInvoice = await prisma.invoice.findFirst({
+          where: {
+            patientId: verifiedPatient.id,
+            clinicId: clinicId,
+            metadata: {
+              path: ['stripePaymentMethodId'],
+              equals: payload.method_payment_id,
+            },
           },
-        },
-      });
-    }
+        });
+      }
 
-    if (existingInvoice) {
-      logger.info(
-        `[WELLMEDR-INVOICE ${requestId}] Invoice already exists for this order: ${existingInvoice.id}`,
-        {
-          matchedBy: payload.submission_id ? 'submissionId' : 'stripePaymentMethodId',
-          submissionId: payload.submission_id,
-        }
-      );
-      return NextResponse.json({
-        success: true,
-        duplicate: true,
-        message: 'Invoice already exists for this order',
-        invoiceId: existingInvoice.id,
-        patientId: verifiedPatient.id,
-      });
+      if (existingInvoice) {
+        logger.info(
+          `[WELLMEDR-INVOICE ${requestId}] Invoice already exists for this order: ${existingInvoice.id}`,
+          {
+            matchedBy: payload.submission_id ? 'submissionId' : 'stripePaymentMethodId',
+            submissionId: payload.submission_id,
+          }
+        );
+        return NextResponse.json({
+          success: true,
+          duplicate: true,
+          message: 'Invoice already exists for this order',
+          invoiceId: existingInvoice.id,
+          patientId: verifiedPatient.id,
+        });
+      }
+    } catch (err) {
+      // Non-fatal - continue with invoice creation
+      logger.warn(`[WELLMEDR-INVOICE ${requestId}] Error checking for duplicate:`, { error: err });
     }
-  } catch (err) {
-    // Non-fatal - continue with invoice creation
-    logger.warn(`[WELLMEDR-INVOICE ${requestId}] Error checking for duplicate:`, { error: err });
   }
 
   // STEP 7: Create internal EONPRO invoice (NO Stripe for WellMedR)
@@ -955,90 +957,99 @@ export async function POST(req: NextRequest) {
   const fullAddress = addressParts.join(', ') || '';
 
   try {
-    // Generate a unique invoice number for WellMedR
-    const year = new Date().getFullYear();
-    const month = String(new Date().getMonth() + 1).padStart(2, '0');
-    const invoiceCount = await prisma.invoice.count({
-      where: {
-        clinicId: clinicId,
-        createdAt: { gte: new Date(year, new Date().getMonth(), 1) },
-      },
-    });
-    const invoiceNumber = `WM-${year}${month}-${String(invoiceCount + 1).padStart(4, '0')}`;
+    // Generate a unique invoice number (timestamp + random suffix eliminates race conditions)
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const invoiceNumber = `WM-${year}${month}-${Date.now().toString(36).slice(-4).toUpperCase()}${Math.random().toString(36).slice(2, 5).toUpperCase()}`;
 
-    // Create internal EONPRO invoice (NO Stripe - WellMedR doesn't have Stripe configured)
-    const invoice = await prisma.invoice.create({
-      data: {
-        patientId: verifiedPatient.id,
-        clinicId: clinicId,
-        // NO Stripe IDs - this is an internal invoice only
-        stripeInvoiceId: null,
-        stripeInvoiceNumber: null,
-        stripeInvoiceUrl: null,
-        stripePdfUrl: null,
-        // Amounts
-        amount: amountInCents,
-        amountDue: 0, // Already paid
-        amountPaid: amountInCents,
-        currency: 'usd',
-        // Status - mark as PAID since payment already collected via Airtable/Stripe
-        status: 'PAID',
-        paidAt: parsePaymentDate(payload.payment_date),
-        // Details
-        description: `${productName} - Payment received`,
-        dueDate: new Date(),
-        // Store line items and all metadata
-        lineItems: [
-          {
-            description: productName,
-            quantity: 1,
-            unitPrice: amountInCents,
+    // Atomic transaction: create stub patient (if deferred) + invoice together.
+    // Prevents orphaned stub patients if invoice creation fails.
+    const { txPatient, invoice } = await prisma.$transaction(async (tx) => {
+      let actualPatient = verifiedPatient;
+      if (wasAutoCreated && stubPatientCreateData) {
+        const created = await tx.patient.create({
+          data: stubPatientCreateData as any,
+          select: { id: true, patientId: true, firstName: true, lastName: true, email: true },
+        });
+        actualPatient = created as WellMedRPatient;
+      }
+
+      const createdInvoice = await tx.invoice.create({
+        data: {
+          patientId: actualPatient.id,
+          clinicId: clinicId,
+          stripeInvoiceId: null,
+          stripeInvoiceNumber: null,
+          stripeInvoiceUrl: null,
+          stripePdfUrl: null,
+          amount: amountInCents,
+          amountDue: 0,
+          amountPaid: amountInCents,
+          currency: 'usd',
+          status: 'PAID',
+          paidAt: parsePaymentDate(payload.payment_date),
+          description: `${productName} - Payment received`,
+          dueDate: new Date(),
+          lineItems: [
+            {
+              description: productName,
+              quantity: 1,
+              unitPrice: amountInCents,
+              product: product,
+              medicationType: medicationType,
+              plan: plan,
+            },
+          ],
+          metadata: {
+            invoiceNumber,
+            source: 'wellmedr-airtable',
+            stripePaymentMethodId: payload.method_payment_id,
+            stripePriceId: payload.stripe_price_id || '',
+            submissionId: payload.submission_id || '',
+            orderStatus: payload.order_status || '',
+            subscriptionStatus: payload.subscription_status || '',
+            customerName: customerName,
             product: product,
             medicationType: medicationType,
             plan: plan,
-          },
-        ],
-        metadata: {
-          invoiceNumber,
-          source: 'wellmedr-airtable',
-          stripePaymentMethodId: payload.method_payment_id,
-          stripePriceId: payload.stripe_price_id || '',
-          submissionId: payload.submission_id || '',
-          orderStatus: payload.order_status || '',
-          subscriptionStatus: payload.subscription_status || '',
-          customerName: customerName,
-          // Treatment details
-          product: product,
-          medicationType: medicationType,
-          plan: plan,
-          // Address info (extracted from all possible field variations)
-          address: fullAddress,
-          addressLine1: extractedAddress1,
-          addressLine2: extractedAddress2,
-          city: extractedCity,
-          state: extractedState ? normalizeState(String(extractedState)) : '',
-          zipCode: extractedZip,
-          country: payload.country || payload.shipping_country || '',
-          // Payment info
-          paymentDate: parsePaymentDate(payload.payment_date).toISOString(),
-          paymentMethod: 'stripe-airtable',
-          processedAt: new Date().toISOString(),
-          // Summary
-          summary: {
-            subtotal: amountInCents,
-            discountAmount: 0,
-            taxAmount: 0,
-            total: amountInCents,
-            amountPaid: amountInCents,
-            amountDue: 0,
+            address: fullAddress,
+            addressLine1: extractedAddress1,
+            addressLine2: extractedAddress2,
+            city: extractedCity,
+            state: extractedState ? normalizeState(String(extractedState)) : '',
+            zipCode: extractedZip,
+            country: payload.country || payload.shipping_country || '',
+            paymentDate: parsePaymentDate(payload.payment_date).toISOString(),
+            paymentMethod: 'stripe-airtable',
+            processedAt: new Date().toISOString(),
+            summary: {
+              subtotal: amountInCents,
+              discountAmount: 0,
+              taxAmount: 0,
+              total: amountInCents,
+              amountPaid: amountInCents,
+              amountDue: 0,
+            },
           },
         },
-      },
-      include: {
-        patient: true,
-        clinic: true,
-      },
-    });
+        include: {
+          patient: true,
+          clinic: true,
+        },
+      });
+
+      return { txPatient: actualPatient, invoice: createdInvoice };
+    }, { timeout: 30000 });
+
+    // Update verifiedPatient with real DB data after transaction commits
+    if (wasAutoCreated) {
+      verifiedPatient = txPatient;
+      logger.info(`[WELLMEDR-INVOICE ${requestId}] ✓ Stub patient created in transaction`, {
+        patientId: verifiedPatient.id,
+        patientIdStr: verifiedPatient.patientId,
+      });
+    }
 
     // STEP 7b: Automatically schedule refills for all GLP-1 plan durations (WellMedR)
     // 1-month: refill at 28 days, payment verification pending. 3-month: refill at 84 days, payment verification pending.

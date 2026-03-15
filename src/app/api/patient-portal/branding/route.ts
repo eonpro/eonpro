@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
+import { withAdminAuth, AuthUser } from '@/lib/auth/middleware';
 import { prisma } from '@/lib/db';
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
@@ -271,22 +272,7 @@ const updateBrandingSchema = z.object({
  *
  * @security Requires authentication - admin/super_admin only
  */
-export async function PUT(request: NextRequest) {
-  // Import auth middleware
-  const { verifyAuth } = await import('@/lib/auth/middleware');
-
-  const authResult = await verifyAuth(request);
-  if (!authResult.success) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
-  const user = authResult.user!;
-
-  // Only admins can update branding
-  if (!['admin', 'super_admin'].includes(user.role)) {
-    return NextResponse.json({ error: 'Forbidden - admin access required' }, { status: 403 });
-  }
-
+async function putHandler(request: NextRequest, user: AuthUser) {
   try {
     const body = await request.json();
 
@@ -397,3 +383,5 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ error: 'Failed to update clinic branding' }, { status: 500 });
   }
 }
+
+export const PUT = withAdminAuth(putHandler);

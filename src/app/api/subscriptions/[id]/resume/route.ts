@@ -1,11 +1,14 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { SubscriptionStatus } from '@prisma/client';
 import { logger } from '@/lib/logger';
+import { withAuth, AuthUser } from '@/lib/auth/middleware';
 
-export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
+type RouteContext = { params: Promise<{ id: string }> };
+
+async function postHandler(request: NextRequest, user: AuthUser, context?: RouteContext) {
   try {
-    const resolvedParams = await params;
+    const resolvedParams = await context!.params;
     const subscriptionId = parseInt(resolvedParams.id);
 
     const subscription = await prisma.subscription.findUnique({
@@ -63,3 +66,5 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: 'Failed to resume subscription' }, { status: 500 });
   }
 }
+
+export const POST = withAuth<RouteContext>(postHandler);

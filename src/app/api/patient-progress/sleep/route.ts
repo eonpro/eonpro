@@ -255,7 +255,7 @@ const patchHandler = withAuth(async (request: NextRequest, user) => {
     });
 
     logPHIUpdate(request, user, 'PatientSleepLog', id, log.patientId, Object.keys(updateData)).catch(
-      () => {}
+      (err) => { logger.error('PHI audit log failed', { error: err instanceof Error ? err.message : String(err) }); }
     );
 
     return NextResponse.json(updated);
@@ -301,7 +301,7 @@ const deleteHandler = withAuth(async (request: NextRequest, user) => {
     });
 
     logPHIDelete(request, user, 'PatientSleepLog', id, log.patientId, 'user_request').catch(
-      () => {}
+      (err) => { logger.error('PHI audit log failed', { error: err instanceof Error ? err.message : String(err) }); }
     );
 
     return NextResponse.json({ success: true, deletedId: id });

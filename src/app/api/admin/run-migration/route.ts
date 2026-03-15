@@ -1,28 +1,18 @@
 /**
  * RUN MIGRATION API
  * =================
- * Runs pending database migrations (admin only)
+ * Runs pending database migrations (super_admin only)
  *
- * POST /api/admin/run-migration
+ * GET/POST /api/admin/run-migration
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { basePrisma as prisma } from '@/lib/db';
-import { verifyAuth } from '@/lib/auth/middleware';
+import { withSuperAdminAuth, AuthUser } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
 
-// GET endpoint for easy browser access
-export async function GET(req: NextRequest) {
+async function getHandler(req: NextRequest, user: AuthUser) {
   try {
-    const authResult = await verifyAuth(req);
-    const allowedRoles = ['super_admin', 'admin'];
-    if (!authResult.success || !authResult.user || !allowedRoles.includes(authResult.user.role)) {
-      return NextResponse.json(
-        { error: 'Unauthorized - Admin access required', yourRole: authResult.user?.role },
-        { status: 401 }
-      );
-    }
-
     const { searchParams } = new URL(req.url);
     const migration = searchParams.get('migration');
 
@@ -34,36 +24,27 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    // Run the migration (reuse POST logic)
-    const body = { migration };
-    return runMigration(body, authResult.user);
+    return runMigration({ migration }, user);
   } catch (error: unknown) {
     logger.error('Migration error', { error: 'Operation failed' });
     return NextResponse.json({ error: 'Operation failed' }, { status: 500 });
   }
 }
 
-export async function POST(req: NextRequest) {
+async function postHandler(req: NextRequest, user: AuthUser) {
   try {
-    // Verify admin or super_admin
-    const authResult = await verifyAuth(req);
-    const allowedRoles = ['super_admin', 'admin'];
-    if (!authResult.success || !authResult.user || !allowedRoles.includes(authResult.user.role)) {
-      return NextResponse.json(
-        { error: 'Unauthorized - Admin access required', yourRole: authResult.user?.role },
-        { status: 401 }
-      );
-    }
-
     const body = await req.json();
-    return runMigration(body, authResult.user);
+    return runMigration(body, user);
   } catch (error: unknown) {
     logger.error('Migration error', { error: 'Operation failed' });
     return NextResponse.json({ error: 'Operation failed' }, { status: 500 });
   }
 }
 
-async function runMigration(body: any, auth: any) {
+export const GET = withSuperAdminAuth(getHandler);
+export const POST = withSuperAdminAuth(postHandler);
+
+async function runMigration(body: { migration?: string }, auth: AuthUser) {
   try {
     const { migration } = body;
 

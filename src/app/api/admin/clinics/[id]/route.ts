@@ -1,34 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { logger } from '../../../../../lib/logger';
 import { prisma } from '@/lib/db';
-import { verifyAuth, canAccessClinic } from '@/lib/auth/middleware';
+import { withAuth, AuthUser, canAccessClinic } from '@/lib/auth/middleware';
 
-/**
- * GET /api/admin/clinics/[id]
- * Get a specific clinic (admin only)
- */
-export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+interface RouteContext {
+  params: Promise<{ id: string }>;
+}
+
+async function getHandler(request: NextRequest, user: AuthUser, context?: RouteContext) {
   try {
-    // Verify admin authentication
-    const auth = await verifyAuth(request);
-    if (!auth.success || !auth.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const allowedRoles = ['super_admin', 'admin'];
-    if (!allowedRoles.includes(auth.user.role)) {
-      return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 });
-    }
-
-    const resolvedParams = await params;
+    const resolvedParams = await context!.params;
     const clinicId = parseInt(resolvedParams.id);
 
     if (isNaN(clinicId)) {
       return NextResponse.json({ error: 'Invalid clinic ID' }, { status: 400 });
     }
 
-    // Non-super-admins can only access their own clinic
-    if (auth.user.role !== 'super_admin' && !canAccessClinic(auth.user, clinicId)) {
+    if (user.role !== 'super_admin' && !canAccessClinic(user, clinicId)) {
       return NextResponse.json({ error: 'Access denied to this clinic' }, { status: 403 });
     }
 
@@ -85,24 +73,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   }
 }
 
-/**
- * PATCH /api/admin/clinics/[id]
- * Update a clinic (admin only)
- */
-export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+async function patchHandler(request: NextRequest, user: AuthUser, context?: RouteContext) {
   try {
-    // Verify admin authentication
-    const auth = await verifyAuth(request);
-    if (!auth.success || !auth.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const allowedRoles = ['super_admin', 'admin'];
-    if (!allowedRoles.includes(auth.user.role)) {
-      return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 });
-    }
-
-    const resolvedParams = await params;
+    const resolvedParams = await context!.params;
     const clinicId = parseInt(resolvedParams.id);
     const body = await request.json();
 
@@ -110,8 +83,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       return NextResponse.json({ error: 'Invalid clinic ID' }, { status: 400 });
     }
 
-    // Non-super-admins can only update their own clinic
-    if (auth.user.role !== 'super_admin' && !canAccessClinic(auth.user, clinicId)) {
+    if (user.role !== 'super_admin' && !canAccessClinic(user, clinicId)) {
       return NextResponse.json({ error: 'Access denied to this clinic' }, { status: 403 });
     }
 
@@ -219,9 +191,9 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       data: {
         clinicId: clinicId,
         action: 'UPDATE',
-        userId: auth.user.id,
+        userId: user.id,
         details: {
-          updatedBy: auth.user.id,
+          updatedBy: user.id,
           changes: body,
         },
       },
@@ -234,36 +206,22 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   }
 }
 
-/**
- * DELETE /api/admin/clinics/[id]
- * Delete a clinic (super_admin only - destructive operation)
- */
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+async function deleteHandler(request: NextRequest, user: AuthUser, context?: RouteContext) {
   try {
-    // Verify super_admin authentication (only super_admin can delete clinics)
-    const auth = await verifyAuth(request);
-    if (!auth.success || !auth.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    if (auth.user.role !== 'super_admin') {
+    if (user.role !== 'super_admin') {
       return NextResponse.json(
         { error: 'Forbidden - Super Admin access required for clinic deletion' },
         { status: 403 }
       );
     }
 
-    const resolvedParams = await params;
+    const resolvedParams = await context!.params;
     const clinicId = parseInt(resolvedParams.id);
 
     if (isNaN(clinicId)) {
       return NextResponse.json({ error: 'Invalid clinic ID' }, { status: 400 });
     }
 
-    // Check if clinic exists and has no data (use select for backwards compatibility)
     const clinic = await prisma.clinic.findUnique({
       where: { id: clinicId },
       select: {
@@ -285,7 +243,6 @@ export async function DELETE(
       return NextResponse.json({ error: 'Clinic not found' }, { status: 404 });
     }
 
-    // Prevent deletion if clinic has data
     const hasData =
       clinic._count.patients > 0 ||
       clinic._count.providers > 0 ||
@@ -299,21 +256,19 @@ export async function DELETE(
       );
     }
 
-    // Create audit log before deletion
     await prisma.clinicAuditLog.create({
       data: {
         clinicId: clinicId,
         action: 'DELETE',
-        userId: auth.user.id,
+        userId: user.id,
         details: {
-          deletedBy: auth.user.email,
+          deletedBy: user.id,
           clinicName: clinic.name,
           subdomain: clinic.subdomain,
         },
       },
     });
 
-    // Delete the clinic
     await prisma.clinic.delete({
       where: { id: clinicId },
     });
@@ -324,3 +279,7 @@ export async function DELETE(
     return NextResponse.json({ error: 'Failed to delete clinic' }, { status: 500 });
   }
 }
+
+export const GET = withAuth<RouteContext>(getHandler, { roles: ['super_admin', 'admin'] });
+export const PATCH = withAuth<RouteContext>(patchHandler, { roles: ['super_admin', 'admin'] });
+export const DELETE = withAuth<RouteContext>(deleteHandler, { roles: ['super_admin', 'admin'] });

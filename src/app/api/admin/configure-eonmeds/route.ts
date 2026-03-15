@@ -1,24 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import { withSuperAdminAuth, AuthUser } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
 
 /**
  * POST /api/admin/configure-eonmeds
  *
  * One-time endpoint to configure EONMEDS clinic with Lifefile credentials.
- * Protected by a setup secret.
+ * Requires super_admin authentication.
  */
-export async function POST(req: NextRequest) {
+async function handler(req: NextRequest, user: AuthUser) {
   try {
-    // Verify setup secret
-    const setupSecret = req.headers.get('x-setup-secret');
-    const configuredSecret =
-      process.env.ADMIN_SETUP_SECRET || process.env.WEIGHTLOSSINTAKE_WEBHOOK_SECRET;
-
-    if (!configuredSecret || setupSecret !== configuredSecret) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
     const body = await req.json();
 
     // Find EONMEDS clinic (use select for backwards compatibility)
@@ -93,3 +85,5 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: error instanceof Error ? error.message : String(error) || 'Configuration failed' }, { status: 500 });
   }
 }
+
+export const POST = withSuperAdminAuth(handler);

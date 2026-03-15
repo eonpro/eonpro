@@ -45,6 +45,7 @@ import { safeParseJson } from '@/lib/utils/safe-json';
 import { portalFetch } from '@/lib/api/patient-portal-client';
 import { isBrowser } from '@/lib/utils/ssr-safe';
 import { EONPRO_LOGO } from '@/lib/constants/brand-assets';
+import ErrorBoundary from '@/components/ErrorBoundary';
 import {
   NAV_MODULES,
   LEAD_NAV_MODULES,
@@ -728,7 +729,9 @@ export default function PatientPortalLayout({ children }: { children: React.Reac
     <ClinicBrandingProvider>
       <PatientPortalLanguageProvider>
         <OfflineBanner />
-        <PatientPortalLayoutInner>{children}</PatientPortalLayoutInner>
+        <ErrorBoundary>
+          <PatientPortalLayoutInner>{children}</PatientPortalLayoutInner>
+        </ErrorBoundary>
         <PWAUpdateBanner />
         <InstallPrompt />
       </PatientPortalLanguageProvider>

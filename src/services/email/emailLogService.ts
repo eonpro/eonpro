@@ -319,6 +319,7 @@ class EmailLogService {
 
     const logs = await prisma.emailLog.findMany({
       where,
+      take: 1000,
       select: {
         createdAt: true,
         status: true,
@@ -429,6 +430,7 @@ class EmailLogService {
 
     const logs = await prisma.emailLog.findMany({
       where,
+      take: 1000,
       select: { recipientEmail: true },
       distinct: ['recipientEmail'],
     });
