@@ -141,6 +141,13 @@ function reformatDirectionsUnitsFirst(directions: string): string {
   );
 }
 
+function rewriteDirectionsForMonth(directions: string, monthLabel: string, weeksInMonth: number): string {
+  let d = reformatDirectionsUnitsFirst(directions);
+  d = d.replace(/month\s+\d+(?:\s*[-–]\s*\d+)?:/i, `${monthLabel}:`);
+  d = d.replace(/for\s+\d+\s+weeks/i, `for ${weeksInMonth} weeks`);
+  return d;
+}
+
 function extractMlValue(...inputs: Array<string | null | undefined>): string | null {
   for (const input of inputs) {
     if (!input) continue;
@@ -172,7 +179,9 @@ function getMedicationDisplayName(med: RxMedication): string {
     return 'Semaglutide';
   }
 
-  const normalizedName = toTitleCase(medName.replace(/\s+/g, ' ').trim());
+  const cleanedName = medName.replace(/\s+/g, ' ').trim()
+    .replace(/\s+solution\s+\d+mg\/\d+mg\/ml/i, '');
+  const normalizedName = toTitleCase(cleanedName);
   const normalizedStrength = med.strength ? med.strength.toLowerCase().trim() : '';
   if (!normalizedStrength || normalizedStrength.startsWith('solution')) {
     return normalizedName;
@@ -515,7 +524,6 @@ END:VCALENDAR`;
 
     const items: Array<{
       monthNumber: number;
-      monthEnd: number;
       weekStart: number;
       weekEnd: number;
       prescriptionId: number;
@@ -524,6 +532,7 @@ END:VCALENDAR`;
       directions: string;
       dose: { mg: string; units: string } | null;
       isTitration: boolean;
+      isSameDose: boolean;
       status: string;
       periodStart: Date;
       periodEnd: Date;
@@ -533,6 +542,7 @@ END:VCALENDAR`;
     let weekCursor = 1;
     let prevDoseKey = '';
     const firstPrescribedDate = allOrders.length > 0 ? new Date(allOrders[0].prescribedDate) : new Date();
+    const WEEKS_PER_MONTH = 4;
 
     for (const order of allOrders) {
       const injectableMeds = (order.medications ?? []).filter(
@@ -541,41 +551,51 @@ END:VCALENDAR`;
       if (injectableMeds.length === 0) continue;
 
       for (const med of injectableMeds) {
-        monthNum++;
         const weeksInSupply = med.daysSupply > 0 ? Math.round(med.daysSupply / 7) : 4;
-        const monthsCovered = Math.max(1, Math.ceil(weeksInSupply / 4));
-        const monthStart = monthNum;
-        const monthEnd = monthNum + monthsCovered - 1;
-        monthNum = monthEnd;
-        const weekStart = weekCursor;
-        const weekEnd = weekCursor + weeksInSupply - 1;
-        weekCursor = weekEnd + 1;
-
-        const periodStart = new Date(firstPrescribedDate);
-        periodStart.setDate(periodStart.getDate() + (weekStart - 1) * 7);
-        const periodEnd = new Date(firstPrescribedDate);
-        periodEnd.setDate(periodEnd.getDate() + weekEnd * 7);
+        const monthsCovered = Math.max(1, Math.ceil(weeksInSupply / WEEKS_PER_MONTH));
 
         const dose = parseDoseFromDirections(med.directions);
         const doseKey = dose ? `${dose.mg}-${dose.units}` : med.directions;
         const isTitration = prevDoseKey !== '' && doseKey !== prevDoseKey;
+        const isSameDose = prevDoseKey !== '' && doseKey === prevDoseKey;
         prevDoseKey = doseKey;
 
-        items.push({
-          monthNumber: monthStart,
-          monthEnd,
-          weekStart,
-          weekEnd,
-          prescriptionId: order.id,
-          date: order.prescribedDate,
-          medName: getMedicationDisplayName(med),
-          directions: reformatDirectionsUnitsFirst(med.directions),
-          dose,
-          isTitration,
-          status: order.status,
-          periodStart,
-          periodEnd,
-        });
+        const medName = getMedicationDisplayName(med);
+
+        for (let m = 0; m < monthsCovered; m++) {
+          monthNum++;
+          const mWeekStart = weekCursor + m * WEEKS_PER_MONTH;
+          const mWeekEnd = Math.min(mWeekStart + WEEKS_PER_MONTH - 1, weekCursor + weeksInSupply - 1);
+
+          const periodStart = new Date(firstPrescribedDate);
+          periodStart.setDate(periodStart.getDate() + (mWeekStart - 1) * 7);
+          const periodEnd = new Date(firstPrescribedDate);
+          periodEnd.setDate(periodEnd.getDate() + mWeekEnd * 7);
+
+          const monthDirections = rewriteDirectionsForMonth(
+            med.directions,
+            `Month ${monthNum}`,
+            mWeekEnd - mWeekStart + 1,
+          );
+
+          items.push({
+            monthNumber: monthNum,
+            weekStart: mWeekStart,
+            weekEnd: mWeekEnd,
+            prescriptionId: order.id,
+            date: order.prescribedDate,
+            medName,
+            directions: monthDirections,
+            dose,
+            isTitration: m === 0 ? isTitration : false,
+            isSameDose: m === 0 ? isSameDose : true,
+            status: order.status,
+            periodStart,
+            periodEnd,
+          });
+        }
+
+        weekCursor += weeksInSupply;
       }
     }
 
@@ -872,8 +892,7 @@ END:VCALENDAR`;
                 style={{ backgroundColor: `${primaryColor}08` }}
               >
                 <p className="text-xs font-medium text-gray-500 sm:text-sm">
-                  Each prescription below covers {dosingScheduleItems[0]?.weekEnd && dosingScheduleItems[0].weekEnd - dosingScheduleItems[0].weekStart + 1 || 4} weekly
-                  injections at the listed dose. Your provider may adjust the dose after 4+ weeks based on your progress.
+                  Each month below covers 4 weekly injections at the listed dose. Your provider may adjust the dose after 4+ weeks based on your progress.
                 </p>
               </div>
               <div className="divide-y divide-gray-50">
@@ -884,9 +903,8 @@ END:VCALENDAR`;
                   return (
                     <div
                       key={`${item.prescriptionId}-${item.monthNumber}`}
-                      className={`relative flex gap-3 px-4 py-4 sm:gap-4 sm:px-5 sm:py-5 ${
-                        isCurrent ? 'bg-emerald-50/60' : ''
-                      }`}
+                      className="relative flex gap-3 px-4 py-4 sm:gap-4 sm:px-5 sm:py-5"
+                      style={isCurrent ? { backgroundColor: `${primaryColor}10` } : undefined}
                     >
                       {/* Timeline connector */}
                       <div className="flex flex-col items-center">
@@ -924,7 +942,7 @@ END:VCALENDAR`;
                               isCurrent ? 'text-gray-900' : isGrayed ? 'text-gray-400' : 'text-gray-700'
                             }`}
                           >
-                            Month {item.monthNumber}{item.monthEnd > item.monthNumber ? ` and ${item.monthEnd}` : ''}
+                            Month {item.monthNumber}
                           </span>
                           <span
                             className={`text-[10px] font-semibold sm:text-xs ${
@@ -951,6 +969,11 @@ END:VCALENDAR`;
                               Dose increase
                             </span>
                           )}
+                          {item.isSameDose && !isPast && !isCurrent && (
+                            <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-500 sm:text-xs">
+                              Dose stays the same
+                            </span>
+                          )}
                         </div>
 
                         <p
@@ -966,10 +989,9 @@ END:VCALENDAR`;
                         {/* Injection directions */}
                         <div
                           className={`mt-2 rounded-xl p-3 ${
-                            isCurrent
-                              ? 'border border-emerald-200 bg-white'
-                              : 'bg-gray-50'
+                            isCurrent ? 'border bg-white' : 'bg-gray-50'
                           }`}
+                          style={isCurrent ? { borderColor: `${primaryColor}30` } : undefined}
                         >
                           {item.dose && (item.dose.mg || item.dose.units) ? (
                             <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
