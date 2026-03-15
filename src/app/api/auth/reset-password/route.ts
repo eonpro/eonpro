@@ -16,6 +16,7 @@ import {
   verifyOTPCode,
   sendVerificationEmail,
   sendVerificationSMS,
+  isSmsConfigured,
   resolveClinicEmailBranding,
 } from '@/lib/auth/verification';
 import { isEmailConfigured } from '@/lib/email';
@@ -70,6 +71,14 @@ export const POST = strictRateLimit(async (req: NextRequest) => {
       return NextResponse.json(
         { error: 'SMS reset is only available for patient accounts' },
         { status: 400 }
+      );
+    }
+
+    if (viaSMS && !isSmsConfigured()) {
+      logger.error('SMS service not configured - cannot send password reset code via text');
+      return NextResponse.json(
+        { error: 'Text message service is temporarily unavailable. Please try resetting via email instead.' },
+        { status: 503 }
       );
     }
 

@@ -5,7 +5,8 @@
 
 import { basePrisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
-import { sendEmail } from '@/lib/email';
+import { sendEmail, isEmailConfigured } from '@/lib/email';
+import { isTwilioConfigured } from '@/lib/integrations/twilio/config';
 import crypto from 'crypto';
 
 interface VerificationResult {
@@ -156,7 +157,8 @@ export async function verifyOTPCode(
 }
 
 /**
- * Send verification email via AWS SES, branded per clinic
+ * Send verification email via AWS SES, branded per clinic.
+ * Fails explicitly when email service is not configured.
  */
 export async function sendVerificationEmail(
   email: string,
@@ -165,6 +167,11 @@ export async function sendVerificationEmail(
   clinic?: ClinicEmailBranding
 ): Promise<boolean> {
   try {
+    if (!isEmailConfigured()) {
+      logger.error('Cannot send verification email — AWS SES is not configured', { type });
+      return false;
+    }
+
     const brandName = clinic?.clinicName || 'EONPRO';
     const subject =
       type === 'login_otp'
@@ -197,7 +204,18 @@ export async function sendVerificationEmail(
 }
 
 /**
- * Send verification code via SMS (Twilio)
+ * Check whether SMS delivery is available for auth-critical flows.
+ * Unlike general SMS (which falls back to mock), auth flows must
+ * deliver a real message or fail explicitly.
+ */
+export function isSmsConfigured(): boolean {
+  return isTwilioConfigured() && process.env.TWILIO_USE_MOCK !== 'true';
+}
+
+/**
+ * Send verification code via SMS (Twilio).
+ * Fails explicitly when Twilio is not configured — auth-critical
+ * messages must never silently fall back to a mock service.
  */
 export async function sendVerificationSMS(
   phone: string,
@@ -206,6 +224,15 @@ export async function sendVerificationSMS(
   clinicName?: string
 ): Promise<boolean> {
   try {
+    if (!isSmsConfigured()) {
+      logger.error('Cannot send verification SMS — Twilio is not configured or is in mock mode', {
+        type,
+        twilioConfigured: isTwilioConfigured(),
+        mockMode: process.env.TWILIO_USE_MOCK,
+      });
+      return false;
+    }
+
     const { sendSMS } = await import('@/lib/integrations/twilio/smsService');
     const brand = clinicName || 'EONPRO';
     const label = type === 'login_otp' ? 'login' : 'password reset';
