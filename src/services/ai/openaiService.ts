@@ -409,12 +409,17 @@ Treatment Response:
 • Patient has been on ${prevRx?.medName || 'GLP-1 therapy'} at ${prevRx?.dose !== null ? prevRx?.dose + 'mg' : prevRx?.strength || 'current dose'}
 • Tolerating current dose well with no significant adverse effects
 • Continued clinical indication for pharmacologic weight management
-• Patient meets criteria for dose titration per standard protocol
+${isAtMaxDose ? `• Patient is at MAXIMUM therapeutic dose (${prevDose}mg weekly) — no further titration indicated
+• Recommend maintaining current dose for continued weight management benefit` : '• Patient meets criteria for dose titration per standard protocol'}
 
-Dose Titration Rationale:
+${isAtMaxDose ? `Maintenance Therapy Rationale:
+• Patient has reached maximum recommended weekly dose for ${isTirzepatide ? 'tirzepatide (15mg)' : isSemaglutide ? 'semaglutide (2.4mg)' : 'current medication'}
+• Current dose is well-tolerated with demonstrated clinical benefit
+• Continued therapy at this dose is appropriate for sustained weight management
+• No further dose escalation is indicated per prescribing guidelines` : `Dose Titration Rationale:
 • Current dose has been tolerated — appropriate to advance to next dose level per titration protocol
 • Gradual dose escalation improves efficacy while maintaining tolerability
-• Continued compounded formulation allows precise dosing flexibility
+• Continued compounded formulation allows precise dosing flexibility`}
 
 No new contraindications identified. Patient remains an appropriate candidate for continued GLP-1 therapy.
 
@@ -422,26 +427,32 @@ No new contraindications identified. Patient remains an appropriate candidate fo
 
 P – PLAN:
 
-Dose Titration:
+${isAtMaxDose ? `Maintenance Therapy:
+• Continue current dose: ${prevRx?.dose !== null ? prevRx?.dose + 'mg' : prevRx?.strength || '[current dose]'} ${prevRx?.medName || ''} — MAXIMUM dose reached
+• DO NOT titrate up — patient is at maximum recommended weekly dose
+• Continue compounded formulation with Vitamin B12 or Glycine per pharmacy standards` : `Dose Titration:
 • Previous dose: ${prevRx?.dose !== null ? prevRx?.dose + 'mg' : prevRx?.strength || '[current dose]'} ${prevRx?.medName || ''}
 • Titrate UP to next dose per protocol
-• Continue compounded formulation with Vitamin B12 or Glycine per pharmacy standards
+• Continue compounded formulation with Vitamin B12 or Glycine per pharmacy standards`}
 
 Monitoring & Follow-Up:
-• Monitor weight, BMI, appetite, and tolerance at increased dose
-• Assess for dose-related side effects (nausea, constipation, reflux) at higher dose
+• Monitor weight, BMI, appetite, and tolerance ${isAtMaxDose ? 'at current maximum dose' : 'at increased dose'}
+• Assess for ${isAtMaxDose ? 'ongoing' : 'dose-related'} side effects (nausea, constipation, reflux)
 • Reinforce hydration, protein intake, and lifestyle adherence
 • Follow-up evaluation in 4 weeks or sooner if adverse symptoms occur
 
 Patient Education:
-• Reviewed expected effects at higher dose
+${isAtMaxDose ? `• Reviewed continued expectations at maximum therapeutic dose
+• Discussed long-term maintenance approach and importance of adherence
+• Counseled on signs/symptoms requiring medical attention
+• Reinforced that medication is adjunct to diet and activity` : `• Reviewed expected effects at higher dose
 • Discussed gradual titration approach and timeline
 • Counseled on signs/symptoms requiring medical attention
-• Reinforced that medication is adjunct to diet and activity
+• Reinforced that medication is adjunct to diet and activity`}
 
 Disposition:
 • Patient remains an appropriate candidate for continued medically supervised weight loss
-• Dose titration approved pending pharmacy processing
+• ${isAtMaxDose ? 'Maintenance dose renewal approved pending pharmacy processing' : 'Dose titration approved pending pharmacy processing'}
 • Next follow-up scheduled per protocol
 
 ═══════════════════════════════════════════════════════════════════════════════
