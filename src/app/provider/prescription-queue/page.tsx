@@ -216,6 +216,8 @@ interface QueueItem {
   queuedByUserId?: number | null;
   // Indicates source of GLP-1 info for refills: 'last_prescription' | 'medication_info'
   glp1Source?: string;
+  // Whether patient has ANY previous prescription (renewal vs new detection)
+  hasPreviousRx?: boolean;
   // Previous prescription details for renewals/refills
   lastRxDetails?: {
     medName: string;
@@ -1655,7 +1657,7 @@ export default function PrescriptionQueuePage() {
             {filteredItems.map((item) => {
               const itemKey = item.orderId ?? item.invoiceId ?? item.refillId ?? item.patientId;
               const isQueuedOrder = item.queueType === 'queued_order';
-              const isRenewal = item.queueType === 'refill';
+              const isRenewal = item.hasPreviousRx === true;
               return (
                 <div
                   key={itemKey}
@@ -1690,7 +1692,7 @@ export default function PrescriptionQueuePage() {
                                 Admin Queued
                               </span>
                             )}
-                            {item.queueType === 'refill' ? (
+                            {isRenewal ? (
                               <span className="inline-flex items-center gap-0.5 rounded-full border border-orange-300 bg-orange-100 px-1.5 py-0.5 text-[9px] font-bold text-orange-700">
                                 <RefreshCw className="h-2.5 w-2.5" />
                                 RENEWAL
@@ -1789,7 +1791,7 @@ export default function PrescriptionQueuePage() {
 
                       {/* GLP-1 History / Previous Rx - Col 3 (hidden on mobile) */}
                       <div className="hidden min-w-0 items-center gap-1.5 xl:flex">
-                        {item.queueType === 'refill' ? (
+                        {isRenewal ? (
                           <>
                             <div className="rounded p-1 bg-orange-100">
                               <FileText className="h-3 w-3 text-orange-600" />
@@ -2210,7 +2212,7 @@ export default function PrescriptionQueuePage() {
                                 )}
 
                                 {/* GLP-1 History / Previous Prescription */}
-                                {item.queueType === 'refill' && item.lastRxDetails ? (
+                                {item.hasPreviousRx && item.lastRxDetails ? (
                                   <div className="rounded-lg bg-orange-50 border border-orange-100 p-3">
                                     <div className="flex items-center gap-2 font-medium text-orange-700 mb-1">
                                       <FileText className="h-4 w-4" />
@@ -3237,7 +3239,7 @@ export default function PrescriptionQueuePage() {
                       {/* Previous Dosage & Amount Paid cards */}
                       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                         {/* Previous Dosage / Previous Prescription Card */}
-                        {prescriptionPanel.item.queueType === 'refill' ? (
+                        {prescriptionPanel.item.hasPreviousRx ? (
                           <div className="rounded-xl border border-orange-200 bg-orange-50 p-4">
                             <h3 className="mb-2 flex items-center gap-2 text-sm font-medium text-orange-800">
                               <FileText className="h-4 w-4 text-orange-600" />
@@ -3931,7 +3933,7 @@ export default function PrescriptionQueuePage() {
 
                   <div className="flex-1 space-y-4 p-4 sm:p-6">
                     {/* Card 1: Previous Prescription / GLP-1 History */}
-                    {prescriptionPanel.item.queueType === 'refill' ? (
+                    {prescriptionPanel.item.hasPreviousRx ? (
                       <div className="overflow-hidden rounded-xl border border-orange-200 bg-orange-50">
                         <div className="flex items-center gap-2 border-b border-orange-200 bg-orange-100/60 px-4 py-2.5">
                           <FileText className="h-4 w-4 text-orange-700" />

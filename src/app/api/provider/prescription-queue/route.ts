@@ -1558,10 +1558,75 @@ async function handleGet(req: NextRequest, user: AuthUser) {
     // Duplicate prescription safeguard: batch-check all queue patients for recent Rx (last 3 days)
     const queuePatientIds = [...new Set(queueItems.map((item) => item.patientId))];
     const duplicateRxMap = await batchCheckRecentPrescriptions(queuePatientIds);
+
+    // ─── Batch-check for ANY previous order per patient (renewal detection) ───
+    // A patient with any prior completed order is a RENEWAL, otherwise NEW.
+    const previousRxMap = new Map<number, { hasPreviousRx: boolean; lastRxDetails: { medName: string; strength: string; sig: string; dose: number | null } | null }>();
+    if (queuePatientIds.length > 0) {
+      try {
+        const previousOrders = await prisma.order.findMany({
+          where: {
+            patientId: { in: queuePatientIds },
+            cancelledAt: null,
+            status: { notIn: ['error', 'cancelled', 'declined'] },
+          },
+          select: {
+            id: true,
+            patientId: true,
+            createdAt: true,
+            rxs: {
+              select: { medName: true, strength: true, sig: true },
+              take: 1,
+            },
+          },
+          orderBy: { createdAt: 'desc' },
+        });
+
+        const grouped = new Map<number, typeof previousOrders>();
+        for (const order of previousOrders) {
+          const existing = grouped.get(order.patientId) || [];
+          existing.push(order);
+          grouped.set(order.patientId, existing);
+        }
+
+        for (const pid of queuePatientIds) {
+          const orders = grouped.get(pid) || [];
+          if (orders.length > 0) {
+            const latestRx = orders[0].rxs?.[0] || null;
+            let rxDetails = null;
+            if (latestRx) {
+              const doseMatch = latestRx.sig.match(/(?:inject|administer)\s+([\d.]+)\s*mg/i);
+              rxDetails = {
+                medName: latestRx.medName,
+                strength: latestRx.strength,
+                sig: latestRx.sig,
+                dose: doseMatch ? parseFloat(doseMatch[1]) : null,
+              };
+            }
+            previousRxMap.set(pid, { hasPreviousRx: true, lastRxDetails: rxDetails });
+          } else {
+            previousRxMap.set(pid, { hasPreviousRx: false, lastRxDetails: null });
+          }
+        }
+
+        logger.info('[PRESCRIPTION-QUEUE] Renewal detection complete', {
+          patientsChecked: queuePatientIds.length,
+          renewals: [...previousRxMap.values()].filter((r) => r.hasPreviousRx).length,
+        });
+      } catch (err) {
+        logger.warn('[PRESCRIPTION-QUEUE] Failed to check previous prescriptions for renewal detection', {
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
+
     const enrichedItems = queueItems.map((item) => {
       const dupCheck = duplicateRxMap.get(item.patientId);
+      const prevRx = previousRxMap.get(item.patientId);
       return {
         ...item,
+        hasPreviousRx: prevRx?.hasPreviousRx ?? false,
+        lastRxDetails: item.lastRxDetails ?? prevRx?.lastRxDetails ?? null,
         recentPrescription: dupCheck?.hasDuplicate
           ? {
               hasDuplicate: true,
