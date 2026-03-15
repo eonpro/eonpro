@@ -73,13 +73,23 @@ function isInjectableMedication(name: string): boolean {
 
 function parseDoseFromDirections(directions: string): { mg: string; units: string } | null {
   if (!directions) return null;
-  const m = directions.match(/inject\s+([\d.]+)\s*mg\s*\((\d+)\s*units?\)/i);
+  const m = directions.match(/inject\s+([\d.]+)\s*mg\s*\([^)]*?(\d+)\s*units?\)/i);
   if (m?.[1] && m?.[2]) return { mg: m[1], units: m[2] };
+  const unitsWithMg = directions.match(/inject\s+(\d+)\s*units?\s*\(([\d.]+)\s*mg\)/i);
+  if (unitsWithMg?.[1] && unitsWithMg?.[2]) return { mg: unitsWithMg[2], units: unitsWithMg[1] };
   const mgOnly = directions.match(/inject\s+([\d.]+)\s*mg/i);
   if (mgOnly?.[1]) return { mg: mgOnly[1], units: '' };
   const uOnly = directions.match(/inject\s+(\d+)\s*units?/i);
   if (uOnly?.[1]) return { mg: '', units: uOnly[1] };
   return null;
+}
+
+function reformatDirectionsUnitsFirst(directions: string): string {
+  if (!directions) return directions;
+  return directions.replace(
+    /inject\s+([\d.]+)\s*mg\s*\([^)]*?(\d+)\s*units?\)/gi,
+    (_, mg, units) => `Inject ${units} units (${mg} mg)`
+  );
 }
 
 function extractMgValue(...inputs: Array<string | null | undefined>): string | null {
@@ -111,7 +121,10 @@ function getMedicationDisplayName(med: RxMedication): string {
     return 'Semaglutide';
   }
   const normalized = toTitleCase(medName.replace(/\s+/g, ' ').trim());
-  const str = med.strength ? med.strength.toLowerCase() : '';
+  const str = med.strength ? med.strength.toLowerCase().trim() : '';
+  if (!str || str.startsWith('solution')) {
+    return normalized;
+  }
   return str ? `${normalized} ${str}` : normalized;
 }
 
@@ -159,6 +172,7 @@ export default function WelcomeKitPage() {
 
     const items: Array<{
       monthNumber: number;
+      monthEnd: number;
       weekStart: number;
       weekEnd: number;
       date: string;
@@ -182,6 +196,10 @@ export default function WelcomeKitPage() {
       for (const med of injectables) {
         monthNum++;
         const weeks = med.daysSupply > 0 ? Math.round(med.daysSupply / 7) : 4;
+        const monthsCovered = Math.max(1, Math.ceil(weeks / 4));
+        const monthStart = monthNum;
+        const monthEnd = monthNum + monthsCovered - 1;
+        monthNum = monthEnd;
         const weekStart = weekCursor;
         const weekEnd = weekCursor + weeks - 1;
         weekCursor = weekEnd + 1;
@@ -195,7 +213,7 @@ export default function WelcomeKitPage() {
           (order.status || '').toLowerCase(),
         );
 
-        items.push({ monthNumber: monthNum, weekStart, weekEnd, date: order.prescribedDate, medName: getMedicationDisplayName(med), directions: med.directions, dose, isActive, isTitration });
+        items.push({ monthNumber: monthStart, monthEnd, weekStart, weekEnd, date: order.prescribedDate, medName: getMedicationDisplayName(med), directions: reformatDirectionsUnitsFirst(med.directions), dose, isActive, isTitration });
       }
     }
     return items;
@@ -294,7 +312,9 @@ export default function WelcomeKitPage() {
           <div className="divide-y divide-gray-50">
             {dosingItems.map((item, idx) => {
               const isCurrent = idx === currentIdx;
-              const isPast = currentIdx >= 0 ? idx < currentIdx : !item.isActive;
+              const hasCurrentDose = currentIdx >= 0;
+              const isPast = hasCurrentDose ? idx < currentIdx : !item.isActive;
+              const isGrayed = hasCurrentDose && idx < currentIdx;
               return (
                 <div
                   key={`${item.monthNumber}`}
@@ -303,7 +323,7 @@ export default function WelcomeKitPage() {
                   <div className="flex flex-col items-center">
                     <div
                       className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-bold sm:h-10 sm:w-10 ${
-                        isCurrent ? 'text-white shadow-md' : isPast ? 'bg-gray-100 text-gray-400' : 'bg-gray-100 text-gray-500'
+                        isCurrent ? 'text-white shadow-md' : isGrayed ? 'bg-gray-100 text-gray-400' : 'bg-gray-100 text-gray-500'
                       }`}
                       style={isCurrent ? { backgroundColor: primaryColor } : undefined}
                     >
@@ -311,17 +331,17 @@ export default function WelcomeKitPage() {
                     </div>
                     {idx < dosingItems.length - 1 && (
                       <div
-                        className={`mt-1 w-0.5 flex-1 ${isPast ? 'bg-gray-200' : 'bg-gray-100'}`}
+                        className={`mt-1 w-0.5 flex-1 ${isGrayed ? 'bg-gray-200' : 'bg-gray-100'}`}
                         style={isCurrent ? { backgroundColor: `${primaryColor}40` } : undefined}
                       />
                     )}
                   </div>
                   <div className="min-w-0 flex-1 pb-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className={`text-sm font-semibold sm:text-base ${isCurrent ? 'text-gray-900' : isPast ? 'text-gray-400' : 'text-gray-700'}`}>
-                        Month {item.monthNumber}
+                      <span className={`text-sm font-semibold sm:text-base ${isCurrent ? 'text-gray-900' : isGrayed ? 'text-gray-400' : 'text-gray-700'}`}>
+                        Month {item.monthNumber}{item.monthEnd > item.monthNumber ? ` and ${item.monthEnd}` : ''}
                       </span>
-                      <span className={`text-[10px] font-semibold sm:text-xs ${isPast ? 'text-gray-300' : 'text-gray-400'}`}>
+                      <span className={`text-[10px] font-semibold sm:text-xs ${isGrayed ? 'text-gray-300' : 'text-gray-400'}`}>
                         Weeks {item.weekStart}&ndash;{item.weekEnd}
                       </span>
                       {isCurrent && (
@@ -340,7 +360,7 @@ export default function WelcomeKitPage() {
                         </span>
                       )}
                     </div>
-                    <p className={`mt-0.5 text-xs sm:text-sm ${isPast ? 'text-gray-400' : 'text-gray-500'}`}>
+                    <p className={`mt-0.5 text-xs sm:text-sm ${isGrayed ? 'text-gray-400' : 'text-gray-500'}`}>
                       {item.medName}
                       <span className="mx-1.5 text-gray-300">&middot;</span>
                       Prescribed {formatDate(item.date)}
@@ -348,25 +368,25 @@ export default function WelcomeKitPage() {
                     <div className={`mt-2 rounded-xl p-3 ${isCurrent ? 'border border-emerald-200 bg-white' : 'bg-gray-50'}`}>
                       {item.dose && (item.dose.mg || item.dose.units) ? (
                         <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                          <span className={`text-xs font-semibold uppercase tracking-wider ${isPast ? 'text-gray-300' : 'text-gray-400'}`}>
+                          <span className={`text-xs font-semibold uppercase tracking-wider ${isGrayed ? 'text-gray-300' : 'text-gray-400'}`}>
                             Inject weekly:
                           </span>
                           {item.dose.units && (
                             <span
-                              className={`text-lg font-bold sm:text-xl ${isCurrent ? '' : isPast ? 'text-gray-300' : 'text-gray-700'}`}
+                              className={`text-lg font-bold uppercase sm:text-xl ${isCurrent ? '' : isGrayed ? 'text-gray-300' : 'text-gray-700'}`}
                               style={isCurrent ? { color: primaryColor } : undefined}
                             >
                               {item.dose.units} units
                             </span>
                           )}
                           {item.dose.mg && (
-                            <span className={`text-sm font-medium ${isPast ? 'text-gray-300' : 'text-gray-500'}`}>
+                            <span className={`text-sm font-medium ${isGrayed ? 'text-gray-300' : 'text-gray-500'}`}>
                               ({item.dose.mg} mg)
                             </span>
                           )}
                         </div>
                       ) : null}
-                      <p className={`${item.dose && (item.dose.mg || item.dose.units) ? 'mt-1.5' : ''} text-xs leading-relaxed sm:text-sm ${isPast ? 'text-gray-300' : 'text-gray-600'}`}>
+                      <p className={`${item.dose && (item.dose.mg || item.dose.units) ? 'mt-1.5' : ''} text-xs leading-relaxed sm:text-sm ${isGrayed ? 'text-gray-300' : 'text-gray-600'}`}>
                         {item.directions}
                       </p>
                       {isCurrent && (

@@ -121,14 +121,24 @@ function isInjectableMedication(name: string): boolean {
 function parseDoseFromDirections(directions: string): { mg: string; units: string } | null {
   if (!directions) return null;
   const match = directions.match(
-    /inject\s+([\d.]+)\s*mg\s*\((\d+)\s*units?\)/i
+    /inject\s+([\d.]+)\s*mg\s*\([^)]*?(\d+)\s*units?\)/i
   );
   if (match?.[1] && match?.[2]) return { mg: match[1], units: match[2] };
+  const unitsWithMg = directions.match(/inject\s+(\d+)\s*units?\s*\(([\d.]+)\s*mg\)/i);
+  if (unitsWithMg?.[1] && unitsWithMg?.[2]) return { mg: unitsWithMg[2], units: unitsWithMg[1] };
   const mgOnly = directions.match(/inject\s+([\d.]+)\s*mg/i);
   if (mgOnly?.[1]) return { mg: mgOnly[1], units: '' };
   const unitsOnly = directions.match(/inject\s+(\d+)\s*units?/i);
   if (unitsOnly?.[1]) return { mg: '', units: unitsOnly[1] };
   return null;
+}
+
+function reformatDirectionsUnitsFirst(directions: string): string {
+  if (!directions) return directions;
+  return directions.replace(
+    /inject\s+([\d.]+)\s*mg\s*\([^)]*?(\d+)\s*units?\)/gi,
+    (_, mg, units) => `Inject ${units} units (${mg} mg)`
+  );
 }
 
 function extractMlValue(...inputs: Array<string | null | undefined>): string | null {
@@ -163,8 +173,11 @@ function getMedicationDisplayName(med: RxMedication): string {
   }
 
   const normalizedName = toTitleCase(medName.replace(/\s+/g, ' ').trim());
-  const normalizedStrength = med.strength ? med.strength.toLowerCase() : '';
-  return normalizedStrength ? `${normalizedName} ${normalizedStrength}` : normalizedName;
+  const normalizedStrength = med.strength ? med.strength.toLowerCase().trim() : '';
+  if (!normalizedStrength || normalizedStrength.startsWith('solution')) {
+    return normalizedName;
+  }
+  return `${normalizedName} ${normalizedStrength}`;
 }
 
 const daysOfWeek = [
@@ -502,6 +515,7 @@ END:VCALENDAR`;
 
     const items: Array<{
       monthNumber: number;
+      monthEnd: number;
       weekStart: number;
       weekEnd: number;
       prescriptionId: number;
@@ -526,6 +540,10 @@ END:VCALENDAR`;
       for (const med of injectableMeds) {
         monthNum++;
         const weeksInSupply = med.daysSupply > 0 ? Math.round(med.daysSupply / 7) : 4;
+        const monthsCovered = Math.max(1, Math.ceil(weeksInSupply / 4));
+        const monthStart = monthNum;
+        const monthEnd = monthNum + monthsCovered - 1;
+        monthNum = monthEnd;
         const weekStart = weekCursor;
         const weekEnd = weekCursor + weeksInSupply - 1;
         weekCursor = weekEnd + 1;
@@ -539,13 +557,14 @@ END:VCALENDAR`;
           (order.status || '').toLowerCase()
         );
         items.push({
-          monthNumber: monthNum,
+          monthNumber: monthStart,
+          monthEnd,
           weekStart,
           weekEnd,
           prescriptionId: order.id,
           date: order.prescribedDate,
           medName: getMedicationDisplayName(med),
-          directions: med.directions,
+          directions: reformatDirectionsUnitsFirst(med.directions),
           dose,
           isActive,
           isTitration,
@@ -851,7 +870,9 @@ END:VCALENDAR`;
               <div className="divide-y divide-gray-50">
                 {dosingScheduleItems.map((item, idx) => {
                   const isCurrent = idx === currentDoseIndex;
-                  const isPast = currentDoseIndex >= 0 ? idx < currentDoseIndex : !item.isActive;
+                  const hasCurrentDose = currentDoseIndex >= 0;
+                  const isPast = hasCurrentDose ? idx < currentDoseIndex : !item.isActive;
+                  const isGrayed = hasCurrentDose && idx < currentDoseIndex;
                   return (
                     <div
                       key={`${item.prescriptionId}-${item.monthNumber}`}
@@ -865,7 +886,7 @@ END:VCALENDAR`;
                           className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-bold sm:h-10 sm:w-10 ${
                             isCurrent
                               ? 'text-white shadow-md'
-                              : isPast
+                              : isGrayed
                                 ? 'bg-gray-100 text-gray-400'
                                 : 'bg-gray-100 text-gray-500'
                           }`}
@@ -878,7 +899,7 @@ END:VCALENDAR`;
                         {idx < dosingScheduleItems.length - 1 && (
                           <div
                             className={`mt-1 w-0.5 flex-1 ${
-                              isPast ? 'bg-gray-200' : 'bg-gray-100'
+                              isGrayed ? 'bg-gray-200' : 'bg-gray-100'
                             }`}
                             style={
                               isCurrent ? { backgroundColor: `${primaryColor}40` } : undefined
@@ -892,14 +913,14 @@ END:VCALENDAR`;
                         <div className="flex flex-wrap items-center gap-2">
                           <span
                             className={`text-sm font-semibold sm:text-base ${
-                              isCurrent ? 'text-gray-900' : isPast ? 'text-gray-400' : 'text-gray-700'
+                              isCurrent ? 'text-gray-900' : isGrayed ? 'text-gray-400' : 'text-gray-700'
                             }`}
                           >
-                            Month {item.monthNumber}
+                            Month {item.monthNumber}{item.monthEnd > item.monthNumber ? ` and ${item.monthEnd}` : ''}
                           </span>
                           <span
                             className={`text-[10px] font-semibold sm:text-xs ${
-                              isPast ? 'text-gray-300' : 'text-gray-400'
+                              isGrayed ? 'text-gray-300' : 'text-gray-400'
                             }`}
                           >
                             Weeks {item.weekStart}&ndash;{item.weekEnd}
@@ -926,7 +947,7 @@ END:VCALENDAR`;
 
                         <p
                           className={`mt-0.5 text-xs sm:text-sm ${
-                            isPast ? 'text-gray-400' : 'text-gray-500'
+                            isGrayed ? 'text-gray-400' : 'text-gray-500'
                           }`}
                         >
                           {item.medName}
@@ -946,15 +967,15 @@ END:VCALENDAR`;
                             <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
                               <span
                                 className={`text-xs font-semibold uppercase tracking-wider ${
-                                  isPast ? 'text-gray-300' : 'text-gray-400'
+                                  isGrayed ? 'text-gray-300' : 'text-gray-400'
                                 }`}
                               >
                                 Inject weekly:
                               </span>
                               {item.dose.units && (
                                 <span
-                                  className={`text-lg font-bold sm:text-xl ${
-                                    isCurrent ? '' : isPast ? 'text-gray-300' : 'text-gray-700'
+                                  className={`text-lg font-bold uppercase sm:text-xl ${
+                                    isCurrent ? '' : isGrayed ? 'text-gray-300' : 'text-gray-700'
                                   }`}
                                   style={isCurrent ? { color: primaryColor } : undefined}
                                 >
@@ -964,7 +985,7 @@ END:VCALENDAR`;
                               {item.dose.mg && (
                                 <span
                                   className={`text-sm font-medium ${
-                                    isPast ? 'text-gray-300' : 'text-gray-500'
+                                    isGrayed ? 'text-gray-300' : 'text-gray-500'
                                   }`}
                                 >
                                   ({item.dose.mg} mg)
@@ -974,7 +995,7 @@ END:VCALENDAR`;
                           ) : null}
                           <p
                             className={`${item.dose && (item.dose.mg || item.dose.units) ? 'mt-1.5' : ''} text-xs leading-relaxed sm:text-sm ${
-                              isPast ? 'text-gray-300' : 'text-gray-600'
+                              isGrayed ? 'text-gray-300' : 'text-gray-600'
                             }`}
                           >
                             {item.directions}

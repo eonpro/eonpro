@@ -707,11 +707,13 @@ export function ClinicBrandingProvider({
 
       // Update document title with clinic name
       if (branding.clinicName && branding.clinicName !== 'EONPRO') {
+        const displayClinicName = branding.clinicName
+          .replace(/\s+(LLC|Inc\.?|Corp\.?|Co\.?|Ltd\.?|LP|LLP|PLLC|PC|PA)$/i, '')
+          .trim();
         const currentTitle = document.title;
-        if (!currentTitle.includes(branding.clinicName)) {
-          // Preserve page-specific title but add clinic name
+        if (!currentTitle.includes(displayClinicName)) {
           const pagePart = currentTitle.split(' | ').pop() || currentTitle;
-          document.title = `${pagePart} | ${branding.clinicName}`;
+          document.title = `${pagePart} | ${displayClinicName}`;
         }
       }
     }
