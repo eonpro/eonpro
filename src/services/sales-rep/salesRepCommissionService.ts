@@ -16,6 +16,7 @@
 
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import { getDatePartsInTz, midnightInTz } from '@/lib/utils/timezone';
 import type { CommissionEventStatus, CommissionPlanType } from '@prisma/client';
 
 // ============================================================================
@@ -89,18 +90,17 @@ function calculateBaseCommission(
 // Volume Tier Resolution
 // ============================================================================
 
-function getWeekBounds(): { weekStart: Date; weekEnd: Date } {
-  const now = new Date();
-  const day = now.getDay();
-  const diffToMonday = day === 0 ? -6 : 1 - day;
+/**
+ * Compute Monday-Sunday week bounds in the clinic's local timezone.
+ * Without this, serverless UTC times shift the week boundary by up to a day.
+ */
+function getWeekBounds(timezone: string = 'America/New_York'): { weekStart: Date; weekEnd: Date } {
+  const { year, month, day, dayOfWeek } = getDatePartsInTz(timezone);
+  const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
 
-  const weekStart = new Date(now);
-  weekStart.setDate(now.getDate() + diffToMonday);
-  weekStart.setHours(0, 0, 0, 0);
-
-  const weekEnd = new Date(weekStart);
-  weekEnd.setDate(weekStart.getDate() + 6);
-  weekEnd.setHours(23, 59, 59, 999);
+  const weekStart = midnightInTz(year, month, day + diffToMonday, timezone);
+  const sundayEnd = midnightInTz(year, month, day + diffToMonday + 7, timezone);
+  const weekEnd = new Date(sundayEnd.getTime() - 1);
 
   return { weekStart, weekEnd };
 }
@@ -127,7 +127,11 @@ async function resolveVolumeTier(
 
   if (tiers.length === 0) return null;
 
-  const bounds = getWeekBounds();
+  const clinic = await prisma.clinic.findUnique({
+    where: { id: clinicId },
+    select: { timezone: true },
+  });
+  const bounds = getWeekBounds((clinic as any)?.timezone || 'America/New_York');
   const windowStart = bounds.weekStart;
   const windowEnd = bounds.weekEnd;
 
@@ -438,11 +442,60 @@ export async function processPaymentForSalesRepCommission(
         where: { clinicId, stripeEventId },
       });
       if (existing) {
+        // Reconcile: ensure override commissions exist even on retry.
+        // processOverrideCommissions is idempotent (checks before creating).
+        if (existing.salesRepId && existing.patientId && existing.stripeEventId) {
+          await processOverrideCommissions(
+            existing.salesRepId,
+            existing.clinicId,
+            {
+              amountCents: existing.eventAmountCents,
+              stripeEventId: existing.stripeEventId,
+              patientId: existing.patientId,
+              occurredAt: existing.occurredAt,
+              holdUntil: existing.holdUntil,
+            },
+            existing.id
+          );
+        }
         return {
           success: true,
           skipped: true,
           skipReason: 'Event already processed',
           commissionEventId: existing.id,
+        };
+      }
+    }
+
+    // Secondary dedup: prevent double-counting when the same payment triggers
+    // multiple Stripe events (e.g. payment_intent.succeeded + invoice.paid).
+    if (stripeEventId && patientId) {
+      const duplicatePayment = await prisma.salesRepCommissionEvent.findFirst({
+        where: {
+          clinicId,
+          patientId,
+          eventAmountCents: amountCents,
+          occurredAt: {
+            gte: new Date(occurredAt.getTime() - 120_000),
+            lte: new Date(occurredAt.getTime() + 120_000),
+          },
+          stripeEventType: { not: stripeEventType },
+          status: { not: 'REVERSED' },
+        },
+      });
+      if (duplicatePayment) {
+        logger.info('[SalesRepCommission] Duplicate payment detected, skipping', {
+          clinicId,
+          existingEventId: duplicatePayment.id,
+          existingEventType: duplicatePayment.stripeEventType,
+          incomingEventType: stripeEventType,
+          stripeEventId,
+        });
+        return {
+          success: true,
+          skipped: true,
+          skipReason: `Payment already commissioned via ${duplicatePayment.stripeEventType}`,
+          commissionEventId: duplicatePayment.id,
         };
       }
     }
@@ -492,8 +545,8 @@ export async function processPaymentForSalesRepCommission(
       };
     }
 
-    // Check appliesTo policy
-    if (plan.appliesTo === 'FIRST_PAYMENT_ONLY' && !isFirstPayment && !isRecurring) {
+    // Check appliesTo policy — FIRST_PAYMENT_ONLY blocks ALL non-first payments
+    if (plan.appliesTo === 'FIRST_PAYMENT_ONLY' && !isFirstPayment) {
       return {
         success: true,
         skipped: true,
@@ -632,7 +685,7 @@ export async function processPaymentForSalesRepCommission(
     await processOverrideCommissions(
       salesRepId,
       clinicId,
-      { amountCents, stripeEventId, patientId, occurredAt },
+      { amountCents, stripeEventId, patientId, occurredAt, holdUntil },
       commissionEvent.id
     );
 
@@ -805,6 +858,7 @@ interface OverridePaymentData {
   stripeEventId: string;
   patientId: number;
   occurredAt: Date;
+  holdUntil: Date | null;
 }
 
 /**
@@ -861,6 +915,7 @@ async function processOverrideCommissions(
             stripeEventId: paymentData.stripeEventId,
             status: 'PENDING',
             occurredAt: paymentData.occurredAt,
+            holdUntil: paymentData.holdUntil,
           },
         });
 

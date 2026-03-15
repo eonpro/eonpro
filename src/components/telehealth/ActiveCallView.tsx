@@ -20,7 +20,17 @@ import { type TelehealthSessionData, type PostCallData } from './types';
 
 const ZoomEmbeddedMeeting = dynamic(
   async () => import('./ZoomEmbeddedMeeting'),
-  { ssr: false }
+  {
+    ssr: false,
+    loading: () => (
+      <div className="absolute inset-0 flex items-center justify-center bg-gray-900">
+        <div className="text-center">
+          <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-4 border-gray-700 border-t-blue-500" />
+          <p className="text-sm text-gray-400">Loading video session...</p>
+        </div>
+      </div>
+    ),
+  }
 );
 
 interface ActiveCallViewProps {
@@ -176,10 +186,10 @@ export default function ActiveCallView({
       </div>
 
       {/* Main Content */}
-      <div className="flex min-h-0 flex-1">
-        {/* Call status area — absolute positioning ensures the dynamic() wrapper gets real dimensions */}
-        <div className="relative min-h-0 min-w-0 flex-1">
-          <div className="absolute inset-0">
+      <div className="flex min-h-0 flex-1 overflow-hidden">
+        {/* Call status area */}
+        <div className="relative flex-1">
+          <div className="absolute inset-0 overflow-hidden">
             <ZoomEmbeddedMeeting
               meetingNumber={session.meetingId ?? ''}
               joinUrl={session.hostUrl ?? session.joinUrl}

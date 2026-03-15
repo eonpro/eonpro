@@ -101,19 +101,30 @@ async function processClinicPayouts(clinicId: number): Promise<PayoutScheduleRes
     }
 
     // Approve pending SALES REP commissions for this clinic (hold period elapsed)
+    // Approves BOTH direct commissions AND override (manager) commissions
     try {
-      const salesRepApproved = await prisma.salesRepCommissionEvent.updateMany({
-        where: {
-          clinicId,
-          status: 'PENDING',
-          OR: [{ holdUntil: null }, { holdUntil: { lte: now } }],
-        },
-        data: { status: 'APPROVED', approvedAt: now },
-      });
-      if (salesRepApproved.count > 0) {
+      const salesRepApprovalWhere = {
+        clinicId,
+        status: 'PENDING' as const,
+        OR: [{ holdUntil: null }, { holdUntil: { lte: now } }],
+      };
+      const salesRepApprovalData = { status: 'APPROVED' as const, approvedAt: now };
+
+      const [salesRepApproved, overrideApproved] = await Promise.all([
+        prisma.salesRepCommissionEvent.updateMany({
+          where: salesRepApprovalWhere,
+          data: salesRepApprovalData,
+        }),
+        prisma.salesRepOverrideCommissionEvent.updateMany({
+          where: salesRepApprovalWhere,
+          data: salesRepApprovalData,
+        }),
+      ]);
+      if (salesRepApproved.count > 0 || overrideApproved.count > 0) {
         logger.info('[PayoutCron] Approved sales rep commissions', {
           clinicId,
-          count: salesRepApproved.count,
+          directCount: salesRepApproved.count,
+          overrideCount: overrideApproved.count,
         });
       }
     } catch (e) {

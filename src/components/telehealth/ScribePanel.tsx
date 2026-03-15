@@ -165,14 +165,14 @@ export default function ScribePanel({
   }, []);
 
   useEffect(() => {
-    if (isCallActive && !recording && !initializing && appointmentId) {
+    if (isCallActive && !recording && !initializing && appointmentId && patientId && providerId) {
       void startRecording();
     }
 
     if (!isCallActive && recording) {
       stopRecording();
     }
-  }, [isCallActive, recording, initializing, appointmentId, startRecording, stopRecording]);
+  }, [isCallActive, recording, initializing, appointmentId, patientId, providerId, startRecording, stopRecording]);
 
   useEffect(() => {
     return () => {
@@ -253,12 +253,23 @@ export default function ScribePanel({
             <p className="text-xs text-gray-500">
               {recording
                 ? 'Listening... Transcript will appear here.'
-                : 'AI Scribe will start when the call begins.'}
+                : isCallActive && (!appointmentId || !providerId)
+                  ? 'Waiting for session data...'
+                  : 'AI Scribe will start when the call begins.'}
             </p>
             {recording && (
               <p className="mt-2 text-[10px] text-gray-400">
                 Captures audio from your microphone. For best results, use speakers instead of headphones so patient audio is picked up.
               </p>
+            )}
+            {isCallActive && !recording && !initializing && appointmentId && providerId && (
+              <button
+                onClick={() => void startRecording()}
+                className="mt-4 flex items-center gap-1.5 mx-auto rounded-lg bg-blue-600 px-4 py-2 text-xs font-medium text-white transition-colors hover:bg-blue-700"
+              >
+                <Mic className="h-3.5 w-3.5" />
+                Start AI Scribe
+              </button>
             )}
           </div>
         )}

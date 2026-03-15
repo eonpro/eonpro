@@ -228,7 +228,7 @@ export default function ZoomEmbeddedMeeting({
         <div className="mt-2 flex items-center gap-1.5 rounded-full bg-emerald-900/30 px-3 py-1">
           <Mic className="h-3 w-3 text-emerald-400" />
           <span className="text-xs font-medium text-emerald-400">
-            AI Scribe is listening
+            Zoom meeting active
           </span>
         </div>
       </div>
