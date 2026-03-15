@@ -3,12 +3,52 @@ import { withAuth, type AuthUser } from '@/lib/auth/middleware';
 import { basePrisma } from '@/lib/db';
 import { handleApiError } from '@/domains/shared/errors';
 import { decryptPHI } from '@/lib/security/phi-encryption';
+import { logger } from '@/lib/logger';
 import { z } from 'zod';
 import { ShippingStatus, Prisma } from '@prisma/client';
 
 function safeDecrypt(val: string | null | undefined): string | null {
   if (!val) return null;
   try { return decryptPHI(val) || val; } catch { return val; }
+}
+
+async function backfillPackagePhotoTracking(clinicId: number): Promise<number> {
+  try {
+    const photosWithTracking = await basePrisma.packagePhoto.findMany({
+      where: { clinicId, trackingNumber: { not: null } },
+      select: { id: true, trackingNumber: true, lifefileId: true, clinicId: true, patientId: true, orderId: true, createdAt: true },
+      take: 200,
+    });
+
+    if (photosWithTracking.length === 0) return 0;
+
+    const trackingNumbers = photosWithTracking.map((p: any) => p.trackingNumber).filter((tn: string | null): tn is string => !!tn);
+    const existingUpdates = await basePrisma.patientShippingUpdate.findMany({
+      where: { trackingNumber: { in: trackingNumbers } },
+      select: { trackingNumber: true },
+      distinct: ['trackingNumber'],
+    });
+    const existingSet = new Set(existingUpdates.map((u: any) => u.trackingNumber));
+
+    let created = 0;
+    for (const photo of photosWithTracking) {
+      if (!photo.trackingNumber || existingSet.has(photo.trackingNumber)) continue;
+      try {
+        await basePrisma.patientShippingUpdate.create({
+          data: {
+            clinicId: photo.clinicId, patientId: photo.patientId, orderId: photo.orderId,
+            trackingNumber: photo.trackingNumber, carrier: 'FedEx', status: 'SHIPPED',
+            statusNote: 'Package photo captured by pharmacy', source: 'package_photo',
+            lifefileOrderId: photo.lifefileId, shippedAt: photo.createdAt,
+            matchedAt: new Date(), matchStrategy: 'package_photo_backfill', processedAt: new Date(),
+          },
+        });
+        existingSet.add(photo.trackingNumber);
+        created++;
+      } catch { /* ignore duplicates */ }
+    }
+    return created;
+  } catch { return 0; }
 }
 
 const TABS = [
@@ -50,6 +90,8 @@ async function handleGet(req: NextRequest, user: AuthUser) {
     if (!clinicId && user.role !== 'super_admin') {
       return NextResponse.json({ error: 'Clinic context required' }, { status: 403 });
     }
+
+    if (clinicId) await backfillPackagePhotoTracking(clinicId);
 
     const { searchParams } = new URL(req.url);
     const parsed = querySchema.safeParse(Object.fromEntries(searchParams));
