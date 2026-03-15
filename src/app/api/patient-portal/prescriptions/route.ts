@@ -151,41 +151,70 @@ async function fetchPatientPrescriptions(req: NextRequest, user: AuthUser, patie
   // each create a separate Invoice DB row for the same real-world payment.
   // Patients should see ONE entry per actual charge.
   //
-  // Strategy: group all PAID invoices on the same calendar day into one entry,
-  // keeping the record with the most informative description. This is safe because
-  // patients virtually never have two separate charges on the exact same day.
-  const byDay = new Map<string, typeof invoices[number]>();
+  // Strategy:
+  // 1. Deduplicate by stripeInvoiceId (same Stripe invoice = same payment)
+  // 2. Group PAID invoices within a 72-hour window into one entry
+  //    (handles timezone differences where records span UTC day boundaries)
+  // 3. Keep the record with the most informative description
   const GENERIC = /subscription creation|payment received|payment successful/i;
 
-  for (const inv of invoices) {
-    const dayKey = inv.createdAt.toISOString().slice(0, 10);
-    const isPaid = inv.status === 'PAID';
-    const key = isPaid ? `paid:${dayKey}` : `${inv.status}:${dayKey}:${inv.id}`;
+  type Inv = typeof invoices[number];
 
-    const existing = byDay.get(key);
-    if (!existing) {
-      byDay.set(key, inv);
+  function pickBetter(existing: Inv, candidate: Inv): Inv {
+    const existingIsGeneric = GENERIC.test(existing.description ?? '');
+    const candidateIsGeneric = GENERIC.test(candidate.description ?? '');
+    if (existingIsGeneric && !candidateIsGeneric) return candidate;
+    if (!existingIsGeneric && candidateIsGeneric) return existing;
+    return (candidate.description?.length ?? 0) > (existing.description?.length ?? 0)
+      ? candidate
+      : existing;
+  }
+
+  // Step 1: deduplicate by stripeInvoiceId
+  const byStripeId = new Map<string, Inv>();
+  const noStripeId: Inv[] = [];
+  for (const inv of invoices) {
+    if (inv.stripeInvoiceId) {
+      const existing = byStripeId.get(inv.stripeInvoiceId);
+      byStripeId.set(inv.stripeInvoiceId, existing ? pickBetter(existing, inv) : inv);
     } else {
-      // Prefer real line-item descriptions over generic webhook labels
-      const existingIsGeneric = GENERIC.test(existing.description ?? '');
-      const newIsGeneric = GENERIC.test(inv.description ?? '');
-      if (existingIsGeneric && !newIsGeneric) {
-        byDay.set(key, inv);
-      } else if (existingIsGeneric === newIsGeneric && (inv.description?.length ?? 0) > (existing.description?.length ?? 0)) {
-        byDay.set(key, inv);
-      }
+      noStripeId.push(inv);
+    }
+  }
+  const afterStripeDedup = [...byStripeId.values(), ...noStripeId];
+
+  // Step 2: group PAID invoices within 72-hour windows
+  const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000;
+  const paidSorted = afterStripeDedup
+    .filter((inv) => inv.status === 'PAID')
+    .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+  const nonPaid = afterStripeDedup.filter((inv) => inv.status !== 'PAID');
+
+  const paidGroups: Inv[][] = [];
+  for (const inv of paidSorted) {
+    const lastGroup = paidGroups[paidGroups.length - 1];
+    if (lastGroup && inv.createdAt.getTime() - lastGroup[0].createdAt.getTime() < THREE_DAYS_MS) {
+      lastGroup.push(inv);
+    } else {
+      paidGroups.push([inv]);
     }
   }
 
-  const invoiceHistory = Array.from(byDay.values()).map((inv) => ({
-    id: inv.id,
-    invoiceNumber: inv.stripeInvoiceNumber ?? `INV-${inv.id}`,
-    date: inv.createdAt.toISOString(),
-    amount: inv.amount,
-    amountPaid: inv.amountPaid,
-    status: inv.status,
-    description: inv.description ?? '',
-  }));
+  const dedupedPaid = paidGroups.map((group) =>
+    group.reduce((best, inv) => pickBetter(best, inv)),
+  );
+
+  const invoiceHistory = [...dedupedPaid, ...nonPaid]
+    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+    .map((inv) => ({
+      id: inv.id,
+      invoiceNumber: inv.stripeInvoiceNumber ?? `INV-${inv.id}`,
+      date: inv.createdAt.toISOString(),
+      amount: inv.amount,
+      amountPaid: inv.amountPaid,
+      status: inv.status,
+      description: inv.description ?? '',
+    }));
 
   return { prescriptions, plan, invoiceHistory };
 }
