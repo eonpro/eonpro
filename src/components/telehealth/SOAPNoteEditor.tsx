@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 
 import {
   FileText,
@@ -49,10 +49,29 @@ export default function SOAPNoteEditor({
   const [saving, setSaving] = useState(false);
   const [signing, setSigning] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingAutoSave = useRef(false);
 
   const handleFieldChange = (key: keyof SOAPNoteData, value: string) => {
     onUpdate({ ...soapNote, [key]: value });
+    pendingAutoSave.current = true;
   };
+
+  useEffect(() => {
+    if (!pendingAutoSave.current || saving || signing || isGenerating) return;
+    if (soapNote.status === 'APPROVED' || soapNote.status === 'LOCKED') return;
+    if (!soapNote.subjective && !soapNote.objective && !soapNote.assessment && !soapNote.plan) return;
+
+    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+    autoSaveTimer.current = setTimeout(() => {
+      pendingAutoSave.current = false;
+      void handleSave();
+    }, 5000);
+
+    return () => {
+      if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+    };
+  }, [soapNote.subjective, soapNote.objective, soapNote.assessment, soapNote.plan, soapNote.medicalNecessity]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSave = async (): Promise<number | undefined> => {
     setSaving(true);

@@ -16,6 +16,9 @@ import {
   Calendar,
   Loader2,
   LinkIcon,
+  Pill,
+  Activity,
+  ExternalLink,
 } from 'lucide-react';
 
 import { apiFetch } from '@/lib/api/fetch';
@@ -45,6 +48,12 @@ export default function SessionLobby({ session, userName, onJoinCall, onBack }: 
   const [meetingReady, setMeetingReady] = useState(!!(session.meetingId && session.joinUrl));
   const [patientWaiting, setPatientWaiting] = useState(session.status === 'WAITING');
   const [sessionStatus, setSessionStatus] = useState(session.status);
+  const [clinicalContext, setClinicalContext] = useState<{
+    medications?: string[];
+    allergies?: string[];
+    recentWeight?: number;
+    lastVisit?: string;
+  } | null>(null);
 
   const handleProvision = async () => {
     if (!session.appointment?.id) return;
@@ -102,11 +111,40 @@ export default function SessionLobby({ session, userName, onJoinCall, onBack }: 
   useEffect(() => {
     void checkDevices();
 
+    if ('Notification' in window && Notification.permission === 'default') {
+      void Notification.requestPermission();
+    }
+
     return () => {
       streamRef.current?.getTracks().forEach((track) => track.stop());
       streamRef.current = null;
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!session.patient?.id) return;
+    const fetchContext = async () => {
+      try {
+        const res = await apiFetch(`/api/patients/${session.patient.id}?brief=true`);
+        if (!res.ok) return;
+        const data = await res.json();
+        const patient = data.patient ?? data.data ?? data;
+        setClinicalContext({
+          medications: (patient.rxs ?? patient.prescriptions ?? [])
+            .slice(0, 5)
+            .map((rx: { medicationName?: string; name?: string }) => rx.medicationName ?? rx.name ?? 'Unknown'),
+          allergies: patient.allergies
+            ? (typeof patient.allergies === 'string' ? patient.allergies.split(',').map((a: string) => a.trim()) : patient.allergies)
+            : [],
+          recentWeight: patient.weightLogs?.[0]?.weight ?? patient.currentWeight,
+          lastVisit: patient.lastVisitDate ?? patient.appointments?.[0]?.startTime,
+        });
+      } catch {
+        // Non-blocking
+      }
+    };
+    void fetchContext();
+  }, [session.patient?.id]);
 
   useEffect(() => {
     if (!session.appointment?.id) return;
@@ -121,7 +159,21 @@ export default function SessionLobby({ session, userName, onJoinCall, onBack }: 
         );
         if (match) {
           setSessionStatus(match.status);
-          if (match.status === 'WAITING') setPatientWaiting(true);
+          if (match.status === 'WAITING' && !patientWaiting) {
+            setPatientWaiting(true);
+            try {
+              const audio = new Audio('data:audio/wav;base64,UklGRl9vT19telehealth');
+              audio.volume = 0.3;
+              void audio.play().catch(() => {});
+            } catch { /* audio not supported */ }
+            if ('Notification' in window && Notification.permission === 'granted') {
+              new Notification('Patient Waiting', {
+                body: `${session.patient.firstName} ${session.patient.lastName} is in the waiting room`,
+                icon: '/favicon.ico',
+                tag: `waiting-${session.id}`,
+              });
+            }
+          }
         }
       } catch {
         // Non-blocking
@@ -338,6 +390,66 @@ export default function SessionLobby({ session, userName, onJoinCall, onBack }: 
               )}
             </div>
           </div>
+
+          {/* Clinical Snapshot */}
+          {clinicalContext && (
+            <div className="rounded-2xl border border-gray-200 bg-white p-4">
+              <div className="mb-3 flex items-center justify-between">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Patient Snapshot</p>
+                <a
+                  href={`/patients/${session.patient.id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1 text-[11px] text-blue-600 hover:text-blue-800"
+                >
+                  Full Profile <ExternalLink className="h-3 w-3" />
+                </a>
+              </div>
+              <div className="space-y-2.5">
+                {clinicalContext.medications && clinicalContext.medications.length > 0 && (
+                  <div className="flex items-start gap-2">
+                    <Pill className="mt-0.5 h-3.5 w-3.5 shrink-0 text-purple-500" />
+                    <div>
+                      <p className="text-[10px] font-medium text-gray-400">Medications</p>
+                      <p className="text-xs text-gray-700">{clinicalContext.medications.join(', ')}</p>
+                    </div>
+                  </div>
+                )}
+                {clinicalContext.allergies && clinicalContext.allergies.length > 0 && (
+                  <div className="flex items-start gap-2">
+                    <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-500" />
+                    <div>
+                      <p className="text-[10px] font-medium text-gray-400">Allergies</p>
+                      <p className="text-xs text-red-700">{clinicalContext.allergies.join(', ')}</p>
+                    </div>
+                  </div>
+                )}
+                {clinicalContext.recentWeight && (
+                  <div className="flex items-start gap-2">
+                    <Activity className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-500" />
+                    <div>
+                      <p className="text-[10px] font-medium text-gray-400">Recent Weight</p>
+                      <p className="text-xs text-gray-700">{clinicalContext.recentWeight} lbs</p>
+                    </div>
+                  </div>
+                )}
+                {clinicalContext.lastVisit && (
+                  <div className="flex items-start gap-2">
+                    <Calendar className="mt-0.5 h-3.5 w-3.5 shrink-0 text-gray-400" />
+                    <div>
+                      <p className="text-[10px] font-medium text-gray-400">Last Visit</p>
+                      <p className="text-xs text-gray-700">
+                        {new Date(clinicalContext.lastVisit).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                      </p>
+                    </div>
+                  </div>
+                )}
+                {!clinicalContext.medications?.length && !clinicalContext.allergies?.length && !clinicalContext.recentWeight && (
+                  <p className="text-xs italic text-gray-400">No clinical data available</p>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Patient Waiting Alert */}
           {patientWaiting && (

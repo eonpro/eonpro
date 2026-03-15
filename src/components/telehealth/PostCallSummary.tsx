@@ -21,6 +21,7 @@ import { type PostCallData } from './types';
 interface PostCallSummaryProps {
   data: PostCallData;
   onBackToQueue: () => void;
+  onSelectNextPatient?: (session: any) => void;
 }
 
 interface SOAPNoteData {
@@ -33,7 +34,7 @@ interface SOAPNoteData {
   status: string;
 }
 
-export default function PostCallSummary({ data, onBackToQueue }: PostCallSummaryProps) {
+export default function PostCallSummary({ data, onBackToQueue, onSelectNextPatient }: PostCallSummaryProps) {
   const [soapNote, setSoapNote] = useState<SOAPNoteData>(
     data.soapNote ?? {
       subjective: '',
@@ -47,6 +48,7 @@ export default function PostCallSummary({ data, onBackToQueue }: PostCallSummary
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSigned, setIsSigned] = useState(false);
   const [providerId, setProviderId] = useState<number | undefined>();
+  const [nextSession, setNextSession] = useState<any>(null);
 
   useEffect(() => {
     try {
@@ -58,6 +60,28 @@ export default function PostCallSummary({ data, onBackToQueue }: PostCallSummary
       }
     } catch { /* ignore */ }
   }, []);
+
+  useEffect(() => {
+    if (!onSelectNextPatient) return;
+    const fetchNext = async () => {
+      try {
+        const res = await apiFetch('/api/provider/telehealth/upcoming');
+        if (!res.ok) return;
+        const upcomingData = await res.json();
+        const sessions = (upcomingData.sessions ?? []).filter(
+          (s: any) =>
+            (s.status === 'WAITING' || s.status === 'SCHEDULED') &&
+            s.id !== data.session.id &&
+            s.appointment?.id !== data.session.appointment?.id
+        );
+        if (sessions.length > 0) {
+          const waiting = sessions.find((s: any) => s.status === 'WAITING');
+          setNextSession(waiting ?? sessions[0]);
+        }
+      } catch { /* non-blocking */ }
+    };
+    void fetchNext();
+  }, [data.session.id, data.session.appointment?.id, onSelectNextPatient]);
 
   useEffect(() => {
     if (!data.soapNote && data.transcript && data.session.appointment?.id && providerId) {
@@ -227,12 +251,27 @@ export default function PostCallSummary({ data, onBackToQueue }: PostCallSummary
           <p className="mt-1 text-sm text-gray-600">
             The note has been signed and saved to the patient record.
           </p>
-          <button
-            onClick={onBackToQueue}
-            className="mt-4 rounded-lg bg-blue-600 px-6 py-2.5 text-sm font-medium text-white transition-colors hover:bg-blue-700"
-          >
-            Return to Telehealth Center
-          </button>
+          <div className="mt-4 flex items-center justify-center gap-3">
+            {nextSession && onSelectNextPatient && (
+              <button
+                onClick={() => onSelectNextPatient(nextSession)}
+                className="flex items-center gap-2 rounded-lg bg-blue-600 px-6 py-2.5 text-sm font-medium text-white transition-colors hover:bg-blue-700"
+              >
+                <Users className="h-4 w-4" />
+                Next: {nextSession.patient?.firstName} {nextSession.patient?.lastName}
+              </button>
+            )}
+            <button
+              onClick={onBackToQueue}
+              className={`rounded-lg px-6 py-2.5 text-sm font-medium transition-colors ${
+                nextSession && onSelectNextPatient
+                  ? 'border border-gray-200 text-gray-600 hover:bg-gray-50'
+                  : 'bg-blue-600 text-white hover:bg-blue-700'
+              }`}
+            >
+              Back to Queue
+            </button>
+          </div>
         </div>
       )}
     </div>

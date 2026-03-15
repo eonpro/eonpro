@@ -268,6 +268,11 @@ export default function TelehealthDashboard({
               <PostCallSummary
                 data={postCallData}
                 onBackToQueue={handleBackToQueue}
+                onSelectNextPatient={(nextSession) => {
+                  setSelectedSession(nextSession);
+                  setPostCallData(null);
+                  changePhase('lobby');
+                }}
               />
             </motion.div>
           )}

@@ -167,13 +167,21 @@ function TelehealthJoinContent() {
           <p className="mb-6 text-sm text-gray-500">
             Zoom should have opened in a new tab. If it didn&apos;t, click the button below.
           </p>
-          <button
-            onClick={joinCall}
-            className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-6 py-3 text-sm font-semibold text-white hover:bg-blue-700"
-          >
-            <ExternalLink className="h-4 w-4" />
-            Reopen Zoom
-          </button>
+          <div className="flex flex-col items-center gap-3">
+            <button
+              onClick={joinCall}
+              className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-6 py-3 text-sm font-semibold text-white hover:bg-blue-700"
+            >
+              <ExternalLink className="h-4 w-4" />
+              Reopen Zoom
+            </button>
+            <a
+              href={`/patient-portal/telehealth/complete?appointmentId=${appointmentId}`}
+              className="text-sm text-gray-500 underline hover:text-gray-700"
+            >
+              I&apos;m done with my visit
+            </a>
+          </div>
         </div>
       </div>
     );
@@ -255,8 +263,20 @@ function TelehealthJoinContent() {
             </button>
           </div>
 
-          {/* Join Button */}
+          {/* Join Button with Countdown */}
           <div className="px-6 py-5">
+            {appointment?.startTime && (() => {
+              const msUntil = new Date(appointment.startTime).getTime() - Date.now();
+              const minsUntil = Math.max(0, Math.floor(msUntil / 60000));
+              if (minsUntil > 0 && minsUntil <= 60) {
+                return (
+                  <p className="mb-3 text-center text-sm font-medium text-blue-700">
+                    Starting in {minsUntil} minute{minsUntil !== 1 ? 's' : ''}
+                  </p>
+                );
+              }
+              return null;
+            })()}
             <button
               onClick={joinCall}
               disabled={!appointment?.zoomJoinUrl && !appointment?.videoLink}

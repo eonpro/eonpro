@@ -142,8 +142,8 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         Prisma.sql`
           SELECT
             AVG(EXTRACT(EPOCH FROM ("actualDelivery" - "shippedAt")) / 86400)::numeric(10,1) AS avg_days,
-            SUM(CASE WHEN "estimatedDelivery" IS NOT NULL AND "actualDelivery" <= "estimatedDelivery" THEN 1 ELSE 0 END)::int AS on_time,
-            SUM(CASE WHEN "estimatedDelivery" IS NOT NULL THEN 1 ELSE 0 END)::int AS on_time_total,
+            SUM(CASE WHEN "estimatedDelivery" IS NOT NULL AND "estimatedDelivery" > "shippedAt" AND "actualDelivery" <= "estimatedDelivery" THEN 1 ELSE 0 END)::int AS on_time,
+            SUM(CASE WHEN "estimatedDelivery" IS NOT NULL AND "estimatedDelivery" > "shippedAt" THEN 1 ELSE 0 END)::int AS on_time_total,
             COUNT(*)::int AS total_delivered
           FROM "PatientShippingUpdate"
           WHERE status = 'DELIVERED' AND "actualDelivery" IS NOT NULL AND "shippedAt" IS NOT NULL

@@ -33,15 +33,21 @@ export default function CallTimer({ startTime, scheduledDuration, className = ''
     : `${minutes}:${seconds.toString().padStart(2, '0')}`;
 
   const isOvertime = scheduledDuration && elapsed > scheduledDuration * 60;
+  const overtimeMinutes = isOvertime ? Math.floor((elapsed - scheduledDuration * 60) / 60) : 0;
 
   return (
     <div className={`flex items-center gap-2 ${className}`}>
-      <Clock className={`h-4 w-4 ${isOvertime ? 'text-orange-500' : 'text-gray-400'}`} />
+      <Clock className={`h-4 w-4 ${isOvertime ? 'text-orange-500 animate-pulse' : 'text-gray-400'}`} />
       <span className={`font-mono text-sm font-semibold tabular-nums ${isOvertime ? 'text-orange-600' : 'text-gray-700'}`}>
         {formatted}
       </span>
-      {scheduledDuration && (
+      {scheduledDuration && !isOvertime && (
         <span className="text-xs text-gray-400">/ {scheduledDuration}min</span>
+      )}
+      {isOvertime && overtimeMinutes >= 5 && (
+        <span className="rounded-full bg-orange-100 px-2 py-0.5 text-[10px] font-medium text-orange-700">
+          +{overtimeMinutes}min over
+        </span>
       )}
     </div>
   );

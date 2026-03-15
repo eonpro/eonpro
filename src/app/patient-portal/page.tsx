@@ -26,6 +26,7 @@ import {
   CheckCircle2,
   AlertCircle,
   Image as ImageIcon,
+  Video,
 } from 'lucide-react';
 import { useClinicBranding, usePortalFeatures } from '@/lib/contexts/ClinicBrandingContext';
 import { usePatientPortalLanguage } from '@/lib/contexts/PatientPortalLanguageContext';
@@ -111,6 +112,14 @@ export default function PatientPortalDashboard() {
   const [dataError, setDataError] = useState<string | null>(null);
   const [portalMode, setPortalMode] = useState<PortalMode | null>(null);
   const [dashboardLoading, setDashboardLoading] = useState(true);
+  const [upcomingVideoVisit, setUpcomingVideoVisit] = useState<{
+    id: number;
+    title: string;
+    startTime: string;
+    providerName?: string;
+    zoomJoinUrl?: string;
+    videoLink?: string;
+  } | null>(null);
 
   const primaryColor = branding?.primaryColor || '#4fa77e';
   const accentColor = branding?.accentColor || '#d3f931';
@@ -240,6 +249,29 @@ export default function PatientPortalDashboard() {
           portalFetch('/api/patient-portal/tracking').catch(() => null),
           portalFetch('/api/patient-portal/photos').catch(() => null),
         ]);
+
+      portalFetch('/api/patient-portal/appointments?upcoming=true&type=VIDEO&limit=1')
+        .then(async (res) => {
+          if (!res.ok) return;
+          const data = await res.json();
+          const appts = data.appointments ?? data.data ?? [];
+          if (appts.length > 0) {
+            const apt = appts[0];
+            const startTime = new Date(apt.startTime);
+            const hoursUntil = (startTime.getTime() - Date.now()) / (1000 * 60 * 60);
+            if (hoursUntil > 0 && hoursUntil <= 24) {
+              setUpcomingVideoVisit({
+                id: apt.id,
+                title: apt.title || apt.reason || 'Video Consultation',
+                startTime: apt.startTime,
+                providerName: apt.providerName ?? (apt.provider ? `${apt.provider.firstName} ${apt.provider.lastName}` : undefined),
+                zoomJoinUrl: apt.zoomJoinUrl,
+                videoLink: apt.videoLink,
+              });
+            }
+          }
+        })
+        .catch(() => {});
 
       const authErr = getPortalResponseError(vitalsRes) || getPortalResponseError(weightRes) || getPortalResponseError(remindersRes);
       if (authErr) {
@@ -766,6 +798,46 @@ export default function PatientPortalDashboard() {
           </div>
         </Link>
       </div>
+
+      {/* Upcoming Video Visit */}
+      {upcomingVideoVisit && (
+        <div className="mb-6">
+          <div className="overflow-hidden rounded-2xl border border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50">
+            <div className="px-5 py-4">
+              <div className="flex items-center gap-4">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-blue-100">
+                  <Video className="h-6 w-6 text-blue-600" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold text-gray-900">
+                    {upcomingVideoVisit.title}
+                  </p>
+                  <p className="mt-0.5 text-xs text-gray-600">
+                    {upcomingVideoVisit.providerName && `with ${upcomingVideoVisit.providerName} · `}
+                    {new Date(upcomingVideoVisit.startTime).toLocaleString('en-US', {
+                      weekday: 'short',
+                      month: 'short',
+                      day: 'numeric',
+                      hour: 'numeric',
+                      minute: '2-digit',
+                    })}
+                  </p>
+                  <p className="mt-1 text-[11px] text-gray-500">
+                    Make sure your camera and microphone are working before joining
+                  </p>
+                </div>
+                <a
+                  href={`/patient-portal/telehealth?appointmentId=${upcomingVideoVisit.id}`}
+                  className="flex shrink-0 items-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-blue-700"
+                >
+                  <Video className="h-4 w-4" />
+                  Join
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Quick Actions */}
       <div className="mb-6">

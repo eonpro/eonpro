@@ -323,9 +323,7 @@ export default function ProviderCalendarStatusCard({ providerId, compact = false
                     </div>
                   </div>
                   <a
-                    href={session.joinUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                    href={`/provider/telehealth?consultationId=${session.id}`}
                     className="flex items-center rounded-md bg-blue-500 px-3 py-1.5 text-sm text-white hover:bg-blue-600"
                   >
                     <Video className="mr-1 h-3 w-3" />
