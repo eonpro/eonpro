@@ -245,11 +245,13 @@ export const providerRepository = {
       });
     }
 
-    // Include shared providers (no clinic) if requested
+    // Include truly shared providers: clinicId null AND no active ProviderClinic entries
+    // Providers assigned to specific clinics via ProviderClinic should NOT leak to other clinics
     if (filters.includeShared !== false) {
-      // Shared = clinicId null AND no active ProviderClinic entries
-      // But also include clinicId null for backward compatibility
-      orConditions.push({ clinicId: null });
+      orConditions.push({
+        clinicId: null,
+        providerClinics: { none: { isActive: true } },
+      });
     }
 
     const where = orConditions.length > 0 ? { OR: orConditions } : {};

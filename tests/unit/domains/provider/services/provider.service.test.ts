@@ -205,7 +205,7 @@ describe('ProviderService', () => {
       expect(providerRepository.list).not.toHaveBeenCalled();
     });
 
-    it('should list filtered providers for non-super-admin', async () => {
+    it('should list filtered providers for non-super-admin using active clinic only', async () => {
       const providers = [mockProvider];
       vi.mocked(providerRepository.list).mockResolvedValue(providers);
 
@@ -214,7 +214,7 @@ describe('ProviderService', () => {
       expect(result.providers).toEqual(providers);
       expect(providerRepository.list).toHaveBeenCalledWith(
         expect.objectContaining({
-          clinicIds: [1],
+          clinicId: 1,
           userProviderId: undefined,
           userEmail: 'admin@clinic.com',
           userFirstName: 'Admin',

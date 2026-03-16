@@ -214,11 +214,43 @@ export const POST = withSuperAdminAuth(
           },
         });
 
-        if (existingClinicLink) {
+        if (existingClinicLink && existingClinicLink.isActive) {
           return NextResponse.json(
             { error: 'This user is already a member of this clinic' },
             { status: 400 }
           );
+        }
+
+        // Reactivate if previously deactivated
+        if (existingClinicLink && !existingClinicLink.isActive) {
+          await prisma.userClinic.update({
+            where: { id: existingClinicLink.id },
+            data: { isActive: true, role: prismaRole },
+          });
+
+          // Also reactivate the user account if it was deactivated
+          if (existingUser.status === 'INACTIVE') {
+            await prisma.user.update({
+              where: { id: existingUser.id },
+              data: { status: 'ACTIVE' },
+            });
+          }
+
+          logger.info('[CLINIC-USERS] Reactivated user in clinic', { userId: existingUser.id, clinicId });
+
+          return NextResponse.json({
+            user: {
+              id: existingUser.id,
+              email: existingUser.email,
+              firstName: existingUser.firstName,
+              lastName: existingUser.lastName,
+              role: prismaRole,
+              status: 'ACTIVE',
+              createdAt: existingUser.createdAt,
+            },
+            message: 'User reactivated in clinic successfully',
+            isExistingUser: true,
+          });
         }
 
         // Handle provider record for PROVIDER role
@@ -337,11 +369,42 @@ export const POST = withSuperAdminAuth(
           },
         });
 
-        if (existingClinicLink) {
+        if (existingClinicLink && existingClinicLink.isActive) {
           return NextResponse.json(
             { error: 'This provider is already a member of this clinic' },
             { status: 400 }
           );
+        }
+
+        // Reactivate if previously deactivated
+        if (existingClinicLink && !existingClinicLink.isActive) {
+          await prisma.userClinic.update({
+            where: { id: existingClinicLink.id },
+            data: { isActive: true, role: prismaRole },
+          });
+
+          if (existingProvider.user.status === 'INACTIVE') {
+            await prisma.user.update({
+              where: { id: existingProvider.user.id },
+              data: { status: 'ACTIVE' },
+            });
+          }
+
+          logger.info('[CLINIC-USERS] Reactivated provider in clinic', { userId: existingProvider.user.id, clinicId });
+
+          return NextResponse.json({
+            user: {
+              id: existingProvider.user.id,
+              email: existingProvider.user.email,
+              firstName: existingProvider.user.firstName,
+              lastName: existingProvider.user.lastName,
+              role: prismaRole,
+              status: 'ACTIVE',
+              createdAt: existingProvider.user.createdAt,
+            },
+            message: 'Provider reactivated in clinic successfully',
+            isExistingUser: true,
+          });
         }
 
         // Add existing provider's user to this clinic

@@ -206,7 +206,7 @@ export const POST = withAuth(
       });
 
       if (existingUser) {
-        // Check if already in this clinic
+        // Check if already in this clinic via UserClinic table
         const existingClinicLink = await prisma.userClinic.findFirst({
           where: {
             userId: existingUser.id,
@@ -214,14 +214,71 @@ export const POST = withAuth(
           },
         });
 
-        if (existingClinicLink || existingUser.clinicId === user.clinicId) {
+        // Active UserClinic or primary clinic match → truly already a member
+        if (existingClinicLink && existingClinicLink.isActive) {
           return NextResponse.json(
             { error: 'This user is already a member of this clinic' },
             { status: 400 }
           );
         }
 
-        // Add existing user to this clinic
+        // If no UserClinic but primary clinicId matches, they're already in
+        // but may be missing a UserClinic record — create one
+        if (!existingClinicLink && existingUser.clinicId === user.clinicId) {
+          try {
+            await prisma.userClinic.create({
+              data: {
+                userId: existingUser.id,
+                clinicId: user.clinicId,
+                role: role.toUpperCase(),
+                isPrimary: true,
+                isActive: true,
+              },
+            });
+          } catch {
+            // Unique constraint — record may already exist
+          }
+          return NextResponse.json(
+            { error: 'This user is already a member of this clinic' },
+            { status: 400 }
+          );
+        }
+
+        // Reactivate if previously deactivated
+        if (existingClinicLink && !existingClinicLink.isActive) {
+          await prisma.userClinic.update({
+            where: { id: existingClinicLink.id },
+            data: { isActive: true, role: role.toUpperCase() },
+          });
+
+          if (existingUser.status === 'INACTIVE') {
+            await prisma.user.update({
+              where: { id: existingUser.id },
+              data: { status: 'ACTIVE' },
+            });
+          }
+
+          logger.info('[CLINIC-USERS] Reactivated user in clinic', {
+            userId: existingUser.id,
+            clinicId: user.clinicId,
+          });
+
+          return NextResponse.json({
+            user: {
+              id: existingUser.id,
+              email: existingUser.email,
+              firstName: existingUser.firstName,
+              lastName: existingUser.lastName,
+              role: role.toUpperCase(),
+              status: 'ACTIVE',
+              createdAt: existingUser.createdAt,
+            },
+            message: 'User reactivated in clinic successfully',
+            isExistingUser: true,
+          });
+        }
+
+        // Add existing user to this clinic (no prior link exists)
         await prisma.userClinic.create({
           data: {
             userId: existingUser.id,

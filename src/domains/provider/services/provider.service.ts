@@ -98,7 +98,12 @@ export const providerService = {
    * List providers based on user context
    *
    * - Super admin sees all providers
-   * - Other users see: their linked provider, clinic providers (ALL clinics they belong to), shared providers
+   * - Other users see: their linked provider, providers for the ACTIVE clinic, shared providers
+   *
+   * IMPORTANT: Only the active clinic (userContext.clinicId) is used for filtering.
+   * This prevents cross-clinic provider leakage in multi-tenant environments
+   * (e.g. OT Mens providers showing on Wellmedr).
+   * The caller (API route) is responsible for setting the correct effectiveClinicId.
    */
   async listProviders(userContext: UserContext): Promise<ListProvidersResult> {
     logger.info('[ProviderService] listProviders', {
@@ -113,31 +118,13 @@ export const providerService = {
     if (userContext.role === 'super_admin') {
       providers = await providerRepository.listAll();
     } else {
-      // ENTERPRISE: Fetch ALL clinics the user belongs to (not just active clinic)
-      // This ensures providers working across multiple clinics can see all their providers
-      let allClinicIds: number[] = [];
-
-      // Include user's primary/active clinic from context
-      if (userContext.clinicId) {
-        allClinicIds.push(userContext.clinicId);
-      }
-
-      // Also fetch the user's clinicId and name directly from the database
-      // (in case it's not in the token/context)
+      // Fetch user name for fallback provider matching (when User.providerId isn't set)
       let userName: { firstName?: string; lastName?: string } = {};
       try {
         const user = await prisma.user.findUnique({
           where: { id: userContext.id },
-          select: { clinicId: true, firstName: true, lastName: true },
+          select: { firstName: true, lastName: true },
         });
-        if (user?.clinicId && !allClinicIds.includes(user.clinicId)) {
-          allClinicIds.push(user.clinicId);
-          logger.debug('[ProviderService] Added user.clinicId from database', {
-            userId: userContext.id,
-            clinicId: user.clinicId,
-          });
-        }
-        // Store name for fallback matching
         if (user?.firstName && user?.lastName) {
           userName = { firstName: user.firstName, lastName: user.lastName };
         }
@@ -147,42 +134,13 @@ export const providerService = {
         });
       }
 
-      // Fetch additional clinics from UserClinic table
-      try {
-        const userClinics = await prisma.userClinic.findMany({
-          where: {
-            userId: userContext.id,
-            isActive: true,
-          },
-          select: { clinicId: true },
-        });
-
-        for (const uc of userClinics) {
-          if (!allClinicIds.includes(uc.clinicId)) {
-            allClinicIds.push(uc.clinicId);
-          }
-        }
-
-        logger.debug('[ProviderService] UserClinic entries', {
-          userId: userContext.id,
-          count: userClinics.length,
-          clinicIds: userClinics.map((uc: { clinicId: number }) => uc.clinicId),
-        });
-      } catch (error) {
-        // UserClinic table might not have data for this user
-        logger.debug('[ProviderService] No UserClinic entries found', { userId: userContext.id });
-      }
-
-      logger.info('[ProviderService] Querying providers for clinics', {
+      logger.info('[ProviderService] Querying providers for active clinic', {
         userId: userContext.id,
-        clinicIds: allClinicIds,
         activeClinicId: userContext.clinicId,
       });
 
       providers = await providerRepository.list({
-        clinicIds: allClinicIds.length > 0 ? allClinicIds : undefined,
-        // Keep legacy clinicId for backward compatibility
-        clinicId: allClinicIds.length === 0 ? (userContext.clinicId ?? undefined) : undefined,
+        clinicId: userContext.clinicId ?? undefined,
         userProviderId: userContext.providerId ?? undefined,
         userEmail: userContext.email,
         userFirstName: userName.firstName,
