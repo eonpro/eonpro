@@ -49,17 +49,17 @@ export default function ClinicLogosSlider() {
         <div className="pointer-events-none absolute left-0 top-0 z-10 h-full w-24 bg-gradient-to-r from-white to-transparent sm:w-40" />
         <div className="pointer-events-none absolute right-0 top-0 z-10 h-full w-24 bg-gradient-to-l from-white to-transparent sm:w-40" />
 
-        <div className="flex animate-marquee items-center gap-16 sm:gap-24">
+        <div className="flex animate-marquee items-center gap-12 sm:animate-marquee-desktop sm:gap-20">
           {items.map((clinic, i) => (
             <div key={`${clinic.subdomain}-${i}`} className="flex flex-shrink-0 items-center">
               {clinic.logoUrl ? (
                 <img
                   src={clinic.logoUrl}
                   alt={clinic.name}
-                  className="h-8 w-auto max-w-[160px] object-contain opacity-40 grayscale transition-all hover:opacity-80 hover:grayscale-0 sm:h-10 sm:max-w-[200px]"
+                  className="h-6 w-auto max-w-[128px] object-contain opacity-40 grayscale transition-all hover:opacity-80 hover:grayscale-0 sm:h-8 sm:max-w-[160px]"
                 />
               ) : (
-                <span className="select-none text-2xl font-bold tracking-tight text-[#1f2933]/20 transition-colors hover:text-[#1f2933]/50 sm:text-3xl">
+                <span className="select-none text-xl font-bold tracking-tight text-[#1f2933]/20 transition-colors hover:text-[#1f2933]/50 sm:text-2xl">
                   {clinic.name}
                 </span>
               )}

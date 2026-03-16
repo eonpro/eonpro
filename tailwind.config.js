@@ -6,7 +6,8 @@ module.exports = {
         'sofia': ['var(--font-sofia-pro)', 'system-ui', '-apple-system', 'sans-serif'],
       },
       animation: {
-        'marquee': 'marquee 25s linear infinite',
+        'marquee': 'marquee 14s linear infinite',
+        'marquee-desktop': 'marquee 25s linear infinite',
         'shimmer': 'shimmer 3s infinite',
         'truck': 'truck 1s ease-in-out infinite',
         // Photo & UI animations
