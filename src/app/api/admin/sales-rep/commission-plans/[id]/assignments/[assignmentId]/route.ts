@@ -41,11 +41,19 @@ export const PATCH = withAuth(
       }
 
       const body = await req.json();
-      const { hourlyRateCents } = body;
+      const { hourlyRateCents, weeklyBasePayCents } = body;
       if (hourlyRateCents !== undefined && hourlyRateCents !== null) {
         if (!Number.isInteger(Number(hourlyRateCents)) || Number(hourlyRateCents) < 0) {
           return NextResponse.json(
             { error: 'hourlyRateCents must be a non-negative integer' },
+            { status: 400 }
+          );
+        }
+      }
+      if (weeklyBasePayCents !== undefined && weeklyBasePayCents !== null) {
+        if (!Number.isInteger(Number(weeklyBasePayCents)) || Number(weeklyBasePayCents) < 0) {
+          return NextResponse.json(
+            { error: 'weeklyBasePayCents must be a non-negative integer' },
             { status: 400 }
           );
         }
@@ -60,10 +68,14 @@ export const PATCH = withAuth(
         return NextResponse.json({ error: 'Assignment not found' }, { status: 404 });
       }
 
+      const updateData: Record<string, any> = {};
+      if (hourlyRateCents !== undefined) updateData.hourlyRateCents = hourlyRateCents;
+      if (weeklyBasePayCents !== undefined) updateData.weeklyBasePayCents = weeklyBasePayCents;
+
       const updated = await runWithClinicContext(clinicId, async () =>
         prisma.salesRepPlanAssignment.update({
           where: { id: aid },
-          data: { hourlyRateCents: hourlyRateCents ?? undefined },
+          data: updateData,
           include: {
             salesRep: {
               select: {
@@ -85,6 +97,7 @@ export const PATCH = withAuth(
           salesRep: updated.salesRep,
           effectiveFrom: updated.effectiveFrom,
           hourlyRateCents: updated.hourlyRateCents,
+          weeklyBasePayCents: updated.weeklyBasePayCents,
         },
       });
     } catch (error) {

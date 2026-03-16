@@ -17,6 +17,7 @@ interface StatusBreakdown { count: number; cents: number; }
 interface GrandTotal {
   events: number; revenueCents: number; commissionCents: number;
   overrideEvents: number; overrideCommissionCents: number; combinedCommissionCents: number;
+  totalBasePayCents: number; totalPayrollCents: number; periodWeeks: number;
   statusBreakdown: { pending: StatusBreakdown; approved: StatusBreakdown; paid: StatusBreakdown; reversed: StatusBreakdown };
   newVsRecurring: { newSale: StatusBreakdown; recurring: StatusBreakdown };
 }
@@ -33,7 +34,8 @@ interface RepSummary {
   paidCount: number; paidCents: number;
   reversedCount: number; reversedCents: number;
   totalOverrideCommissionCents: number; totalOverrideEvents: number;
-  combinedTotalCents: number;
+  weeklyBasePayCents: number; periodBasePayCents: number; periodWeeks: number;
+  combinedTotalCents: number; totalPayrollCents: number;
 }
 
 interface CommissionEvent {
@@ -381,9 +383,20 @@ export default function PayrollReportPage() {
               <p className="mt-1 text-lg font-bold text-purple-700">{$(gt.overrideCommissionCents)}</p>
               <p className="text-xs text-gray-400">{gt.overrideEvents} events</p>
             </div>
+            <div className="rounded-xl bg-white p-4 shadow-sm">
+              <div className="flex items-center gap-2"><TrendingUp className="h-4 w-4 text-emerald-500" /><span className="text-xs font-medium text-gray-500">Combined Commission</span></div>
+              <p className="mt-1 text-lg font-bold text-emerald-700">{$(gt.combinedCommissionCents)}</p>
+            </div>
+            {gt.totalBasePayCents > 0 && (
+              <div className="rounded-xl bg-white p-4 shadow-sm">
+                <div className="flex items-center gap-2"><CreditCard className="h-4 w-4 text-orange-500" /><span className="text-xs font-medium text-gray-500">Base Salary</span></div>
+                <p className="mt-1 text-lg font-bold text-orange-700">{$(gt.totalBasePayCents)}</p>
+                <p className="text-xs text-gray-400">{gt.periodWeeks} week{gt.periodWeeks !== 1 ? 's' : ''}</p>
+              </div>
+            )}
             <div className="rounded-xl bg-gradient-to-br from-emerald-50 to-green-50 p-4 shadow-sm ring-1 ring-emerald-200">
-              <div className="flex items-center gap-2"><TrendingUp className="h-4 w-4 text-emerald-600" /><span className="text-xs font-medium text-emerald-600">Combined Total</span></div>
-              <p className="mt-1 text-lg font-bold text-emerald-800">{$(gt.combinedCommissionCents)}</p>
+              <div className="flex items-center gap-2"><BadgeDollarSign className="h-4 w-4 text-emerald-600" /><span className="text-xs font-medium text-emerald-600">Total Payroll</span></div>
+              <p className="mt-1 text-lg font-bold text-emerald-800">{$(gt.totalPayrollCents)}</p>
             </div>
             <div className="rounded-xl bg-white p-4 shadow-sm">
               <div className="flex items-center gap-2"><Sparkles className="h-4 w-4 text-indigo-500" /><span className="text-xs font-medium text-gray-500">New Sales</span></div>
@@ -399,11 +412,6 @@ export default function PayrollReportPage() {
               <div className="flex items-center gap-2"><Clock className="h-4 w-4 text-amber-500" /><span className="text-xs font-medium text-gray-500">Pending</span></div>
               <p className="mt-1 text-lg font-bold text-amber-700">{$(gt.statusBreakdown.pending.cents)}</p>
               <p className="text-xs text-gray-400">{gt.statusBreakdown.pending.count} events</p>
-            </div>
-            <div className="rounded-xl bg-white p-4 shadow-sm">
-              <div className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-blue-500" /><span className="text-xs font-medium text-gray-500">Ready to Pay</span></div>
-              <p className="mt-1 text-lg font-bold text-blue-700">{$(gt.statusBreakdown.approved.cents)}</p>
-              <p className="text-xs text-gray-400">{gt.statusBreakdown.approved.count} events</p>
             </div>
           </div>
           {isRefetching && <div className="absolute inset-0 flex items-center justify-center"><div className="h-6 w-6 animate-spin rounded-full border-2 border-[var(--brand-primary)] border-t-transparent" /></div>}
@@ -453,7 +461,8 @@ export default function PayrollReportPage() {
                   <th className="cursor-pointer px-3 py-3 text-right text-xs font-medium uppercase text-gray-500 hover:text-gray-900" onClick={() => handleSort('recurringCommissionCents')}>Recurring $ <SortIcon col="recurringCommissionCents" /></th>
                   <th className="cursor-pointer px-3 py-3 text-right text-xs font-medium uppercase text-gray-500 hover:text-gray-900" onClick={() => handleSort('totalCommissionCents')}>Direct <SortIcon col="totalCommissionCents" /></th>
                   <th className="cursor-pointer px-3 py-3 text-right text-xs font-medium uppercase text-gray-500 hover:text-gray-900" onClick={() => handleSort('totalOverrideCommissionCents')}>Override <SortIcon col="totalOverrideCommissionCents" /></th>
-                  <th className="cursor-pointer px-3 py-3 text-right text-xs font-medium uppercase text-gray-500 hover:text-gray-900" onClick={() => handleSort('combinedTotalCents')}>Total <SortIcon col="combinedTotalCents" /></th>
+                  <th className="cursor-pointer px-3 py-3 text-right text-xs font-medium uppercase text-gray-500 hover:text-gray-900" onClick={() => handleSort('periodBasePayCents')}>Base Pay <SortIcon col="periodBasePayCents" /></th>
+                  <th className="cursor-pointer px-3 py-3 text-right text-xs font-medium uppercase text-gray-500 hover:text-gray-900" onClick={() => handleSort('totalPayrollCents')}>Total Payroll <SortIcon col="totalPayrollCents" /></th>
                   <th className="px-3 py-3 text-center text-xs font-medium uppercase text-gray-500">Status</th>
                   <th className="px-3 py-3" />
                 </tr>
@@ -469,7 +478,8 @@ export default function PayrollReportPage() {
                       <td className="px-3 py-3 text-right"><span className="text-cyan-700">{$(rep.recurringCommissionCents)}</span><span className="ml-1 text-xs text-gray-400">({rep.recurringCount})</span></td>
                       <td className="px-3 py-3 text-right font-medium text-emerald-700">{$(rep.totalCommissionCents)}</td>
                       <td className="px-3 py-3 text-right font-medium text-purple-700">{rep.totalOverrideCommissionCents > 0 ? $(rep.totalOverrideCommissionCents) : '—'}</td>
-                      <td className="px-3 py-3 text-right font-bold text-gray-900">{$(rep.combinedTotalCents)}</td>
+                      <td className="px-3 py-3 text-right">{rep.periodBasePayCents > 0 ? <><span className="font-medium text-orange-700">{$(rep.periodBasePayCents)}</span><span className="ml-1 text-xs text-gray-400">({$(rep.weeklyBasePayCents)}/wk)</span></> : <span className="text-gray-400">—</span>}</td>
+                      <td className="px-3 py-3 text-right font-bold text-gray-900">{$(rep.totalPayrollCents)}</td>
                       <td className="px-3 py-3">
                         <div className="flex items-center justify-center gap-1">
                           {rep.pendingCount > 0 && <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-xs font-medium text-amber-800">{rep.pendingCount}P</span>}
@@ -481,12 +491,15 @@ export default function PayrollReportPage() {
                     </tr>
                     {expandedRep === rep.salesRepId && (
                       <tr key={`${rep.salesRepId}-detail`}>
-                        <td colSpan={10} className="bg-gray-50 px-4 py-3">
-                          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                        <td colSpan={12} className="bg-gray-50 px-4 py-3">
+                          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
                             <div className="rounded-lg bg-white p-3"><p className="text-xs text-gray-500">Base Commission</p><p className="text-sm font-semibold">{$(rep.totalBaseCents)}</p></div>
                             <div className="rounded-lg bg-white p-3"><p className="text-xs text-gray-500">Volume Tier Bonus</p><p className="text-sm font-semibold">{$(rep.totalVolumeTierCents)}</p></div>
                             <div className="rounded-lg bg-white p-3"><p className="text-xs text-gray-500">Product Bonus</p><p className="text-sm font-semibold">{$(rep.totalProductCents)}</p></div>
                             <div className="rounded-lg bg-white p-3"><p className="text-xs text-gray-500">Multi-Item Bonus</p><p className="text-sm font-semibold">{$(rep.totalMultiItemCents)}</p></div>
+                            {rep.weeklyBasePayCents > 0 && (
+                              <div className="rounded-lg bg-orange-50 p-3 ring-1 ring-orange-200"><p className="text-xs text-orange-600">Weekly Base Salary</p><p className="text-sm font-semibold text-orange-700">{$(rep.weeklyBasePayCents)}/wk x {rep.periodWeeks} = {$(rep.periodBasePayCents)}</p></div>
+                            )}
                           </div>
                           <div className="mt-2 flex items-center gap-4 text-xs text-gray-500">
                             <span>Manual: {rep.manualCount}</span>
@@ -501,7 +514,7 @@ export default function PayrollReportPage() {
                   </>
                 ))}
                 {sortedReps.length === 0 && !loading && (
-                  <tr><td colSpan={10} className="py-12 text-center text-gray-500">No commission data for this period</td></tr>
+                  <tr><td colSpan={12} className="py-12 text-center text-gray-500">No commission data for this period</td></tr>
                 )}
               </tbody>
             </table>

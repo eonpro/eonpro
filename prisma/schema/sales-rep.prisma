@@ -131,6 +131,7 @@ model SalesRepPlanAssignment {
   effectiveFrom    DateTime                  @default(now())
   effectiveTo      DateTime?
   hourlyRateCents  Int?                     // Rep's hourly rate while on this plan (clinic-defined)
+  weeklyBasePayCents Int?                   // Fixed weekly base salary added to commission payroll
 
   @@index([clinicId])
   @@index([salesRepId])

@@ -2,8 +2,6 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react';
 
-import dynamic from 'next/dynamic';
-
 import {
   Users,
   Sparkles,
@@ -16,22 +14,8 @@ import {
 import { safeParseJsonString } from '@/lib/utils/safe-json';
 import CallTimer from './CallTimer';
 import ScribePanel from './ScribePanel';
+import ZoomEmbeddedMeeting from './ZoomEmbeddedMeeting';
 import { type TelehealthSessionData, type PostCallData } from './types';
-
-const ZoomEmbeddedMeeting = dynamic(
-  async () => import('./ZoomEmbeddedMeeting'),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="absolute inset-0 flex items-center justify-center bg-gray-900">
-        <div className="text-center">
-          <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-4 border-gray-700 border-t-blue-500" />
-          <p className="text-sm text-gray-400">Loading video session...</p>
-        </div>
-      </div>
-    ),
-  }
-);
 
 interface ActiveCallViewProps {
   session: TelehealthSessionData;

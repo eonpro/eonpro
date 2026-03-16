@@ -64,6 +64,7 @@ export const GET = withAuth(
           salesRep: a.salesRep,
           effectiveFrom: a.effectiveFrom,
           hourlyRateCents: a.hourlyRateCents,
+          weeklyBasePayCents: a.weeklyBasePayCents,
         })),
       });
     } catch (error) {
@@ -88,7 +89,7 @@ export const POST = withAuth(
       }
 
       const body = await req.json();
-      const { salesRepId, hourlyRateCents } = body;
+      const { salesRepId, hourlyRateCents, weeklyBasePayCents } = body;
       if (salesRepId == null) {
         return NextResponse.json(
           { error: 'salesRepId is required', code: 'MISSING_SALES_REP_ID' },
@@ -103,6 +104,14 @@ export const POST = withAuth(
         if (!Number.isInteger(Number(hourlyRateCents)) || Number(hourlyRateCents) < 0) {
           return NextResponse.json(
             { error: 'hourlyRateCents must be a non-negative integer' },
+            { status: 400 }
+          );
+        }
+      }
+      if (weeklyBasePayCents !== undefined && weeklyBasePayCents !== null) {
+        if (!Number.isInteger(Number(weeklyBasePayCents)) || Number(weeklyBasePayCents) < 0) {
+          return NextResponse.json(
+            { error: 'weeklyBasePayCents must be a non-negative integer' },
             { status: 400 }
           );
         }
@@ -160,6 +169,10 @@ export const POST = withAuth(
               hourlyRateCents !== undefined && hourlyRateCents !== null
                 ? Number(hourlyRateCents)
                 : null,
+            weeklyBasePayCents:
+              weeklyBasePayCents !== undefined && weeklyBasePayCents !== null
+                ? Number(weeklyBasePayCents)
+                : null,
           },
           include: {
             salesRep: {
@@ -190,6 +203,7 @@ export const POST = withAuth(
           salesRep: assignment.salesRep,
           effectiveFrom: assignment.effectiveFrom,
           hourlyRateCents: assignment.hourlyRateCents,
+          weeklyBasePayCents: assignment.weeklyBasePayCents,
         },
       });
     } catch (error) {

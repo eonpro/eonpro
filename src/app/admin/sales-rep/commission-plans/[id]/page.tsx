@@ -42,6 +42,7 @@ interface Assignment {
   salesRep: { id: number; firstName: string; lastName: string; email: string };
   effectiveFrom: string;
   hourlyRateCents: number | null;
+  weeklyBasePayCents: number | null;
 }
 
 interface ProductRule {
@@ -90,6 +91,7 @@ export default function SalesRepCommissionPlanDetailPage() {
   // Add rep
   const [addRepId, setAddRepId] = useState<number | ''>('');
   const [addHourlyCents, setAddHourlyCents] = useState<string>('');
+  const [addWeeklyBasePay, setAddWeeklyBasePay] = useState<string>('');
   const [addingRep, setAddingRep] = useState(false);
 
   // Add product rule
@@ -175,17 +177,23 @@ export default function SalesRepCommissionPlanDetailPage() {
         addHourlyCents.trim() === ''
           ? undefined
           : Math.round(parseFloat(addHourlyCents) * 100);
+      const weeklyBase =
+        addWeeklyBasePay.trim() === ''
+          ? undefined
+          : Math.round(parseFloat(addWeeklyBasePay) * 100);
       const res = await apiFetch(`${API_PLANS}/${planId}/assignments`, {
         method: 'POST',
         body: JSON.stringify({
           salesRepId: Number(addRepId),
           hourlyRateCents: hourly,
+          weeklyBasePayCents: weeklyBase,
         }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to add rep');
       setAddRepId('');
       setAddHourlyCents('');
+      setAddWeeklyBasePay('');
       fetchAssignments();
       fetchPlan();
     } catch (e) {
@@ -199,10 +207,18 @@ export default function SalesRepCommissionPlanDetailPage() {
     if (!planId) return;
     const res = await apiFetch(
       `${API_PLANS}/${planId}/assignments/${assignmentId}`,
-      {
-        method: 'PATCH',
-        body: JSON.stringify({ hourlyRateCents }),
-      }
+      { method: 'PATCH', body: JSON.stringify({ hourlyRateCents }) }
+    );
+    if (res.ok) {
+      fetchAssignments();
+    }
+  };
+
+  const handleUpdateWeeklyBasePay = async (assignmentId: number, weeklyBasePayCents: number | null) => {
+    if (!planId) return;
+    const res = await apiFetch(
+      `${API_PLANS}/${planId}/assignments/${assignmentId}`,
+      { method: 'PATCH', body: JSON.stringify({ weeklyBasePayCents }) }
     );
     if (res.ok) {
       fetchAssignments();
@@ -351,7 +367,7 @@ export default function SalesRepCommissionPlanDetailPage() {
       <section className="mb-8 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
         <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-gray-900">
           <Users className="h-5 w-5" />
-          Assigned rep & hourly rate
+          Assigned rep & compensation
         </h2>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -359,6 +375,7 @@ export default function SalesRepCommissionPlanDetailPage() {
               <tr className="border-b border-gray-200 text-left text-gray-500">
                 <th className="pb-2 font-medium">Rep</th>
                 <th className="pb-2 font-medium">Hourly rate</th>
+                <th className="pb-2 font-medium">Weekly base salary</th>
                 <th className="w-20 pb-2" />
               </tr>
             </thead>
@@ -373,6 +390,12 @@ export default function SalesRepCommissionPlanDetailPage() {
                     <HourlyRateInput
                       valueCents={a.hourlyRateCents}
                       onSave={(cents) => handleUpdateHourly(a.id, cents)}
+                    />
+                  </td>
+                  <td className="py-2">
+                    <HourlyRateInput
+                      valueCents={a.weeklyBasePayCents}
+                      onSave={(cents) => handleUpdateWeeklyBasePay(a.id, cents)}
                     />
                   </td>
                   <td className="py-2">
@@ -415,6 +438,18 @@ export default function SalesRepCommissionPlanDetailPage() {
               value={addHourlyCents}
               onChange={(e) => setAddHourlyCents(e.target.value)}
               className="mt-1 w-24 rounded-lg border border-gray-300 px-3 py-2 text-sm"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-500">Weekly base salary ($)</label>
+            <input
+              type="number"
+              min={0}
+              step={0.01}
+              placeholder="Optional"
+              value={addWeeklyBasePay}
+              onChange={(e) => setAddWeeklyBasePay(e.target.value)}
+              className="mt-1 w-28 rounded-lg border border-gray-300 px-3 py-2 text-sm"
             />
           </div>
           <button

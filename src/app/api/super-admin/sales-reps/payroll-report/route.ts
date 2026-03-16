@@ -76,6 +76,38 @@ async function handleGet(req: NextRequest): Promise<Response> {
 
       type EventRow = (typeof events)[number];
 
+      // Fetch active plan assignments with base pay for all reps in the period
+      const repIds = [...new Set(events.map((e) => e.salesRepId))];
+      const planAssignments = repIds.length > 0
+        ? await prisma.salesRepPlanAssignment.findMany({
+            where: {
+              salesRepId: { in: repIds },
+              effectiveFrom: { lte: endDate },
+              OR: [{ effectiveTo: null }, { effectiveTo: { gte: startDate } }],
+            },
+            select: {
+              salesRepId: true,
+              weeklyBasePayCents: true,
+              hourlyRateCents: true,
+            },
+          })
+        : [];
+
+      // Calculate weeks in the reporting period for base pay proration
+      const periodMs = endDate.getTime() - startDate.getTime();
+      const periodWeeks = Math.max(1, Math.round(periodMs / (7 * 86_400_000)));
+
+      const basePayByRep = new Map<number, { weeklyBasePayCents: number; hourlyRateCents: number | null; periodBasePayCents: number }>();
+      for (const pa of planAssignments) {
+        if (pa.weeklyBasePayCents && pa.weeklyBasePayCents > 0) {
+          basePayByRep.set(pa.salesRepId, {
+            weeklyBasePayCents: pa.weeklyBasePayCents,
+            hourlyRateCents: pa.hourlyRateCents,
+            periodBasePayCents: pa.weeklyBasePayCents * periodWeeks,
+          });
+        }
+      }
+
       // Per-rep summary with new/recurring breakdown and status counts
       const repSummaries = new Map<number, {
         name: string;
@@ -105,11 +137,15 @@ async function handleGet(req: NextRequest): Promise<Response> {
         reversedCents: number;
         totalOverrideCommissionCents: number;
         totalOverrideEvents: number;
+        weeklyBasePayCents: number;
+        periodBasePayCents: number;
+        periodWeeks: number;
       }>();
 
       for (const ev of events) {
         const repId = ev.salesRepId;
         if (!repSummaries.has(repId)) {
+          const bp = basePayByRep.get(repId);
           repSummaries.set(repId, {
             name: `${ev.salesRep?.firstName || ''} ${ev.salesRep?.lastName || ''}`.trim() || ev.salesRep?.email || `Rep #${repId}`,
             email: ev.salesRep?.email || '',
@@ -138,6 +174,9 @@ async function handleGet(req: NextRequest): Promise<Response> {
             reversedCents: 0,
             totalOverrideCommissionCents: 0,
             totalOverrideEvents: 0,
+            weeklyBasePayCents: bp?.weeklyBasePayCents || 0,
+            periodBasePayCents: bp?.periodBasePayCents || 0,
+            periodWeeks,
           });
         }
         const s = repSummaries.get(repId)!;
@@ -238,13 +277,18 @@ async function handleGet(req: NextRequest): Promise<Response> {
         recurring: { count: events.filter((e) => e.isRecurring).length, cents: events.filter((e) => e.isRecurring).reduce((a, e) => a + e.commissionAmountCents, 0) },
       };
 
+      const totalBasePayCents = Array.from(repSummaries.values()).reduce((a, r) => a + r.periodBasePayCents, 0);
+      const directCommCents = events.reduce((a, e) => a + e.commissionAmountCents, 0);
       const grandTotal = {
         events: events.length,
         revenueCents: events.reduce((a, e) => a + e.eventAmountCents, 0),
-        commissionCents: events.reduce((a, e) => a + e.commissionAmountCents, 0),
+        commissionCents: directCommCents,
         overrideEvents: overrideGrandTotal.events,
         overrideCommissionCents: overrideGrandTotal.commissionCents,
-        combinedCommissionCents: events.reduce((a, e) => a + e.commissionAmountCents, 0) + overrideGrandTotal.commissionCents,
+        combinedCommissionCents: directCommCents + overrideGrandTotal.commissionCents,
+        totalBasePayCents,
+        totalPayrollCents: directCommCents + overrideGrandTotal.commissionCents + totalBasePayCents,
+        periodWeeks,
         statusBreakdown,
         newVsRecurring,
       };
@@ -264,7 +308,10 @@ async function handleGet(req: NextRequest): Promise<Response> {
         csv += `=== PAYROLL SUMMARY ===\n`;
         csv += `Total Direct Commission,$${fmtUSD(grandTotal.commissionCents)}\n`;
         csv += `Total Override Commission,$${fmtUSD(overrideGrandTotal.commissionCents)}\n`;
-        csv += `Combined Total,$${fmtUSD(grandTotal.combinedCommissionCents)}\n`;
+        csv += `Combined Commission,$${fmtUSD(grandTotal.combinedCommissionCents)}\n`;
+        csv += `Total Base Salary,$${fmtUSD(grandTotal.totalBasePayCents)}\n`;
+        csv += `TOTAL PAYROLL,$${fmtUSD(grandTotal.totalPayrollCents)}\n`;
+        csv += `Period Weeks,${periodWeeks}\n`;
         csv += `New Sale Commissions,${newVsRecurring.newSale.count},$${fmtUSD(newVsRecurring.newSale.cents)}\n`;
         csv += `Recurring Commissions,${newVsRecurring.recurring.count},$${fmtUSD(newVsRecurring.recurring.cents)}\n`;
         csv += `Pending,${statusBreakdown.pending.count},$${fmtUSD(statusBreakdown.pending.cents)}\n`;
@@ -273,10 +320,11 @@ async function handleGet(req: NextRequest): Promise<Response> {
         csv += `Reversed,${statusBreakdown.reversed.count},$${fmtUSD(statusBreakdown.reversed.cents)}\n\n`;
 
         csv += `=== PER-REP SUMMARY ===\n`;
-        csv += `Sales Rep,Email,Clinic,Events,Revenue,Base Commission,Volume Tier,Product Bonus,Multi-Item,Total Commission,New Sales,New Sale $,Recurring,Recurring $,Override $,Combined Total,Manual,Stripe,Pending $,Approved $,Paid $\n`;
+        csv += `Sales Rep,Email,Clinic,Events,Revenue,Base Commission,Volume Tier,Product Bonus,Multi-Item,Total Commission,New Sales,New Sale $,Recurring,Recurring $,Override $,Combined Commission,Weekly Base Salary,Period Base Pay (${periodWeeks}wk),Total Payroll,Manual,Stripe,Pending $,Approved $,Paid $\n`;
         for (const [, s] of repSummaries) {
           const combined = s.totalCommissionCents + s.totalOverrideCommissionCents;
-          csv += `"${s.name}","${s.email}","${s.clinicName}",${s.totalEvents},$${fmtUSD(s.totalRevenueCents)},$${fmtUSD(s.totalBaseCents)},$${fmtUSD(s.totalVolumeTierCents)},$${fmtUSD(s.totalProductCents)},$${fmtUSD(s.totalMultiItemCents)},$${fmtUSD(s.totalCommissionCents)},${s.newSaleCount},$${fmtUSD(s.newSaleCommissionCents)},${s.recurringCount},$${fmtUSD(s.recurringCommissionCents)},$${fmtUSD(s.totalOverrideCommissionCents)},$${fmtUSD(combined)},${s.manualCount},${s.stripeCount},$${fmtUSD(s.pendingCents)},$${fmtUSD(s.approvedCents)},$${fmtUSD(s.paidCents)}\n`;
+          const totalPayroll = combined + s.periodBasePayCents;
+          csv += `"${s.name}","${s.email}","${s.clinicName}",${s.totalEvents},$${fmtUSD(s.totalRevenueCents)},$${fmtUSD(s.totalBaseCents)},$${fmtUSD(s.totalVolumeTierCents)},$${fmtUSD(s.totalProductCents)},$${fmtUSD(s.totalMultiItemCents)},$${fmtUSD(s.totalCommissionCents)},${s.newSaleCount},$${fmtUSD(s.newSaleCommissionCents)},${s.recurringCount},$${fmtUSD(s.recurringCommissionCents)},$${fmtUSD(s.totalOverrideCommissionCents)},$${fmtUSD(combined)},$${fmtUSD(s.weeklyBasePayCents)},$${fmtUSD(s.periodBasePayCents)},$${fmtUSD(totalPayroll)},${s.manualCount},${s.stripeCount},$${fmtUSD(s.pendingCents)},$${fmtUSD(s.approvedCents)},$${fmtUSD(s.paidCents)}\n`;
         }
 
         csv += `\n=== EVENT DETAIL ===\n`;
@@ -317,6 +365,7 @@ async function handleGet(req: NextRequest): Promise<Response> {
           salesRepId: repId,
           ...s,
           combinedTotalCents: s.totalCommissionCents + s.totalOverrideCommissionCents,
+          totalPayrollCents: s.totalCommissionCents + s.totalOverrideCommissionCents + s.periodBasePayCents,
         })),
         overrideRepSummaries: Array.from(overrideRepSummaries.entries()).map(([repId, s]) => ({
           salesRepId: repId,
