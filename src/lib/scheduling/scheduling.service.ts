@@ -258,7 +258,16 @@ export async function createAppointment(input: CreateAppointmentInput): Promise<
 
     // Auto-create Zoom meeting for VIDEO appointments
     let finalAppointment = appointment;
-    if (input.type === AppointmentModeType.VIDEO && isZoomConfigured()) {
+    let zoomAvailable = isZoomConfigured();
+    if (!zoomAvailable && appointment.clinicId) {
+      try {
+        const { isClinicZoomConfigured } = await import('@/lib/clinic-zoom');
+        zoomAvailable = await isClinicZoomConfigured(appointment.clinicId);
+      } catch {
+        // clinic-zoom check failed, fall through
+      }
+    }
+    if (input.type === AppointmentModeType.VIDEO && zoomAvailable) {
       try {
         const zoomResult = await ensureZoomMeetingForAppointment(appointment.id);
         if (zoomResult.success && zoomResult.session) {
