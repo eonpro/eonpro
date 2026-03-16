@@ -7,7 +7,6 @@ import {
   VideoOff,
   ExternalLink,
   PhoneOff,
-  Loader2,
   Mic,
   AlertTriangle,
 } from 'lucide-react';
@@ -113,31 +112,29 @@ export default function ZoomEmbeddedMeeting({
     };
   }, [stopPolling]);
 
-  // Auto-launch on mount
-  useEffect(() => {
-    if (joinUrl && status === 'ready') {
-      launchZoom();
-    }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
   if (status === 'ready') {
     return (
       <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-900 p-8">
-        <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-blue-600/20">
-          <Loader2 className="h-10 w-10 animate-spin text-blue-400" />
+        <div className="mb-8 flex flex-col items-center">
+          <div className="mb-6 flex h-24 w-24 items-center justify-center rounded-full bg-blue-600/20">
+            <Video className="h-12 w-12 text-blue-400" />
+          </div>
+          <p className="mb-1 text-lg font-semibold text-white">Ready to Join</p>
+          <p className="mb-1 text-sm text-gray-400">
+            Meeting #{meetingNumber}
+          </p>
         </div>
-        <p className="mb-1 text-lg font-semibold text-white">Opening Zoom...</p>
-        <p className="mb-6 text-sm text-gray-400">
-          Your meeting should open in a new window
-        </p>
-        {joinUrl && (
+        {joinUrl ? (
           <button
             onClick={launchZoom}
-            className="flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-blue-700"
+            className="flex items-center gap-3 rounded-xl bg-blue-600 px-8 py-4 text-base font-semibold text-white shadow-lg transition-all hover:bg-blue-700 hover:shadow-xl active:scale-[0.98]"
           >
-            <ExternalLink className="h-4 w-4" />
-            Launch Zoom Meeting
+            <Video className="h-5 w-5" />
+            Open Zoom Meeting
+            <ExternalLink className="h-4 w-4 opacity-60" />
           </button>
+        ) : (
+          <p className="text-sm text-red-400">No meeting link available</p>
         )}
       </div>
     );
