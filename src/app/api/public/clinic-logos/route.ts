@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 
-const FEATURED_CLINIC_SLUGS = ['wellmedr', 'overtime', 'eonmeds', 'overnight'];
+const FEATURED_CLINIC_SLUGS = ['wellmedr', 'ot', 'eonmeds', 'overnight'];
 
 /**
  * GET /api/public/clinic-logos

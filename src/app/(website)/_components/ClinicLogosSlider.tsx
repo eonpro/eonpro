@@ -9,12 +9,12 @@ interface ClinicLogo {
 }
 
 const KNOWN_LOGOS: Record<string, string> = {
-  overtime: 'https://static.wixstatic.com/shapes/c49a9b_5139736743794db7af38c583595f06fb.svg',
+  ot: 'https://static.wixstatic.com/shapes/c49a9b_5139736743794db7af38c583595f06fb.svg',
 };
 
 const FALLBACK_CLINICS: ClinicLogo[] = [
   { name: 'WellMedr', subdomain: 'wellmedr', logoUrl: null },
-  { name: 'Overtime', subdomain: 'overtime', logoUrl: KNOWN_LOGOS.overtime },
+  { name: 'OT Men\'s', subdomain: 'ot', logoUrl: KNOWN_LOGOS.ot },
   { name: 'EonMeds', subdomain: 'eonmeds', logoUrl: null },
   { name: 'Overnight', subdomain: 'overnight', logoUrl: null },
 ];
