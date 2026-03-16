@@ -46,6 +46,7 @@ const PUBLIC_ROUTES = [
   '/affiliate/login',
   '/affiliate/apply',
   '/api/tickets',
+  '/api/public',
   '/status',
   '/', // Root: public marketing page (www.eonpro.io)
 ];

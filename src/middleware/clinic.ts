@@ -13,7 +13,7 @@ const PUBLIC_ROUTES = [
   '/register', '/api/affiliate/auth', '/api/affiliate/apply', '/affiliate/login', '/affiliate/apply',
   '/affiliate/welcome', '/affiliate/forgot-password', '/affiliate/reset-password', '/affiliate/terms',
   '/affiliate/demo', '/affiliate', '/portal/affiliate', '/api/affiliate',
-  '/api/tickets', '/status', '/',
+  '/api/tickets', '/status', '/', '/api/public',
   '/intake', '/api/intake-forms/config', '/patient-login',
 ];
 
