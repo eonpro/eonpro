@@ -218,6 +218,8 @@ const BASE_PRISMA_ALLOWLIST: readonly string[] = [
   'affiliatetouch', // super-admin cross-tenant click/conversion analytics (guarded by withSuperAdminAuth)
   'affiliaterefcode', // super-admin affiliate management (guarded by withSuperAdminAuth)
   'platformfeeevent',
+  'clinicplatforminvoice', // super-admin clinic billing (guarded by withSuperAdminAuth)
+  'clinicplatformfeeconfig', // super-admin clinic billing (guarded by withSuperAdminAuth)
   'scheduledemail', // cron needs to query system-level emails (clinicId = null)
   'internalmessage', // user-scoped (senderId/recipientId), not clinic-scoped; clinicId is optional context only
   'salesreprefcode', // public track endpoint: lookup by refCode to resolve clinicId/salesRepId

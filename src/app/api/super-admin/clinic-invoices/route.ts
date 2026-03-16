@@ -5,14 +5,10 @@ import { clinicInvoiceService } from '@/services/billing/clinicInvoiceService';
 import { logger } from '@/lib/logger';
 import { withoutClinicFilter } from '@/lib/db';
 
-/**
- * Middleware to check for Super Admin role
- */
 function withSuperAdminAuth(handler: (req: NextRequest, user: AuthUser) => Promise<Response>) {
   return withAuth(handler, { roles: ['super_admin'] });
 }
 
-// Validation schema for list query
 const listQuerySchema = z.object({
   clinicId: z
     .string()
@@ -40,7 +36,6 @@ const listQuerySchema = z.object({
 
 /**
  * GET /api/super-admin/clinic-invoices
- * List all clinic invoices with filters
  */
 export const GET = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) => {
   try {
@@ -51,7 +46,7 @@ export const GET = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) =
     if (!result.success) {
       return NextResponse.json(
         { error: 'Invalid query parameters', details: result.error.flatten() },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -68,25 +63,18 @@ export const GET = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) =
       invoices,
       total,
       summary,
-      pagination: {
-        limit,
-        offset,
-        total,
-        hasMore: offset + invoices.length < total,
-      },
+      pagination: { limit, offset, total, hasMore: offset + invoices.length < total },
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
-    const stack = error instanceof Error ? error.stack : undefined;
     logger.error('[SuperAdmin] Error listing clinic invoices', {
       error: message,
-      stack,
+      stack: error instanceof Error ? error.stack : undefined,
     });
     return NextResponse.json({ error: message }, { status: 500 });
   }
 });
 
-// Validation schema for invoice generation
 const generateInvoiceSchema = z.object({
   clinicId: z.number().int().positive(),
   periodType: z.enum(['WEEKLY', 'MONTHLY', 'QUARTERLY', 'YEARLY', 'CUSTOM']),
@@ -99,7 +87,6 @@ const generateInvoiceSchema = z.object({
 
 /**
  * POST /api/super-admin/clinic-invoices
- * Generate a new invoice for a clinic
  */
 export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) => {
   try {
@@ -109,19 +96,11 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) 
     if (!result.success) {
       return NextResponse.json(
         { error: 'Validation failed', details: result.error.flatten() },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
-    const {
-      clinicId,
-      periodType,
-      periodStart,
-      periodEnd,
-      notes,
-      externalNotes,
-      createStripeInvoice,
-    } = result.data;
+    const { clinicId, periodType, periodStart, periodEnd, notes, externalNotes, createStripeInvoice } = result.data;
 
     let invoice = await withoutClinicFilter(() =>
       clinicInvoiceService.generateInvoice({
@@ -149,17 +128,14 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) 
       generatedBy: user.id,
     });
 
-    return NextResponse.json({
-      success: true,
-      invoice,
-    });
+    return NextResponse.json({ success: true, invoice });
   } catch (error) {
     logger.error('[SuperAdmin] Error generating invoice', {
       error: error instanceof Error ? error.message : 'Unknown error',
     });
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Failed to generate invoice' },
-      { status: 500 }
+      { status: 500 },
     );
   }
 });
