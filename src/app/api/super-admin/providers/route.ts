@@ -227,6 +227,34 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) 
       }
     }
 
+    // If licenses array provided, create ProviderLicense records
+    if (body.licenses && Array.isArray(body.licenses) && body.licenses.length > 0) {
+      const validLicenses = body.licenses
+        .filter((l: { state?: string; licenseNumber?: string; expiresAt?: string }) =>
+          l.state && l.licenseNumber && l.expiresAt
+        )
+        .map((l: { state: string; licenseNumber: string; expiresAt: string; issuedAt?: string }) => ({
+          providerId: provider.id,
+          state: l.state.trim().toUpperCase().slice(0, 2),
+          licenseNumber: l.licenseNumber.trim(),
+          expiresAt: new Date(l.expiresAt),
+          issuedAt: l.issuedAt ? new Date(l.issuedAt) : null,
+        }));
+
+      if (validLicenses.length > 0) {
+        try {
+          await prisma.providerLicense.createMany({ data: validLicenses });
+          logger.info('[SUPER-ADMIN/PROVIDERS] Created provider licenses', {
+            providerId: provider.id,
+            count: validLicenses.length,
+            states: validLicenses.map((l: { state: string }) => l.state),
+          });
+        } catch (licenseError) {
+          logger.warn('[SUPER-ADMIN/PROVIDERS] Failed to create licenses', { error: licenseError });
+        }
+      }
+    }
+
     // Create audit log
     try {
       await prisma.providerAudit.create({
@@ -238,6 +266,7 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) 
             createdBy: user.email,
             globalProvider: !body.clinicId,
             clinicIds: body.clinicIds || [],
+            licenseStates: body.licenses?.map((l: { state: string }) => l.state) || [],
           },
         },
       });

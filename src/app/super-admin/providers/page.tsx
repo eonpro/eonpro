@@ -391,15 +391,23 @@ export default function SuperAdminProvidersPage() {
       if (data.result?.valid && data.result?.basic) {
         const registryFirst = data.result.basic.firstName || data.result.basic.first_name || '';
         const registryLast = data.result.basic.lastName || data.result.basic.last_name || '';
+        const registryState = data.result.addresses?.[0]?.state || '';
 
         setCreateForm((f) => ({
           ...f,
           firstName: f.firstName || registryFirst,
           lastName: f.lastName || registryLast,
           titleLine: f.titleLine || data.result.basic.credential || '',
-          // Auto-fill license state from primary address
-          licenseState: f.licenseState || data.result.addresses?.[0]?.state || '',
+          licenseState: f.licenseState || registryState,
         }));
+
+        // Pre-populate the license form with the state from the registry
+        if (registryState) {
+          setCreateLicenseForm((f) => ({
+            ...f,
+            state: f.state || registryState,
+          }));
+        }
       }
     } catch (err) {
       setCreateError(err instanceof Error ? err.message : 'Failed to verify NPI');
@@ -1027,33 +1035,6 @@ export default function SuperAdminProvidersPage() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">License State</label>
-                  <input
-                    type="text"
-                    maxLength={2}
-                    value={createForm.licenseState}
-                    onChange={(e) =>
-                      setCreateForm((f) => ({ ...f, licenseState: e.target.value.toUpperCase() }))
-                    }
-                    placeholder="TX"
-                    className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-[#4fa77e] focus:outline-none focus:ring-1 focus:ring-[#4fa77e]"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">License Number</label>
-                  <input
-                    type="text"
-                    value={createForm.licenseNumber}
-                    onChange={(e) =>
-                      setCreateForm((f) => ({ ...f, licenseNumber: e.target.value }))
-                    }
-                    className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-[#4fa77e] focus:outline-none focus:ring-1 focus:ring-[#4fa77e]"
-                  />
-                </div>
-              </div>
-
               <div>
                 <label className="block text-sm font-medium text-gray-700">DEA Number</label>
                 <input
@@ -1062,6 +1043,130 @@ export default function SuperAdminProvidersPage() {
                   onChange={(e) => setCreateForm((f) => ({ ...f, dea: e.target.value }))}
                   className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-[#4fa77e] focus:outline-none focus:ring-1 focus:ring-[#4fa77e]"
                 />
+              </div>
+
+              {/* State Licenses */}
+              <div>
+                <div className="mb-2 flex items-center justify-between">
+                  <label className="block text-sm font-medium text-gray-700">State Licenses</label>
+                  {!showCreateLicenseForm && (
+                    <button
+                      type="button"
+                      onClick={() => setShowCreateLicenseForm(true)}
+                      className="inline-flex items-center gap-1 text-sm text-[#4fa77e] hover:text-[#3d8a66]"
+                    >
+                      <Plus className="h-4 w-4" />
+                      Add license
+                    </button>
+                  )}
+                </div>
+                {showCreateLicenseForm && (
+                  <div className="mb-3 flex flex-wrap items-end gap-2 rounded-lg border border-gray-200 bg-gray-50 p-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500">State *</label>
+                      <input
+                        type="text"
+                        maxLength={2}
+                        value={createLicenseForm.state}
+                        onChange={(e) =>
+                          setCreateLicenseForm((f) => ({ ...f, state: e.target.value.toUpperCase() }))
+                        }
+                        placeholder="GA"
+                        className="mt-0.5 w-16 rounded border border-gray-300 px-2 py-1.5 text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500">License # *</label>
+                      <input
+                        type="text"
+                        value={createLicenseForm.licenseNumber}
+                        onChange={(e) =>
+                          setCreateLicenseForm((f) => ({ ...f, licenseNumber: e.target.value }))
+                        }
+                        placeholder="License number"
+                        className="mt-0.5 w-32 rounded border border-gray-300 px-2 py-1.5 text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500">Expires *</label>
+                      <input
+                        type="date"
+                        value={createLicenseForm.expiresAt}
+                        onChange={(e) =>
+                          setCreateLicenseForm((f) => ({ ...f, expiresAt: e.target.value }))
+                        }
+                        className="mt-0.5 rounded border border-gray-300 px-2 py-1.5 text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500">Issued</label>
+                      <input
+                        type="date"
+                        value={createLicenseForm.issuedAt}
+                        onChange={(e) =>
+                          setCreateLicenseForm((f) => ({ ...f, issuedAt: e.target.value }))
+                        }
+                        className="mt-0.5 rounded border border-gray-300 px-2 py-1.5 text-sm"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleAddCreateLicenseRow}
+                      className="rounded bg-[#4fa77e] px-3 py-1.5 text-sm font-medium text-white hover:bg-[#3d8a66]"
+                    >
+                      Add
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowCreateLicenseForm(false);
+                        setCreateLicenseForm({ state: '', licenseNumber: '', expiresAt: '', issuedAt: '' });
+                      }}
+                      className="text-sm text-gray-500 hover:text-gray-700"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                )}
+                {createForm.licenses.length === 0 ? (
+                  <p className="text-xs text-gray-500">
+                    No state licenses added yet. Add all states this provider is licensed in.
+                  </p>
+                ) : (
+                  <div className="overflow-x-auto rounded-lg border border-gray-200">
+                    <table className="min-w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-gray-200 bg-gray-50 text-left text-xs font-medium uppercase text-gray-500">
+                          <th className="px-3 py-2">State</th>
+                          <th className="px-3 py-2">License #</th>
+                          <th className="px-3 py-2">Expires</th>
+                          <th className="w-8 px-3 py-2" />
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {createForm.licenses.map((l) => (
+                          <tr key={l.state} className="border-b border-gray-100">
+                            <td className="px-3 py-2 font-medium text-gray-900">{l.state}</td>
+                            <td className="px-3 py-2 text-gray-700">{l.licenseNumber}</td>
+                            <td className="px-3 py-2 text-gray-700">
+                              {new Date(l.expiresAt).toLocaleDateString()}
+                            </td>
+                            <td className="px-3 py-2">
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveCreateLicense(l.state)}
+                                className="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-600"
+                                title="Remove license"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
 
               {/* Clinic Assignment */}
