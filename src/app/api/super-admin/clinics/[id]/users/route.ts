@@ -30,14 +30,14 @@ function withSuperAdminAuth(
  */
 export const GET = withSuperAdminAuth(
   async (req: NextRequest, user: AuthUser, params: { id: string }) => {
+    const clinicId = parseInt(params.id);
+    if (isNaN(clinicId)) {
+      return NextResponse.json({ error: 'Invalid clinic ID' }, { status: 400 });
+    }
+
+    let step = 'init';
     try {
-      const clinicId = parseInt(params.id);
-
-      if (isNaN(clinicId)) {
-        return NextResponse.json({ error: 'Invalid clinic ID' }, { status: 400 });
-      }
-
-      // Verify clinic exists (select only needed fields for backwards compatibility)
+      step = 'clinic_lookup';
       const clinic = await prisma.clinic.findUnique({
         where: { id: clinicId },
         select: { id: true, name: true },
@@ -47,20 +47,17 @@ export const GET = withSuperAdminAuth(
         return NextResponse.json({ error: 'Clinic not found' }, { status: 404 });
       }
 
-      // Optional role filter (comma-separated, e.g., ?roles=STAFF,SALES_REP)
+      step = 'role_filter';
       const rolesParam = req.nextUrl.searchParams.get('roles');
       const roleFilter = rolesParam ? rolesParam.split(',').map((r) => r.trim()).filter(Boolean) : null;
 
-      const clinicCondition = {
-        OR: [
-          { clinicId },
-          { userClinics: { some: { clinicId, isActive: true } } },
-        ],
-      };
-
+      step = 'user_query';
       const users = await prisma.user.findMany({
         where: {
-          ...clinicCondition,
+          OR: [
+            { clinicId },
+            { userClinics: { some: { clinicId, isActive: true } } },
+          ],
           ...(roleFilter && roleFilter.length > 0 ? { role: { in: roleFilter as any[] } } : {}),
         },
         select: {
@@ -73,7 +70,7 @@ export const GET = withSuperAdminAuth(
           status: true,
           createdAt: true,
           lastLogin: true,
-          clinicId: true, // Include to check if this is their primary clinic
+          clinicId: true,
           userClinics: {
             where: { clinicId },
             select: {
@@ -86,28 +83,32 @@ export const GET = withSuperAdminAuth(
         orderBy: { createdAt: 'desc' },
       });
 
-      // Format response - use UserClinic role if different from User role
-      const formattedUsers = users.map((user) => {
-        const clinicAssignment = user.userClinics?.[0];
+      step = 'format';
+      const formattedUsers = users.map((u) => {
+        const clinicAssignment = u.userClinics?.[0];
         return {
-          id: user.id,
-          email: user.email,
-          phone: user.phone,
-          firstName: user.firstName,
-          lastName: user.lastName,
-          role: clinicAssignment?.role || user.role, // Use clinic-specific role if exists
-          status: user.status,
-          createdAt: user.createdAt,
-          lastLogin: user.lastLogin,
-          isPrimary: clinicAssignment?.isPrimary ?? user.clinicId === clinicId,
+          id: u.id,
+          email: u.email,
+          phone: u.phone,
+          firstName: u.firstName,
+          lastName: u.lastName,
+          role: clinicAssignment?.role || u.role,
+          status: u.status,
+          createdAt: u.createdAt,
+          lastLogin: u.lastLogin,
+          isPrimary: clinicAssignment?.isPrimary ?? u.clinicId === clinicId,
         };
       });
 
       return NextResponse.json({ users: formattedUsers });
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : String(error);
-      logger.error('Error fetching clinic users', { error: msg, stack: error instanceof Error ? error.stack : undefined });
-      return NextResponse.json({ error: 'Failed to fetch clinic users', detail: msg }, { status: 500 });
+      const stack = error instanceof Error ? error.stack?.split('\n').slice(0, 5).join('\n') : undefined;
+      logger.error('Error fetching clinic users', { step, clinicId, error: msg });
+      return NextResponse.json(
+        { error: `Failed at step "${step}"`, detail: msg, stack },
+        { status: 500 }
+      );
     }
   }
 );
