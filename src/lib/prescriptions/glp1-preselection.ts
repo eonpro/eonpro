@@ -196,7 +196,7 @@ const TIRZEPATIDE_TIERS: DoseTier[] = [
       refills: '0',
       daysSupply: '28',
     },
-    orderSetName: 'Tirzepatide D- 3 Month',
+    orderSetName: 'Tirzepatide E- 3 Month',
   },
 ];
 

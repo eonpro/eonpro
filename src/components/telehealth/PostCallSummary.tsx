@@ -10,6 +10,7 @@ import {
   ArrowLeft,
   Sparkles,
   Download,
+  Video,
 } from 'lucide-react';
 
 import { apiFetch } from '@/lib/api/fetch';
@@ -156,7 +157,13 @@ export default function PostCallSummary({ data, onBackToQueue, onSelectNextPatie
               <CheckCircle className="h-6 w-6 text-emerald-600" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-gray-900">Call Completed</h1>
+              <div className="flex items-center gap-2">
+                <h1 className="text-xl font-bold text-gray-900">Call Completed</h1>
+                <span className="inline-flex items-center gap-1 rounded-full border border-blue-200 bg-blue-50 px-2.5 py-0.5 text-xs font-medium text-blue-700">
+                  <Video className="h-3 w-3" />
+                  Telehealth Visit
+                </span>
+              </div>
               <p className="text-sm text-gray-600">
                 Session with {data.session.patient.firstName} {data.session.patient.lastName}
               </p>

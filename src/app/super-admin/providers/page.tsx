@@ -113,9 +113,17 @@ export default function SuperAdminProvidersPage() {
     licenseNumber: '',
     dea: '',
     clinicIds: [] as number[],
+    licenses: [] as Array<{ state: string; licenseNumber: string; expiresAt: string; issuedAt: string }>,
   });
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+  const [showCreateLicenseForm, setShowCreateLicenseForm] = useState(false);
+  const [createLicenseForm, setCreateLicenseForm] = useState({
+    state: '',
+    licenseNumber: '',
+    expiresAt: '',
+    issuedAt: '',
+  });
 
   // NPI Verification state
   const [verifyingNpi, setVerifyingNpi] = useState(false);
@@ -229,6 +237,7 @@ export default function SuperAdminProvidersPage() {
         body: JSON.stringify({
           ...createForm,
           clinicIds: createForm.clinicIds.length > 0 ? createForm.clinicIds : undefined,
+          licenses: createForm.licenses.length > 0 ? createForm.licenses : undefined,
         }),
       });
 
@@ -250,7 +259,10 @@ export default function SuperAdminProvidersPage() {
         licenseNumber: '',
         dea: '',
         clinicIds: [],
+        licenses: [],
       });
+      setShowCreateLicenseForm(false);
+      setCreateLicenseForm({ state: '', licenseNumber: '', expiresAt: '', issuedAt: '' });
       setNpiVerified(false);
       setNpiVerificationResult(null);
       fetchProviders();
@@ -403,6 +415,34 @@ export default function SuperAdminProvidersPage() {
     setCreateForm((f) => ({ ...f, npi: numericValue }));
     setNpiVerified(false);
     setNpiVerificationResult(null);
+  };
+
+  const handleAddCreateLicenseRow = () => {
+    const state = createLicenseForm.state.trim().toUpperCase().slice(0, 2);
+    const licNum = createLicenseForm.licenseNumber.trim();
+    const expiresAt = createLicenseForm.expiresAt;
+    if (!state || !licNum || !expiresAt) return;
+    if (createForm.licenses.some((l) => l.state === state)) {
+      setCreateError(`License for state ${state} already exists.`);
+      return;
+    }
+    setCreateForm((f) => ({
+      ...f,
+      licenses: [
+        ...f.licenses,
+        { state, licenseNumber: licNum, expiresAt, issuedAt: createLicenseForm.issuedAt },
+      ],
+    }));
+    setCreateLicenseForm({ state: '', licenseNumber: '', expiresAt: '', issuedAt: '' });
+    setShowCreateLicenseForm(false);
+    setCreateError(null);
+  };
+
+  const handleRemoveCreateLicense = (state: string) => {
+    setCreateForm((f) => ({
+      ...f,
+      licenses: f.licenses.filter((l) => l.state !== state),
+    }));
   };
 
   // Calculate stats

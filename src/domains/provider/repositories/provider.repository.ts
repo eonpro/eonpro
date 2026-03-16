@@ -320,7 +320,9 @@ export const providerRepository = {
     },
     actorEmail: string
   ): Promise<ProviderWithClinic> {
-    return await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    // Use basePrisma: providers are multi-clinic entities (same rationale as reads).
+    // Super-admins create providers without tenant context; clinicId is set explicitly in data.
+    return await basePrisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const provider = await tx.provider.create({
         data: {
           firstName: input.firstName,
@@ -616,7 +618,8 @@ export const providerRepository = {
    * Check if NPI is already registered
    */
   async npiExists(npi: string, excludeId?: number): Promise<boolean> {
-    const existing = await prisma.provider.findFirst({
+    // NPI uniqueness must be checked cross-clinic (a provider can't have duplicate NPI across any clinic)
+    const existing = await basePrisma.provider.findFirst({
       where: {
         npi,
         ...(excludeId ? { NOT: { id: excludeId } } : {}),

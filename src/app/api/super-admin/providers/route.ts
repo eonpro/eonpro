@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { basePrisma as prisma } from '@/lib/db';
+import { basePrisma as prisma, runWithClinicContext } from '@/lib/db';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { providerService } from '@/domains/provider';
 import { logger } from '@/lib/logger';
@@ -212,14 +212,17 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) 
     const provider = await providerService.createProvider(providerData, userContext);
 
     // If clinicIds array provided, assign to those clinics
+    // Each assignment needs its own clinic context for tenant-isolated providerClinic operations
     if (body.clinicIds && Array.isArray(body.clinicIds) && body.clinicIds.length > 0) {
       for (let i = 0; i < body.clinicIds.length; i++) {
         const cId = body.clinicIds[i];
-        await providerService.assignToClinic(
-          provider.id,
-          cId,
-          { isPrimary: i === 0 }, // First clinic is primary
-          userContext
+        await runWithClinicContext(cId, () =>
+          providerService.assignToClinic(
+            provider.id,
+            cId,
+            { isPrimary: i === 0 },
+            userContext
+          )
         );
       }
     }
