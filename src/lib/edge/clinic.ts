@@ -140,14 +140,14 @@ async function resolveClinic(request: NextRequest): Promise<number | null> {
 }
 
 function isPublicRoute(pathname: string): boolean {
-  return PUBLIC_ROUTES.some((route) => pathname.startsWith(route));
+  return PUBLIC_ROUTES.some((route) => pathname === route || pathname.startsWith(route + '/'));
 }
 
 /** Clinic middleware: resolves clinic from cookie, JWT, or subdomain env map. */
 export async function clinicMiddleware(request: NextRequest): Promise<NextResponse> {
   const pathname = request.nextUrl.pathname;
 
-  if (PUBLIC_ROUTES.some((route) => pathname.startsWith(route))) {
+  if (PUBLIC_ROUTES.some((route) => pathname === route || pathname.startsWith(route + '/'))) {
     return NextResponse.next();
   }
 
