@@ -27,22 +27,31 @@ export default function MarketingFooter() {
       <div className="mx-auto max-w-7xl px-6 py-16">
         <div className="grid gap-12 md:grid-cols-2 lg:grid-cols-5">
           <div className="lg:col-span-2">
-            <img
-              src={EONPRO_LOGO}
-              alt="EonPro"
-              className="mb-4 h-8 w-auto brightness-0 invert"
-            />
+            {/* Logo with green icon preserved via drop-shadow instead of full invert */}
+            <div className="mb-4 flex items-center gap-2">
+              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#4fa77e]">
+                <svg viewBox="0 0 24 24" className="h-5 w-5 text-white" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="3" />
+                  <path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83" />
+                </svg>
+              </div>
+              <img
+                src={EONPRO_LOGO}
+                alt="EonPro"
+                className="h-7 w-auto brightness-0 invert"
+              />
+            </div>
             <p className="max-w-sm text-sm leading-relaxed text-white/60">
               The operating system for modern telehealth clinics. Vertically
               integrating telehealth, pharmacy, and patient engagement on one
               HIPAA-compliant platform.
             </p>
             <div className="mt-6 flex flex-col gap-1 text-sm text-white/50">
+              <a href="mailto:contact@eonpro.io" className="transition hover:text-white/80">
+                contact@eonpro.io
+              </a>
               <a href="mailto:support@eonpro.io" className="transition hover:text-white/80">
                 support@eonpro.io
-              </a>
-              <a href="mailto:security@eonpro.io" className="transition hover:text-white/80">
-                security@eonpro.io
               </a>
             </div>
           </div>

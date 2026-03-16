@@ -74,20 +74,20 @@ export default function CapabilitiesGrid() {
           </h2>
         </div>
 
-        <div
-          className={`grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6 transition-all duration-700 delay-200 ${
-            visible ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'
-          }`}
-        >
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
           {CAPABILITIES.map((cap, i) => {
             const Icon = cap.icon;
+            const row = Math.floor(i / 6);
+            const col = i % 6;
             return (
               <div
                 key={cap.label}
-                className="group flex flex-col items-center rounded-2xl border border-gray-100 bg-[#fafaf8] p-5 text-center transition-all hover:border-[#4fa77e]/30 hover:bg-[#4fa77e]/5 hover:shadow-md"
-                style={{ transitionDelay: `${i * 30}ms` }}
+                className={`group flex flex-col items-center rounded-2xl border border-gray-100 bg-[#fafaf8] p-5 text-center transition-all duration-500 hover:border-[#4fa77e]/30 hover:bg-[#4fa77e]/5 hover:-translate-y-1 hover:shadow-md ${
+                  visible ? 'translate-y-0 scale-100 opacity-100' : 'translate-y-6 scale-95 opacity-0'
+                }`}
+                style={{ transitionDelay: `${200 + row * 100 + col * 60}ms` }}
               >
-                <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-[#4fa77e]/10 text-[#4fa77e] transition-colors group-hover:bg-[#4fa77e] group-hover:text-white">
+                <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-[#4fa77e]/10 text-[#4fa77e] transition-all duration-300 group-hover:bg-[#4fa77e] group-hover:text-white group-hover:scale-110 group-hover:rotate-3">
                   <Icon className="h-5 w-5" />
                 </div>
                 <h3 className="text-sm font-semibold text-[#1f2933]">{cap.label}</h3>

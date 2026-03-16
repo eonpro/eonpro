@@ -73,19 +73,18 @@ export default function PlatformOverview() {
           </p>
         </div>
 
-        <div
-          className={`mt-16 grid gap-6 sm:grid-cols-2 lg:grid-cols-4 transition-all duration-700 delay-200 ${
-            visible ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'
-          }`}
-        >
-          {PILLARS.map((pillar) => {
+        <div className="mt-16 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+          {PILLARS.map((pillar, i) => {
             const Icon = pillar.icon;
             return (
               <div
                 key={pillar.title}
-                className="group rounded-2xl border border-gray-100 bg-[#fafaf8] p-8 transition-all hover:border-[#4fa77e]/20 hover:shadow-lg hover:shadow-[#4fa77e]/5"
+                className={`group rounded-2xl border border-gray-100 bg-[#fafaf8] p-8 transition-all duration-500 hover:border-[#4fa77e]/20 hover:-translate-y-1 hover:shadow-lg hover:shadow-[#4fa77e]/5 ${
+                  visible ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'
+                }`}
+                style={{ transitionDelay: `${200 + i * 120}ms` }}
               >
-                <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-xl bg-[#4fa77e]/10 text-[#4fa77e] transition-colors group-hover:bg-[#4fa77e] group-hover:text-white">
+                <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-xl bg-[#4fa77e]/10 text-[#4fa77e] transition-all duration-300 group-hover:bg-[#4fa77e] group-hover:text-white group-hover:scale-110">
                   <Icon className="h-6 w-6" />
                 </div>
                 <h3 className="text-lg font-semibold text-[#1f2933]">{pillar.title}</h3>
