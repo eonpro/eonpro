@@ -84,13 +84,16 @@ export default function PostCallSummary({ data, onBackToQueue, onSelectNextPatie
   }, [data.session.id, data.session.appointment?.id, onSelectNextPatient]);
 
   useEffect(() => {
-    if (!data.soapNote && data.transcript && data.session.appointment?.id && providerId) {
+    if (!data.soapNote && data.session.appointment?.id && providerId) {
       void generateSOAP();
     }
   }, [providerId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const generateSOAP = async () => {
     if (!data.session.appointment?.id || !providerId || isGenerating) return;
+
+    const transcriptText = data.transcript
+      || `Telehealth consultation with ${data.session.patient.firstName} ${data.session.patient.lastName}. Duration: ${Math.ceil(data.duration / 60)} minutes. Reason: ${data.session.appointment?.reason || data.session.topic || 'Follow-up consultation'}.`;
 
     setIsGenerating(true);
     try {
@@ -101,6 +104,7 @@ export default function PostCallSummary({ data, onBackToQueue, onSelectNextPatie
           appointmentId: data.session.appointment.id,
           patientId: data.session.patient.id,
           providerId,
+          transcript: transcriptText,
           saveNote: true,
         }),
       });
@@ -224,10 +228,14 @@ export default function PostCallSummary({ data, onBackToQueue, onSelectNextPatie
           <div className="mt-4 flex items-center justify-between border-t border-gray-100 pt-4">
             <button
               onClick={() => void generateSOAP()}
-              className="flex items-center gap-1.5 rounded-lg border border-purple-200 bg-purple-50 px-3 py-1.5 text-xs font-medium text-purple-700 transition-colors hover:bg-purple-100"
+              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+                soapNote.subjective
+                  ? 'border border-purple-200 bg-purple-50 text-purple-700 hover:bg-purple-100'
+                  : 'bg-purple-600 text-white shadow-sm hover:bg-purple-700'
+              }`}
             >
               <Sparkles className="h-3.5 w-3.5" />
-              {soapNote.subjective ? 'Regenerate with AI' : 'Generate with AI'}
+              {soapNote.subjective ? 'Regenerate with AI' : 'Generate SOAP Note with AI'}
             </button>
 
             {soapNote.id && (
