@@ -179,7 +179,7 @@ export default function BeccaAIGlobalChat({ userEmail }: BeccaAIGlobalChatProps)
   };
 
   // Visibility checks
-  const isPublicPage = PUBLIC_PAGES.some((page) => pathname?.startsWith(page)) || pathname === '/';
+  const isPublicPage = PUBLIC_PAGES.some((page) => pathname?.startsWith(page)) || pathname === '/' || pathname === '/dashboard';
   const hasAllowedRole = userRole && ALLOWED_ROLES.includes(userRole);
 
   if (!isAuthenticated || isPublicPage || !hasAllowedRole) {

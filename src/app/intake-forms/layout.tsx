@@ -26,6 +26,9 @@ import {
   ClipboardCheck,
   MessageSquare,
   Camera,
+  BarChart3,
+  Truck,
+  Shield,
 } from 'lucide-react';
 import { ClinicBrandingProvider, useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
 import { getAdminNavConfig, getNonAdminNavConfig } from '@/lib/nav/adminNav';
@@ -54,6 +57,9 @@ const adminNavIconMap = {
   ClipboardList,
   MessageSquare,
   Camera,
+  BarChart3,
+  Truck,
+  Shield,
 } as const;
 
 function navConfigToItems(config: { path: string; label: string; iconKey: string }[]) {
@@ -97,7 +103,7 @@ function IntakeFormsLayoutInner({ children }: { children: React.ReactNode }) {
       if (!parsed) { router.push('/login'); return; }
       const role = (parsed.role || '').toLowerCase();
       if (!ALLOWED_ROLES.includes(role)) {
-        router.push('/');
+        router.push('/dashboard');
         return;
       }
       setUserRole(role);
@@ -130,7 +136,7 @@ function IntakeFormsLayoutInner({ children }: { children: React.ReactNode }) {
   };
 
   const isActive = (path: string) => {
-    if (path === '/') return pathname === '/';
+    if (path === '/dashboard') return pathname === '/dashboard';
     if (path === '/intake-forms') return pathname?.startsWith('/intake-forms');
     return pathname === path || pathname?.startsWith(path + '/');
   };
@@ -151,7 +157,7 @@ function IntakeFormsLayoutInner({ children }: { children: React.ReactNode }) {
         }`}
       >
         <div className="mb-6 flex flex-col items-center px-4">
-          <Link href="/">
+          <Link href="/dashboard">
             {sidebarExpanded ? (
               <img src={clinicLogo} alt={clinicName} className="h-10 w-auto max-w-[140px] object-contain" />
             ) : (

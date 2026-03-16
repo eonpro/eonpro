@@ -35,7 +35,7 @@ export default function MarketingNav() {
       }`}
     >
       <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-        <a href="/platform" className="flex-shrink-0">
+        <a href="/" className="flex-shrink-0">
           <img
             src={EONPRO_LOGO}
             alt="EonPro"

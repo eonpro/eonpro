@@ -136,12 +136,12 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // ── Stale affiliate session detection for root page ──────────────────
-  // When visiting '/' (admin dashboard), if only the affiliate_session cookie
+  // When visiting '/dashboard' (admin dashboard), if only the affiliate_session cookie
   // exists and auth-token is absent, the admin's session has expired while
-  // the 30-day affiliate cookie remained. Instead of letting the root page's
+  // the 30-day affiliate cookie remained. Instead of letting the dashboard page's
   // client-side code redirect to /affiliate, we proactively redirect to /login
   // so the user sees a clear "session expired" message.
-  if (pathname === '/') {
+  if (pathname === '/dashboard') {
     const hasAuthToken = request.cookies.get('auth-token')?.value;
     const hasAdminToken = request.cookies.get('admin-token')?.value;
     const hasSuperAdminToken = request.cookies.get('super_admin-token')?.value;

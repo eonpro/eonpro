@@ -211,7 +211,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               router.push(PATIENT_PORTAL_PATH);
               break;
             default:
-              router.push('/');
+              router.push('/dashboard');
           }
         }
       } catch (err: unknown) {

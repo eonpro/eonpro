@@ -32,6 +32,8 @@ import {
   Camera,
   Truck,
   Shield,
+  Video,
+  BarChart3,
 } from 'lucide-react';
 import InternalChat from '@/components/InternalChat';
 import {
@@ -144,6 +146,8 @@ const adminNavIconMap = {
   Camera,
   Truck,
   Shield,
+  Video,
+  BarChart3,
 } as const;
 
 function AdminLayoutInner({ children }: { children: React.ReactNode }) {
@@ -413,7 +417,7 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
   };
 
   const isActive = (path: string) => {
-    if (path === '/' || path === '/admin') return pathname === path;
+    if (path === '/dashboard' || path === '/admin') return pathname === path;
     return pathname === path || pathname?.startsWith(path + '/');
   };
 
@@ -429,7 +433,7 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
           <>
             {/* Logo */}
             <div className="mb-6 flex flex-col items-center px-4">
-              <a href={isPharmacyExperience ? '/admin' : '/'}>
+              <a href={isPharmacyExperience ? '/admin' : '/dashboard'}>
                 {sidebarExpanded ? (
                   <img src={clinicLogo} alt={clinicName} className="h-10 w-auto max-w-[140px] object-contain" />
                 ) : (

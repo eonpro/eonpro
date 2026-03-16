@@ -47,7 +47,7 @@ const PUBLIC_ROUTES = [
   '/affiliate/apply',
   '/api/tickets',
   '/status',
-  '/', // Root: page.tsx redirects to login if unauthenticated
+  '/', // Root: public marketing page (www.eonpro.io)
 ];
 
 const SUPER_ADMIN_ROUTES = [

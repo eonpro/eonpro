@@ -64,7 +64,7 @@ export default function NotFound() {
         {/* Action Buttons */}
         <div className="flex flex-col justify-center gap-3 sm:flex-row">
           <Link
-            href="/"
+            href="/dashboard"
             className="inline-flex items-center justify-center gap-2.5 rounded-full bg-gray-900 px-7 py-3 text-sm font-medium text-white shadow-sm transition-all hover:bg-gray-800 hover:shadow-md active:scale-[0.98]"
           >
             <Home className="h-4 w-4" />
@@ -80,7 +80,7 @@ export default function NotFound() {
 
         {/* Back Link */}
         <Link
-          href="/"
+          href="/dashboard"
           className="mt-6 inline-flex items-center gap-2 text-sm text-gray-400 transition-colors hover:text-gray-600"
         >
           <ArrowLeft className="h-3.5 w-3.5" />

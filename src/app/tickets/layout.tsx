@@ -35,6 +35,7 @@ import {
   BookOpen,
   Clock,
   Camera,
+  Truck,
 } from 'lucide-react';
 import InternalChat from '@/components/InternalChat';
 import {
@@ -70,6 +71,9 @@ const adminNavIconMap = {
   Building2,
   MessageSquare,
   Camera,
+  BarChart3,
+  Truck,
+  Shield,
 } as const;
 
 // Fallback UI for ticket errors (used by ErrorBoundary - reports to Sentry)
@@ -193,7 +197,7 @@ function TicketsLayoutInner({ children }: { children: React.ReactNode }) {
         label: item.label,
         icon: adminNavIconMap[item.iconKey as keyof typeof adminNavIconMap] ?? Settings,
       }));
-      if (items[0]?.path === '/') {
+      if (items[0]?.path === '/dashboard') {
         items[0] = { ...items[0], path: '/admin', label: 'Dashboard' };
       }
       return items;

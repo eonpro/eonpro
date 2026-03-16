@@ -26,6 +26,9 @@ import {
   FileText,
   MessageSquare,
   Camera,
+  BarChart3,
+  Truck,
+  Shield,
 } from 'lucide-react';
 import { ClinicBrandingProvider, useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
 import { getAdminNavConfig, getNonAdminNavConfig } from '@/lib/nav/adminNav';
@@ -54,6 +57,9 @@ const adminNavIconMap = {
   FileText,
   MessageSquare,
   Camera,
+  BarChart3,
+  Truck,
+  Shield,
 } as const;
 
 function navConfigToItems(config: { path: string; label: string; iconKey: string }[]) {
@@ -104,8 +110,7 @@ function PatientsLayoutInner({ children }: { children: React.ReactNode }) {
       if (!parsedUser) { router.push('/login'); return; }
       const role = parsedUser.role?.toLowerCase();
       if (!ALLOWED_ROLES.includes(role)) {
-        // User doesn't have permission to view patients
-        router.push('/');
+        router.push('/dashboard');
         return;
       }
       setUserRole(role);
@@ -160,7 +165,7 @@ function PatientsLayoutInner({ children }: { children: React.ReactNode }) {
   };
 
   const isActive = (path: string) => {
-    if (path === '/') return pathname === '/';
+    if (path === '/dashboard') return pathname === '/dashboard';
     // Handle both admin and provider patient paths
     if (path === '/admin/patients' || path === '/provider/patients') {
       return (
@@ -186,7 +191,7 @@ function PatientsLayoutInner({ children }: { children: React.ReactNode }) {
           <>
             {/* Logo */}
             <div className="mb-6 flex flex-col items-center px-4">
-              <Link href="/">
+              <Link href="/dashboard">
                 {sidebarExpanded ? (
                   <img
                     src={clinicLogo}

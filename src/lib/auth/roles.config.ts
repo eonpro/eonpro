@@ -798,7 +798,7 @@ export const PHARMACY_REP_CONFIG: RoleConfig = {
   },
   navigation: {
     primary: [
-      { label: 'Dashboard', path: '/', icon: 'Home' },
+      { label: 'Dashboard', path: '/dashboard', icon: 'Home' },
       { label: 'Patients', path: '/admin/patients', icon: 'Users' },
       { label: 'Shipping', path: '/admin/shipping', icon: 'Truck' },
       { label: 'Package Photos', path: '/admin/package-photos', icon: 'Camera' },

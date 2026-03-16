@@ -89,7 +89,7 @@ export default function Error({
             Back to login
           </a>
           <a
-            href="/"
+            href="/dashboard"
             className="inline-flex min-h-[48px] touch-manipulation items-center justify-center gap-2.5 rounded-full border border-gray-300/60 bg-white/80 px-7 py-3 text-base font-medium text-gray-700 shadow-sm backdrop-blur-sm transition-all hover:bg-white hover:shadow-md active:scale-[0.98]"
           >
             <Home className="h-4 w-4" />

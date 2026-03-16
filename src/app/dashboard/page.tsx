@@ -76,7 +76,7 @@ interface DailyScriptsData {
 
 // Match order and items from lib/nav/adminNav (baseAdminNavConfig) for consistent sidebar
 const navItems = [
-  { icon: Home, path: '/', label: 'Home', active: true },
+  { icon: Home, path: '/dashboard', label: 'Home', active: true },
   { icon: UserPlus, path: '/admin/intakes', label: 'Intakes' },
   { icon: Users, path: '/admin/patients', label: 'Patients' },
   { icon: MessageSquare, path: '/admin/messages', label: 'Messages' },
@@ -152,7 +152,7 @@ function HomePageInner() {
 
           if (serverRole === 'affiliate') {
             // STALE SESSION DETECTION:
-            // The root page (/) is the admin dashboard. When we detect an affiliate session here,
+            // The dashboard page (/dashboard) is the admin dashboard. When we detect an affiliate session here,
             // it's often because the admin's auth-token expired but the 30-day affiliate_session
             // cookie remained. The auth middleware falls back to affiliate_session and returns
             // role=affiliate, causing an unwanted redirect.
@@ -511,7 +511,7 @@ function HomePageInner() {
       >
         {/* Logo */}
         <div className="mb-6 flex flex-col items-center px-4">
-          <Link href="/">
+          <Link href="/dashboard">
             {sidebarExpanded ? (
               <img
                 src={clinicLogo}

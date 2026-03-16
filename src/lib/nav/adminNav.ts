@@ -10,18 +10,19 @@ export interface AdminNavItemConfig {
 }
 
 export const baseAdminNavConfig: AdminNavItemConfig[] = [
-  { path: '/', label: 'Home', iconKey: 'Home' },
+  { path: '/dashboard', label: 'Home', iconKey: 'Home' },
   { path: '/admin/intakes', label: 'Intakes', iconKey: 'UserPlus' },
   { path: '/admin/intake-templates', label: 'Form Templates', iconKey: 'FileText' },
   { path: '/admin/patients', label: 'Patients', iconKey: 'Users' },
   { path: '/admin/verification-queue', label: 'ID Verification', iconKey: 'Shield' },
   { path: '/admin/messages', label: 'Messages', iconKey: 'MessageSquare' },
+  { path: '/admin/scheduling', label: 'Telehealth', iconKey: 'Video' },
   { path: '/admin/refill-queue', label: 'Membership / Refills', iconKey: 'RefreshCw' },
   { path: '/admin/subscription-renewals', label: 'Renewals', iconKey: 'CreditCard' },
   { path: '/admin/finance/pending-profiles', label: 'Pending Profiles', iconKey: 'ClipboardCheck' },
   { path: '/admin/orders', label: 'Orders', iconKey: 'ShoppingCart' },
   { path: '/admin/shipping', label: 'Shipping', iconKey: 'Truck' },
-  { path: '/admin/shipment-monitor', label: 'Shipment Monitor', iconKey: 'BarChart3' },
+  { path: '/admin/shipment-monitor', label: 'Shipments', iconKey: 'BarChart3' },
   { path: '/tickets', label: 'Tickets', iconKey: 'Ticket' },
   { path: '/admin/products', label: 'Products', iconKey: 'Store' },
   { path: '/admin/analytics', label: 'Analytics', iconKey: 'TrendingUp' },
@@ -64,17 +65,18 @@ export const salesRepLinksNavConfig: AdminNavItemConfig = {
  * pending profiles, registration codes).
  */
 export const salesRepNavConfig: AdminNavItemConfig[] = [
-  { path: '/', label: 'Home', iconKey: 'Home' },
+  { path: '/dashboard', label: 'Home', iconKey: 'Home' },
   { path: '/admin/intakes', label: 'Intakes', iconKey: 'UserPlus' },
   { path: '/admin/intake-templates', label: 'Form Templates', iconKey: 'FileText' },
   { path: '/admin/patients', label: 'Patients', iconKey: 'Users' },
   { path: '/admin/verification-queue', label: 'ID Verification', iconKey: 'Shield' },
   { path: '/admin/messages', label: 'Messages', iconKey: 'MessageSquare' },
+  { path: '/admin/scheduling', label: 'Telehealth', iconKey: 'Video' },
   { path: '/admin/refill-queue', label: 'Membership / Refills', iconKey: 'RefreshCw' },
   { path: '/admin/subscription-renewals', label: 'Renewals', iconKey: 'CreditCard' },
   { path: '/admin/orders', label: 'Orders', iconKey: 'ShoppingCart' },
   { path: '/admin/shipping', label: 'Shipping', iconKey: 'Truck' },
-  { path: '/admin/shipment-monitor', label: 'Shipment Monitor', iconKey: 'BarChart3' },
+  { path: '/admin/shipment-monitor', label: 'Shipments', iconKey: 'BarChart3' },
   { path: '/tickets', label: 'Tickets', iconKey: 'Ticket' },
   salesRepLinksNavConfig,
   { path: '/admin/settings', label: 'Settings', iconKey: 'Settings' },
@@ -91,9 +93,10 @@ export const staffNavConfig: AdminNavItemConfig[] = [
   { path: '/admin/patients', label: 'Patients', iconKey: 'Users' },
   { path: '/admin/verification-queue', label: 'ID Verification', iconKey: 'Shield' },
   { path: '/admin/messages', label: 'Messages', iconKey: 'MessageSquare' },
+  { path: '/admin/scheduling', label: 'Telehealth', iconKey: 'Video' },
   { path: '/admin/orders', label: 'Orders', iconKey: 'ShoppingCart' },
   { path: '/admin/shipping', label: 'Shipping', iconKey: 'Truck' },
-  { path: '/admin/shipment-monitor', label: 'Shipment Monitor', iconKey: 'BarChart3' },
+  { path: '/admin/shipment-monitor', label: 'Shipments', iconKey: 'BarChart3' },
   { path: '/tickets', label: 'Tickets', iconKey: 'Ticket' },
   { path: '/admin/settings', label: 'Settings', iconKey: 'Settings' },
 ];
@@ -105,7 +108,7 @@ export const pharmacyRepNavConfig: AdminNavItemConfig[] = [
   { path: '/admin', label: 'Home', iconKey: 'Home' },
   { path: '/admin/patients', label: 'Patients', iconKey: 'Users' },
   { path: '/admin/shipping', label: 'Shipping', iconKey: 'Truck' },
-  { path: '/admin/shipment-monitor', label: 'Shipment Monitor', iconKey: 'BarChart3' },
+  { path: '/admin/shipment-monitor', label: 'Shipments', iconKey: 'BarChart3' },
   { path: '/admin/package-photos', label: 'Package Photos', iconKey: 'Camera' },
   { path: '/admin/clinics', label: 'Switch Clinic', iconKey: 'Building2' },
 ];
@@ -141,9 +144,10 @@ export function getNonAdminNavConfig(userRole: string | null): AdminNavItemConfi
       { path: '/staff', label: 'Home', iconKey: 'Home' },
       { path: '/admin/patients', label: 'Patients', iconKey: 'Users' },
       { path: '/admin/messages', label: 'Messages', iconKey: 'MessageSquare' },
+      { path: '/admin/scheduling', label: 'Telehealth', iconKey: 'Video' },
       { path: '/admin/orders', label: 'Orders', iconKey: 'ShoppingCart' },
       { path: '/admin/shipping', label: 'Shipping', iconKey: 'Truck' },
-      { path: '/admin/shipment-monitor', label: 'Shipment Monitor', iconKey: 'BarChart3' },
+      { path: '/admin/shipment-monitor', label: 'Shipments', iconKey: 'BarChart3' },
       { path: '/tickets', label: 'Tickets', iconKey: 'Ticket' },
       { path: '/admin/settings', label: 'Settings', iconKey: 'Settings' },
     ];
@@ -151,11 +155,11 @@ export function getNonAdminNavConfig(userRole: string | null): AdminNavItemConfi
 
   const patientsPath = userRole === 'provider' ? '/provider/patients' : '/admin/patients';
   return [
-    { path: '/', label: 'Home', iconKey: 'Home' },
+    { path: '/dashboard', label: 'Home', iconKey: 'Home' },
     { path: patientsPath, label: 'Patients', iconKey: 'Users' },
     { path: '/admin/orders', label: 'Orders', iconKey: 'ShoppingCart' },
     { path: '/admin/shipping', label: 'Shipping', iconKey: 'Truck' },
-    { path: '/admin/shipment-monitor', label: 'Shipment Monitor', iconKey: 'BarChart3' },
+    { path: '/admin/shipment-monitor', label: 'Shipments', iconKey: 'BarChart3' },
     { path: '/admin/products', label: 'Products', iconKey: 'Store' },
     { path: '/intake-forms', label: 'Intake Forms', iconKey: 'ClipboardList' },
     { path: '/admin/analytics', label: 'Analytics', iconKey: 'TrendingUp' },

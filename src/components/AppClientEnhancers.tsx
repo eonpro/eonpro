@@ -40,7 +40,7 @@ export default function AppClientEnhancers() {
   const isPortalRoute =
     pathname.startsWith('/portal') || pathname.startsWith('/patient-portal');
   const isPublicRoute =
-    pathname === '/' || startsWithAny(pathname, PUBLIC_ROUTE_PREFIXES);
+    pathname === '/' || pathname === '/dashboard' || startsWithAny(pathname, PUBLIC_ROUTE_PREFIXES);
 
   const shouldMountSessionInterceptors = !isPublicRoute && !isPortalRoute;
   const shouldMountHeader = !isPublicRoute && !isPortalRoute;

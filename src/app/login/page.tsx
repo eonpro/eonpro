@@ -1088,7 +1088,7 @@ function LoginContent() {
         window.location.href = '/affiliate';
         break;
       default:
-        window.location.href = '/';
+        window.location.href = '/dashboard';
     }
   };
 
@@ -1141,7 +1141,7 @@ function LoginContent() {
         {/* Header with X button - touch-friendly on mobile */}
         <div className="p-4 sm:p-6">
           <button
-            onClick={() => router.push('/')}
+            onClick={() => router.push('/dashboard')}
             className={`flex min-h-[44px] min-w-[44px] touch-manipulation items-center justify-center rounded-full transition-colors ${
               isLogosRxExperience ? 'hover:bg-white/10 active:bg-white/20' : 'hover:bg-black/5 active:bg-black/10'
             }`}

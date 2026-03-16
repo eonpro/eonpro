@@ -51,7 +51,7 @@ export default function UnauthorizedPage() {
           </button>
 
           <button
-            onClick={() => router.push('/')}
+            onClick={() => router.push('/dashboard')}
             className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#4fa77e] px-4 py-2.5 text-white transition-colors hover:bg-[#3d8a65]"
           >
             <Home className="h-4 w-4" />

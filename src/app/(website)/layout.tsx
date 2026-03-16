@@ -13,7 +13,7 @@ export const metadata: Metadata = {
       'Vertically integrated telehealth, pharmacy, and patient engagement. One platform, built for scale.',
     siteName: 'EonPro',
     type: 'website',
-    url: 'https://www.eonpro.io/platform',
+    url: 'https://www.eonpro.io',
   },
   robots: { index: true, follow: true },
 };

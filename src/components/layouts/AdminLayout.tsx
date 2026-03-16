@@ -26,6 +26,9 @@ import {
   ClipboardCheck,
   MessageSquare,
   Camera,
+  BarChart3,
+  Truck,
+  Shield,
 } from 'lucide-react';
 import { getAdminNavConfig } from '@/lib/nav/adminNav';
 import { EONPRO_ICON, EONPRO_LOGO } from '@/lib/constants/brand-assets';
@@ -49,6 +52,9 @@ const adminNavIconMap = {
   Building2,
   MessageSquare,
   Camera,
+  BarChart3,
+  Truck,
+  Shield,
 } as const;
 
 interface AdminLayoutProps {
@@ -69,7 +75,7 @@ export default function AdminLayout({ children, userData }: AdminLayoutProps) {
       label: item.label,
       icon: adminNavIconMap[item.iconKey as keyof typeof adminNavIconMap] ?? Settings,
     }));
-    if (items[0]?.path === '/') {
+    if (items[0]?.path === '/dashboard') {
       items[0] = { ...items[0], path: '/admin', label: 'Dashboard' };
     }
     return items;
@@ -113,7 +119,7 @@ export default function AdminLayout({ children, userData }: AdminLayoutProps) {
       >
         {/* Logo */}
         <div className="mb-6 flex items-center justify-center px-4">
-          <Link href="/">
+          <Link href="/dashboard">
             {sidebarExpanded ? (
               <img
                 src={EONPRO_LOGO}

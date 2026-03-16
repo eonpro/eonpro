@@ -75,7 +75,7 @@ export default function ProviderDashboardError({ error, reset }: ErrorProps) {
             Retry
           </button>
           <Link
-            href="/"
+            href="/dashboard"
             className="inline-flex items-center justify-center gap-2 rounded-xl bg-gray-100 px-5 py-2.5 font-medium text-gray-700 transition-colors hover:bg-gray-200"
           >
             <Home className="h-4 w-4" />

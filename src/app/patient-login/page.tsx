@@ -645,7 +645,7 @@ function PatientLoginPage() {
         {/* Header */}
         <div className="p-6">
           <button
-            onClick={() => router.push('/')}
+            onClick={() => router.push('/dashboard')}
             className="rounded-full p-2 transition-colors hover:bg-black/5"
             aria-label="Close"
           >
