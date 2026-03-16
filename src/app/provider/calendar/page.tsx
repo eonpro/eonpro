@@ -7,7 +7,8 @@ import { useSearchParams } from 'next/navigation';
 import ProviderCalendar from '@/components/ProviderCalendar';
 import CalendarSync from '@/components/CalendarSync';
 import AppointmentModal from '@/components/AppointmentModal';
-import { Calendar, Clock, Video, Users, Bell, Settings, Plus, Loader2 } from 'lucide-react';
+import ProviderAvailabilityManager from '@/components/ProviderAvailabilityManager';
+import { Calendar, Clock, Video, Users, Bell, Settings, Plus, Loader2, CalendarCog } from 'lucide-react';
 
 interface Appointment {
   id: number;
@@ -35,6 +36,23 @@ function ProviderCalendarContent() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [activeView, setActiveView] = useState<'calendar' | 'availability'>('calendar');
+  const [providerId, setProviderId] = useState<number | null>(null);
+
+  useEffect(() => {
+    const fetchProviderId = async () => {
+      try {
+        const res = await fetch('/api/provider/self');
+        if (res.ok) {
+          const data = await res.json();
+          setProviderId(data.provider?.id || data.id || null);
+        }
+      } catch {
+        // Provider ID fetch is best-effort for availability tab
+      }
+    };
+    fetchProviderId();
+  }, []);
 
   // Fetch appointments from database
   const fetchAppointments = useCallback(async () => {
@@ -223,6 +241,28 @@ function ProviderCalendarContent() {
             <Calendar className="h-6 w-6 text-[#4fa77e]" />
             <h1 className="text-2xl font-bold text-gray-900">Provider Calendar</h1>
             {isLoading && <Loader2 className="h-5 w-5 animate-spin text-gray-400" />}
+
+            {/* View Toggle */}
+            <div className="ml-4 flex rounded-lg border border-gray-200 bg-gray-100 p-0.5">
+              <button
+                onClick={() => setActiveView('calendar')}
+                className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
+                  activeView === 'calendar' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                <Calendar className="mr-1 inline h-3.5 w-3.5" />
+                Calendar
+              </button>
+              <button
+                onClick={() => setActiveView('availability')}
+                className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
+                  activeView === 'availability' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                <CalendarCog className="mr-1 inline h-3.5 w-3.5" />
+                Availability
+              </button>
+            </div>
           </div>
 
           <div className="flex items-center gap-3">
@@ -280,130 +320,142 @@ function ProviderCalendarContent() {
       </div>
 
       {/* Main Content */}
-      <div className="flex gap-6 p-6">
-        {/* Sidebar - Today's Schedule */}
-        <div className="w-80 flex-shrink-0">
-          <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-            <h3 className="mb-4 font-semibold text-gray-900">Today's Schedule</h3>
+      {activeView === 'calendar' ? (
+        <div className="flex gap-6 p-6">
+          {/* Sidebar - Today's Schedule */}
+          <div className="w-80 flex-shrink-0">
+            <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+              <h3 className="mb-4 font-semibold text-gray-900">Today's Schedule</h3>
 
-            <div className="space-y-3">
-              {appointments
-                .filter((apt) => apt.date.toDateString() === new Date().toDateString())
-                .sort((a, b) => a.date.getTime() - b.date.getTime())
-                .map((apt) => (
-                  <div
-                    key={apt.id}
-                    className="cursor-pointer rounded-lg border border-gray-200 bg-gray-50 p-3 transition-colors hover:border-[#4fa77e]"
-                    onClick={() => handleEditAppointment(apt)}
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="mb-1 flex items-center gap-2">
-                          <Clock className="h-3 w-3 text-gray-500" />
-                          <span className="text-sm font-medium">
-                            {apt.date.toLocaleTimeString('en-US', {
-                              hour: '2-digit',
-                              minute: '2-digit',
-                            })}
-                          </span>
-                          <span className="text-xs text-gray-500">({apt.duration} min)</span>
-                        </div>
-                        <p className="font-medium text-gray-900">{apt.patientName}</p>
-                        {(apt.type === 'telehealth' || apt.zoomLink) && (
-                          <div className="mt-2 flex items-center gap-2">
-                            <Video className="h-3 w-3 text-blue-500" />
-                            <span className="text-xs text-blue-600">Telehealth</span>
-                            <a
-                              href={`/provider/telehealth?consultationId=${apt.id}`}
-                              onClick={(e) => e.stopPropagation()}
-                              className="ml-auto flex items-center gap-1 rounded-md bg-blue-600 px-2 py-1 text-xs font-medium text-white hover:bg-blue-700"
-                            >
-                              <Video className="h-3 w-3" />
-                              Join
-                            </a>
-                          </div>
-                        )}
-                      </div>
-                      {apt.status === 'confirmed' && (
-                        <span className="rounded-full bg-green-100 px-2 py-1 text-xs text-green-700">
-                          Confirmed
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                ))}
-
-              {appointments.filter((apt) => apt.date.toDateString() === new Date().toDateString())
-                .length === 0 && (
-                <p className="py-4 text-center text-sm text-gray-500">
-                  No appointments scheduled for today
-                </p>
-              )}
-            </div>
-
-            {/* Upcoming Appointments */}
-            <div className="mt-6 border-t pt-4">
-              <h4 className="mb-3 font-medium text-gray-700">Upcoming</h4>
-              <div className="space-y-2">
+              <div className="space-y-3">
                 {appointments
-                  .filter((apt) => apt.date > new Date())
+                  .filter((apt) => apt.date.toDateString() === new Date().toDateString())
                   .sort((a, b) => a.date.getTime() - b.date.getTime())
-                  .slice(0, 3)
                   .map((apt) => (
                     <div
                       key={apt.id}
-                      className="cursor-pointer rounded p-2 text-sm hover:bg-gray-50"
+                      className="cursor-pointer rounded-lg border border-gray-200 bg-gray-50 p-3 transition-colors hover:border-[#4fa77e]"
                       onClick={() => handleEditAppointment(apt)}
                     >
-                      <p className="font-medium">{apt.patientName}</p>
-                      <p className="text-xs text-gray-500">
-                        {apt.date.toLocaleDateString()} at{' '}
-                        {apt.date.toLocaleTimeString('en-US', {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
-                      </p>
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="mb-1 flex items-center gap-2">
+                            <Clock className="h-3 w-3 text-gray-500" />
+                            <span className="text-sm font-medium">
+                              {apt.date.toLocaleTimeString('en-US', {
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })}
+                            </span>
+                            <span className="text-xs text-gray-500">({apt.duration} min)</span>
+                          </div>
+                          <p className="font-medium text-gray-900">{apt.patientName}</p>
+                          {(apt.type === 'telehealth' || apt.zoomLink) && (
+                            <div className="mt-2 flex items-center gap-2">
+                              <Video className="h-3 w-3 text-blue-500" />
+                              <span className="text-xs text-blue-600">Telehealth</span>
+                              <a
+                                href={`/provider/telehealth?consultationId=${apt.id}`}
+                                onClick={(e) => e.stopPropagation()}
+                                className="ml-auto flex items-center gap-1 rounded-md bg-blue-600 px-2 py-1 text-xs font-medium text-white hover:bg-blue-700"
+                              >
+                                <Video className="h-3 w-3" />
+                                Join
+                              </a>
+                            </div>
+                          )}
+                        </div>
+                        {apt.status === 'confirmed' && (
+                          <span className="rounded-full bg-green-100 px-2 py-1 text-xs text-green-700">
+                            Confirmed
+                          </span>
+                        )}
+                      </div>
                     </div>
                   ))}
+
+                {appointments.filter((apt) => apt.date.toDateString() === new Date().toDateString())
+                  .length === 0 && (
+                  <p className="py-4 text-center text-sm text-gray-500">
+                    No appointments scheduled for today
+                  </p>
+                )}
+              </div>
+
+              {/* Upcoming Appointments */}
+              <div className="mt-6 border-t pt-4">
+                <h4 className="mb-3 font-medium text-gray-700">Upcoming</h4>
+                <div className="space-y-2">
+                  {appointments
+                    .filter((apt) => apt.date > new Date())
+                    .sort((a, b) => a.date.getTime() - b.date.getTime())
+                    .slice(0, 3)
+                    .map((apt) => (
+                      <div
+                        key={apt.id}
+                        className="cursor-pointer rounded p-2 text-sm hover:bg-gray-50"
+                        onClick={() => handleEditAppointment(apt)}
+                      >
+                        <p className="font-medium">{apt.patientName}</p>
+                        <p className="text-xs text-gray-500">
+                          {apt.date.toLocaleDateString()} at{' '}
+                          {apt.date.toLocaleTimeString('en-US', {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </p>
+                      </div>
+                    ))}
+                </div>
+              </div>
+
+              {/* Quick Actions */}
+              <div className="mt-6 space-y-2 border-t pt-4">
+                <button
+                  onClick={() => { window.location.href = '/provider/patients'; }}
+                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-gray-50"
+                >
+                  <Users className="h-4 w-4 text-gray-500" />
+                  <span>Manage Patients</span>
+                </button>
+                <button
+                  onClick={() => { window.location.href = '/provider/settings'; }}
+                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-gray-50"
+                >
+                  <Bell className="h-4 w-4 text-gray-500" />
+                  <span>Notification Settings</span>
+                </button>
+                <button
+                  onClick={() => { window.location.href = '/provider/telehealth'; }}
+                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-gray-50"
+                >
+                  <Video className="h-4 w-4 text-gray-500" />
+                  <span>Zoom Settings</span>
+                </button>
               </div>
             </div>
+          </div>
 
-            {/* Quick Actions */}
-            <div className="mt-6 space-y-2 border-t pt-4">
-              <button
-                onClick={() => { window.location.href = '/provider/patients'; }}
-                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-gray-50"
-              >
-                <Users className="h-4 w-4 text-gray-500" />
-                <span>Manage Patients</span>
-              </button>
-              <button
-                onClick={() => { window.location.href = '/provider/settings'; }}
-                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-gray-50"
-              >
-                <Bell className="h-4 w-4 text-gray-500" />
-                <span>Notification Settings</span>
-              </button>
-              <button
-                onClick={() => { window.location.href = '/provider/telehealth'; }}
-                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-gray-50"
-              >
-                <Video className="h-4 w-4 text-gray-500" />
-                <span>Zoom Settings</span>
-              </button>
-            </div>
+          {/* Main Calendar */}
+          <div className="flex-1">
+            <ProviderCalendar
+              appointments={appointments}
+              onDateClick={handleCreateAppointment}
+              onAppointmentClick={handleEditAppointment}
+            />
           </div>
         </div>
-
-        {/* Main Calendar */}
-        <div className="flex-1">
-          <ProviderCalendar
-            appointments={appointments}
-            onDateClick={handleCreateAppointment}
-            onAppointmentClick={handleEditAppointment}
-          />
+      ) : (
+        <div className="mx-auto max-w-4xl p-6">
+          {providerId ? (
+            <ProviderAvailabilityManager providerId={providerId} providerName="My" />
+          ) : (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+            </div>
+          )}
         </div>
-      </div>
+      )}
 
       {/* Error Banner */}
       {error && (

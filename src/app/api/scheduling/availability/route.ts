@@ -5,7 +5,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { withAuth, withProviderAuth } from '@/lib/auth/middleware';
+import { withAuth } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
 import { z } from 'zod';
 import {
@@ -70,7 +70,9 @@ export const GET = withAuth(async (req: NextRequest, user) => {
  * POST /api/scheduling/availability
  * Set provider availability
  */
-export const POST = withProviderAuth(async (req: NextRequest, user) => {
+const availabilityRoles = { roles: ['super_admin', 'admin', 'provider', 'staff'] as const };
+
+export const POST = withAuth(async (req: NextRequest, user) => {
   try {
     const body = await req.json();
     const parsed = setAvailabilitySchema.safeParse(body);
@@ -104,13 +106,13 @@ export const POST = withProviderAuth(async (req: NextRequest, user) => {
     logger.error('Failed to set availability', { error });
     return NextResponse.json({ error: 'Failed to set availability' }, { status: 500 });
   }
-});
+}, availabilityRoles);
 
 /**
  * PUT /api/scheduling/availability/time-off
  * Add provider time off
  */
-export const PUT = withProviderAuth(async (req: NextRequest, user) => {
+export const PUT = withAuth(async (req: NextRequest, user) => {
   try {
     const body = await req.json();
     const parsed = timeOffSchema.safeParse(body);
@@ -143,13 +145,13 @@ export const PUT = withProviderAuth(async (req: NextRequest, user) => {
     logger.error('Failed to add time off', { error });
     return NextResponse.json({ error: 'Failed to add time off' }, { status: 500 });
   }
-});
+}, availabilityRoles);
 
 /**
  * DELETE /api/scheduling/availability
  * Remove provider availability
  */
-export const DELETE = withProviderAuth(async (req: NextRequest, user) => {
+export const DELETE = withAuth(async (req: NextRequest, user) => {
   try {
     const searchParams = req.nextUrl.searchParams;
     const availabilityId = searchParams.get('availabilityId');
@@ -168,4 +170,4 @@ export const DELETE = withProviderAuth(async (req: NextRequest, user) => {
     logger.error('Failed to remove availability', { error });
     return NextResponse.json({ error: 'Failed to remove availability' }, { status: 500 });
   }
-});
+}, availabilityRoles);

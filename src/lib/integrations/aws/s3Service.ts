@@ -417,7 +417,29 @@ export function validateFileType(fileName: string, contentType: string): boolean
     ...STORAGE_CONFIG.ALLOWED_MEDICAL_TYPES,
   ];
 
-  return allowedTypes.includes(contentType);
+  if (allowedTypes.includes(contentType)) {
+    return true;
+  }
+
+  // Fallback: check file extension for types with inconsistent MIME reporting
+  const ext = fileName.toLowerCase().split('.').pop();
+  const extensionMap: Record<string, string[]> = {
+    ico: ['image/x-icon', 'image/vnd.microsoft.icon'],
+    svg: ['image/svg+xml'],
+    jpg: ['image/jpeg'],
+    jpeg: ['image/jpeg'],
+    png: ['image/png'],
+    webp: ['image/webp'],
+    heic: ['image/heic'],
+    heif: ['image/heif'],
+    pdf: ['application/pdf'],
+  };
+
+  if (ext && extensionMap[ext]) {
+    return extensionMap[ext].some((t) => allowedTypes.includes(t));
+  }
+
+  return false;
 }
 
 // Validate file size

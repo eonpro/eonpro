@@ -171,74 +171,68 @@ export default function ClinicsListPage() {
               />
 
               <div className="p-5">
-                <div className="mb-4 flex items-start justify-between">
-                  <div className="flex items-center gap-3">
-                    <div
-                      className="flex h-11 w-11 items-center justify-center rounded-xl text-lg font-bold text-white"
-                      style={{ backgroundColor: clinic.primaryColor || '#4fa77e' }}
-                    >
-                      {clinic.name[0]}
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-gray-900">{clinic.name}</h3>
-                      <p className="text-sm text-gray-500">{clinic.adminEmail}</p>
-                    </div>
-                  </div>
-                  <span
-                    className={`rounded-full px-2.5 py-1 text-xs font-medium ${getStatusColor(clinic.status)}`}
+                <div className="mb-4 flex items-start gap-3">
+                  <div
+                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-lg font-bold text-white"
+                    style={{ backgroundColor: clinic.primaryColor || '#4fa77e' }}
                   >
-                    {clinic.status}
-                  </span>
+                    {clinic.name[0]}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <h3 className="truncate font-semibold text-gray-900">{clinic.name}</h3>
+                      <span
+                        className={`shrink-0 whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-medium ${getStatusColor(clinic.status)}`}
+                      >
+                        {clinic.status}
+                      </span>
+                    </div>
+                    <p className="mt-0.5 truncate text-sm text-gray-500">{clinic.adminEmail}</p>
+                  </div>
                 </div>
 
-                <div className="mb-4 space-y-2">
+                <div className="mb-4 space-y-1.5">
                   <div className="flex items-center gap-2 text-sm text-gray-600">
-                    <Globe className="h-4 w-4 text-gray-400" />
-                    <span>{clinic.subdomain}.eonpro.io</span>
+                    <Globe className="h-4 w-4 shrink-0 text-gray-400" />
+                    <span className="truncate">{clinic.subdomain}.eonpro.io</span>
                   </div>
                   {clinic.customDomain && (
                     <div className="flex items-center gap-2 text-sm text-[#4fa77e]">
-                      <Globe className="h-4 w-4" />
-                      <span>{clinic.customDomain}</span>
+                      <Globe className="h-4 w-4 shrink-0" />
+                      <span className="truncate">{clinic.customDomain}</span>
                     </div>
                   )}
                 </div>
 
                 <div className="mb-4 flex items-center gap-4 text-sm text-gray-500">
                   <div className="flex items-center gap-1.5">
-                    <Users className="h-4 w-4" />
+                    <Users className="h-4 w-4 shrink-0" />
                     <span>{clinic._count?.patients || 0} patients</span>
                   </div>
                   <span>{clinic._count?.providers || 0} providers</span>
                 </div>
 
-                <div className="flex items-center gap-2 border-t border-gray-100 pt-4">
-                  <button
-                    onClick={() => {
-                      window.location.href = `/super-admin/clinics/${clinic.id}`;
-                    }}
-                    className="flex flex-1 items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-sm font-medium text-[#4fa77e] transition-colors hover:bg-[#4fa77e]/10"
+                <div className="flex items-center gap-1 border-t border-gray-100 pt-3">
+                  <a
+                    href={`/super-admin/clinics/${clinic.id}`}
+                    className="flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2 text-sm font-medium text-[#4fa77e] transition-colors hover:bg-[#4fa77e]/10"
                   >
                     <Eye className="h-4 w-4" />
                     View
-                  </button>
-                  <button
-                    onClick={() => {
-                      window.location.href = `/super-admin/clinics/${clinic.id}`;
-                    }}
-                    className="flex flex-1 items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-sm font-medium text-blue-600 transition-colors hover:bg-blue-50"
+                  </a>
+                  <a
+                    href={`/super-admin/clinics/${clinic.id}/edit`}
+                    className="flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2 text-sm font-medium text-blue-600 transition-colors hover:bg-blue-50"
                   >
                     <Edit className="h-4 w-4" />
                     Edit
-                  </button>
-                  <button
-                    onClick={() => {
-                      window.location.href = `/super-admin/clinics/${clinic.id}/settings`;
-                    }}
-                    className="rounded-xl px-3 py-2 text-sm font-medium text-gray-500 transition-colors hover:bg-gray-100"
+                  </a>
+                  <a
+                    href={`/super-admin/clinics/${clinic.id}/settings`}
+                    className="flex items-center justify-center rounded-lg px-3 py-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
                   >
                     <Settings className="h-4 w-4" />
-                  </button>
+                  </a>
                 </div>
               </div>
             </div>

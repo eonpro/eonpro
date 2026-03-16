@@ -5,7 +5,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { withAuth, withProviderAuth } from '@/lib/auth/middleware';
+import { withAuth } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
 import { z } from 'zod';
 import {
@@ -156,7 +156,9 @@ export const GET = withAuth(async (req: NextRequest, user) => {
  * POST /api/scheduling/appointments
  * Create a new appointment
  */
-export const POST = withProviderAuth(async (req: NextRequest, user) => {
+const schedulingRoles = { roles: ['super_admin', 'admin', 'provider', 'staff', 'sales_rep'] as const };
+
+export const POST = withAuth(async (req: NextRequest, user) => {
   try {
     const body = await req.json();
     const parsed = createAppointmentSchema.safeParse(body);
@@ -183,7 +185,7 @@ export const POST = withProviderAuth(async (req: NextRequest, user) => {
     }
     if (!resolvedProviderId) {
       return NextResponse.json(
-        { error: 'Provider ID could not be resolved. Please contact support.' },
+        { error: 'providerId is required when booking on behalf of a provider.' },
         { status: 400 }
       );
     }
@@ -215,13 +217,13 @@ export const POST = withProviderAuth(async (req: NextRequest, user) => {
     logger.error('Failed to create appointment', { error });
     return NextResponse.json({ error: 'Failed to create appointment' }, { status: 500 });
   }
-});
+}, schedulingRoles);
 
 /**
  * PATCH /api/scheduling/appointments
  * Update an appointment
  */
-export const PATCH = withProviderAuth(async (req: NextRequest, user) => {
+export const PATCH = withAuth(async (req: NextRequest, user) => {
   try {
     const body = await req.json();
     const parsed = updateAppointmentSchema.safeParse(body);
@@ -252,13 +254,13 @@ export const PATCH = withProviderAuth(async (req: NextRequest, user) => {
     logger.error('Failed to update appointment', { error });
     return NextResponse.json({ error: 'Failed to update appointment' }, { status: 500 });
   }
-});
+}, schedulingRoles);
 
 /**
  * DELETE /api/scheduling/appointments
  * Cancel an appointment
  */
-export const DELETE = withProviderAuth(async (req: NextRequest, user) => {
+export const DELETE = withAuth(async (req: NextRequest, user) => {
   try {
     const searchParams = req.nextUrl.searchParams;
     const appointmentId = searchParams.get('appointmentId');
@@ -279,4 +281,4 @@ export const DELETE = withProviderAuth(async (req: NextRequest, user) => {
     logger.error('Failed to cancel appointment', { error });
     return NextResponse.json({ error: 'Failed to cancel appointment' }, { status: 500 });
   }
-});
+}, schedulingRoles);

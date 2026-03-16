@@ -105,6 +105,9 @@ export const STORAGE_CONFIG = {
     'image/webp',
     'image/heic',
     'image/heif',
+    'image/svg+xml',
+    'image/x-icon',
+    'image/vnd.microsoft.icon',
   ],
 
   ALLOWED_DOCUMENT_TYPES: [
