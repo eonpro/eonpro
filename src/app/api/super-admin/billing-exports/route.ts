@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { z } from 'zod';
-import { billingExportService } from '@/services/billing';
+import { billingExportService } from '@/services/billing/billingExportService';
 import { logger } from '@/lib/logger';
 
 function withSuperAdminAuth(handler: (req: NextRequest, user: AuthUser) => Promise<Response>) {

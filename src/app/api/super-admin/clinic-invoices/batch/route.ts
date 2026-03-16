@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { z } from 'zod';
-import { clinicInvoiceService, platformFeeService } from '@/services/billing';
+import { clinicInvoiceService } from '@/services/billing/clinicInvoiceService';
+import { platformFeeService } from '@/services/billing/platformFeeService';
 import { logger } from '@/lib/logger';
 import { withoutClinicFilter } from '@/lib/db';
 

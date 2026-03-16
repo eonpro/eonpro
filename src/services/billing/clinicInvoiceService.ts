@@ -14,9 +14,8 @@
  */
 
 import { prisma } from '@/lib/db';
-import { getStripe, STRIPE_CONFIG } from '@/lib/stripe';
+import { getStripe } from '@/lib/stripe';
 import { logger } from '@/lib/logger';
-import { sendEmail } from '@/lib/email';
 import type {
   ClinicInvoiceStatus,
   ClinicInvoicePeriodType,
@@ -487,6 +486,7 @@ export const clinicInvoiceService = {
     } else {
       // Send email directly
       const billingEmail = invoice.config.billingEmail || invoice.clinic.adminEmail;
+      const { sendEmail } = await import('@/lib/email');
       await sendEmail({
         to: billingEmail,
         subject: `Platform Invoice ${invoice.invoiceNumber} - EONPRO`,

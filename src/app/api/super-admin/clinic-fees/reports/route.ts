@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { basePrisma as prisma } from '@/lib/db';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { z } from 'zod';
-import { platformFeeService, clinicInvoiceService } from '@/services/billing';
+import { platformFeeService } from '@/services/billing/platformFeeService';
+import { clinicInvoiceService } from '@/services/billing/clinicInvoiceService';
 import { logger } from '@/lib/logger';
 
 /**

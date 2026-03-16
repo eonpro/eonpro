@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { z } from 'zod';
-import { billingAnalyticsService } from '@/services/billing';
+import { billingAnalyticsService } from '@/services/billing/billingAnalyticsService';
 import { logger } from '@/lib/logger';
 import { withoutClinicFilter } from '@/lib/db';
 

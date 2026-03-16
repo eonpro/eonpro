@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { basePrisma, withoutClinicFilter } from '@/lib/db';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
-import { platformFeeService } from '@/services/billing';
+import { platformFeeService } from '@/services/billing/platformFeeService';
 import { logger } from '@/lib/logger';
 
 /**
