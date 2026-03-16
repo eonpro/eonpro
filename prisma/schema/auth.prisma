@@ -113,9 +113,9 @@ model User {
   carePlanTemplates   CarePlanTemplate[]
   carePlanProgress    CarePlanProgress[]
 
-  // Financial Analytics Relations
-  savedReports  SavedReport[]
-  reportExports ReportExport[]
+  // Reporting Engine Relations
+  reportTemplatesCreated ReportTemplate[] @relation("ReportTemplateCreator")
+  reportSchedulesCreated ReportSchedule[] @relation("ReportScheduleCreator")
 
   // SOC 2 Policy Management Relations
   policyApprovals       PolicyApproval[]

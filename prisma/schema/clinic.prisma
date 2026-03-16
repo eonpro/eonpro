@@ -262,10 +262,9 @@ model Clinic {
   // Prescription Refill Queue
   refillQueue RefillQueue[]
 
-  // Financial Analytics
-  financialMetrics FinancialMetrics[]
-  savedReports     SavedReport[]
-  reportExports    ReportExport[]
+  // Reporting Engine
+  reportTemplates  ReportTemplate[]
+  reportSchedules  ReportSchedule[]
 
   // Provider Routing & Compensation (Enterprise feature)
   providerRoutingConfig      ProviderRoutingConfig?
