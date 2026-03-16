@@ -26,8 +26,8 @@ const SemaglutideSupportPanels = dynamic(
 );
 
 const concentrations = [
-  { value: 2.5, label: '2.5 mg/mL', color: '#3B82F6' },
-  { value: 5, label: '5 mg/mL', color: '#10B981' },
+  { value: 2.5, label: '2.5 mg/mL', color: '#3B82F6', tag: 'Most Popular', tagColor: 'bg-amber-100 text-amber-700' },
+  { value: 5, label: '5 mg/mL', color: '#10B981', tag: 'Highest Dose/mL', tagColor: 'bg-blue-100 text-blue-700' },
 ];
 
 const dosingSchedule = [
@@ -44,7 +44,7 @@ export default function SemaglutideDoseCalculatorPage() {
   const accentColor = branding?.accentColor || '#d3f931';
 
   const [units, setUnits] = useState('');
-  const [concentration, setConcentration] = useState(5);
+  const [concentration, setConcentration] = useState(2.5);
   const [selectedWeek, setSelectedWeek] = useState<(typeof dosingSchedule)[0] | null>(null);
 
   const result = useMemo(() => {
@@ -93,12 +93,21 @@ export default function SemaglutideDoseCalculatorPage() {
                   <button
                     key={c.value}
                     onClick={() => setConcentration(c.value)}
-                    className={`group relative overflow-hidden rounded-2xl border-2 p-5 text-center transition-colors duration-200 ${
+                    className={`group relative overflow-hidden rounded-2xl border-2 p-5 pt-8 text-center transition-colors duration-200 ${
                       concentration === c.value
                         ? 'border-gray-900 bg-gray-900 shadow-xl'
                         : 'border-gray-100 bg-gray-50 hover:border-gray-200 hover:bg-white'
                     }`}
                   >
+                    <span
+                      className={`absolute left-2 top-2 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
+                        concentration === c.value
+                          ? 'bg-white/20 text-white'
+                          : c.tagColor
+                      }`}
+                    >
+                      {c.tag}
+                    </span>
                     <div
                       className={`mb-2 text-3xl font-semibold ${concentration === c.value ? 'text-white' : 'text-gray-900'}`}
                     >
