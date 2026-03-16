@@ -76,10 +76,13 @@ export const GET = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) =
       },
     });
   } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    const stack = error instanceof Error ? error.stack : undefined;
     logger.error('[SuperAdmin] Error listing clinic invoices', {
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: message,
+      stack,
     });
-    return NextResponse.json({ error: 'Failed to list invoices' }, { status: 500 });
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 });
 

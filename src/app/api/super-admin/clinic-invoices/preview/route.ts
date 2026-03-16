@@ -36,11 +36,16 @@ export const GET = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) =
     }
 
     const { clinicId, periodStart, periodEnd } = result.data;
-    if (periodStart >= periodEnd) {
+    if (periodStart > periodEnd) {
       return NextResponse.json(
-        { error: 'periodStart must be before periodEnd' },
+        { error: 'periodStart must be before or equal to periodEnd' },
         { status: 400 }
       );
+    }
+
+    // For same-day queries, extend periodEnd to end of day
+    if (periodStart.getTime() === periodEnd.getTime()) {
+      periodEnd.setUTCHours(23, 59, 59, 999);
     }
 
     const preview = await withoutClinicFilter(() =>
