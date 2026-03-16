@@ -111,6 +111,7 @@ export default function ConditionalHeader() {
     '/patients',
     '/intake-forms',
     '/affiliate',
+    '/platform',
   ];
 
   const isNoHeaderPage =
