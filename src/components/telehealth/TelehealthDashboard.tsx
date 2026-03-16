@@ -197,7 +197,10 @@ export default function TelehealthDashboard({
   );
 
   const handleJoinCall = useCallback((enableScribe: boolean) => {
-    if (!selectedSession?.meetingId) return;
+    if (!selectedSession?.meetingId || !selectedSession?.joinUrl) {
+      alert('Video link is not ready yet. Please generate the link first.');
+      return;
+    }
     setScribeEnabled(enableScribe);
     changePhase('call');
   }, [changePhase, selectedSession]);
@@ -261,6 +264,11 @@ export default function TelehealthDashboard({
                   userName={userName}
                   onJoinCall={handleJoinCall}
                   onBack={handleBackToQueue}
+                  onSessionUpdated={(updates) => {
+                    setSelectedSession((prev) =>
+                      prev ? { ...prev, ...updates } : prev
+                    );
+                  }}
                 />
               )}
             </motion.div>

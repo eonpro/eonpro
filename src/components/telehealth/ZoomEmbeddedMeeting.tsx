@@ -87,7 +87,7 @@ export default function ZoomEmbeddedMeeting({
         // Cross-origin access error — window is still open
       }
     }, 2000);
-  }, [joinUrl, onMeetingStart, endMeeting]);
+  }, [joinUrl, onMeetingStart, stopPolling]);
 
   const focusZoomWindow = useCallback(() => {
     if (popupRef.current && !popupRef.current.closed) {

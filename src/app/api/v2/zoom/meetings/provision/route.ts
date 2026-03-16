@@ -172,6 +172,7 @@ export const POST = withProviderAuth(async (req: NextRequest, user: AuthUser) =>
         id: appointmentId,
         zoomMeetingId: meetingId,
         zoomJoinUrl: joinUrl,
+        hostUrl: startUrl,
         videoLink: joinUrl,
       },
     });

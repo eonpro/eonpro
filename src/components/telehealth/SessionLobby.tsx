@@ -31,9 +31,10 @@ interface SessionLobbyProps {
   userName: string;
   onJoinCall: (enableScribe: boolean) => void;
   onBack: () => void;
+  onSessionUpdated?: (updates: Partial<TelehealthSessionData>) => void;
 }
 
-export default function SessionLobby({ session, userName, onJoinCall, onBack }: SessionLobbyProps) {
+export default function SessionLobby({ session, userName, onJoinCall, onBack, onSessionUpdated }: SessionLobbyProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const [devices, setDevices] = useState<DeviceStatus>({
@@ -69,9 +70,17 @@ export default function SessionLobby({ session, userName, onJoinCall, onBack }: 
       if (res.ok) {
         const data = await res.json();
         if (data.appointment?.zoomMeetingId) {
-          setLocalMeetingId(data.appointment.zoomMeetingId);
-          setLocalJoinUrl(data.appointment.zoomJoinUrl || session.joinUrl);
+          const newMeetingId = data.appointment.zoomMeetingId;
+          const newJoinUrl = data.appointment.zoomJoinUrl || session.joinUrl;
+          const newHostUrl = data.appointment.hostUrl;
+          setLocalMeetingId(newMeetingId);
+          setLocalJoinUrl(newJoinUrl);
           setMeetingReady(true);
+          onSessionUpdated?.({
+            meetingId: newMeetingId,
+            joinUrl: newJoinUrl,
+            ...(newHostUrl ? { hostUrl: newHostUrl } : {}),
+          });
         }
       }
     } catch {

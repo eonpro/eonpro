@@ -1,146 +1,59 @@
 // ==========================================================================
-// REPORTING DOMAIN
+// REPORTING ENGINE
 // ==========================================================================
-// Bounded context: reporting
-// Part of multi-file Prisma schema (prisma/schema/)
+// Saved report templates and scheduled delivery for the enterprise
+// reporting engine. Templates store the full report configuration
+// (data source, columns, filters, groupBy, sortBy, chart type) as JSON.
+// Schedules automate recurring report generation and email delivery.
 // ==========================================================================
 
-// Type of saved report
-enum ReportType {
-  REVENUE
-  PATIENTS
-  PAYOUTS
-  RECONCILIATION
-  SUBSCRIPTIONS
-  CUSTOM
-}
+model ReportTemplate {
+  id               Int      @id @default(autoincrement())
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  clinicId         Int?
+  clinic           Clinic?  @relation(fields: [clinicId], references: [id])
+  createdById      Int
+  createdBy        User     @relation("ReportTemplateCreator", fields: [createdById], references: [id])
+  name             String
+  description      String?
+  dataSource       String   // "revenue", "commissions", "patients", "fulfillment", "provider", "affiliates", "subscriptions"
+  config           Json     // { columns, filters, groupBy, sortBy, chartType, dateRange }
+  isShared         Boolean  @default(false)
+  isSystemTemplate Boolean  @default(false)
+  accessRoles      String[] @default(["super_admin", "admin"])
+  lastRunAt        DateTime?
 
-// Granularity for time-based reports
-enum ReportGranularity {
-  DAILY
-  WEEKLY
-  MONTHLY
-  QUARTERLY
-  YEARLY
-}
-
-// Daily aggregated financial metrics for fast reporting
-model FinancialMetrics {
-  id       Int      @id @default(autoincrement())
-  clinicId Int
-  clinic   Clinic   @relation(fields: [clinicId], references: [id])
-  date     DateTime @db.Date
-
-  // Daily revenue aggregates (in cents)
-  grossRevenue Int @default(0) // Total before fees/refunds
-  netRevenue   Int @default(0) // After fees
-  refunds      Int @default(0) // Total refunds
-  fees         Int @default(0) // Stripe fees + platform fees
-
-  // Subscription metrics (MRR in cents)
-  newMrr         Int @default(0) // MRR from new subscriptions
-  churnedMrr     Int @default(0) // MRR lost from cancellations
-  expansionMrr   Int @default(0) // MRR from upgrades
-  contractionMrr Int @default(0) // MRR lost from downgrades
-
-  // Counts
-  newSubscriptions      Int @default(0) // New subscriptions created
-  canceledSubscriptions Int @default(0) // Subscriptions canceled
-  newCustomers          Int @default(0) // New patients with payments
-  activeSubscriptions   Int @default(0) // Total active at end of day
-
-  // Payment metrics
-  successfulPayments Int @default(0) // Count of successful payments
-  failedPayments     Int @default(0) // Count of failed payments
-  averageOrderValue  Int @default(0) // Average payment amount (cents)
-
-  // Invoice metrics
-  invoicesSent        Int @default(0)
-  invoicesPaid        Int @default(0)
-  invoicesOutstanding Int @default(0)
-  outstandingAmount   Int @default(0) // Total outstanding (cents)
-
-  // Dispute metrics
-  disputesOpened Int @default(0)
-  disputesWon    Int @default(0)
-  disputesLost   Int @default(0)
-  disputeAmount  Int @default(0) // Total disputed amount (cents)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@unique([clinicId, date])
-  @@index([clinicId])
-  @@index([date])
-  @@index([clinicId, date])
-}
-
-// User-saved report configurations
-model SavedReport {
-  id        Int    @id @default(autoincrement())
-  clinicId  Int
-  clinic    Clinic @relation(fields: [clinicId], references: [id])
-  createdBy Int
-  user      User   @relation(fields: [createdBy], references: [id])
-
-  // Report metadata
-  name        String
-  description String?
-  type        ReportType
-  isPublic    Boolean    @default(false) // Shared with all clinic users
-
-  // Report configuration (metrics, filters, grouping, chart type)
-  config Json
-
-  // Scheduling
-  isScheduled  Boolean   @default(false)
-  schedule     String? // Cron expression (e.g., "0 9 * * 1" for Monday 9am)
-  recipients   String[] // Email addresses for delivery
-  lastRunAt    DateTime?
-  nextRunAt    DateTime?
-  lastRunError String? // Error message from last run if failed
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  schedules ReportSchedule[]
 
   @@index([clinicId])
-  @@index([createdBy])
-  @@index([type])
-  @@index([isScheduled, nextRunAt])
+  @@index([createdById])
+  @@index([dataSource])
+  @@index([isSystemTemplate])
 }
 
-// Export job tracking for async report generation
-model ReportExport {
-  id        Int    @id @default(autoincrement())
-  clinicId  Int
-  clinic    Clinic @relation(fields: [clinicId], references: [id])
-  createdBy Int
-  user      User   @relation(fields: [createdBy], references: [id])
+model ReportSchedule {
+  id             Int      @id @default(autoincrement())
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  templateId     Int
+  template       ReportTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  createdById    Int
+  createdBy      User     @relation("ReportScheduleCreator", fields: [createdById], references: [id])
+  clinicId       Int?
+  clinic         Clinic?  @relation(fields: [clinicId], references: [id])
+  frequency      String   // "daily", "weekly", "biweekly", "monthly"
+  dayOfWeek      Int?     // 0=Sunday, 1=Monday, etc.
+  dayOfMonth     Int?     // 1-28 for monthly
+  timeUtc        String   @default("06:00") // HH:mm in UTC
+  exportFormat   String   @default("csv")   // "csv", "pdf", "xlsx"
+  recipients     String[]
+  isActive       Boolean  @default(true)
+  lastRunAt      DateTime?
+  nextRunAt      DateTime?
+  lastError      String?
 
-  // Export configuration
-  reportType     ReportType
-  format         String // 'csv', 'excel', 'pdf'
-  config         Json // Report configuration used
-  dateRangeStart DateTime
-  dateRangeEnd   DateTime
-
-  // Status tracking
-  status       String    @default("pending") // pending, processing, completed, failed
-  progress     Int       @default(0) // 0-100 percentage
-  startedAt    DateTime?
-  completedAt  DateTime?
-  errorMessage String?
-
-  // File storage
-  fileUrl   String? // S3 URL when completed
-  fileName  String?
-  fileSize  Int? // File size in bytes
-  expiresAt DateTime? // When the download link expires
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
+  @@index([isActive, nextRunAt])
+  @@index([templateId])
   @@index([clinicId])
-  @@index([status])
-  @@index([createdBy])
 }
