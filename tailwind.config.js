@@ -6,6 +6,7 @@ module.exports = {
         'sofia': ['var(--font-sofia-pro)', 'system-ui', '-apple-system', 'sans-serif'],
       },
       animation: {
+        'marquee': 'marquee 25s linear infinite',
         'shimmer': 'shimmer 3s infinite',
         'truck': 'truck 1s ease-in-out infinite',
         // Photo & UI animations
@@ -31,6 +32,10 @@ module.exports = {
         'toast-out': 'toastOut 0.2s ease-in forwards',
       },
       keyframes: {
+        marquee: {
+          '0%': { transform: 'translateX(0)' },
+          '100%': { transform: 'translateX(-50%)' },
+        },
         shimmer: {
           '0%': { transform: 'translateX(-100%)' },
           '100%': { transform: 'translateX(100%)' },
