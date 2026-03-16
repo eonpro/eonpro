@@ -33,6 +33,30 @@ import {
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api/fetch';
 
+const US_STATES = [
+  'AL','AK','AZ','AR','CA','CO','CT','DE','DC','FL',
+  'GA','HI','ID','IL','IN','IA','KS','KY','LA','ME',
+  'MD','MA','MI','MN','MS','MO','MT','NE','NV','NH',
+  'NJ','NM','NY','NC','ND','OH','OK','OR','PA','RI',
+  'SC','SD','TN','TX','UT','VT','VA','WA','WV','WI',
+  'WY','AS','GU','MP','PR','VI',
+] as const;
+
+const STATE_NAMES: Record<string, string> = {
+  AL:'Alabama',AK:'Alaska',AZ:'Arizona',AR:'Arkansas',CA:'California',
+  CO:'Colorado',CT:'Connecticut',DE:'Delaware',DC:'District of Columbia',FL:'Florida',
+  GA:'Georgia',HI:'Hawaii',ID:'Idaho',IL:'Illinois',IN:'Indiana',
+  IA:'Iowa',KS:'Kansas',KY:'Kentucky',LA:'Louisiana',ME:'Maine',
+  MD:'Maryland',MA:'Massachusetts',MI:'Michigan',MN:'Minnesota',MS:'Mississippi',
+  MO:'Missouri',MT:'Montana',NE:'Nebraska',NV:'Nevada',NH:'New Hampshire',
+  NJ:'New Jersey',NM:'New Mexico',NY:'New York',NC:'North Carolina',ND:'North Dakota',
+  OH:'Ohio',OK:'Oklahoma',OR:'Oregon',PA:'Pennsylvania',RI:'Rhode Island',
+  SC:'South Carolina',SD:'South Dakota',TN:'Tennessee',TX:'Texas',UT:'Utah',
+  VT:'Vermont',VA:'Virginia',WA:'Washington',WV:'West Virginia',WI:'Wisconsin',
+  WY:'Wyoming',AS:'American Samoa',GU:'Guam',MP:'Northern Mariana Islands',
+  PR:'Puerto Rico',VI:'US Virgin Islands',
+};
+
 interface ClinicAssignment {
   id: number;
   clinicId: number;
@@ -1169,16 +1193,22 @@ export default function SuperAdminProviderDetailPage() {
               >
                 <div>
                   <label className="block text-xs font-medium text-gray-500">State</label>
-                  <input
-                    type="text"
-                    maxLength={2}
+                  <select
                     value={licenseForm.state}
                     onChange={(e) =>
-                      setLicenseForm((f) => ({ ...f, state: e.target.value.toUpperCase() }))
+                      setLicenseForm((f) => ({ ...f, state: e.target.value }))
                     }
-                    placeholder="e.g. CA"
-                    className="mt-0.5 w-20 rounded border border-gray-300 px-2 py-1.5 text-sm"
-                  />
+                    className="mt-0.5 w-44 rounded border border-gray-300 px-2 py-1.5 text-sm"
+                  >
+                    <option value="">Select state...</option>
+                    {US_STATES
+                      .filter((s) => !licenses.some((l) => l.state === s))
+                      .map((s) => (
+                        <option key={s} value={s}>
+                          {s} — {STATE_NAMES[s]}
+                        </option>
+                      ))}
+                  </select>
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-500">License number</label>
