@@ -306,6 +306,7 @@ export default function ClinicDetailPage() {
   // Users state
   const [clinicUsers, setClinicUsers] = useState<ClinicUser[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
+  const [usersError, setUsersError] = useState<string | null>(null);
   const [showAddUserModal, setShowAddUserModal] = useState(false);
   const [addingUser, setAddingUser] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -517,16 +518,19 @@ export default function ClinicDetailPage() {
 
   const fetchClinicUsers = async () => {
     setLoadingUsers(true);
+    setUsersError(null);
     try {
-      const token = localStorage.getItem('auth-token');
       const response = await apiFetch(`/api/super-admin/clinics/${clinicId}/users`);
 
       if (response.ok) {
         const data = await response.json();
         setClinicUsers(data.users || []);
+      } else {
+        const errData = await response.json().catch(() => null);
+        setUsersError(`API returned ${response.status}: ${errData?.error || 'Unknown error'}`);
       }
     } catch (error) {
-      process.env.NODE_ENV === 'development' && console.error('Failed to fetch clinic users:', error);
+      setUsersError(`Network error: ${error instanceof Error ? error.message : String(error)}`);
     } finally {
       setLoadingUsers(false);
     }
@@ -843,7 +847,7 @@ export default function ClinicDetailPage() {
 
   // Fetch users when switching to users tab
   useEffect(() => {
-    if (activeTab === 'users' && clinicUsers.length === 0) {
+    if (activeTab === 'users') {
       fetchClinicUsers();
     }
   }, [activeTab]);
@@ -2749,11 +2753,19 @@ export default function ClinicDetailPage() {
                 </button>
               </div>
 
+              {usersError && (
+                <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-4">
+                  <p className="text-sm font-medium text-red-800">Failed to load users</p>
+                  <p className="mt-1 text-xs text-red-600">{usersError}</p>
+                  <button onClick={fetchClinicUsers} className="mt-2 text-xs font-medium text-red-700 underline">Retry</button>
+                </div>
+              )}
+
               {loadingUsers ? (
                 <div className="flex justify-center py-8">
                   <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-teal-600"></div>
                 </div>
-              ) : clinicUsers.length === 0 ? (
+              ) : clinicUsers.length === 0 && !usersError ? (
                 <div className="rounded-lg bg-gray-50 py-12 text-center">
                   <Users className="mx-auto mb-4 h-12 w-12 text-gray-300" />
                   <h4 className="mb-2 text-lg font-medium text-gray-900">No users yet</h4>
