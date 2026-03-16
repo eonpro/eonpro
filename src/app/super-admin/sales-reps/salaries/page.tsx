@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import {
-  ChevronLeft, Plus, Pencil, Trash2, DollarSign, Users,
-  Building2, Search, RefreshCw, X, Check, Loader2, Wallet,
+  ChevronLeft, Pencil, Trash2, DollarSign, Users,
+  Search, RefreshCw, X, Check, Loader2, Wallet,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api/fetch';
 
@@ -23,8 +23,18 @@ interface SalaryRecord {
   notes: string | null;
 }
 
+interface ClinicUser {
+  id: number;
+  firstName: string;
+  lastName: string;
+  email: string;
+  role: string;
+  status: string;
+  clinicId: number;
+  clinicName: string;
+}
+
 interface Clinic { id: number; name: string; }
-interface EligibleUser { id: number; firstName: string; lastName: string; email: string; role: string; }
 
 function $(c: number) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(c / 100);
@@ -37,24 +47,21 @@ const roleBadge: Record<string, string> = {
 
 export default function EmployeeSalariesPage() {
   const [salaries, setSalaries] = useState<SalaryRecord[]>([]);
+  const [allEmployees, setAllEmployees] = useState<ClinicUser[]>([]);
   const [clinics, setClinics] = useState<Clinic[]>([]);
   const [loading, setLoading] = useState(true);
   const [clinicFilter, setClinicFilter] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Add/Edit modal state
+  // Edit modal state
   const [showModal, setShowModal] = useState(false);
-  const [editingSalary, setEditingSalary] = useState<SalaryRecord | null>(null);
-  const [modalClinicId, setModalClinicId] = useState('');
-  const [eligibleUsers, setEligibleUsers] = useState<EligibleUser[]>([]);
-  const [loadingUsers, setLoadingUsers] = useState(false);
-  const [selectedUserId, setSelectedUserId] = useState('');
+  const [editingUser, setEditingUser] = useState<{ userId: number; userName: string; userEmail: string; userRole: string; clinicId: number; clinicName: string } | null>(null);
+  const [editingSalaryId, setEditingSalaryId] = useState<number | null>(null);
   const [weeklyPay, setWeeklyPay] = useState('');
   const [hourlyRate, setHourlyRate] = useState('');
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
   const [modalError, setModalError] = useState('');
-
   const [deletingId, setDeletingId] = useState<number | null>(null);
 
   const fetchClinics = useCallback(async () => {
@@ -65,75 +72,142 @@ export default function EmployeeSalariesPage() {
   }, []);
 
   const fetchSalaries = useCallback(async () => {
-    setLoading(true);
     try {
-      const p = new URLSearchParams();
-      if (clinicFilter) p.set('clinicId', clinicFilter);
-      const res = await apiFetch(`/api/admin/employee-salaries?${p}`);
+      const res = await apiFetch('/api/admin/employee-salaries');
       if (res.ok) {
         const json = await res.json();
         setSalaries(json.salaries || []);
       }
     } catch { /* ignore */ }
-    finally { setLoading(false); }
-  }, [clinicFilter]);
-
-  useEffect(() => { fetchClinics(); }, [fetchClinics]);
-  useEffect(() => { fetchSalaries(); }, [fetchSalaries]);
-
-  const fetchEligibleUsers = useCallback(async (cId: string) => {
-    if (!cId) { setEligibleUsers([]); return; }
-    setLoadingUsers(true);
-    try {
-      const res = await apiFetch(`/api/super-admin/clinics/${cId}/users?roles=STAFF,SALES_REP`);
-      if (res.ok) {
-        const json = await res.json();
-        setEligibleUsers(json.users || []);
-      }
-    } catch { setEligibleUsers([]); }
-    finally { setLoadingUsers(false); }
   }, []);
 
-  const openAddModal = () => {
-    setEditingSalary(null);
-    setModalClinicId('');
-    setSelectedUserId('');
-    setWeeklyPay('');
-    setHourlyRate('');
-    setNotes('');
-    setModalError('');
-    setEligibleUsers([]);
-    setShowModal(true);
-  };
+  const fetchAllEmployees = useCallback(async (fetchedClinics: Clinic[]) => {
+    setLoading(true);
+    try {
+      const results = await Promise.all(
+        fetchedClinics.map(async (clinic) => {
+          try {
+            const res = await apiFetch(`/api/super-admin/clinics/${clinic.id}/users?roles=STAFF,SALES_REP`);
+            if (res.ok) {
+              const json = await res.json();
+              return (json.users || []).map((u: any) => ({
+                ...u,
+                clinicId: clinic.id,
+                clinicName: clinic.name,
+              }));
+            }
+          } catch { /* ignore */ }
+          return [];
+        })
+      );
+      const allUsers: ClinicUser[] = results.flat();
+      // Deduplicate by userId (a user may appear in multiple clinics via UserClinic)
+      const seen = new Set<string>();
+      const deduped = allUsers.filter((u) => {
+        const key = `${u.id}-${u.clinicId}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+      setAllEmployees(deduped);
+    } catch { /* ignore */ }
+    finally { setLoading(false); }
+  }, []);
 
-  const openEditModal = (s: SalaryRecord) => {
-    setEditingSalary(s);
-    setModalClinicId(String(s.clinicId));
-    setSelectedUserId(String(s.userId));
-    setWeeklyPay(String((s.weeklyBasePayCents / 100).toFixed(2)));
-    setHourlyRate(s.hourlyRateCents != null ? String((s.hourlyRateCents / 100).toFixed(2)) : '');
-    setNotes(s.notes || '');
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await apiFetch('/api/super-admin/clinics');
+        if (res.ok) {
+          const json = await res.json();
+          const fetchedClinics = json.clinics || [];
+          setClinics(fetchedClinics);
+          await Promise.all([fetchSalaries(), fetchAllEmployees(fetchedClinics)]);
+        }
+      } catch { setLoading(false); }
+    })();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const salaryByUserId = useMemo(() => {
+    const map = new Map<number, SalaryRecord>();
+    for (const s of salaries) map.set(s.userId, s);
+    return map;
+  }, [salaries]);
+
+  const merged = useMemo(() => {
+    return allEmployees.map((emp) => {
+      const salary = salaryByUserId.get(emp.id);
+      return {
+        userId: emp.id,
+        userName: `${emp.firstName || ''} ${emp.lastName || ''}`.trim() || emp.email,
+        userEmail: emp.email,
+        userRole: emp.role,
+        userStatus: emp.status,
+        clinicId: emp.clinicId,
+        clinicName: emp.clinicName,
+        salary: salary || null,
+      };
+    });
+  }, [allEmployees, salaryByUserId]);
+
+  const filtered = useMemo(() => {
+    let result = merged;
+    if (clinicFilter) result = result.filter((r) => r.clinicId === parseInt(clinicFilter, 10));
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter((r) =>
+        r.userName.toLowerCase().includes(q) || r.userEmail.toLowerCase().includes(q)
+      );
+    }
+    return result.sort((a, b) => {
+      if (a.salary && !b.salary) return -1;
+      if (!a.salary && b.salary) return 1;
+      return a.userName.localeCompare(b.userName);
+    });
+  }, [merged, clinicFilter, searchQuery]);
+
+  const totalWeekly = useMemo(() =>
+    filtered.reduce((a, r) => a + (r.salary?.weeklyBasePayCents || 0), 0)
+  , [filtered]);
+
+  const salariedCount = filtered.filter((r) => r.salary).length;
+
+  const openSetSalary = (emp: typeof filtered[number]) => {
+    setEditingUser({
+      userId: emp.userId,
+      userName: emp.userName,
+      userEmail: emp.userEmail,
+      userRole: emp.userRole,
+      clinicId: emp.clinicId,
+      clinicName: emp.clinicName,
+    });
+    if (emp.salary) {
+      setEditingSalaryId(emp.salary.id);
+      setWeeklyPay(String((emp.salary.weeklyBasePayCents / 100).toFixed(2)));
+      setHourlyRate(emp.salary.hourlyRateCents != null ? String((emp.salary.hourlyRateCents / 100).toFixed(2)) : '');
+      setNotes(emp.salary.notes || '');
+    } else {
+      setEditingSalaryId(null);
+      setWeeklyPay('');
+      setHourlyRate('');
+      setNotes('');
+    }
     setModalError('');
     setShowModal(true);
-  };
-
-  const handleClinicChange = (cId: string) => {
-    setModalClinicId(cId);
-    setSelectedUserId('');
-    fetchEligibleUsers(cId);
   };
 
   const handleSave = async () => {
     setModalError('');
     const weeklyCents = Math.round(parseFloat(weeklyPay || '0') * 100);
     if (weeklyCents <= 0) { setModalError('Weekly salary must be greater than $0'); return; }
+    if (!editingUser) return;
 
     const hourlyCents = hourlyRate ? Math.round(parseFloat(hourlyRate) * 100) : null;
 
     setSaving(true);
     try {
-      if (editingSalary) {
-        const res = await apiFetch(`/api/admin/employee-salaries/${editingSalary.id}`, {
+      if (editingSalaryId) {
+        const res = await apiFetch(`/api/admin/employee-salaries/${editingSalaryId}`, {
           method: 'PATCH',
           body: JSON.stringify({
             weeklyBasePayCents: weeklyCents,
@@ -147,12 +221,11 @@ export default function EmployeeSalariesPage() {
           return;
         }
       } else {
-        if (!modalClinicId || !selectedUserId) { setModalError('Select a clinic and employee'); return; }
         const res = await apiFetch('/api/admin/employee-salaries', {
           method: 'POST',
           body: JSON.stringify({
-            clinicId: parseInt(modalClinicId, 10),
-            userId: parseInt(selectedUserId, 10),
+            clinicId: editingUser.clinicId,
+            userId: editingUser.userId,
             weeklyBasePayCents: weeklyCents,
             hourlyRateCents: hourlyCents,
             notes: notes || undefined,
@@ -160,7 +233,7 @@ export default function EmployeeSalariesPage() {
         });
         if (!res.ok) {
           const err = await res.json().catch(() => ({}));
-          setModalError(err.error || 'Failed to create');
+          setModalError(err.error || 'Failed to set salary');
           return;
         }
       }
@@ -173,26 +246,25 @@ export default function EmployeeSalariesPage() {
     }
   };
 
-  const handleDelete = async (id: number) => {
+  const handleDelete = async (userId: number) => {
+    const salary = salaryByUserId.get(userId);
+    if (!salary) return;
     if (!confirm('Remove this employee\'s weekly salary?')) return;
-    setDeletingId(id);
+    setDeletingId(salary.id);
     try {
-      const res = await apiFetch(`/api/admin/employee-salaries/${id}`, { method: 'DELETE' });
+      const res = await apiFetch(`/api/admin/employee-salaries/${salary.id}`, { method: 'DELETE' });
       if (res.ok) fetchSalaries();
       else alert('Failed to remove salary');
     } catch { alert('Failed to remove salary'); }
     finally { setDeletingId(null); }
   };
 
-  const filtered = salaries.filter((s) => {
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase();
-      if (!s.userName.toLowerCase().includes(q) && !s.userEmail.toLowerCase().includes(q)) return false;
+  const handleRefresh = () => {
+    if (clinics.length > 0) {
+      fetchSalaries();
+      fetchAllEmployees(clinics);
     }
-    return true;
-  });
-
-  const totalWeekly = filtered.reduce((a, s) => a + s.weeklyBasePayCents, 0);
+  };
 
   return (
     <div className="p-4 md:p-6">
@@ -206,14 +278,9 @@ export default function EmployeeSalariesPage() {
             <h1 className="text-2xl font-bold text-gray-900">Employee Weekly Salaries</h1>
             <p className="text-gray-500">Manage weekly base pay for sales reps and staff</p>
           </div>
-          <div className="flex items-center gap-2">
-            <button onClick={fetchSalaries} disabled={loading} className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50">
-              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /> Refresh
-            </button>
-            <button onClick={openAddModal} className="flex items-center gap-2 rounded-lg bg-[var(--brand-primary)] px-4 py-2 text-sm font-medium text-white hover:bg-[#3d8a66]">
-              <Plus className="h-4 w-4" /> Add Salary
-            </button>
-          </div>
+          <button onClick={handleRefresh} disabled={loading} className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50">
+            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /> Refresh
+          </button>
         </div>
       </div>
 
@@ -230,18 +297,22 @@ export default function EmployeeSalariesPage() {
       </div>
 
       {/* Summary */}
-      <div className="mb-6 grid gap-3 sm:grid-cols-3">
+      <div className="mb-6 grid gap-3 sm:grid-cols-4">
         <div className="rounded-xl bg-white p-4 shadow-sm">
-          <div className="flex items-center gap-2"><Users className="h-4 w-4 text-blue-500" /><span className="text-xs font-medium text-gray-500">Salaried Employees</span></div>
+          <div className="flex items-center gap-2"><Users className="h-4 w-4 text-blue-500" /><span className="text-xs font-medium text-gray-500">Total Staff & Sales Reps</span></div>
           <p className="mt-1 text-lg font-bold text-gray-900">{filtered.length}</p>
+        </div>
+        <div className="rounded-xl bg-white p-4 shadow-sm">
+          <div className="flex items-center gap-2"><Users className="h-4 w-4 text-green-500" /><span className="text-xs font-medium text-gray-500">With Salary</span></div>
+          <p className="mt-1 text-lg font-bold text-green-700">{salariedCount}</p>
         </div>
         <div className="rounded-xl bg-white p-4 shadow-sm">
           <div className="flex items-center gap-2"><Wallet className="h-4 w-4 text-orange-500" /><span className="text-xs font-medium text-gray-500">Total Weekly Salary</span></div>
           <p className="mt-1 text-lg font-bold text-orange-700">{$(totalWeekly)}</p>
         </div>
         <div className="rounded-xl bg-white p-4 shadow-sm">
-          <div className="flex items-center gap-2"><DollarSign className="h-4 w-4 text-green-500" /><span className="text-xs font-medium text-gray-500">Monthly Estimate</span></div>
-          <p className="mt-1 text-lg font-bold text-green-700">{$(totalWeekly * 4)}</p>
+          <div className="flex items-center gap-2"><DollarSign className="h-4 w-4 text-emerald-500" /><span className="text-xs font-medium text-gray-500">Monthly Estimate</span></div>
+          <p className="mt-1 text-lg font-bold text-emerald-700">{$(Math.round(totalWeekly * 4.33))}</p>
         </div>
       </div>
 
@@ -256,43 +327,63 @@ export default function EmployeeSalariesPage() {
                 <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Clinic</th>
                 <th className="px-4 py-3 text-right text-xs font-medium uppercase text-gray-500">Weekly Salary</th>
                 <th className="px-4 py-3 text-right text-xs font-medium uppercase text-gray-500">Hourly Rate</th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Since</th>
                 <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Notes</th>
                 <th className="px-4 py-3 text-center text-xs font-medium uppercase text-gray-500">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {loading ? (
-                Array.from({ length: 3 }).map((_, i) => (
-                  <tr key={i}><td colSpan={8} className="px-4 py-3"><div className="h-4 animate-pulse rounded bg-gray-200" /></td></tr>
+                Array.from({ length: 5 }).map((_, i) => (
+                  <tr key={i}><td colSpan={7} className="px-4 py-3"><div className="h-4 animate-pulse rounded bg-gray-200" /></td></tr>
                 ))
               ) : filtered.length === 0 ? (
-                <tr><td colSpan={8} className="py-12 text-center text-gray-500">
-                  {salaries.length === 0 ? 'No employee salaries configured yet. Click "Add Salary" to get started.' : 'No results match your search.'}
+                <tr><td colSpan={7} className="py-12 text-center text-gray-500">
+                  {allEmployees.length === 0 ? 'No staff or sales reps found across your clinics.' : 'No results match your search.'}
                 </td></tr>
               ) : (
-                filtered.map((s) => (
-                  <tr key={s.id} className="hover:bg-gray-50">
+                filtered.map((emp) => (
+                  <tr key={`${emp.userId}-${emp.clinicId}`} className="hover:bg-gray-50">
                     <td className="px-4 py-3">
-                      <p className="font-medium text-gray-900">{s.userName}</p>
-                      <p className="text-xs text-gray-500">{s.userEmail}</p>
+                      <p className="font-medium text-gray-900">{emp.userName}</p>
+                      <p className="text-xs text-gray-500">{emp.userEmail}</p>
                     </td>
                     <td className="px-4 py-3">
-                      <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${roleBadge[s.userRole] || 'bg-gray-100 text-gray-700'}`}>
-                        {s.userRole === 'SALES_REP' ? 'Sales Rep' : s.userRole === 'STAFF' ? 'Staff' : s.userRole}
+                      <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${roleBadge[emp.userRole] || 'bg-gray-100 text-gray-700'}`}>
+                        {emp.userRole === 'SALES_REP' ? 'Sales Rep' : emp.userRole === 'STAFF' ? 'Staff' : emp.userRole}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-gray-600">{s.clinicName}</td>
-                    <td className="px-4 py-3 text-right font-semibold text-orange-700">{$(s.weeklyBasePayCents)}/wk</td>
-                    <td className="px-4 py-3 text-right text-gray-600">{s.hourlyRateCents != null ? `${$(s.hourlyRateCents)}/hr` : '—'}</td>
-                    <td className="whitespace-nowrap px-4 py-3 text-gray-600">{new Date(s.effectiveFrom).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</td>
-                    <td className="px-4 py-3 text-xs text-gray-500">{s.notes || '—'}</td>
+                    <td className="px-4 py-3 text-gray-600">{emp.clinicName}</td>
+                    <td className="px-4 py-3 text-right">
+                      {emp.salary ? (
+                        <span className="font-semibold text-orange-700">{$(emp.salary.weeklyBasePayCents)}/wk</span>
+                      ) : (
+                        <span className="text-gray-400">Not set</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-right text-gray-600">
+                      {emp.salary?.hourlyRateCents != null ? `${$(emp.salary.hourlyRateCents)}/hr` : '—'}
+                    </td>
+                    <td className="px-4 py-3 text-xs text-gray-500">{emp.salary?.notes || '—'}</td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-center gap-1">
-                        <button onClick={() => openEditModal(s)} className="rounded p-1.5 text-gray-400 hover:bg-gray-100 hover:text-blue-600" title="Edit"><Pencil className="h-4 w-4" /></button>
-                        <button onClick={() => handleDelete(s.id)} disabled={deletingId === s.id} className="rounded p-1.5 text-gray-400 hover:bg-gray-100 hover:text-red-600 disabled:opacity-50" title="Remove">
-                          {deletingId === s.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                        <button
+                          onClick={() => openSetSalary(emp)}
+                          className="flex items-center gap-1 rounded px-2 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-100 hover:text-blue-600"
+                          title={emp.salary ? 'Edit salary' : 'Set salary'}
+                        >
+                          {emp.salary ? <Pencil className="h-3.5 w-3.5" /> : <DollarSign className="h-3.5 w-3.5" />}
+                          {emp.salary ? 'Edit' : 'Set Salary'}
                         </button>
+                        {emp.salary && (
+                          <button
+                            onClick={() => handleDelete(emp.userId)}
+                            disabled={deletingId === emp.salary?.id}
+                            className="rounded p-1.5 text-gray-400 hover:bg-gray-100 hover:text-red-600 disabled:opacity-50"
+                            title="Remove salary"
+                          >
+                            {deletingId === emp.salary?.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -303,49 +394,28 @@ export default function EmployeeSalariesPage() {
         </div>
       </div>
 
-      {/* Add/Edit Modal */}
-      {showModal && (
+      {/* Set/Edit Salary Modal */}
+      {showModal && editingUser && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-lg font-bold text-gray-900">{editingSalary ? 'Edit Weekly Salary' : 'Add Weekly Salary'}</h2>
+              <h2 className="text-lg font-bold text-gray-900">{editingSalaryId ? 'Edit Weekly Salary' : 'Set Weekly Salary'}</h2>
               <button onClick={() => setShowModal(false)} className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"><X className="h-5 w-5" /></button>
             </div>
 
             <div className="space-y-4">
-              {!editingSalary && (
-                <>
+              <div className="rounded-lg bg-gray-50 p-3">
+                <div className="flex items-center gap-2">
                   <div>
-                    <label className="mb-1 block text-sm font-medium text-gray-700">Clinic</label>
-                    <select value={modalClinicId} onChange={(e) => handleClinicChange(e.target.value)} className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm">
-                      <option value="">Select clinic...</option>
-                      {clinics.map((c) => <option key={c.id} value={String(c.id)}>{c.name}</option>)}
-                    </select>
+                    <p className="text-sm font-medium text-gray-900">{editingUser.userName}</p>
+                    <p className="text-xs text-gray-500">{editingUser.userEmail}</p>
                   </div>
-                  <div>
-                    <label className="mb-1 block text-sm font-medium text-gray-700">Employee (Staff or Sales Rep)</label>
-                    {loadingUsers ? (
-                      <div className="flex items-center gap-2 py-2 text-sm text-gray-500"><Loader2 className="h-4 w-4 animate-spin" /> Loading...</div>
-                    ) : (
-                      <select value={selectedUserId} onChange={(e) => setSelectedUserId(e.target.value)} className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm" disabled={!modalClinicId}>
-                        <option value="">{modalClinicId ? 'Select employee...' : 'Select a clinic first'}</option>
-                        {eligibleUsers.map((u) => (
-                          <option key={u.id} value={String(u.id)}>
-                            {u.firstName} {u.lastName} ({u.email}) — {u.role === 'SALES_REP' ? 'Sales Rep' : 'Staff'}
-                          </option>
-                        ))}
-                      </select>
-                    )}
-                  </div>
-                </>
-              )}
-
-              {editingSalary && (
-                <div className="rounded-lg bg-gray-50 p-3">
-                  <p className="text-sm font-medium text-gray-900">{editingSalary.userName}</p>
-                  <p className="text-xs text-gray-500">{editingSalary.userEmail} — {editingSalary.clinicName}</p>
+                  <span className={`ml-auto rounded-full px-2 py-0.5 text-xs font-medium ${roleBadge[editingUser.userRole] || 'bg-gray-100 text-gray-700'}`}>
+                    {editingUser.userRole === 'SALES_REP' ? 'Sales Rep' : editingUser.userRole === 'STAFF' ? 'Staff' : editingUser.userRole}
+                  </span>
                 </div>
-              )}
+                <p className="mt-1 text-xs text-gray-400">{editingUser.clinicName}</p>
+              </div>
 
               <div>
                 <label className="mb-1 block text-sm font-medium text-gray-700">Weekly Salary ($)</label>
@@ -359,6 +429,7 @@ export default function EmployeeSalariesPage() {
                     onChange={(e) => setWeeklyPay(e.target.value)}
                     placeholder="0.00"
                     className="w-full rounded-lg border border-gray-200 py-2 pl-9 pr-3 text-sm"
+                    autoFocus
                   />
                 </div>
                 {weeklyPay && parseFloat(weeklyPay) > 0 && (
@@ -369,7 +440,7 @@ export default function EmployeeSalariesPage() {
               </div>
 
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">Hourly Rate ($) <span className="text-gray-400">(optional)</span></label>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Hourly Rate ($) <span className="text-gray-400">(optional, for reference)</span></label>
                 <div className="relative">
                   <DollarSign className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
                   <input
@@ -395,7 +466,7 @@ export default function EmployeeSalariesPage() {
                 <button onClick={() => setShowModal(false)} className="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">Cancel</button>
                 <button onClick={handleSave} disabled={saving} className="flex items-center gap-2 rounded-lg bg-[var(--brand-primary)] px-4 py-2 text-sm font-medium text-white hover:bg-[#3d8a66] disabled:opacity-50">
                   {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-                  {editingSalary ? 'Update' : 'Save'}
+                  {editingSalaryId ? 'Update' : 'Set Salary'}
                 </button>
               </div>
             </div>
