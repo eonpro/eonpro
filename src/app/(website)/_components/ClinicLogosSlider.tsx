@@ -53,10 +53,12 @@ export default function ClinicLogosSlider() {
           {items.map((clinic, i) => (
             <div key={`${clinic.subdomain}-${i}`} className="flex flex-shrink-0 items-center">
               {clinic.logoUrl ? (
+                /* eslint-disable-next-line @next/next/no-img-element */
                 <img
                   src={clinic.logoUrl}
                   alt={clinic.name}
-                  className="h-6 w-auto max-w-[128px] object-contain opacity-40 grayscale transition-all hover:opacity-80 hover:grayscale-0 sm:h-8 sm:max-w-[160px]"
+                  crossOrigin="anonymous"
+                  className="h-6 w-auto max-w-[128px] object-contain opacity-60 transition-opacity hover:opacity-100 sm:h-8 sm:max-w-[160px]"
                 />
               ) : (
                 <span className="select-none text-xl font-bold tracking-tight text-[#1f2933]/20 transition-colors hover:text-[#1f2933]/50 sm:text-2xl">
