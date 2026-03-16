@@ -99,8 +99,10 @@ export const SMS_TEMPLATES = {
   APPOINTMENT_REMINDER: (patientName: string, appointmentDate: string, doctorName: string) =>
     `Hi ${patientName}, this is a reminder of your appointment with Dr. ${doctorName} on ${appointmentDate}. Reply CONFIRM to confirm or CANCEL to cancel.`,
 
-  APPOINTMENT_CONFIRMATION: (patientName: string, appointmentDate: string) =>
-    `Hi ${patientName}, your appointment on ${appointmentDate} has been confirmed. We look forward to seeing you!`,
+  APPOINTMENT_CONFIRMATION: (patientName: string, appointmentDate: string, videoLink?: string) =>
+    videoLink
+      ? `Hi ${patientName}, your video appointment on ${appointmentDate} is confirmed!\n\nJoin your call here: ${videoLink}\n\nPlease test your camera and microphone before the appointment.`
+      : `Hi ${patientName}, your appointment on ${appointmentDate} has been confirmed. We look forward to seeing you!`,
 
   PRESCRIPTION_READY: (patientName: string, prescriptionId: string) =>
     `Hi ${patientName}, your prescription #${prescriptionId} is ready for pickup. Please visit us at your earliest convenience.`,

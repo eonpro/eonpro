@@ -288,13 +288,23 @@ async function processReminder(reminder: {
   let smsResult: SendReminderResult = { success: false };
   let emailResult: SendReminderResult = { success: false };
 
-  // Send based on reminder type
-  if (reminder.type === ReminderType.SMS || reminder.type === ReminderType.BOTH) {
-    smsResult = await sendSMSReminder(reminder.appointment, template);
+  const decryptedAppointment: AppointmentForReminder = {
+    ...reminder.appointment,
+    patient: {
+      ...reminder.appointment.patient,
+      firstName: decryptPHI(reminder.appointment.patient.firstName) ?? reminder.appointment.patient.firstName,
+      lastName: decryptPHI(reminder.appointment.patient.lastName) ?? reminder.appointment.patient.lastName,
+      phone: decryptPHI(reminder.appointment.patient.phone) ?? reminder.appointment.patient.phone,
+      email: decryptPHI(reminder.appointment.patient.email) ?? reminder.appointment.patient.email,
+    },
+  };
+
+  if (decryptedAppointment.patient.phone && (reminder.type === ReminderType.SMS || reminder.type === ReminderType.BOTH)) {
+    smsResult = await sendSMSReminder(decryptedAppointment, template);
   }
 
-  if (reminder.type === ReminderType.EMAIL || reminder.type === ReminderType.BOTH) {
-    emailResult = await sendEmailReminder(reminder.appointment, template);
+  if (decryptedAppointment.patient.email && (reminder.type === ReminderType.EMAIL || reminder.type === ReminderType.BOTH)) {
+    emailResult = await sendEmailReminder(decryptedAppointment, template);
   }
 
   // Determine overall success
@@ -464,8 +474,12 @@ export async function sendAppointmentConfirmation(
           ? patientPhone
           : `+1${patientPhone.replace(/\D/g, '')}`;
 
+        const videoLink = appointment.type === 'VIDEO'
+          ? (appointment.videoLink || appointment.zoomJoinUrl || undefined)
+          : undefined;
+
         const message = await client.messages.create({
-          body: SMS_TEMPLATES.APPOINTMENT_CONFIRMATION(patientFirstName, appointmentDateFormatted),
+          body: SMS_TEMPLATES.APPOINTMENT_CONFIRMATION(patientFirstName, appointmentDateFormatted, videoLink ?? undefined),
           from: process.env.TWILIO_PHONE_NUMBER,
           to: formattedPhone,
         });
