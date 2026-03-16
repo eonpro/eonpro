@@ -12,6 +12,7 @@ import {
   isTwilioConfigured,
   SMS_TEMPLATES,
 } from '@/lib/integrations/twilio/config';
+import { decryptPHI } from '@/lib/security/phi-encryption';
 import { ReminderStatus, ReminderType } from '@prisma/client';
 
 // Reminder timing configuration (hours before appointment)
@@ -397,7 +398,8 @@ export async function processPendingReminders(): Promise<{
 }
 
 /**
- * Send immediate confirmation when appointment is confirmed
+ * Send immediate confirmation when appointment is created or confirmed.
+ * Sends both SMS and email to the patient.
  */
 export async function sendAppointmentConfirmation(
   appointmentId: number
@@ -428,7 +430,12 @@ export async function sendAppointmentConfirmation(
       return { success: false, error: 'Appointment not found' };
     }
 
-    const appointmentDate = new Date(appointment.startTime).toLocaleString('en-US', {
+    const patientFirstName = decryptPHI(appointment.patient.firstName) ?? appointment.patient.firstName ?? 'Patient';
+    const patientEmail = decryptPHI(appointment.patient.email) ?? appointment.patient.email;
+    const patientPhone = decryptPHI(appointment.patient.phone) ?? appointment.patient.phone;
+    const providerName = `${appointment.provider.firstName} ${appointment.provider.lastName}`;
+
+    const appointmentDateFormatted = new Date(appointment.startTime).toLocaleString('en-US', {
       weekday: 'long',
       month: 'long',
       day: 'numeric',
@@ -436,30 +443,74 @@ export async function sendAppointmentConfirmation(
       minute: '2-digit',
     });
 
-    const patientName = appointment.patient.firstName;
+    const appointmentDateOnly = new Date(appointment.startTime).toLocaleDateString('en-US', {
+      weekday: 'long',
+      month: 'long',
+      day: 'numeric',
+    });
 
-    if (!isTwilioConfigured()) {
-      logger.warn('Twilio not configured, skipping confirmation SMS');
-      return { success: false, error: 'Twilio not configured' };
+    const appointmentTimeOnly = new Date(appointment.startTime).toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+    });
+
+    let smsResult: { success: boolean; messageId?: string } = { success: false };
+    let emailResult: { success: boolean } = { success: false };
+
+    if (patientPhone && isTwilioConfigured()) {
+      try {
+        const client = getTwilioClient();
+        const formattedPhone = patientPhone.startsWith('+')
+          ? patientPhone
+          : `+1${patientPhone.replace(/\D/g, '')}`;
+
+        const message = await client.messages.create({
+          body: SMS_TEMPLATES.APPOINTMENT_CONFIRMATION(patientFirstName, appointmentDateFormatted),
+          from: process.env.TWILIO_PHONE_NUMBER,
+          to: formattedPhone,
+        });
+
+        smsResult = { success: true, messageId: message.sid };
+        logger.info('Appointment confirmation SMS sent', { appointmentId, messageSid: message.sid });
+      } catch (smsErr) {
+        logger.error('Failed to send appointment confirmation SMS', {
+          appointmentId,
+          error: smsErr instanceof Error ? smsErr.message : 'Unknown',
+        });
+      }
     }
 
-    const client = getTwilioClient();
-    const formattedPhone = appointment.patient.phone.startsWith('+')
-      ? appointment.patient.phone
-      : `+1${appointment.patient.phone.replace(/\D/g, '')}`;
+    if (patientEmail) {
+      try {
+        const { sendAppointmentConfirmationEmail } = await import('@/lib/email/automations');
+        const location = appointment.type === 'VIDEO'
+          ? `Video Call${appointment.videoLink ? `: ${appointment.videoLink}` : ''}`
+          : appointment.location || 'TBD';
 
-    const message = await client.messages.create({
-      body: SMS_TEMPLATES.APPOINTMENT_CONFIRMATION(patientName, appointmentDate),
-      from: process.env.TWILIO_PHONE_NUMBER,
-      to: formattedPhone,
-    });
+        emailResult = await sendAppointmentConfirmationEmail({
+          patientEmail,
+          patientName: patientFirstName,
+          providerName,
+          appointmentDate: appointmentDateOnly,
+          appointmentTime: appointmentTimeOnly,
+          location,
+        });
 
-    logger.info('Appointment confirmation sent', {
-      appointmentId,
-      messageSid: message.sid,
-    });
+        if (emailResult.success) {
+          logger.info('Appointment confirmation email sent', { appointmentId });
+        }
+      } catch (emailErr) {
+        logger.error('Failed to send appointment confirmation email', {
+          appointmentId,
+          error: emailErr instanceof Error ? emailErr.message : 'Unknown',
+        });
+      }
+    }
 
-    return { success: true, messageId: message.sid };
+    return {
+      success: smsResult.success || emailResult.success,
+      messageId: smsResult.messageId,
+    };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('Failed to send appointment confirmation', { appointmentId, error: errorMessage });

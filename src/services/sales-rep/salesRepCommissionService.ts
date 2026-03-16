@@ -545,8 +545,34 @@ export async function processPaymentForSalesRepCommission(
       };
     }
 
+    // Reactivation window: if the plan defines reactivationDays and the patient's
+    // last payment was more than that many days ago, treat this as a new sale.
+    let effectiveIsFirstPayment = isFirstPayment;
+    if (!effectiveIsFirstPayment && plan.reactivationDays) {
+      const reactivationCutoff = new Date(
+        occurredAt.getTime() - plan.reactivationDays * 86_400_000
+      );
+      const recentPayment = await prisma.payment.findFirst({
+        where: {
+          patientId,
+          status: 'SUCCEEDED',
+          createdAt: { gte: reactivationCutoff },
+        },
+        select: { id: true },
+      });
+      if (!recentPayment) {
+        effectiveIsFirstPayment = true;
+        logger.info('[SalesRepCommission] Patient reactivated after lapse period', {
+          patientId,
+          salesRepId,
+          clinicId,
+          reactivationDays: plan.reactivationDays,
+        });
+      }
+    }
+
     // Check appliesTo policy — FIRST_PAYMENT_ONLY blocks ALL non-first payments
-    if (plan.appliesTo === 'FIRST_PAYMENT_ONLY' && !isFirstPayment) {
+    if (plan.appliesTo === 'FIRST_PAYMENT_ONLY' && !effectiveIsFirstPayment) {
       return {
         success: true,
         skipped: true,
@@ -554,7 +580,11 @@ export async function processPaymentForSalesRepCommission(
       };
     }
 
-    if (isRecurring && !plan.recurringEnabled) {
+    // Infer isRecurring when not explicitly provided by the webhook.
+    // If the patient has prior payments (effectiveIsFirstPayment=false), treat as recurring.
+    const effectiveIsRecurring = isRecurring ?? (effectiveIsFirstPayment === false);
+
+    if (effectiveIsRecurring && !plan.recurringEnabled) {
       return {
         success: true,
         skipped: true,
@@ -586,7 +616,7 @@ export async function processPaymentForSalesRepCommission(
         multiItemMinQuantity: plan.multiItemMinQuantity,
       },
       amountCents,
-      { isFirstPayment, isRecurring, recurringMonth, itemCount, productId, productBundleId }
+      { isFirstPayment: effectiveIsFirstPayment, isRecurring: effectiveIsRecurring, recurringMonth, itemCount, productId, productBundleId }
     );
 
     if (breakdown.totalCommissionCents <= 0) {
@@ -621,7 +651,7 @@ export async function processPaymentForSalesRepCommission(
             multiItemBonusCents: breakdown.multiItemBonusCents,
             commissionPlanId: plan.id,
             patientId,
-            isRecurring: isRecurring || false,
+            isRecurring: effectiveIsRecurring,
             recurringMonth: recurringMonth || null,
             status: 'PENDING',
             occurredAt,

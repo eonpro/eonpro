@@ -36,6 +36,8 @@ const createAppointmentSchema = z.object({
   notes: z.string().optional(),
   location: z.string().optional(),
   roomNumber: z.string().optional(),
+  sendEmail: z.boolean().optional().default(true),
+  sendSMS: z.boolean().optional().default(true),
 });
 
 const updateAppointmentSchema = z.object({
@@ -201,6 +203,7 @@ export const POST = withProviderAuth(async (req: NextRequest, user) => {
       location: parsed.data.location,
       roomNumber: parsed.data.roomNumber,
       createdById: user.id,
+      sendNotification: parsed.data.sendEmail || parsed.data.sendSMS,
     });
 
     if (!result.success) {

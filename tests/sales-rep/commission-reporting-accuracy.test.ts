@@ -35,6 +35,7 @@ const { mockPrisma, mockLogger } = vi.hoisted(() => {
       salesRepPlanAssignment: { findFirst: fn() },
       salesRepCommissionPlan: { findUnique: fn() },
       patientSalesRepAssignment: { findFirst: fn() },
+      clinic: { findUnique: fn() },
       user: { findFirst: fn() },
       payment: { count: fn() },
       $transaction: fn(),
@@ -45,6 +46,10 @@ const { mockPrisma, mockLogger } = vi.hoisted(() => {
 
 vi.mock('@/lib/db', () => ({ prisma: mockPrisma }));
 vi.mock('@/lib/logger', () => ({ logger: mockLogger }));
+vi.mock('@/lib/utils/timezone', () => ({
+  getDatePartsInTz: () => ({ year: 2026, month: 2, day: 10, dayOfWeek: 2 }),
+  midnightInTz: (y: number, m: number, d: number) => new Date(Date.UTC(y, m, d, 5, 0, 0)),
+}));
 
 import {
   processPaymentForSalesRepCommission,
@@ -66,6 +71,7 @@ function makePlan(overrides: Record<string, unknown> = {}) {
     multiItemBonusPercentBps: null, multiItemBonusFlatCents: null,
     multiItemMinQuantity: null,
     volumeTierEnabled: false, volumeTierWindow: null, volumeTierRetroactive: true,
+    reactivationDays: null,
     ...overrides,
   };
 }
@@ -92,6 +98,7 @@ function setupPipeline(planOverrides: Record<string, unknown> = {}) {
   mockPrisma.salesRepProductCommission.findMany.mockResolvedValue([]);
   mockPrisma.salesRepOverrideAssignment.findMany.mockResolvedValue([]);
   mockPrisma.salesRepCommissionEvent.count.mockResolvedValue(0);
+  mockPrisma.clinic.findUnique.mockResolvedValue({ timezone: 'America/New_York' });
 
   txCreateData = null;
   const txProxy = {

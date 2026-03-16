@@ -27,6 +27,9 @@ import {
   AlertCircle,
   Image as ImageIcon,
   Video,
+  Calendar,
+  MapPin,
+  Phone,
 } from 'lucide-react';
 import { useClinicBranding, usePortalFeatures } from '@/lib/contexts/ClinicBrandingContext';
 import { usePatientPortalLanguage } from '@/lib/contexts/PatientPortalLanguageContext';
@@ -120,6 +123,14 @@ export default function PatientPortalDashboard() {
     zoomJoinUrl?: string;
     videoLink?: string;
   } | null>(null);
+  const [upcomingAppointments, setUpcomingAppointments] = useState<Array<{
+    id: number;
+    title: string;
+    startTime: string;
+    type: string;
+    providerName?: string;
+    status: string;
+  }>>([]);
 
   const primaryColor = branding?.primaryColor || '#4fa77e';
   const accentColor = branding?.accentColor || '#d3f931';
@@ -270,6 +281,24 @@ export default function PatientPortalDashboard() {
               });
             }
           }
+        })
+        .catch(() => {});
+
+      portalFetch('/api/patient-portal/appointments?upcoming=true')
+        .then(async (res) => {
+          if (!res.ok) return;
+          const data = await res.json();
+          const appts = (data.appointments ?? data.data ?? []).slice(0, 3);
+          setUpcomingAppointments(
+            appts.map((apt: any) => ({
+              id: apt.id,
+              title: apt.title || apt.reason || 'Appointment',
+              startTime: apt.startTime,
+              type: apt.type || 'IN_PERSON',
+              providerName: apt.providerName ?? (apt.provider ? `${apt.provider.firstName} ${apt.provider.lastName}` : undefined),
+              status: apt.status || 'SCHEDULED',
+            }))
+          );
         })
         .catch(() => {});
 
@@ -835,6 +864,58 @@ export default function PatientPortalDashboard() {
                 </a>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Upcoming Appointments */}
+      {upcomingAppointments.length > 0 && (
+        <div className="mb-6">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-gray-900">Upcoming Appointments</h2>
+            <a
+              href="/patient-portal/appointments"
+              className="flex items-center gap-1 text-xs font-medium text-[var(--brand-primary)] hover:underline"
+            >
+              View all <ChevronRight className="h-3 w-3" />
+            </a>
+          </div>
+          <div className="space-y-2">
+            {upcomingAppointments.map((apt) => (
+              <a
+                key={apt.id}
+                href={apt.type === 'VIDEO'
+                  ? `/patient-portal/telehealth?appointmentId=${apt.id}`
+                  : `/patient-portal/appointments`}
+                className="flex items-center gap-4 rounded-xl border border-gray-200 bg-white px-4 py-3 transition-colors hover:bg-gray-50"
+              >
+                <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${
+                  apt.type === 'VIDEO' ? 'bg-blue-100' : apt.type === 'PHONE' ? 'bg-purple-100' : 'bg-gray-100'
+                }`}>
+                  {apt.type === 'VIDEO' ? (
+                    <Video className="h-5 w-5 text-blue-600" />
+                  ) : apt.type === 'PHONE' ? (
+                    <Phone className="h-5 w-5 text-purple-600" />
+                  ) : (
+                    <MapPin className="h-5 w-5 text-gray-600" />
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-gray-900">{apt.title}</p>
+                  <p className="text-xs text-gray-500">
+                    {apt.providerName && `${apt.providerName} · `}
+                    {new Date(apt.startTime).toLocaleString('en-US', {
+                      weekday: 'short',
+                      month: 'short',
+                      day: 'numeric',
+                      hour: 'numeric',
+                      minute: '2-digit',
+                    })}
+                  </p>
+                </div>
+                <ChevronRight className="h-4 w-4 shrink-0 text-gray-400" />
+              </a>
+            ))}
           </div>
         </div>
       )}

@@ -491,6 +491,65 @@ async function processWebhookEvent(
           }
         }
 
+        // Process sales rep commission for paid invoices
+        let salesRepCommResult = null;
+        if (invoice.status === 'paid' && processPaymentForSalesRepCommission) {
+          try {
+            const amountPaidCents = invoice.amount_paid || 0;
+            if (amountPaidCents > 0) {
+              // Resolve patient from subscription or invoice customer
+              let invPatientId: number | undefined;
+              let invClinicId: number | undefined;
+
+              if (invoiceSubscriptionId) {
+                const sub = await prisma.subscription.findUnique({
+                  where: { stripeSubscriptionId: invoiceSubscriptionId },
+                  select: { patientId: true, clinicId: true },
+                });
+                invPatientId = sub?.patientId;
+                invClinicId = sub?.clinicId ?? undefined;
+              }
+              if (!invClinicId && resolvedClinicId > 0) {
+                invClinicId = resolvedClinicId;
+              }
+
+              if (invPatientId && invClinicId) {
+                const paymentIntentId =
+                  typeof (invoice as any).payment_intent === 'string'
+                    ? (invoice as any).payment_intent
+                    : (invoice as any).payment_intent?.id;
+                const isFirst = checkIfFirstPaymentForSalesRep
+                  ? await checkIfFirstPaymentForSalesRep(invPatientId, paymentIntentId || undefined)
+                  : true;
+
+                const billingReason = (invoice as any).billing_reason as string | undefined;
+                const isRecurringInvoice =
+                  billingReason === 'subscription_cycle' ||
+                  billingReason === 'subscription_update';
+
+                salesRepCommResult = await processPaymentForSalesRepCommission({
+                  clinicId: invClinicId,
+                  patientId: invPatientId,
+                  stripeEventId: event.id,
+                  stripeObjectId: invoice.id,
+                  stripeEventType: event.type,
+                  amountCents: amountPaidCents,
+                  occurredAt: invoice.status_transitions?.paid_at
+                    ? new Date(invoice.status_transitions.paid_at * 1000)
+                    : new Date(),
+                  isFirstPayment: isFirst,
+                  isRecurring: isRecurringInvoice,
+                });
+              }
+            }
+          } catch (e) {
+            logger.warn('[STRIPE WEBHOOK] Failed to process sales rep commission for invoice', {
+              error: e instanceof Error ? e.message : 'Unknown error',
+              invoiceId: invoice.id,
+            });
+          }
+        }
+
         return {
           success: true,
           details: {
@@ -498,6 +557,7 @@ async function processWebhookEvent(
             status: invoice.status,
             subscriptionRefillTriggered: refillTriggered,
             billingReason: invoice.billing_reason,
+            salesRepCommission: salesRepCommResult ? 'processed' : 'skipped',
           },
         };
       }

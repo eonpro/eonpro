@@ -101,6 +101,11 @@ model SalesRepCommissionPlan {
   multiItemBonusFlatCents  Int?
   multiItemMinQuantity     Int?    // apply when item count >= this (default 2)
 
+  // Reactivation window: if a patient's last payment was more than this many days ago,
+  // treat their next payment as a "new sale" for commission purposes (resets FIRST_PAYMENT_ONLY).
+  // Null means no reactivation window (standard behavior: once a patient pays, all future payments are recurring).
+  reactivationDays  Int?
+
   // Volume-based weekly tiers (e.g. 1-8 sales $5 each, 9-20 sales $10 each, 21+ sales $15 each)
   volumeTierEnabled    Boolean @default(false)
   volumeTierWindow     String? // 'CALENDAR_WEEK_MON_SUN' | 'REPORT_PERIOD'

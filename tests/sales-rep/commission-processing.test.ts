@@ -31,6 +31,7 @@ const { mockPrisma, mockLogger } = vi.hoisted(() => {
       salesRepPlanAssignment: { findFirst: fn() },
       salesRepCommissionPlan: { findUnique: fn() },
       patientSalesRepAssignment: { findFirst: fn() },
+      clinic: { findUnique: fn() },
       user: { findFirst: fn() },
       payment: { count: fn() },
       $transaction: fn(),
@@ -41,6 +42,10 @@ const { mockPrisma, mockLogger } = vi.hoisted(() => {
 
 vi.mock('@/lib/db', () => ({ prisma: mockPrisma }));
 vi.mock('@/lib/logger', () => ({ logger: mockLogger }));
+vi.mock('@/lib/utils/timezone', () => ({
+  getDatePartsInTz: () => ({ year: 2026, month: 2, day: 10, dayOfWeek: 2 }),
+  midnightInTz: (y: number, m: number, d: number) => new Date(Date.UTC(y, m, d, 5, 0, 0)),
+}));
 
 import {
   processPaymentForSalesRepCommission,
@@ -60,6 +65,7 @@ function makePlan(overrides: Record<string, unknown> = {}) {
     multiItemBonusPercentBps: null, multiItemBonusFlatCents: null,
     multiItemMinQuantity: null,
     volumeTierEnabled: false, volumeTierWindow: null, volumeTierRetroactive: true,
+    reactivationDays: null,
     ...overrides,
   };
 }
@@ -84,6 +90,7 @@ function setupHappyPath(planOverrides: Record<string, unknown> = {}) {
   mockPrisma.salesRepVolumeCommissionTier.findMany.mockResolvedValue([]);
   mockPrisma.salesRepProductCommission.findMany.mockResolvedValue([]);
   mockPrisma.salesRepOverrideAssignment.findMany.mockResolvedValue([]);
+  mockPrisma.clinic.findUnique.mockResolvedValue({ timezone: 'America/New_York' });
 
   const createdEvent = { id: 99, salesRepId: 10, clinicId: 1, commissionAmountCents: 5000 };
   const txProxy = {
@@ -173,12 +180,14 @@ describe('processPaymentForSalesRepCommission', () => {
     it('handles P2002 unique constraint race condition', async () => {
       mockPrisma.salesRepCommissionEvent.findFirst
         .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(null)
         .mockResolvedValueOnce({ id: 51 });
       mockPrisma.patientSalesRepAssignment.findFirst.mockResolvedValue({ salesRepId: 10 });
       mockPrisma.user.findFirst.mockResolvedValue({ id: 10 });
       mockPrisma.salesRepPlanAssignment.findFirst.mockResolvedValue({ commissionPlan: makePlan() });
       mockPrisma.salesRepVolumeCommissionTier.findMany.mockResolvedValue([]);
       mockPrisma.salesRepProductCommission.findMany.mockResolvedValue([]);
+      mockPrisma.clinic.findUnique.mockResolvedValue({ timezone: 'America/New_York' });
 
       const p2002Error = Object.assign(new Error('Unique constraint'), { code: 'P2002' });
       mockPrisma.$transaction.mockRejectedValue(p2002Error);

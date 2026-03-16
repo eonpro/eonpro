@@ -26,15 +26,14 @@ export const NAV_MODULES: readonly PortalNavModule[] = [
     exact: true,
     defaultOn: true,
   },
-  // TODO: Re-enable provider appointments when scheduling integration is ready
-  // {
-  //   id: 'appointments',
-  //   pathSuffix: '/appointments',
-  //   labelKey: 'navAppointments',
-  //   featureFlagKey: 'showAppointments',
-  //   navSlot: 'both',
-  //   defaultOn: true,
-  // },
+  {
+    id: 'appointments',
+    pathSuffix: '/appointments',
+    labelKey: 'navAppointments',
+    featureFlagKey: 'showAppointments',
+    navSlot: 'both',
+    defaultOn: true,
+  },
   // Disabled until care plan content is ready
   // {
   //   id: 'care-plan',

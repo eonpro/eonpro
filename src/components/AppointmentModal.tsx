@@ -279,7 +279,6 @@ export default function AppointmentModal({
         phone: 'PHONE',
       };
 
-      // Create appointment via API - this will also create the Zoom meeting
       const appointmentPayload = {
         clinicId: clinicId,
         patientId: patientId,
@@ -291,6 +290,8 @@ export default function AppointmentModal({
         reason: formData.reason || undefined,
         notes: formData.notes || undefined,
         title: `Appointment with ${formData.patientFirstName} ${formData.patientLastName}`,
+        sendEmail: formData.sendEmail,
+        sendSMS: formData.sendSMS,
       };
 
       const response = await apiFetch('/api/scheduling/appointments', {

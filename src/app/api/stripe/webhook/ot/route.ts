@@ -807,6 +807,13 @@ async function processOTWebhookEvent(
               const isFirst = checkIfFirstPaymentForSalesRep
                 ? await checkIfFirstPaymentForSalesRep(dbInvoice.patientId, paymentIntentId || undefined)
                 : true;
+
+              // Derive isRecurring from Stripe's billing_reason (authoritative signal)
+              const billingReason = (invoice as any).billing_reason as string | undefined;
+              const isRecurringInvoice =
+                billingReason === 'subscription_cycle' ||
+                billingReason === 'subscription_update';
+
               salesRepCommResult = await processPaymentForSalesRepCommission({
                 clinicId,
                 patientId: dbInvoice.patientId,
@@ -818,7 +825,7 @@ async function processOTWebhookEvent(
                   ? new Date(invoice.status_transitions.paid_at * 1000)
                   : new Date(),
                 isFirstPayment: isFirst,
-                isRecurring: false,
+                isRecurring: isRecurringInvoice,
               });
             }
           } catch (e) {

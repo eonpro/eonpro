@@ -42,6 +42,7 @@ export interface CreateAppointmentInput {
   location?: string;
   roomNumber?: string;
   createdById?: number;
+  sendNotification?: boolean;
 }
 
 export interface UpdateAppointmentInput {
@@ -307,6 +308,15 @@ export async function createAppointment(input: CreateAppointmentInput): Promise<
       startTime: input.startTime,
       type: input.type,
     });
+
+    if (input.sendNotification !== false) {
+      sendAppointmentConfirmation(finalAppointment.id).catch((err) => {
+        logger.error('Failed to send appointment confirmation (non-blocking)', {
+          appointmentId: finalAppointment.id,
+          error: err instanceof Error ? err.message : 'Unknown',
+        });
+      });
+    }
 
     return { success: true, appointment: finalAppointment };
   } catch (error) {
