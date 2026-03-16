@@ -66,46 +66,45 @@ export const POST = withProviderAuth(async (req: NextRequest, user: AuthUser) =>
     let password: string | undefined;
     let uuid: string | undefined;
 
-    if (clinicId) {
-      const hasClinicZoom = await isClinicZoomConfigured(clinicId);
-      if (hasClinicZoom) {
-        const clinicMeeting = await createClinicZoomMeeting(clinicId, {
-          topic,
-          duration,
-          startTime: appointment.startTime ?? undefined,
-          agenda: `Virtual consultation — appointment #${appointmentId}`,
-        });
+    let meetingCreated = false;
 
-        if (clinicMeeting) {
-          meetingId = String(clinicMeeting.id);
-          joinUrl = clinicMeeting.join_url;
-          startUrl = clinicMeeting.start_url;
-          password = clinicMeeting.password;
-          uuid = clinicMeeting.uuid;
-        } else {
-          return NextResponse.json(
-            { error: 'Failed to create meeting with clinic Zoom account' },
-            { status: 502 }
-          );
+    // Try clinic-specific Zoom first, then fall back to platform credentials
+    if (clinicId) {
+      try {
+        const hasClinicZoom = await isClinicZoomConfigured(clinicId);
+        if (hasClinicZoom) {
+          const clinicMeeting = await createClinicZoomMeeting(clinicId, {
+            topic,
+            duration,
+            startTime: appointment.startTime ?? undefined,
+            agenda: `Virtual consultation — appointment #${appointmentId}`,
+          });
+
+          if (clinicMeeting) {
+            meetingId = String(clinicMeeting.id);
+            joinUrl = clinicMeeting.join_url;
+            startUrl = clinicMeeting.start_url;
+            password = clinicMeeting.password;
+            uuid = clinicMeeting.uuid;
+            meetingCreated = true;
+          } else {
+            logger.warn('[ZOOM_PROVISION] Clinic Zoom failed, trying platform fallback', {
+              clinicId,
+              appointmentId,
+            });
+          }
         }
-      } else if (isZoomConfigured()) {
-        const platformMeeting = await createZoomMeeting({
-          topic,
-          duration,
-          patientId: appointment.patientId,
-          providerId: appointment.providerId,
-          scheduledAt: appointment.startTime ?? undefined,
-          agenda: `Virtual consultation — appointment #${appointmentId}`,
+      } catch (clinicErr) {
+        logger.warn('[ZOOM_PROVISION] Clinic Zoom error, trying platform fallback', {
+          clinicId,
+          appointmentId,
+          error: clinicErr instanceof Error ? clinicErr.message : 'Unknown',
         });
-        meetingId = String(platformMeeting.id);
-        joinUrl = platformMeeting.joinUrl;
-        startUrl = platformMeeting.startUrl;
-        password = platformMeeting.password;
-        uuid = platformMeeting.uuid;
-      } else {
-        return NextResponse.json({ error: 'Zoom credentials not configured' }, { status: 503 });
       }
-    } else if (isZoomConfigured()) {
+    }
+
+    // Platform fallback
+    if (!meetingCreated && isZoomConfigured()) {
       const platformMeeting = await createZoomMeeting({
         topic,
         duration,
@@ -119,8 +118,14 @@ export const POST = withProviderAuth(async (req: NextRequest, user: AuthUser) =>
       startUrl = platformMeeting.startUrl;
       password = platformMeeting.password;
       uuid = platformMeeting.uuid;
-    } else {
-      return NextResponse.json({ error: 'Zoom credentials not configured' }, { status: 503 });
+      meetingCreated = true;
+    }
+
+    if (!meetingCreated) {
+      return NextResponse.json(
+        { error: 'Zoom is not configured. Please set up Zoom credentials in Admin > Integrations.' },
+        { status: 503 }
+      );
     }
 
     await prisma.$transaction(async (tx) => {

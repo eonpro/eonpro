@@ -229,20 +229,23 @@ export default function SalesRepsPage() {
           <p className="text-gray-500">Performance & commission reporting for payroll</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <button onClick={() => { window.location.href = '/super-admin/sales-reps/commission-plans'; }} className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
+          <a href="/super-admin/sales-reps/payroll" className="flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700">
+            <BadgeDollarSign className="h-4 w-4" /> Payroll Center
+          </a>
+          <a href="/super-admin/sales-reps/commission-plans" className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
             <BadgeDollarSign className="h-4 w-4" /> Commission Plans
-          </button>
-          <button onClick={() => { window.location.href = '/super-admin/sales-reps/overrides'; }} className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
+          </a>
+          <a href="/super-admin/sales-reps/overrides" className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
             <Users className="h-4 w-4" /> Override Managers
-          </button>
+          </a>
           <button onClick={fetchData} disabled={loading} className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50">
             <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /> Refresh
           </button>
           <button onClick={handleExportCsv} disabled={!data || filteredReps.length === 0} className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50">
             <Download className="h-4 w-4" /> Summary CSV
           </button>
-          <button onClick={handleDownloadPayrollReport} disabled={!data || downloadingPayroll} className="flex items-center gap-2 rounded-lg bg-[var(--brand-primary)] px-4 py-2 text-sm font-medium text-white hover:bg-[#3d8a66] disabled:opacity-50">
-            <Download className={`h-4 w-4 ${downloadingPayroll ? 'animate-spin' : ''}`} /> {downloadingPayroll ? 'Downloading...' : 'Detailed Payroll Report'}
+          <button onClick={handleDownloadPayrollReport} disabled={!data || downloadingPayroll} className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50">
+            <Download className={`h-4 w-4 ${downloadingPayroll ? 'animate-spin' : ''}`} /> {downloadingPayroll ? 'Downloading...' : 'Export CSV'}
           </button>
         </div>
       </div>
