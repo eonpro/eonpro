@@ -91,7 +91,6 @@ export default function ConditionalHeader() {
   const visibleLinks = navLinks.filter((link) => link.roles.includes(userRole));
 
   const noHeaderPages = [
-    '/',
     '/login',
     '/patient-login',
     '/register',
@@ -115,7 +114,7 @@ export default function ConditionalHeader() {
   ];
 
   const isNoHeaderPage =
-    noHeaderPages.some((page) => pathname?.startsWith(page));
+    pathname === '/' || noHeaderPages.some((page) => pathname?.startsWith(page));
   const multiClinicEnabled = process.env.NEXT_PUBLIC_ENABLE_MULTI_CLINIC === 'true';
 
   if (isNoHeaderPage) {

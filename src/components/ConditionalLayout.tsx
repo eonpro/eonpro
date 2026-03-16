@@ -37,7 +37,8 @@ export default function ConditionalLayout({ children }: ConditionalLayoutProps) 
     '/dashboard',
   ];
 
-  const isFullWidthPage = fullWidthPages.some((page) => pathname?.startsWith(page));
+  const isFullWidthPage =
+    pathname === '/' || fullWidthPages.some((page) => pathname?.startsWith(page));
 
   if (isFullWidthPage) {
     // Return children without wrapper for full-width pages
