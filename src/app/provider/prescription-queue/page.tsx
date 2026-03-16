@@ -704,6 +704,12 @@ export default function PrescriptionQueuePage() {
         setPrescriptionPanel(null);
         setSuccessMessage(`Prescription for ${patientName} approved and sent to pharmacy.`);
         setSuccessLifefileId(lifefileId ? String(lifefileId) : null);
+      } else if (res.status === 409) {
+        setQueueItems((prev) => prev.filter((i) => (i as QueueItem).orderId !== orderId));
+        setTotal((prev) => Math.max(0, prev - 1));
+        setPrescriptionPanel(null);
+        setError('This prescription was already sent by another provider.');
+        fetchQueue();
       } else {
         setError(data.error || data.details || 'Failed to send to pharmacy');
       }
@@ -1070,8 +1076,7 @@ export default function PrescriptionQueuePage() {
         const successData = await response.json();
         const lifefileId = successData?.order?.lifefileOrderId ?? null;
 
-        // Remove item from queue immediately (backend auto-marks invoice as processed)
-        // Handle all queue types: invoice, refill, queued_order
+        // Remove item from queue immediately (backend atomically claimed invoice/refill)
         if (item.queueType === 'refill' && item.refillId) {
           setQueueItems((prev) => prev.filter((qi) => !(qi.queueType === 'refill' && qi.refillId === item.refillId)));
         } else if (item.invoiceId) {
@@ -1083,9 +1088,20 @@ export default function PrescriptionQueuePage() {
         setShowConfirmation(false);
         setSuccessMessage(`Prescription for ${item.patientName} sent to pharmacy successfully!`);
         setSuccessLifefileId(lifefileId ? String(lifefileId) : null);
+      } else if (response.status === 409) {
+        // Another provider already sent this prescription — remove from local queue and refresh
+        if (item.queueType === 'refill' && item.refillId) {
+          setQueueItems((prev) => prev.filter((qi) => !(qi.queueType === 'refill' && qi.refillId === item.refillId)));
+        } else if (item.invoiceId) {
+          setQueueItems((prev) => prev.filter((qi) => qi.invoiceId !== item.invoiceId));
+        }
+        setTotal((prev) => Math.max(0, prev - 1));
+        setPrescriptionPanel(null);
+        setShowConfirmation(false);
+        setError('This prescription was already sent by another provider.');
+        fetchQueue();
       } else {
         const errorData = await response.json();
-        // Build a message that includes the reason so the user can correct it
         let errorMessage = errorData.error || 'Failed to submit prescription';
 
         if (errorData.code === 'INVALID_PHARMACY_GENDER') {
@@ -1142,6 +1158,7 @@ export default function PrescriptionQueuePage() {
       });
 
       if (response.ok) {
+        const data = await response.json();
         setQueueItems((prev) =>
           prev.filter((qi) => {
             if (item.queueType === 'refill' && item.refillId) {
@@ -1152,7 +1169,10 @@ export default function PrescriptionQueuePage() {
         );
         setTotal((prev) => Math.max(0, prev - 1));
         if (showMessage) {
-          setSuccessMessage(`Prescription for ${item.patientName} marked as processed`);
+          const msg = data.message?.includes('another provider')
+            ? `Already processed by another provider`
+            : `Prescription for ${item.patientName} marked as processed`;
+          setSuccessMessage(msg);
           setSuccessLifefileId(null);
           setTimeout(() => setSuccessMessage(''), 3000);
         }

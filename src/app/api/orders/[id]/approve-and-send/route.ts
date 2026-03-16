@@ -56,16 +56,6 @@ async function handler(req: NextRequest, user: AuthUser, context?: Params) {
 
     if (!order) return tenantNotFoundResponse();
 
-    if (order.status !== 'queued_for_provider') {
-      return NextResponse.json(
-        {
-          error:
-            'Order is not awaiting provider approval. Only queued prescriptions can be approved and sent.',
-        },
-        { status: 400 }
-      );
-    }
-
     if (
       order.clinicId != null &&
       !providerClinicIds.includes(order.clinicId) &&
@@ -74,8 +64,37 @@ async function handler(req: NextRequest, user: AuthUser, context?: Params) {
       return tenantNotFoundResponse();
     }
 
+    // DUPLICATE PREVENTION: Atomically transition from queued_for_provider -> processing.
+    // Only one provider can win this compare-and-swap; the loser gets a 409.
+    const claimed = await prisma.order.updateMany({
+      where: { id: orderId, status: 'queued_for_provider' },
+      data: { status: 'processing', approvedByUserId: user.id, approvedAt: new Date() },
+    });
+
+    if (claimed.count === 0) {
+      if (order.status !== 'queued_for_provider') {
+        return NextResponse.json(
+          { error: 'Order is not awaiting provider approval. Only queued prescriptions can be approved and sent.' },
+          { status: 400 }
+        );
+      }
+      return NextResponse.json(
+        { error: 'This prescription is already being processed by another provider.', code: 'DUPLICATE_BLOCKED' },
+        { status: 409 }
+      );
+    }
+
+    // Helper to rollback the atomic claim if validation fails after claiming
+    const rollbackClaim = async () => {
+      await prisma.order.update({
+        where: { id: orderId },
+        data: { status: 'queued_for_provider', approvedByUserId: null, approvedAt: null },
+      });
+    };
+
     const requestJson = order.requestJson;
     if (!requestJson || typeof requestJson !== 'string') {
+      await rollbackClaim();
       return NextResponse.json(
         { error: 'Order payload missing. Cannot send to pharmacy.' },
         { status: 400 }
@@ -85,14 +104,13 @@ async function handler(req: NextRequest, user: AuthUser, context?: Params) {
     const { safeParseJsonString } = await import('@/lib/utils/safe-json');
     const payload = safeParseJsonString<LifefileOrderPayload>(requestJson);
     if (!payload) {
+      await rollbackClaim();
       return NextResponse.json(
         { error: 'Invalid order payload. Cannot send to pharmacy.' },
         { status: 400 }
       );
     }
 
-    // CRITICAL: Validate and fix gender before sending to Lifefile.
-    // The payload may have been created with 'other' gender which Lifefile rejects.
     if (payload.order?.patient?.gender) {
       const g = payload.order.patient.gender.toLowerCase().trim();
       if (g === 'm' || g === 'male') {
@@ -100,7 +118,7 @@ async function handler(req: NextRequest, user: AuthUser, context?: Params) {
       } else if (g === 'f' || g === 'female') {
         payload.order.patient.gender = 'f';
       } else {
-        // Invalid gender for Lifefile - reject with clear message
+        await rollbackClaim();
         return NextResponse.json(
           {
             error: 'Pharmacy requires biological sex (Male or Female) for this patient. Please update patient gender and re-queue.',
@@ -114,6 +132,7 @@ async function handler(req: NextRequest, user: AuthUser, context?: Params) {
     const clinicClient = order.clinicId ? await getClinicLifefileClient(order.clinicId) : null;
     const client = clinicClient ?? lifefile;
     if (!clinicClient && !getEnvCredentials()) {
+      await rollbackClaim();
       return NextResponse.json(
         { error: 'Lifefile not configured for this clinic' },
         { status: 400 }
@@ -129,10 +148,13 @@ async function handler(req: NextRequest, user: AuthUser, context?: Params) {
         orderId: order.id,
         error: errorMessage,
       });
+      // Rollback to queued_for_provider so the item reappears in the queue for retry
       await prisma.order.update({
         where: { id: order.id },
         data: {
-          status: 'error',
+          status: 'queued_for_provider',
+          approvedByUserId: null,
+          approvedAt: null,
           errorMessage: `Lifefile submission failed: ${errorMessage}`,
         },
       });
@@ -163,8 +185,6 @@ async function handler(req: NextRequest, user: AuthUser, context?: Params) {
         lifefileOrderId: lifefileOrderId != null ? String(lifefileOrderId) : undefined,
         status: orderResponse?.status ?? 'sent',
         responseJson: JSON.stringify(orderResponse),
-        approvedByUserId: user.id,
-        approvedAt: new Date(),
       },
     });
 

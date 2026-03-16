@@ -632,6 +632,66 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
       );
     }
 
+    // DUPLICATE PREVENTION: Atomically claim the invoice/refill before processing.
+    // Uses conditional updateMany as a compare-and-swap — only one provider can claim.
+    let invoiceClaimed = false;
+    let refillClaimed = false;
+
+    if (p.invoiceId) {
+      const claimed = await prisma.invoice.updateMany({
+        where: {
+          id: p.invoiceId,
+          prescriptionProcessed: false,
+        },
+        data: {
+          prescriptionProcessed: true,
+          prescriptionProcessedAt: new Date(),
+          prescriptionProcessedBy: user.providerId ?? null,
+        },
+      });
+      if (claimed.count === 0) {
+        logger.warn('[PRESCRIPTIONS] Invoice already claimed by another provider', {
+          invoiceId: p.invoiceId,
+          userId: user.id,
+        });
+        return NextResponse.json(
+          { error: 'This prescription has already been sent by another provider.', code: 'DUPLICATE_BLOCKED' },
+          { status: 409 }
+        );
+      }
+      invoiceClaimed = true;
+    }
+
+    if (p.refillId) {
+      const claimed = await prisma.refillQueue.updateMany({
+        where: {
+          id: p.refillId,
+          status: { in: ['APPROVED', 'PENDING_PROVIDER'] },
+        },
+        data: {
+          status: 'PRESCRIBED',
+        },
+      });
+      if (claimed.count === 0) {
+        // Rollback invoice claim if we already took it
+        if (invoiceClaimed && p.invoiceId) {
+          await prisma.invoice.update({
+            where: { id: p.invoiceId },
+            data: { prescriptionProcessed: false, prescriptionProcessedBy: null, prescriptionProcessedAt: null },
+          });
+        }
+        logger.warn('[PRESCRIPTIONS] Refill already claimed by another provider', {
+          refillId: p.refillId,
+          userId: user.id,
+        });
+        return NextResponse.json(
+          { error: 'This refill has already been prescribed by another provider.', code: 'DUPLICATE_BLOCKED' },
+          { status: 409 }
+        );
+      }
+      refillClaimed = true;
+    }
+
     try {
       // ENTERPRISE: Atomic transaction for prescription creation
       // This ensures all records are created together or none at all
@@ -922,6 +982,32 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
           },
         });
 
+        // Rollback atomic claims so the queue item reappears for another attempt
+        if (invoiceClaimed && p.invoiceId) {
+          try {
+            await prisma.invoice.update({
+              where: { id: p.invoiceId },
+              data: { prescriptionProcessed: false, prescriptionProcessedBy: null, prescriptionProcessedAt: null },
+            });
+          } catch (rollbackErr) {
+            logger.error('[PRESCRIPTIONS] Failed to rollback invoice claim', {
+              invoiceId: p.invoiceId, error: rollbackErr instanceof Error ? rollbackErr.message : 'Unknown',
+            });
+          }
+        }
+        if (refillClaimed && p.refillId) {
+          try {
+            await prisma.refillQueue.update({
+              where: { id: p.refillId },
+              data: { status: 'APPROVED' },
+            });
+          } catch (rollbackErr) {
+            logger.error('[PRESCRIPTIONS] Failed to rollback refill claim', {
+              refillId: p.refillId, error: rollbackErr instanceof Error ? rollbackErr.message : 'Unknown',
+            });
+          }
+        }
+
         return NextResponse.json(
           {
             error: 'The pharmacy could not accept this order. Check the reason below and update the patient profile if needed, then try again.',
@@ -953,32 +1039,8 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
         },
       });
 
-      // CRITICAL: Auto-mark invoice as processed after successful Lifefile submission.
-      // This prevents the prescription from staying in the queue when the frontend's
-      // separate PATCH call fails (network issue, timeout, etc.)
-      if (p.invoiceId) {
-        try {
-          await prisma.invoice.update({
-            where: { id: p.invoiceId },
-            data: {
-              prescriptionProcessed: true,
-              prescriptionProcessedAt: new Date(),
-              prescriptionProcessedBy: user.providerId ?? null,
-            },
-          });
-          logger.info('[PRESCRIPTIONS] Invoice auto-marked as processed', {
-            invoiceId: p.invoiceId,
-            orderId: order.id,
-          });
-        } catch (invoiceErr) {
-          // Non-fatal: prescription was sent successfully, invoice marking is secondary
-          logger.error('[PRESCRIPTIONS] Failed to auto-mark invoice as processed', {
-            invoiceId: p.invoiceId,
-            orderId: order.id,
-            error: invoiceErr instanceof Error ? invoiceErr.message : 'Unknown error',
-          });
-        }
-      }
+      // Invoice was already atomically claimed before processing (duplicate prevention).
+      // No need to mark it again here.
 
       // Handle refill queue if this prescription is from a refill request
       let refillResult = null;
@@ -1149,6 +1211,33 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
       } catch (dbErr: unknown) {
         logger.error('Failed to update order error state:', { value: dbErr });
       }
+
+      // Rollback atomic claims so the queue item reappears for retry
+      if (invoiceClaimed && p.invoiceId) {
+        try {
+          await prisma.invoice.update({
+            where: { id: p.invoiceId },
+            data: { prescriptionProcessed: false, prescriptionProcessedBy: null, prescriptionProcessedAt: null },
+          });
+        } catch (rollbackErr) {
+          logger.error('[PRESCRIPTIONS] Failed to rollback invoice claim on error', {
+            invoiceId: p.invoiceId, error: rollbackErr instanceof Error ? rollbackErr.message : 'Unknown',
+          });
+        }
+      }
+      if (refillClaimed && p.refillId) {
+        try {
+          await prisma.refillQueue.update({
+            where: { id: p.refillId },
+            data: { status: 'APPROVED' },
+          });
+        } catch (rollbackErr) {
+          logger.error('[PRESCRIPTIONS] Failed to rollback refill claim on error', {
+            refillId: p.refillId, error: rollbackErr instanceof Error ? rollbackErr.message : 'Unknown',
+          });
+        }
+      }
+
       return NextResponse.json(
         {
           error: 'The pharmacy could not accept this order. Check the reason below and update the patient profile if needed, then try again.',
@@ -1161,6 +1250,25 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
   } catch (err: unknown) {
     const errorMessage = err instanceof Error ? err.message : 'Unknown error';
     logger.error('[PRESCRIPTIONS/POST] Unexpected error:', err);
+
+    // Safety rollback: release claims if they were taken before this catch fired
+    if (invoiceClaimed && p.invoiceId) {
+      try {
+        await prisma.invoice.update({
+          where: { id: p.invoiceId },
+          data: { prescriptionProcessed: false, prescriptionProcessedBy: null, prescriptionProcessedAt: null },
+        });
+      } catch { /* best-effort rollback */ }
+    }
+    if (refillClaimed && p.refillId) {
+      try {
+        await prisma.refillQueue.update({
+          where: { id: p.refillId },
+          data: { status: 'APPROVED' },
+        });
+      } catch { /* best-effort rollback */ }
+    }
+
     // P2024 / connection pool exhaustion: return 503 so client can retry (matches login, messages)
     const isPoolExhausted =
       err?.code === 'P2024' ||

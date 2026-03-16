@@ -1837,22 +1837,22 @@ async function handlePatch(req: NextRequest, user: AuthUser) {
 
     // ── Mark Processed (legacy default) ────────────────────────────────────
 
-    // Handle refill-based queue items
+    // Handle refill-based queue items (atomic to prevent duplicate processing)
     if (refillId && !invoiceId) {
-      const refill = await prisma.refillQueue.findFirst({
+      const result = await prisma.refillQueue.updateMany({
         where: {
           id: refillId,
           clinicId: { in: clinicIds },
           status: { in: ['APPROVED', 'PENDING_PROVIDER'] },
         },
-        include: {
-          patient: {
-            select: { id: true, firstName: true, lastName: true },
-          },
+        data: {
+          status: 'PRESCRIBED',
+          prescribedAt: new Date(),
+          prescribedBy: providerId,
         },
       });
 
-      if (!refill) {
+      if (result.count === 0) {
         const alreadyPrescribed = await prisma.refillQueue.findFirst({
           where: { id: refillId, clinicId: { in: clinicIds }, status: 'PRESCRIBED' },
           select: { id: true, status: true },
@@ -1860,7 +1860,7 @@ async function handlePatch(req: NextRequest, user: AuthUser) {
         if (alreadyPrescribed) {
           return NextResponse.json({
             success: true,
-            message: 'Refill already marked as processed',
+            message: 'Refill already marked as processed by another provider',
             refill: { id: alreadyPrescribed.id, status: alreadyPrescribed.status },
           });
         }
@@ -1870,62 +1870,35 @@ async function handlePatch(req: NextRequest, user: AuthUser) {
         );
       }
 
-      const updatedRefill = await prisma.refillQueue.update({
-        where: { id: refillId },
-        data: {
-          status: 'PRESCRIBED',
-          prescribedAt: new Date(),
-          prescribedBy: providerId,
-        },
-      });
-
-      logger.info('[PRESCRIPTION-QUEUE] Refill marked as processed', {
+      logger.info('[PRESCRIPTION-QUEUE] Refill marked as processed (atomic)', {
         refillId,
-        patientId: refill.patient.id,
         processedBy: user.email,
         providerId,
-        clinicId: refill.clinicId,
       });
 
       return NextResponse.json({
         success: true,
         message: 'Refill prescription marked as processed',
-        refill: {
-          id: updatedRefill.id,
-          status: updatedRefill.status,
-        },
+        refill: { id: refillId, status: 'PRESCRIBED' },
       });
     }
 
-    // Handle invoice-based queue items
-    const invoice = await prisma.invoice.findFirst({
+    // Handle invoice-based queue items (atomic to prevent duplicate processing)
+    const result = await prisma.invoice.updateMany({
       where: {
         id: invoiceId,
         clinicId: { in: clinicIds },
         status: 'PAID',
         prescriptionProcessed: false,
       },
-      include: {
-        clinic: {
-          select: {
-            id: true,
-            name: true,
-            subdomain: true,
-            lifefileEnabled: true,
-          },
-        },
-        patient: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            clinicId: true,
-          },
-        },
+      data: {
+        prescriptionProcessed: true,
+        prescriptionProcessedAt: new Date(),
+        prescriptionProcessedBy: providerId,
       },
     });
 
-    if (!invoice) {
+    if (result.count === 0) {
       const alreadyProcessed = await prisma.invoice.findFirst({
         where: { id: invoiceId, clinicId: { in: clinicIds }, prescriptionProcessed: true },
         select: { id: true, prescriptionProcessedAt: true },
@@ -1933,7 +1906,7 @@ async function handlePatch(req: NextRequest, user: AuthUser) {
       if (alreadyProcessed) {
         return NextResponse.json({
           success: true,
-          message: 'Invoice already marked as processed',
+          message: 'Already processed by another provider',
           invoice: {
             id: alreadyProcessed.id,
             prescriptionProcessed: true,
@@ -1948,41 +1921,20 @@ async function handlePatch(req: NextRequest, user: AuthUser) {
       );
     }
 
-    if (invoice.patient.clinicId !== invoice.clinicId) {
-      logger.warn('Clinic mismatch: patient clinic differs from invoice clinic', {
-        invoiceId,
-        invoiceClinicId: invoice.clinicId,
-        patientClinicId: invoice.patient.clinicId,
-      });
-    }
-
-    const updatedInvoice = await prisma.invoice.update({
-      where: { id: invoiceId },
-      data: {
-        prescriptionProcessed: true,
-        prescriptionProcessedAt: new Date(),
-        prescriptionProcessedBy: providerId,
-      },
-    });
-
-    logger.info('Prescription marked as processed', {
+    logger.info('Prescription marked as processed (atomic)', {
       invoiceId,
-      patientId: invoice.patient.id,
       processedBy: user.email,
       providerId,
-      clinicId: invoice.clinicId,
-      clinicName: invoice.clinic?.name,
-      lifefileEnabled: invoice.clinic?.lifefileEnabled,
     });
 
     return NextResponse.json({
       success: true,
       message: 'Prescription marked as processed',
       invoice: {
-        id: updatedInvoice.id,
-        prescriptionProcessed: updatedInvoice.prescriptionProcessed,
-        prescriptionProcessedAt: updatedInvoice.prescriptionProcessedAt,
-        clinicId: invoice.clinicId,
+        id: invoiceId,
+        prescriptionProcessed: true,
+        prescriptionProcessedAt: new Date(),
+        clinicId: user.clinicId,
       },
     });
   } catch (error: unknown) {
