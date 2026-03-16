@@ -98,14 +98,21 @@ export const POST = withAuth(
       }
 
       const verifyAndCreate = async () => {
+        // Sales reps may not have User.clinicId set — they can be associated
+        // with clinics only through SalesRepPlanAssignment. For super_admin,
+        // verify user exists with the right role; for admin, also check clinicId.
         const targetUser = await prisma.user.findFirst({
-          where: { id: userId, clinicId: effectiveClinicId, role: { in: ['STAFF', 'SALES_REP'] } },
+          where: {
+            id: userId,
+            role: { in: ['STAFF', 'SALES_REP'] },
+            ...(user.role === 'super_admin' ? {} : { clinicId: effectiveClinicId }),
+          },
           select: { id: true, firstName: true, lastName: true, email: true, role: true },
         });
 
         if (!targetUser) {
           return NextResponse.json(
-            { error: 'User not found or not a STAFF/SALES_REP in this clinic' },
+            { error: 'User not found or not a STAFF/SALES_REP' },
             { status: 404 }
           );
         }

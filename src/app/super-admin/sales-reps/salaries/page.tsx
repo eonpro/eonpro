@@ -81,51 +81,31 @@ export default function EmployeeSalariesPage() {
     } catch { /* ignore */ }
   }, []);
 
-  const fetchAllEmployees = useCallback(async (fetchedClinics: Clinic[]) => {
+  const fetchAllEmployees = useCallback(async () => {
     setLoading(true);
     try {
-      const results = await Promise.all(
-        fetchedClinics.map(async (clinic) => {
-          try {
-            const res = await apiFetch(`/api/super-admin/clinics/${clinic.id}/users?roles=STAFF,SALES_REP`);
-            if (res.ok) {
-              const json = await res.json();
-              return (json.users || []).map((u: any) => ({
-                ...u,
-                clinicId: clinic.id,
-                clinicName: clinic.name,
-              }));
-            }
-          } catch { /* ignore */ }
-          return [];
-        })
-      );
-      const allUsers: ClinicUser[] = results.flat();
-      // Deduplicate by userId (a user may appear in multiple clinics via UserClinic)
-      const seen = new Set<string>();
-      const deduped = allUsers.filter((u) => {
-        const key = `${u.id}-${u.clinicId}`;
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      });
-      setAllEmployees(deduped);
+      const res = await apiFetch('/api/super-admin/employees');
+      if (res.ok) {
+        const json = await res.json();
+        setAllEmployees((json.employees || []).map((u: any) => ({
+          id: u.id,
+          firstName: u.firstName,
+          lastName: u.lastName,
+          email: u.email,
+          role: u.role,
+          status: u.status,
+          clinicId: u.clinicId,
+          clinicName: u.clinicName,
+        })));
+      }
     } catch { /* ignore */ }
     finally { setLoading(false); }
   }, []);
 
   useEffect(() => {
-    (async () => {
-      try {
-        const res = await apiFetch('/api/super-admin/clinics');
-        if (res.ok) {
-          const json = await res.json();
-          const fetchedClinics = json.clinics || [];
-          setClinics(fetchedClinics);
-          await Promise.all([fetchSalaries(), fetchAllEmployees(fetchedClinics)]);
-        }
-      } catch { setLoading(false); }
-    })();
+    fetchClinics();
+    fetchSalaries();
+    fetchAllEmployees();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const salaryByUserId = useMemo(() => {
@@ -260,10 +240,8 @@ export default function EmployeeSalariesPage() {
   };
 
   const handleRefresh = () => {
-    if (clinics.length > 0) {
-      fetchSalaries();
-      fetchAllEmployees(clinics);
-    }
+    fetchSalaries();
+    fetchAllEmployees();
   };
 
   return (
