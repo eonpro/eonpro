@@ -54,7 +54,7 @@ export default function MarketingNav() {
             </a>
           ))}
           <a
-            href="mailto:sales@eonpro.health?subject=EonPro%20Demo%20Request"
+            href="mailto:contact@eonpro.io?subject=EonPro%20Demo%20Request"
             className="rounded-full bg-[#4fa77e] px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-[#429b6f] hover:shadow-md"
           >
             Request a Demo
@@ -100,7 +100,7 @@ export default function MarketingNav() {
             </a>
           ))}
           <a
-            href="mailto:sales@eonpro.health?subject=EonPro%20Demo%20Request"
+            href="mailto:contact@eonpro.io?subject=EonPro%20Demo%20Request"
             className="mt-4 rounded-full bg-[#4fa77e] px-6 py-3 text-center text-base font-semibold text-white transition hover:bg-[#429b6f]"
           >
             Request a Demo

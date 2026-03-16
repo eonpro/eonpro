@@ -10,7 +10,7 @@ const FOOTER_LINKS = {
   Company: [
     { label: 'About', href: '#platform' },
     { label: 'Security', href: '#security' },
-    { label: 'Contact', href: 'mailto:sales@eonpro.health' },
+    { label: 'Contact', href: 'mailto:contact@eonpro.io' },
   ],
   Legal: [
     { label: 'Terms of Service', href: '/terms-of-service' },
@@ -38,11 +38,11 @@ export default function MarketingFooter() {
               HIPAA-compliant platform.
             </p>
             <div className="mt-6 flex flex-col gap-1 text-sm text-white/50">
-              <a href="mailto:support@eonpro.health" className="transition hover:text-white/80">
-                support@eonpro.health
+              <a href="mailto:support@eonpro.io" className="transition hover:text-white/80">
+                support@eonpro.io
               </a>
-              <a href="mailto:security@eonpro.health" className="transition hover:text-white/80">
-                security@eonpro.health
+              <a href="mailto:security@eonpro.io" className="transition hover:text-white/80">
+                security@eonpro.io
               </a>
             </div>
           </div>

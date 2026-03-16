@@ -37,7 +37,7 @@ const FAQS = [
   {
     question: 'How do I get started?',
     answer:
-      'Contact our team at sales@eonpro.health to schedule a demo. We\'ll walk you through the platform, discuss your clinic\'s needs, and help you get set up. Onboarding typically takes 1-2 weeks depending on your existing workflows.',
+      'Contact our team at contact@eonpro.io to schedule a demo. We\'ll walk you through the platform, discuss your clinic\'s needs, and help you get set up. Onboarding typically takes 1-2 weeks depending on your existing workflows.',
   },
 ];
 
