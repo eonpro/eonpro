@@ -14,6 +14,7 @@ const PUBLIC_ROUTES = [
   '/affiliate/welcome', '/affiliate/forgot-password', '/affiliate/reset-password', '/affiliate/terms',
   '/affiliate/demo', '/affiliate', '/portal/affiliate', '/api/affiliate',
   '/api/tickets', '/status', '/',
+  '/intake', '/api/intake-forms/config', '/patient-login',
 ];
 
 const SUPER_ADMIN_ROUTES = ['/admin/clinics', '/api/admin/clinics', '/super-admin', '/api/super-admin'];
@@ -56,6 +57,17 @@ async function resolveClinic(request: NextRequest): Promise<number | null> {
 
 export async function clinicMiddleware(request: NextRequest): Promise<NextResponse> {
   const path = request.nextUrl.pathname;
+
+  // Clinic subdomains visiting root "/" should see the login page, not the marketing site.
+  // The marketing page is only for the main app domain (app.eonpro.io, no subdomain, etc.).
+  if (path === '/') {
+    const host = getHost(request);
+    const sub = getSubdomain(host);
+    if (sub && !['www', 'app', 'api', 'admin', 'staging'].includes(sub)) {
+      return NextResponse.redirect(new URL('/login', request.url));
+    }
+  }
+
   if (PUBLIC_ROUTES.some((r) => path === r || path.startsWith(r + '/'))) return NextResponse.next();
   if (SUPER_ADMIN_ROUTES.some((r) => path.startsWith(r))) {
     const h = new Headers(request.headers); h.set('x-super-admin-route', 'true');

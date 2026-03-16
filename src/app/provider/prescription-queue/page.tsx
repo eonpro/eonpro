@@ -775,7 +775,13 @@ export default function PrescriptionQueuePage() {
       });
 
       const glp1Info = item.glp1Info || { usedGlp1: false, glp1Type: null, lastDose: null };
-      const preselection = getGlp1Preselection(item.treatment, glp1Info);
+      const clinicalGlp1 = details.clinicalContext?.glp1History;
+      const mergedGlp1Info = {
+        usedGlp1: glp1Info.usedGlp1 || clinicalGlp1?.used || false,
+        glp1Type: glp1Info.glp1Type || clinicalGlp1?.type || null,
+        lastDose: glp1Info.lastDose || clinicalGlp1?.dose || null,
+      };
+      const preselection = getGlp1Preselection(item.treatment, mergedGlp1Info);
 
       if (preselection) {
         const isMultiMonth = (item.planMonths ?? 1) > 1;

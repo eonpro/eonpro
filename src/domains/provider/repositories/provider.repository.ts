@@ -9,7 +9,7 @@
  */
 
 import { type Prisma } from '@prisma/client';
-import { prisma, basePrisma } from '@/lib/db';
+import { basePrisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import {
   Provider,
@@ -374,7 +374,7 @@ export const providerRepository = {
     input: UpdateProviderInput,
     actorEmail: string
   ): Promise<ProviderWithClinic> {
-    return await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    return await basePrisma.$transaction(async (tx: Prisma.TransactionClient) => {
       // Get existing for diff
       const existing = await tx.provider.findUnique({
         where: { id },
@@ -443,7 +443,7 @@ export const providerRepository = {
    * WARNING: This permanently deletes data. Use archiveProvider for soft delete.
    */
   async delete(id: number, actorEmail: string): Promise<void> {
-    await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    await basePrisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const existing = await tx.provider.findUnique({
         where: { id },
         include: {
@@ -578,7 +578,7 @@ export const providerRepository = {
    * Set or update provider password
    */
   async setPassword(id: number, passwordHash: string, actorEmail: string): Promise<void> {
-    await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    await basePrisma.$transaction(async (tx: Prisma.TransactionClient) => {
       await tx.provider.update({
         where: { id },
         data: {
@@ -608,7 +608,7 @@ export const providerRepository = {
    * Update last login timestamp
    */
   async updateLastLogin(id: number): Promise<void> {
-    await prisma.provider.update({
+    await basePrisma.provider.update({
       where: { id },
       data: { lastLogin: new Date() },
     });
@@ -634,7 +634,7 @@ export const providerRepository = {
    * Create audit entry directly
    */
   async createAuditEntry(entry: ProviderAuditEntry): Promise<void> {
-    await prisma.providerAudit.create({
+    await basePrisma.providerAudit.create({
       data: {
         providerId: entry.providerId,
         actorEmail: entry.actorEmail,
@@ -664,7 +664,7 @@ export const providerRepository = {
     },
     actorEmail?: string
   ): Promise<{ id: number; providerId: number; clinicId: number; isPrimary: boolean }> {
-    const result = await prisma.providerClinic.upsert({
+    const result = await basePrisma.providerClinic.upsert({
       where: {
         providerId_clinicId: { providerId, clinicId },
       },
@@ -697,7 +697,7 @@ export const providerRepository = {
 
     // Create audit entry
     if (actorEmail) {
-      await prisma.providerAudit.create({
+      await basePrisma.providerAudit.create({
         data: {
           providerId,
           actorEmail,
@@ -721,7 +721,7 @@ export const providerRepository = {
    * Remove provider from a clinic (soft delete)
    */
   async removeFromClinic(providerId: number, clinicId: number, actorEmail?: string): Promise<void> {
-    await prisma.providerClinic.update({
+    await basePrisma.providerClinic.update({
       where: {
         providerId_clinicId: { providerId, clinicId },
       },
@@ -733,7 +733,7 @@ export const providerRepository = {
 
     // Create audit entry
     if (actorEmail) {
-      await prisma.providerAudit.create({
+      await basePrisma.providerAudit.create({
         data: {
           providerId,
           actorEmail,
@@ -754,7 +754,7 @@ export const providerRepository = {
    * Get all clinics a provider is assigned to
    */
   async getProviderClinics(providerId: number, includeInactive = false) {
-    return prisma.providerClinic.findMany({
+    return basePrisma.providerClinic.findMany({
       where: {
         providerId,
         ...(includeInactive ? {} : { isActive: true }),
@@ -777,7 +777,7 @@ export const providerRepository = {
    * Check if provider has access to a specific clinic
    */
   async hasClinicAccess(providerId: number, clinicId: number): Promise<boolean> {
-    const assignment = await prisma.providerClinic.findFirst({
+    const assignment = await basePrisma.providerClinic.findFirst({
       where: {
         providerId,
         clinicId,
@@ -793,7 +793,7 @@ export const providerRepository = {
    * Set a clinic as the provider's primary clinic
    */
   async setPrimaryClinic(providerId: number, clinicId: number, actorEmail?: string): Promise<void> {
-    await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    await basePrisma.$transaction(async (tx: Prisma.TransactionClient) => {
       // Remove primary flag from all other assignments
       await tx.providerClinic.updateMany({
         where: { providerId, isPrimary: true },
@@ -838,7 +838,7 @@ export const providerRepository = {
    * Update provider's active clinic (for session switching)
    */
   async setActiveClinic(providerId: number, clinicId: number): Promise<void> {
-    await prisma.provider.update({
+    await basePrisma.provider.update({
       where: { id: providerId },
       data: { activeClinicId: clinicId },
     });
