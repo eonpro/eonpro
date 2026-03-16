@@ -54,22 +54,46 @@ export const GET = superAdminRateLimit(withSuperAdminAuth(async (req: NextReques
 
     logger.debug('Super-admin clinics fetched', { count: clinics.length });
 
-    // Provider count per clinic via a single groupBy query (replaces N+1 Promise.all loop)
-    const providerCounts = await prisma.user.groupBy({
-      by: ['clinicId'],
-      where: { role: 'PROVIDER' },
-      _count: true,
-    });
+    // Provider count per clinic: includes primary clinicId providers + multi-clinic via UserClinic
+    const [primaryProviderCounts, multiClinicProviderCounts] = await Promise.all([
+      prisma.user.groupBy({
+        by: ['clinicId'],
+        where: { role: 'PROVIDER' },
+        _count: true,
+      }),
+      prisma.userClinic.groupBy({
+        by: ['clinicId'],
+        where: { role: 'PROVIDER', isActive: true },
+        _count: true,
+      }),
+    ]);
 
-    const providerCountMap = new Map(
-      providerCounts.map((pc) => [pc.clinicId, pc._count])
-    );
+    const providerCountMap = new Map<number, Set<string>>();
+    for (const pc of primaryProviderCounts) {
+      if (pc.clinicId != null) {
+        providerCountMap.set(pc.clinicId, new Set());
+      }
+    }
+
+    // Merge: use the larger of the two counts per clinic (UserClinic is superset when populated)
+    const providerNumMap = new Map<number, number>();
+    for (const pc of primaryProviderCounts) {
+      if (pc.clinicId != null) {
+        providerNumMap.set(pc.clinicId, pc._count);
+      }
+    }
+    for (const uc of multiClinicProviderCounts) {
+      const current = providerNumMap.get(uc.clinicId) || 0;
+      if (uc._count > current) {
+        providerNumMap.set(uc.clinicId, uc._count);
+      }
+    }
 
     const clinicsWithProviderCount = clinics.map((clinic) => ({
       ...clinic,
       _count: {
         ...clinic._count,
-        providers: providerCountMap.get(clinic.id) || 0,
+        providers: providerNumMap.get(clinic.id) || 0,
       },
     }));
 
