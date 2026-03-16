@@ -527,7 +527,7 @@ export default function ClinicDetailPage() {
         setClinicUsers(data.users || []);
       } else {
         const errData = await response.json().catch(() => null);
-        setUsersError(`API returned ${response.status}: ${errData?.error || 'Unknown error'}`);
+        setUsersError(`API returned ${response.status}: ${errData?.error || 'Unknown error'}${errData?.detail ? ' — ' + errData.detail : ''}`);
       }
     } catch (error) {
       setUsersError(`Network error: ${error instanceof Error ? error.message : String(error)}`);

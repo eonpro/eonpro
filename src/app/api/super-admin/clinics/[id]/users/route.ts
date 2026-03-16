@@ -105,8 +105,9 @@ export const GET = withSuperAdminAuth(
 
       return NextResponse.json({ users: formattedUsers });
     } catch (error: unknown) {
-      logger.error('Error fetching clinic users', { error: error instanceof Error ? error.message : String(error) });
-      return NextResponse.json({ error: 'Failed to fetch clinic users' }, { status: 500 });
+      const msg = error instanceof Error ? error.message : String(error);
+      logger.error('Error fetching clinic users', { error: msg, stack: error instanceof Error ? error.stack : undefined });
+      return NextResponse.json({ error: 'Failed to fetch clinic users', detail: msg }, { status: 500 });
     }
   }
 );
