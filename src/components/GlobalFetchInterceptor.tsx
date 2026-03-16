@@ -6,7 +6,7 @@ import { dispatchSessionExpired, clearAuthTokens, refreshAuthToken } from '@/lib
 import { isBrowser, safeWindow } from '@/lib/utils/ssr-safe';
 
 /** Public routes where fetch interception for session expiry should be skipped */
-const PUBLIC_ROUTE_PREFIXES = ['/affiliate/', '/login', '/patient-login', '/register', '/reset-password', '/verify-email'];
+const PUBLIC_ROUTE_PREFIXES = ['/affiliate/', '/login', '/patient-login', '/register', '/reset-password', '/verify-email', '/privacy-policy', '/terms-of-service', '/hipaa-notice'];
 
 /** Auth cookie names that may have stale hostname-scoped duplicates */
 const AUTH_COOKIE_NAMES = [
@@ -68,7 +68,7 @@ function clearStaleSubdomainCookies(): void {
  */
 export default function GlobalFetchInterceptor() {
   const pathname = usePathname();
-  const isPublicPage = PUBLIC_ROUTE_PREFIXES.some((prefix) => pathname?.startsWith(prefix));
+  const isPublicPage = pathname === '/' || PUBLIC_ROUTE_PREFIXES.some((prefix) => pathname?.startsWith(prefix));
   const cookieCleanupDone = useRef(false);
   // Deduplicate: only one session-expiration flow runs at a time
   const sessionExpirationInProgress = useRef(false);
