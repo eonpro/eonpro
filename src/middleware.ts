@@ -215,11 +215,14 @@ export async function middleware(request: NextRequest) {
   }
 
   // ── Root path → login redirect ──────────────────────────────────────
-  // All *.eonpro.io domains serve the platform app. The marketing site is on Wix.
-  // Redirect "/" to "/login" so users always land on the login page, not the
-  // in-app marketing placeholder. Works for clinic subdomains, app.eonpro.io, etc.
+  // All app/clinic domains redirect "/" to "/login". The public marketing site
+  // at www.eonpro.io is the only exception — it should show the landing page.
   if (pathname === '/') {
-    return NextResponse.redirect(new URL('/login', request.url));
+    const host = (request.headers.get('x-forwarded-host')?.split(',')[0]?.trim() || request.headers.get('host') || '').split(':')[0];
+    const isPublicWebsite = host === 'www.eonpro.io' || host === 'eonpro.io';
+    if (!isPublicWebsite) {
+      return NextResponse.redirect(new URL('/login', request.url));
+    }
   }
 
   if (isStaticAsset(pathname)) {
