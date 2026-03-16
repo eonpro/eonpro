@@ -47,20 +47,21 @@ export const GET = withSuperAdminAuth(
         return NextResponse.json({ error: 'Clinic not found' }, { status: 404 });
       }
 
-      // Get all users for this clinic (either primary clinicId OR via UserClinic table)
+      // Optional role filter (comma-separated, e.g., ?roles=STAFF,SALES_REP)
+      const rolesParam = req.nextUrl.searchParams.get('roles');
+      const roleFilter = rolesParam ? rolesParam.split(',').map((r) => r.trim()).filter(Boolean) : null;
+
+      const clinicCondition = {
+        OR: [
+          { clinicId },
+          { userClinics: { some: { clinicId, isActive: true } } },
+        ],
+      };
+
       const users = await prisma.user.findMany({
         where: {
-          OR: [
-            { clinicId }, // Users with this as primary clinic
-            {
-              userClinics: {
-                some: {
-                  clinicId,
-                  isActive: true,
-                },
-              },
-            }, // Users added via UserClinic
-          ],
+          ...clinicCondition,
+          ...(roleFilter && roleFilter.length > 0 ? { role: { in: roleFilter as any[] } } : {}),
         },
         select: {
           id: true,

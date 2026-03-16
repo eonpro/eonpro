@@ -291,9 +291,9 @@ export default function ProviderDashboard() {
 
       {/* Quick Stats */}
       <div className="mb-8 grid grid-cols-1 gap-5 md:grid-cols-4">
-        <button
-          onClick={() => navigateToPatients()}
-          className="rounded-2xl border border-gray-100 bg-white p-5 text-left shadow-sm transition-colors hover:border-green-200"
+        <a
+          href="/provider/patients"
+          className="block rounded-2xl border border-gray-100 bg-white p-5 text-left shadow-sm transition-colors hover:border-green-200 no-underline"
         >
           <div className="flex items-center justify-between">
             <div>
@@ -304,11 +304,11 @@ export default function ProviderDashboard() {
               <Users className="h-6 w-6 text-white" />
             </div>
           </div>
-        </button>
+        </a>
 
-        <button
-          onClick={() => router.push('/provider/soap-notes')}
-          className="rounded-2xl border border-gray-100 bg-white p-5 text-left shadow-sm transition-colors hover:border-blue-200"
+        <a
+          href="/provider/soap-notes"
+          className="block rounded-2xl border border-gray-100 bg-white p-5 text-left shadow-sm transition-colors hover:border-blue-200 no-underline"
         >
           <div className="flex items-center justify-between">
             <div>
@@ -319,11 +319,11 @@ export default function ProviderDashboard() {
               <FileText className="h-6 w-6 text-white" />
             </div>
           </div>
-        </button>
+        </a>
 
-        <button
-          onClick={() => router.push('/provider/prescriptions')}
-          className="rounded-2xl border border-gray-100 bg-white p-5 text-left shadow-sm transition-colors hover:border-[var(--brand-primary-medium)]"
+        <a
+          href="/provider/prescriptions"
+          className="block rounded-2xl border border-gray-100 bg-white p-5 text-left shadow-sm transition-colors hover:border-[var(--brand-primary-medium)] no-underline"
         >
           <div className="flex items-center justify-between">
             <div>
@@ -334,11 +334,11 @@ export default function ProviderDashboard() {
               <Pill className="h-6 w-6 text-white" />
             </div>
           </div>
-        </button>
+        </a>
 
-        <button
-          onClick={() => router.push('/provider/calendar')}
-          className="rounded-2xl border border-gray-100 bg-white p-5 text-left shadow-sm transition-colors hover:border-cyan-200"
+        <a
+          href="/provider/calendar"
+          className="block rounded-2xl border border-gray-100 bg-white p-5 text-left shadow-sm transition-colors hover:border-cyan-200 no-underline"
         >
           <div className="flex items-center justify-between">
             <div>
@@ -349,7 +349,7 @@ export default function ProviderDashboard() {
               <Calendar className="h-6 w-6 text-white" />
             </div>
           </div>
-        </button>
+        </a>
       </div>
 
       {/* Today's Schedule & Recent Patients */}
@@ -357,24 +357,24 @@ export default function ProviderDashboard() {
         <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
           <div className="flex items-center justify-between border-b border-gray-100 px-6 py-5">
             <h2 className="text-lg font-semibold text-gray-900">Today's Schedule</h2>
-            <button
-              onClick={() => router.push('/provider/calendar')}
+            <a
+              href="/provider/calendar"
               className="text-sm text-[#4fa77e] hover:underline"
             >
               View all
-            </button>
+            </a>
           </div>
           <div className="p-4">
             {appointments.length === 0 ? (
               <div className="py-8 text-center">
                 <Calendar className="mx-auto mb-3 h-10 w-10 text-gray-300" />
                 <p className="text-sm text-gray-500">No appointments scheduled for today</p>
-                <button
-                  onClick={() => router.push('/provider/calendar')}
+                <a
+                  href="/provider/calendar"
                   className="mt-3 inline-block text-sm text-[#4fa77e] hover:underline"
                 >
                   Schedule an appointment
-                </button>
+                </a>
               </div>
             ) : (
               <div className="space-y-3">
@@ -408,24 +408,24 @@ export default function ProviderDashboard() {
         <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
           <div className="flex items-center justify-between border-b border-gray-100 px-6 py-5">
             <h2 className="text-lg font-semibold text-gray-900">Recent Intakes</h2>
-            <button
-              onClick={() => navigateToPatients()}
+            <a
+              href="/provider/patients"
               className="text-sm text-[#4fa77e] hover:underline"
             >
               View all
-            </button>
+            </a>
           </div>
           <div className="p-4">
             {recentPatients.length === 0 ? (
               <div className="py-8 text-center">
                 <Users className="mx-auto mb-3 h-10 w-10 text-gray-300" />
                 <p className="text-sm text-gray-500">No intakes yet</p>
-                <button
-                  onClick={() => navigateToPatients()}
+                <a
+                  href="/provider/patients"
                   className="mt-3 inline-block text-sm text-[#4fa77e] hover:underline"
                 >
                   Add your first intake
-                </button>
+                </a>
               </div>
             ) : (
               <div className="space-y-3">
@@ -469,34 +469,34 @@ export default function ProviderDashboard() {
         </div>
         <div className="p-6">
           <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-            <button
-              onClick={() => router.push('/provider/patients')}
-              className="flex flex-col items-center rounded-xl bg-[#4fa77e]/10 p-4 text-[#4fa77e] transition-colors hover:bg-[#4fa77e]/20"
+            <a
+              href="/provider/patients"
+              className="flex flex-col items-center rounded-xl bg-[#4fa77e]/10 p-4 text-[#4fa77e] transition-colors hover:bg-[#4fa77e]/20 no-underline"
             >
               <Users className="mb-2 h-6 w-6" />
               <span className="text-sm font-medium">View Intakes</span>
-            </button>
-            <button
-              onClick={() => router.push('/provider/soap-notes')}
-              className="flex flex-col items-center rounded-xl bg-blue-50 p-4 text-blue-700 transition-colors hover:bg-blue-100"
+            </a>
+            <a
+              href="/provider/soap-notes"
+              className="flex flex-col items-center rounded-xl bg-blue-50 p-4 text-blue-700 transition-colors hover:bg-blue-100 no-underline"
             >
               <FileText className="mb-2 h-6 w-6" />
               <span className="text-sm font-medium">SOAP Notes</span>
-            </button>
-            <button
-              onClick={() => router.push('/provider/prescriptions')}
-              className="flex flex-col items-center rounded-xl bg-[var(--brand-primary-light)] p-4 text-[var(--brand-primary)] transition-colors hover:bg-[var(--brand-primary-light)]"
+            </a>
+            <a
+              href="/provider/prescriptions"
+              className="flex flex-col items-center rounded-xl bg-[var(--brand-primary-light)] p-4 text-[var(--brand-primary)] transition-colors hover:bg-[var(--brand-primary-light)] no-underline"
             >
               <Pill className="mb-2 h-6 w-6" />
               <span className="text-sm font-medium">Prescriptions</span>
-            </button>
-            <button
-              onClick={() => router.push('/provider/calendar')}
-              className="flex flex-col items-center rounded-xl bg-cyan-50 p-4 text-cyan-700 transition-colors hover:bg-cyan-100"
+            </a>
+            <a
+              href="/provider/calendar"
+              className="flex flex-col items-center rounded-xl bg-cyan-50 p-4 text-cyan-700 transition-colors hover:bg-cyan-100 no-underline"
             >
               <Calendar className="mb-2 h-6 w-6" />
               <span className="text-sm font-medium">Calendar</span>
-            </button>
+            </a>
           </div>
         </div>
       </div>

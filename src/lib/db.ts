@@ -108,6 +108,7 @@ export const CLINIC_ISOLATED_MODELS: readonly string[] = [
   'clinicplatforminvoice',
   'commission',
   'discountcode',
+  'employeesalary',
   'emaillog',
   'financialmetrics',
   'hipaaauditentry',

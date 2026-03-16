@@ -23,7 +23,7 @@ interface GrandTotal {
 }
 
 interface RepSummary {
-  salesRepId: number; name: string; email: string; clinicId: number; clinicName: string;
+  salesRepId: number; name: string; email: string; userRole: string; clinicId: number; clinicName: string;
   totalEvents: number; totalRevenueCents: number; totalCommissionCents: number;
   totalBaseCents: number; totalVolumeTierCents: number; totalProductCents: number; totalMultiItemCents: number;
   manualCount: number; stripeCount: number;
@@ -295,10 +295,13 @@ export default function PayrollReportPage() {
         </a>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Payroll Commission Report</h1>
-            <p className="text-gray-500">Comprehensive commission reporting for payroll processing</p>
+            <h1 className="text-2xl font-bold text-gray-900">Payroll Report</h1>
+            <p className="text-gray-500">Weekly salary and commission reporting for payroll processing</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            <a href="/super-admin/sales-reps/salaries" className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
+              <CreditCard className="h-4 w-4" /> Manage Salaries
+            </a>
             <button onClick={fetchData} disabled={loading} className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50">
               <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /> Refresh
             </button>
@@ -387,13 +390,11 @@ export default function PayrollReportPage() {
               <div className="flex items-center gap-2"><TrendingUp className="h-4 w-4 text-emerald-500" /><span className="text-xs font-medium text-gray-500">Combined Commission</span></div>
               <p className="mt-1 text-lg font-bold text-emerald-700">{$(gt.combinedCommissionCents)}</p>
             </div>
-            {gt.totalBasePayCents > 0 && (
-              <div className="rounded-xl bg-white p-4 shadow-sm">
-                <div className="flex items-center gap-2"><CreditCard className="h-4 w-4 text-orange-500" /><span className="text-xs font-medium text-gray-500">Base Salary</span></div>
-                <p className="mt-1 text-lg font-bold text-orange-700">{$(gt.totalBasePayCents)}</p>
-                <p className="text-xs text-gray-400">{gt.periodWeeks} week{gt.periodWeeks !== 1 ? 's' : ''}</p>
-              </div>
-            )}
+            <div className="rounded-xl bg-white p-4 shadow-sm">
+              <div className="flex items-center gap-2"><CreditCard className="h-4 w-4 text-orange-500" /><span className="text-xs font-medium text-gray-500">Base Salary</span></div>
+              <p className="mt-1 text-lg font-bold text-orange-700">{$(gt.totalBasePayCents)}</p>
+              <p className="text-xs text-gray-400">{gt.periodWeeks} week{gt.periodWeeks !== 1 ? 's' : ''}</p>
+            </div>
             <div className="rounded-xl bg-gradient-to-br from-emerald-50 to-green-50 p-4 shadow-sm ring-1 ring-emerald-200">
               <div className="flex items-center gap-2"><BadgeDollarSign className="h-4 w-4 text-emerald-600" /><span className="text-xs font-medium text-emerald-600">Total Payroll</span></div>
               <p className="mt-1 text-lg font-bold text-emerald-800">{$(gt.totalPayrollCents)}</p>
@@ -454,7 +455,7 @@ export default function PayrollReportPage() {
             <table className="min-w-full divide-y divide-gray-200 text-sm">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="cursor-pointer px-3 py-3 text-left text-xs font-medium uppercase text-gray-500 hover:text-gray-900" onClick={() => handleSort('name')}>Sales Rep <SortIcon col="name" /></th>
+                  <th className="cursor-pointer px-3 py-3 text-left text-xs font-medium uppercase text-gray-500 hover:text-gray-900" onClick={() => handleSort('name')}>Employee <SortIcon col="name" /></th>
                   <th className="px-3 py-3 text-left text-xs font-medium uppercase text-gray-500">Clinic</th>
                   <th className="cursor-pointer px-3 py-3 text-right text-xs font-medium uppercase text-gray-500 hover:text-gray-900" onClick={() => handleSort('totalRevenueCents')}>Revenue <SortIcon col="totalRevenueCents" /></th>
                   <th className="cursor-pointer px-3 py-3 text-right text-xs font-medium uppercase text-gray-500 hover:text-gray-900" onClick={() => handleSort('newSaleCommissionCents')}>New Sale $ <SortIcon col="newSaleCommissionCents" /></th>
@@ -471,7 +472,16 @@ export default function PayrollReportPage() {
                 {sortedReps.map((rep) => (
                   <>
                     <tr key={rep.salesRepId} className="cursor-pointer hover:bg-gray-50" onClick={() => setExpandedRep(expandedRep === rep.salesRepId ? null : rep.salesRepId)}>
-                      <td className="px-3 py-3"><p className="font-medium text-gray-900">{rep.name}</p><p className="text-xs text-gray-500">{rep.email}</p></td>
+                      <td className="px-3 py-3">
+                        <div className="flex items-center gap-2">
+                          <div>
+                            <p className="font-medium text-gray-900">{rep.name}</p>
+                            <p className="text-xs text-gray-500">{rep.email}</p>
+                          </div>
+                          {rep.userRole === 'STAFF' && <span className="rounded-full bg-teal-100 px-2 py-0.5 text-xs font-medium text-teal-700">Staff</span>}
+                          {rep.userRole === 'SALES_REP' && <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-700">Sales Rep</span>}
+                        </div>
+                      </td>
                       <td className="px-3 py-3 text-gray-700">{rep.clinicName}</td>
                       <td className="px-3 py-3 text-right text-gray-900">{$(rep.totalRevenueCents)}</td>
                       <td className="px-3 py-3 text-right"><span className="text-indigo-700">{$(rep.newSaleCommissionCents)}</span><span className="ml-1 text-xs text-gray-400">({rep.newSaleCount})</span></td>

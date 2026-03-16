@@ -51,7 +51,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       });
     }
 
-    // Try to get additional clinics from userClinic table if it exists
+    // Get additional clinics from UserClinic table
     try {
       const userClinics = await prisma.userClinic.findMany({
         where: {
@@ -77,7 +77,6 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         take: 100,
       });
 
-      // Add any additional clinics not already included
       for (const uc of userClinics) {
         if (!clinics.find((c) => c.id === uc.clinic.id)) {
           clinics.push({
@@ -88,7 +87,55 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         }
       }
     } catch {
-      // UserClinic table might not exist, that's ok
+      // UserClinic table might not exist yet
+    }
+
+    // For provider users, also check ProviderClinic assignments
+    if (user.role === 'provider') {
+      try {
+        const provider = await prisma.provider.findFirst({
+          where: { userId: user.id },
+          select: { id: true },
+        });
+
+        if (provider) {
+          const providerClinics = await prisma.providerClinic.findMany({
+            where: {
+              providerId: provider.id,
+              isActive: true,
+            },
+            include: {
+              clinic: {
+                select: {
+                  id: true,
+                  name: true,
+                  subdomain: true,
+                  customDomain: true,
+                  logoUrl: true,
+                  iconUrl: true,
+                  faviconUrl: true,
+                  primaryColor: true,
+                  status: true,
+                },
+              },
+            },
+            orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }],
+            take: 100,
+          });
+
+          for (const pc of providerClinics) {
+            if (!clinics.find((c) => c.id === pc.clinic.id)) {
+              clinics.push({
+                ...pc.clinic,
+                role: 'provider',
+                isPrimary: pc.isPrimary,
+              });
+            }
+          }
+        }
+      } catch {
+        // ProviderClinic table might not exist yet
+      }
     }
 
     const selectedClinicCookie = req.cookies.get('selected-clinic')?.value;
@@ -123,8 +170,8 @@ async function handlePut(req: NextRequest, user: AuthUser) {
       return NextResponse.json({ error: 'Clinic ID is required' }, { status: 400 });
     }
 
-    // Verify user has access to this clinic
-    const hasAccess = await prisma.userClinic.findFirst({
+    // Verify user has access to this clinic via UserClinic
+    const hasUserClinicAccess = await prisma.userClinic.findFirst({
       where: {
         userId: user.id,
         clinicId: clinicId,
@@ -132,13 +179,36 @@ async function handlePut(req: NextRequest, user: AuthUser) {
       },
     });
 
-    // Also check legacy clinicId
+    // Check legacy clinicId
     const userData = await prisma.user.findUnique({
       where: { id: user.id },
       select: { clinicId: true },
     });
 
-    if (!hasAccess && userData?.clinicId !== clinicId) {
+    // For providers, also check ProviderClinic assignments
+    let hasProviderClinicAccess = false;
+    if (user.role === 'provider') {
+      try {
+        const provider = await prisma.provider.findFirst({
+          where: { userId: user.id },
+          select: { id: true },
+        });
+        if (provider) {
+          const pc = await prisma.providerClinic.findFirst({
+            where: {
+              providerId: provider.id,
+              clinicId: clinicId,
+              isActive: true,
+            },
+          });
+          hasProviderClinicAccess = !!pc;
+        }
+      } catch {
+        // ProviderClinic table might not exist yet
+      }
+    }
+
+    if (!hasUserClinicAccess && !hasProviderClinicAccess && userData?.clinicId !== clinicId) {
       return NextResponse.json({ error: 'You do not have access to this clinic' }, { status: 403 });
     }
 

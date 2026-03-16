@@ -32,6 +32,7 @@ import {
   NotificationCenter,
   NotificationToastContainer,
 } from '@/components/notifications';
+import ClinicSwitcher from '@/components/ClinicSwitcher';
 import { ClinicBrandingProvider, useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
 import { SubdomainClinicBanner } from '@/components/SubdomainClinicBanner';
 import { apiFetch, redirectToLogin } from '@/lib/api/fetch';
@@ -396,7 +397,10 @@ function ProviderLayoutInner({ children }: { children: React.ReactNode }) {
             >
               <Menu className="h-6 w-6" />
             </button>
-            <div className="flex flex-1 items-center justify-end gap-2 md:justify-start">
+            <div className="flex flex-1 items-center gap-2">
+              <ClinicSwitcher />
+            </div>
+            <div className="flex items-center gap-2">
               <NotificationCenter
                 notificationsPath="/provider/notifications"
                 dropdownPosition="left"

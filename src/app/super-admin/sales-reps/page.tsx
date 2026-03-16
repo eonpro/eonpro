@@ -235,6 +235,9 @@ export default function SalesRepsPage() {
           <a href="/super-admin/sales-reps/commission-plans" className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
             <BadgeDollarSign className="h-4 w-4" /> Commission Plans
           </a>
+          <a href="/super-admin/sales-reps/salaries" className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
+            <DollarSign className="h-4 w-4" /> Salaries
+          </a>
           <a href="/super-admin/sales-reps/overrides" className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
             <Users className="h-4 w-4" /> Override Managers
           </a>

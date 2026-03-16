@@ -222,6 +222,35 @@ model SalesRepVolumeCommissionTier {
 }
 
 // ==========================================================================
+// EMPLOYEE WEEKLY SALARY (standalone — for STAFF, SALES_REP, or any role)
+// ==========================================================================
+// Tracks weekly base salary for any clinic employee, independent of commission
+// plans. The payroll report aggregates this alongside commission events.
+// ==========================================================================
+
+model EmployeeSalary {
+  id                 Int       @id @default(autoincrement())
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  clinicId           Int
+  clinic             Clinic    @relation(fields: [clinicId], references: [id])
+  userId             Int
+  user               User      @relation("EmployeeSalaries", fields: [userId], references: [id], onDelete: Cascade)
+  weeklyBasePayCents Int
+  hourlyRateCents    Int?
+  effectiveFrom      DateTime  @default(now())
+  effectiveTo        DateTime?
+  isActive           Boolean   @default(true)
+  notes              String?
+
+  @@unique([clinicId, userId, isActive])
+  @@index([clinicId])
+  @@index([userId])
+  @@index([isActive])
+  @@index([effectiveFrom, effectiveTo])
+}
+
+// ==========================================================================
 // SALES REP OVERRIDE COMMISSIONS (manager earns % of subordinate's revenue)
 // ==========================================================================
 

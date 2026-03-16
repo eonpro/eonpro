@@ -214,20 +214,12 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // ── Clinic subdomain root redirect ──────────────────────────────────
-  // Clinic subdomains (e.g. overnight.eonpro.io, wellmedr.eonpro.io) visiting "/"
-  // must see the login page, not the marketing landing page. This runs before the
-  // multi-clinic gate so it works regardless of NEXT_PUBLIC_ENABLE_MULTI_CLINIC.
+  // ── Root path → login redirect ──────────────────────────────────────
+  // All *.eonpro.io domains serve the platform app. The marketing site is on Wix.
+  // Redirect "/" to "/login" so users always land on the login page, not the
+  // in-app marketing placeholder. Works for clinic subdomains, app.eonpro.io, etc.
   if (pathname === '/') {
-    const host = (request.headers.get('x-forwarded-host')?.split(',')[0]?.trim() || request.headers.get('host') || '').split(':')[0];
-    const parts = host.split('.');
-    const sub = host.includes('localhost')
-      ? (parts.length >= 2 ? parts[0] : null)
-      : (parts.length >= 3 ? parts[0] : null);
-    if (sub && !['www', 'app', 'api', 'admin', 'staging'].includes(sub)) {
-      const loginUrl = new URL('/login', request.url);
-      return NextResponse.redirect(loginUrl);
-    }
+    return NextResponse.redirect(new URL('/login', request.url));
   }
 
   if (isStaticAsset(pathname)) {
