@@ -8,9 +8,13 @@ interface ClinicLogo {
   logoUrl: string | null;
 }
 
-const FALLBACK_CLINICS = [
+const KNOWN_LOGOS: Record<string, string> = {
+  overtime: 'https://static.wixstatic.com/shapes/c49a9b_5139736743794db7af38c583595f06fb.svg',
+};
+
+const FALLBACK_CLINICS: ClinicLogo[] = [
   { name: 'WellMedr', subdomain: 'wellmedr', logoUrl: null },
-  { name: 'Overtime', subdomain: 'overtime', logoUrl: null },
+  { name: 'Overtime', subdomain: 'overtime', logoUrl: KNOWN_LOGOS.overtime },
   { name: 'EonMeds', subdomain: 'eonmeds', logoUrl: null },
   { name: 'Overnight', subdomain: 'overnight', logoUrl: null },
 ];
@@ -22,7 +26,13 @@ export default function ClinicLogosSlider() {
     fetch('/api/public/clinic-logos')
       .then((r) => r.json())
       .then((data) => {
-        if (data.clinics?.length) setClinics(data.clinics);
+        if (data.clinics?.length) {
+          const merged = data.clinics.map((c: ClinicLogo) => ({
+            ...c,
+            logoUrl: c.logoUrl || KNOWN_LOGOS[c.subdomain] || null,
+          }));
+          setClinics(merged);
+        }
       })
       .catch(() => {});
   }, []);
