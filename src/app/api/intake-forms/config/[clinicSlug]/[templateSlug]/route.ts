@@ -69,7 +69,18 @@ export async function GET(_req: NextRequest, { params }: RouteParams) {
       }) ?? candidates[0];
 
       const metadata = template.metadata as Record<string, unknown> | null;
-      const formConfig = metadata?.formConfig as FormConfig | undefined;
+      const dbFormConfig = metadata?.formConfig as FormConfig | undefined;
+
+      // For weight-loss templates, always use the canonical TypeScript config
+      // which includes state options, height options, and all conditional branching.
+      // The DB may have a stale snapshot — the TS file is the source of truth.
+      const isWeightLoss =
+        templateSlug === 'weight-loss' ||
+        template.treatmentType === 'weight-loss';
+
+      const formConfig = isWeightLoss
+        ? { ...weightLossIntakeConfig, id: `template-${template.id}` }
+        : dbFormConfig;
 
       if (formConfig) {
         const settings = clinic.settings as Record<string, unknown> | null;
@@ -80,7 +91,7 @@ export async function GET(_req: NextRequest, { params }: RouteParams) {
           primaryColor: (portalSettings?.primaryColor as string) ?? '#413d3d',
           accentColor: (portalSettings?.accentColor as string) ?? '#f0feab',
           secondaryColor: (portalSettings?.secondaryColor as string) ?? '#4fa87f',
-          ...(formConfig.branding ?? {}),
+          ...(dbFormConfig?.branding ?? {}),
         };
 
         return NextResponse.json({
