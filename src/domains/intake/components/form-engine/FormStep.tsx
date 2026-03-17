@@ -524,17 +524,19 @@ export default function FormStep({
       {/* Language toggle + Progress bar */}
       <div className="relative">
         {onLanguageChange && (
-          <div className="absolute right-4 top-2 z-10 flex rounded-full border border-gray-200 overflow-hidden text-xs">
+          <div className="fixed top-3 right-3 z-50 flex items-center bg-white rounded-full border border-gray-200">
             <button
               onClick={() => onLanguageChange('en')}
-              className={`px-2.5 py-1 font-medium transition-colors ${language === 'en' ? 'bg-gray-900 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}
+              className={`flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full transition-all ${language === 'en' ? 'bg-[#413d3d] text-white' : 'text-gray-600 hover:text-gray-900'}`}
             >
+              <svg width="14" height="9" viewBox="0 0 18 12" fill="none"><rect width="18" height="12" rx="1" fill="#B22234"/><rect y="1" width="18" height="1" fill="white"/><rect y="3" width="18" height="1" fill="white"/><rect y="5" width="18" height="1" fill="white"/><rect y="7" width="18" height="1" fill="white"/><rect y="9" width="18" height="1" fill="white"/><rect y="11" width="18" height="1" fill="white"/><rect width="7.2" height="6" rx="0.5" fill="#3C3B6E"/></svg>
               EN
             </button>
             <button
               onClick={() => onLanguageChange('es')}
-              className={`px-2.5 py-1 font-medium transition-colors ${language === 'es' ? 'bg-gray-900 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}
+              className={`flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full transition-all ${language === 'es' ? 'bg-[#413d3d] text-white' : 'text-gray-600 hover:text-gray-900'}`}
             >
+              <svg width="14" height="9" viewBox="0 0 18 12" fill="none"><rect width="18" height="12" rx="1" fill="#FFC400"/><rect width="18" height="3" fill="#C60A1D"/><rect y="9" width="18" height="3" fill="#C60A1D"/></svg>
               ES
             </button>
           </div>
