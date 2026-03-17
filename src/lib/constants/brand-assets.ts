@@ -7,8 +7,8 @@ export const BRAND = {
   logos: {
     /** Full EONPRO wordmark (SVG) – sidebars, headers, footers */
     eonproLogo: '/images/logos/eonpro-logo.svg',
-    /** Square EONPRO icon (PNG) – collapsed sidebar, favicon-like uses */
-    eonproIcon: '/images/logos/eonpro-icon.png',
+    /** Square EONPRO icon (SVG) – collapsed sidebar, favicon-like uses */
+    eonproIcon: '/images/logos/EONPro favicon.svg',
     /** High-res logo for PDF generation (intake forms, invoices) */
     eonproLogoPdf: '/images/logos/eonpro-logo-pdf.png',
     /** Alternate logo used on affiliate landing pages */

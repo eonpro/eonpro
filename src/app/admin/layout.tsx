@@ -186,7 +186,7 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
   // LogosRx pharmacy reps always see LogosRx branding, regardless of active clinic
   const primaryColor = isPharmacyExperience ? LOGOSRX_PRIMARY : (branding?.primaryColor || '#4fa77e');
   const clinicLogo = isPharmacyExperience ? LOGOSRX_LOGO : (branding?.logoUrl || EONPRO_LOGO);
-  const clinicIcon = isPharmacyExperience ? LOGOSRX_ICON : (branding?.iconUrl || EONPRO_ICON);
+  const clinicIcon = isPharmacyExperience ? LOGOSRX_ICON : (branding?.iconUrl || branding?.faviconUrl || branding?.logoUrl || EONPRO_ICON);
   const clinicName = isPharmacyExperience ? 'LogosRx' : (branding?.clinicName || 'EONPRO');
   const isWhiteLabeled = isPharmacyExperience || (branding?.clinicName && branding.clinicName !== 'EONPRO');
 

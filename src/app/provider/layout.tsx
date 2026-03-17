@@ -82,7 +82,7 @@ function ProviderLayoutInner({ children }: { children: React.ReactNode }) {
   // Get branding colors with fallbacks
   const primaryColor = branding?.primaryColor || '#4fa77e';
   const clinicLogo = branding?.logoUrl || EONPRO_LOGO;
-  const clinicIcon = branding?.iconUrl || EONPRO_ICON;
+  const clinicIcon = branding?.iconUrl || branding?.faviconUrl || branding?.logoUrl || EONPRO_ICON;
   const clinicName = branding?.clinicName || 'EONPRO';
   const isWhiteLabeled = branding?.clinicName && branding.clinicName !== 'EONPRO';
 
