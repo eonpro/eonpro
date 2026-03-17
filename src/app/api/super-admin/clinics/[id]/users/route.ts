@@ -48,7 +48,8 @@ export const GET = withSuperAdminAuth(
       }
 
       step = 'role_filter';
-      const rolesParam = req.nextUrl.searchParams.get('roles');
+      const url = new URL(req.url);
+      const rolesParam = url.searchParams.get('roles');
       const roleFilter = rolesParam ? rolesParam.split(',').map((r) => r.trim()).filter(Boolean) : null;
 
       step = 'user_query';
