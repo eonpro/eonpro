@@ -259,7 +259,7 @@ export async function saveScribeSOAPNote(
         assessment: soapNote.assessment,
         plan: soapNote.plan,
         medicalNecessity: soapNote.medicalNecessity,
-        sourceType: 'AI_GENERATED',
+        sourceType: 'TELEHEALTH_SCRIBE',
         generatedByAI: true,
         aiModelVersion: soapNote.metadata.model,
         status: 'DRAFT',
