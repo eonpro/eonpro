@@ -8,7 +8,33 @@ import type {
   LocalizedString,
 } from '../../types/form-engine';
 import { resolveNextStep } from '../../types/form-engine';
-import { getStepComponent } from './StepRegistry';
+import {
+  InfoImageStep,
+  TypewriterStep,
+  BMICalculatingStep,
+  BMIResultStep,
+  FindingProviderStep,
+  QualifiedStep,
+  ConsentStep,
+  StateSelectStep,
+  DateOfBirthStep,
+  ContactInfoStep,
+  AddressStep,
+  WeightInputStep,
+  WeightHeightStep,
+  TestimonialsStep,
+  ProgramsIncludeStep,
+  SideEffectsStep,
+  SafetyQualityStep,
+  ReviewStep,
+  SupportInfoStep,
+  MedicalHistoryOverviewStep,
+  ChronicConditionsDetailStep,
+  GLP1DataStep,
+  MedicalTeamStep,
+  PersonalizedTreatmentStep,
+  TreatmentBenefitsStep,
+} from './steps';
 import {
   OptionButton,
   TextField,
@@ -244,17 +270,64 @@ export default function FormStep({
   // ---- Custom step rendering ----
 
   if (config.type === 'custom' && config.component) {
-    const CustomComponent = getStepComponent(config.component);
-    if (CustomComponent) {
-      return (
-        <CustomComponent
-          config={config}
-          basePath={basePath}
-          branding={branding}
-          onNavigate={onNavigate}
-          onBack={handleBack}
-        />
-      );
+    const customProps = {
+      basePath,
+      nextStep: typeof config.nextStep === 'string' ? config.nextStep : '',
+      prevStep: config.prevStep,
+      progressPercent: config.progressPercent,
+    };
+
+    switch (config.component) {
+      case 'InfoImageStep':
+        return <InfoImageStep {...customProps} imageEn={config.props?.imageEn as string} imageEs={config.props?.imageEs as string} autoAdvanceDelay={config.props?.autoAdvanceDelay as number} />;
+      case 'TypewriterStep':
+        return <TypewriterStep {...customProps} title={config.title} subtitle={config.subtitle} />;
+      case 'BMICalculatingStep':
+        return <BMICalculatingStep basePath={basePath} nextStep={customProps.nextStep} />;
+      case 'BMIResultStep':
+        return <BMIResultStep {...customProps} />;
+      case 'FindingProviderStep':
+        return <FindingProviderStep basePath={basePath} nextStep={customProps.nextStep} />;
+      case 'QualifiedStep':
+        return <QualifiedStep basePath={basePath} prevStep={config.prevStep} />;
+      case 'ConsentStep':
+        return <ConsentStep {...customProps} />;
+      case 'StateSelectStep':
+        return <StateSelectStep {...customProps} />;
+      case 'DateOfBirthStep':
+        return <DateOfBirthStep {...customProps} />;
+      case 'ContactInfoStep':
+        return <ContactInfoStep {...customProps} />;
+      case 'AddressStep':
+        return <AddressStep {...customProps} />;
+      case 'WeightInputStep':
+        return <WeightInputStep {...customProps} title={config.title} subtitle={config.subtitle} />;
+      case 'WeightHeightStep':
+        return <WeightHeightStep {...customProps} />;
+      case 'TestimonialsStep':
+        return <TestimonialsStep {...customProps} />;
+      case 'ProgramsIncludeStep':
+        return <ProgramsIncludeStep {...customProps} />;
+      case 'SideEffectsStep':
+        return <SideEffectsStep {...customProps} />;
+      case 'SafetyQualityStep':
+        return <SafetyQualityStep {...customProps} />;
+      case 'ReviewStep':
+        return <ReviewStep {...customProps} />;
+      case 'SupportInfoStep':
+        return <SupportInfoStep {...customProps} />;
+      case 'MedicalHistoryOverviewStep':
+        return <MedicalHistoryOverviewStep {...customProps} />;
+      case 'ChronicConditionsDetailStep':
+        return <ChronicConditionsDetailStep {...customProps} />;
+      case 'GLP1DataStep':
+        return <GLP1DataStep {...customProps} />;
+      case 'MedicalTeamStep':
+        return <MedicalTeamStep {...customProps} />;
+      case 'PersonalizedTreatmentStep':
+        return <PersonalizedTreatmentStep {...customProps} />;
+      case 'TreatmentBenefitsStep':
+        return <TreatmentBenefitsStep {...customProps} />;
     }
   }
 
