@@ -58,6 +58,11 @@ body {
   }
 }
 
+/* Intake form: pure white background — no brand beige */
+body.intake-body {
+  background-color: #ffffff;
+}
+
 /* Chat textarea: CSS-based auto-resize to avoid JS DOM mutation CLS */
 .chat-textarea {
   field-sizing: content;

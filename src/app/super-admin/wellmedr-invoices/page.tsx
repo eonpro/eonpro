@@ -606,7 +606,7 @@ function PharmacyInvoiceView({ invoice }: { invoice: PharmacyInvoice }) {
                       <td className="whitespace-nowrap px-4 py-2.5 font-mono text-xs text-gray-400">
                         {first.lifefileOrderId ?? '-'}
                       </td>
-                      <td className="px-4 py-2.5" colSpan={4}>
+                      <td className="px-4 py-2.5" colSpan={5}>
                         <div className="flex flex-wrap gap-1.5">
                           {badges.map((b, i) => (
                             <span

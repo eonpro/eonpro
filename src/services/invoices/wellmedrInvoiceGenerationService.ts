@@ -483,9 +483,22 @@ let cachedLogo: Uint8Array | null = null;
 let cachedFont: Uint8Array | null = null;
 
 async function loadAsset(relPath: string): Promise<Uint8Array | null> {
+  // Try local filesystem first (works in dev + standalone builds)
   try {
     return new Uint8Array(await fs.readFile(path.join(process.cwd(), 'public', relPath)));
-  } catch { return null; }
+  } catch { /* fall through */ }
+
+  // On Vercel serverless, public/ files aren't on disk — fetch via HTTP
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL;
+  if (baseUrl) {
+    try {
+      const url = baseUrl.startsWith('http') ? `${baseUrl}/${relPath}` : `https://${baseUrl}/${relPath}`;
+      const res = await fetch(url);
+      if (res.ok) return new Uint8Array(await res.arrayBuffer());
+    } catch { /* fall through */ }
+  }
+
+  return null;
 }
 
 async function loadLogo(): Promise<Uint8Array | null> {
@@ -525,12 +538,20 @@ export async function generatePharmacyPDF(invoice: PharmacyInvoice): Promise<Uin
   const { PDFDocument, StandardFonts, rgb } = await import('pdf-lib');
   const doc = await PDFDocument.create();
 
-  const sofiaBytes = await loadSofiaFont();
-  const sofia = sofiaBytes ? await doc.embedFont(sofiaBytes) : await doc.embedFont(StandardFonts.Helvetica);
+  let sofia: Awaited<ReturnType<typeof doc.embedFont>>;
+  try {
+    const sofiaBytes = await loadSofiaFont();
+    sofia = sofiaBytes ? await doc.embedFont(sofiaBytes) : await doc.embedFont(StandardFonts.Helvetica);
+  } catch {
+    sofia = await doc.embedFont(StandardFonts.Helvetica);
+  }
   const helvB = await doc.embedFont(StandardFonts.HelveticaBold);
 
-  const logoBytes = await loadLogo();
-  const logo = logoBytes ? await doc.embedPng(logoBytes) : null;
+  let logo: Awaited<ReturnType<typeof doc.embedPng>> | null = null;
+  try {
+    const logoBytes = await loadLogo();
+    logo = logoBytes ? await doc.embedPng(logoBytes) : null;
+  } catch { /* skip logo */ }
 
   const PW = 792; const PH = 612; const M = 42; const TW = PW - 2 * M;
   const R = 13;
@@ -677,12 +698,20 @@ export async function generatePrescriptionServicesPDF(invoice: PrescriptionServi
   const { PDFDocument, StandardFonts, rgb } = await import('pdf-lib');
   const doc = await PDFDocument.create();
 
-  const sofiaBytes = await loadSofiaFont();
-  const sofia = sofiaBytes ? await doc.embedFont(sofiaBytes) : await doc.embedFont(StandardFonts.Helvetica);
+  let sofia: Awaited<ReturnType<typeof doc.embedFont>>;
+  try {
+    const sofiaBytes = await loadSofiaFont();
+    sofia = sofiaBytes ? await doc.embedFont(sofiaBytes) : await doc.embedFont(StandardFonts.Helvetica);
+  } catch {
+    sofia = await doc.embedFont(StandardFonts.Helvetica);
+  }
   const helvB = await doc.embedFont(StandardFonts.HelveticaBold);
 
-  const logoBytes = await loadLogo();
-  const logo = logoBytes ? await doc.embedPng(logoBytes) : null;
+  let logo: Awaited<ReturnType<typeof doc.embedPng>> | null = null;
+  try {
+    const logoBytes = await loadLogo();
+    logo = logoBytes ? await doc.embedPng(logoBytes) : null;
+  } catch { /* skip logo */ }
 
   const PW = 792; const PH = 612; const M = 42; const TW = PW - 2 * M;
   const R = 14;

@@ -32,6 +32,7 @@ export default function ConditionalLayout({ children }: ConditionalLayoutProps) 
     '/admin',
     '/tickets',
     '/orders',
+    '/intake',
     '/intake-forms',
     '/patient-portal',
     '/dashboard',

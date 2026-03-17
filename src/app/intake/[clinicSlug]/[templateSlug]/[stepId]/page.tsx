@@ -25,6 +25,11 @@ function IntakeStepContent() {
   const templateSlug = params.templateSlug as string;
   const stepId = params.stepId as string;
 
+  useEffect(() => {
+    document.body.classList.add('intake-body');
+    return () => { document.body.classList.remove('intake-body'); };
+  }, []);
+
   const [formConfig, setFormConfig] = useState<FormConfig | null>(null);
   const [branding, setBranding] = useState<FormBranding | undefined>();
   const [loading, setLoading] = useState(true);

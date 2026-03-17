@@ -108,6 +108,7 @@ export default function ConditionalHeader() {
     '/admin',
     '/super-admin',
     '/patients',
+    '/intake',
     '/intake-forms',
     '/affiliate',
     '/dashboard',

@@ -8,7 +8,26 @@
  * Stored as FormConfig JSON in IntakeFormTemplate.metadata.formConfig.
  */
 
-import type { FormConfig, FormStep } from '../types/form-engine';
+import type { FormConfig, FormStep, FieldOption } from '../types/form-engine';
+import { US_STATE_OPTIONS } from '@/lib/usStates';
+
+const stateOptions: FieldOption[] = US_STATE_OPTIONS.map((s) => ({
+  id: s.value,
+  label: { en: s.label, es: s.label },
+  value: s.value,
+}));
+
+const heightFeetOptions: FieldOption[] = [4, 5, 6, 7].map((ft) => ({
+  id: `${ft}`,
+  label: { en: `${ft} ft`, es: `${ft} pies` },
+  value: `${ft}`,
+}));
+
+const heightInchesOptions: FieldOption[] = Array.from({ length: 12 }, (_, i) => ({
+  id: `${i}`,
+  label: { en: `${i} in`, es: `${i} pulg` },
+  value: `${i}`,
+}));
 
 const steps: FormStep[] = [
   // ===== SECTION 1: ONBOARDING =====
@@ -42,8 +61,7 @@ const steps: FormStep[] = [
     path: 'obesity-stats',
     title: { en: 'More than 40% of American adults are obese.', es: 'Más del 40% de los adultos estadounidenses son obesos.' },
     subtitle: { en: 'The good news? Clinically proven treatments can help.', es: '¿Las buenas noticias? Los tratamientos clínicamente probados pueden ayudar.' },
-    type: 'custom',
-    component: 'InfoImageStep',
+    type: 'info',
     fields: [],
     autoAdvance: false,
     showContinueButton: true,
@@ -75,8 +93,7 @@ const steps: FormStep[] = [
     id: 'research-done',
     path: 'research-done',
     title: { en: "You've done the research. Now let a medical professional guide your journey.", es: 'Has investigado. Ahora deja que un profesional médico guíe tu camino.' },
-    type: 'custom',
-    component: 'TypewriterStep',
+    type: 'info',
     fields: [],
     autoAdvance: false,
     showContinueButton: true,
@@ -91,8 +108,7 @@ const steps: FormStep[] = [
     path: 'consent',
     title: { en: 'This questionnaire helps us understand your medical history, lifestyle, and goals.', es: 'Este cuestionario nos ayuda a entender tu historial médico, estilo de vida y objetivos.' },
     subtitle: { en: 'Your responses are private and will be reviewed by our medical team.', es: 'Tus respuestas son privadas y serán revisadas por nuestro equipo médico.' },
-    type: 'custom',
-    component: 'ConsentStep',
+    type: 'input',
     fields: [{
       id: 'consent_accepted', type: 'checkbox',
       label: { en: 'I understand and agree', es: 'Entiendo y acepto' },
@@ -110,13 +126,13 @@ const steps: FormStep[] = [
     path: 'state',
     title: { en: 'Select the state you live in:', es: 'Selecciona el estado en el que vives:' },
     subtitle: { en: 'This state is where your medication will be shipped to, if prescribed.', es: 'Este estado es donde se enviará tu medicamento, si se receta.' },
-    type: 'custom',
-    component: 'StateSelectStep',
+    type: 'input',
     fields: [
       {
         id: 'state', type: 'select',
         label: { en: 'State', es: 'Estado' },
         storageKey: 'state',
+        options: stateOptions,
         validation: [{ type: 'required', message: { en: 'Please select a state', es: 'Por favor selecciona un estado' } }],
       },
       {
@@ -152,8 +168,7 @@ const steps: FormStep[] = [
     id: 'dob',
     path: 'dob',
     title: { en: 'To check if you qualify, tell us your date of birth.', es: 'Para verificar si calificas, dinos tu fecha de nacimiento.' },
-    type: 'custom',
-    component: 'DateOfBirthStep',
+    type: 'input',
     fields: [{
       id: 'dob', type: 'date',
       label: { en: 'Date of Birth', es: 'Fecha de Nacimiento' },
@@ -194,8 +209,7 @@ const steps: FormStep[] = [
     id: 'contact-info',
     path: 'contact-info',
     title: { en: 'How can we reach you?', es: '¿Cómo podemos contactarte?' },
-    type: 'custom',
-    component: 'ContactInfoStep',
+    type: 'input',
     fields: [
       { id: 'email', type: 'email', label: { en: 'Email', es: 'Correo electrónico' }, placeholder: { en: 'your@email.com', es: 'tu@email.com' }, storageKey: 'email', validation: [{ type: 'required', message: { en: 'Email is required', es: 'El correo electrónico es requerido' } }, { type: 'email', message: { en: 'Please enter a valid email', es: 'Por favor ingresa un correo válido' } }] },
       { id: 'phone', type: 'phone', label: { en: 'Phone number', es: 'Número de teléfono' }, placeholder: { en: '(555) 555-5555', es: '(555) 555-5555' }, storageKey: 'phone', validation: [{ type: 'required', message: { en: 'Phone number is required', es: 'El número de teléfono es requerido' } }, { type: 'phone', message: { en: 'Please enter a valid phone number', es: 'Por favor ingresa un número válido' } }] },
@@ -226,8 +240,7 @@ const steps: FormStep[] = [
     path: 'address',
     title: { en: "What's your shipping address?", es: '¿Cuál es tu dirección de envío?' },
     subtitle: { en: 'All treatment medications are shipped to your door.', es: 'Todos los medicamentos de tratamiento se envían a tu puerta.' },
-    type: 'custom',
-    component: 'AddressStep',
+    type: 'input',
     fields: [
       { id: 'street', type: 'text', label: { en: 'Street Address', es: 'Dirección' }, storageKey: 'street', validation: [{ type: 'required', message: { en: 'Address is required', es: 'La dirección es requerida' } }] },
       { id: 'apartment', type: 'text', label: { en: 'Apartment/Suite (Optional)', es: 'Apartamento/Suite (Opcional)' }, storageKey: 'apartment' },
@@ -242,8 +255,7 @@ const steps: FormStep[] = [
     id: 'ideal-weight',
     path: 'ideal-weight',
     title: { en: "What's your ideal weight?", es: '¿Cuál es tu peso ideal?' },
-    type: 'custom',
-    component: 'WeightInputStep',
+    type: 'input',
     fields: [{ id: 'ideal_weight', type: 'number', label: { en: 'Ideal Weight (lbs)', es: 'Peso Ideal (lbs)' }, storageKey: 'ideal_weight', validation: [{ type: 'required', message: { en: 'Please enter your ideal weight', es: 'Por favor ingresa tu peso ideal' } }] }],
     autoAdvance: false,
     showContinueButton: true,
@@ -255,12 +267,11 @@ const steps: FormStep[] = [
     id: 'current-weight',
     path: 'current-weight',
     title: { en: "What's your current weight and height?", es: '¿Cuál es tu peso y altura actual?' },
-    type: 'custom',
-    component: 'WeightHeightStep',
+    type: 'input',
     fields: [
       { id: 'current_weight', type: 'number', label: { en: 'Current Weight (lbs)', es: 'Peso Actual (lbs)' }, storageKey: 'current_weight', validation: [{ type: 'required', message: { en: 'Please enter your weight', es: 'Por favor ingresa tu peso' } }] },
-      { id: 'height_feet', type: 'select', label: { en: 'Height (feet)', es: 'Altura (pies)' }, storageKey: 'height_feet', validation: [{ type: 'required', message: { en: 'Please select feet', es: 'Por favor selecciona pies' } }] },
-      { id: 'height_inches', type: 'select', label: { en: 'Height (inches)', es: 'Altura (pulgadas)' }, storageKey: 'height_inches', validation: [{ type: 'required', message: { en: 'Please select inches', es: 'Por favor selecciona pulgadas' } }] },
+      { id: 'height_feet', type: 'select', label: { en: 'Height (feet)', es: 'Altura (pies)' }, storageKey: 'height_feet', options: heightFeetOptions, validation: [{ type: 'required', message: { en: 'Please select feet', es: 'Por favor selecciona pies' } }] },
+      { id: 'height_inches', type: 'select', label: { en: 'Height (inches)', es: 'Altura (pulgadas)' }, storageKey: 'height_inches', options: heightInchesOptions, validation: [{ type: 'required', message: { en: 'Please select inches', es: 'Por favor selecciona pulgadas' } }] },
     ],
     autoAdvance: false,
     showContinueButton: true,
@@ -272,8 +283,7 @@ const steps: FormStep[] = [
     id: 'bmi-calculating',
     path: 'bmi-calculating',
     title: { en: 'Calculating your BMI...', es: 'Calculando tu IMC...' },
-    type: 'custom',
-    component: 'BMICalculatingStep',
+    type: 'info',
     fields: [],
     autoAdvance: true,
     showContinueButton: false,
@@ -285,8 +295,7 @@ const steps: FormStep[] = [
     id: 'bmi-result',
     path: 'bmi-result',
     title: { en: 'Your BMI Result', es: 'Tu Resultado de IMC' },
-    type: 'custom',
-    component: 'BMIResultStep',
+    type: 'info',
     fields: [],
     autoAdvance: false,
     showContinueButton: true,
@@ -300,8 +309,7 @@ const steps: FormStep[] = [
     id: 'testimonials',
     path: 'testimonials',
     title: { en: 'Real patients, real results.', es: 'Pacientes reales, resultados reales.' },
-    type: 'custom',
-    component: 'TestimonialsStep',
+    type: 'info',
     fields: [],
     autoAdvance: false,
     showContinueButton: true,
@@ -457,8 +465,7 @@ const steps: FormStep[] = [
     id: 'chronic-conditions-detail',
     path: 'chronic-conditions-detail',
     title: { en: 'Please describe your chronic conditions.', es: 'Por favor describe tus condiciones crónicas.' },
-    type: 'custom',
-    component: 'ChronicConditionsDetailStep',
+    type: 'input',
     fields: [{
       id: 'chronic_conditions_detail', type: 'textarea',
       label: { en: 'Chronic Conditions Details', es: 'Detalles de Condiciones Crónicas' },
@@ -940,8 +947,7 @@ const steps: FormStep[] = [
     id: 'glp1-data',
     path: 'glp1-data',
     title: { en: 'Clinical studies show GLP-1 medications can help patients lose 15-20% of body weight.', es: 'Los estudios clínicos muestran que los medicamentos GLP-1 pueden ayudar a los pacientes a perder entre 15-20% del peso corporal.' },
-    type: 'custom',
-    component: 'GLP1DataStep',
+    type: 'info',
     fields: [],
     autoAdvance: false,
     showContinueButton: true,
@@ -978,8 +984,7 @@ const steps: FormStep[] = [
     id: 'safety-quality',
     path: 'safety-quality',
     title: { en: 'Your safety and quality of care are our top priorities.', es: 'Tu seguridad y calidad de atención son nuestras principales prioridades.' },
-    type: 'custom',
-    component: 'SafetyQualityStep',
+    type: 'info',
     fields: [],
     autoAdvance: false,
     showContinueButton: true,
@@ -991,8 +996,7 @@ const steps: FormStep[] = [
     id: 'medical-team',
     path: 'medical-team',
     title: { en: 'Your dedicated medical team is ready to support you.', es: 'Tu equipo médico dedicado está listo para apoyarte.' },
-    type: 'custom',
-    component: 'MedicalTeamStep',
+    type: 'info',
     fields: [],
     autoAdvance: false,
     showContinueButton: true,
@@ -1029,8 +1033,7 @@ const steps: FormStep[] = [
     id: 'personalized-treatment',
     path: 'personalized-treatment',
     title: { en: 'Your treatment plan will be personalized based on your medical history and goals.', es: 'Tu plan de tratamiento será personalizado según tu historial médico y objetivos.' },
-    type: 'custom',
-    component: 'PersonalizedTreatmentStep',
+    type: 'info',
     fields: [],
     autoAdvance: false,
     showContinueButton: true,
@@ -1043,8 +1046,7 @@ const steps: FormStep[] = [
     path: 'review',
     title: { en: 'Review your information', es: 'Revisa tu información' },
     subtitle: { en: 'Please verify the information below before submitting.', es: 'Por favor verifica la información antes de enviar.' },
-    type: 'custom',
-    component: 'ReviewStep',
+    type: 'info',
     fields: [],
     autoAdvance: false,
     showContinueButton: true,
@@ -1056,8 +1058,7 @@ const steps: FormStep[] = [
     id: 'finding-provider',
     path: 'finding-provider',
     title: { en: 'Finding your provider...', es: 'Buscando tu proveedor...' },
-    type: 'custom',
-    component: 'FindingProviderStep',
+    type: 'info',
     fields: [],
     autoAdvance: true,
     showContinueButton: false,
@@ -1070,8 +1071,7 @@ const steps: FormStep[] = [
     path: 'qualified',
     title: { en: 'Great news!', es: '¡Excelentes noticias!' },
     subtitle: { en: 'Based on your responses, you may qualify for treatment. A licensed provider will review your information.', es: 'Según tus respuestas, puedes calificar para el tratamiento. Un proveedor licenciado revisará tu información.' },
-    type: 'custom',
-    component: 'QualifiedStep',
+    type: 'info',
     fields: [],
     autoAdvance: false,
     showContinueButton: true,
