@@ -149,13 +149,19 @@ export async function generateDailyInvoices(
   const nextDay = midnightInTz(eY, eM - 1, eD + 1, CLINIC_TZ);
   const periodEnd = new Date(nextDay.getTime() - 1);
 
+  // Fetch orders where EITHER createdAt OR approvedAt falls in the period.
+  // Direct sends: createdAt is the send time (approvedAt is null).
+  // Queued sends: approvedAt is the actual send time (createdAt is when admin queued).
   const orders = await basePrisma.order.findMany({
     where: {
       clinicId,
-      createdAt: { gte: periodStart, lte: periodEnd },
+      OR: [
+        { createdAt: { gte: periodStart, lte: periodEnd } },
+        { approvedAt: { gte: periodStart, lte: periodEnd } },
+      ],
       cancelledAt: null,
       fulfillmentChannel: 'lifefile',
-      status: { notIn: ['error', 'cancelled', 'declined'] },
+      status: { notIn: ['error', 'cancelled', 'declined', 'queued_for_provider'] },
     },
     select: {
       id: true,
@@ -165,6 +171,7 @@ export async function generateDailyInvoices(
       shippingMethod: true,
       patientId: true,
       providerId: true,
+      status: true,
       patient: { select: { id: true, firstName: true, lastName: true } },
       provider: { select: { id: true, firstName: true, lastName: true } },
       rxs: {
@@ -181,11 +188,19 @@ export async function generateDailyInvoices(
     orderBy: { createdAt: 'asc' },
   });
 
+  // Filter in memory: only include orders whose "sent time" is within the period.
+  // This prevents double-counting an order that was created on day X but sent on day Y.
+  const filteredOrders = orders.filter((o) => {
+    const sentAt = o.approvedAt ?? o.createdAt;
+    return sentAt >= periodStart && sentAt <= periodEnd;
+  });
+
   logger.info('WellMedR invoice generation: orders loaded', {
     clinicId,
     date,
     endDate: endDate ?? date,
-    orderCount: orders.length,
+    rawOrderCount: orders.length,
+    filteredOrderCount: filteredOrders.length,
   });
 
   const pharmacyLineItems: PharmacyLineItem[] = [];
@@ -196,7 +211,7 @@ export async function generateDailyInvoices(
   let subtotalShippingCents = 0;
   let totalVialCount = 0;
 
-  for (const order of orders) {
+  for (const order of filteredOrders) {
     const patientName = order.patient
       ? formatPatientName(order.patient)
       : `Patient #${order.patientId}`;
@@ -308,7 +323,7 @@ export async function generateDailyInvoices(
       subtotalMedicationsCents,
       subtotalShippingCents,
       totalCents: pharmacyTotalCents,
-      orderCount: orders.length,
+      orderCount: filteredOrders.length,
       vialCount: totalVialCount,
     },
     prescriptionServices: {
@@ -559,7 +574,7 @@ export async function generatePharmacyPDF(invoice: PharmacyInvoice): Promise<Uin
   pg.drawRectangle({ x: M, y: y - 2, width: TABLE_W, height: 18, color: rgb(PRIMARY.r, PRIMARY.g, PRIMARY.b) });
   const hdrColor = rgb(1, 1, 1);
   const c = [M + 4, M + 58, M + 118, M + 250, M + 370, M + 470, M + 530, M + 570, M + 620, M + 670];
-  txt('Date/Time (ET)', c[0], fontB, 6.5, hdrColor);
+  txt('Sent (ET)', c[0], fontB, 6.5, hdrColor);
   txt('Order #', c[1], fontB, 7, hdrColor);
   txt('Patient', c[2], fontB, 7, hdrColor);
   txt('LF Order ID', c[3], fontB, 7, hdrColor);
@@ -573,7 +588,7 @@ export async function generatePharmacyPDF(invoice: PharmacyInvoice): Promise<Uin
 
   function drawMedHeader() {
     pg.drawRectangle({ x: M, y: y - 2, width: TABLE_W, height: 18, color: rgb(PRIMARY.r, PRIMARY.g, PRIMARY.b) });
-    txt('Date/Time (ET)', c[0], fontB, 6.5, hdrColor);
+    txt('Sent (ET)', c[0], fontB, 6.5, hdrColor);
     txt('Order #', c[1], fontB, 7, hdrColor);
     txt('Patient', c[2], fontB, 7, hdrColor);
     txt('LF Order ID', c[3], fontB, 7, hdrColor);
@@ -742,7 +757,7 @@ export async function generatePrescriptionServicesPDF(invoice: PrescriptionServi
 
   pg.drawRectangle({ x: M, y: y - 2, width: TABLE_W, height: 18, color: rgb(AMBER.r, AMBER.g, AMBER.b) });
   const hc = rgb(1, 1, 1);
-  txt('Date/Time (ET)', rxC[0], fontB, 6.5, hc);
+  txt('Sent (ET)', rxC[0], fontB, 6.5, hc);
   txt('Order #', rxC[1], fontB, 7, hc);
   txt('Patient', rxC[2], fontB, 7, hc);
   txt('LF Order ID', rxC[3], fontB, 7, hc);
@@ -752,7 +767,7 @@ export async function generatePrescriptionServicesPDF(invoice: PrescriptionServi
 
   function drawRxHeader() {
     pg.drawRectangle({ x: M, y: y - 2, width: TABLE_W, height: 18, color: rgb(AMBER.r, AMBER.g, AMBER.b) });
-    txt('Date/Time (ET)', rxC[0], fontB, 6.5, hc);
+    txt('Sent (ET)', rxC[0], fontB, 6.5, hc);
     txt('Order #', rxC[1], fontB, 7, hc);
     txt('Patient', rxC[2], fontB, 7, hc);
     txt('LF Order ID', rxC[3], fontB, 7, hc);

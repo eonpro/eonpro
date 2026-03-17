@@ -526,7 +526,7 @@ function PharmacyInvoiceView({ invoice }: { invoice: PharmacyInvoice }) {
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                 <th className="w-8 px-2 py-3" />
-                <th className="px-4 py-3">Date / Time (ET)</th>
+                <th className="px-4 py-3">Sent (ET)</th>
                 <th className="px-4 py-3">Order</th>
                 <th className="px-4 py-3">Patient</th>
                 <th className="px-4 py-3">LF Order ID</th>
@@ -734,7 +734,7 @@ function PrescriptionServicesView({ invoice }: { invoice: PrescriptionServicesIn
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                <th className="px-4 py-3">Date / Time (ET)</th>
+                <th className="px-4 py-3">Sent (ET)</th>
                 <th className="px-4 py-3">Order</th>
                 <th className="px-4 py-3">Patient</th>
                 <th className="px-4 py-3">LF Order ID</th>
