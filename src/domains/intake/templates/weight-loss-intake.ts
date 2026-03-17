@@ -30,6 +30,21 @@ const heightInchesOptions: FieldOption[] = Array.from({ length: 12 }, (_, i) => 
 }));
 
 const steps: FormStep[] = [
+  // ===== INTRO / LANDING =====
+  {
+    id: 'intro',
+    path: 'intro',
+    title: { en: "Let's evaluate your treatment options.", es: 'Evaluemos tus opciones de tratamiento.' },
+    subtitle: { en: 'Discover personalized solutions based on your goals, habits, and medical history.', es: 'Descubre soluciones personalizadas basadas en tus objetivos, hábitos e historial médico.' },
+    type: 'info',
+    fields: [],
+    autoAdvance: false,
+    showContinueButton: true,
+    nextStep: 'goals',
+    prevStep: null,
+    progressPercent: 0,
+  },
+
   // ===== SECTION 1: ONBOARDING =====
   {
     id: 'goals',
@@ -53,7 +68,7 @@ const steps: FormStep[] = [
     autoAdvance: false,
     showContinueButton: true,
     nextStep: 'obesity-stats',
-    prevStep: null,
+    prevStep: 'intro',
     progressPercent: 2,
   },
   {
@@ -1088,7 +1103,7 @@ export const weightLossIntakeConfig: FormConfig = {
   description: 'Comprehensive medical intake questionnaire for weight loss programs with GLP-1 medication assessment',
   treatmentType: 'weight-loss',
   steps,
-  startStep: 'goals',
+  startStep: 'intro',
   languages: ['en', 'es'],
   defaultLanguage: 'en',
   integrations: [

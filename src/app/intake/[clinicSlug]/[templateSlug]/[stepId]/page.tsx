@@ -3,6 +3,7 @@
 import { useParams, useRouter, notFound } from 'next/navigation';
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { FormStep } from '@/domains/intake/components/form-engine';
+import IntakeLandingStep from '@/domains/intake/components/IntakeLandingStep';
 import { useIntakeStore } from '@/domains/intake/store/intakeStore';
 import { LanguageProvider, useLanguage } from '@/domains/intake/contexts/LanguageContext';
 import type { FormConfig, FormStep as FormStepType, FormBranding } from '@/domains/intake/types/form-engine';
@@ -19,7 +20,7 @@ import type { FormConfig, FormStep as FormStepType, FormBranding } from '@/domai
 function IntakeStepContent() {
   const params = useParams();
   const router = useRouter();
-  const { language } = useLanguage();
+  const { language, setLanguage } = useLanguage();
 
   const clinicSlug = params.clinicSlug as string;
   const templateSlug = params.templateSlug as string;
@@ -131,6 +132,17 @@ function IntakeStepContent() {
     return notFound();
   }
 
+  if (stepId === 'intro') {
+    return (
+      <IntakeLandingStep
+        branding={branding}
+        language={language}
+        onLanguageChange={setLanguage}
+        onStart={() => handleNavigate('goals')}
+      />
+    );
+  }
+
   const logoElement = branding?.logo ? (
     <div className="px-6 lg:px-8 pt-4 max-w-[480px] lg:max-w-[560px] mx-auto w-full">
       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -167,6 +179,7 @@ function IntakeStepContent() {
         onMarkCompleted={handleMarkCompleted}
         onNavigate={handleNavigate}
         onBack={handleBack}
+        onLanguageChange={setLanguage}
       />
     </div>
   );

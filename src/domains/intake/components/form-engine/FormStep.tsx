@@ -31,6 +31,7 @@ interface FormStepProps {
   onMarkCompleted: (stepId: string) => void;
   onNavigate: (stepId: string) => void;
   onBack: () => void;
+  onLanguageChange?: (lang: 'en' | 'es') => void;
 }
 
 export default function FormStep({
@@ -45,6 +46,7 @@ export default function FormStep({
   onMarkCompleted,
   onNavigate,
   onBack,
+  onLanguageChange,
 }: FormStepProps) {
   const isSpanish = language === 'es';
 
@@ -446,12 +448,30 @@ export default function FormStep({
 
   return (
     <div className="min-h-screen bg-white flex flex-col">
-      {/* Progress bar */}
-      <div className="w-full h-1 bg-gray-100">
-        <div
-          className="h-full bg-[var(--intake-accent,#f0feab)] transition-all duration-300"
-          style={{ width: `${config.progressPercent}%` }}
-        />
+      {/* Language toggle + Progress bar */}
+      <div className="relative">
+        {onLanguageChange && (
+          <div className="absolute right-4 top-2 z-10 flex rounded-full border border-gray-200 overflow-hidden text-xs">
+            <button
+              onClick={() => onLanguageChange('en')}
+              className={`px-2.5 py-1 font-medium transition-colors ${language === 'en' ? 'bg-gray-900 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}
+            >
+              EN
+            </button>
+            <button
+              onClick={() => onLanguageChange('es')}
+              className={`px-2.5 py-1 font-medium transition-colors ${language === 'es' ? 'bg-gray-900 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}
+            >
+              ES
+            </button>
+          </div>
+        )}
+        <div className="w-full h-1 bg-gray-100">
+          <div
+            className="h-full bg-[var(--intake-accent,#f0feab)] transition-all duration-300"
+            style={{ width: `${config.progressPercent}%` }}
+          />
+        </div>
       </div>
 
       {/* Back button - ghost style */}

@@ -9,6 +9,7 @@ describe('weightLossIntakeConfig', () => {
 
   it('has a valid startStep', () => {
     expect(stepMap.has(startStep)).toBe(true);
+    expect(startStep).toBe('intro');
   });
 
   it('has bilingual titles for every step', () => {
@@ -91,6 +92,17 @@ describe('weightLossIntakeConfig', () => {
   });
 
   describe('conditional navigation logic', () => {
+    it('intro leads to goals', () => {
+      const step = stepMap.get('intro')!;
+      expect(resolveNextStep(step, {})).toBe('goals');
+      expect(step.prevStep).toBeNull();
+    });
+
+    it('goals goes back to intro', () => {
+      const step = stepMap.get('goals')!;
+      expect(step.prevStep).toBe('intro');
+    });
+
     it('medical-history-overview branches by sex', () => {
       const step = stepMap.get('medical-history-overview')!;
       expect(resolveNextStep(step, { sex: 'female' })).toBe('pregnancy');
@@ -135,6 +147,7 @@ describe('weightLossIntakeConfig', () => {
 
   describe('expected steps present', () => {
     const expectedStepIds = [
+      'intro',
       'goals', 'obesity-stats', 'medication-preference', 'research-done',
       'consent', 'state', 'name', 'dob', 'sex-assigned', 'contact-info',
       'support-info', 'address', 'ideal-weight', 'current-weight',
