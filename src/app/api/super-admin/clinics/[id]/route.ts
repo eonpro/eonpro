@@ -235,11 +235,11 @@ export const PUT = withSuperAdminAuth(
       });
     } catch (error: unknown) {
       logger.error('Error updating clinic', error instanceof Error ? error : undefined, {
-        route: 'PATCH /api/super-admin/clinics/[id]',
+        route: 'PUT /api/super-admin/clinics/[id]',
         clinicId: params.id,
       });
       return NextResponse.json(
-        { error: error.message || 'Failed to update clinic' },
+        { error: error instanceof Error ? error.message : 'Failed to update clinic' },
         { status: 500 }
       );
     }

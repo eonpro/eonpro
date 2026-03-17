@@ -1,7 +1,7 @@
 {
-  "clinicId": 1,
+  "clinicId": 2,
   "slug": "eonpro",
-  "appName": "EonPro Health",
+  "appName": "EON Medical",
   "bundleIdentifier": "com.eonpro.health",
   "scheme": "eonpro",
   "icon": "./clinics/assets/eonpro/icon.png",

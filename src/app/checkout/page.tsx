@@ -91,7 +91,7 @@ const T: Record<string, { en: string; es: string }> = {
   confirmationEmail: { en: 'A confirmation email will be sent to', es: 'Se enviará un correo de confirmación a' },
 };
 
-function CheckoutInner() {
+export function CheckoutInner() {
   const { language } = useLanguage();
   const t = useCallback((key: string) => T[key]?.[language] || T[key]?.en || key, [language]);
   const searchParams = useSearchParams();

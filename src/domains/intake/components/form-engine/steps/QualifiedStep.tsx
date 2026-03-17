@@ -115,17 +115,8 @@ export default function QualifiedStep({ basePath, prevStep }: QualifiedStepProps
         sessionStorage.setItem(`intake_${key}`, typeof value === 'object' ? JSON.stringify(value) : String(value));
       }
     });
-    const params = new URLSearchParams();
-    if (responses.firstName) params.set('firstName', String(responses.firstName));
-    if (responses.lastName) params.set('lastName', String(responses.lastName));
-    if (responses.email) params.set('email', String(responses.email));
-    if (responses.phone) params.set('phone', String(responses.phone));
-    if (responses.street) params.set('address', String(responses.street));
-    if (responses.apartment) params.set('apt', String(responses.apartment));
-    if (responses.state) params.set('state', String(responses.state));
-    if (responses.dob) params.set('dob', String(responses.dob));
-    params.set('medication', medication);
-    router.push(`/checkout?${params.toString()}`);
+    sessionStorage.setItem('intake_selected_medication', medication);
+    router.push(`${basePath}/checkout?medication=${medication}`);
   };
 
   const handleBack = () => { if (prevStep) router.push(`${basePath}/${prevStep}`); };

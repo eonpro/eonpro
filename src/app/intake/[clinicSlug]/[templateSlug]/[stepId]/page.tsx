@@ -4,6 +4,7 @@ import { useParams, useRouter, notFound } from 'next/navigation';
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { FormStep } from '@/domains/intake/components/form-engine';
 import IntakeLandingStep from '@/domains/intake/components/IntakeLandingStep';
+import { CheckoutInner } from '@/app/checkout/page';
 import { useIntakeStore } from '@/domains/intake/store/intakeStore';
 import { LanguageProvider, useLanguage } from '@/domains/intake/contexts/LanguageContext';
 import type { FormConfig, FormStep as FormStepType, FormBranding } from '@/domains/intake/types/form-engine';
@@ -141,6 +142,10 @@ function IntakeStepContent() {
         onStart={() => handleNavigate('goals')}
       />
     );
+  }
+
+  if (stepId === 'checkout') {
+    return <CheckoutInner />;
   }
 
   const logoElement = branding?.logo ? (

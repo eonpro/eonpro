@@ -328,6 +328,8 @@ export default function FormStep({
         return <PersonalizedTreatmentStep {...customProps} />;
       case 'TreatmentBenefitsStep':
         return <TreatmentBenefitsStep {...customProps} />;
+      case 'CheckoutStep':
+        return null;
     }
   }
 

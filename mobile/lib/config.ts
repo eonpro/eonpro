@@ -12,12 +12,14 @@ function getConfig(): AppConfig {
   if (!extra) {
     throw new Error('Missing expo config extra — is app.config.ts loaded?');
   }
-  return {
+  const config = {
     clinicId: extra.clinicId,
     clinicSlug: extra.clinicSlug,
     apiBaseUrl: extra.apiBaseUrl,
     associatedDomain: extra.associatedDomain,
   };
+  console.log('[AppConfig]', JSON.stringify(config));
+  return config;
 }
 
 export const appConfig = getConfig();

@@ -61,82 +61,12 @@ async function refreshTokenHandler(req: NextRequest) {
     // Get user based on ID and role from the token
     const userId = payload.id as number;
 
-    // Since we don't store the role in refresh token, we need to check multiple tables
-    // In production, you'd want to store user sessions in a dedicated table
-
-    // Try provider first
-    const providerUser = await prisma.provider.findUnique({
-      where: { id: userId },
-      select: { id: true, email: true, firstName: true, lastName: true, clinicId: true },
-    });
-
-    if (providerUser) {
-      // Create session record so production auth (validateSession) can find it
-      const { sessionId } = await createSessionRecord(
-        String(providerUser.id),
-        'provider',
-        providerUser.clinicId ?? undefined,
-        req
-      );
-
-      const tokenPayload: Record<string, unknown> = {
-        id: providerUser.id,
-        email: providerUser.email || '',
-        name: `${providerUser.firstName} ${providerUser.lastName}`,
-        role: 'provider',
-        sessionId,
-      };
-      if (providerUser.clinicId != null) tokenPayload.clinicId = providerUser.clinicId;
-
-      const newAccessToken = await new SignJWT(tokenPayload)
-        .setProtectedHeader({ alg: 'HS256' })
-        .setIssuedAt()
-        .setExpirationTime(AUTH_CONFIG.tokenExpiry.provider)
-        .sign(JWT_SECRET);
-
-      // Create new refresh token (signed with dedicated refresh secret)
-      const newRefreshToken = await new SignJWT({
-        id: providerUser.id,
-        type: 'refresh',
-      })
-        .setProtectedHeader({ alg: 'HS256' })
-        .setIssuedAt()
-        .setExpirationTime(AUTH_CONFIG.tokenExpiry.refresh)
-        .sign(JWT_REFRESH_SECRET);
-
-      logger.info('Token refreshed for provider', { userId: providerUser.id });
-
-      const response = NextResponse.json({
-        token: newAccessToken,
-        refreshToken: newRefreshToken,
-        user: {
-          id: providerUser.id,
-          email: providerUser.email,
-          name: `${providerUser.firstName} ${providerUser.lastName}`,
-          role: 'provider',
-        },
-      });
-
-      // Set httpOnly cookies so the browser uses the refreshed token on next request
-      const host = getRequestHostWithUrlFallback(req);
-      const cookieDomain = shouldUseEonproCookieDomain(host) ? '.eonpro.io' : undefined;
-      response.cookies.set({
-        name: 'auth-token',
-        value: newAccessToken,
-        ...AUTH_CONFIG.cookie,
-        maxAge: 60 * 60 * 24,
-        ...(cookieDomain && { domain: cookieDomain }),
-      });
-      response.cookies.set({
-        name: 'provider-token',
-        value: newAccessToken,
-        ...AUTH_CONFIG.cookie,
-        maxAge: 60 * 60 * 24,
-        ...(cookieDomain && { domain: cookieDomain }),
-      });
-
-      return response;
-    }
+    // IMPORTANT: Check UserSession FIRST, then fall back to legacy Provider lookup.
+    // The refresh token only contains { id, type } — no role. Previously, the Provider
+    // table was checked first by the same numeric ID. Since User.id and Provider.id are
+    // separate auto-incrementing sequences, a super_admin with User.id=N could collide
+    // with Provider.id=N, causing the refresh to return role='provider' instead of the
+    // correct role. This caused 403 "Insufficient permissions" on super-admin endpoints.
 
     // User table: session-backed rotation + reuse detection (when session has refreshTokenHash)
     const tokenHash = hashRefreshToken(refreshToken);
@@ -290,7 +220,7 @@ async function refreshTokenHandler(req: NextRequest) {
       }
     }
 
-    // No session with this hash: differentiate legacy (REAUTH) vs reuse (TOKEN_REUSE)
+    // No session with this hash: check for reuse before falling back to legacy lookups
     const userExists = await prisma.user.findUnique({ where: { id: userId }, select: { id: true } });
     if (userExists) {
       const hasRotatedSessions = await prisma.userSession.count({
@@ -307,6 +237,79 @@ async function refreshTokenHandler(req: NextRequest) {
         { error: 'Please log in again.', code: 'REAUTH_REQUIRED' },
         { status: 401 }
       );
+    }
+
+    // Legacy provider fallback: only used when no User record exists for this ID
+    // (i.e. legacy providers that pre-date the User table migration).
+    // This is safe because we've already confirmed no User with this ID exists above.
+    const providerUser = await prisma.provider.findUnique({
+      where: { id: userId },
+      select: { id: true, email: true, firstName: true, lastName: true, clinicId: true },
+    });
+
+    if (providerUser) {
+      const { sessionId } = await createSessionRecord(
+        String(providerUser.id),
+        'provider',
+        providerUser.clinicId ?? undefined,
+        req
+      );
+
+      const tokenPayload: Record<string, unknown> = {
+        id: providerUser.id,
+        email: providerUser.email || '',
+        name: `${providerUser.firstName} ${providerUser.lastName}`,
+        role: 'provider',
+        sessionId,
+      };
+      if (providerUser.clinicId != null) tokenPayload.clinicId = providerUser.clinicId;
+
+      const newAccessToken = await new SignJWT(tokenPayload)
+        .setProtectedHeader({ alg: 'HS256' })
+        .setIssuedAt()
+        .setExpirationTime(AUTH_CONFIG.tokenExpiry.provider)
+        .sign(JWT_SECRET);
+
+      const newRefreshToken = await new SignJWT({
+        id: providerUser.id,
+        type: 'refresh',
+      })
+        .setProtectedHeader({ alg: 'HS256' })
+        .setIssuedAt()
+        .setExpirationTime(AUTH_CONFIG.tokenExpiry.refresh)
+        .sign(JWT_REFRESH_SECRET);
+
+      logger.info('Token refreshed for legacy provider', { userId: providerUser.id });
+
+      const response = NextResponse.json({
+        token: newAccessToken,
+        refreshToken: newRefreshToken,
+        user: {
+          id: providerUser.id,
+          email: providerUser.email,
+          name: `${providerUser.firstName} ${providerUser.lastName}`,
+          role: 'provider',
+        },
+      });
+
+      const host = getRequestHostWithUrlFallback(req);
+      const cookieDomain = shouldUseEonproCookieDomain(host) ? '.eonpro.io' : undefined;
+      response.cookies.set({
+        name: 'auth-token',
+        value: newAccessToken,
+        ...AUTH_CONFIG.cookie,
+        maxAge: 60 * 60 * 24,
+        ...(cookieDomain && { domain: cookieDomain }),
+      });
+      response.cookies.set({
+        name: 'provider-token',
+        value: newAccessToken,
+        ...AUTH_CONFIG.cookie,
+        maxAge: 60 * 60 * 24,
+        ...(cookieDomain && { domain: cookieDomain }),
+      });
+
+      return response;
     }
 
     // Check for admin (special case)

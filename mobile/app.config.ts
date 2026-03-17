@@ -41,6 +41,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     ios: {
       supportsTablet: false,
       bundleIdentifier: clinic.bundleIdentifier,
+      appleTeamId: 'N7VQSZKR76',
       config: {
         usesNonExemptEncryption: false,
       },
