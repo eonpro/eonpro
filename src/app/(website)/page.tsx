@@ -13,12 +13,12 @@ export default function PlatformPage() {
     <>
       <HeroSection />
       <ClinicLogosSlider />
-      <PartnersSection />
       <PlatformOverview />
       <ProductShowcase />
       <CapabilitiesGrid />
       <TrustSection />
       <FAQSection />
+      <PartnersSection />
       <FooterCTA />
     </>
   );
