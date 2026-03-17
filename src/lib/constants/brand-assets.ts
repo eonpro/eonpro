@@ -15,6 +15,11 @@ export const BRAND = {
     affiliateLogo: '/images/logos/affiliate-logo.svg',
   },
 
+  partners: {
+    dosepost: '/images/logos/dosepost-logo.svg',
+    lifefile: '/images/logos/lifefile-logo.svg',
+  },
+
   press: {
     foxNews: '/images/press/fox-news.svg',
     mensHealth: '/images/press/mens-health.svg',

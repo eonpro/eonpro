@@ -1,5 +1,6 @@
 import HeroSection from './_components/HeroSection';
 import ClinicLogosSlider from './_components/ClinicLogosSlider';
+import PartnersSection from './_components/PartnersSection';
 import PlatformOverview from './_components/PlatformOverview';
 import ProductShowcase from './_components/ProductShowcase';
 import CapabilitiesGrid from './_components/CapabilitiesGrid';
@@ -12,6 +13,7 @@ export default function PlatformPage() {
     <>
       <HeroSection />
       <ClinicLogosSlider />
+      <PartnersSection />
       <PlatformOverview />
       <ProductShowcase />
       <CapabilitiesGrid />
