@@ -45,12 +45,6 @@ export const GET = withAuth(
                 lastName: true,
               },
             },
-            appointment: {
-              select: {
-                id: true,
-                type: true,
-              },
-            },
           },
           orderBy: { createdAt: 'desc' },
           take: limit,
@@ -81,7 +75,6 @@ export const GET = withAuth(
             : undefined,
           generatedByAI: note.generatedByAI,
           sourceType: note.sourceType,
-          appointmentType: (note as any).appointment?.type ?? null,
         }));
 
         return { notes: transformedNotes, totalCount };

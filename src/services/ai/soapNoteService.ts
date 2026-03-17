@@ -526,12 +526,6 @@ export async function getPatientSOAPNotes(
           patientId: true,
         },
       },
-      appointment: {
-        select: {
-          id: true,
-          type: true,
-        },
-      },
       revisions: includeRevisions,
     },
     orderBy: { createdAt: 'desc' },
@@ -587,12 +581,6 @@ export async function getSOAPNoteById(soapNoteId: number, includeRevisions = fal
           createdAt: true,
           category: true,
           patientId: true,
-        },
-      },
-      appointment: {
-        select: {
-          id: true,
-          type: true,
         },
       },
       revisions: includeRevisions
