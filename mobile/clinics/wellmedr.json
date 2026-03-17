@@ -1,0 +1,11 @@
+{
+  "clinicId": 7,
+  "slug": "wellmedr",
+  "appName": "WellMedR",
+  "bundleIdentifier": "com.eonpro.wellmedr",
+  "scheme": "wellmedr",
+  "icon": "./clinics/assets/wellmedr/icon.png",
+  "splash": "./clinics/assets/wellmedr/splash.png",
+  "apiBaseUrl": "https://wellmedr.eonpro.io",
+  "associatedDomain": "wellmedr.eonpro.io"
+}

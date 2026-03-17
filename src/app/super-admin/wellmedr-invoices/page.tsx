@@ -25,6 +25,7 @@ interface PharmacyLineItem {
   orderId: number;
   lifefileOrderId: string | null;
   orderDate: string;
+  paidAt: string | null;
   patientName: string;
   patientId: number;
   providerName: string;
@@ -41,6 +42,7 @@ interface ShippingLineItem {
   orderId: number;
   lifefileOrderId: string | null;
   orderDate: string;
+  paidAt: string | null;
   patientName: string;
   description: string;
   feeCents: number;
@@ -65,6 +67,7 @@ interface PrescriptionServiceLineItem {
   orderId: number;
   lifefileOrderId: string | null;
   orderDate: string;
+  paidAt: string | null;
   patientName: string;
   patientId: number;
   providerName: string;
@@ -526,6 +529,7 @@ function PharmacyInvoiceView({ invoice }: { invoice: PharmacyInvoice }) {
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                 <th className="w-8 px-2 py-3" />
+                <th className="px-4 py-3">Paid (ET)</th>
                 <th className="px-4 py-3">Sent (ET)</th>
                 <th className="px-4 py-3">Order</th>
                 <th className="px-4 py-3">Patient</th>
@@ -549,6 +553,9 @@ function PharmacyInvoiceView({ invoice }: { invoice: PharmacyInvoice }) {
                   return (
                     <tr key={group.orderId} className="border-b border-gray-100 hover:bg-gray-50">
                       <td className="px-2 py-2.5" />
+                      <td className="whitespace-nowrap px-4 py-2.5 text-xs text-emerald-700 font-medium">
+                        {first.paidAt ? formatDateTime(first.paidAt) : '-'}
+                      </td>
                       <td className="whitespace-nowrap px-4 py-2.5 text-gray-600 text-xs">
                         {formatDateTime(first.orderDate)}
                       </td>
@@ -594,6 +601,9 @@ function PharmacyInvoiceView({ invoice }: { invoice: PharmacyInvoice }) {
                           <ChevronRight className="mx-auto h-4 w-4 text-gray-400" />
                         )}
                       </td>
+                      <td className="whitespace-nowrap px-4 py-2.5 text-xs text-emerald-700 font-medium">
+                        {first.paidAt ? formatDateTime(first.paidAt) : '-'}
+                      </td>
                       <td className="whitespace-nowrap px-4 py-2.5 text-gray-600 text-xs">
                         {formatDateTime(first.orderDate)}
                       </td>
@@ -636,6 +646,7 @@ function PharmacyInvoiceView({ invoice }: { invoice: PharmacyInvoice }) {
                             <td />
                             <td />
                             <td />
+                            <td />
                             <td className="px-4 py-2 text-gray-900">{li.medicationName}</td>
                             <td className="px-4 py-2 text-gray-600">{li.strength}</td>
                             <td className="px-4 py-2 text-gray-600">{li.vialSize}</td>
@@ -660,6 +671,7 @@ function PharmacyInvoiceView({ invoice }: { invoice: PharmacyInvoice }) {
                             <td />
                             <td />
                             <td />
+                            <td />
                             <td className="px-4 py-2 text-amber-700" colSpan={4}>
                               <Truck className="mr-1 inline h-3 w-3" />
                               {sl.description}
@@ -677,7 +689,7 @@ function PharmacyInvoiceView({ invoice }: { invoice: PharmacyInvoice }) {
 
               {invoice.lineItems.length === 0 && (
                 <tr>
-                  <td colSpan={11} className="px-4 py-8 text-center text-gray-400">
+                  <td colSpan={12} className="px-4 py-8 text-center text-gray-400">
                     No orders for this period
                   </td>
                 </tr>
@@ -685,7 +697,7 @@ function PharmacyInvoiceView({ invoice }: { invoice: PharmacyInvoice }) {
             </tbody>
             <tfoot>
               <tr className="border-t border-gray-200 bg-gray-50">
-                <td colSpan={10} className="px-4 py-3 text-right font-semibold text-gray-700">
+                <td colSpan={11} className="px-4 py-3 text-right font-semibold text-gray-700">
                   Invoice Total
                 </td>
                 <td className="px-4 py-3 text-right font-bold text-gray-900">
@@ -734,6 +746,7 @@ function PrescriptionServicesView({ invoice }: { invoice: PrescriptionServicesIn
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                <th className="px-4 py-3">Paid (ET)</th>
                 <th className="px-4 py-3">Sent (ET)</th>
                 <th className="px-4 py-3">Order</th>
                 <th className="px-4 py-3">Patient</th>
@@ -745,6 +758,9 @@ function PrescriptionServicesView({ invoice }: { invoice: PrescriptionServicesIn
             <tbody className="divide-y divide-gray-50">
               {invoice.lineItems.map((li, idx) => (
                 <tr key={idx} className="hover:bg-gray-50">
+                  <td className="whitespace-nowrap px-4 py-2.5 text-xs text-emerald-700 font-medium">
+                    {li.paidAt ? formatDateTime(li.paidAt) : '-'}
+                  </td>
                   <td className="whitespace-nowrap px-4 py-2.5 text-gray-600 text-xs">
                     {formatDateTime(li.orderDate)}
                   </td>
@@ -774,7 +790,7 @@ function PrescriptionServicesView({ invoice }: { invoice: PrescriptionServicesIn
             </tbody>
             <tfoot>
               <tr className="border-t border-gray-200 bg-gray-50">
-                <td colSpan={5} className="px-4 py-3 text-right font-semibold text-gray-700">
+                <td colSpan={6} className="px-4 py-3 text-right font-semibold text-gray-700">
                   Total ({invoice.totalPrescriptions} prescriptions)
                 </td>
                 <td className="px-4 py-3 text-right font-bold text-gray-900">

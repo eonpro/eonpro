@@ -1,0 +1,11 @@
+{
+  "clinicId": 8,
+  "slug": "otmeds",
+  "appName": "OT Health",
+  "bundleIdentifier": "com.eonpro.otmeds",
+  "scheme": "otmeds",
+  "icon": "./clinics/assets/otmeds/icon.png",
+  "splash": "./clinics/assets/otmeds/splash.png",
+  "apiBaseUrl": "https://ot.eonpro.io",
+  "associatedDomain": "ot.eonpro.io"
+}

@@ -220,6 +220,7 @@ const BASE_PRISMA_ALLOWLIST: readonly string[] = [
   'platformfeeevent',
   'clinicplatforminvoice', // super-admin clinic billing (guarded by withSuperAdminAuth)
   'clinicplatformfeeconfig', // super-admin clinic billing (guarded by withSuperAdminAuth)
+  'invoice', // super-admin WellMedR invoice generation: join orders to payment records (guarded by withSuperAdminAuth)
   'scheduledemail', // cron needs to query system-level emails (clinicId = null)
   'internalmessage', // user-scoped (senderId/recipientId), not clinic-scoped; clinicId is optional context only
   'salesreprefcode', // public track endpoint: lookup by refCode to resolve clinicId/salesRepId

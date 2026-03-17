@@ -1,0 +1,11 @@
+{
+  "clinicId": 1,
+  "slug": "eonpro",
+  "appName": "EonPro Health",
+  "bundleIdentifier": "com.eonpro.health",
+  "scheme": "eonpro",
+  "icon": "./clinics/assets/eonpro/icon.png",
+  "splash": "./clinics/assets/eonpro/splash.png",
+  "apiBaseUrl": "https://app.eonpro.io",
+  "associatedDomain": "app.eonpro.io"
+}

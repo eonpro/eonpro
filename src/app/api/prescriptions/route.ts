@@ -1039,8 +1039,20 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
         },
       });
 
-      // Invoice was already atomically claimed before processing (duplicate prevention).
-      // No need to mark it again here.
+      // Link invoice to the created order (invoice was atomically claimed before processing)
+      if (invoiceClaimed && p.invoiceId) {
+        try {
+          await prisma.invoice.update({
+            where: { id: p.invoiceId },
+            data: { orderId: order.id },
+          });
+        } catch (linkErr) {
+          logger.warn('[PRESCRIPTIONS] Failed to link invoice to order', {
+            invoiceId: p.invoiceId, orderId: order.id,
+            error: linkErr instanceof Error ? linkErr.message : 'Unknown',
+          });
+        }
+      }
 
       // Handle refill queue if this prescription is from a refill request
       let refillResult = null;

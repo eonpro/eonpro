@@ -1,0 +1,11 @@
+{
+  "clinicId": 3,
+  "slug": "eonmeds",
+  "appName": "EonMeds",
+  "bundleIdentifier": "com.eonpro.eonmeds",
+  "scheme": "eonmeds",
+  "icon": "./clinics/assets/eonmeds/icon.png",
+  "splash": "./clinics/assets/eonmeds/splash.png",
+  "apiBaseUrl": "https://eonmeds.eonpro.io",
+  "associatedDomain": "eonmeds.eonpro.io"
+}

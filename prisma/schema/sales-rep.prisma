@@ -329,3 +329,98 @@ model SalesRepOverrideCommissionEvent {
   @@index([subordinateRepId, occurredAt])
   @@index([sourceCommissionEventId])
 }
+
+// ==========================================================================
+// SALES REP DISPOSITION SYSTEM
+// ==========================================================================
+// Structured workflow for reps to qualify/disposition patient interactions.
+// When outcome = SALE_COMPLETED, auto-creates PatientSalesRepAssignment
+// for seamless commission attribution.
+// ==========================================================================
+
+enum DispositionLeadSource {
+  REF_LINK
+  COLD_CALL
+  WALK_IN
+  SOCIAL_MEDIA
+  TEXT_MESSAGE
+  EMAIL_CAMPAIGN
+  WORD_OF_MOUTH
+  EXISTING_PATIENT
+  EVENT
+  OTHER
+}
+
+enum DispositionContactMethod {
+  PHONE
+  TEXT
+  EMAIL
+  IN_PERSON
+  VIDEO_CALL
+  SOCIAL_DM
+  OTHER
+}
+
+enum DispositionOutcome {
+  SALE_COMPLETED
+  INTERESTED
+  CALLBACK_REQUESTED
+  NOT_INTERESTED
+  NO_ANSWER
+  WRONG_NUMBER
+  ALREADY_PATIENT
+  DO_NOT_CONTACT
+  OTHER
+}
+
+enum DispositionStatus {
+  PENDING_REVIEW
+  APPROVED
+  REJECTED
+}
+
+model SalesRepDisposition {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  clinicId  Int
+  clinic    Clinic   @relation(fields: [clinicId], references: [id])
+
+  salesRepId Int
+  salesRep   User @relation("SalesRepDispositions", fields: [salesRepId], references: [id], onDelete: Cascade)
+
+  patientId Int
+  patient   Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  leadSource    DispositionLeadSource
+  contactMethod DispositionContactMethod
+  outcome       DispositionOutcome
+
+  productInterest String?
+  notes           String?  @db.Text
+  followUpDate    DateTime?
+  followUpNotes   String?
+
+  // Tags for easy filtering (JSON array of strings like ["high-value", "returning", "vip"])
+  tags Json?
+
+  // Review workflow: admin approves/rejects before commission assignment
+  status     DispositionStatus @default(PENDING_REVIEW)
+  reviewedAt DateTime?
+  reviewedBy Int?
+  reviewer   User?             @relation("DispositionReviews", fields: [reviewedBy], references: [id])
+  reviewNote String?
+
+  // Auto-assignment: when approved, links to the created PatientSalesRepAssignment
+  autoAssigned Boolean @default(false)
+  assignmentId Int?
+
+  @@index([clinicId])
+  @@index([salesRepId])
+  @@index([patientId])
+  @@index([outcome])
+  @@index([status])
+  @@index([salesRepId, outcome])
+  @@index([clinicId, createdAt])
+  @@index([clinicId, status])
+}

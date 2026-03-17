@@ -244,6 +244,7 @@ model Clinic {
   salesRepOverrideAssignments       SalesRepOverrideAssignment[]
   salesRepOverrideCommissionEvents  SalesRepOverrideCommissionEvent[]
   employeeSalaries                  EmployeeSalary[]
+  salesRepDispositions              SalesRepDisposition[]
 
   // Lifefile Shipping Updates
   shippingUpdates PatientShippingUpdate[]

@@ -1,0 +1,54 @@
+{
+  "cli": {
+    "version": ">= 15.0.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "env": {
+        "CLINIC": "eonpro"
+      }
+    },
+    "preview": {
+      "distribution": "internal",
+      "env": {
+        "CLINIC": "eonpro"
+      }
+    },
+    "production": {
+      "autoIncrement": true,
+      "env": {
+        "CLINIC": "eonpro"
+      }
+    },
+    "wellmedr": {
+      "extends": "production",
+      "env": {
+        "CLINIC": "wellmedr"
+      }
+    },
+    "otmeds": {
+      "extends": "production",
+      "env": {
+        "CLINIC": "otmeds"
+      }
+    },
+    "eonmeds": {
+      "extends": "production",
+      "env": {
+        "CLINIC": "eonmeds"
+      }
+    }
+  },
+  "submit": {
+    "production": {
+      "ios": {
+        "appleId": "",
+        "ascAppId": "",
+        "appleTeamId": ""
+      }
+    }
+  }
+}

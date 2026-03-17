@@ -32,6 +32,7 @@ export interface PharmacyLineItem {
   orderId: number;
   lifefileOrderId: string | null;
   orderDate: string;
+  paidAt: string | null;
   patientName: string;
   patientId: number;
   providerName: string;
@@ -49,6 +50,7 @@ export interface ShippingLineItem {
   orderId: number;
   lifefileOrderId: string | null;
   orderDate: string;
+  paidAt: string | null;
   patientName: string;
   description: string;
   feeCents: number;
@@ -74,6 +76,7 @@ export interface PrescriptionServiceLineItem {
   orderId: number;
   lifefileOrderId: string | null;
   orderDate: string;
+  paidAt: string | null;
   patientName: string;
   patientId: number;
   providerName: string;
@@ -149,15 +152,49 @@ export async function generateDailyInvoices(
   const nextDay = midnightInTz(eY, eM - 1, eD + 1, CLINIC_TZ);
   const periodEnd = new Date(nextDay.getTime() - 1);
 
-  // Fetch orders where EITHER createdAt OR approvedAt falls in the period.
-  // Direct sends: createdAt is the send time (approvedAt is null).
-  // Queued sends: approvedAt is the actual send time (createdAt is when admin queued).
-  const orders = await basePrisma.order.findMany({
+  // PRIMARY: Find invoices PAID in this period, then get their linked orders.
+  // This ensures the invoice matches Stripe payment records for the same day.
+  const paidInvoices = await basePrisma.invoice.findMany({
+    where: {
+      clinicId,
+      paidAt: { gte: periodStart, lte: periodEnd },
+      prescriptionProcessed: true,
+      orderId: { not: null },
+    },
+    select: { id: true, orderId: true, paidAt: true, patientId: true, prescriptionProcessedAt: true },
+  });
+
+  const invoiceByOrderId = new Map<number, { paidAt: Date | null }>();
+  const orderIdsFromInvoices = new Set<number>();
+  for (const inv of paidInvoices) {
+    if (inv.orderId) {
+      invoiceByOrderId.set(inv.orderId, { paidAt: inv.paidAt });
+      orderIdsFromInvoices.add(inv.orderId);
+    }
+  }
+
+  // FALLBACK: Also find invoices paid in this period that don't have orderId linked yet (legacy).
+  // Match them to orders by patientId + prescriptionProcessedAt close to order.createdAt.
+  const unlinkedInvoices = await basePrisma.invoice.findMany({
+    where: {
+      clinicId,
+      paidAt: { gte: periodStart, lte: periodEnd },
+      prescriptionProcessed: true,
+      orderId: null,
+    },
+    select: { id: true, paidAt: true, patientId: true, prescriptionProcessedAt: true },
+  });
+
+  // Fetch all WellMedR orders that might match (wider window for fallback matching)
+  const wideStart = new Date(periodStart.getTime() - 7 * 24 * 60 * 60 * 1000);
+  const wideEnd = new Date(periodEnd.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+  const allOrders = await basePrisma.order.findMany({
     where: {
       clinicId,
       OR: [
-        { createdAt: { gte: periodStart, lte: periodEnd } },
-        { approvedAt: { gte: periodStart, lte: periodEnd } },
+        { id: { in: [...orderIdsFromInvoices] } },
+        { createdAt: { gte: wideStart, lte: wideEnd } },
       ],
       cancelledAt: null,
       fulfillmentChannel: 'lifefile',
@@ -188,19 +225,37 @@ export async function generateDailyInvoices(
     orderBy: { createdAt: 'asc' },
   });
 
-  // Filter in memory: only include orders whose "sent time" is within the period.
-  // This prevents double-counting an order that was created on day X but sent on day Y.
-  const filteredOrders = orders.filter((o) => {
-    const sentAt = o.approvedAt ?? o.createdAt;
-    return sentAt >= periodStart && sentAt <= periodEnd;
-  });
+  // Match unlinked invoices to orders by patientId + timestamp proximity
+  for (const inv of unlinkedInvoices) {
+    if (!inv.prescriptionProcessedAt) continue;
+    const processedMs = inv.prescriptionProcessedAt.getTime();
+    let bestOrder: typeof allOrders[number] | null = null;
+    let bestDiff = Infinity;
+    for (const o of allOrders) {
+      if (o.patientId !== inv.patientId) continue;
+      if (orderIdsFromInvoices.has(o.id)) continue;
+      const diff = Math.abs(o.createdAt.getTime() - processedMs);
+      if (diff < bestDiff && diff < 5 * 60 * 1000) {
+        bestDiff = diff;
+        bestOrder = o;
+      }
+    }
+    if (bestOrder) {
+      invoiceByOrderId.set(bestOrder.id, { paidAt: inv.paidAt });
+      orderIdsFromInvoices.add(bestOrder.id);
+    }
+  }
+
+  // Final order set: only orders that have a matching paid invoice
+  const filteredOrders = allOrders.filter((o) => orderIdsFromInvoices.has(o.id));
 
   logger.info('WellMedR invoice generation: orders loaded', {
     clinicId,
     date,
     endDate: endDate ?? date,
-    rawOrderCount: orders.length,
-    filteredOrderCount: filteredOrders.length,
+    linkedInvoices: paidInvoices.length,
+    unlinkedInvoices: unlinkedInvoices.length,
+    matchedOrders: filteredOrders.length,
   });
 
   const pharmacyLineItems: PharmacyLineItem[] = [];
@@ -220,10 +275,10 @@ export async function generateDailyInvoices(
       ? `${order.provider.lastName}, ${order.provider.firstName}`
       : `Provider #${order.providerId}`;
 
-    // approvedAt = when the Rx was actually sent to pharmacy (most accurate)
-    // createdAt = when the order record was created (fallback for direct sends)
     const sentAt = order.approvedAt ?? order.createdAt;
     const orderDate = sentAt.toISOString();
+    const invoiceData = invoiceByOrderId.get(order.id);
+    const paidAt = invoiceData?.paidAt?.toISOString() ?? null;
 
     // --- Pharmacy Products ---
     let orderVialCount = 0;
@@ -243,6 +298,7 @@ export async function generateDailyInvoices(
           orderId: order.id,
           lifefileOrderId: order.lifefileOrderId,
           orderDate,
+          paidAt,
           patientName,
           patientId: order.patientId,
           providerName,
@@ -270,6 +326,7 @@ export async function generateDailyInvoices(
           orderId: order.id,
           lifefileOrderId: order.lifefileOrderId,
           orderDate,
+          paidAt,
           patientName,
           description: 'Single vial shipping surcharge',
           feeCents: fee,
@@ -283,6 +340,7 @@ export async function generateDailyInvoices(
           orderId: order.id,
           lifefileOrderId: order.lifefileOrderId,
           orderDate,
+          paidAt,
           patientName,
           description: 'Overnight shipping surcharge',
           feeCents: fee,
@@ -300,6 +358,7 @@ export async function generateDailyInvoices(
       orderId: order.id,
       lifefileOrderId: order.lifefileOrderId,
       orderDate,
+      paidAt,
       patientName,
       patientId: order.patientId,
       providerName,
@@ -634,9 +693,12 @@ export async function generatePharmacyPDF(invoice: PharmacyInvoice): Promise<Uin
     rect(M, TW, 18, rgb(0.15, 0.15, 0.15));
     y -= 1;
     t(`#${g.id}`, M + 6, helvB, 7.5, white);
-    t(tr(first.patientName, 28), M + 60, helvB, 7.5, white);
-    t(`LF ${first.lifefileOrderId ?? '-'}`, M + 240, sofia, 7, rgb(0.7, 0.7, 0.7));
-    t(fmtDateTimeET(first.orderDate) + ' ET', M + 380, sofia, 7, rgb(0.7, 0.7, 0.7));
+    t(tr(first.patientName, 26), M + 60, helvB, 7.5, white);
+    t(`LF ${first.lifefileOrderId ?? '-'}`, M + 220, sofia, 7, rgb(0.7, 0.7, 0.7));
+    const paidLabel = first.paidAt ? `Paid: ${fmtDateTimeET(first.paidAt)} ET` : '';
+    const sentLabel = `Sent: ${fmtDateTimeET(first.orderDate)} ET`;
+    t(paidLabel, M + 340, sofia, 6.5, rgb(0.55, 0.95, 0.7));
+    t(sentLabel, M + 480, sofia, 6.5, rgb(0.7, 0.7, 0.7));
     t(`Order Total:  ${$(g.total)}`, cx.amt - 30, helvB, 8, rgb(0.45, 0.95, 0.65));
     y -= 17;
 
@@ -759,9 +821,10 @@ export async function generatePrescriptionServicesPDF(invoice: PrescriptionServi
   y -= 22;
 
   // Column header
-  const rc = { sent: M + 6, order: M + 80, patient: M + 130, lf: M + 280, meds: M + 400, fee: TW + M - 60 };
+  const rc = { paid: M + 6, sent: M + 85, order: M + 160, patient: M + 200, lf: M + 330, meds: M + 440, fee: TW + M - 60 };
   pg.drawRectangle({ x: M, y: y - 3, width: TW, height: 18, color: amber });
-  t('Sent (ET)', rc.sent, helvB, 7, white);
+  t('Paid (ET)', rc.paid, helvB, 6.5, white);
+  t('Sent (ET)', rc.sent, helvB, 6.5, white);
   t('Order #', rc.order, helvB, 7, white);
   t('Patient', rc.patient, helvB, 7, white);
   t('LF Order ID', rc.lf, helvB, 7, white);
@@ -771,7 +834,8 @@ export async function generatePrescriptionServicesPDF(invoice: PrescriptionServi
 
   function drawRxH() {
     pg.drawRectangle({ x: M, y: y - 3, width: TW, height: 18, color: amber });
-    t('Sent (ET)', rc.sent, helvB, 7, white);
+    t('Paid (ET)', rc.paid, helvB, 6.5, white);
+    t('Sent (ET)', rc.sent, helvB, 6.5, white);
     t('Order #', rc.order, helvB, 7, white);
     t('Patient', rc.patient, helvB, 7, white);
     t('LF Order ID', rc.lf, helvB, 7, white);
@@ -792,11 +856,12 @@ export async function generatePrescriptionServicesPDF(invoice: PrescriptionServi
       pg.drawLine({ start: { x: M, y: y + R - 1 }, end: { x: PW - M, y: y + R - 1 }, thickness: 0.25, color: rgb(0.88, 0.88, 0.88) });
     }
 
-    t(fmtDateTimeET(li.orderDate), rc.sent, sofia, 7);
+    t(li.paidAt ? fmtDateTimeET(li.paidAt) : '-', rc.paid, sofia, 6.5, rgb(0.15, 0.55, 0.35));
+    t(fmtDateTimeET(li.orderDate), rc.sent, sofia, 6.5);
     t(String(li.orderId), rc.order, sofia, 7);
-    t(tr(li.patientName, 24), rc.patient, helvB, 7.5);
+    t(tr(li.patientName, 22), rc.patient, helvB, 7.5);
     t(li.lifefileOrderId ?? '-', rc.lf, sofia, 7, mid);
-    t(tr(li.medications, 28), rc.meds, sofia, 7);
+    t(tr(li.medications, 24), rc.meds, sofia, 7);
     t($(li.feeCents), rc.fee, helvB, 7.5, amber);
     y -= R;
   }

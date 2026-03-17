@@ -560,12 +560,17 @@ export function createPrescriptionService(): PrescriptionService {
 
       // === POST-SUBMISSION SIDE EFFECTS (fire-and-forget, non-fatal) ===
 
-      // Auto-mark invoice
+      // Auto-mark invoice and link to this order
       if (input.invoiceId) {
         await safeAsync(() =>
           prisma.invoice.update({
             where: { id: input.invoiceId },
-            data: { prescriptionProcessed: true, prescriptionProcessedAt: new Date(), prescriptionProcessedBy: user.providerId ?? null },
+            data: {
+              prescriptionProcessed: true,
+              prescriptionProcessedAt: new Date(),
+              prescriptionProcessedBy: user.providerId ?? null,
+              orderId: order.id,
+            },
           }),
           'invoice auto-mark'
         );

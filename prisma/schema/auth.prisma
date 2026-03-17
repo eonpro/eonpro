@@ -144,6 +144,10 @@ model User {
   // Employee Salary (standalone weekly pay — for any role)
   employeeSalaries               EmployeeSalary[]                    @relation("EmployeeSalaries")
 
+  // Sales Rep Dispositions (structured lead qualification / sale claiming)
+  salesRepDispositions           SalesRepDisposition[]               @relation("SalesRepDispositions")
+  dispositionReviews             SalesRepDisposition[]               @relation("DispositionReviews")
+
   // FedEx Shipping Labels
   shipmentLabels ShipmentLabel[]
 
