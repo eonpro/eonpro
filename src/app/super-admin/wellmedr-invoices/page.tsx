@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import {
   FileText,
   Download,
@@ -12,6 +12,8 @@ import {
   Truck,
   Loader2,
   AlertCircle,
+  ChevronDown,
+  ChevronRight,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api/fetch';
 
@@ -450,6 +452,31 @@ function TabButton({
 }
 
 function PharmacyInvoiceView({ invoice }: { invoice: PharmacyInvoice }) {
+  const [expanded, setExpanded] = useState<Set<number>>(new Set());
+
+  const orderGroups = useMemo(() => {
+    const groups: { orderId: number; items: PharmacyLineItem[]; totalCents: number }[] = [];
+    const map = new Map<number, PharmacyLineItem[]>();
+    for (const li of invoice.lineItems) {
+      const arr = map.get(li.orderId) ?? [];
+      arr.push(li);
+      map.set(li.orderId, arr);
+    }
+    for (const [orderId, items] of map) {
+      groups.push({ orderId, items, totalCents: items.reduce((s, i) => s + i.lineTotalCents, 0) });
+    }
+    return groups;
+  }, [invoice.lineItems]);
+
+  const toggle = (id: number) => {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
   return (
     <div className="space-y-4">
       {/* Medication Table */}
@@ -459,7 +486,7 @@ function PharmacyInvoiceView({ invoice }: { invoice: PharmacyInvoice }) {
             <Pill className="h-5 w-5 text-[#4fa77e]" />
             Medication Line Items
             <span className="ml-auto text-sm font-normal text-gray-500">
-              {invoice.lineItems.length} items
+              {invoice.lineItems.length} items across {orderGroups.length} orders
             </span>
           </h3>
         </div>
@@ -468,6 +495,7 @@ function PharmacyInvoiceView({ invoice }: { invoice: PharmacyInvoice }) {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                <th className="w-8 px-2 py-3" />
                 <th className="px-4 py-3">Date / Time (ET)</th>
                 <th className="px-4 py-3">Order</th>
                 <th className="px-4 py-3">Patient</th>
@@ -480,35 +508,108 @@ function PharmacyInvoiceView({ invoice }: { invoice: PharmacyInvoice }) {
                 <th className="px-4 py-3 text-right">Total</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-50">
-              {invoice.lineItems.map((li, idx) => (
-                <tr key={idx} className="hover:bg-gray-50">
-                  <td className="whitespace-nowrap px-4 py-2.5 text-gray-600 text-xs">
-                    {formatDateTime(li.orderDate)}
-                  </td>
-                  <td className="whitespace-nowrap px-4 py-2.5 font-mono text-xs text-gray-500">
-                    {li.orderId}
-                  </td>
-                  <td className="px-4 py-2.5 font-medium text-gray-900">{li.patientName}</td>
-                  <td className="whitespace-nowrap px-4 py-2.5 font-mono text-xs text-gray-400">
-                    {li.lifefileOrderId ?? '-'}
-                  </td>
-                  <td className="px-4 py-2.5 text-gray-900">{li.medicationName}</td>
-                  <td className="px-4 py-2.5 text-gray-600">{li.strength}</td>
-                  <td className="px-4 py-2.5 text-gray-600">{li.vialSize}</td>
-                  <td className="px-4 py-2.5 text-right text-gray-600">{li.quantity}</td>
-                  <td className="px-4 py-2.5 text-right text-gray-600">
-                    {centsToDisplay(li.unitPriceCents)}
-                  </td>
-                  <td className="px-4 py-2.5 text-right font-semibold text-gray-900">
-                    {centsToDisplay(li.lineTotalCents)}
-                  </td>
-                </tr>
-              ))}
+            <tbody>
+              {orderGroups.map((group) => {
+                const isMulti = group.items.length > 1;
+                const isOpen = expanded.has(group.orderId);
+                const first = group.items[0];
+
+                if (!isMulti) {
+                  return (
+                    <tr key={group.orderId} className="border-b border-gray-100 hover:bg-gray-50">
+                      <td className="px-2 py-2.5" />
+                      <td className="whitespace-nowrap px-4 py-2.5 text-gray-600 text-xs">
+                        {formatDateTime(first.orderDate)}
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-2.5 font-mono text-xs text-gray-500">
+                        {first.orderId}
+                      </td>
+                      <td className="px-4 py-2.5 font-medium text-gray-900">{first.patientName}</td>
+                      <td className="whitespace-nowrap px-4 py-2.5 font-mono text-xs text-gray-400">
+                        {first.lifefileOrderId ?? '-'}
+                      </td>
+                      <td className="px-4 py-2.5 text-gray-900">{first.medicationName}</td>
+                      <td className="px-4 py-2.5 text-gray-600">{first.strength}</td>
+                      <td className="px-4 py-2.5 text-gray-600">{first.vialSize}</td>
+                      <td className="px-4 py-2.5 text-right text-gray-600">{first.quantity}</td>
+                      <td className="px-4 py-2.5 text-right text-gray-600">
+                        {centsToDisplay(first.unitPriceCents)}
+                      </td>
+                      <td className="px-4 py-2.5 text-right font-semibold text-gray-900">
+                        {centsToDisplay(first.lineTotalCents)}
+                      </td>
+                    </tr>
+                  );
+                }
+
+                return (
+                  <>
+                    {/* Summary row for multi-vial order */}
+                    <tr
+                      key={group.orderId}
+                      className="border-b border-gray-200 bg-[#4fa77e]/5 cursor-pointer hover:bg-[#4fa77e]/10 transition-colors"
+                      onClick={() => toggle(group.orderId)}
+                    >
+                      <td className="px-2 py-2.5 text-center">
+                        {isOpen ? (
+                          <ChevronDown className="mx-auto h-4 w-4 text-[#4fa77e]" />
+                        ) : (
+                          <ChevronRight className="mx-auto h-4 w-4 text-gray-400" />
+                        )}
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-2.5 text-gray-600 text-xs">
+                        {formatDateTime(first.orderDate)}
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-2.5 font-mono text-xs text-gray-500">
+                        {first.orderId}
+                      </td>
+                      <td className="px-4 py-2.5 font-semibold text-gray-900">{first.patientName}</td>
+                      <td className="whitespace-nowrap px-4 py-2.5 font-mono text-xs text-gray-400">
+                        {first.lifefileOrderId ?? '-'}
+                      </td>
+                      <td className="px-4 py-2.5 text-gray-600" colSpan={3}>
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-[#4fa77e]/10 px-2.5 py-0.5 text-xs font-medium text-[#4fa77e]">
+                          {group.items.length} vials
+                        </span>
+                      </td>
+                      <td className="px-4 py-2.5" />
+                      <td className="px-4 py-2.5 text-right font-bold text-[#4fa77e]">
+                        {centsToDisplay(group.totalCents)}
+                      </td>
+                    </tr>
+                    {/* Expanded detail rows */}
+                    {isOpen &&
+                      group.items.map((li, idx) => (
+                        <tr
+                          key={`${group.orderId}-${idx}`}
+                          className="border-b border-gray-50 bg-gray-50/50"
+                        >
+                          <td className="px-2 py-2">
+                            <div className="mx-auto h-4 w-px bg-[#4fa77e]/30" />
+                          </td>
+                          <td className="whitespace-nowrap px-4 py-2 text-gray-400 text-xs" />
+                          <td className="px-4 py-2" />
+                          <td className="px-4 py-2" />
+                          <td className="px-4 py-2" />
+                          <td className="px-4 py-2 text-gray-900">{li.medicationName}</td>
+                          <td className="px-4 py-2 text-gray-600">{li.strength}</td>
+                          <td className="px-4 py-2 text-gray-600">{li.vialSize}</td>
+                          <td className="px-4 py-2 text-right text-gray-600">{li.quantity}</td>
+                          <td className="px-4 py-2 text-right text-gray-600">
+                            {centsToDisplay(li.unitPriceCents)}
+                          </td>
+                          <td className="px-4 py-2 text-right font-medium text-gray-800">
+                            {centsToDisplay(li.lineTotalCents)}
+                          </td>
+                        </tr>
+                      ))}
+                  </>
+                );
+              })}
 
               {invoice.lineItems.length === 0 && (
                 <tr>
-                  <td colSpan={10} className="px-4 py-8 text-center text-gray-400">
+                  <td colSpan={11} className="px-4 py-8 text-center text-gray-400">
                     No medication line items for this period
                   </td>
                 </tr>
@@ -516,7 +617,7 @@ function PharmacyInvoiceView({ invoice }: { invoice: PharmacyInvoice }) {
             </tbody>
             <tfoot>
               <tr className="border-t border-gray-200 bg-gray-50">
-                <td colSpan={9} className="px-4 py-3 text-right font-semibold text-gray-700">
+                <td colSpan={10} className="px-4 py-3 text-right font-semibold text-gray-700">
                   Medications Subtotal
                 </td>
                 <td className="px-4 py-3 text-right font-bold text-gray-900">
