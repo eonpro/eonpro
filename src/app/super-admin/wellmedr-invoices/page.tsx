@@ -106,6 +106,19 @@ function formatDate(iso: string): string {
   });
 }
 
+function formatDateTime(iso: string): string {
+  const d = new Date(iso);
+  return d.toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+    timeZone: 'America/New_York',
+  });
+}
+
 function getTodayISO(): string {
   const now = new Date();
   return now.toISOString().split('T')[0];
@@ -455,10 +468,10 @@ function PharmacyInvoiceView({ invoice }: { invoice: PharmacyInvoice }) {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                <th className="px-4 py-3">Date</th>
+                <th className="px-4 py-3">Date / Time (ET)</th>
                 <th className="px-4 py-3">Order</th>
                 <th className="px-4 py-3">Patient</th>
-                <th className="px-4 py-3">Provider</th>
+                <th className="px-4 py-3">LF Order ID</th>
                 <th className="px-4 py-3">Medication</th>
                 <th className="px-4 py-3">Strength</th>
                 <th className="px-4 py-3">Vial</th>
@@ -470,17 +483,16 @@ function PharmacyInvoiceView({ invoice }: { invoice: PharmacyInvoice }) {
             <tbody className="divide-y divide-gray-50">
               {invoice.lineItems.map((li, idx) => (
                 <tr key={idx} className="hover:bg-gray-50">
-                  <td className="whitespace-nowrap px-4 py-2.5 text-gray-600">
-                    {formatDate(li.orderDate)}
+                  <td className="whitespace-nowrap px-4 py-2.5 text-gray-600 text-xs">
+                    {formatDateTime(li.orderDate)}
                   </td>
                   <td className="whitespace-nowrap px-4 py-2.5 font-mono text-xs text-gray-500">
                     {li.orderId}
-                    {li.lifefileOrderId && (
-                      <span className="ml-1 text-gray-400">({li.lifefileOrderId})</span>
-                    )}
                   </td>
                   <td className="px-4 py-2.5 font-medium text-gray-900">{li.patientName}</td>
-                  <td className="px-4 py-2.5 text-gray-600">{li.providerName}</td>
+                  <td className="whitespace-nowrap px-4 py-2.5 font-mono text-xs text-gray-400">
+                    {li.lifefileOrderId ?? '-'}
+                  </td>
                   <td className="px-4 py-2.5 text-gray-900">{li.medicationName}</td>
                   <td className="px-4 py-2.5 text-gray-600">{li.strength}</td>
                   <td className="px-4 py-2.5 text-gray-600">{li.vialSize}</td>
@@ -608,10 +620,10 @@ function PrescriptionServicesView({ invoice }: { invoice: PrescriptionServicesIn
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                <th className="px-4 py-3">Date</th>
+                <th className="px-4 py-3">Date / Time (ET)</th>
                 <th className="px-4 py-3">Order</th>
                 <th className="px-4 py-3">Patient</th>
-                <th className="px-4 py-3">Provider</th>
+                <th className="px-4 py-3">LF Order ID</th>
                 <th className="px-4 py-3">Medications</th>
                 <th className="px-4 py-3 text-right">Service Fee</th>
               </tr>
@@ -619,17 +631,16 @@ function PrescriptionServicesView({ invoice }: { invoice: PrescriptionServicesIn
             <tbody className="divide-y divide-gray-50">
               {invoice.lineItems.map((li, idx) => (
                 <tr key={idx} className="hover:bg-gray-50">
-                  <td className="whitespace-nowrap px-4 py-2.5 text-gray-600">
-                    {formatDate(li.orderDate)}
+                  <td className="whitespace-nowrap px-4 py-2.5 text-gray-600 text-xs">
+                    {formatDateTime(li.orderDate)}
                   </td>
                   <td className="whitespace-nowrap px-4 py-2.5 font-mono text-xs text-gray-500">
                     {li.orderId}
-                    {li.lifefileOrderId && (
-                      <span className="ml-1 text-gray-400">({li.lifefileOrderId})</span>
-                    )}
                   </td>
                   <td className="px-4 py-2.5 font-medium text-gray-900">{li.patientName}</td>
-                  <td className="px-4 py-2.5 text-gray-600">{li.providerName}</td>
+                  <td className="whitespace-nowrap px-4 py-2.5 font-mono text-xs text-gray-400">
+                    {li.lifefileOrderId ?? '-'}
+                  </td>
                   <td className="max-w-xs truncate px-4 py-2.5 text-gray-600" title={li.medications}>
                     {li.medications}
                   </td>

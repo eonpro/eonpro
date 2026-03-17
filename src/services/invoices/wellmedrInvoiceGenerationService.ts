@@ -11,6 +11,7 @@
 import { basePrisma } from '@/lib/db';
 import { decryptPHI } from '@/lib/security/phi-encryption';
 import { logger } from '@/lib/logger';
+import { midnightInTz } from '@/lib/utils/timezone';
 import {
   WELLMEDR_CLINIC_SUBDOMAIN,
   WELLMEDR_PRICED_PRODUCT_IDS,
@@ -20,6 +21,8 @@ import {
   getProductPrice,
   isOvernightShipping,
 } from '@/lib/invoices/wellmedr-pricing';
+
+const CLINIC_TZ = 'America/New_York';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -138,11 +141,13 @@ export async function generateDailyInvoices(
 ): Promise<WellmedrDailyInvoices> {
   const { clinicId, clinicName } = await resolveClinicId();
 
-  const periodStart = new Date(date);
-  periodStart.setUTCHours(0, 0, 0, 0);
+  const [sY, sM, sD] = date.split('-').map(Number);
+  const periodStart = midnightInTz(sY, sM - 1, sD, CLINIC_TZ);
 
-  const periodEnd = endDate ? new Date(endDate) : new Date(date);
-  periodEnd.setUTCHours(23, 59, 59, 999);
+  const endStr = endDate ?? date;
+  const [eY, eM, eD] = endStr.split('-').map(Number);
+  const nextDay = midnightInTz(eY, eM - 1, eD + 1, CLINIC_TZ);
+  const periodEnd = new Date(nextDay.getTime() - 1);
 
   const orders = await basePrisma.order.findMany({
     where: {
@@ -463,6 +468,18 @@ async function loadLogo(): Promise<Uint8Array | null> {
 const PRIMARY = { r: 0.06, g: 0.45, b: 0.31 };
 const ACCENT_BG = { r: 0.96, g: 0.98, b: 0.97 };
 
+function fmtDateTimeET(iso: string): string {
+  const d = new Date(iso);
+  return d.toLocaleString('en-US', {
+    month: 'numeric',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+    timeZone: CLINIC_TZ,
+  });
+}
+
 export async function generatePharmacyPDF(invoice: PharmacyInvoice): Promise<Uint8Array> {
   const { PDFDocument, StandardFonts, rgb } = await import('pdf-lib');
   const doc = await PDFDocument.create();
@@ -532,7 +549,7 @@ export async function generatePharmacyPDF(invoice: PharmacyInvoice): Promise<Uin
   pg.drawRectangle({ x: M, y: y - 2, width: TABLE_W, height: 18, color: rgb(PRIMARY.r, PRIMARY.g, PRIMARY.b) });
   const hdrColor = rgb(1, 1, 1);
   const c = [M + 4, M + 58, M + 118, M + 250, M + 370, M + 470, M + 530, M + 570, M + 620, M + 670];
-  txt('Date', c[0], fontB, 7, hdrColor);
+  txt('Date/Time (ET)', c[0], fontB, 6.5, hdrColor);
   txt('Order #', c[1], fontB, 7, hdrColor);
   txt('Patient', c[2], fontB, 7, hdrColor);
   txt('LF Order ID', c[3], fontB, 7, hdrColor);
@@ -546,7 +563,7 @@ export async function generatePharmacyPDF(invoice: PharmacyInvoice): Promise<Uin
 
   function drawMedHeader() {
     pg.drawRectangle({ x: M, y: y - 2, width: TABLE_W, height: 18, color: rgb(PRIMARY.r, PRIMARY.g, PRIMARY.b) });
-    txt('Date', c[0], fontB, 7, hdrColor);
+    txt('Date/Time (ET)', c[0], fontB, 6.5, hdrColor);
     txt('Order #', c[1], fontB, 7, hdrColor);
     txt('Patient', c[2], fontB, 7, hdrColor);
     txt('LF Order ID', c[3], fontB, 7, hdrColor);
@@ -578,7 +595,7 @@ export async function generatePharmacyPDF(invoice: PharmacyInvoice): Promise<Uin
       pg.drawRectangle({ x: M, y: y - 2, width: TABLE_W, height: ROW_H, color: rgb(ACCENT_BG.r, ACCENT_BG.g, ACCENT_BG.b) });
     }
 
-    txt(new Date(li.orderDate).toLocaleDateString('en-US'), c[0], fontR, 7);
+    txt(fmtDateTimeET(li.orderDate), c[0], fontR, 6.5);
     txt(String(li.orderId), c[1], fontR, 7);
     txt(trunc(li.patientName, 20), c[2], fontB, 7);
     txt(li.lifefileOrderId ?? '-', c[3], fontR, 7, rgb(0.4, 0.4, 0.4));
@@ -617,7 +634,7 @@ export async function generatePharmacyPDF(invoice: PharmacyInvoice): Promise<Uin
 
     for (const sl of invoice.shippingLineItems) {
       need(ROW_H + 2);
-      txt(new Date(sl.orderDate).toLocaleDateString('en-US'), M + 4, fontR, 7);
+      txt(fmtDateTimeET(sl.orderDate), M + 4, fontR, 6.5);
       txt(String(sl.orderId), M + 62, fontR, 7);
       txt(trunc(sl.patientName, 24), M + 120, fontR, 7);
       txt(sl.description, M + 280, fontR, 7);
@@ -715,7 +732,7 @@ export async function generatePrescriptionServicesPDF(invoice: PrescriptionServi
 
   pg.drawRectangle({ x: M, y: y - 2, width: TABLE_W, height: 18, color: rgb(AMBER.r, AMBER.g, AMBER.b) });
   const hc = rgb(1, 1, 1);
-  txt('Date', rxC[0], fontB, 7, hc);
+  txt('Date/Time (ET)', rxC[0], fontB, 6.5, hc);
   txt('Order #', rxC[1], fontB, 7, hc);
   txt('Patient', rxC[2], fontB, 7, hc);
   txt('LF Order ID', rxC[3], fontB, 7, hc);
@@ -725,7 +742,7 @@ export async function generatePrescriptionServicesPDF(invoice: PrescriptionServi
 
   function drawRxHeader() {
     pg.drawRectangle({ x: M, y: y - 2, width: TABLE_W, height: 18, color: rgb(AMBER.r, AMBER.g, AMBER.b) });
-    txt('Date', rxC[0], fontB, 7, hc);
+    txt('Date/Time (ET)', rxC[0], fontB, 6.5, hc);
     txt('Order #', rxC[1], fontB, 7, hc);
     txt('Patient', rxC[2], fontB, 7, hc);
     txt('LF Order ID', rxC[3], fontB, 7, hc);
@@ -748,7 +765,7 @@ export async function generatePrescriptionServicesPDF(invoice: PrescriptionServi
       pg.drawRectangle({ x: M, y: y - 2, width: TABLE_W, height: ROW_H, color: rgb(0.99, 0.97, 0.93) });
     }
 
-    txt(new Date(li.orderDate).toLocaleDateString('en-US'), rxC[0], fontR, 7);
+    txt(fmtDateTimeET(li.orderDate), rxC[0], fontR, 6.5);
     txt(String(li.orderId), rxC[1], fontR, 7);
     txt(trunc(li.patientName, 22), rxC[2], fontB, 7);
     txt(li.lifefileOrderId ?? '-', rxC[3], fontR, 7, rgb(0.4, 0.4, 0.4));
