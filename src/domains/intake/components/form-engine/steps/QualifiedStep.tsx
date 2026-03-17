@@ -10,73 +10,111 @@ interface QualifiedStepProps {
   prevStep: string | null;
 }
 
-export default function QualifiedStep({
-  basePath,
-  prevStep,
-}: QualifiedStepProps) {
+type MedChoice = 'semaglutide' | 'tirzepatide';
+type UserSegment = 'sema-user' | 'tirz-user' | 'new-user';
+
+const T = {
+  greatNews: { en: 'Great news', es: '¡Excelentes noticias' },
+  qualifyMsg: {
+    en: 'Based on your answers, you qualify for treatment with either',
+    es: 'Según tus respuestas, calificas para tratamiento con',
+  },
+  or: { en: 'or', es: 'o' },
+  bothEffective: {
+    en: 'Both are highly effective GLP-1 medications clinically proven to support weight loss, improve metabolic health, and help curb appetite.',
+    es: 'Ambos son medicamentos GLP-1 altamente efectivos clínicamente comprobados para apoyar la pérdida de peso, mejorar la salud metabólica y ayudar a controlar el apetito.',
+  },
+  readyToLevel: {
+    en: 'Ready to level up your results?',
+    es: '¿Listo para mejorar tus resultados?',
+  },
+  upgradeSubtitle: {
+    en: "Since you've used Semaglutide, you may benefit from upgrading to Tirzepatide — the most powerful GLP-1 option available.",
+    es: 'Ya que has usado Semaglutida, podrías beneficiarte de una actualización a Tirzepatida — la opción GLP-1 más potente disponible.',
+  },
+  continueSuccess: {
+    en: 'Continue your weight loss journey',
+    es: 'Continúa tu camino de pérdida de peso',
+  },
+  continueSubtitle: {
+    en: "You're already on Tirzepatide — the most effective GLP-1 available. Let's keep your momentum going.",
+    es: 'Ya estás tomando Tirzepatida — el GLP-1 más efectivo disponible. Mantengamos tu impulso.',
+  },
+  chooseTitle: {
+    en: 'Choose your medication',
+    es: 'Elige tu medicamento',
+  },
+  chooseSubtitle: {
+    en: 'Both options are clinically proven. Your provider will confirm the best fit during your consultation.',
+    es: 'Ambas opciones están clínicamente probadas. Tu proveedor confirmará la mejor opción durante tu consulta.',
+  },
+  semaName: { en: 'Semaglutide', es: 'Semaglutida' },
+  semaTag: { en: 'Weekly GLP-1 injection', es: 'Inyección semanal GLP-1' },
+  semaLoss: { en: '15–20% avg weight loss', es: '15–20% pérdida de peso promedio' },
+  semaPrice: { en: 'From $229/mo', es: 'Desde $229/mes' },
+  semaCta: { en: 'Clinically proven, gentle start', es: 'Clínicamente probado, inicio suave' },
+  tirzName: { en: 'Tirzepatide', es: 'Tirzepatida' },
+  tirzTag: { en: 'Dual GIP + GLP-1 action', es: 'Acción dual GIP + GLP-1' },
+  tirzLoss: { en: '20–25% avg weight loss', es: '20–25% pérdida de peso promedio' },
+  tirzPrice: { en: 'From $329/mo', es: 'Desde $329/mes' },
+  tirzCta: { en: 'Most powerful option available', es: 'La opción más potente disponible' },
+  upgradeBadge: { en: 'Recommended Upgrade', es: 'Mejora Recomendada' },
+  btnUpgrade: { en: 'Upgrade to Tirzepatide', es: 'Actualizar a Tirzepatida' },
+  btnStaySema: { en: 'Continue with Semaglutide', es: 'Continuar con Semaglutida' },
+  btnContinueTirz: { en: 'Continue with Tirzepatide', es: 'Continuar con Tirzepatida' },
+  btnSelectSema: { en: 'Select Semaglutide', es: 'Seleccionar Semaglutida' },
+  btnSelectTirz: { en: 'Select Tirzepatide', es: 'Seleccionar Tirzepatida' },
+  discounts: { en: 'Qualifying discounts will be applied', es: 'Descuentos calificados serán aplicados' },
+};
+
+export default function QualifiedStep({ basePath, prevStep }: QualifiedStepProps) {
   const router = useRouter();
   const { language } = useLanguage();
   const responses = useIntakeStore((state) => state.responses);
   const [firstName, setFirstName] = useState('');
-  const [showConfetti, setShowConfetti] = useState(false);
-  const confettiRef = useRef<boolean>(false);
-
+  const [showPhase2, setShowPhase2] = useState(false);
+  const confettiRef = useRef(false);
   const isSpanish = language === 'es';
+  const t = (key: keyof typeof T) => T[key][language];
+
+  const glp1Type = (responses.glp1_type as string) || '';
+  const glp1History = (responses.glp1_history as string) || '';
+
+  const segment: UserSegment =
+    glp1Type === 'semaglutide' ? 'sema-user' :
+    glp1Type === 'tirzepatide' ? 'tirz-user' :
+    'new-user';
 
   useEffect(() => {
-    const name = responses.firstName;
-    if (name) {
-      setFirstName(name);
-    }
-
-    setTimeout(() => {
-      setShowConfetti(true);
-      fireConfetti();
-    }, 500);
+    if (responses.firstName) setFirstName(String(responses.firstName));
+    setTimeout(() => { fireConfetti(); }, 500);
+    setTimeout(() => { setShowPhase2(true); }, 2000);
   }, [responses.firstName]);
 
   const fireConfetti = () => {
     if (confettiRef.current) return;
     confettiRef.current = true;
-
     const script = document.createElement('script');
     script.src = 'https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.0/dist/confetti.browser.min.js';
     script.onload = () => {
       const confetti = (window as unknown as { confetti: (opts: unknown) => void }).confetti;
-      if (confetti) {
-        const duration = 3000;
-        const end = Date.now() + duration;
-
-        const frame = () => {
-          confetti({
-            particleCount: 10,
-            angle: 270,
-            spread: 180,
-            origin: { x: 0.5, y: 0 },
-            gravity: 1.5,
-            startVelocity: 30,
-            colors: ['#7cb342', '#aed581', '#e8f5d9', '#4fa87f', '#66bb6a', '#81c784']
-          });
-
-          if (Date.now() < end) {
-            requestAnimationFrame(frame);
-          }
-        };
-
-        frame();
-      }
+      if (!confetti) return;
+      const end = Date.now() + 3000;
+      const frame = () => {
+        confetti({ particleCount: 10, angle: 270, spread: 180, origin: { x: 0.5, y: 0 }, gravity: 1.5, startVelocity: 30, colors: ['#7cb342', '#aed581', '#e8f5d9', '#4fa87f', '#66bb6a', '#81c784'] });
+        if (Date.now() < end) requestAnimationFrame(frame);
+      };
+      frame();
     };
     document.head.appendChild(script);
   };
 
-  const handleBack = () => {
-    if (prevStep) {
-      router.push(`${basePath}/${prevStep}`);
-    }
-  };
-
-  const handleCheckout = () => {
-    syncToSessionStorage();
+  const goCheckout = (medication: MedChoice) => {
+    Object.entries(responses).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
+        sessionStorage.setItem(`intake_${key}`, typeof value === 'object' ? JSON.stringify(value) : String(value));
+      }
+    });
     const params = new URLSearchParams();
     if (responses.firstName) params.set('firstName', String(responses.firstName));
     if (responses.lastName) params.set('lastName', String(responses.lastName));
@@ -85,45 +123,12 @@ export default function QualifiedStep({
     if (responses.street) params.set('address', String(responses.street));
     if (responses.apartment) params.set('apt', String(responses.apartment));
     if (responses.state) params.set('state', String(responses.state));
-    if (responses.medication_preference) params.set('medication', String(responses.medication_preference));
     if (responses.dob) params.set('dob', String(responses.dob));
-    const qs = params.toString();
-    router.push(`/checkout${qs ? `?${qs}` : ''}`);
+    params.set('medication', medication);
+    router.push(`/checkout?${params.toString()}`);
   };
 
-  const syncToSessionStorage = () => {
-    Object.entries(responses).forEach(([key, value]) => {
-      if (value !== undefined && value !== null) {
-        if (typeof value === 'object') {
-          sessionStorage.setItem(`intake_${key}`, JSON.stringify(value));
-        } else {
-          sessionStorage.setItem(`intake_${key}`, String(value));
-        }
-      }
-    });
-    
-    if (responses.firstName || responses.lastName) {
-      sessionStorage.setItem('intake_name', JSON.stringify({
-        firstName: responses.firstName || '',
-        lastName: responses.lastName || ''
-      }));
-    }
-    if (responses.glp1_history) {
-      sessionStorage.setItem('intake_glp1_history', responses.glp1_history);
-    }
-    if (responses.glp1_type) {
-      sessionStorage.setItem('intake_glp1_type', responses.glp1_type);
-    }
-    if (responses.semaglutide_dosage) {
-      sessionStorage.setItem('intake_semaglutide_dosage', responses.semaglutide_dosage);
-    }
-    if (responses.tirzepatide_dosage) {
-      sessionStorage.setItem('intake_tirzepatide_dosage', responses.tirzepatide_dosage);
-    }
-    if (responses.dosage_satisfaction) {
-      sessionStorage.setItem('intake_dosage_satisfaction', responses.dosage_satisfaction);
-    }
-  };
+  const handleBack = () => { if (prevStep) router.push(`${basePath}/${prevStep}`); };
 
   return (
     <div className="min-h-screen bg-white flex flex-col relative overflow-hidden">
@@ -133,10 +138,7 @@ export default function QualifiedStep({
 
       {prevStep && (
         <div className="px-6 lg:px-8 pt-6 max-w-md lg:max-w-2xl mx-auto w-full">
-          <button
-            onClick={handleBack}
-            className="inline-block p-2 -ml-2 hover:bg-gray-100 rounded-lg"
-          >
+          <button onClick={handleBack} className="inline-block p-2 -ml-2 hover:bg-gray-100 rounded-lg">
             <svg className="w-6 h-6 text-[#413d3d]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
             </svg>
@@ -145,6 +147,7 @@ export default function QualifiedStep({
       )}
 
       <div className="flex-1 flex flex-col px-6 lg:px-8 py-8 max-w-md lg:max-w-2xl mx-auto w-full">
+        {/* Phase 1: Qualification celebration */}
         <div className="w-56 h-48 mb-6 rounded-xl overflow-hidden">
           <img
             src="https://static.wixstatic.com/media/c49a9b_e424b9a0a7264ab3a9f667231c71a57b~mv2.webp"
@@ -156,52 +159,167 @@ export default function QualifiedStep({
         <div className="space-y-4 mb-8">
           <h1 className="text-2xl lg:text-3xl font-bold leading-tight">
             <mark style={{ backgroundColor: '#f2fdb4' }}>
-              {isSpanish ? '¡Excelentes noticias' : 'Great news'} {firstName}
+              {t('greatNews')} {firstName}
             </mark>{' '}
             <span>🥳</span>{' '}
             <span className="text-[#413d3d]">—</span>
             <br />
             <span className="text-[#413d3d]">
-              {isSpanish
-                ? <>Según tus respuestas, calificas para tratamiento con <mark style={{ backgroundColor: '#f2fdb4' }}>Semaglutida</mark> o <mark style={{ backgroundColor: '#f2fdb4' }}>Tirzepatida</mark>.</>
-                : <>Based on your answers, you qualify for treatment with either <mark style={{ backgroundColor: '#f2fdb4' }}>Semaglutide</mark> or <mark style={{ backgroundColor: '#f2fdb4' }}>Tirzepatide</mark>.</>
-              }
+              {t('qualifyMsg')}{' '}
+              <mark style={{ backgroundColor: '#f2fdb4' }}>{t('semaName')}</mark>{' '}
+              {t('or')}{' '}
+              <mark style={{ backgroundColor: '#f2fdb4' }}>{t('tirzName')}</mark>.
             </span>
           </h1>
-
-          <p className="text-base text-[#413d3d]">
-            {isSpanish
-              ? <>Ambos son <mark style={{ backgroundColor: '#f2fdb4' }}>medicamentos GLP-1</mark> altamente efectivos clínicamente comprobados para apoyar la pérdida de peso, mejorar la salud metabólica y ayudar a controlar el apetito.</>
-              : <>Both are highly effective <mark style={{ backgroundColor: '#f2fdb4' }}>GLP-1 medications</mark> clinically proven to support weight loss, improve metabolic health, and help curb appetite.</>
-            }
-          </p>
+          <p className="text-base text-[#413d3d]">{t('bothEffective')}</p>
         </div>
 
-        <button
-          onClick={handleCheckout}
-          className="shine-button w-full max-w-sm bg-[#413d3d] hover:bg-[#2a2727] py-3 px-6 rounded-full flex items-center justify-between transition-colors"
-        >
-          <div className="text-left leading-tight">
-            <div className="font-semibold text-base text-white">
-              {isSpanish ? 'Selecciona tu tratamiento' : 'Select your treatment'}
-            </div>
-            <div className="text-xs text-white/70">
-              {isSpanish ? 'Descuentos calificados serán aplicados' : 'Qualifying discounts will be applied'}
-            </div>
-          </div>
-          <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M6 12h12m0 0l-4-4m4 4l-4 4" />
-          </svg>
-        </button>
+        {/* Phase 2: Smart medication recommendation */}
+        <div className={`transition-all duration-700 ease-out ${showPhase2 ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
+          {segment === 'sema-user' && <SemaUpgradeCard isSpanish={isSpanish} t={t} onUpgrade={() => goCheckout('tirzepatide')} onStay={() => goCheckout('semaglutide')} />}
+          {segment === 'tirz-user' && <TirzContinueCard isSpanish={isSpanish} t={t} onContinue={() => goCheckout('tirzepatide')} />}
+          {segment === 'new-user' && <MedCompareCard isSpanish={isSpanish} t={t} onSelectSema={() => goCheckout('semaglutide')} onSelectTirz={() => goCheckout('tirzepatide')} />}
+        </div>
       </div>
-
-      {showConfetti && (
-        <div className="fixed inset-0 pointer-events-none z-50" />
-      )}
 
       <div className="px-6 lg:px-8 pb-8 max-w-md lg:max-w-2xl mx-auto w-full">
-        <p className="copyright-text text-center">© 2026 EONPro, LLC. All rights reserved.<br/>Exclusive and protected process.</p>
+        <p className="copyright-text text-center">© 2026 EONPro, LLC. All rights reserved.<br />Exclusive and protected process.</p>
       </div>
+    </div>
+  );
+}
+
+/* ============================================================
+   Sub-components
+   ============================================================ */
+
+function MedCard({ name, tag, loss, price, cta, badge, highlighted, onClick, btnLabel }: {
+  name: string; tag: string; loss: string; price: string; cta: string;
+  badge?: string; highlighted?: boolean; onClick: () => void; btnLabel: string;
+}) {
+  return (
+    <div className={`rounded-2xl p-5 space-y-3 border-2 transition-all ${highlighted ? 'border-[#4fa87f] bg-[#f0feab]/30' : 'border-gray-200 bg-white'}`}>
+      {badge && (
+        <span className="inline-block text-xs font-semibold px-3 py-1 rounded-full bg-[#4fa87f] text-white">{badge}</span>
+      )}
+      <h3 className="text-lg font-bold text-[#413d3d]">{name}</h3>
+      <p className="text-sm text-gray-500">{tag}</p>
+      <div className="space-y-1.5">
+        <div className="flex items-center gap-2">
+          <svg className="w-4 h-4 text-[#4fa87f] flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
+          <span className="text-sm text-[#413d3d] font-medium">{loss}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <svg className="w-4 h-4 text-[#4fa87f] flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
+          <span className="text-sm text-[#413d3d] font-medium">{price}</span>
+        </div>
+      </div>
+      <p className="text-xs text-gray-400 italic">{cta}</p>
+      <button
+        onClick={onClick}
+        className={`w-full py-3 px-6 rounded-full text-sm font-semibold transition-all ${
+          highlighted
+            ? 'bg-[#413d3d] text-white hover:bg-[#2a2727] hover:-translate-y-0.5 hover:shadow-lg'
+            : 'bg-white text-[#413d3d] border-2 border-[#413d3d] hover:bg-gray-50'
+        }`}
+      >
+        {btnLabel}
+      </button>
+    </div>
+  );
+}
+
+function SemaUpgradeCard({ isSpanish, t, onUpgrade, onStay }: {
+  isSpanish: boolean; t: (k: keyof typeof T) => string; onUpgrade: () => void; onStay: () => void;
+}) {
+  return (
+    <div className="space-y-4">
+      <div>
+        <h2 className="text-xl font-bold text-[#413d3d]">{t('readyToLevel')}</h2>
+        <p className="text-sm text-gray-500 mt-1">{t('upgradeSubtitle')}</p>
+      </div>
+      <div className="grid gap-4">
+        <MedCard
+          name={t('tirzName')}
+          tag={t('tirzTag')}
+          loss={t('tirzLoss')}
+          price={t('tirzPrice')}
+          cta={t('tirzCta')}
+          badge={t('upgradeBadge')}
+          highlighted
+          onClick={onUpgrade}
+          btnLabel={t('btnUpgrade')}
+        />
+        <MedCard
+          name={t('semaName')}
+          tag={t('semaTag')}
+          loss={t('semaLoss')}
+          price={t('semaPrice')}
+          cta={t('semaCta')}
+          onClick={onStay}
+          btnLabel={t('btnStaySema')}
+        />
+      </div>
+      <p className="text-xs text-gray-400 text-center">{t('discounts')}</p>
+    </div>
+  );
+}
+
+function TirzContinueCard({ isSpanish, t, onContinue }: {
+  isSpanish: boolean; t: (k: keyof typeof T) => string; onContinue: () => void;
+}) {
+  return (
+    <div className="space-y-4">
+      <div>
+        <h2 className="text-xl font-bold text-[#413d3d]">{t('continueSuccess')}</h2>
+        <p className="text-sm text-gray-500 mt-1">{t('continueSubtitle')}</p>
+      </div>
+      <MedCard
+        name={t('tirzName')}
+        tag={t('tirzTag')}
+        loss={t('tirzLoss')}
+        price={t('tirzPrice')}
+        cta={t('tirzCta')}
+        highlighted
+        onClick={onContinue}
+        btnLabel={t('btnContinueTirz')}
+      />
+      <p className="text-xs text-gray-400 text-center">{t('discounts')}</p>
+    </div>
+  );
+}
+
+function MedCompareCard({ isSpanish, t, onSelectSema, onSelectTirz }: {
+  isSpanish: boolean; t: (k: keyof typeof T) => string; onSelectSema: () => void; onSelectTirz: () => void;
+}) {
+  return (
+    <div className="space-y-4">
+      <div>
+        <h2 className="text-xl font-bold text-[#413d3d]">{t('chooseTitle')}</h2>
+        <p className="text-sm text-gray-500 mt-1">{t('chooseSubtitle')}</p>
+      </div>
+      <div className="grid gap-4">
+        <MedCard
+          name={t('semaName')}
+          tag={t('semaTag')}
+          loss={t('semaLoss')}
+          price={t('semaPrice')}
+          cta={t('semaCta')}
+          onClick={onSelectSema}
+          btnLabel={t('btnSelectSema')}
+        />
+        <MedCard
+          name={t('tirzName')}
+          tag={t('tirzTag')}
+          loss={t('tirzLoss')}
+          price={t('tirzPrice')}
+          cta={t('tirzCta')}
+          highlighted
+          onClick={onSelectTirz}
+          btnLabel={t('btnSelectTirz')}
+        />
+      </div>
+      <p className="text-xs text-gray-400 text-center">{t('discounts')}</p>
     </div>
   );
 }
