@@ -50,14 +50,7 @@ export default function TextField({
         maxLength={maxLength}
         aria-invalid={!!error}
         aria-describedby={error ? `${id}-error` : undefined}
-        className={`
-          w-full px-5 py-4 rounded-[7px] border text-base
-          font-semibold outline-none transition-all
-          placeholder:font-normal placeholder:opacity-50
-          focus:border-[var(--intake-primary,#10b981)] focus:ring-4 focus:ring-[var(--intake-primary,#10b981)]/10
-          ${error ? 'border-red-500 focus:border-red-500 focus:ring-red-500/10' : 'border-[var(--intake-border,#e5e7eb)]'}
-          ${disabled ? 'opacity-50 cursor-not-allowed bg-gray-50' : 'bg-white'}
-        `}
+        className={`input-field w-full ${error ? 'border-red-500 focus:border-red-500' : ''} ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
       />
       {error && (
         <p id={`${id}-error`} className="mt-2 text-sm font-medium text-red-500" role="alert">

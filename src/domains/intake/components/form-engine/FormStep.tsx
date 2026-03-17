@@ -572,15 +572,10 @@ export default function FormStep({
       {/* Main content - match eonmeds .content-container */}
       <div className={`flex-1 flex flex-col ${contentPadding} py-8 ${contentMaxWidth} mx-auto w-full`}>
         <div className="space-y-8">
-          {/* Title - match .page-title / .page-subtitle */}
           <div>
-            <h1 className="text-[clamp(1.75rem,5vw,2.5rem)] font-semibold leading-tight tracking-tight text-[var(--intake-text,#1f2937)]">
-              {getText(config.title)}
-            </h1>
+            <h1 className="page-title">{getText(config.title)}</h1>
             {config.subtitle && (
-              <p className="mt-3 text-[clamp(0.9375rem,2vw,1.0625rem)] font-normal text-[var(--intake-text-secondary,#6b7280)] leading-snug">
-                {getText(config.subtitle)}
-              </p>
+              <p className="page-subtitle mt-3">{getText(config.subtitle)}</p>
             )}
           </div>
 
@@ -589,44 +584,33 @@ export default function FormStep({
         </div>
       </div>
 
-      {/* Continue button - eonmeds .continue-button (dark gradient, rounded-full, hover lift) */}
+      {/* Continue button */}
       {config.showContinueButton && (
-        <div className={`${contentPadding} pb-6 ${contentMaxWidth} mx-auto w-full space-y-4`}>
-          <button
-            onClick={handleContinue}
-            className="
-              w-full flex items-center justify-center gap-3 py-4 px-8
-              text-white text-[1.0625rem] font-medium
-              rounded-full transition-all duration-200
-              bg-[linear-gradient(135deg,#1f2937_0%,#111827_100%)]
-              hover:-translate-y-0.5 hover:shadow-lg
-              active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none
-            "
-          >
+        <div className="sticky-bottom-button max-w-[480px] lg:max-w-[560px] mx-auto w-full">
+          <button onClick={handleContinue} className="continue-button">
             <span>{isSpanish ? 'Continuar' : 'Continue'}</span>
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
             </svg>
           </button>
-          {/* Copyright - match eonmeds */}
-          <p className="text-center text-xs text-gray-500">
+          <p className="copyright-text text-center mt-4">
             {isSpanish ? (
-              <>© 2026 EONPro, LLC. Todos los derechos reservados. Proceso exclusivo y protegido.</>
+              <>© 2026 EONPro, LLC. Todos los derechos reservados.<br/>Proceso exclusivo y protegido.</>
             ) : (
-              <>© 2026 EONPro, LLC. All rights reserved. Exclusive and protected process.</>
+              <>© 2026 EONPro, LLC. All rights reserved.<br/>Exclusive and protected process.</>
             )}
           </p>
         </div>
       )}
 
-      {/* Copyright when no continue button (e.g. auto-advance steps) */}
+      {/* Copyright when no continue button */}
       {!config.showContinueButton && (
-        <div className={`${contentPadding} pb-6 ${contentMaxWidth} mx-auto w-full`}>
-          <p className="text-center text-xs text-gray-500">
+        <div className="sticky-bottom-button max-w-[480px] lg:max-w-[560px] mx-auto w-full">
+          <p className="copyright-text text-center">
             {isSpanish ? (
-              <>© 2026 EONPro, LLC. Todos los derechos reservados. Proceso exclusivo y protegido.</>
+              <>© 2026 EONPro, LLC. Todos los derechos reservados.<br/>Proceso exclusivo y protegido.</>
             ) : (
-              <>© 2026 EONPro, LLC. All rights reserved. Exclusive and protected process.</>
+              <>© 2026 EONPro, LLC. All rights reserved.<br/>Exclusive and protected process.</>
             )}
           </p>
         </div>

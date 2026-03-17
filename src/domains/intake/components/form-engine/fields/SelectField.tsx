@@ -43,13 +43,7 @@ export default function SelectField({
           disabled={disabled}
           aria-invalid={!!error}
           aria-describedby={error ? `${id}-error` : undefined}
-          className={`
-            w-full appearance-none px-5 py-4 pr-12 rounded-[7px] border text-base
-            font-semibold outline-none transition-all
-            focus:border-[var(--intake-primary,#10b981)] focus:ring-4 focus:ring-[var(--intake-primary,#10b981)]/10
-            ${error ? 'border-red-500 focus:border-red-500 focus:ring-red-500/10' : 'border-[var(--intake-border,#e5e7eb)]'}
-            ${disabled ? 'opacity-50 cursor-not-allowed bg-gray-50' : 'bg-white'}
-          `}
+          className={`select-field w-full ${error ? 'border-red-500 focus:border-red-500' : ''} ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
         >
           <option value="" disabled>
             {placeholder}
@@ -60,21 +54,6 @@ export default function SelectField({
             </option>
           ))}
         </select>
-        <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
-          <svg
-            className="w-5 h-5 text-gray-400"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2"
-              d="M19 9l-7 7-7-7"
-            />
-          </svg>
-        </div>
       </div>
       {error && (
         <p id={`${id}-error`} className="mt-2 text-sm text-red-500" role="alert">
