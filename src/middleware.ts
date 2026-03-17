@@ -16,7 +16,7 @@ const securityHeaders: Record<string, string> = {
     "img-src 'self' data: blob: https: http:",
     "font-src 'self' https://fonts.gstatic.com data:",
     "connect-src 'self' https://api.stripe.com https://vitals.vercel-insights.com https://o4508611993468928.ingest.us.sentry.io https://lottie.host https://cdn.jsdelivr.net https://unpkg.com https://maps.googleapis.com https://*.googleapis.com wss: ws:",
-    "frame-src 'self' https://js.stripe.com https://hooks.stripe.com https://challenges.cloudflare.com https://*.zoom.us https://maps.googleapis.com",
+    "frame-src 'self' https://js.stripe.com https://hooks.stripe.com https://challenges.cloudflare.com https://*.zoom.us https://maps.googleapis.com https://lottie.host",
     "worker-src 'self' blob:",
     "object-src 'none'",
     "base-uri 'self'",
