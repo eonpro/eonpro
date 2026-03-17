@@ -53,14 +53,18 @@ export default async function IntakeLandingPage({ params }: Props) {
       return !!cfg?.startStep && Array.isArray(cfg?.steps) && cfg.steps.length > 0;
     }) ?? candidates[0];
 
+    // For weight-loss, always use the canonical TypeScript config (DB may have stale startStep)
+    if (
+      templateSlug === 'weight-loss' ||
+      template.treatmentType === 'weight-loss'
+    ) {
+      return weightLossIntakeConfig.startStep;
+    }
+
     const metadata = template.metadata as Record<string, unknown> | null;
     const formConfig = metadata?.formConfig as FormConfig | undefined;
 
     if (formConfig?.startStep) return formConfig.startStep;
-
-    if (templateSlug === 'weight-loss' && weightLossIntakeConfig.startStep) {
-      return weightLossIntakeConfig.startStep;
-    }
 
     return null;
   });
