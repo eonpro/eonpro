@@ -235,25 +235,27 @@ export async function generateDailyInvoices(
 
       const qty = parseInt(rx.quantity, 10) || 1;
       orderVialCount += qty;
-      const lineTotalCents = product.priceCents * qty;
-      orderMedTotalCents += lineTotalCents;
+      orderMedTotalCents += product.priceCents * qty;
 
-      pharmacyLineItems.push({
-        orderId: order.id,
-        lifefileOrderId: order.lifefileOrderId,
-        orderDate,
-        patientName,
-        patientId: order.patientId,
-        providerName,
-        providerId: order.providerId,
-        medicationName: product.name,
-        strength: product.strength,
-        vialSize: product.vialSize,
-        medicationKey: rx.medicationKey,
-        quantity: qty,
-        unitPriceCents: product.priceCents,
-        lineTotalCents,
-      });
+      // Expand each vial into its own line item for clear per-unit breakdown
+      for (let v = 0; v < qty; v++) {
+        pharmacyLineItems.push({
+          orderId: order.id,
+          lifefileOrderId: order.lifefileOrderId,
+          orderDate,
+          patientName,
+          patientId: order.patientId,
+          providerName,
+          providerId: order.providerId,
+          medicationName: product.name,
+          strength: product.strength,
+          vialSize: product.vialSize,
+          medicationKey: rx.medicationKey,
+          quantity: 1,
+          unitPriceCents: product.priceCents,
+          lineTotalCents: product.priceCents,
+        });
+      }
     }
 
     subtotalMedicationsCents += orderMedTotalCents;
