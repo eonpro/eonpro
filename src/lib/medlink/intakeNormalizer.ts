@@ -260,10 +260,18 @@ function buildSections(payload: Record<string, unknown>): IntakeSection[] {
       // PHYSICAL MEASUREMENTS
       // ═══════════════════════════════════════════════════════════════
       weight: 'Starting Weight',
+      current_weight: 'Starting Weight',
+      currentWeight: 'Starting Weight',
       idealWeight: 'Ideal Weight',
+      ideal_weight: 'Ideal Weight',
       height: 'Height',
+      height_feet: 'Height (feet)',
+      height_inches: 'Height (inches)',
+      heightFeet: 'Height (feet)',
+      heightInches: 'Height (inches)',
       bmi: 'BMI',
       bloodPressure: 'Blood Pressure',
+      blood_pressure: 'Blood Pressure',
 
       // ═══════════════════════════════════════════════════════════════
       // MEDICAL HISTORY
@@ -273,6 +281,18 @@ function buildSections(payload: Record<string, unknown>): IntakeSection[] {
       allergies: 'Allergies',
       medicalConditions: 'Medical Conditions',
       chronicConditions: 'Chronic Conditions',
+      has_chronic_conditions: 'Chronic Conditions',
+      hasChronicConditions: 'Chronic Conditions',
+      chronic_conditions_detail: 'Chronic Conditions Details',
+      chronicConditionsDetail: 'Chronic Conditions Details',
+      digestive_conditions: 'Digestive Conditions',
+      digestiveConditions: 'Digestive Conditions',
+      has_kidney_conditions: 'Kidney Problems',
+      hasKidneyConditions: 'Kidney Problems',
+      had_surgery: 'Surgery History',
+      hadSurgery: 'Surgery History',
+      surgery_types: 'Surgery Types',
+      surgeryTypes: 'Surgery Types',
       mentalHealthHistory: 'Mental Health History',
       familyHistory: 'Family Medical History',
       surgicalHistory: 'Surgical History',
@@ -281,10 +301,25 @@ function buildSections(payload: Record<string, unknown>): IntakeSection[] {
       // GLP-1 SPECIFIC
       // ═══════════════════════════════════════════════════════════════
       glp1History: 'GLP-1 Medication History',
+      glp1_history: 'GLP-1 Medication History',
       glp1Type: 'Current GLP-1 Medication',
+      glp1_type: 'Current GLP-1 Medication',
       medicationPreference: 'Medication Preference',
+      medication_preference: 'Medication Preference',
       semaglutideDosage: 'Semaglutide Dose',
+      semaglutide_dosage: 'Semaglutide Dose',
+      semaglutideSideEffects: 'Semaglutide Side Effects',
+      semaglutide_side_effects: 'Semaglutide Side Effects',
+      semaglutideSuccess: 'Semaglutide Success',
+      semaglutide_success: 'Semaglutide Success',
       tirzepatideDosage: 'Tirzepatide Dose',
+      tirzepatide_dosage: 'Tirzepatide Dose',
+      tirzepatideSideEffects: 'Tirzepatide Side Effects',
+      tirzepatide_side_effects: 'Tirzepatide Side Effects',
+      tirzepatideSuccess: 'Tirzepatide Success',
+      tirzepatide_success: 'Tirzepatide Success',
+      dosageSatisfaction: 'Dosage Satisfaction',
+      dosage_satisfaction: 'Dosage Satisfaction',
       previousSideEffects: 'Previous Side Effects',
       currentGLP1Dose: 'Current GLP-1 Dose',
 
@@ -292,9 +327,21 @@ function buildSections(payload: Record<string, unknown>): IntakeSection[] {
       // LIFESTYLE
       // ═══════════════════════════════════════════════════════════════
       activityLevel: 'Daily Physical Activity',
+      activity_level: 'Daily Physical Activity',
       alcoholUse: 'Alcohol Intake',
+      alcohol_consumption: 'Alcohol Intake',
+      alcoholConsumption: 'Alcohol Intake',
       recreationalDrugs: 'Recreational Drug Use',
+      recreational_drugs: 'Recreational Drug Use',
       weightLossHistory: 'Weight Loss History',
+      weight_loss_methods: 'Weight Loss History',
+      weightLossMethods: 'Weight Loss History',
+      weight_loss_support: 'Weight Loss Support Preferences',
+      weightLossSupport: 'Weight Loss Support Preferences',
+      dosage_interest: 'Personalized Dosage Interest',
+      dosageInterest: 'Personalized Dosage Interest',
+      common_side_effects: 'Side Effect Concerns',
+      commonSideEffects: 'Side Effect Concerns',
 
       // ═══════════════════════════════════════════════════════════════
       // VISIT INFO
@@ -307,6 +354,7 @@ function buildSections(payload: Record<string, unknown>): IntakeSection[] {
       // PREGNANCY STATUS
       // ═══════════════════════════════════════════════════════════════
       pregnancyStatus: 'Pregnancy Status',
+      pregnancy_status: 'Pregnancy Status',
 
       // ═══════════════════════════════════════════════════════════════
       // PERSONAL MEDICAL FLAGS
@@ -391,11 +439,19 @@ function buildSections(payload: Record<string, unknown>): IntakeSection[] {
       // MENTAL HEALTH (various field names)
       // ═══════════════════════════════════════════════════════════════
       mentalHealth: 'Mental Health History',
+      has_mental_health: 'Mental Health Diagnosis',
+      hasMentalHealth: 'Mental Health Diagnosis',
       mentalHealthConditions: 'Mental Health Conditions',
+      mental_health_conditions: 'Mental Health Conditions',
       mentalHealthDiagnosis: 'Mental Health Diagnosis',
       psychiatricHistory: 'Psychiatric History',
       anxietyDepression: 'Anxiety/Depression',
       eatingDisorder: 'Eating Disorder History',
+
+      // ═══════════════════════════════════════════════════════════════
+      // WEIGHT LOSS GOALS
+      // ═══════════════════════════════════════════════════════════════
+      goals: 'Health Goals',
     };
 
     // Extract all fields from the data object
