@@ -157,7 +157,14 @@ export async function generateDailyInvoices(
       fulfillmentChannel: 'lifefile',
       status: { notIn: ['error', 'cancelled', 'declined'] },
     },
-    include: {
+    select: {
+      id: true,
+      createdAt: true,
+      approvedAt: true,
+      lifefileOrderId: true,
+      shippingMethod: true,
+      patientId: true,
+      providerId: true,
       patient: { select: { id: true, firstName: true, lastName: true } },
       provider: { select: { id: true, firstName: true, lastName: true } },
       rxs: {
@@ -198,7 +205,10 @@ export async function generateDailyInvoices(
       ? `${order.provider.lastName}, ${order.provider.firstName}`
       : `Provider #${order.providerId}`;
 
-    const orderDate = order.createdAt.toISOString();
+    // approvedAt = when the Rx was actually sent to pharmacy (most accurate)
+    // createdAt = when the order record was created (fallback for direct sends)
+    const sentAt = order.approvedAt ?? order.createdAt;
+    const orderDate = sentAt.toISOString();
 
     // --- Pharmacy Products ---
     let orderVialCount = 0;
