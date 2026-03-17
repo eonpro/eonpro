@@ -162,7 +162,7 @@ export async function reviewDisposition(input: ReviewDispositionInput) {
     throw new Error('Disposition not found');
   }
 
-  if (disposition.clinicId !== clinicId) {
+  if (clinicId > 0 && disposition.clinicId !== clinicId) {
     throw new Error('Disposition does not belong to this clinic');
   }
 

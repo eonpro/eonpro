@@ -112,6 +112,7 @@ export default function ConditionalHeader() {
     '/intake-forms',
     '/affiliate',
     '/dashboard',
+    '/checkout',
   ];
 
   const isNoHeaderPage =

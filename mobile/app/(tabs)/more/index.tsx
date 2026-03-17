@@ -62,28 +62,29 @@ export default function MoreScreen() {
         {/* Menu Items */}
         <View className="bg-white rounded-2xl mx-5 mb-4 overflow-hidden shadow-sm">
           {features.showAppointments && (
-            <MenuItem label="Appointments" emoji="📅" onPress={() => {}} />
+            <MenuItem label="Appointments" emoji="📅" onPress={() => router.push('/appointments')} />
           )}
           {features.showCarePlan && (
-            <MenuItem label="Care Plan" emoji="📋" onPress={() => {}} />
+            <MenuItem label="Care Plan" emoji="📋" onPress={() => router.push('/care-plan')} />
           )}
           {features.showCareTeam && (
-            <MenuItem label="Care Team" emoji="👨‍⚕️" onPress={() => {}} />
+            <MenuItem label="Care Team" emoji="👨‍⚕️" onPress={() => router.push('/care-team')} />
           )}
           {features.showDocuments && (
-            <MenuItem label="Documents" emoji="📄" onPress={() => {}} />
+            <MenuItem label="Documents" emoji="📄" onPress={() => router.push('/documents')} />
           )}
           {features.showLabResults && (
-            <MenuItem label="Lab Results" emoji="🔬" onPress={() => {}} />
+            <MenuItem label="Lab Results" emoji="🔬" onPress={() => router.push('/bloodwork')} />
           )}
           {features.showBilling && (
-            <MenuItem label="Billing" emoji="💳" onPress={() => {}} />
+            <MenuItem label="Billing" emoji="💳" onPress={() => router.push('/billing')} />
           )}
           {features.showResources && (
-            <MenuItem label="Resources" emoji="📚" onPress={() => {}} />
+            <MenuItem label="Resources" emoji="📚" onPress={() => router.push('/resources')} />
           )}
-          <MenuItem label="Support" emoji="🎧" onPress={() => {}} />
-          <MenuItem label="Settings" emoji="⚙️" onPress={() => {}} />
+          <MenuItem label="Support" emoji="🎧" onPress={() => router.push('/support')} />
+          <MenuItem label="Notifications" emoji="🔔" onPress={() => router.push('/notifications')} />
+          <MenuItem label="Notification Preferences" emoji="⚙️" onPress={() => router.push('/settings/notifications')} />
         </View>
 
         {/* Support Info */}

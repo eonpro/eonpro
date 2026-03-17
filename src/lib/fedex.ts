@@ -179,9 +179,23 @@ async function fedexRequest<T>(
       logger.error('FedEx API error', {
         status: response.status,
         path,
-        error: errorBody.slice(0, 500),
+        error: errorBody.slice(0, 2000),
       });
-      throw new Error(`FedEx API error: ${response.status} - ${errorBody.slice(0, 200)}`);
+
+      let detail = '';
+      try {
+        const parsed = JSON.parse(errorBody);
+        const errors: { code?: string; message?: string }[] = parsed.errors || [];
+        if (errors.length > 0) {
+          detail = errors.map((e) => `[${e.code || 'UNKNOWN'}] ${e.message || ''}`).join('; ');
+        }
+      } catch {
+        // not JSON
+      }
+
+      throw new Error(
+        `FedEx API error: ${response.status}${detail ? ` — ${detail}` : ` - ${errorBody.slice(0, 500)}`}`
+      );
     }
 
     return response.json() as Promise<T>;
@@ -430,9 +444,6 @@ function buildShipmentPayload(
             }
           : {}),
       })),
-      accountNumber: {
-        value: credentials.accountNumber,
-      },
     },
   };
 }

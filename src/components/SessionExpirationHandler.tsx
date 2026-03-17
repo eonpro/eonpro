@@ -14,7 +14,7 @@ import { AlertTriangle, LogOut } from 'lucide-react';
  * 3. Redirects to login after acknowledgment or timeout
  */
 /** Public routes that should never trigger session expiration logic */
-const PUBLIC_ROUTE_PREFIXES = ['/intake', '/affiliate/', '/login', '/patient-login', '/register', '/reset-password', '/verify-email', '/privacy-policy', '/terms-of-service', '/hipaa-notice'];
+const PUBLIC_ROUTE_PREFIXES = ['/intake', '/affiliate/', '/login', '/patient-login', '/register', '/reset-password', '/verify-email', '/privacy-policy', '/terms-of-service', '/hipaa-notice', '/checkout'];
 
 export default function SessionExpirationHandler() {
   const [isExpired, setIsExpired] = useState(false);

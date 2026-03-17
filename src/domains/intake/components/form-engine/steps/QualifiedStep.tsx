@@ -77,7 +77,18 @@ export default function QualifiedStep({
 
   const handleCheckout = () => {
     syncToSessionStorage();
-    router.push('/checkout');
+    const params = new URLSearchParams();
+    if (responses.firstName) params.set('firstName', String(responses.firstName));
+    if (responses.lastName) params.set('lastName', String(responses.lastName));
+    if (responses.email) params.set('email', String(responses.email));
+    if (responses.phone) params.set('phone', String(responses.phone));
+    if (responses.street) params.set('address', String(responses.street));
+    if (responses.apartment) params.set('apt', String(responses.apartment));
+    if (responses.state) params.set('state', String(responses.state));
+    if (responses.medication_preference) params.set('medication', String(responses.medication_preference));
+    if (responses.dob) params.set('dob', String(responses.dob));
+    const qs = params.toString();
+    router.push(`/checkout${qs ? `?${qs}` : ''}`);
   };
 
   const syncToSessionStorage = () => {

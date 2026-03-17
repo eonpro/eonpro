@@ -112,7 +112,7 @@ export default function SafetyQualityStep({
             </div>
 
             <div 
-              className={`rounded-2xl overflow-hidden transition-all duration-700 ease-out ${
+              className={`rounded-2xl overflow-hidden transition-all duration-700 ease-out max-w-[260px] mx-auto ${
                 animate ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
               }`}
               style={{ transitionDelay: '500ms' }}

@@ -84,18 +84,22 @@ function classifyFedExLabelError(error: unknown): { status: number; message: str
 
   const statusMatch = raw.match(/FedEx API error:\s*(\d{3})/i);
   const upstreamStatus = statusMatch ? Number(statusMatch[1]) : null;
-  if (upstreamStatus === 400 || upstreamStatus === 404 || upstreamStatus === 422) {
-    return {
-      status: 422,
-      message:
-        'FedEx could not create this shipment with the provided address/package details. Please review and try again.',
-    };
-  }
 
   if (upstreamStatus === 401 || upstreamStatus === 403) {
     return {
       status: 503,
       message: 'FedEx credentials are unavailable. Contact your administrator.',
+    };
+  }
+
+  if (upstreamStatus === 400 || upstreamStatus === 404 || upstreamStatus === 422) {
+    const detailMatch = raw.match(/—\s*(.+)$/);
+    const fedexDetail = detailMatch?.[1]?.trim();
+    return {
+      status: 422,
+      message: fedexDetail
+        ? `FedEx rejected the shipment: ${fedexDetail}`
+        : 'FedEx could not create this shipment with the provided address/package details. Please review and try again.',
     };
   }
 

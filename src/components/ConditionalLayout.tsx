@@ -36,6 +36,7 @@ export default function ConditionalLayout({ children }: ConditionalLayoutProps) 
     '/intake-forms',
     '/patient-portal',
     '/dashboard',
+    '/checkout',
   ];
 
   const isFullWidthPage =

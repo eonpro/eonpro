@@ -7,6 +7,10 @@ import { useAuth } from '@/lib/auth-context';
 import { useBrandTheme } from '@/lib/branding';
 import { usePortalQuery } from '@/hooks/usePortalQuery';
 
+interface NotificationSummary {
+  unreadCount: number;
+}
+
 interface VitalsData {
   latestWeight?: { value: number; unit: string; date: string };
   bmi?: number;
@@ -27,6 +31,14 @@ export default function HomeScreen() {
   const { colors, logo, clinic } = useBrandTheme();
   const router = useRouter();
   const [refreshing, setRefreshing] = useState(false);
+
+  const notifications = usePortalQuery<NotificationSummary>(
+    ['notification-count'],
+    '/api/notifications?pageSize=1',
+    { refetchInterval: 60_000 }
+  );
+
+  const unreadCount = notifications.data?.unreadCount ?? 0;
 
   const vitals = usePortalQuery<VitalsData>(
     ['vitals'],
@@ -66,13 +78,28 @@ export default function HomeScreen() {
               <Text className="text-sm text-gray-500">Good {getGreeting()},</Text>
               <Text className="text-2xl font-bold text-gray-900">{firstName}</Text>
             </View>
-            {logo.icon ? (
-              <Image
-                source={{ uri: logo.icon }}
-                style={{ width: 40, height: 40, borderRadius: 8 }}
-                contentFit="contain"
-              />
-            ) : null}
+            <View className="flex-row items-center gap-3">
+              <TouchableOpacity onPress={() => router.push('/notifications')} className="relative">
+                <Text className="text-xl">🔔</Text>
+                {unreadCount > 0 && (
+                  <View
+                    className="absolute -top-1 -right-1 w-4 h-4 rounded-full items-center justify-center"
+                    style={{ backgroundColor: '#EF4444' }}
+                  >
+                    <Text className="text-[9px] font-bold text-white">
+                      {unreadCount > 9 ? '9+' : unreadCount}
+                    </Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+              {logo.icon ? (
+                <Image
+                  source={{ uri: logo.icon }}
+                  style={{ width: 40, height: 40, borderRadius: 8 }}
+                  contentFit="contain"
+                />
+              ) : null}
+            </View>
           </View>
           {clinic.dashboardMessage && (
             <View className="mt-3 rounded-xl px-4 py-3" style={{ backgroundColor: colors.primaryLight }}>

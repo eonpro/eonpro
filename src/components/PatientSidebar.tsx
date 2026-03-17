@@ -8,6 +8,7 @@ import DeletePatientModal from './DeletePatientModal';
 import MergePatientModal from './MergePatientModal';
 import FedExLabelModal from './FedExLabelModal';
 import SalesRepDropdown from './SalesRepDropdown';
+import DispositionModal from './DispositionModal';
 import VerifiedBadge from './VerifiedBadge';
 import { apiFetch } from '@/lib/api/fetch';
 import { formatPatientDisplayId } from '@/lib/utils/formatPatientDisplayId';
@@ -517,6 +518,7 @@ export default function PatientSidebar({
   const [salesRequestLoading, setSalesRequestLoading] = useState(false);
   const [salesRequestError, setSalesRequestError] = useState<string | null>(null);
   const [salesRequestSuccess, setSalesRequestSuccess] = useState<string | null>(null);
+  const [showDispositionModal, setShowDispositionModal] = useState(false);
 
   const fetchLabels = useCallback(() => {
     if (!canManageShipping) return;
@@ -1078,6 +1080,14 @@ export default function PatientSidebar({
                 )}
               </div>
             )}
+            {isSalesRep && (
+              <button
+                onClick={() => setShowDispositionModal(true)}
+                className="mt-2 w-full rounded-lg border border-[var(--brand-primary,#0EA5E9)] bg-[var(--brand-primary-light,rgba(14,165,233,0.06))] px-3 py-2 text-xs font-medium text-[var(--brand-primary,#0EA5E9)] transition-colors hover:bg-[var(--brand-primary-light,rgba(14,165,233,0.15))]"
+              >
+                Disposition This Patient
+              </button>
+            )}
           </div>
         )}
 
@@ -1276,6 +1286,20 @@ export default function PatientSidebar({
             createdAt: typeof o.createdAt === 'string' ? o.createdAt : o.createdAt.toISOString(),
           }))}
           onClose={() => { setShowFedExModal(false); fetchLabels(); }}
+        />
+      )}
+
+      {showDispositionModal && (
+        <DispositionModal
+          patient={{
+            id: patient.id,
+            firstName: patient.firstName,
+            lastName: patient.lastName,
+          }}
+          onClose={() => setShowDispositionModal(false)}
+          onSubmitted={() => {
+            setShowDispositionModal(false);
+          }}
         />
       )}
     </>

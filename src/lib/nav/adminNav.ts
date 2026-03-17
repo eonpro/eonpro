@@ -27,6 +27,7 @@ export const baseAdminNavConfig: AdminNavItemConfig[] = [
   { path: '/admin/products', label: 'Products', iconKey: 'Store' },
   { path: '/admin/analytics', label: 'Analytics', iconKey: 'TrendingUp' },
   { path: '/admin/sales-rep/commission-plans', label: 'Sales Rep Commissions', iconKey: 'DollarSign' },
+  { path: '/admin/sales-rep/dispositions', label: 'Dispositions', iconKey: 'ClipboardCheck' },
   { path: '/admin/affiliates', label: 'Affiliates', iconKey: 'UserCheck' },
   { path: '/admin/finance', label: 'Finance', iconKey: 'DollarSign' },
   { path: '/admin/stripe-dashboard', label: 'Stripe', iconKey: 'CreditCard' },
@@ -64,6 +65,13 @@ export const salesRepLinksNavConfig: AdminNavItemConfig = {
  * (affiliates, finance, sales rep commissions, products, analytics, stripe,
  * pending profiles, registration codes).
  */
+/** Sales rep dispositions (sales_rep sees own, admin sees all). */
+export const salesRepDispositionsNavConfig: AdminNavItemConfig = {
+  path: '/admin/sales-rep/dispositions',
+  label: 'Dispositions',
+  iconKey: 'ClipboardCheck',
+};
+
 export const salesRepNavConfig: AdminNavItemConfig[] = [
   { path: '/dashboard', label: 'Home', iconKey: 'Home' },
   { path: '/admin/intakes', label: 'Intakes', iconKey: 'UserPlus' },
@@ -79,6 +87,7 @@ export const salesRepNavConfig: AdminNavItemConfig[] = [
   { path: '/admin/shipment-monitor', label: 'Shipments', iconKey: 'BarChart3' },
   { path: '/tickets', label: 'Tickets', iconKey: 'Ticket' },
   salesRepLinksNavConfig,
+  salesRepDispositionsNavConfig,
   { path: '/admin/settings', label: 'Settings', iconKey: 'Settings' },
 ];
 
