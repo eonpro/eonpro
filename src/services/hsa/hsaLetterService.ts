@@ -26,8 +26,8 @@ export interface HsaLetterData {
   provider: {
     fullName: string;
     licenseNumber: string | null;
-    address: string | null;
-    phone: string | null;
+    address: string;
+    phone: string;
     signatureDataUrl: string | null;
   };
   patient: {
@@ -37,6 +37,7 @@ export interface HsaLetterData {
   recommendedTreatment: string;
   durationOfTreatment: string;
   dateOfService: string;
+  amountPaid: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -135,6 +136,10 @@ function formatDate(date: Date | string | null): string {
   if (!date) return 'N/A';
   const d = typeof date === 'string' ? new Date(date) : date;
   return d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+}
+
+function formatCurrency(cents: number): string {
+  return `$${(cents / 100).toFixed(2)}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -247,9 +252,12 @@ export async function resolveHsaLetterData(
     });
   }
 
+  const EONPRO_ADDRESS = '401 Jackson St Suite 2340-K23, Tampa, FL 33602';
+  const EONPRO_PHONE = '+1-813-213-0301';
+
   const clinicName = clinic?.lifefilePracticeName || clinic?.name || 'Medical Provider';
   const providerName = order
-    ? `${order.provider.firstName} ${order.provider.lastName}${order.provider.titleLine ? `, ${order.provider.titleLine}` : ', MD'}`
+    ? `${order.provider.firstName} ${order.provider.lastName}, MD`
     : 'Provider';
 
   const decryptedFirst = safeDecrypt(patient.firstName);
@@ -264,8 +272,8 @@ export async function resolveHsaLetterData(
     provider: {
       fullName: providerName,
       licenseNumber: order?.provider?.licenseNumber ?? null,
-      address: clinic?.lifefilePracticeAddress ?? null,
-      phone: clinic?.lifefilePracticePhone ?? null,
+      address: EONPRO_ADDRESS,
+      phone: EONPRO_PHONE,
       signatureDataUrl: order?.provider?.signatureDataUrl ?? null,
     },
     patient: { fullName: `${decryptedFirst} ${decryptedLast}` },
@@ -273,6 +281,7 @@ export async function resolveHsaLetterData(
     recommendedTreatment: clinical.treatment,
     durationOfTreatment: '12 months',
     dateOfService: formatDate(order?.createdAt ?? invoice.paidAt),
+    amountPaid: formatCurrency(invoice.amountPaid),
   };
 }
 
@@ -397,9 +406,12 @@ export async function generateHsaLetterPdf(data: HsaLetterData): Promise<Uint8Ar
   txt(page, 'HSA Letter of Medical Necessity', M, y, { size: 14, font: bold, color: black });
 
   if (logoImage) {
-    const logoW = 120;
-    const logoH = 35;
-    page.drawImage(logoImage, { x: PW - M - logoW, y: y - 10, width: logoW, height: logoH });
+    const naturalW = logoImage.width;
+    const naturalH = logoImage.height;
+    const targetH = 40;
+    const scale = targetH / naturalH;
+    const logoW = naturalW * scale;
+    page.drawImage(logoImage, { x: PW - M - logoW, y: y - 12, width: logoW, height: targetH });
   }
 
   y -= 35;
@@ -444,7 +456,7 @@ export async function generateHsaLetterPdf(data: HsaLetterData): Promise<Uint8Ar
   // =========================================================================
   y = sec1Top - sec1H - 12;
   const sec2Top = y;
-  const sec2H = 380;
+  const sec2H = 400;
   y = drawBoxHeader(page, 'Patient Information', M, y, CW);
   drawBox(page, M, sec2Top, CW, sec2H);
 
@@ -495,6 +507,13 @@ export async function generateHsaLetterPdf(data: HsaLetterData): Promise<Uint8Ar
   const durLabelW = regular.widthOfTextAtSize('Duration of treatment (not to exceed 12 months):', 9.5);
   txt(page, data.durationOfTreatment, innerX + durLabelW + 8, y, { size: 9.5, font: bold, color: black });
   drawFieldLine(page, innerX + durLabelW + 4, y, innerW - durLabelW - 4);
+
+  // Amount Paid
+  y -= 20;
+  txt(page, 'Amount Paid by Patient:', innerX, y, { size: 9.5, color: black });
+  const amtLabelW = regular.widthOfTextAtSize('Amount Paid by Patient:', 9.5);
+  txt(page, data.amountPaid, innerX + amtLabelW + 8, y, { size: 9.5, font: bold, color: black });
+  drawFieldLine(page, innerX + amtLabelW + 4, y, innerW - amtLabelW - 4);
 
   // Attestation paragraph
   y -= 24;
