@@ -440,262 +440,333 @@ export function generatePrescriptionServicesCSV(invoice: PrescriptionServicesInv
 }
 
 // ---------------------------------------------------------------------------
-// PDF Export (using pdf-lib)
+// PDF Export (using pdf-lib) — Branded design with EONPro logo
 // ---------------------------------------------------------------------------
+
+import path from 'path';
+import fs from 'fs/promises';
+import { BRAND } from '@/lib/constants/brand-assets';
+
+let cachedLogo: Uint8Array | null = null;
+
+async function loadLogo(): Promise<Uint8Array | null> {
+  if (cachedLogo) return cachedLogo;
+  try {
+    const logoPath = path.join(process.cwd(), 'public', BRAND.logos.eonproLogoPdf.replace(/^\//, ''));
+    cachedLogo = new Uint8Array(await fs.readFile(logoPath));
+    return cachedLogo;
+  } catch {
+    return null;
+  }
+}
+
+const PRIMARY = { r: 0.06, g: 0.45, b: 0.31 };
+const ACCENT_BG = { r: 0.96, g: 0.98, b: 0.97 };
 
 export async function generatePharmacyPDF(invoice: PharmacyInvoice): Promise<Uint8Array> {
   const { PDFDocument, StandardFonts, rgb } = await import('pdf-lib');
-
   const doc = await PDFDocument.create();
-  const fontRegular = await doc.embedFont(StandardFonts.Helvetica);
-  const fontBold = await doc.embedFont(StandardFonts.HelveticaBold);
+  const fontR = await doc.embedFont(StandardFonts.Helvetica);
+  const fontB = await doc.embedFont(StandardFonts.HelveticaBold);
 
-  const PAGE_W = 792;
-  const PAGE_H = 612;
-  const MARGIN = 40;
-  const LINE_H = 13;
+  const logoBytes = await loadLogo();
+  const logo = logoBytes ? await doc.embedPng(logoBytes) : null;
 
-  let page = doc.addPage([PAGE_W, PAGE_H]);
-  let y = PAGE_H - MARGIN;
+  const PW = 792;
+  const PH = 612;
+  const M = 44;
+  const ROW_H = 14;
+  const TABLE_W = PW - 2 * M;
 
-  function addNewPage() {
-    page = doc.addPage([PAGE_W, PAGE_H]);
-    y = PAGE_H - MARGIN;
+  let pg = doc.addPage([PW, PH]);
+  let y = PH - M;
+  let pageNum = 1;
+
+  function newPage() {
+    drawFooter();
+    pg = doc.addPage([PW, PH]);
+    y = PH - M;
+    pageNum++;
   }
 
-  function ensureSpace(needed: number) {
-    if (y - needed < MARGIN + 20) addNewPage();
+  function need(h: number) { if (y - h < M + 25) newPage(); }
+
+  function txt(t: string, x: number, font = fontR, size = 8, color = rgb(0.15, 0.15, 0.15)) {
+    pg.drawText(sanitizeForPdf(t), { x, y, size, font, color });
   }
 
-  function drawText(text: string, x: number, font = fontRegular, size = 8, color = rgb(0.1, 0.1, 0.1)) {
-    const safe = sanitizeForPdf(text);
-    page.drawText(safe, { x, y, size, font, color });
+  function trunc(t: string, max: number) { return t.length > max ? t.slice(0, max - 1) + '..' : t; }
+
+  function drawFooter() {
+    pg.drawLine({ start: { x: M, y: M - 5 }, end: { x: PW - M, y: M - 5 }, thickness: 0.5, color: rgb(0.85, 0.85, 0.85) });
+    pg.drawText(sanitizeForPdf(`EONPro Platform  |  WellMedR Pharmacy Invoice  |  Confidential  |  Page ${pageNum}`), {
+      x: M, y: M - 16, size: 7, font: fontR, color: rgb(0.55, 0.55, 0.55),
+    });
   }
 
-  function truncate(text: string, maxLen: number): string {
-    return text.length > maxLen ? text.slice(0, maxLen - 2) + '..' : text;
+  // ── HEADER ──
+  if (logo) {
+    const scale = 32 / logo.height;
+    pg.drawImage(logo, { x: M, y: y - 8, width: logo.width * scale, height: 32 });
   }
-
-  // Title
-  drawText('PHARMACY PRODUCTS INVOICE', MARGIN, fontBold, 14, rgb(0.06, 0.45, 0.31));
-  y -= 18;
-  drawText(`Clinic: ${invoice.clinicName}`, MARGIN, fontRegular, 10);
-  y -= 14;
-  drawText(
-    `Period: ${new Date(invoice.periodStart).toLocaleDateString('en-US')} - ${new Date(invoice.periodEnd).toLocaleDateString('en-US')}`,
-    MARGIN,
-    fontRegular,
-    9,
-  );
-  y -= 12;
-  drawText(
-    `Orders: ${invoice.orderCount}  |  Vials: ${invoice.vialCount}  |  Generated: ${new Date().toLocaleString('en-US')}`,
-    MARGIN,
-    fontRegular,
-    8,
-    rgb(0.4, 0.4, 0.4),
-  );
+  txt('PHARMACY PRODUCTS INVOICE', M + (logo ? 140 : 0), fontB, 16, rgb(PRIMARY.r, PRIMARY.g, PRIMARY.b));
   y -= 20;
 
-  // Medication table
-  drawText('MEDICATION LINE ITEMS', MARGIN, fontBold, 10);
-  y -= 16;
+  pg.drawLine({ start: { x: M, y }, end: { x: PW - M, y }, thickness: 2, color: rgb(PRIMARY.r, PRIMARY.g, PRIMARY.b) });
+  y -= 18;
 
-  const cols = [MARGIN, MARGIN + 60, MARGIN + 100, MARGIN + 200, MARGIN + 310, MARGIN + 420, MARGIN + 500, MARGIN + 545, MARGIN + 580, MARGIN + 620, MARGIN + 670];
+  // Info row
+  txt(`Clinic: ${invoice.clinicName}`, M, fontB, 10);
+  txt(
+    `Period: ${new Date(invoice.periodStart).toLocaleDateString('en-US')} - ${new Date(invoice.periodEnd).toLocaleDateString('en-US')}`,
+    PW / 2,
+    fontR,
+    9,
+  );
+  y -= 14;
+  txt(`Orders: ${invoice.orderCount}   |   Vials: ${invoice.vialCount}`, M, fontR, 9, rgb(0.4, 0.4, 0.4));
+  txt(`Generated: ${new Date().toLocaleString('en-US')}`, PW / 2, fontR, 8, rgb(0.4, 0.4, 0.4));
+  y -= 22;
+
+  // ── MEDICATION TABLE ──
+  pg.drawRectangle({ x: M, y: y - 2, width: TABLE_W, height: 18, color: rgb(PRIMARY.r, PRIMARY.g, PRIMARY.b) });
+  const hdrColor = rgb(1, 1, 1);
+  const c = [M + 4, M + 58, M + 118, M + 250, M + 370, M + 470, M + 530, M + 570, M + 620, M + 670];
+  txt('Date', c[0], fontB, 7, hdrColor);
+  txt('Order #', c[1], fontB, 7, hdrColor);
+  txt('Patient', c[2], fontB, 7, hdrColor);
+  txt('LF Order ID', c[3], fontB, 7, hdrColor);
+  txt('Medication', c[4], fontB, 7, hdrColor);
+  txt('Strength', c[5], fontB, 7, hdrColor);
+  txt('Vial', c[6], fontB, 7, hdrColor);
+  txt('Qty', c[7], fontB, 7, hdrColor);
+  txt('Unit $', c[8], fontB, 7, hdrColor);
+  txt('Total', c[9], fontB, 7, hdrColor);
+  y -= 20;
 
   function drawMedHeader() {
-    page.drawRectangle({ x: MARGIN, y: y - 2, width: PAGE_W - 2 * MARGIN, height: LINE_H + 2, color: rgb(0.93, 0.93, 0.93) });
-    drawText('Date', cols[0] + 2, fontBold, 7);
-    drawText('Order', cols[1] + 2, fontBold, 7);
-    drawText('Patient', cols[2] + 2, fontBold, 7);
-    drawText('Provider', cols[3] + 2, fontBold, 7);
-    drawText('Medication', cols[4] + 2, fontBold, 7);
-    drawText('Strength', cols[5] + 2, fontBold, 7);
-    drawText('Vial', cols[6] + 2, fontBold, 7);
-    drawText('Qty', cols[7] + 2, fontBold, 7);
-    drawText('Unit $', cols[8] + 2, fontBold, 7);
-    drawText('Total', cols[9] + 2, fontBold, 7);
-    y -= LINE_H + 3;
+    pg.drawRectangle({ x: M, y: y - 2, width: TABLE_W, height: 18, color: rgb(PRIMARY.r, PRIMARY.g, PRIMARY.b) });
+    txt('Date', c[0], fontB, 7, hdrColor);
+    txt('Order #', c[1], fontB, 7, hdrColor);
+    txt('Patient', c[2], fontB, 7, hdrColor);
+    txt('LF Order ID', c[3], fontB, 7, hdrColor);
+    txt('Medication', c[4], fontB, 7, hdrColor);
+    txt('Strength', c[5], fontB, 7, hdrColor);
+    txt('Vial', c[6], fontB, 7, hdrColor);
+    txt('Qty', c[7], fontB, 7, hdrColor);
+    txt('Unit $', c[8], fontB, 7, hdrColor);
+    txt('Total', c[9], fontB, 7, hdrColor);
+    y -= 20;
   }
 
-  drawMedHeader();
+  let prevOrderId = -1;
 
   for (let i = 0; i < invoice.lineItems.length; i++) {
-    ensureSpace(LINE_H + 2);
-    if (y >= PAGE_H - MARGIN - 5) drawMedHeader();
+    need(ROW_H + 6);
+    if (y >= PH - M - 5) drawMedHeader();
 
     const li = invoice.lineItems[i];
+
+    if (li.orderId !== prevOrderId && prevOrderId !== -1) {
+      pg.drawLine({ start: { x: M, y: y + ROW_H - 1 }, end: { x: PW - M, y: y + ROW_H - 1 }, thickness: 0.8, color: rgb(0.78, 0.78, 0.78) });
+      y -= 3;
+      need(ROW_H + 4);
+    }
+    prevOrderId = li.orderId;
+
     if (i % 2 === 0) {
-      page.drawRectangle({ x: MARGIN, y: y - 2, width: PAGE_W - 2 * MARGIN, height: LINE_H, color: rgb(0.97, 0.97, 0.97) });
+      pg.drawRectangle({ x: M, y: y - 2, width: TABLE_W, height: ROW_H, color: rgb(ACCENT_BG.r, ACCENT_BG.g, ACCENT_BG.b) });
     }
 
-    drawText(new Date(li.orderDate).toLocaleDateString('en-US'), cols[0] + 2, fontRegular, 7);
-    drawText(String(li.orderId), cols[1] + 2, fontRegular, 7);
-    drawText(truncate(li.patientName, 18), cols[2] + 2, fontRegular, 7);
-    drawText(truncate(li.providerName, 18), cols[3] + 2, fontRegular, 7);
-    drawText(truncate(li.medicationName, 18), cols[4] + 2, fontRegular, 7);
-    drawText(li.strength, cols[5] + 2, fontRegular, 7);
-    drawText(li.vialSize, cols[6] + 2, fontRegular, 7);
-    drawText(String(li.quantity), cols[7] + 2, fontRegular, 7);
-    drawText(`$${centsToDisplay(li.unitPriceCents)}`, cols[8] + 2, fontRegular, 7);
-    drawText(`$${centsToDisplay(li.lineTotalCents)}`, cols[9] + 2, fontRegular, 7);
-    y -= LINE_H;
+    txt(new Date(li.orderDate).toLocaleDateString('en-US'), c[0], fontR, 7);
+    txt(String(li.orderId), c[1], fontR, 7);
+    txt(trunc(li.patientName, 20), c[2], fontB, 7);
+    txt(li.lifefileOrderId ?? '-', c[3], fontR, 7, rgb(0.4, 0.4, 0.4));
+    txt(trunc(li.medicationName, 16), c[4], fontR, 7);
+    txt(li.strength, c[5], fontR, 7);
+    txt(li.vialSize, c[6], fontR, 7);
+    txt(String(li.quantity), c[7], fontR, 7);
+    txt(`$${centsToDisplay(li.unitPriceCents)}`, c[8], fontR, 7);
+    txt(`$${centsToDisplay(li.lineTotalCents)}`, c[9], fontB, 7, rgb(PRIMARY.r, PRIMARY.g, PRIMARY.b));
+    y -= ROW_H;
   }
 
+  // Medications subtotal
   y -= 6;
-  ensureSpace(30);
-  drawText(`Medications Subtotal: $${centsToDisplay(invoice.subtotalMedicationsCents)}`, MARGIN + 500, fontBold, 9);
-  y -= 16;
+  need(20);
+  pg.drawLine({ start: { x: M + 500, y: y + 12 }, end: { x: PW - M, y: y + 12 }, thickness: 0.5, color: rgb(0.7, 0.7, 0.7) });
+  txt('Medications Subtotal:', M + 500, fontB, 9);
+  txt(`$${centsToDisplay(invoice.subtotalMedicationsCents)}`, c[9], fontB, 9, rgb(PRIMARY.r, PRIMARY.g, PRIMARY.b));
+  y -= 18;
 
-  // Shipping surcharges
+  // ── SHIPPING SURCHARGES ──
   if (invoice.shippingLineItems.length > 0) {
-    ensureSpace(40);
-    drawText('SHIPPING SURCHARGES', MARGIN, fontBold, 10);
-    y -= 16;
+    need(50);
+    y -= 6;
+    pg.drawRectangle({ x: M, y: y - 2, width: TABLE_W, height: 18, color: rgb(0.95, 0.92, 0.85) });
+    txt('SHIPPING SURCHARGES', M + 4, fontB, 8, rgb(0.5, 0.35, 0.1));
+    y -= 20;
 
-    page.drawRectangle({ x: MARGIN, y: y - 2, width: PAGE_W - 2 * MARGIN, height: LINE_H + 2, color: rgb(0.93, 0.93, 0.93) });
-    drawText('Date', MARGIN + 2, fontBold, 7);
-    drawText('Order', MARGIN + 62, fontBold, 7);
-    drawText('Patient', MARGIN + 102, fontBold, 7);
-    drawText('Description', MARGIN + 250, fontBold, 7);
-    drawText('Fee', MARGIN + 500, fontBold, 7);
-    y -= LINE_H + 3;
+    pg.drawRectangle({ x: M, y: y - 2, width: TABLE_W, height: 15, color: rgb(0.93, 0.93, 0.93) });
+    txt('Date', M + 4, fontB, 7, rgb(0.3, 0.3, 0.3));
+    txt('Order #', M + 62, fontB, 7, rgb(0.3, 0.3, 0.3));
+    txt('Patient', M + 120, fontB, 7, rgb(0.3, 0.3, 0.3));
+    txt('Description', M + 280, fontB, 7, rgb(0.3, 0.3, 0.3));
+    txt('Fee', M + 530, fontB, 7, rgb(0.3, 0.3, 0.3));
+    y -= 17;
 
     for (const sl of invoice.shippingLineItems) {
-      ensureSpace(LINE_H + 2);
-      drawText(new Date(sl.orderDate).toLocaleDateString('en-US'), MARGIN + 2, fontRegular, 7);
-      drawText(String(sl.orderId), MARGIN + 62, fontRegular, 7);
-      drawText(truncate(sl.patientName, 22), MARGIN + 102, fontRegular, 7);
-      drawText(sl.description, MARGIN + 250, fontRegular, 7);
-      drawText(`$${centsToDisplay(sl.feeCents)}`, MARGIN + 500, fontRegular, 7);
-      y -= LINE_H;
+      need(ROW_H + 2);
+      txt(new Date(sl.orderDate).toLocaleDateString('en-US'), M + 4, fontR, 7);
+      txt(String(sl.orderId), M + 62, fontR, 7);
+      txt(trunc(sl.patientName, 24), M + 120, fontR, 7);
+      txt(sl.description, M + 280, fontR, 7);
+      txt(`$${centsToDisplay(sl.feeCents)}`, M + 530, fontR, 7);
+      y -= ROW_H;
     }
 
-    y -= 6;
-    ensureSpace(20);
-    drawText(`Shipping Subtotal: $${centsToDisplay(invoice.subtotalShippingCents)}`, MARGIN + 500, fontBold, 9);
-    y -= 16;
+    y -= 4;
+    need(16);
+    txt('Shipping Subtotal:', M + 500, fontB, 9);
+    txt(`$${centsToDisplay(invoice.subtotalShippingCents)}`, c[9], fontB, 9, rgb(0.5, 0.35, 0.1));
+    y -= 18;
   }
 
-  // Grand Total
-  ensureSpace(30);
-  y -= 4;
-  page.drawRectangle({ x: MARGIN + 480, y: y - 4, width: PAGE_W - MARGIN - (MARGIN + 480), height: 22, color: rgb(0.06, 0.45, 0.31) });
-  drawText(`TOTAL: $${centsToDisplay(invoice.totalCents)}`, MARGIN + 490, fontBold, 12, rgb(1, 1, 1));
+  // ── GRAND TOTAL ──
+  need(36);
+  y -= 6;
+  pg.drawRectangle({ x: M, y: y - 6, width: TABLE_W, height: 28, color: rgb(PRIMARY.r, PRIMARY.g, PRIMARY.b) });
+  y -= 1;
+  txt('INVOICE TOTAL', M + 10, fontB, 12, rgb(1, 1, 1));
+  txt(`$${centsToDisplay(invoice.totalCents)}`, c[9] - 10, fontB, 14, rgb(1, 1, 1));
   y -= 30;
 
-  // Footer
-  page.drawText(
-    sanitizeForPdf(`EONPro Platform - WellMedR Pharmacy Invoice - Confidential - ${new Date().toISOString()}`),
-    { x: MARGIN, y: 15, size: 7, font: fontRegular, color: rgb(0.6, 0.6, 0.6) },
-  );
-
+  drawFooter();
   return doc.save();
 }
 
 export async function generatePrescriptionServicesPDF(invoice: PrescriptionServicesInvoice): Promise<Uint8Array> {
   const { PDFDocument, StandardFonts, rgb } = await import('pdf-lib');
-
   const doc = await PDFDocument.create();
-  const fontRegular = await doc.embedFont(StandardFonts.Helvetica);
-  const fontBold = await doc.embedFont(StandardFonts.HelveticaBold);
+  const fontR = await doc.embedFont(StandardFonts.Helvetica);
+  const fontB = await doc.embedFont(StandardFonts.HelveticaBold);
 
-  const PAGE_W = 792;
-  const PAGE_H = 612;
-  const MARGIN = 40;
-  const LINE_H = 13;
+  const logoBytes = await loadLogo();
+  const logo = logoBytes ? await doc.embedPng(logoBytes) : null;
 
-  let page = doc.addPage([PAGE_W, PAGE_H]);
-  let y = PAGE_H - MARGIN;
+  const PW = 792;
+  const PH = 612;
+  const M = 44;
+  const ROW_H = 14;
+  const TABLE_W = PW - 2 * M;
 
-  function addNewPage() {
-    page = doc.addPage([PAGE_W, PAGE_H]);
-    y = PAGE_H - MARGIN;
+  let pg = doc.addPage([PW, PH]);
+  let y = PH - M;
+  let pageNum = 1;
+
+  function newPage() {
+    drawFooter();
+    pg = doc.addPage([PW, PH]);
+    y = PH - M;
+    pageNum++;
   }
 
-  function ensureSpace(needed: number) {
-    if (y - needed < MARGIN + 20) addNewPage();
+  function need(h: number) { if (y - h < M + 25) newPage(); }
+
+  function txt(t: string, x: number, font = fontR, size = 8, color = rgb(0.15, 0.15, 0.15)) {
+    pg.drawText(sanitizeForPdf(t), { x, y, size, font, color });
   }
 
-  function drawText(text: string, x: number, font = fontRegular, size = 8, color = rgb(0.1, 0.1, 0.1)) {
-    page.drawText(sanitizeForPdf(text), { x, y, size, font, color });
+  function trunc(t: string, max: number) { return t.length > max ? t.slice(0, max - 1) + '..' : t; }
+
+  function drawFooter() {
+    pg.drawLine({ start: { x: M, y: M - 5 }, end: { x: PW - M, y: M - 5 }, thickness: 0.5, color: rgb(0.85, 0.85, 0.85) });
+    pg.drawText(sanitizeForPdf(`EONPro Platform  |  WellMedR Rx Services Invoice  |  Confidential  |  Page ${pageNum}`), {
+      x: M, y: M - 16, size: 7, font: fontR, color: rgb(0.55, 0.55, 0.55),
+    });
   }
 
-  function truncate(text: string, maxLen: number): string {
-    return text.length > maxLen ? text.slice(0, maxLen - 2) + '..' : text;
-  }
+  const AMBER = { r: 0.72, g: 0.49, b: 0.07 };
 
-  // Title
-  drawText('PRESCRIPTION MEDICAL SERVICES INVOICE', MARGIN, fontBold, 14, rgb(0.06, 0.45, 0.31));
+  // ── HEADER ──
+  if (logo) {
+    const scale = 32 / logo.height;
+    pg.drawImage(logo, { x: M, y: y - 8, width: logo.width * scale, height: 32 });
+  }
+  txt('PRESCRIPTION MEDICAL SERVICES INVOICE', M + (logo ? 140 : 0), fontB, 15, rgb(AMBER.r, AMBER.g, AMBER.b));
+  y -= 20;
+  pg.drawLine({ start: { x: M, y }, end: { x: PW - M, y }, thickness: 2, color: rgb(AMBER.r, AMBER.g, AMBER.b) });
   y -= 18;
-  drawText(`Clinic: ${invoice.clinicName}`, MARGIN, fontRegular, 10);
-  y -= 14;
-  drawText(
+
+  txt(`Clinic: ${invoice.clinicName}`, M, fontB, 10);
+  txt(
     `Period: ${new Date(invoice.periodStart).toLocaleDateString('en-US')} - ${new Date(invoice.periodEnd).toLocaleDateString('en-US')}`,
-    MARGIN,
-    fontRegular,
+    PW / 2,
+    fontR,
     9,
   );
-  y -= 12;
-  drawText(
-    `Prescriptions: ${invoice.totalPrescriptions}  |  Fee Per Rx: $${centsToDisplay(invoice.feePerPrescriptionCents)}  |  Generated: ${new Date().toLocaleString('en-US')}`,
-    MARGIN,
-    fontRegular,
-    8,
-    rgb(0.4, 0.4, 0.4),
-  );
+  y -= 14;
+  txt(`Prescriptions: ${invoice.totalPrescriptions}   |   Fee Per Rx: $${centsToDisplay(invoice.feePerPrescriptionCents)}`, M, fontR, 9, rgb(0.4, 0.4, 0.4));
+  txt(`Generated: ${new Date().toLocaleString('en-US')}`, PW / 2, fontR, 8, rgb(0.4, 0.4, 0.4));
+  y -= 22;
+
+  // ── TABLE ──
+  const rxC = [M + 4, M + 58, M + 118, M + 260, M + 370, M + 580];
+
+  pg.drawRectangle({ x: M, y: y - 2, width: TABLE_W, height: 18, color: rgb(AMBER.r, AMBER.g, AMBER.b) });
+  const hc = rgb(1, 1, 1);
+  txt('Date', rxC[0], fontB, 7, hc);
+  txt('Order #', rxC[1], fontB, 7, hc);
+  txt('Patient', rxC[2], fontB, 7, hc);
+  txt('LF Order ID', rxC[3], fontB, 7, hc);
+  txt('Medications', rxC[4], fontB, 7, hc);
+  txt('Service Fee', rxC[5], fontB, 7, hc);
   y -= 20;
 
-  // Table
-  drawText('PRESCRIPTION LINE ITEMS', MARGIN, fontBold, 10);
-  y -= 16;
-
-  const cols = [MARGIN, MARGIN + 60, MARGIN + 100, MARGIN + 210, MARGIN + 320, MARGIN + 430, MARGIN + 650];
-
-  function drawHeader() {
-    page.drawRectangle({ x: MARGIN, y: y - 2, width: PAGE_W - 2 * MARGIN, height: LINE_H + 2, color: rgb(0.93, 0.93, 0.93) });
-    drawText('Date', cols[0] + 2, fontBold, 7);
-    drawText('Order', cols[1] + 2, fontBold, 7);
-    drawText('Patient', cols[2] + 2, fontBold, 7);
-    drawText('Provider', cols[3] + 2, fontBold, 7);
-    drawText('Medications', cols[4] + 2, fontBold, 7);
-    drawText('Service Fee', cols[5] + 2, fontBold, 7);
-    y -= LINE_H + 3;
+  function drawRxHeader() {
+    pg.drawRectangle({ x: M, y: y - 2, width: TABLE_W, height: 18, color: rgb(AMBER.r, AMBER.g, AMBER.b) });
+    txt('Date', rxC[0], fontB, 7, hc);
+    txt('Order #', rxC[1], fontB, 7, hc);
+    txt('Patient', rxC[2], fontB, 7, hc);
+    txt('LF Order ID', rxC[3], fontB, 7, hc);
+    txt('Medications', rxC[4], fontB, 7, hc);
+    txt('Service Fee', rxC[5], fontB, 7, hc);
+    y -= 20;
   }
-
-  drawHeader();
 
   for (let i = 0; i < invoice.lineItems.length; i++) {
-    ensureSpace(LINE_H + 2);
-    if (y >= PAGE_H - MARGIN - 5) drawHeader();
+    need(ROW_H + 4);
+    if (y >= PH - M - 5) drawRxHeader();
 
     const li = invoice.lineItems[i];
-    if (i % 2 === 0) {
-      page.drawRectangle({ x: MARGIN, y: y - 2, width: PAGE_W - 2 * MARGIN, height: LINE_H, color: rgb(0.97, 0.97, 0.97) });
+
+    if (i > 0) {
+      pg.drawLine({ start: { x: M, y: y + ROW_H }, end: { x: PW - M, y: y + ROW_H }, thickness: 0.3, color: rgb(0.85, 0.85, 0.85) });
     }
 
-    drawText(new Date(li.orderDate).toLocaleDateString('en-US'), cols[0] + 2, fontRegular, 7);
-    drawText(String(li.orderId), cols[1] + 2, fontRegular, 7);
-    drawText(truncate(li.patientName, 18), cols[2] + 2, fontRegular, 7);
-    drawText(truncate(li.providerName, 18), cols[3] + 2, fontRegular, 7);
-    drawText(truncate(li.medications, 35), cols[4] + 2, fontRegular, 7);
-    drawText(`$${centsToDisplay(li.feeCents)}`, cols[5] + 2, fontRegular, 7);
-    y -= LINE_H;
+    if (i % 2 === 0) {
+      pg.drawRectangle({ x: M, y: y - 2, width: TABLE_W, height: ROW_H, color: rgb(0.99, 0.97, 0.93) });
+    }
+
+    txt(new Date(li.orderDate).toLocaleDateString('en-US'), rxC[0], fontR, 7);
+    txt(String(li.orderId), rxC[1], fontR, 7);
+    txt(trunc(li.patientName, 22), rxC[2], fontB, 7);
+    txt(li.lifefileOrderId ?? '-', rxC[3], fontR, 7, rgb(0.4, 0.4, 0.4));
+    txt(trunc(li.medications, 32), rxC[4], fontR, 7);
+    txt(`$${centsToDisplay(li.feeCents)}`, rxC[5], fontB, 7, rgb(AMBER.r, AMBER.g, AMBER.b));
+    y -= ROW_H;
   }
 
-  // Grand Total
+  // ── GRAND TOTAL ──
   y -= 10;
-  ensureSpace(30);
-  page.drawRectangle({ x: MARGIN + 480, y: y - 4, width: PAGE_W - MARGIN - (MARGIN + 480), height: 22, color: rgb(0.06, 0.45, 0.31) });
-  drawText(`TOTAL: $${centsToDisplay(invoice.totalCents)}`, MARGIN + 490, fontBold, 12, rgb(1, 1, 1));
+  need(36);
+  pg.drawRectangle({ x: M, y: y - 6, width: TABLE_W, height: 28, color: rgb(AMBER.r, AMBER.g, AMBER.b) });
+  y -= 1;
+  txt('INVOICE TOTAL', M + 10, fontB, 12, rgb(1, 1, 1));
+  txt(`$${centsToDisplay(invoice.totalCents)}`, rxC[5] - 10, fontB, 14, rgb(1, 1, 1));
   y -= 30;
 
-  // Footer
-  page.drawText(
-    sanitizeForPdf(`EONPro Platform - WellMedR Prescription Services Invoice - Confidential - ${new Date().toISOString()}`),
-    { x: MARGIN, y: 15, size: 7, font: fontRegular, color: rgb(0.6, 0.6, 0.6) },
-  );
-
+  drawFooter();
   return doc.save();
 }
 
