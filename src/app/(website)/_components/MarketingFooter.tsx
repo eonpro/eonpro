@@ -1,4 +1,4 @@
-import { EONPRO_LOGO } from '@/lib/constants/brand-assets';
+const EONPRO_LOGO_WHITE = '/images/logos/eonpro-logo-white.svg';
 
 const FOOTER_LINKS = {
   Platform: [
@@ -28,9 +28,9 @@ export default function MarketingFooter() {
         <div className="grid gap-12 md:grid-cols-2 lg:grid-cols-5">
           <div className="lg:col-span-2">
             <img
-              src={EONPRO_LOGO}
+              src={EONPRO_LOGO_WHITE}
               alt="EonPro"
-              className="mb-4 h-8 w-auto brightness-0 invert"
+              className="mb-4 h-8 w-auto"
             />
             <p className="max-w-sm text-sm leading-relaxed text-white/60">
               The operating system for modern telehealth clinics. Vertically
