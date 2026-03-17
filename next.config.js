@@ -38,6 +38,10 @@ const nextConfig = {
         protocol: 'https',
         hostname: '*.amazonaws.com',
       },
+      {
+        protocol: 'https',
+        hostname: 'static.wixstatic.com',
+      },
     ],
     // Optimize images
     formats: ['image/avif', 'image/webp'],

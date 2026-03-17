@@ -37,6 +37,7 @@ export default function AddressStep({
   const [apartment, setApartment] = useState(responses.apartment || '');
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [addressComponents, setAddressComponents] = useState<any>(null);
+  const [mapUrl, setMapUrl] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const autocompleteRef = useRef<any>(null);
@@ -91,6 +92,17 @@ export default function AddressStep({
               if (types.includes('postal_code')) components.zipCode = component.long_name;
             });
             setAddressComponents(components);
+          }
+
+          if (place.geometry?.location) {
+            const lat = place.geometry.location.lat();
+            const lng = place.geometry.location.lng();
+            const key = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+            if (key) {
+              setMapUrl(
+                `https://maps.googleapis.com/maps/api/staticmap?center=${lat},${lng}&zoom=15&size=600x200&scale=2&markers=color:green%7C${lat},${lng}&key=${key}`
+              );
+            }
           }
         }
       });
@@ -172,8 +184,8 @@ export default function AddressStep({
             </h1>
             <p className="page-subtitle text-sm mb-1">
               {isSpanish 
-                ? 'Enviamos a todos los estados de EE. UU., excepto AK y HI.'
-                : 'We ship to all US states except AK and HI.'}
+                ? 'Enviamos a los 50 estados de EE. UU.'
+                : 'We ship to all 50 US states.'}
             </p>
           </div>
 
@@ -201,6 +213,17 @@ export default function AddressStep({
                 : 'If your address includes an apartment or suite number, please add it above.'}
             </p>
           </div>
+
+          {mapUrl && (
+            <div className="rounded-2xl overflow-hidden border border-gray-200 mt-2">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={mapUrl}
+                alt="Address location"
+                className="w-full h-[160px] object-cover"
+              />
+            </div>
+          )}
         </div>
       </div>
       
