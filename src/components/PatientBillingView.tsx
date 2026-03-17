@@ -69,6 +69,10 @@ interface PatientBillingViewProps {
   clinicSubdomain?: string | null;
 }
 
+function handleGenerateHsaLetter(patientId: number, invoiceId: number) {
+  window.open(`/api/patients/${patientId}/hsa-letter?invoiceId=${invoiceId}`, '_blank');
+}
+
 export function PatientBillingView({ patientId, patientName, clinicSubdomain }: PatientBillingViewProps) {
   const [activeTab, setActiveTab] = useState<
     'invoices' | 'payments' | 'subscriptions' | 'process-payment'
@@ -606,6 +610,13 @@ export function PatientBillingView({ patientId, patientName, clinicSubdomain }: 
                               {invoice.status === 'PAID' && invoice.amountPaid > 0 && (
                                 <>
                                   <button
+                                    onClick={() => handleGenerateHsaLetter(patientId, invoice.id)}
+                                    className="font-medium text-indigo-600 hover:text-indigo-800"
+                                    title="Generate HSA/FSA reimbursement letter"
+                                  >
+                                    HSA Letter
+                                  </button>
+                                  <button
                                     onClick={() => {
                                       const invoicePayment = payments.find(
                                         (p: any) =>
@@ -748,6 +759,12 @@ export function PatientBillingView({ patientId, patientName, clinicSubdomain }: 
                       )}
                       {invoice.status === 'PAID' && invoice.amountPaid > 0 && (
                         <>
+                          <button
+                            onClick={() => handleGenerateHsaLetter(patientId, invoice.id)}
+                            className="min-w-[60px] flex-1 rounded-lg bg-indigo-50 px-3 py-2 text-sm font-medium text-indigo-600 transition-colors hover:bg-indigo-100"
+                          >
+                            HSA Letter
+                          </button>
                           <button
                             onClick={() => {
                               const invoicePayment = payments.find(
