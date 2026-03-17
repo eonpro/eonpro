@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { Prisma } from '@prisma/client';
 import { withPharmacyAccessAuth, type AuthUser } from '@/lib/auth/middleware';
 import { prisma, withoutClinicFilter } from '@/lib/db';
 import { handleApiError } from '@/domains/shared/errors';
@@ -92,6 +93,76 @@ async function resolveTracking(
     }
 
     return null;
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Performance Report Response Builder
+// ---------------------------------------------------------------------------
+
+interface PerformanceInterval {
+  label: string;
+  date?: string;
+  hour?: number;
+  total: number;
+  matched: number;
+  unmatched: number;
+  matchRate: number;
+  reps: Array<{ userId: number; name: string; total: number; matched: number }>;
+}
+
+function buildPerformanceResponse(
+  intervals: PerformanceInterval[],
+  grandTotal: number,
+  grandMatched: number,
+  granularity: string,
+  rangeStart: Date,
+  rangeEnd: Date,
+  repRows: Array<{ captured_by_id: number; first_name: string; last_name: string; total: bigint; matched: bigint }>,
+) {
+  const repTotals = new Map<number, { userId: number; name: string; total: number; matched: number }>();
+  for (const r of repRows) {
+    const existing = repTotals.get(r.captured_by_id);
+    if (existing) {
+      existing.total += Number(r.total);
+      existing.matched += Number(r.matched);
+    } else {
+      repTotals.set(r.captured_by_id, {
+        userId: r.captured_by_id,
+        name: `${r.first_name} ${r.last_name}`,
+        total: Number(r.total),
+        matched: Number(r.matched),
+      });
+    }
+  }
+
+  const reps = Array.from(repTotals.values())
+    .map((r) => ({ ...r, matchRate: r.total > 0 ? Math.round((r.matched / r.total) * 100) : 0 }))
+    .sort((a, b) => b.total - a.total);
+
+  const topRep = reps[0] ?? null;
+  const intervalsWithData = intervals.filter((i) => i.total > 0).length;
+
+  return NextResponse.json({
+    success: true,
+    data: {
+      intervals,
+      summary: {
+        totalPackages: grandTotal,
+        totalMatched: grandMatched,
+        totalUnmatched: grandTotal - grandMatched,
+        matchRate: grandTotal > 0 ? Math.round((grandMatched / grandTotal) * 100) : 0,
+        avgPerInterval: intervalsWithData > 0 ? Math.round(grandTotal / intervalsWithData) : 0,
+        totalReps: reps.length,
+        topRep,
+      },
+      reps,
+      range: {
+        from: rangeStart.toISOString().split('T')[0],
+        to: new Date(rangeEnd.getTime() - 86400000).toISOString().split('T')[0],
+      },
+      granularity,
+    },
   });
 }
 
@@ -432,6 +503,235 @@ async function getHandler(req: NextRequest, user: AuthUser) {
           peakHour: { hour: peakHour.hour, count: peakHour.total },
         },
       });
+    }
+
+    // Performance report mode — hourly/daily/weekly granularity with per-rep drill-down
+    if (url.searchParams.get('performance-report') === 'true') {
+      const tz = await resolveClinicTimezone(user.clinicId);
+      const bounds = getTimezoneAwareBoundaries(tz);
+
+      const granularity = (url.searchParams.get('granularity') ?? 'daily') as 'hourly' | 'daily' | 'weekly';
+      const fromParam = url.searchParams.get('from');
+      const toParam = url.searchParams.get('to');
+      const repIdParam = url.searchParams.get('repId');
+      const repId = repIdParam ? parseInt(repIdParam, 10) : null;
+
+      let rangeStart: Date;
+      let rangeEnd: Date;
+
+      if (fromParam) {
+        const [fy, fm, fd] = fromParam.split('-').map(Number);
+        rangeStart = midnightInTz(fy, fm - 1, fd, tz);
+      } else {
+        if (granularity === 'hourly') {
+          rangeStart = bounds.todayStart;
+        } else if (granularity === 'weekly') {
+          rangeStart = midnightInTz(bounds.year, bounds.month, bounds.day - 27, tz);
+        } else {
+          rangeStart = midnightInTz(bounds.year, bounds.month, bounds.day - 6, tz);
+        }
+      }
+
+      if (toParam) {
+        const [ty, tm, td] = toParam.split('-').map(Number);
+        rangeEnd = midnightInTz(ty, tm - 1, td + 1, tz);
+      } else {
+        rangeEnd = midnightInTz(bounds.year, bounds.month, bounds.day + 1, tz);
+      }
+
+      const repFilter = repId ? Prisma.sql`AND pp."capturedById" = ${repId}` : Prisma.empty;
+      const repFilterSimple = repId ? Prisma.sql`AND "capturedById" = ${repId}` : Prisma.empty;
+
+      if (granularity === 'hourly') {
+        const [intervalRows, repRows] = await Promise.all([
+          prisma.$queryRaw<Array<{ hour: number; day: Date; total: bigint; matched: bigint }>>`
+            SELECT
+              DATE("createdAt") as day,
+              EXTRACT(HOUR FROM "createdAt")::int as hour,
+              COUNT(*)::bigint as total,
+              COUNT(*) FILTER (WHERE matched = true)::bigint as matched
+            FROM "PackagePhoto"
+            WHERE "createdAt" >= ${rangeStart} AND "createdAt" < ${rangeEnd} ${repFilterSimple}
+            GROUP BY DATE("createdAt"), EXTRACT(HOUR FROM "createdAt")
+            ORDER BY day ASC, hour ASC
+          `,
+          prisma.$queryRaw<Array<{ hour: number; day: Date; captured_by_id: number; first_name: string; last_name: string; total: bigint; matched: bigint }>>`
+            SELECT
+              DATE(pp."createdAt") as day,
+              EXTRACT(HOUR FROM pp."createdAt")::int as hour,
+              pp."capturedById" as captured_by_id,
+              u."firstName" as first_name,
+              u."lastName" as last_name,
+              COUNT(*)::bigint as total,
+              COUNT(*) FILTER (WHERE pp.matched = true)::bigint as matched
+            FROM "PackagePhoto" pp
+            JOIN "User" u ON u.id = pp."capturedById"
+            WHERE pp."createdAt" >= ${rangeStart} AND pp."createdAt" < ${rangeEnd} ${repFilter}
+            GROUP BY DATE(pp."createdAt"), EXTRACT(HOUR FROM pp."createdAt"), pp."capturedById", u."firstName", u."lastName"
+            ORDER BY day ASC, hour ASC, total DESC
+          `,
+        ]);
+
+        const repsByKey = new Map<string, Array<{ userId: number; name: string; total: number; matched: number }>>();
+        for (const r of repRows) {
+          const key = `${new Date(r.day).toISOString().split('T')[0]}-${r.hour}`;
+          if (!repsByKey.has(key)) repsByKey.set(key, []);
+          repsByKey.get(key)!.push({
+            userId: r.captured_by_id,
+            name: `${r.first_name} ${r.last_name}`,
+            total: Number(r.total),
+            matched: Number(r.matched),
+          });
+        }
+
+        const intervals = intervalRows.map((row) => {
+          const dayKey = new Date(row.day).toISOString().split('T')[0];
+          const t = Number(row.total);
+          const m = Number(row.matched);
+          const h = row.hour;
+          const ampm = h < 12 ? 'AM' : 'PM';
+          const h12 = h % 12 || 12;
+          return {
+            label: `${h12}${ampm}–${(h12 % 12) + 1}${h < 11 || h === 23 ? ampm : h === 11 ? 'PM' : 'AM'}`,
+            date: dayKey,
+            hour: h,
+            total: t,
+            matched: m,
+            unmatched: t - m,
+            matchRate: t > 0 ? Math.round((m / t) * 100) : 0,
+            reps: repsByKey.get(`${dayKey}-${h}`) ?? [],
+          };
+        });
+
+        const grandTotal = intervals.reduce((s, i) => s + i.total, 0);
+        const grandMatched = intervals.reduce((s, i) => s + i.matched, 0);
+
+        return buildPerformanceResponse(intervals, grandTotal, grandMatched, granularity, rangeStart, rangeEnd, repRows);
+      }
+
+      if (granularity === 'weekly') {
+        const [intervalRows, repRows] = await Promise.all([
+          prisma.$queryRaw<Array<{ week_start: Date; total: bigint; matched: bigint }>>`
+            SELECT
+              DATE_TRUNC('week', "createdAt")::date as week_start,
+              COUNT(*)::bigint as total,
+              COUNT(*) FILTER (WHERE matched = true)::bigint as matched
+            FROM "PackagePhoto"
+            WHERE "createdAt" >= ${rangeStart} AND "createdAt" < ${rangeEnd} ${repFilterSimple}
+            GROUP BY DATE_TRUNC('week', "createdAt")
+            ORDER BY week_start ASC
+          `,
+          prisma.$queryRaw<Array<{ week_start: Date; captured_by_id: number; first_name: string; last_name: string; total: bigint; matched: bigint }>>`
+            SELECT
+              DATE_TRUNC('week', pp."createdAt")::date as week_start,
+              pp."capturedById" as captured_by_id,
+              u."firstName" as first_name,
+              u."lastName" as last_name,
+              COUNT(*)::bigint as total,
+              COUNT(*) FILTER (WHERE pp.matched = true)::bigint as matched
+            FROM "PackagePhoto" pp
+            JOIN "User" u ON u.id = pp."capturedById"
+            WHERE pp."createdAt" >= ${rangeStart} AND pp."createdAt" < ${rangeEnd} ${repFilter}
+            GROUP BY DATE_TRUNC('week', pp."createdAt"), pp."capturedById", u."firstName", u."lastName"
+            ORDER BY week_start ASC, total DESC
+          `,
+        ]);
+
+        const repsByWeek = new Map<string, Array<{ userId: number; name: string; total: number; matched: number }>>();
+        for (const r of repRows) {
+          const key = new Date(r.week_start).toISOString().split('T')[0];
+          if (!repsByWeek.has(key)) repsByWeek.set(key, []);
+          repsByWeek.get(key)!.push({
+            userId: r.captured_by_id,
+            name: `${r.first_name} ${r.last_name}`,
+            total: Number(r.total),
+            matched: Number(r.matched),
+          });
+        }
+
+        const intervals = intervalRows.map((row) => {
+          const ws = new Date(row.week_start);
+          const we = new Date(ws.getTime() + 6 * 86400000);
+          const t = Number(row.total);
+          const m = Number(row.matched);
+          const fmt = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+          const weekKey = ws.toISOString().split('T')[0];
+          return {
+            label: `${fmt(ws)} – ${fmt(we)}`,
+            date: weekKey,
+            total: t,
+            matched: m,
+            unmatched: t - m,
+            matchRate: t > 0 ? Math.round((m / t) * 100) : 0,
+            reps: repsByWeek.get(weekKey) ?? [],
+          };
+        });
+
+        const grandTotal = intervals.reduce((s, i) => s + i.total, 0);
+        const grandMatched = intervals.reduce((s, i) => s + i.matched, 0);
+
+        return buildPerformanceResponse(intervals, grandTotal, grandMatched, granularity, rangeStart, rangeEnd, repRows);
+      }
+
+      // Default: daily granularity
+      const [intervalRows, repRows] = await Promise.all([
+        prisma.$queryRaw<Array<{ day: Date; total: bigint; matched: bigint }>>`
+          SELECT
+            DATE("createdAt") as day,
+            COUNT(*)::bigint as total,
+            COUNT(*) FILTER (WHERE matched = true)::bigint as matched
+          FROM "PackagePhoto"
+          WHERE "createdAt" >= ${rangeStart} AND "createdAt" < ${rangeEnd} ${repFilterSimple}
+          GROUP BY DATE("createdAt")
+          ORDER BY day ASC
+        `,
+        prisma.$queryRaw<Array<{ day: Date; captured_by_id: number; first_name: string; last_name: string; total: bigint; matched: bigint }>>`
+          SELECT
+            DATE(pp."createdAt") as day,
+            pp."capturedById" as captured_by_id,
+            u."firstName" as first_name,
+            u."lastName" as last_name,
+            COUNT(*)::bigint as total,
+            COUNT(*) FILTER (WHERE pp.matched = true)::bigint as matched
+          FROM "PackagePhoto" pp
+          JOIN "User" u ON u.id = pp."capturedById"
+          WHERE pp."createdAt" >= ${rangeStart} AND pp."createdAt" < ${rangeEnd} ${repFilter}
+          GROUP BY DATE(pp."createdAt"), pp."capturedById", u."firstName", u."lastName"
+          ORDER BY day ASC, total DESC
+        `,
+      ]);
+
+      const repsByDay = new Map<string, Array<{ userId: number; name: string; total: number; matched: number }>>();
+      for (const r of repRows) {
+        const key = new Date(r.day).toISOString().split('T')[0];
+        if (!repsByDay.has(key)) repsByDay.set(key, []);
+        repsByDay.get(key)!.push({
+          userId: r.captured_by_id,
+          name: `${r.first_name} ${r.last_name}`,
+          total: Number(r.total),
+          matched: Number(r.matched),
+        });
+      }
+
+      const intervals = intervalRows.map((row) => {
+        const dayKey = new Date(row.day).toISOString().split('T')[0];
+        const t = Number(row.total);
+        const m = Number(row.matched);
+        return {
+          label: new Date(row.day).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }),
+          date: dayKey,
+          total: t,
+          matched: m,
+          unmatched: t - m,
+          matchRate: t > 0 ? Math.round((m / t) * 100) : 0,
+          reps: repsByDay.get(dayKey) ?? [],
+        };
+      });
+
+      const grandTotal = intervals.reduce((s, i) => s + i.total, 0);
+      const grandMatched = intervals.reduce((s, i) => s + i.matched, 0);
+
+      return buildPerformanceResponse(intervals, grandTotal, grandMatched, granularity, rangeStart, rangeEnd, repRows);
     }
 
     // Daily report mode — per-day breakdown for a date range with rep details

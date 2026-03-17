@@ -132,6 +132,43 @@ interface DailyReportData {
   range: { from: string; to: string };
 }
 
+interface PerformanceInterval {
+  label: string;
+  date?: string;
+  hour?: number;
+  total: number;
+  matched: number;
+  unmatched: number;
+  matchRate: number;
+  reps: Array<{ userId: number; name: string; total: number; matched: number }>;
+}
+
+interface PerformanceRepSummary {
+  userId: number;
+  name: string;
+  total: number;
+  matched: number;
+  matchRate: number;
+}
+
+interface PerformanceReportData {
+  intervals: PerformanceInterval[];
+  summary: {
+    totalPackages: number;
+    totalMatched: number;
+    totalUnmatched: number;
+    matchRate: number;
+    avgPerInterval: number;
+    totalReps: number;
+    topRep: { userId: number; name: string; total: number; matched: number } | null;
+  };
+  reps: PerformanceRepSummary[];
+  range: { from: string; to: string };
+  granularity: string;
+}
+
+type Granularity = 'hourly' | 'daily' | 'weekly';
+
 // ---------------------------------------------------------------------------
 // Constants & Helpers
 // ---------------------------------------------------------------------------
@@ -854,6 +891,7 @@ function AuditLog() {
   const [stats, setStats] = useState<AuditStats | null>(null);
   const [demographics, setDemographics] = useState<Demographics | null>(null);
   const [showDemographics, setShowDemographics] = useState(true);
+  const [showPerfReport, setShowPerfReport] = useState(false);
   const [showDailyReport, setShowDailyReport] = useState(false);
   const [dailyReport, setDailyReport] = useState<DailyReportData | null>(null);
   const [dailyReportLoading, setDailyReportLoading] = useState(false);
@@ -1215,6 +1253,23 @@ function AuditLog() {
           </div>
         </div>
       )}
+
+      {/* Performance Reports section */}
+      <button
+        onClick={() => setShowPerfReport((v) => !v)}
+        className="mb-4 flex w-full items-center justify-between rounded-lg border border-violet-200 bg-violet-50 px-4 py-2.5 text-left transition-colors hover:bg-violet-100"
+      >
+        <span className="flex items-center gap-2 text-sm font-semibold text-violet-700">
+          <BarChart3 className="h-4 w-4 text-violet-600" />
+          Performance Reports
+          <span className="rounded-full bg-violet-200 px-2 py-0.5 text-[10px] font-bold text-violet-800">
+            Hourly &middot; Daily &middot; Weekly &middot; Per Rep
+          </span>
+        </span>
+        {showPerfReport ? <ChevronUp className="h-4 w-4 text-violet-400" /> : <ChevronDown className="h-4 w-4 text-violet-400" />}
+      </button>
+
+      {showPerfReport && <PerformanceReports />}
 
       {/* Daily Report section */}
       <button
@@ -1676,6 +1731,480 @@ function AuditLog() {
       {/* Detail modal */}
       {selectedPhoto && (
         <AuditDetailModal photo={selectedPhoto} onClose={() => setSelectedPhoto(null)} />
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Performance Reports — Hourly / Daily / Weekly with per-rep drill-down
+// ---------------------------------------------------------------------------
+
+const GRANULARITY_OPTIONS: Array<{ value: Granularity; label: string; icon: typeof Clock }> = [
+  { value: 'hourly', label: 'Hourly', icon: Clock },
+  { value: 'daily', label: 'Daily', icon: Calendar },
+  { value: 'weekly', label: 'Weekly', icon: CalendarDays },
+];
+
+const PERF_PRESETS = [
+  { label: 'Today (Hourly)', granularity: 'hourly' as Granularity, days: 0 },
+  { label: 'Last 7 Days', granularity: 'daily' as Granularity, days: 6 },
+  { label: 'Last 14 Days', granularity: 'daily' as Granularity, days: 13 },
+  { label: 'Last 30 Days', granularity: 'weekly' as Granularity, days: 29 },
+  { label: 'This Month', granularity: 'daily' as Granularity, days: -1 },
+];
+
+function PerformanceReports() {
+  const [report, setReport] = useState<PerformanceReportData | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [granularity, setGranularity] = useState<Granularity>('daily');
+  const [selectedRepId, setSelectedRepId] = useState<number | null>(null);
+  const [availableReps, setAvailableReps] = useState<PerformanceRepSummary[]>([]);
+  const [expandedInterval, setExpandedInterval] = useState<string | null>(null);
+  const [perfFrom, setPerfFrom] = useState(() => {
+    const d = new Date(); d.setDate(d.getDate() - 6);
+    return d.toISOString().split('T')[0];
+  });
+  const [perfTo, setPerfTo] = useState(() => new Date().toISOString().split('T')[0]);
+
+  const fetchReport = useCallback(async (g: Granularity, from: string, to: string, repId: number | null) => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams({
+        'performance-report': 'true',
+        granularity: g,
+        from,
+        to,
+      });
+      if (repId) params.set('repId', String(repId));
+
+      const res = await apiFetch(`/api/package-photos?${params.toString()}`);
+      if (res.ok) {
+        const json = await res.json();
+        setReport(json.data);
+        if (!repId && json.data.reps?.length) {
+          setAvailableReps(json.data.reps);
+        }
+      }
+    } catch { /* non-critical */ }
+    finally { setLoading(false); }
+  }, []);
+
+  const handlePreset = useCallback((preset: typeof PERF_PRESETS[number]) => {
+    const to = new Date().toISOString().split('T')[0];
+    let from: string;
+    if (preset.days === -1) {
+      const now = new Date();
+      from = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+    } else {
+      from = new Date(Date.now() - preset.days * 86400000).toISOString().split('T')[0];
+    }
+    setGranularity(preset.granularity);
+    setPerfFrom(from);
+    setPerfTo(to);
+    setExpandedInterval(null);
+    fetchReport(preset.granularity, from, to, selectedRepId);
+  }, [fetchReport, selectedRepId]);
+
+  const handleRepChange = useCallback((repId: number | null) => {
+    setSelectedRepId(repId);
+    setExpandedInterval(null);
+    fetchReport(granularity, perfFrom, perfTo, repId);
+  }, [fetchReport, granularity, perfFrom, perfTo]);
+
+  const handlePull = useCallback(() => {
+    setExpandedInterval(null);
+    fetchReport(granularity, perfFrom, perfTo, selectedRepId);
+  }, [fetchReport, granularity, perfFrom, perfTo, selectedRepId]);
+
+  const exportCsv = useCallback(() => {
+    if (!report) return;
+    const g = report.granularity;
+    const header = `Interval,Total,Matched,Unmatched,Match Rate,Reps\n`;
+    const rows = report.intervals.map((i) => {
+      const repStr = i.reps.map((r) => `${r.name}:${r.total}`).join('; ');
+      return `"${i.label}",${i.total},${i.matched},${i.unmatched},${i.matchRate}%,"${repStr}"`;
+    }).join('\n');
+    const repSection = `\n\nRep Summary\nName,Total,Matched,Match Rate\n` +
+      report.reps.map((r) => `"${r.name}",${r.total},${r.matched},${r.matchRate}%`).join('\n');
+    const summary = `\n\nSummary\nTotal Packages,${report.summary.totalPackages}\nMatched,${report.summary.totalMatched}\nUnmatched,${report.summary.totalUnmatched}\nMatch Rate,${report.summary.matchRate}%\nAvg per ${g === 'hourly' ? 'Hour' : g === 'weekly' ? 'Week' : 'Day'},${report.summary.avgPerInterval}`;
+    const blob = new Blob([header + rows + repSection + summary], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `performance-report-${g}-${perfFrom}-to-${perfTo}${selectedRepId ? `-rep${selectedRepId}` : ''}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [report, perfFrom, perfTo, selectedRepId]);
+
+  const selectedRepName = selectedRepId ? availableReps.find((r) => r.userId === selectedRepId)?.name : null;
+
+  return (
+    <div className="mb-6 rounded-xl border border-gray-200 bg-white p-4">
+      {/* Controls row */}
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end sm:gap-3">
+        {/* Granularity selector */}
+        <div>
+          <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-gray-400">Granularity</label>
+          <div className="flex rounded-lg border border-gray-200 bg-gray-50 p-0.5">
+            {GRANULARITY_OPTIONS.map((opt) => {
+              const Icon = opt.icon;
+              const active = granularity === opt.value;
+              return (
+                <button
+                  key={opt.value}
+                  onClick={() => setGranularity(opt.value)}
+                  className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all ${
+                    active
+                      ? 'bg-white text-violet-700 shadow-sm'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  <Icon className="h-3.5 w-3.5" />
+                  {opt.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Rep selector */}
+        <div>
+          <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-gray-400">Rep</label>
+          <select
+            value={selectedRepId ?? ''}
+            onChange={(e) => handleRepChange(e.target.value ? parseInt(e.target.value, 10) : null)}
+            className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
+          >
+            <option value="">All Reps (Team)</option>
+            {availableReps.map((rep) => (
+              <option key={rep.userId} value={rep.userId}>{rep.name}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* Date range */}
+        <div>
+          <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-gray-400">From</label>
+          <input
+            type="date"
+            value={perfFrom}
+            onChange={(e) => setPerfFrom(e.target.value)}
+            className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-gray-400">To</label>
+          <input
+            type="date"
+            value={perfTo}
+            onChange={(e) => setPerfTo(e.target.value)}
+            className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
+          />
+        </div>
+
+        {/* Pull button */}
+        <button
+          onClick={handlePull}
+          disabled={loading}
+          className="inline-flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-violet-700 disabled:opacity-50"
+        >
+          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <BarChart3 className="h-4 w-4" />}
+          Pull Report
+        </button>
+
+        {/* Presets */}
+        <div className="flex flex-wrap gap-1.5">
+          {PERF_PRESETS.map((preset) => (
+            <button
+              key={preset.label}
+              onClick={() => handlePreset(preset)}
+              className="rounded-md border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:border-violet-300 hover:bg-violet-50 hover:text-violet-700"
+            >
+              {preset.label}
+            </button>
+          ))}
+        </div>
+
+        {/* CSV export */}
+        {report && report.intervals.length > 0 && (
+          <button
+            onClick={exportCsv}
+            className="inline-flex items-center gap-1.5 rounded-md border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:border-green-300 hover:bg-green-50 hover:text-green-700"
+          >
+            <FileDown className="h-3.5 w-3.5" />
+            Export CSV
+          </button>
+        )}
+      </div>
+
+      {/* Loading */}
+      {loading && (
+        <div className="flex items-center justify-center py-16">
+          <Loader2 className="h-6 w-6 animate-spin text-violet-400" />
+        </div>
+      )}
+
+      {/* No data yet */}
+      {!loading && !report && (
+        <div className="py-16 text-center text-sm text-gray-400">
+          Select a time range and click &ldquo;Pull Report&rdquo; to generate a performance report
+        </div>
+      )}
+
+      {/* Report content */}
+      {!loading && report && (
+        <div className="space-y-5">
+          {/* Rep filter banner */}
+          {selectedRepName && (
+            <div className="flex items-center gap-2 rounded-lg bg-violet-50 px-4 py-2.5">
+              <User className="h-4 w-4 text-violet-600" />
+              <span className="text-sm font-semibold text-violet-700">
+                Showing: {selectedRepName}
+              </span>
+              <button
+                onClick={() => handleRepChange(null)}
+                className="ml-auto flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-violet-600 transition-colors hover:bg-violet-100"
+              >
+                <X className="h-3 w-3" /> Clear Filter
+              </button>
+            </div>
+          )}
+
+          {/* Summary cards */}
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+            <div className="rounded-lg bg-gray-50 px-3 py-2.5">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Total Pkgs</p>
+              <p className="text-xl font-bold text-gray-900">{report.summary.totalPackages.toLocaleString()}</p>
+            </div>
+            <div className="rounded-lg bg-gray-50 px-3 py-2.5">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Matched</p>
+              <p className="text-xl font-bold text-emerald-600">{report.summary.totalMatched.toLocaleString()}</p>
+            </div>
+            <div className="rounded-lg bg-gray-50 px-3 py-2.5">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Unmatched</p>
+              <p className="text-xl font-bold text-amber-600">{report.summary.totalUnmatched.toLocaleString()}</p>
+            </div>
+            <div className="rounded-lg bg-gray-50 px-3 py-2.5">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Match Rate</p>
+              <p className={`text-xl font-bold ${report.summary.matchRate >= 60 ? 'text-emerald-600' : report.summary.matchRate >= 40 ? 'text-amber-600' : 'text-red-500'}`}>
+                {report.summary.matchRate}%
+              </p>
+            </div>
+            <div className="rounded-lg bg-gray-50 px-3 py-2.5">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                Avg/{granularity === 'hourly' ? 'Hour' : granularity === 'weekly' ? 'Week' : 'Day'}
+              </p>
+              <p className="text-xl font-bold text-violet-600">{report.summary.avgPerInterval}</p>
+            </div>
+            <div className="rounded-lg bg-gray-50 px-3 py-2.5">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Active Reps</p>
+              <p className="text-xl font-bold text-gray-900">{report.summary.totalReps}</p>
+            </div>
+          </div>
+
+          {/* Bar chart */}
+          {report.intervals.length > 0 && (
+            <div className="rounded-xl border border-gray-100 bg-white p-4">
+              <h4 className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-700">
+                <BarChart3 className="h-4 w-4 text-violet-500" />
+                {granularity === 'hourly' ? 'Hourly' : granularity === 'weekly' ? 'Weekly' : 'Daily'} Volume
+                <span className="ml-auto text-xs font-normal text-gray-400">
+                  {report.range.from} to {report.range.to}
+                </span>
+              </h4>
+              <div className="flex items-end gap-[3px]" style={{ height: 140 }}>
+                {report.intervals.map((interval, idx) => {
+                  const maxVal = Math.max(...report.intervals.map((v) => v.total), 1);
+                  const matchedH = (interval.matched / maxVal) * 100;
+                  const unmatchedH = (interval.unmatched / maxVal) * 100;
+                  const isLast = idx === report.intervals.length - 1;
+                  return (
+                    <div key={`${interval.date}-${interval.hour ?? idx}`} className="group relative flex flex-1 flex-col items-center">
+                      <div className="absolute -top-12 z-10 hidden min-w-[100px] rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-center shadow-lg group-hover:block">
+                        <p className="text-[10px] font-medium text-gray-500">{interval.label}</p>
+                        <p className="text-xs font-bold text-gray-900">{interval.total} pkgs</p>
+                        <p className="text-[10px] text-emerald-600">{interval.matched}m / {interval.unmatched}u</p>
+                      </div>
+                      <div className="flex w-full flex-col items-stretch" style={{ height: 120 }}>
+                        <div className="flex-1" />
+                        {interval.unmatched > 0 && (
+                          <div
+                            className="w-full rounded-t bg-amber-300 transition-all"
+                            style={{ height: `${unmatchedH}%`, minHeight: 2 }}
+                          />
+                        )}
+                        {interval.matched > 0 && (
+                          <div
+                            className={`w-full ${interval.unmatched > 0 ? '' : 'rounded-t'} rounded-b bg-emerald-500 transition-all`}
+                            style={{ height: `${matchedH}%`, minHeight: 2 }}
+                          />
+                        )}
+                      </div>
+                      <span className={`mt-1 max-w-full truncate text-[8px] ${isLast ? 'font-bold text-violet-600' : 'text-gray-400'}`}>
+                        {granularity === 'hourly'
+                          ? interval.label.split('–')[0]
+                          : granularity === 'weekly'
+                            ? interval.label.split(' – ')[0]
+                            : interval.label.split(', ')[0]?.replace(/^[A-Z][a-z]+\s/, '') ?? interval.label
+                        }
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="mt-2 flex items-center justify-center gap-4 text-[10px] text-gray-400">
+                <span className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-sm bg-emerald-500" /> Matched</span>
+                <span className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-sm bg-amber-300" /> Unmatched</span>
+              </div>
+            </div>
+          )}
+
+          {/* Rep leaderboard (team view) */}
+          {!selectedRepId && report.reps.length > 0 && (
+            <div className="rounded-xl border border-gray-100 bg-white p-4">
+              <h4 className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-700">
+                <Users className="h-4 w-4 text-violet-500" />
+                Rep Leaderboard
+                {report.summary.topRep && (
+                  <span className="ml-2 rounded-full bg-amber-50 px-2.5 py-0.5 text-[10px] font-bold text-amber-700">
+                    Top: {report.summary.topRep.name}
+                  </span>
+                )}
+              </h4>
+              <div className="space-y-2">
+                {report.reps.map((rep, idx) => {
+                  const maxTotal = report.reps[0]?.total || 1;
+                  return (
+                    <button
+                      key={rep.userId}
+                      onClick={() => handleRepChange(rep.userId)}
+                      className="flex w-full items-center gap-3 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-violet-50"
+                    >
+                      <span className={`flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-bold ${
+                        idx === 0 ? 'bg-amber-100 text-amber-700' : idx === 1 ? 'bg-gray-100 text-gray-600' : idx === 2 ? 'bg-orange-50 text-orange-600' : 'bg-gray-50 text-gray-400'
+                      }`}>
+                        {idx + 1}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between">
+                          <span className="truncate text-sm font-medium text-gray-700">{rep.name}</span>
+                          <span className="ml-2 flex-shrink-0 text-xs text-gray-400">
+                            {rep.total} pkgs &middot; {rep.matchRate}% match
+                          </span>
+                        </div>
+                        <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-gray-100">
+                          <div className="flex h-full">
+                            <div className="rounded-l-full bg-emerald-500 transition-all" style={{ width: `${(rep.matched / maxTotal) * 100}%` }} />
+                            <div className="bg-amber-300 transition-all" style={{ width: `${((rep.total - rep.matched) / maxTotal) * 100}%` }} />
+                          </div>
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Interval detail table */}
+          {report.intervals.length > 0 && (
+            <div className="overflow-hidden rounded-lg border border-gray-200">
+              <div className="hidden border-b border-gray-100 bg-gray-50 px-4 py-2 text-[11px] font-semibold uppercase tracking-wider text-gray-400 sm:grid sm:grid-cols-12 sm:gap-2">
+                <div className="col-span-3">
+                  {granularity === 'hourly' ? 'Hour' : granularity === 'weekly' ? 'Week' : 'Date'}
+                </div>
+                <div className="col-span-2 text-right">Total</div>
+                <div className="col-span-2 text-right">Matched</div>
+                <div className="col-span-2 text-right">Unmatched</div>
+                <div className="col-span-2 text-right">Match Rate</div>
+                <div className="col-span-1" />
+              </div>
+              <div className="divide-y divide-gray-100">
+                {report.intervals.map((interval, idx) => {
+                  const key = `${interval.date}-${interval.hour ?? idx}`;
+                  const isExpanded = expandedInterval === key;
+                  const aboveAvg = interval.total > report.summary.avgPerInterval;
+                  return (
+                    <div key={key}>
+                      <button
+                        onClick={() => setExpandedInterval(isExpanded ? null : key)}
+                        className="w-full px-4 py-3 text-left transition-colors hover:bg-violet-50/30"
+                      >
+                        <div className="sm:hidden">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-semibold text-gray-900">{interval.label}</span>
+                            <span className="text-lg font-bold text-gray-900">{interval.total}</span>
+                          </div>
+                          <div className="mt-1 flex items-center gap-3 text-[11px]">
+                            <span className="text-emerald-600">{interval.matched} matched</span>
+                            <span className="text-amber-600">{interval.unmatched} unmatched</span>
+                            <span className="text-gray-400">{interval.matchRate}%</span>
+                            {interval.reps.length > 0 && (
+                              <span className="text-gray-300">{interval.reps.length} rep{interval.reps.length !== 1 ? 's' : ''}</span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="hidden sm:grid sm:grid-cols-12 sm:items-center sm:gap-2">
+                          <div className="col-span-3">
+                            <span className="text-sm font-semibold text-gray-900">{interval.label}</span>
+                          </div>
+                          <div className="col-span-2 text-right">
+                            <span className={`text-sm font-bold ${aboveAvg ? 'text-gray-900' : 'text-gray-500'}`}>{interval.total}</span>
+                            {aboveAvg && <span className="ml-1 text-[10px] text-emerald-500">&#9650;</span>}
+                          </div>
+                          <div className="col-span-2 text-right text-sm font-medium text-emerald-600">{interval.matched}</div>
+                          <div className="col-span-2 text-right text-sm font-medium text-amber-600">{interval.unmatched}</div>
+                          <div className="col-span-2 text-right">
+                            <span className={`text-sm font-bold ${interval.matchRate >= 60 ? 'text-emerald-600' : interval.matchRate >= 40 ? 'text-amber-600' : 'text-red-500'}`}>
+                              {interval.matchRate}%
+                            </span>
+                          </div>
+                          <div className="col-span-1 text-right">
+                            {interval.reps.length > 0 && (
+                              isExpanded
+                                ? <ChevronUp className="ml-auto h-4 w-4 text-gray-400" />
+                                : <ChevronDown className="ml-auto h-4 w-4 text-gray-300" />
+                            )}
+                          </div>
+                        </div>
+                      </button>
+                      {isExpanded && interval.reps.length > 0 && (
+                        <div className="border-t border-gray-100 bg-gray-50/50 px-4 py-3">
+                          <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400">Rep Breakdown</p>
+                          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                            {interval.reps.map((rep) => {
+                              const repRate = rep.total > 0 ? Math.round((rep.matched / rep.total) * 100) : 0;
+                              return (
+                                <div key={rep.userId} className="flex items-center justify-between rounded-lg bg-white px-3 py-2 shadow-sm">
+                                  <span className="text-sm font-medium text-gray-700">{rep.name}</span>
+                                  <div className="flex items-center gap-2 text-xs">
+                                    <span className="font-bold text-gray-900">{rep.total}</span>
+                                    <span className="text-emerald-600">{rep.matched}m</span>
+                                    <span className="text-amber-600">{rep.total - rep.matched}u</span>
+                                    <span className={`font-semibold ${repRate >= 60 ? 'text-emerald-600' : repRate >= 40 ? 'text-amber-600' : 'text-red-500'}`}>
+                                      {repRate}%
+                                    </span>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {report.intervals.length === 0 && (
+            <div className="py-12 text-center text-sm text-gray-400">
+              No packages found in this date range
+            </div>
+          )}
+        </div>
       )}
     </div>
   );
