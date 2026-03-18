@@ -14,7 +14,8 @@ const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/heic', 'image/heif'];
 const DEFAULT_TIMEZONE = 'America/New_York';
 
-const PHARMACY_ACCESS_ROLES = ['SUPER_ADMIN', 'ADMIN', 'STAFF', 'PHARMACY_REP'];
+const PHARMACY_ACCESS_ROLES_FILTER = Prisma.sql`AND u."role"::text IN (${Prisma.join(['SUPER_ADMIN', 'ADMIN', 'STAFF', 'PHARMACY_REP'])})`;
+
 
 async function resolveClinicTimezone(clinicId: number | null): Promise<string> {
   if (!clinicId) return DEFAULT_TIMEZONE;
@@ -409,7 +410,7 @@ async function getHandler(req: NextRequest, user: AuthUser) {
           FROM "PackagePhoto" pp
           JOIN "User" u ON u.id = pp."capturedById"
           WHERE pp."createdAt" >= ${monthStart}
-            AND u."role"::text = ANY(${PHARMACY_ACCESS_ROLES})
+            ${PHARMACY_ACCESS_ROLES_FILTER}
           GROUP BY pp."capturedById", u."firstName", u."lastName"
           ORDER BY total DESC
           LIMIT 20
@@ -570,7 +571,7 @@ async function getHandler(req: NextRequest, user: AuthUser) {
             FROM "PackagePhoto" pp
             JOIN "User" u ON u.id = pp."capturedById"
             WHERE pp."createdAt" >= ${rangeStart} AND pp."createdAt" < ${rangeEnd}
-              AND u."role"::text = ANY(${PHARMACY_ACCESS_ROLES}) ${repFilter}
+              ${PHARMACY_ACCESS_ROLES_FILTER} ${repFilter}
             GROUP BY DATE(pp."createdAt"), EXTRACT(HOUR FROM pp."createdAt"), pp."capturedById", u."firstName", u."lastName"
             ORDER BY day ASC, hour ASC, total DESC
           `,
@@ -636,7 +637,7 @@ async function getHandler(req: NextRequest, user: AuthUser) {
             FROM "PackagePhoto" pp
             JOIN "User" u ON u.id = pp."capturedById"
             WHERE pp."createdAt" >= ${rangeStart} AND pp."createdAt" < ${rangeEnd}
-              AND u."role"::text = ANY(${PHARMACY_ACCESS_ROLES}) ${repFilter}
+              ${PHARMACY_ACCESS_ROLES_FILTER} ${repFilter}
             GROUP BY DATE_TRUNC('week', pp."createdAt"), pp."capturedById", u."firstName", u."lastName"
             ORDER BY week_start ASC, total DESC
           `,
@@ -701,7 +702,7 @@ async function getHandler(req: NextRequest, user: AuthUser) {
           FROM "PackagePhoto" pp
           JOIN "User" u ON u.id = pp."capturedById"
           WHERE pp."createdAt" >= ${rangeStart} AND pp."createdAt" < ${rangeEnd}
-            AND u."role"::text = ANY(${PHARMACY_ACCESS_ROLES}) ${repFilter}
+            ${PHARMACY_ACCESS_ROLES_FILTER} ${repFilter}
           GROUP BY DATE(pp."createdAt"), pp."capturedById", u."firstName", u."lastName"
           ORDER BY day ASC, total DESC
         `,
@@ -800,7 +801,7 @@ async function getHandler(req: NextRequest, user: AuthUser) {
           FROM "PackagePhoto" pp
           JOIN "User" u ON u.id = pp."capturedById"
           WHERE pp."createdAt" >= ${rangeStart} AND pp."createdAt" < ${rangeEnd}
-            AND u."role"::text = ANY(${PHARMACY_ACCESS_ROLES})
+            ${PHARMACY_ACCESS_ROLES_FILTER}
           GROUP BY DATE(pp."createdAt"), pp."capturedById", u."firstName", u."lastName"
           ORDER BY day DESC, total DESC
         `,
