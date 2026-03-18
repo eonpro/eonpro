@@ -1022,7 +1022,33 @@ async function loginHandler(req: NextRequest) {
               });
             }
           })()
-        : Promise.resolve();
+        : (async () => {
+            // Legacy mock user: only update Provider.lastLogin and write audit (fire-and-forget)
+            try {
+              await Promise.all([
+                tokenPayload.providerId
+                  ? basePrisma.provider.update({
+                      where: { id: tokenPayload.providerId },
+                      data: { lastLogin: loginTime },
+                    })
+                  : Promise.resolve(),
+                prisma.loginAudit.create({
+                  data: createLoginAuditData(email, 'SUCCESS', {
+                    ipAddress: clientIp,
+                    userAgent: req.headers.get('user-agent') || undefined,
+                    clinicId: activeClinicId ?? undefined,
+                    deviceFingerprint: deviceFingerprint || undefined,
+                    requestId,
+                  }),
+                }),
+              ]);
+            } catch (err: unknown) {
+              logger.warn('Legacy post-auth writes failed (login succeeded)', {
+                providerId: tokenPayload.providerId,
+                error: err instanceof Error ? err.message : 'Unknown error',
+              });
+            }
+          })();
 
     const [providerClinics] = await Promise.all([
       providerClinicsPromise,
