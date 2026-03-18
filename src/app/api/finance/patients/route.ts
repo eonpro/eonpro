@@ -18,16 +18,17 @@ export const GET = withAdminAuth(async (request: NextRequest, user) => {
       return NextResponse.json({ error: 'Clinic context required' }, { status: 400 });
     }
 
-    // Fetch all patient analytics data in parallel
-    const [metrics, segments, atRisk, cohorts, paymentBehavior, retentionMatrix] =
+    const [metrics, segments, atRisk, cohorts, paymentBehavior] =
       await Promise.all([
         PatientAnalyticsService.getPatientMetrics(clinicId),
         PatientAnalyticsService.getPatientSegments(clinicId),
         PatientAnalyticsService.getAtRiskPatients(clinicId, 20),
         PatientAnalyticsService.getCohortAnalysis(clinicId, 'signup'),
         PatientAnalyticsService.getPaymentBehavior(clinicId),
-        PatientAnalyticsService.getRetentionMatrix(clinicId, 12),
       ]);
+
+    // Derive retention matrix from cohort data — no extra DB query needed
+    const retentionMatrix = PatientAnalyticsService.buildRetentionMatrix(cohorts);
 
     return NextResponse.json({
       metrics,

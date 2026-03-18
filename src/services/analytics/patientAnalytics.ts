@@ -326,16 +326,11 @@ export class PatientAnalyticsService {
   }
 
   /**
-   * Generate retention matrix for visualization
+   * Build retention matrix from pre-fetched cohort data (no DB call)
    */
-  static async getRetentionMatrix(clinicId: number, months: number = 12): Promise<RetentionMatrix> {
-    const cohorts = await this.getCohortAnalysis(clinicId, 'signup', {
-      start: subMonths(new Date(), months),
-      end: new Date(),
-    });
-
+  static buildRetentionMatrix(cohorts: CohortData[]): RetentionMatrix {
     const monthLabels = cohorts.map((c) => c.cohort);
-    const maxRetentionMonths = 13; // Month 0 through 12
+    const maxRetentionMonths = 13;
 
     const data = cohorts.map((cohort) => ({
       cohort: cohort.cohort,
@@ -343,7 +338,6 @@ export class PatientAnalyticsService {
       retention: Array.from({ length: maxRetentionMonths }, (_, i) => cohort.retention[i] || 0),
     }));
 
-    // Calculate average retention for each month
     const averageRetention = Array.from({ length: maxRetentionMonths }, (_, monthIndex) => {
       const retentionValues = data.map((d) => d.retention[monthIndex]).filter((v) => v > 0);
 
@@ -359,6 +353,17 @@ export class PatientAnalyticsService {
       data,
       averageRetention,
     };
+  }
+
+  /**
+   * Generate retention matrix for visualization (convenience wrapper)
+   */
+  static async getRetentionMatrix(clinicId: number, months: number = 12): Promise<RetentionMatrix> {
+    const cohorts = await this.getCohortAnalysis(clinicId, 'signup', {
+      start: subMonths(new Date(), months),
+      end: new Date(),
+    });
+    return this.buildRetentionMatrix(cohorts);
   }
 
   /**
@@ -450,29 +455,55 @@ export class PatientAnalyticsService {
       const sixtyDaysAgo = subMonths(now, 2);
       const ninetyDaysAgo = subMonths(now, 3);
 
-      // Get patients with their payment and subscription data
-      const patients = await prisma.patient.findMany({
-        where: { clinicId },
-        take: 5000,
-        select: {
-          id: true,
-          firstName: true,
-          lastName: true,
-          email: true,
-          createdAt: true,
-          payments: {
-            where: { status: 'SUCCEEDED' },
-            orderBy: { createdAt: 'desc' },
-            take: 1,
-            select: { createdAt: true, amount: true },
+      // Batch all queries upfront to avoid N+1
+      const [patients, failedPaymentCounts, revenuesByPatient] = await Promise.all([
+        prisma.patient.findMany({
+          where: { clinicId },
+          take: 5000,
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            createdAt: true,
+            payments: {
+              where: { status: 'SUCCEEDED' },
+              orderBy: { createdAt: 'desc' },
+              take: 1,
+              select: { createdAt: true, amount: true },
+            },
+            subscriptions: {
+              orderBy: { createdAt: 'desc' },
+              take: 1,
+              select: { status: true, canceledAt: true },
+            },
           },
-          subscriptions: {
-            orderBy: { createdAt: 'desc' },
-            take: 1,
-            select: { status: true, canceledAt: true },
+        }),
+        prisma.payment.groupBy({
+          by: ['patientId'],
+          where: {
+            clinicId,
+            status: 'FAILED',
+            createdAt: { gte: thirtyDaysAgo },
           },
-        },
-      });
+          _count: true,
+        }),
+        prisma.payment.groupBy({
+          by: ['patientId'],
+          where: {
+            clinicId,
+            status: 'SUCCEEDED',
+          },
+          _sum: { amount: true },
+        }),
+      ]);
+
+      const failedCountMap = new Map(
+        failedPaymentCounts.map((f) => [f.patientId, f._count])
+      );
+      const revenueMap = new Map(
+        revenuesByPatient.map((r) => [r.patientId, r._sum.amount || 0])
+      );
 
       const atRiskPatients: AtRiskPatient[] = [];
 
@@ -483,7 +514,6 @@ export class PatientAnalyticsService {
         const lastPayment = patient.payments[0]?.createdAt;
         const subscription = patient.subscriptions[0];
 
-        // Risk factor: Subscription canceled
         if (subscription?.status === 'CANCELED') {
           riskFactors.push('Subscription canceled');
           riskScore += 50;
@@ -495,7 +525,6 @@ export class PatientAnalyticsService {
           riskScore += 30;
         }
 
-        // Risk factor: No recent payment
         if (lastPayment) {
           if (lastPayment < ninetyDaysAgo) {
             riskFactors.push('No payment in 90+ days');
@@ -512,15 +541,7 @@ export class PatientAnalyticsService {
           riskScore += 25;
         }
 
-        // Risk factor: Failed payments
-        const recentFailedPayments = await prisma.payment.count({
-          where: {
-            patientId: patient.id,
-            clinicId,
-            status: 'FAILED',
-            createdAt: { gte: thirtyDaysAgo },
-          },
-        });
+        const recentFailedPayments = failedCountMap.get(patient.id) || 0;
 
         if (recentFailedPayments > 2) {
           riskFactors.push('Multiple failed payments');
@@ -530,17 +551,7 @@ export class PatientAnalyticsService {
           riskScore += 15;
         }
 
-        // Only include if there's actual risk
         if (riskScore > 20) {
-          const totalRevenue = await prisma.payment.aggregate({
-            where: {
-              patientId: patient.id,
-              clinicId,
-              status: 'SUCCEEDED',
-            },
-            _sum: { amount: true },
-          });
-
           atRiskPatients.push({
             patientId: patient.id,
             patientName:
@@ -551,12 +562,11 @@ export class PatientAnalyticsService {
             lastPaymentDate: lastPayment || null,
             lastActivityDate: lastPayment || patient.createdAt,
             subscriptionStatus: subscription?.status || null,
-            totalRevenue: totalRevenue._sum.amount || 0,
+            totalRevenue: revenueMap.get(patient.id) || 0,
           });
         }
       }
 
-      // Sort by risk score and limit results
       return atRiskPatients.sort((a, b) => b.riskScore - a.riskScore).slice(0, limit);
     });
   }
@@ -566,35 +576,28 @@ export class PatientAnalyticsService {
    */
   static async getPatientSegments(clinicId: number): Promise<PatientSegment[]> {
     return withClinicContext(clinicId, async () => {
-      const patients = await prisma.patient.findMany({
-        where: { clinicId },
-        take: 5000,
-        select: {
-          id: true,
-          payments: {
-            where: { status: 'SUCCEEDED' },
-            select: { amount: true },
-          },
-        },
-      });
+      const [patientCount, patientRevenues] = await Promise.all([
+        prisma.patient.count({ where: { clinicId } }),
+        prisma.payment.groupBy({
+          by: ['patientId'],
+          where: { clinicId, status: 'SUCCEEDED' },
+          _sum: { amount: true },
+        }),
+      ]);
 
       const segments = {
-        vip: { count: 0, revenue: 0, threshold: 100000 }, // > $1000
-        regular: { count: 0, revenue: 0, threshold: 20000 }, // $200-$1000
-        occasional: { count: 0, revenue: 0, threshold: 5000 }, // $50-$200
-        new: { count: 0, revenue: 0, threshold: 0 }, // < $50
+        vip: { count: 0, revenue: 0, threshold: 100000 },
+        regular: { count: 0, revenue: 0, threshold: 20000 },
+        occasional: { count: 0, revenue: 0, threshold: 5000 },
+        new: { count: 0, revenue: 0, threshold: 0 },
       };
 
-      let totalPatients = 0;
-      let totalRevenue = 0;
+      // Patients without any successful payments fall into "new"
+      const patientsWithoutPayments = patientCount - patientRevenues.length;
+      segments.new.count += patientsWithoutPayments;
 
-      patients.forEach((patient: (typeof patients)[number]) => {
-        const revenue = patient.payments.reduce(
-          (sum: number, p: { amount: number }) => sum + p.amount,
-          0
-        );
-        totalPatients++;
-        totalRevenue += revenue;
+      patientRevenues.forEach((pr) => {
+        const revenue = pr._sum.amount || 0;
 
         if (revenue >= segments.vip.threshold) {
           segments.vip.count++;
@@ -610,6 +613,8 @@ export class PatientAnalyticsService {
           segments.new.revenue += revenue;
         }
       });
+
+      const totalPatients = patientCount;
 
       return [
         {
@@ -789,46 +794,39 @@ export class PatientAnalyticsService {
       const now = new Date();
       const thirtyDaysAgo = subMonths(now, 1);
 
-      // Get all patients with payment totals
-      const patients = await prisma.patient.findMany({
-        where: { clinicId },
-        take: 5000,
-        select: {
-          id: true,
-          payments: {
-            where: { status: 'SUCCEEDED' },
-            select: { amount: true },
-          },
-        },
-      });
+      const [totalPatients, patientRevenues, activeSubscriptions, churnedLast30Days] =
+        await Promise.all([
+          prisma.patient.count({ where: { clinicId } }),
+          prisma.payment.groupBy({
+            by: ['patientId'],
+            where: { clinicId, status: 'SUCCEEDED' },
+            _sum: { amount: true },
+          }),
+          prisma.subscription.count({
+            where: { clinicId, status: 'ACTIVE' },
+          }),
+          prisma.subscription.count({
+            where: {
+              clinicId,
+              status: 'CANCELED',
+              canceledAt: { gte: thirtyDaysAgo },
+            },
+          }),
+        ]);
 
-      const ltvs = patients.map((p: (typeof patients)[number]) =>
-        p.payments.reduce((sum: number, pay: { amount: number }) => sum + pay.amount, 0)
-      );
+      const paidLtvs = patientRevenues.map((p) => p._sum.amount || 0);
+      const patientsWithPayments = paidLtvs.length;
+      const totalLTV = paidLtvs.reduce((a, b) => a + b, 0);
+      const averageLTV = totalPatients > 0 ? Math.round(totalLTV / totalPatients) : 0;
 
-      const patientsWithPayments = ltvs.filter((ltv: number) => ltv > 0).length;
-      const totalLTV = ltvs.reduce((a: number, b: number) => a + b, 0);
-      const averageLTV = patients.length > 0 ? Math.round(totalLTV / patients.length) : 0;
-
-      // Calculate median
-      const sortedLTVs = [...ltvs].sort((a, b) => a - b);
+      // Include zero-LTV patients for accurate median
+      const allLtvs = [
+        ...paidLtvs,
+        ...Array(Math.max(0, totalPatients - patientsWithPayments)).fill(0),
+      ];
+      const sortedLTVs = allLtvs.sort((a: number, b: number) => a - b);
       const medianLTV = sortedLTVs.length > 0 ? sortedLTVs[Math.floor(sortedLTVs.length / 2)] : 0;
 
-      // Active subscriptions
-      const activeSubscriptions = await prisma.subscription.count({
-        where: { clinicId, status: 'ACTIVE' },
-      });
-
-      // Churned in last 30 days
-      const churnedLast30Days = await prisma.subscription.count({
-        where: {
-          clinicId,
-          status: 'CANCELED',
-          canceledAt: { gte: thirtyDaysAgo },
-        },
-      });
-
-      // Calculate churn rate (churned / (active + churned))
       const churnRate =
         activeSubscriptions + churnedLast30Days > 0
           ? Math.round((churnedLast30Days / (activeSubscriptions + churnedLast30Days)) * 10000) /
@@ -836,7 +834,7 @@ export class PatientAnalyticsService {
           : 0;
 
       return {
-        totalPatients: patients.length,
+        totalPatients,
         patientsWithPayments,
         averageLTV,
         medianLTV,
