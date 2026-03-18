@@ -269,5 +269,5 @@ function formatTimestamp(date: Date): string {
 }
 
 export const GET = withAuth(getHandler, {
-  roles: ['super_admin', 'admin', 'staff'],
+  roles: ['super_admin', 'admin', 'staff', 'sales_rep'],
 });

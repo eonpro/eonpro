@@ -77,7 +77,6 @@ export const salesRepNavConfig: AdminNavItemConfig[] = [
   { path: '/admin/intakes', label: 'Intakes', iconKey: 'UserPlus' },
   { path: '/admin/intake-templates', label: 'Form Templates', iconKey: 'FileText' },
   { path: '/admin/patients', label: 'Patients', iconKey: 'Users' },
-  { path: '/admin/verification-queue', label: 'ID Verification', iconKey: 'Shield' },
   { path: '/admin/messages', label: 'Messages', iconKey: 'MessageSquare' },
   { path: '/admin/scheduling', label: 'Telehealth', iconKey: 'Video' },
   { path: '/admin/refill-queue', label: 'Membership / Refills', iconKey: 'RefreshCw' },

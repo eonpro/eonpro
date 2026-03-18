@@ -197,4 +197,4 @@ async function handleGet(req: NextRequest, user: AuthUser) {
   }
 }
 
-export const GET = withAuth(handleGet, { roles: ['super_admin', 'admin', 'staff', 'pharmacy_rep'] });
+export const GET = withAuth(handleGet, { roles: ['super_admin', 'admin', 'staff', 'pharmacy_rep', 'sales_rep'] });

@@ -50,7 +50,7 @@ import { logger } from '@/lib/logger';
 import { EONPRO_LOGO, EONPRO_ICON } from '@/lib/constants/brand-assets';
 import { safeParseJsonString } from '@/lib/utils/safe-json';
 
-const TICKETS_ALLOWED_ROLES = ['admin', 'super_admin', 'provider', 'staff', 'support'];
+const TICKETS_ALLOWED_ROLES = ['admin', 'super_admin', 'provider', 'staff', 'support', 'sales_rep'];
 
 const adminNavIconMap = {
   Home,
@@ -159,8 +159,7 @@ function TicketsLayoutInner({ children }: { children: React.ReactNode }) {
       const role = parsedUser.role?.toLowerCase();
 
       // Allow multiple roles to access tickets
-      const allowedRoles = ['admin', 'super_admin', 'provider', 'staff', 'support'];
-      if (!allowedRoles.includes(role)) {
+      if (!TICKETS_ALLOWED_ROLES.includes(role)) {
         router.push('/login');
         return;
       }
@@ -190,7 +189,7 @@ function TicketsLayoutInner({ children }: { children: React.ReactNode }) {
         { icon: Settings, path: '/super-admin/settings', label: 'Settings' },
       ];
     }
-    if (userRole === 'admin') {
+    if (userRole === 'admin' || userRole === 'sales_rep') {
       const config = getAdminNavConfig(userRole);
       const items = config.map((item) => ({
         path: item.path,
@@ -212,7 +211,8 @@ function TicketsLayoutInner({ children }: { children: React.ReactNode }) {
       localStorage.getItem('auth-token') ||
       localStorage.getItem('admin-token') ||
       localStorage.getItem('super_admin-token') ||
-      localStorage.getItem('provider-token');
+      localStorage.getItem('provider-token') ||
+      localStorage.getItem('sales_rep-token');
     if (token)
       fetch('/api/auth/logout', {
         method: 'POST',
@@ -241,6 +241,8 @@ function TicketsLayoutInner({ children }: { children: React.ReactNode }) {
       'staff-token',
       'support-token',
       'affiliate-token',
+      'sales_rep-token',
+      'pharmacy_rep-token',
     ].forEach((name) => {
       document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
     });

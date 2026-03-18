@@ -202,5 +202,5 @@ export const GET = withAuth(
       return handleApiError(error, { route: 'GET /api/admin/settings' });
     }
   },
-  { roles: ['admin', 'admin'] }
+  { roles: ['super_admin', 'admin', 'sales_rep'] }
 );

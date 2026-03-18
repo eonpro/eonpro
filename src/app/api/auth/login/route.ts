@@ -211,6 +211,11 @@ async function loginHandler(req: NextRequest) {
       },
     });
 
+    // Track whether the user was found in the unified User table.
+    // Legacy mock users (Provider/Patient table only) lack a real User row,
+    // so operations like failedLoginAttempts and userSession must be skipped.
+    let isRealUserRecord = !!user;
+
     // Debug logging only in development
     if (process.env.NODE_ENV === 'development') {
       debugInfo.step = 'user_found';
@@ -269,6 +274,7 @@ async function loginHandler(req: NextRequest) {
             if (patientUser) {
               user = patientUser as FlexibleUser;
               passwordHash = patientUser.passwordHash;
+              isRealUserRecord = true;
             }
           }
           break;
@@ -289,6 +295,7 @@ async function loginHandler(req: NextRequest) {
           if (adminUser) {
             user = adminUser as FlexibleUser;
             passwordHash = adminUser.passwordHash;
+            isRealUserRecord = true;
           }
           break;
 
@@ -306,6 +313,7 @@ async function loginHandler(req: NextRequest) {
           if (staffUser) {
             user = staffUser as FlexibleUser;
             passwordHash = staffUser.passwordHash;
+            isRealUserRecord = true;
           }
           break;
 
@@ -352,6 +360,7 @@ async function loginHandler(req: NextRequest) {
         if (adminUser) {
           user = adminUser as FlexibleUser;
           passwordHash = adminUser.passwordHash;
+          isRealUserRecord = true;
         }
       }
     }
@@ -414,26 +423,34 @@ async function loginHandler(req: NextRequest) {
         logger.warn('Invalid password for login attempt', {
           emailPrefix: email.substring(0, 3) + '***',
           role,
+          isRealUserRecord,
         });
-        // Atomic: increment + set lockedUntil if threshold reached
-        const updated = await prisma.$transaction(async (tx) => {
-          const u = await tx.user.update({
-            where: { id: user!.id },
-            data: { failedLoginAttempts: { increment: 1 } },
-          });
-          const nextCount = u.failedLoginAttempts;
-          if (nextCount >= AUTH_LOCKOUT_AFTER_ATTEMPTS) {
-            await tx.user.update({
+
+        // Only update failedLoginAttempts for real User table records.
+        // Legacy mock users (Provider/Patient table) don't have a User row,
+        // so the update would throw P2025 "Record to update not found".
+        let failedAttempts = 0;
+        if (isRealUserRecord) {
+          const updated = await prisma.$transaction(async (tx) => {
+            const u = await tx.user.update({
               where: { id: user!.id },
-              data: { lockedUntil: new Date(Date.now() + LOCKOUT_DURATION_MS) },
+              data: { failedLoginAttempts: { increment: 1 } },
             });
-          }
-          return u;
-        }, { timeout: 15000 });
+            const nextCount = u.failedLoginAttempts;
+            if (nextCount >= AUTH_LOCKOUT_AFTER_ATTEMPTS) {
+              await tx.user.update({
+                where: { id: user!.id },
+                data: { lockedUntil: new Date(Date.now() + LOCKOUT_DURATION_MS) },
+              });
+            }
+            return u;
+          }, { timeout: 15000 });
+          failedAttempts = updated.failedLoginAttempts;
+        }
 
         prisma.loginAudit
           .create({
-            data: createLoginAuditData(email, updated.failedLoginAttempts >= AUTH_LOCKOUT_AFTER_ATTEMPTS ? 'LOCKOUT' : 'FAILURE', {
+            data: createLoginAuditData(email, failedAttempts >= AUTH_LOCKOUT_AFTER_ATTEMPTS ? 'LOCKOUT' : 'FAILURE', {
               failureReason: 'Invalid credentials',
               ipAddress: auditIp,
               userAgent: auditUserAgent,
@@ -940,7 +957,7 @@ async function loginHandler(req: NextRequest) {
         : Promise.resolve([]);
 
     const postAuthWritesPromise =
-      user && 'lastLogin' in user
+      user && isRealUserRecord
         ? (async () => {
             try {
               await Promise.all([

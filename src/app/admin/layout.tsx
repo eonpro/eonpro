@@ -245,6 +245,7 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
         '/admin/finance/pending-profiles',
         '/admin/registration-codes',
         '/admin/sales-rep/commission-plans',
+        '/admin/verification-queue',
       ];
       if (restrictedPaths.some((p) => pathname === p || pathname?.startsWith(p + '/'))) {
         setLoading(false);
@@ -273,6 +274,7 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
       '/admin/finance/pending-profiles',
       '/admin/registration-codes',
       '/admin/sales-rep/commission-plans',
+      '/admin/verification-queue',
     ];
     if (restrictedPaths.some((p) => pathname === p || pathname?.startsWith(p + '/'))) {
       router.replace('/admin');

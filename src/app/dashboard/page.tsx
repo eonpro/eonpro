@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { formatPatientDisplayId } from '@/lib/utils/formatPatientDisplayId';
@@ -28,6 +28,14 @@ import {
   BarChart3,
   Calendar,
   MessageSquare,
+  Link as LinkIcon,
+  ClipboardCheck,
+  Shield,
+  Truck,
+  Video,
+  Building2,
+  Gauge,
+  Camera,
 } from 'lucide-react';
 import { apiFetch, dispatchSessionExpired, redirectToLogin } from '@/lib/api/fetch';
 import { ClinicBrandingProvider, useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
@@ -36,6 +44,7 @@ import { USMapChart } from '@/components/dashboards/USMapChart';
 import { EONPRO_LOGO, EONPRO_ICON } from '@/lib/constants/brand-assets';
 import { safeParseJsonString } from '@/lib/utils/safe-json';
 import ErrorBoundary from '@/components/ErrorBoundary';
+import { getAdminNavConfig } from '@/lib/nav/adminNav';
 
 interface PatientIntake {
   id: number;
@@ -74,30 +83,39 @@ interface DailyScriptsData {
   range: { from: string; to: string; days: number };
 }
 
-// Match order and items from lib/nav/adminNav (baseAdminNavConfig) for consistent sidebar
-const navItems = [
-  { icon: Home, path: '/dashboard', label: 'Home', active: true },
-  { icon: UserPlus, path: '/admin/intakes', label: 'Intakes' },
-  { icon: Users, path: '/admin/patients', label: 'Patients' },
-  { icon: MessageSquare, path: '/admin/messages', label: 'Messages' },
-  { icon: Pill, path: '/admin/rx-queue', label: 'RX Queue' },
-  { icon: ShoppingCart, path: '/admin/orders', label: 'Orders' },
-  { icon: Ticket, path: '/tickets', label: 'Tickets' },
-  { icon: Store, path: '/admin/products', label: 'Products' },
-  { icon: TrendingUp, path: '/admin/analytics', label: 'Analytics' },
-  { icon: DollarSign, path: '/admin/sales-rep/commission-plans', label: 'Sales Rep Commissions' },
-  { icon: UserCheck, path: '/admin/affiliates', label: 'Affiliates' },
-  { icon: DollarSign, path: '/admin/finance', label: 'Finance' },
-  { icon: CreditCard, path: '/admin/stripe-dashboard', label: 'Stripe' },
-  { icon: Key, path: '/admin/registration-codes', label: 'Registration Codes' },
-  { icon: Settings, path: '/admin/settings', label: 'Settings' },
-];
+const dashboardNavIconMap = {
+  Home,
+  UserPlus,
+  Users,
+  Pill,
+  RefreshCw,
+  ClipboardCheck,
+  ShoppingCart,
+  Ticket,
+  Store,
+  TrendingUp,
+  UserCheck,
+  DollarSign,
+  FileText,
+  CreditCard,
+  Key,
+  Settings,
+  Building2,
+  Gauge,
+  MessageSquare,
+  Link: LinkIcon,
+  Camera,
+  Truck,
+  Shield,
+  Video,
+  BarChart3,
+} as const;
 
 function HomePageInner() {
   const router = useRouter();
   const { branding, isLoading: brandingLoading } = useClinicBranding();
   const [loading, setLoading] = useState(true);
-  const [userData, setUserData] = useState<any>(null);
+  const [userData, setUserData] = useState<{ role?: string; firstName?: string; email?: string; [key: string]: unknown } | null>(null);
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
   const [currentTime, setCurrentTime] = useState<Date | null>(null);
   const [systemStatus] = useState<'healthy' | 'warning' | 'error'>('healthy');
@@ -127,6 +145,17 @@ function HomePageInner() {
   const clinicIcon = branding?.iconUrl || branding?.faviconUrl || branding?.logoUrl || EONPRO_ICON;
   const clinicName = branding?.clinicName || 'EONPRO';
   const isWhiteLabeled = branding?.clinicName && branding.clinicName !== 'EONPRO';
+
+  const userRole = userData?.role?.toLowerCase() ?? 'admin';
+  const navItems = useMemo(() => {
+    const config = getAdminNavConfig(userRole);
+    return config.map((item) => ({
+      path: item.path,
+      label: item.label,
+      icon: dashboardNavIconMap[item.iconKey as keyof typeof dashboardNavIconMap] ?? Settings,
+      active: item.path === '/dashboard',
+    }));
+  }, [userRole]);
 
   useEffect(() => {
     setCurrentTime(new Date());
@@ -550,11 +579,11 @@ function HomePageInner() {
           {navItems.map((item) => {
             const Icon = item.icon;
             return (
-              <Link
+              <a
                 key={item.path}
                 href={item.path}
                 title={!sidebarExpanded ? item.label : undefined}
-                className={`flex items-center gap-3 rounded-xl px-3 py-2.5 transition-all ${
+                className={`flex items-center gap-3 rounded-xl px-3 py-2.5 no-underline transition-all ${
                   item.active ? '' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
                 }`}
                 style={
@@ -565,7 +594,7 @@ function HomePageInner() {
                 {sidebarExpanded && (
                   <span className="whitespace-nowrap text-sm font-medium">{item.label}</span>
                 )}
-              </Link>
+              </a>
             );
           })}
         </nav>

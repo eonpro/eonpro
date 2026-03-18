@@ -284,5 +284,5 @@ async function handleGetShipping(req: NextRequest, user: AuthUser) {
 }
 
 export const GET = withAuth(handleGetShipping, {
-  roles: ['super_admin', 'admin', 'staff', 'pharmacy_rep'],
+  roles: ['super_admin', 'admin', 'staff', 'pharmacy_rep', 'sales_rep'],
 });
