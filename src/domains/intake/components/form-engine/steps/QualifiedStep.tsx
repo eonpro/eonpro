@@ -93,14 +93,35 @@ export default function QualifiedStep({ basePath, prevStep }: QualifiedStepProps
 
   useEffect(() => {
     if (submittedRef.current) return;
-    if (!responses.firstName && !responses.email) return;
+    const hasIdentifier = responses.firstName || responses.email;
+    const hasEnoughData = Object.keys(responses).length >= 5;
+    if (!hasIdentifier || !hasEnoughData) return;
     submittedRef.current = true;
 
-    fetch('/api/intake-forms/submit-to-eonpro', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ responses, submissionType: 'complete', qualified: 'Yes' }),
-    }).catch(() => {});
+    const submitWithRetry = async (attempt = 1): Promise<void> => {
+      try {
+        const res = await fetch('/api/intake-forms/submit-to-eonpro', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ responses, submissionType: 'complete', qualified: 'Yes' }),
+        });
+        if (!res.ok && attempt < 3) {
+          await new Promise((r) => setTimeout(r, 1000 * attempt));
+          return submitWithRetry(attempt + 1);
+        }
+        const data = await res.json().catch(() => ({}));
+        if (data.eonproDatabaseId) {
+          sessionStorage.setItem('eonpro_patient_id', String(data.eonproDatabaseId));
+        }
+      } catch {
+        if (attempt < 3) {
+          await new Promise((r) => setTimeout(r, 1000 * attempt));
+          return submitWithRetry(attempt + 1);
+        }
+      }
+    };
+
+    submitWithRetry();
   }, [responses]);
 
   const fireConfetti = () => {
