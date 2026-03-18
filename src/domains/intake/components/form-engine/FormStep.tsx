@@ -85,6 +85,7 @@ export default function FormStep({
   });
 
   const [errors, setErrors] = useState<Record<string, LocalizedString>>({});
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -112,6 +113,41 @@ export default function FormStep({
     },
     [errors, language],
   );
+
+  const validateField = useCallback((fieldId: string) => {
+    const field = config.fields.find((f) => f.id === fieldId);
+    if (!field?.validation) return;
+    const value = localValues[fieldId];
+
+    for (const rule of field.validation) {
+      if (!rule.message) continue;
+      let invalid = false;
+      switch (rule.type) {
+        case 'required':
+          invalid = !value || (Array.isArray(value) && value.length === 0);
+          break;
+        case 'email':
+          invalid = !!value && typeof value === 'string' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+          break;
+        case 'phone':
+          invalid = !!value && typeof value === 'string' && !/^(\+1)?[-.\s]?\(?[0-9]{3}\)?[-.\s]?[0-9]{3}[-.\s]?[0-9]{4}$/.test(value);
+          break;
+        case 'minLength':
+          invalid = typeof value === 'string' && value.length < (rule.value as number);
+          break;
+      }
+      if (invalid) {
+        setErrors((prev) => ({ ...prev, [fieldId]: rule.message }));
+        return;
+      }
+    }
+    setErrors((prev) => { const next = { ...prev }; delete next[fieldId]; return next; });
+  }, [config.fields, localValues]);
+
+  const handleBlur = useCallback((fieldId: string) => {
+    setTouched((prev) => ({ ...prev, [fieldId]: true }));
+    validateField(fieldId);
+  }, [validateField]);
 
   // ---- Handlers ----
 
@@ -445,8 +481,9 @@ export default function FormStep({
             placeholder={getText(field.placeholder)}
             value={(value as string) || ''}
             onChange={(val) => handleTextChange(field.id, val)}
+            onBlur={() => handleBlur(field.id)}
             type={field.type === 'phone' ? 'tel' : field.type}
-            error={error}
+            error={touched[field.id] ? error : ''}
           />
         );
 

@@ -636,8 +636,41 @@ export function CheckoutInner() {
           </div>
         </div>
 
+        <div className="mt-8 rounded-2xl bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 p-6 text-left">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-100">
+              <svg className="h-5 w-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+            </div>
+            <div>
+              <h3 className="font-semibold text-gray-900">
+                {language === 'en' ? 'Your patient account has been created' : 'Tu cuenta de paciente ha sido creada'}
+              </h3>
+              <p className="text-sm text-gray-500">
+                {language === 'en' ? 'Access your portal to track orders, chat with your provider, and manage your treatment.' : 'Accede a tu portal para rastrear pedidos, chatear con tu proveedor y manejar tu tratamiento.'}
+              </p>
+            </div>
+          </div>
+          <a
+            href="https://eonmeds.eonpro.io/patient-portal"
+            className="continue-button mt-3 inline-flex w-full"
+            style={{ background: `linear-gradient(135deg, ${primaryColor} 0%, ${primaryColor}dd 100%)` }}
+          >
+            <span>{language === 'en' ? 'Go to Patient Portal' : 'Ir al Portal del Paciente'}</span>
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
+            </svg>
+          </a>
+        </div>
+
         <p className="mt-6 text-sm text-gray-500">
           {t.confirmationEmail} <strong>{patientData.email}</strong>
+        </p>
+
+        <p className="copyright-text text-center mt-6">
+          © 2026 EONPro, LLC. All rights reserved.<br/>
+          Exclusive and protected process.
         </p>
       </div>
     );
@@ -1099,7 +1132,10 @@ export function CheckoutInner() {
             language={language}
             t={t}
             onBack={() => setCurrentStep(2)}
-            onSuccess={() => setPaymentComplete(true)}
+            onSuccess={() => {
+              setPaymentComplete(true);
+              try { const { track } = require('@vercel/analytics'); track('intake_payment_completed', { medication: productConfig.name, total: totals.total }); } catch {}
+            }}
           />
         </Elements>
       )}
