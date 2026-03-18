@@ -6,7 +6,183 @@ import { loadStripe } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { LanguageProvider, useLanguage } from '@/domains/intake/contexts/LanguageContext';
 import semaglutideConfig from '@/domains/intake/config/products/semaglutide';
-import type { ProductConfig, DoseWithPlans, DosePlanOption, AddonConfig } from '@/domains/intake/config/products/types';
+import tirzepatideConfig from '@/domains/intake/config/products/tirzepatide';
+import type {
+  ProductConfig,
+  DoseWithPlans,
+  DosePlanOption,
+  PlanOption,
+  AddonConfig,
+} from '@/domains/intake/config/products/types';
+
+// ============================================================================
+// Types
+// ============================================================================
+
+type ShippingAddress = {
+  addressLine1: string;
+  addressLine2?: string;
+  city: string;
+  state: string;
+  zipCode: string;
+  country?: string;
+};
+
+type PatientData = {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+};
+
+// ============================================================================
+// Translations
+// ============================================================================
+
+const translations = {
+  en: {
+    congratulations: 'Congratulations! You qualify for treatment',
+    selectDose: 'Select Your Dose',
+    doseSubtitle: "Choose the dosage that's right for you",
+    selectPlan: 'Select Your Plan',
+    planSubtitle: 'Choose your subscription plan',
+    shippingPayment: 'Shipping Information',
+    shippingSubtitle: 'Enter your shipping details',
+    orderSummary: 'Order Summary',
+    subtotal: 'Subtotal',
+    shipping: 'Shipping',
+    shippingFree: 'FREE',
+    total: 'Total',
+    continuePlan: 'Continue to Plan Selection',
+    continueShipping: 'Continue to Shipping',
+    continuePayment: 'Continue to Payment',
+    completePurchase: 'Complete Purchase',
+    back: 'Back',
+    monthlyRecurring: 'Monthly Recurring',
+    package3Month: '3 Month Package',
+    package6Month: '6 Month Package',
+    oneTimePurchase: 'One Time Purchase',
+    save: 'Save',
+    bestValue: 'Best Value',
+    optionalAddons: 'Optional Add-ons',
+    shippingAddress: 'Shipping Address',
+    payment: 'Payment',
+    paymentSubtitle: 'Complete your purchase securely',
+    expeditedShipping: 'Expedited Shipping (+$25)',
+    medicalConsultation: 'Medical consultation included',
+    freeShipping: 'Free standard shipping',
+    promoCode: 'Promo code',
+    applyPromo: 'Apply',
+    promoApplied: 'Promo applied!',
+    promoInvalid: 'Invalid code',
+    starterDose: 'Starter Dose',
+    higherDose: 'Higher Dose',
+    recommendedNew: 'Recommended for new patients',
+    forContinuing: 'For continuing patients',
+    recommended: 'Recommended',
+    startingAt: 'Starting at',
+    firstName: 'First Name',
+    lastName: 'Last Name',
+    email: 'Email',
+    phone: 'Phone',
+    address: 'Street Address',
+    address2: 'Apt / Suite (optional)',
+    city: 'City',
+    state: 'State',
+    zip: 'ZIP Code',
+    processing: 'Processing...',
+    thankYou: 'Thank You!',
+    orderConfirmed: 'Your order has been confirmed',
+    orderDetails: 'Order Details',
+    medication: 'Medication',
+    dose: 'Dose',
+    plan: 'Plan',
+    addons: 'Add-ons',
+    confirmationEmail: 'A confirmation email will be sent to',
+    perMonth: '/mo',
+    oneTime: 'one-time',
+    threeMonth: '3-month package',
+    discount: 'Discount',
+    whatsNext: "What's Next",
+    whatsNextStep1: 'A licensed provider will review your information within 24 hours',
+    whatsNextStep2: 'Once approved, your medication will be shipped to you',
+    whatsNextStep3: 'You will receive tracking information via email',
+    monthlyBilling: '/month recurring',
+    totalBilling: ' one payment',
+    onceBilling: ' one-time',
+  },
+  es: {
+    congratulations: '¡Felicitaciones! Califica para el tratamiento',
+    selectDose: 'Seleccione Su Dosis',
+    doseSubtitle: 'Elija la dosis adecuada para usted',
+    selectPlan: 'Seleccione Su Plan',
+    planSubtitle: 'Elija su plan de suscripción',
+    shippingPayment: 'Información de Envío',
+    shippingSubtitle: 'Ingrese sus datos de envío',
+    orderSummary: 'Resumen del Pedido',
+    subtotal: 'Subtotal',
+    shipping: 'Envío',
+    shippingFree: 'GRATIS',
+    total: 'Total',
+    continuePlan: 'Continuar a Selección de Plan',
+    continueShipping: 'Continuar a Envío',
+    continuePayment: 'Continuar a Pago',
+    completePurchase: 'Completar Compra',
+    back: 'Atrás',
+    monthlyRecurring: 'Mensual Recurrente',
+    package3Month: 'Paquete de 3 Meses',
+    package6Month: 'Paquete de 6 Meses',
+    oneTimePurchase: 'Compra Única',
+    save: 'Ahorra',
+    bestValue: 'Mejor Valor',
+    optionalAddons: 'Complementos Opcionales',
+    shippingAddress: 'Dirección de Envío',
+    payment: 'Pago',
+    paymentSubtitle: 'Completa tu compra de forma segura',
+    expeditedShipping: 'Envío Acelerado (+$25)',
+    medicalConsultation: 'Consulta médica incluida',
+    freeShipping: 'Envío estándar gratis',
+    promoCode: 'Código promocional',
+    applyPromo: 'Aplicar',
+    promoApplied: '¡Código aplicado!',
+    promoInvalid: 'Código inválido',
+    starterDose: 'Dosis Inicial',
+    higherDose: 'Dosis Mayor',
+    recommendedNew: 'Recomendado para nuevos pacientes',
+    forContinuing: 'Para pacientes continuando',
+    recommended: 'Recomendado',
+    startingAt: 'Desde',
+    firstName: 'Nombre',
+    lastName: 'Apellido',
+    email: 'Correo Electrónico',
+    phone: 'Teléfono',
+    address: 'Dirección',
+    address2: 'Apto / Suite (opcional)',
+    city: 'Ciudad',
+    state: 'Estado',
+    zip: 'Código Postal',
+    processing: 'Procesando...',
+    thankYou: '¡Gracias!',
+    orderConfirmed: 'Tu pedido ha sido confirmado',
+    orderDetails: 'Detalles del Pedido',
+    medication: 'Medicamento',
+    dose: 'Dosis',
+    plan: 'Plan',
+    addons: 'Complementos',
+    confirmationEmail: 'Se enviará un correo de confirmación a',
+    perMonth: '/mes',
+    oneTime: 'pago único',
+    threeMonth: 'paquete de 3 meses',
+    discount: 'Descuento',
+    whatsNext: 'Próximos Pasos',
+    whatsNextStep1: 'Un proveedor con licencia revisará su información dentro de 24 horas',
+    whatsNextStep2: 'Una vez aprobado, su medicamento le será enviado',
+    whatsNextStep3: 'Recibirá información de seguimiento por correo electrónico',
+    monthlyBilling: '/mes recurrente',
+    totalBilling: ' pago único',
+    onceBilling: ' compra única',
+  },
+};
 
 // ============================================================================
 // Stripe
@@ -19,117 +195,48 @@ const stripePromise = loadStripe(
 );
 
 // ============================================================================
-// Translations
+// Inline SVG Icon Components
 // ============================================================================
 
-const T: Record<string, { en: string; es: string }> = {
-  congratulations: {
-    en: 'Congratulations! You qualify for treatment',
-    es: '¡Felicitaciones! Califica para el tratamiento',
-  },
-  selectDose: { en: 'Select Your Dose', es: 'Seleccione Su Dosis' },
-  doseSubtitle: {
-    en: "Choose the dosage that's right for you",
-    es: 'Elija la dosis adecuada para usted',
-  },
-  selectPlan: { en: 'Select Your Plan', es: 'Seleccione Su Plan' },
-  planSubtitle: {
-    en: 'Choose your subscription plan',
-    es: 'Elija su plan de suscripción',
-  },
-  optionalAddons: { en: 'Optional Add-ons', es: 'Complementos Opcionales' },
-  promoCode: { en: 'Promo code', es: 'Código promocional' },
-  applyPromo: { en: 'Apply', es: 'Aplicar' },
-  promoApplied: { en: 'Promo applied!', es: '¡Código aplicado!' },
-  promoInvalid: { en: 'Invalid code', es: 'Código inválido' },
-  orderSummary: { en: 'Order Summary', es: 'Resumen del Pedido' },
-  subtotal: { en: 'Subtotal', es: 'Subtotal' },
-  shipping: { en: 'Shipping', es: 'Envío' },
-  shippingFree: { en: 'FREE', es: 'GRATIS' },
-  discount: { en: 'Discount', es: 'Descuento' },
-  total: { en: 'Total', es: 'Total' },
-  continueShipping: { en: 'Continue to Shipping', es: 'Continuar a Envío' },
-  continuePayment: { en: 'Continue to Payment', es: 'Continuar a Pago' },
-  completePurchase: { en: 'Complete Purchase', es: 'Completar Compra' },
-  back: { en: 'Back', es: 'Atrás' },
-  shippingTitle: { en: 'Shipping Information', es: 'Información de Envío' },
-  shippingSubtitle: {
-    en: 'Enter your shipping details',
-    es: 'Ingrese sus datos de envío',
-  },
-  firstName: { en: 'First Name', es: 'Nombre' },
-  lastName: { en: 'Last Name', es: 'Apellido' },
-  email: { en: 'Email', es: 'Correo Electrónico' },
-  phone: { en: 'Phone', es: 'Teléfono' },
-  address: { en: 'Street Address', es: 'Dirección' },
-  address2: { en: 'Apt / Suite (optional)', es: 'Apto / Suite (opcional)' },
-  city: { en: 'City', es: 'Ciudad' },
-  state: { en: 'State', es: 'Estado' },
-  zip: { en: 'ZIP Code', es: 'Código Postal' },
-  paymentTitle: { en: 'Payment', es: 'Pago' },
-  paymentSubtitle: {
-    en: 'Complete your purchase securely',
-    es: 'Completa tu compra de forma segura',
-  },
-  processing: { en: 'Processing...', es: 'Procesando...' },
-  thankYou: { en: 'Thank You!', es: '¡Gracias!' },
-  orderConfirmed: {
-    en: 'Your order has been confirmed',
-    es: 'Tu pedido ha sido confirmado',
-  },
-  orderDetails: { en: 'Order Details', es: 'Detalles del Pedido' },
-  medication: { en: 'Medication', es: 'Medicamento' },
-  dose: { en: 'Dose', es: 'Dosis' },
-  plan: { en: 'Plan', es: 'Plan' },
-  addons: { en: 'Add-ons', es: 'Complementos' },
-  confirmationEmail: {
-    en: 'A confirmation email will be sent to',
-    es: 'Se enviará un correo de confirmación a',
-  },
-  perMonth: { en: '/mo', es: '/mes' },
-  oneTime: { en: 'one-time', es: 'pago único' },
-  threeMonth: { en: '3-month package', es: 'paquete de 3 meses' },
-  starterDose: { en: 'Starter Dose', es: 'Dosis Inicial' },
-  higherDose: { en: 'Higher Dose', es: 'Dosis Superior' },
-  recommendedNew: {
-    en: 'Recommended for new patients',
-    es: 'Recomendado para nuevos pacientes',
-  },
-  forContinuing: {
-    en: 'For continuing patients',
-    es: 'Para pacientes continuando',
-  },
-  medicalConsultation: {
-    en: 'Medical consultation included',
-    es: 'Consulta médica incluida',
-  },
-  freeShipping: {
-    en: 'Free standard shipping',
-    es: 'Envío estándar gratis',
-  },
-  whatsNext: { en: "What's Next", es: 'Próximos Pasos' },
-  whatsNextStep1: {
-    en: 'A licensed provider will review your information within 24 hours',
-    es: 'Un proveedor con licencia revisará su información dentro de 24 horas',
-  },
-  whatsNextStep2: {
-    en: 'Once approved, your medication will be shipped to you',
-    es: 'Una vez aprobado, su medicamento le será enviado',
-  },
-  whatsNextStep3: {
-    en: 'You will receive tracking information via email',
-    es: 'Recibirá información de seguimiento por correo electrónico',
-  },
-  monthlyRecurring: { en: '/month recurring', es: '/mes recurrente' },
-  onePayment: { en: ' one payment', es: ' pago único' },
-  oneTimeBilling: { en: ' one-time', es: ' compra única' },
-  save: { en: 'Save', es: 'Ahorra' },
-  startingAt: { en: 'Starting at', es: 'Desde' },
-  recommended: { en: 'Recommended', es: 'Recomendado' },
+function CheckIcon({ className, style }: { className?: string; style?: React.CSSProperties }) {
+  return (
+    <svg
+      className={className}
+      style={style}
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      strokeWidth={3}
+    >
+      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+    </svg>
+  );
+}
+
+function PillIcon({ className, style }: { className?: string; style?: React.CSSProperties }) {
+  return (
+    <svg className={className} style={style} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 1.5H8.25A2.25 2.25 0 006 3.75v16.5a2.25 2.25 0 002.25 2.25h7.5A2.25 2.25 0 0018 20.25V3.75a2.25 2.25 0 00-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-3 18.75h3" />
+    </svg>
+  );
+}
+
+function FlameIcon({ className, style }: { className?: string; style?: React.CSSProperties }) {
+  return (
+    <svg className={className} style={style} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15.362 5.214A8.252 8.252 0 0112 21 8.25 8.25 0 016.038 7.048 8.287 8.287 0 009 9.6a8.983 8.983 0 013.361-6.867 8.21 8.21 0 003 2.48z" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 18a3.75 3.75 0 00.495-7.467 5.99 5.99 0 00-1.925 3.546 5.974 5.974 0 01-2.133-1.001A3.75 3.75 0 0012 18z" />
+    </svg>
+  );
+}
+
+const iconMap: Record<string, typeof PillIcon> = {
+  pill: PillIcon,
+  flame: FlameIcon,
 };
 
 // ============================================================================
-// Flag SVGs
+// Flag SVGs for Language Toggle
 // ============================================================================
 
 const US_FLAG = (
@@ -171,7 +278,7 @@ function LanguageToggle() {
 }
 
 // ============================================================================
-// Prefill helpers
+// Prefill Helpers
 // ============================================================================
 
 function getSessionValue(key: string): string {
@@ -184,55 +291,60 @@ function getSessionValue(key: string): string {
 }
 
 // ============================================================================
-// CheckoutInner
+// CheckoutInner — Main Component (Steps 1-3 + Thank You)
 // ============================================================================
 
 export function CheckoutInner() {
   const { language } = useLanguage();
-  const t = useCallback(
-    (key: string) => T[key]?.[language] || T[key]?.en || key,
-    [language],
-  );
+  const t = translations[language];
   const searchParams = useSearchParams();
 
-  const medicationParam = searchParams.get('medication') || 'semaglutide';
-  const config: ProductConfig = semaglutideConfig;
-  const primaryColor = config.branding.primaryColor;
-  const doses = config.dosesWithPlans || [];
-  const hasDoseSelection = doses.length > 0;
+  const medication = searchParams.get('medication') || 'semaglutide';
+  const productConfig: ProductConfig =
+    medication === 'tirzepatide' ? tirzepatideConfig : semaglutideConfig;
+
+  const primaryColor = productConfig.branding.primaryColor;
+  const doses = productConfig.dosesWithPlans || [];
+  const hasDoseBasedPricing = doses.length > 0;
 
   // Step state
-  const [step, setStep] = useState(1);
+  const [currentStep, setCurrentStep] = useState<number>(1);
 
-  // Dose & plan
-  const [selectedDose, setSelectedDose] = useState<DoseWithPlans | null>(null);
-  const [selectedPlan, setSelectedPlan] = useState<DosePlanOption | null>(null);
+  // Dose & plan selection
+  const [selectedDose, setSelectedDose] = useState<string>('');
+  const [selectedPlan, setSelectedPlan] = useState<string>('');
   const [selectedAddons, setSelectedAddons] = useState<string[]>([]);
+  const [expeditedShipping, setExpeditedShipping] = useState<boolean>(false);
 
   // Promo
-  const [promoCode, setPromoCode] = useState('');
-  const [promoApplied, setPromoApplied] = useState(false);
-  const [promoInvalid, setPromoInvalid] = useState(false);
+  const [promoCode, setPromoCode] = useState<string>('');
+  const [promoApplied, setPromoApplied] = useState<boolean>(false);
+  const [promoInvalid, setPromoInvalid] = useState<boolean>(false);
 
-  // Patient info
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
-  const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
+  // Patient data
+  const [patientData, setPatientData] = useState<PatientData>({
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: '',
+  });
 
   // Shipping address
-  const [address1, setAddress1] = useState('');
-  const [address2, setAddress2] = useState('');
-  const [city, setCity] = useState('');
-  const [state, setState] = useState('');
-  const [zip, setZip] = useState('');
+  const [shippingAddress, setShippingAddress] = useState<ShippingAddress>({
+    addressLine1: '',
+    addressLine2: '',
+    city: '',
+    state: '',
+    zipCode: '',
+    country: 'US',
+  });
 
-  // Payment
+  // Payment state
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [paymentIntentId, setPaymentIntentId] = useState<string | null>(null);
   const [paymentError, setPaymentError] = useState<string | null>(null);
   const [isCreatingIntent, setIsCreatingIntent] = useState(false);
-  const [paymentSucceeded, setPaymentSucceeded] = useState(false);
+  const [paymentComplete, setPaymentComplete] = useState<boolean>(false);
 
   // Body class for intake styles
   useEffect(() => {
@@ -240,60 +352,113 @@ export function CheckoutInner() {
     return () => document.body.classList.remove('intake-body');
   }, []);
 
-  // Prefill from URL params + sessionStorage
+  // Prefill from URL params + sessionStorage, set default dose/plan
   useEffect(() => {
-    setFirstName(
-      searchParams.get('firstName') ||
-        getSessionValue('intake_firstName') ||
-        '',
-    );
-    setLastName(
-      searchParams.get('lastName') ||
-        getSessionValue('intake_lastName') ||
-        '',
-    );
-    setEmail(
-      searchParams.get('email') ||
-        getSessionValue('intake_email') ||
-        '',
-    );
-    setPhone(
-      searchParams.get('phone') ||
-        getSessionValue('intake_phone') ||
-        '',
-    );
+    setPatientData({
+      firstName:
+        searchParams.get('firstName') || getSessionValue('intake_firstName') || '',
+      lastName:
+        searchParams.get('lastName') || getSessionValue('intake_lastName') || '',
+      email:
+        searchParams.get('email') || getSessionValue('intake_email') || '',
+      phone:
+        searchParams.get('phone') || getSessionValue('intake_phone') || '',
+    });
 
-    // Defaults
-    const defaultDose =
-      doses.find((d) => d.id === config.defaultDoseId) || doses[0];
-    if (defaultDose) {
-      setSelectedDose(defaultDose);
-      const defaultPlan =
-        defaultDose.plans.find((p) => p.id === config.defaultPlanId) ||
-        defaultDose.plans[0];
-      if (defaultPlan) setSelectedPlan(defaultPlan);
+    const addrLine1 =
+      searchParams.get('address') || getSessionValue('intake_address') || '';
+    const addrCity =
+      searchParams.get('city') || getSessionValue('intake_city') || '';
+    const addrState =
+      searchParams.get('state') || getSessionValue('intake_state') || '';
+    const addrZip =
+      searchParams.get('zip') || getSessionValue('intake_zip') || '';
+
+    if (addrLine1 || addrCity || addrState || addrZip) {
+      setShippingAddress((prev) => ({
+        ...prev,
+        addressLine1: addrLine1 || prev.addressLine1,
+        city: addrCity || prev.city,
+        state: addrState || prev.state,
+        zipCode: addrZip || prev.zipCode,
+      }));
     }
-  }, [searchParams]);
 
-  // Addon total
-  const addonsTotal = useMemo(() => {
-    return config.addons
-      .filter((a) => selectedAddons.includes(a.id))
-      .reduce((sum, a) => {
-        let price = a.basePrice;
-        if (a.hasDuration && selectedPlan) {
-          if (selectedPlan.type === '3month') price *= 3;
-          if (selectedPlan.type === '6month') price *= 6;
-        }
-        return sum + price;
-      }, 0);
-  }, [selectedAddons, selectedPlan]);
+    // Set defaults for dose/plan
+    if (hasDoseBasedPricing && doses.length > 0) {
+      const defaultDoseId = productConfig.defaultDoseId || doses[0].id;
+      setSelectedDose(defaultDoseId);
 
-  const promoDiscount = promoApplied ? 25 : 0;
-  const subtotal = (selectedPlan?.price || 0) + addonsTotal;
-  const orderTotal = Math.max(0, subtotal - promoDiscount);
+      const doseData = doses.find((d) => d.id === defaultDoseId);
+      if (doseData && doseData.plans.length > 0) {
+        const defaultPlanId = productConfig.defaultPlanId || doseData.plans[0].id;
+        const planExists = doseData.plans.some((p) => p.id === defaultPlanId);
+        setSelectedPlan(planExists ? defaultPlanId : doseData.plans[0].id);
+      }
+    } else if (productConfig.defaultPlanId) {
+      setSelectedPlan(productConfig.defaultPlanId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, medication]);
 
-  // Promo validation
+  // Derived: selected dose object
+  const selectedDoseData = useMemo(() => {
+    if (!hasDoseBasedPricing) return null;
+    return doses.find((d) => d.id === selectedDose) || null;
+  }, [hasDoseBasedPricing, doses, selectedDose]);
+
+  // Derived: available plans based on dose
+  const availablePlans = useMemo(() => {
+    if (hasDoseBasedPricing && selectedDoseData) {
+      return selectedDoseData.plans;
+    }
+    return productConfig.plans || [];
+  }, [hasDoseBasedPricing, selectedDoseData, productConfig]);
+
+  // When dose changes, try to keep matching plan type or reset
+  useEffect(() => {
+    if (hasDoseBasedPricing && selectedDoseData && selectedDoseData.plans.length > 0) {
+      const currentPlanExists = selectedDoseData.plans.some((p) => p.id === selectedPlan);
+      if (!currentPlanExists) {
+        const currentPlanData = availablePlans.find((p) => p.id === selectedPlan);
+        const matchingPlan = currentPlanData
+          ? selectedDoseData.plans.find((p) => p.type === currentPlanData.type)
+          : null;
+        setSelectedPlan(matchingPlan?.id || selectedDoseData.plans[0].id);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedDose, selectedDoseData, hasDoseBasedPricing]);
+
+  // Derived: selected plan object
+  const selectedPlanData = useMemo(() => {
+    return availablePlans.find((p) => p.id === selectedPlan) || null;
+  }, [availablePlans, selectedPlan]);
+
+  // Calculate totals
+  const totals = useMemo(() => {
+    const planPrice = selectedPlanData?.price ?? 0;
+
+    const addonTotal = selectedAddons.reduce((sum, addonId) => {
+      const addon = productConfig.addons.find((a) => a.id === addonId);
+      if (!addon) return sum;
+      let addonPrice = addon.basePrice;
+      if (addon.hasDuration && selectedPlanData) {
+        if (selectedPlanData.type === '3month') addonPrice *= 3;
+        if (selectedPlanData.type === '6month') addonPrice *= 6;
+      }
+      return sum + addonPrice;
+    }, 0);
+
+    const shippingCost = expeditedShipping ? 25 : 0;
+    const subtotal = planPrice + addonTotal;
+    const discount = promoApplied ? 25 : 0;
+    const total = Math.max(0, subtotal + shippingCost - discount);
+
+    return { planPrice, addonTotal, shippingCost, subtotal, discount, total };
+  }, [selectedPlanData, selectedAddons, productConfig, expeditedShipping, promoApplied]);
+
+  // Promo code validation
   const handleApplyPromo = () => {
     const allowed = new Set(['EON25', 'SAVE25', 'WELCOME']);
     if (allowed.has(promoCode.toUpperCase())) {
@@ -304,27 +469,37 @@ export function CheckoutInner() {
     }
   };
 
+  // Addon toggle
   const toggleAddon = (id: string) => {
     setSelectedAddons((prev) =>
       prev.includes(id) ? prev.filter((a) => a !== id) : [...prev, id],
     );
   };
 
-  // Validation
-  const canProceedStep1 = selectedPlan && (!hasDoseSelection || selectedDose);
-  const canProceedStep2 =
-    firstName.trim() &&
-    lastName.trim() &&
-    email.trim() &&
-    phone.trim() &&
-    address1.trim() &&
-    city.trim() &&
-    state.trim() &&
-    zip.trim();
+  // Navigation
+  const handleContinue = () => {
+    if (currentStep < 3) setCurrentStep(currentStep + 1);
+  };
 
-  // Create payment intent and go to step 3
+  const handleBack = () => {
+    if (currentStep > 1) setCurrentStep(currentStep - 1);
+  };
+
+  // Step validation
+  const canProceedStep1 = selectedPlan && (!hasDoseBasedPricing || selectedDose);
+  const canProceedStep2 =
+    patientData.firstName.trim() &&
+    patientData.lastName.trim() &&
+    patientData.email.trim() &&
+    patientData.phone.trim() &&
+    shippingAddress.addressLine1.trim() &&
+    shippingAddress.city.trim() &&
+    shippingAddress.state.trim() &&
+    shippingAddress.zipCode.trim();
+
+  // Create payment intent and advance to step 3
   const handleContinueToPayment = async () => {
-    if (!canProceedStep2 || !selectedPlan) return;
+    if (!canProceedStep2 || !selectedPlanData) return;
     setIsCreatingIntent(true);
     setPaymentError(null);
 
@@ -333,43 +508,37 @@ export function CheckoutInner() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          amount: orderTotal * 100,
+          amount: totals.total * 100,
           currency: 'usd',
-          customer_email: email,
-          customer_name: `${firstName} ${lastName}`,
-          customer_phone: phone,
-          shipping_address: {
-            addressLine1: address1,
-            addressLine2: address2,
-            city,
-            state,
-            zipCode: zip,
-            country: 'US',
-          },
+          customer_email: patientData.email,
+          customer_name: `${patientData.firstName} ${patientData.lastName}`,
+          customer_phone: patientData.phone,
+          shipping_address: shippingAddress,
           order_data: {
-            medication: config.name,
-            dose: selectedDose?.strength,
-            plan:
-              language === 'en' ? selectedPlan.nameEn : selectedPlan.nameEs,
-            addons: config.addons
+            medication: productConfig.name,
+            dose: selectedDoseData?.strength,
+            plan: language === 'en' ? selectedPlanData.nameEn : selectedPlanData.nameEs,
+            billing: selectedPlanData.billing,
+            addons: productConfig.addons
               .filter((a) => selectedAddons.includes(a.id))
               .map((a) => a.nameEn),
-            subtotal,
-            discount: promoDiscount,
-            total: orderTotal,
+            expeditedShipping,
+            subtotal: totals.subtotal,
+            shippingCost: totals.shippingCost,
+            discount: totals.discount,
+            total: totals.total,
           },
-          metadata: { product_id: config.id },
+          metadata: { product_id: productConfig.id },
           language,
         }),
       });
 
       const data = await res.json();
-      if (!res.ok)
-        throw new Error(data.message || data.error || 'Payment setup failed');
+      if (!res.ok) throw new Error(data.message || data.error || 'Payment setup failed');
 
       setClientSecret(data.clientSecret);
       setPaymentIntentId(data.paymentIntentId);
-      setStep(3);
+      setCurrentStep(3);
     } catch (err: unknown) {
       setPaymentError(
         err instanceof Error ? err.message : 'Failed to initialize payment',
@@ -380,9 +549,9 @@ export function CheckoutInner() {
   };
 
   // ========================================================================
-  // Thank You
+  // Thank You Page (Inline)
   // ========================================================================
-  if (paymentSucceeded) {
+  if (paymentComplete) {
     return (
       <div className="mx-auto max-w-lg px-4 py-16 text-center">
         <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-green-100">
@@ -391,77 +560,69 @@ export function CheckoutInner() {
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
+            strokeWidth={2}
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M5 13l4 4L19 7"
-            />
+            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
           </svg>
         </div>
-        <h1 className="page-title mb-2">{t('thankYou')}</h1>
-        <p className="page-subtitle mb-8">{t('orderConfirmed')}</p>
+        <h1 className="page-title mb-2">{t.thankYou}</h1>
+        <p className="page-subtitle mb-8">{t.orderConfirmed}</p>
 
-        {/* Order details */}
         <div className="rounded-2xl border border-gray-200 bg-white p-6 text-left shadow-sm">
-          <h3 className="mb-4 text-lg font-semibold text-gray-900">
-            {t('orderDetails')}
-          </h3>
+          <h3 className="mb-4 text-lg font-semibold text-gray-900">{t.orderDetails}</h3>
           <div className="space-y-3 text-sm">
             <div className="flex justify-between">
-              <span className="text-gray-500">{t('medication')}</span>
-              <span className="font-medium text-gray-900">{config.name}</span>
+              <span className="text-gray-500">{t.medication}</span>
+              <span className="font-medium text-gray-900">{productConfig.name}</span>
             </div>
-            {selectedDose && (
+            {selectedDoseData && (
               <div className="flex justify-between">
-                <span className="text-gray-500">{t('dose')}</span>
-                <span className="font-medium text-gray-900">
-                  {selectedDose.strength}
-                </span>
+                <span className="text-gray-500">{t.dose}</span>
+                <span className="font-medium text-gray-900">{selectedDoseData.strength}</span>
               </div>
             )}
             <div className="flex justify-between">
-              <span className="text-gray-500">{t('plan')}</span>
+              <span className="text-gray-500">{t.plan}</span>
               <span className="font-medium text-gray-900">
-                {language === 'en'
-                  ? selectedPlan?.nameEn
-                  : selectedPlan?.nameEs}
+                {language === 'en' ? selectedPlanData?.nameEn : selectedPlanData?.nameEs}
               </span>
             </div>
             {selectedAddons.length > 0 && (
               <div className="flex justify-between">
-                <span className="text-gray-500">{t('addons')}</span>
+                <span className="text-gray-500">{t.addons}</span>
                 <span className="font-medium text-gray-900">
-                  {config.addons
+                  {productConfig.addons
                     .filter((a) => selectedAddons.includes(a.id))
-                    .map((a) =>
-                      language === 'en' ? a.nameEn : a.nameEs,
-                    )
+                    .map((a) => (language === 'en' ? a.nameEn : a.nameEs))
                     .join(', ')}
                 </span>
               </div>
             )}
+            {expeditedShipping && (
+              <div className="flex justify-between">
+                <span className="text-gray-500">{t.shipping}</span>
+                <span className="font-medium text-gray-900">$25.00</span>
+              </div>
+            )}
+            {totals.discount > 0 && (
+              <div className="flex justify-between text-green-600">
+                <span>{t.discount}</span>
+                <span>-${totals.discount.toFixed(2)}</span>
+              </div>
+            )}
             <div className="border-t border-gray-100 pt-3">
               <div className="flex justify-between text-base font-semibold">
-                <span>{t('total')}</span>
-                <span className="text-green-600">${orderTotal}</span>
+                <span>{t.total}</span>
+                <span className="text-green-600">${totals.total.toFixed(2)}</span>
               </div>
             </div>
           </div>
         </div>
 
-        {/* What's Next */}
         <div className="mt-8 rounded-2xl border border-gray-200 bg-white p-6 text-left shadow-sm">
-          <h3 className="mb-4 text-lg font-semibold text-gray-900">
-            {t('whatsNext')}
-          </h3>
+          <h3 className="mb-4 text-lg font-semibold text-gray-900">{t.whatsNext}</h3>
           <div className="space-y-4">
-            {[
-              t('whatsNextStep1'),
-              t('whatsNextStep2'),
-              t('whatsNextStep3'),
-            ].map((text, i) => (
+            {[t.whatsNextStep1, t.whatsNextStep2, t.whatsNextStep3].map((text, i) => (
               <div key={i} className="flex items-start gap-3">
                 <div
                   className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full text-sm font-bold text-white"
@@ -469,14 +630,14 @@ export function CheckoutInner() {
                 >
                   {i + 1}
                 </div>
-                <p className="text-sm text-gray-600 pt-0.5">{text}</p>
+                <p className="pt-0.5 text-sm text-gray-600">{text}</p>
               </div>
             ))}
           </div>
         </div>
 
         <p className="mt-6 text-sm text-gray-500">
-          {t('confirmationEmail')} <strong>{email}</strong>
+          {t.confirmationEmail} <strong>{patientData.email}</strong>
         </p>
       </div>
     );
@@ -489,46 +650,30 @@ export function CheckoutInner() {
     <div className="mx-auto max-w-2xl px-4 py-8">
       <LanguageToggle />
 
-      {/* Progress indicator */}
+      {/* Progress Indicator */}
       <div className="mb-8">
         <div className="flex items-center justify-center gap-3">
-          {[1, 2, 3].map((s) => (
-            <React.Fragment key={s}>
+          {[1, 2, 3].map((step) => (
+            <React.Fragment key={step}>
               <div
                 className={`flex h-9 w-9 items-center justify-center rounded-full text-sm font-semibold transition-colors ${
-                  s < step
-                    ? 'text-white'
-                    : s === step
-                      ? 'text-white'
-                      : 'bg-gray-200 text-gray-500'
+                  step <= currentStep ? 'text-white' : 'bg-gray-200 text-gray-500'
                 }`}
                 style={{
-                  backgroundColor: s <= step ? primaryColor : undefined,
+                  backgroundColor: step <= currentStep ? primaryColor : undefined,
                 }}
               >
-                {s < step ? (
-                  <svg
-                    className="h-4 w-4"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={3}
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M5 13l4 4L19 7"
-                    />
-                  </svg>
+                {step < currentStep ? (
+                  <CheckIcon className="h-4 w-4" />
                 ) : (
-                  s
+                  step
                 )}
               </div>
-              {s < 3 && (
+              {step < 3 && (
                 <div
                   className="h-1 w-12 rounded-full transition-colors"
                   style={{
-                    backgroundColor: s < step ? primaryColor : '#e5e7eb',
+                    backgroundColor: step < currentStep ? primaryColor : '#e5e7eb',
                   }}
                 />
               )}
@@ -538,11 +683,11 @@ export function CheckoutInner() {
       </div>
 
       {/* ================================================================ */}
-      {/* STEP 1 — Dose & Plan                                            */}
+      {/* STEP 1 — Dose & Plan Selection                                   */}
       {/* ================================================================ */}
-      {step === 1 && (
+      {currentStep === 1 && (
         <div>
-          {/* Congratulations header */}
+          {/* Congratulations Header */}
           <div className="mb-8 text-center">
             <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-green-100">
               <svg
@@ -552,50 +697,38 @@ export function CheckoutInner() {
                 stroke="currentColor"
                 strokeWidth={2}
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M5 13l4 4L19 7"
-                />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
               </svg>
             </div>
-            <h1 className="page-title mb-1">{t('congratulations')}</h1>
-            <p className="page-subtitle">{config.name}</p>
+            <h1 className="page-title mb-1">{t.congratulations}</h1>
+            <p className="page-subtitle">{productConfig.name}</p>
           </div>
 
-          {/* Product info bar */}
+          {/* Product Info Bar */}
           <div className="mb-6 rounded-xl bg-gray-50 p-4">
-            <h3 className="font-semibold text-gray-900">{config.name}</h3>
+            <h3 className="font-semibold text-gray-900">{productConfig.name}</h3>
             <p className="text-sm text-gray-600">
-              {language === 'es' ? config.taglineEs : config.taglineEn}
+              {language === 'es' ? productConfig.taglineEs : productConfig.taglineEn}
             </p>
-            {config.efficacy && (
+            {productConfig.efficacy && (
               <p className="mt-1 text-sm font-medium" style={{ color: primaryColor }}>
-                {language === 'es' ? config.efficacyEs : config.efficacy}
+                {language === 'es' ? productConfig.efficacyEs : productConfig.efficacy}
               </p>
             )}
           </div>
 
-          {/* Dose selection */}
-          {hasDoseSelection && (
+          {/* Dose Selection */}
+          {hasDoseBasedPricing && (
             <div className="mb-8">
-              <h2 className="mb-1 text-lg font-bold text-gray-900">
-                {t('selectDose')}
-              </h2>
-              <p className="mb-4 text-sm text-gray-500">
-                {t('doseSubtitle')}
-              </p>
+              <h2 className="mb-1 text-lg font-bold text-gray-900">{t.selectDose}</h2>
+              <p className="mb-4 text-sm text-gray-500">{t.doseSubtitle}</p>
               <div className="grid gap-3 sm:grid-cols-2">
                 {doses.map((dose) => (
                   <DoseCard
                     key={dose.id}
                     dose={dose}
-                    isSelected={selectedDose?.id === dose.id}
-                    onSelect={() => {
-                      setSelectedDose(dose);
-                      const firstPlan = dose.plans[0];
-                      if (firstPlan) setSelectedPlan(firstPlan);
-                    }}
+                    isSelected={selectedDose === dose.id}
+                    onSelect={() => setSelectedDose(dose.id)}
                     language={language}
                     primaryColor={primaryColor}
                     t={t}
@@ -605,22 +738,18 @@ export function CheckoutInner() {
             </div>
           )}
 
-          {/* Plan selection */}
-          {selectedDose && (
+          {/* Plan Selection */}
+          {(selectedDose || !hasDoseBasedPricing) && availablePlans.length > 0 && (
             <div className="mb-8">
-              <h2 className="mb-1 text-lg font-bold text-gray-900">
-                {t('selectPlan')}
-              </h2>
-              <p className="mb-4 text-sm text-gray-500">
-                {t('planSubtitle')}
-              </p>
+              <h2 className="mb-1 text-lg font-bold text-gray-900">{t.selectPlan}</h2>
+              <p className="mb-4 text-sm text-gray-500">{t.planSubtitle}</p>
               <div className="space-y-3">
-                {selectedDose.plans.map((plan) => (
+                {availablePlans.map((plan) => (
                   <PlanCard
                     key={plan.id}
                     plan={plan}
-                    isSelected={selectedPlan?.id === plan.id}
-                    onSelect={() => setSelectedPlan(plan)}
+                    isSelected={selectedPlan === plan.id}
+                    onSelect={() => setSelectedPlan(plan.id)}
                     language={language}
                     primaryColor={primaryColor}
                     t={t}
@@ -631,20 +760,18 @@ export function CheckoutInner() {
           )}
 
           {/* Add-ons */}
-          {config.features?.enableAddons && config.addons.length > 0 && (
+          {productConfig.features?.enableAddons && productConfig.addons.length > 0 && (
             <div className="mb-8">
-              <h2 className="mb-4 text-lg font-bold text-gray-900">
-                {t('optionalAddons')}
-              </h2>
+              <h2 className="mb-4 text-lg font-bold text-gray-900">{t.optionalAddons}</h2>
               <div className="space-y-3">
-                {config.addons.map((addon) => (
+                {productConfig.addons.map((addon) => (
                   <AddonCard
                     key={addon.id}
                     addon={addon}
-                    selected={selectedAddons.includes(addon.id)}
+                    isSelected={selectedAddons.includes(addon.id)}
                     onToggle={() => toggleAddon(addon.id)}
                     language={language}
-                    selectedPlan={selectedPlan}
+                    selectedPlan={selectedPlanData || undefined}
                     primaryColor={primaryColor}
                   />
                 ))}
@@ -652,8 +779,8 @@ export function CheckoutInner() {
             </div>
           )}
 
-          {/* Promo code */}
-          {config.features?.enablePromoCode && (
+          {/* Promo Code */}
+          {productConfig.features?.enablePromoCode && (
             <div className="mb-6">
               <div className="flex gap-2">
                 <input
@@ -663,7 +790,7 @@ export function CheckoutInner() {
                     setPromoCode(e.target.value);
                     setPromoInvalid(false);
                   }}
-                  placeholder={t('promoCode')}
+                  placeholder={t.promoCode}
                   className="input-field flex-1"
                   disabled={promoApplied}
                 />
@@ -674,11 +801,11 @@ export function CheckoutInner() {
                   className="rounded-xl px-5 py-2.5 text-sm font-semibold text-white transition disabled:opacity-50"
                   style={{ backgroundColor: primaryColor }}
                 >
-                  {promoApplied ? t('promoApplied') : t('applyPromo')}
+                  {promoApplied ? t.promoApplied : t.applyPromo}
                 </button>
               </div>
               {promoInvalid && (
-                <p className="mt-1 text-sm text-red-500">{t('promoInvalid')}</p>
+                <p className="mt-1 text-sm text-red-500">{t.promoInvalid}</p>
               )}
             </div>
           )}
@@ -686,129 +813,101 @@ export function CheckoutInner() {
           {/* Order Summary */}
           <div className="mb-6 rounded-2xl border border-gray-200 bg-gray-50 p-5">
             <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">
-              {t('orderSummary')}
+              {t.orderSummary}
             </h3>
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
-                <span className="text-gray-600">{t('subtotal')}</span>
-                <span className="font-medium text-gray-900">
-                  ${subtotal.toFixed(2)}
-                </span>
+                <span className="text-gray-600">{t.subtotal}</span>
+                <span className="font-medium text-gray-900">${totals.subtotal.toFixed(2)}</span>
               </div>
-              {addonsTotal > 0 && (
+              {totals.addonTotal > 0 && (
                 <div className="flex justify-between text-xs text-gray-400">
-                  <span>{t('optionalAddons')}</span>
-                  <span>+${addonsTotal.toFixed(2)}</span>
+                  <span>{t.optionalAddons}</span>
+                  <span>+${totals.addonTotal.toFixed(2)}</span>
                 </div>
               )}
               <div className="flex justify-between">
-                <span className="text-gray-600">{t('shipping')}</span>
+                <span className="text-gray-600">{t.shipping}</span>
                 <span className="font-medium text-green-600">
-                  {t('shippingFree')}
+                  {expeditedShipping ? '$25.00' : t.shippingFree}
                 </span>
               </div>
               {promoApplied && (
                 <div className="flex justify-between text-green-600">
-                  <span>{t('discount')}</span>
-                  <span>-${promoDiscount.toFixed(2)}</span>
+                  <span>{t.discount}</span>
+                  <span>-${totals.discount.toFixed(2)}</span>
                 </div>
               )}
               <div className="border-t border-gray-200 pt-2">
                 <div className="flex justify-between text-base font-bold">
-                  <span>{t('total')}</span>
-                  <span style={{ color: primaryColor }}>
-                    ${orderTotal.toFixed(2)}
-                  </span>
+                  <span>{t.total}</span>
+                  <span style={{ color: primaryColor }}>${totals.total.toFixed(2)}</span>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Included benefits */}
+          {/* Included Benefits */}
           <div className="mb-6 space-y-2 text-sm text-gray-500">
             <div className="flex items-center gap-2">
-              <svg
-                className="h-4 w-4 text-green-500"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2.5}
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M5 13l4 4L19 7"
-                />
-              </svg>
-              <span>{t('medicalConsultation')}</span>
+              <CheckIcon className="h-4 w-4 text-green-500" />
+              <span>{t.medicalConsultation}</span>
             </div>
             <div className="flex items-center gap-2">
-              <svg
-                className="h-4 w-4 text-green-500"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2.5}
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M5 13l4 4L19 7"
-                />
-              </svg>
-              <span>{t('freeShipping')}</span>
+              <CheckIcon className="h-4 w-4 text-green-500" />
+              <span>{t.freeShipping}</span>
             </div>
           </div>
 
-          {/* Continue button */}
+          {/* Continue Button */}
           <button
             type="button"
             disabled={!canProceedStep1}
-            onClick={() => setStep(2)}
+            onClick={() => setCurrentStep(2)}
             className="continue-button"
           >
-            {t('continueShipping')}
+            {t.continueShipping}
           </button>
         </div>
       )}
 
       {/* ================================================================ */}
-      {/* STEP 2 — Shipping                                               */}
+      {/* STEP 2 — Shipping Information                                    */}
       {/* ================================================================ */}
-      {step === 2 && (
+      {currentStep === 2 && (
         <div>
-          <h1 className="page-title mb-1 text-center">
-            {t('shippingTitle')}
-          </h1>
-          <p className="page-subtitle mb-8 text-center">
-            {t('shippingSubtitle')}
-          </p>
+          <h1 className="page-title mb-1 text-center">{t.shippingPayment}</h1>
+          <p className="page-subtitle mb-8 text-center">{t.shippingSubtitle}</p>
 
           <div className="space-y-4">
-            {/* Name row */}
+            {/* Name Row */}
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
                 <label className="mb-1 block text-sm font-medium text-gray-700">
-                  {t('firstName')}
+                  {t.firstName}
                 </label>
                 <input
                   type="text"
-                  value={firstName}
-                  onChange={(e) => setFirstName(e.target.value)}
+                  value={patientData.firstName}
+                  onChange={(e) =>
+                    setPatientData({ ...patientData, firstName: e.target.value })
+                  }
                   className="input-field"
-                  placeholder={t('firstName')}
+                  placeholder={t.firstName}
                 />
               </div>
               <div>
                 <label className="mb-1 block text-sm font-medium text-gray-700">
-                  {t('lastName')}
+                  {t.lastName}
                 </label>
                 <input
                   type="text"
-                  value={lastName}
-                  onChange={(e) => setLastName(e.target.value)}
+                  value={patientData.lastName}
+                  onChange={(e) =>
+                    setPatientData({ ...patientData, lastName: e.target.value })
+                  }
                   className="input-field"
-                  placeholder={t('lastName')}
+                  placeholder={t.lastName}
                 />
               </div>
             </div>
@@ -816,57 +915,64 @@ export function CheckoutInner() {
             {/* Email */}
             <div>
               <label className="mb-1 block text-sm font-medium text-gray-700">
-                {t('email')}
+                {t.email}
               </label>
               <input
                 type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                value={patientData.email}
+                onChange={(e) =>
+                  setPatientData({ ...patientData, email: e.target.value })
+                }
                 className="input-field"
-                placeholder={t('email')}
+                placeholder={t.email}
               />
             </div>
 
             {/* Phone */}
             <div>
               <label className="mb-1 block text-sm font-medium text-gray-700">
-                {t('phone')}
+                {t.phone}
               </label>
               <input
                 type="tel"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
+                value={patientData.phone}
+                onChange={(e) =>
+                  setPatientData({ ...patientData, phone: e.target.value })
+                }
                 className="input-field"
                 placeholder="(555) 123-4567"
               />
             </div>
 
-            {/* Address */}
+            {/* Street Address */}
             <div>
               <label className="mb-1 block text-sm font-medium text-gray-700">
-                {t('address')}
+                {t.address}
               </label>
               <input
                 type="text"
-                value={address1}
-                onChange={(e) => setAddress1(e.target.value)}
+                value={shippingAddress.addressLine1}
+                onChange={(e) =>
+                  setShippingAddress({ ...shippingAddress, addressLine1: e.target.value })
+                }
                 className="input-field"
-                placeholder={t('address')}
-                id="checkout-address-autocomplete"
+                placeholder={t.address}
               />
             </div>
 
-            {/* Apt */}
+            {/* Apt / Suite */}
             <div>
               <label className="mb-1 block text-sm font-medium text-gray-700">
-                {t('address2')}
+                {t.address2}
               </label>
               <input
                 type="text"
-                value={address2}
-                onChange={(e) => setAddress2(e.target.value)}
+                value={shippingAddress.addressLine2 || ''}
+                onChange={(e) =>
+                  setShippingAddress({ ...shippingAddress, addressLine2: e.target.value })
+                }
                 className="input-field"
-                placeholder={t('address2')}
+                placeholder={t.address2}
               />
             </div>
 
@@ -874,43 +980,62 @@ export function CheckoutInner() {
             <div className="grid gap-4 sm:grid-cols-3">
               <div>
                 <label className="mb-1 block text-sm font-medium text-gray-700">
-                  {t('city')}
+                  {t.city}
                 </label>
                 <input
                   type="text"
-                  value={city}
-                  onChange={(e) => setCity(e.target.value)}
+                  value={shippingAddress.city}
+                  onChange={(e) =>
+                    setShippingAddress({ ...shippingAddress, city: e.target.value })
+                  }
                   className="input-field"
-                  placeholder={t('city')}
+                  placeholder={t.city}
                 />
               </div>
               <div>
                 <label className="mb-1 block text-sm font-medium text-gray-700">
-                  {t('state')}
+                  {t.state}
                 </label>
                 <input
                   type="text"
-                  value={state}
-                  onChange={(e) => setState(e.target.value)}
+                  value={shippingAddress.state}
+                  onChange={(e) =>
+                    setShippingAddress({ ...shippingAddress, state: e.target.value })
+                  }
                   className="input-field"
-                  placeholder={t('state')}
+                  placeholder={t.state}
                   maxLength={2}
                 />
               </div>
               <div>
                 <label className="mb-1 block text-sm font-medium text-gray-700">
-                  {t('zip')}
+                  {t.zip}
                 </label>
                 <input
                   type="text"
-                  value={zip}
-                  onChange={(e) => setZip(e.target.value)}
+                  value={shippingAddress.zipCode}
+                  onChange={(e) =>
+                    setShippingAddress({ ...shippingAddress, zipCode: e.target.value })
+                  }
                   className="input-field"
                   placeholder="12345"
                   maxLength={5}
                 />
               </div>
             </div>
+
+            {/* Expedited Shipping */}
+            {productConfig.features?.enableExpeditedShipping && (
+              <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-gray-200 p-4 transition hover:border-gray-300">
+                <input
+                  type="checkbox"
+                  checked={expeditedShipping}
+                  onChange={(e) => setExpeditedShipping(e.target.checked)}
+                  className="h-5 w-5 rounded"
+                />
+                <span className="text-sm text-gray-700">{t.expeditedShipping}</span>
+              </label>
+            )}
           </div>
 
           {paymentError && (
@@ -922,10 +1047,10 @@ export function CheckoutInner() {
           <div className="mt-8 flex gap-3">
             <button
               type="button"
-              onClick={() => setStep(1)}
+              onClick={handleBack}
               className="rounded-xl border border-gray-300 px-6 py-3 font-medium text-gray-700 transition hover:bg-gray-50"
             >
-              {t('back')}
+              {t.back}
             </button>
             <button
               type="button"
@@ -933,18 +1058,16 @@ export function CheckoutInner() {
               onClick={handleContinueToPayment}
               className="continue-button flex-1"
             >
-              {isCreatingIntent
-                ? t('processing')
-                : t('continuePayment')}
+              {isCreatingIntent ? t.processing : t.continuePayment}
             </button>
           </div>
         </div>
       )}
 
       {/* ================================================================ */}
-      {/* STEP 3 — Payment                                                */}
+      {/* STEP 3 — Payment                                                 */}
       {/* ================================================================ */}
-      {step === 3 && clientSecret && (
+      {currentStep === 3 && clientSecret && (
         <Elements
           stripe={stripePromise}
           options={{
@@ -962,20 +1085,21 @@ export function CheckoutInner() {
           <PaymentStep
             clientSecret={clientSecret}
             paymentIntentId={paymentIntentId}
-            orderTotal={orderTotal}
-            subtotal={subtotal}
-            addonsTotal={addonsTotal}
-            promoDiscount={promoDiscount}
-            selectedDose={selectedDose}
-            selectedPlan={selectedPlan}
+            orderTotal={totals.total}
+            subtotal={totals.subtotal}
+            addonTotal={totals.addonTotal}
+            promoDiscount={totals.discount}
+            shippingCost={totals.shippingCost}
+            selectedDose={selectedDoseData}
+            selectedPlan={selectedPlanData}
             selectedAddons={selectedAddons}
-            addons={config.addons}
-            productName={config.name}
+            addons={productConfig.addons}
+            productName={productConfig.name}
             primaryColor={primaryColor}
             language={language}
             t={t}
-            onBack={() => setStep(2)}
-            onSuccess={() => setPaymentSucceeded(true)}
+            onBack={() => setCurrentStep(2)}
+            onSuccess={() => setPaymentComplete(true)}
           />
         </Elements>
       )}
@@ -984,7 +1108,7 @@ export function CheckoutInner() {
 }
 
 // ============================================================================
-// DoseCard
+// DoseCard — Side-by-side dose selection with strength, badge, starting price
 // ============================================================================
 
 function DoseCard({
@@ -1000,7 +1124,7 @@ function DoseCard({
   onSelect: () => void;
   language: string;
   primaryColor: string;
-  t: (key: string) => string;
+  t: typeof translations.en;
 }) {
   const startingPrice =
     dose.plans.length > 0 ? Math.min(...dose.plans.map((p) => p.price)) : 0;
@@ -1019,51 +1143,46 @@ function DoseCard({
         backgroundColor: isSelected ? `${primaryColor}08` : undefined,
       }}
     >
+      {/* Recommended badge */}
       {dose.isStarterDose && (
         <span
           className="absolute -top-2.5 right-4 rounded-full px-3 py-0.5 text-xs font-semibold text-white"
           style={{ backgroundColor: primaryColor }}
         >
-          {t('recommended')}
+          {t.recommended}
         </span>
       )}
 
+      {/* Dose strength — prominent */}
       <div
         className="mb-1 text-2xl font-bold"
         style={{ color: isSelected ? primaryColor : undefined }}
       >
         {dose.strength}
       </div>
+
+      {/* Dose label */}
       <div className="font-semibold text-gray-900">
-        {dose.isStarterDose ? t('starterDose') : t('higherDose')}
+        {dose.isStarterDose ? t.starterDose : t.higherDose}
       </div>
+
+      {/* Description */}
       <p className="mb-3 mt-2 text-sm text-gray-500">{dose.description}</p>
+
+      {/* Starting price */}
       <div className="text-sm">
-        <span className="text-gray-400">{t('startingAt')} </span>
-        <span className="text-lg font-bold text-gray-900">
-          ${startingPrice}
-        </span>
+        <span className="text-gray-400">{t.startingAt} </span>
+        <span className="text-lg font-bold text-gray-900">${startingPrice}</span>
         <span className="text-gray-400">/{language === 'es' ? 'mes' : 'mo'}</span>
       </div>
 
+      {/* Selection indicator — green circle with white checkmark */}
       {isSelected && (
         <div
           className="absolute left-4 top-4 flex h-5 w-5 items-center justify-center rounded-full"
           style={{ backgroundColor: primaryColor }}
         >
-          <svg
-            className="h-3 w-3 text-white"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            strokeWidth={3}
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M5 13l4 4L19 7"
-            />
-          </svg>
+          <CheckIcon className="h-3 w-3 text-white" />
         </div>
       )}
     </button>
@@ -1071,7 +1190,7 @@ function DoseCard({
 }
 
 // ============================================================================
-// PlanCard
+// PlanCard — Horizontal row: plan name left, price right, badge, savings
 // ============================================================================
 
 function PlanCard({
@@ -1082,12 +1201,12 @@ function PlanCard({
   primaryColor,
   t,
 }: {
-  plan: DosePlanOption;
+  plan: PlanOption | DosePlanOption;
   isSelected: boolean;
   onSelect: () => void;
   language: string;
   primaryColor: string;
-  t: (key: string) => string;
+  t: typeof translations.en;
 }) {
   const planName = language === 'es' ? plan.nameEs : plan.nameEn;
   const badge = language === 'es' ? (plan.badgeEs || plan.badge) : plan.badge;
@@ -1106,6 +1225,7 @@ function PlanCard({
         backgroundColor: isSelected ? `${primaryColor}08` : undefined,
       }}
     >
+      {/* Badge (top-right) */}
       {badge && (
         <span
           className="absolute -top-2.5 right-4 rounded-full px-2.5 py-0.5 text-xs font-semibold text-white"
@@ -1115,6 +1235,7 @@ function PlanCard({
         </span>
       )}
 
+      {/* Plan name (left) + Price (right) */}
       <div className="flex items-center justify-between">
         <div>
           <span className="font-semibold text-gray-900">{planName}</span>
@@ -1128,39 +1249,27 @@ function PlanCard({
           </span>
           <span className="ml-1 text-sm text-gray-500">
             {plan.billing === 'monthly' && (language === 'es' ? '/mes' : '/mo')}
-            {plan.billing === 'total' &&
-              (language === 'es' ? ' pago único' : ' one payment')}
-            {plan.billing === 'once' &&
-              (language === 'es' ? ' compra única' : ' one-time')}
+            {plan.billing === 'total' && (language === 'es' ? ' pago único' : ' one payment')}
+            {plan.billing === 'once' && (language === 'es' ? ' compra única' : ' one-time')}
           </span>
         </div>
       </div>
 
+      {/* Savings text in green */}
       {plan.savings && plan.savings > 0 && (
         <p className="mt-1 text-sm font-medium" style={{ color: primaryColor }}>
-          {t('save')} ${plan.savings}
+          {t.save} ${plan.savings}
         </p>
       )}
 
+      {/* Selection indicator — green circle with white checkmark */}
       {isSelected && (
         <div className="absolute right-3 top-3">
           <div
             className="flex h-5 w-5 items-center justify-center rounded-full"
             style={{ backgroundColor: primaryColor }}
           >
-            <svg
-              className="h-3 w-3 text-white"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={3}
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M5 13l4 4L19 7"
-              />
-            </svg>
+            <CheckIcon className="h-3 w-3 text-white" />
           </div>
         </div>
       )}
@@ -1169,35 +1278,27 @@ function PlanCard({
 }
 
 // ============================================================================
-// AddonCard
+// AddonCard — Toggle-able add-on with icon, name, description, price
 // ============================================================================
 
 function AddonCard({
   addon,
-  selected,
+  isSelected,
   onToggle,
   language,
   selectedPlan,
   primaryColor,
 }: {
   addon: AddonConfig;
-  selected: boolean;
+  isSelected: boolean;
   onToggle: () => void;
   language: string;
-  selectedPlan: DosePlanOption | null;
+  selectedPlan?: PlanOption | DosePlanOption;
   primaryColor: string;
 }) {
   const name = language === 'es' ? addon.nameEs : addon.nameEn;
-  const description =
-    language === 'es' ? addon.descriptionEs : addon.descriptionEn;
-
-  const iconMap: Record<string, string> = {
-    pill: '💊',
-    flame: '🔥',
-    heart: '❤️',
-    shield: '🛡️',
-    star: '⭐',
-  };
+  const description = language === 'es' ? addon.descriptionEs : addon.descriptionEn;
+  const IconComponent = iconMap[addon.icon] || PillIcon;
 
   let price = addon.basePrice;
   if (addon.hasDuration && selectedPlan) {
@@ -1210,50 +1311,44 @@ function AddonCard({
       type="button"
       onClick={onToggle}
       className={`w-full rounded-xl border-2 p-4 text-left transition-all ${
-        selected
+        isSelected
           ? 'shadow-md'
           : 'border-gray-200 bg-white hover:border-gray-300'
       }`}
       style={{
-        borderColor: selected ? primaryColor : undefined,
-        backgroundColor: selected ? `${primaryColor}08` : undefined,
+        borderColor: isSelected ? primaryColor : undefined,
+        backgroundColor: isSelected ? `${primaryColor}08` : undefined,
       }}
     >
-      <div className="flex items-start gap-3">
-        <span className="text-2xl">{iconMap[addon.icon] || '💊'}</span>
-        <div className="flex-1">
-          <div className="flex items-center justify-between">
-            <span className="font-semibold text-gray-900">{name}</span>
-            <span className="font-bold text-gray-900">${price}</span>
-          </div>
-          <p className="mt-0.5 text-sm text-gray-500">{description}</p>
-        </div>
+      <div className="flex items-start gap-4">
+        {/* Icon */}
         <div
-          className={`mt-1 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded border-2 transition ${
-            selected
-              ? 'border-transparent bg-current'
-              : 'border-gray-300'
-          }`}
-          style={{
-            borderColor: selected ? primaryColor : undefined,
-            backgroundColor: selected ? primaryColor : undefined,
-          }}
+          className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg"
+          style={{ backgroundColor: `${primaryColor}20` }}
         >
-          {selected && (
-            <svg
-              className="h-3 w-3 text-white"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={3}
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M5 13l4 4L19 7"
-              />
-            </svg>
-          )}
+          <IconComponent className="h-5 w-5" style={{ color: primaryColor }} />
+        </div>
+
+        {/* Name + Description */}
+        <div className="flex-1">
+          <div className="font-semibold text-gray-900">{name}</div>
+          <div className="mt-0.5 text-sm text-gray-500">{description}</div>
+        </div>
+
+        {/* Price + Checkbox */}
+        <div className="flex flex-col items-end gap-1">
+          <span className="font-bold text-gray-900">${price}</span>
+          <div
+            className={`flex h-5 w-5 flex-shrink-0 items-center justify-center rounded border-2 transition ${
+              isSelected ? 'border-transparent' : 'border-gray-300'
+            }`}
+            style={{
+              borderColor: isSelected ? primaryColor : undefined,
+              backgroundColor: isSelected ? primaryColor : undefined,
+            }}
+          >
+            {isSelected && <CheckIcon className="h-3 w-3 text-white" />}
+          </div>
         </div>
       </div>
     </button>
@@ -1261,7 +1356,7 @@ function AddonCard({
 }
 
 // ============================================================================
-// PaymentStep
+// PaymentStep — Stripe Elements + PaymentElement + Order Summary
 // ============================================================================
 
 function PaymentStep({
@@ -1269,8 +1364,9 @@ function PaymentStep({
   paymentIntentId,
   orderTotal,
   subtotal,
-  addonsTotal,
+  addonTotal,
   promoDiscount,
+  shippingCost,
   selectedDose,
   selectedPlan,
   selectedAddons,
@@ -1286,16 +1382,17 @@ function PaymentStep({
   paymentIntentId: string | null;
   orderTotal: number;
   subtotal: number;
-  addonsTotal: number;
+  addonTotal: number;
   promoDiscount: number;
+  shippingCost: number;
   selectedDose: DoseWithPlans | null;
-  selectedPlan: DosePlanOption | null;
+  selectedPlan: (PlanOption | DosePlanOption) | null;
   selectedAddons: string[];
   addons: AddonConfig[];
   productName: string;
   primaryColor: string;
   language: string;
-  t: (key: string) => string;
+  t: typeof translations.en;
   onBack: () => void;
   onSuccess: () => void;
 }) {
@@ -1337,13 +1434,13 @@ function PaymentStep({
 
   return (
     <div>
-      <h1 className="page-title mb-1 text-center">{t('paymentTitle')}</h1>
-      <p className="page-subtitle mb-8 text-center">{t('paymentSubtitle')}</p>
+      <h1 className="page-title mb-1 text-center">{t.payment}</h1>
+      <p className="page-subtitle mb-8 text-center">{t.paymentSubtitle}</p>
 
-      {/* Order summary recap */}
+      {/* Order Summary Recap */}
       <div className="mb-6 rounded-2xl border border-gray-200 bg-gray-50 p-5">
         <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">
-          {t('orderSummary')}
+          {t.orderSummary}
         </h3>
         <div className="space-y-2 text-sm">
           <div className="flex justify-between">
@@ -1356,15 +1453,11 @@ function PaymentStep({
             <span className="font-medium">${selectedPlan?.price}</span>
           </div>
           <div className="flex justify-between text-xs text-gray-400">
+            <span>{language === 'en' ? selectedPlan?.nameEn : selectedPlan?.nameEs}</span>
             <span>
-              {language === 'en' ? selectedPlan?.nameEn : selectedPlan?.nameEs}
-            </span>
-            <span>
-              {selectedPlan?.billing === 'monthly'
-                ? t('perMonth')
-                : selectedPlan?.billing === 'total'
-                  ? t('threeMonth')
-                  : t('oneTime')}
+              {selectedPlan?.billing === 'monthly' && t.perMonth}
+              {selectedPlan?.billing === 'total' && t.threeMonth}
+              {selectedPlan?.billing === 'once' && t.oneTime}
             </span>
           </div>
           {addons
@@ -1385,29 +1478,27 @@ function PaymentStep({
               );
             })}
           <div className="flex justify-between">
-            <span className="text-gray-600">{t('shipping')}</span>
+            <span className="text-gray-600">{t.shipping}</span>
             <span className="font-medium text-green-600">
-              {t('shippingFree')}
+              {shippingCost > 0 ? `$${shippingCost.toFixed(2)}` : t.shippingFree}
             </span>
           </div>
           {promoDiscount > 0 && (
             <div className="flex justify-between text-green-600">
-              <span>{t('discount')}</span>
+              <span>{t.discount}</span>
               <span>-${promoDiscount.toFixed(2)}</span>
             </div>
           )}
           <div className="border-t border-gray-200 pt-2">
             <div className="flex justify-between text-base font-bold">
-              <span>{t('total')}</span>
-              <span style={{ color: primaryColor }}>
-                ${orderTotal.toFixed(2)}
-              </span>
+              <span>{t.total}</span>
+              <span style={{ color: primaryColor }}>${orderTotal.toFixed(2)}</span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Stripe form */}
+      {/* Stripe Payment Form */}
       <form onSubmit={handleSubmit}>
         <div className="mb-6 rounded-2xl border border-gray-200 bg-white p-5">
           <PaymentElement options={{ layout: 'tabs' }} />
@@ -1425,7 +1516,7 @@ function PaymentStep({
             onClick={onBack}
             className="rounded-xl border border-gray-300 px-6 py-3 font-medium text-gray-700 transition hover:bg-gray-50"
           >
-            {t('back')}
+            {t.back}
           </button>
           <button
             type="submit"
@@ -1433,8 +1524,8 @@ function PaymentStep({
             className="continue-button flex-1"
           >
             {isProcessing
-              ? t('processing')
-              : `${t('completePurchase')} — $${orderTotal.toFixed(2)}`}
+              ? t.processing
+              : `${t.completePurchase} — $${orderTotal.toFixed(2)}`}
           </button>
         </div>
       </form>
@@ -1443,7 +1534,7 @@ function PaymentStep({
 }
 
 // ============================================================================
-// Page Wrapper (default export)
+// CheckoutPage — Default Export Wrapper
 // ============================================================================
 
 export default function CheckoutPage() {
