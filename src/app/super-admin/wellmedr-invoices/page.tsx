@@ -74,6 +74,7 @@ interface PrescriptionServiceLineItem {
   providerId: number;
   medications: string;
   feeCents: number;
+  chargeType: 'new' | 'refill';
 }
 
 interface PrescriptionServicesInvoice {
@@ -84,6 +85,10 @@ interface PrescriptionServicesInvoice {
   periodEnd: string;
   lineItems: PrescriptionServiceLineItem[];
   feePerPrescriptionCents: number;
+  newFeeCents: number;
+  refillFeeCents: number;
+  newPrescriptionCount: number;
+  refillPrescriptionCount: number;
   totalPrescriptions: number;
   totalCents: number;
 }
@@ -735,9 +740,14 @@ function PrescriptionServicesView({ invoice }: { invoice: PrescriptionServicesIn
           <h3 className="flex items-center gap-2 font-semibold text-gray-900">
             <Receipt className="h-5 w-5 text-[#4fa77e]" />
             Prescription Service Line Items
-            <span className="ml-auto text-sm font-normal text-gray-500">
-              {invoice.totalPrescriptions} prescriptions x{' '}
-              {centsToDisplay(invoice.feePerPrescriptionCents)} each
+            <span className="ml-auto flex items-center gap-3 text-sm font-normal text-gray-500">
+              <span>{invoice.totalPrescriptions} total</span>
+              <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">
+                {invoice.newPrescriptionCount} new @ {centsToDisplay(invoice.newFeeCents)}
+              </span>
+              <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
+                {invoice.refillPrescriptionCount} refill @ {centsToDisplay(invoice.refillFeeCents)}
+              </span>
             </span>
           </h3>
         </div>
@@ -752,6 +762,7 @@ function PrescriptionServicesView({ invoice }: { invoice: PrescriptionServicesIn
                 <th className="px-4 py-3">Patient</th>
                 <th className="px-4 py-3">LF Order ID</th>
                 <th className="px-4 py-3">Medications</th>
+                <th className="px-4 py-3">Type</th>
                 <th className="px-4 py-3 text-right">Service Fee</th>
               </tr>
             </thead>
@@ -774,6 +785,17 @@ function PrescriptionServicesView({ invoice }: { invoice: PrescriptionServicesIn
                   <td className="max-w-xs truncate px-4 py-2.5 text-gray-600" title={li.medications}>
                     {li.medications}
                   </td>
+                  <td className="px-4 py-2.5">
+                    {li.chargeType === 'new' ? (
+                      <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">
+                        New
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
+                        Refill
+                      </span>
+                    )}
+                  </td>
                   <td className="px-4 py-2.5 text-right font-semibold text-gray-900">
                     {centsToDisplay(li.feeCents)}
                   </td>
@@ -782,7 +804,7 @@ function PrescriptionServicesView({ invoice }: { invoice: PrescriptionServicesIn
 
               {invoice.lineItems.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-gray-400">
+                  <td colSpan={8} className="px-4 py-8 text-center text-gray-400">
                     No prescriptions for this period
                   </td>
                 </tr>
@@ -790,7 +812,7 @@ function PrescriptionServicesView({ invoice }: { invoice: PrescriptionServicesIn
             </tbody>
             <tfoot>
               <tr className="border-t border-gray-200 bg-gray-50">
-                <td colSpan={6} className="px-4 py-3 text-right font-semibold text-gray-700">
+                <td colSpan={7} className="px-4 py-3 text-right font-semibold text-gray-700">
                   Total ({invoice.totalPrescriptions} prescriptions)
                 </td>
                 <td className="px-4 py-3 text-right font-bold text-gray-900">
@@ -810,8 +832,10 @@ function PrescriptionServicesView({ invoice }: { invoice: PrescriptionServicesIn
               Prescription Medical Services Invoice Total
             </p>
             <p className="text-xs text-gray-400">
-              {invoice.totalPrescriptions} prescriptions x{' '}
-              {centsToDisplay(invoice.feePerPrescriptionCents)}
+              {invoice.newPrescriptionCount} new x {centsToDisplay(invoice.newFeeCents)}
+              {invoice.refillPrescriptionCount > 0 && (
+                <> + {invoice.refillPrescriptionCount} refill x {centsToDisplay(invoice.refillFeeCents)}</>
+              )}
             </p>
           </div>
           <p className="text-3xl font-bold text-amber-600">{centsToDisplay(invoice.totalCents)}</p>

@@ -16,6 +16,8 @@ import {
   WELLMEDR_CLINIC_SUBDOMAIN,
   WELLMEDR_PRICED_PRODUCT_IDS,
   PRESCRIPTION_SERVICE_FEE_CENTS,
+  PRESCRIPTION_SERVICE_REFILL_FEE_CENTS,
+  PRESCRIPTION_SERVICE_CYCLE_DAYS,
   SINGLE_VIAL_SHIPPING_FEE_CENTS,
   OVERNIGHT_SHIPPING_FEE_CENTS,
   getProductPrice,
@@ -83,6 +85,7 @@ export interface PrescriptionServiceLineItem {
   providerId: number;
   medications: string;
   feeCents: number;
+  chargeType: 'new' | 'refill';
 }
 
 export interface PrescriptionServicesInvoice {
@@ -94,6 +97,10 @@ export interface PrescriptionServicesInvoice {
   periodEnd: string;
   lineItems: PrescriptionServiceLineItem[];
   feePerPrescriptionCents: number;
+  newFeeCents: number;
+  refillFeeCents: number;
+  newPrescriptionCount: number;
+  refillPrescriptionCount: number;
   totalPrescriptions: number;
   totalCents: number;
 }
@@ -119,6 +126,11 @@ function formatPatientName(patient: { firstName: string; lastName: string }): st
   const first = safeDecryptName(patient.firstName);
   const last = safeDecryptName(patient.lastName);
   return `${last}, ${first}`;
+}
+
+function daysBetween(earlier: Date, later: Date): number {
+  const MS_PER_DAY = 24 * 60 * 60 * 1000;
+  return Math.floor((later.getTime() - earlier.getTime()) / MS_PER_DAY);
 }
 
 // ---------------------------------------------------------------------------
@@ -258,6 +270,69 @@ export async function generateDailyInvoices(
     matchedOrders: filteredOrders.length,
   });
 
+  // ── 90-day Rx cycle: determine $20 (new) vs $6 (refill) per patient ──
+  // Look back up to 365 days to find each patient's current billing cycle anchor.
+  const patientIds = [...new Set(filteredOrders.map((o) => o.patientId))];
+  const cycleAnchorByPatient = new Map<number, Date | null>();
+
+  if (patientIds.length > 0) {
+    const lookbackDate = new Date(periodStart.getTime() - 365 * 24 * 60 * 60 * 1000);
+
+    const historicalInvoiceRecords = await basePrisma.invoice.findMany({
+      where: {
+        clinicId,
+        patientId: { in: patientIds },
+        prescriptionProcessed: true,
+        paidAt: { gte: lookbackDate, lt: periodStart },
+        orderId: { not: null },
+      },
+      select: { orderId: true, patientId: true },
+    });
+
+    const historicalOrderIds = [
+      ...new Set(historicalInvoiceRecords.map((r) => r.orderId!).filter(Boolean)),
+    ];
+
+    const historicalOrders = historicalOrderIds.length > 0
+      ? await basePrisma.order.findMany({
+          where: { id: { in: historicalOrderIds } },
+          select: { id: true, patientId: true, createdAt: true, approvedAt: true },
+          orderBy: { createdAt: 'asc' },
+        })
+      : [];
+
+    // Group historical order dates by patient, sorted chronologically
+    const historyByPatient = new Map<number, Date[]>();
+    for (const ho of historicalOrders) {
+      const sentAt = ho.approvedAt ?? ho.createdAt;
+      const arr = historyByPatient.get(ho.patientId) ?? [];
+      arr.push(sentAt);
+      historyByPatient.set(ho.patientId, arr);
+    }
+    for (const dates of historyByPatient.values()) {
+      dates.sort((a, b) => a.getTime() - b.getTime());
+    }
+
+    // Walk each patient's history forward to find their current cycle anchor.
+    // The cycle anchor is the date of the most recent $20 charge.
+    for (const pid of patientIds) {
+      const dates = historyByPatient.get(pid) ?? [];
+      let anchor: Date | null = null;
+      for (const d of dates) {
+        if (!anchor || daysBetween(anchor, d) >= PRESCRIPTION_SERVICE_CYCLE_DAYS) {
+          anchor = d; // $20 charge — new cycle
+        }
+      }
+      cycleAnchorByPatient.set(pid, anchor);
+    }
+
+    logger.info('WellMedR Rx cycle: historical lookback complete', {
+      clinicId,
+      patientsChecked: patientIds.length,
+      historicalOrders: historicalOrders.length,
+    });
+  }
+
   const pharmacyLineItems: PharmacyLineItem[] = [];
   const shippingLineItems: ShippingLineItem[] = [];
   const rxServiceLineItems: PrescriptionServiceLineItem[] = [];
@@ -292,7 +367,6 @@ export async function generateDailyInvoices(
       orderVialCount += qty;
       orderMedTotalCents += product.priceCents * qty;
 
-      // Expand each vial into its own line item for clear per-unit breakdown
       for (let v = 0; v < qty; v++) {
         pharmacyLineItems.push({
           orderId: order.id,
@@ -317,7 +391,6 @@ export async function generateDailyInvoices(
     subtotalMedicationsCents += orderMedTotalCents;
     totalVialCount += orderVialCount;
 
-    // Shipping surcharges (only if the order has priced medications)
     if (orderVialCount > 0) {
       if (orderVialCount === 1) {
         const fee = SINGLE_VIAL_SHIPPING_FEE_CENTS;
@@ -348,7 +421,20 @@ export async function generateDailyInvoices(
       }
     }
 
-    // --- Prescription Services ($20 per prescription sent) ---
+    // --- Prescription Services (90-day cycle: $20 new / $6 refill) ---
+    const anchor = cycleAnchorByPatient.get(order.patientId) ?? null;
+    let chargeType: 'new' | 'refill';
+    let rxFee: number;
+
+    if (!anchor || daysBetween(anchor, sentAt) >= PRESCRIPTION_SERVICE_CYCLE_DAYS) {
+      chargeType = 'new';
+      rxFee = PRESCRIPTION_SERVICE_FEE_CENTS;
+      cycleAnchorByPatient.set(order.patientId, sentAt);
+    } else {
+      chargeType = 'refill';
+      rxFee = PRESCRIPTION_SERVICE_REFILL_FEE_CENTS;
+    }
+
     const medicationsList = order.rxs
       .filter((rx) => WELLMEDR_PRICED_PRODUCT_IDS.has(rx.medicationKey))
       .map((rx) => `${rx.medName} ${rx.strength}`)
@@ -364,12 +450,15 @@ export async function generateDailyInvoices(
       providerName,
       providerId: order.providerId,
       medications: medicationsList || order.rxs.map((rx) => `${rx.medName} ${rx.strength}`).join(', '),
-      feeCents: PRESCRIPTION_SERVICE_FEE_CENTS,
+      feeCents: rxFee,
+      chargeType,
     });
   }
 
   const pharmacyTotalCents = subtotalMedicationsCents + subtotalShippingCents;
-  const rxServicesTotalCents = rxServiceLineItems.length * PRESCRIPTION_SERVICE_FEE_CENTS;
+  const rxServicesTotalCents = rxServiceLineItems.reduce((sum, li) => sum + li.feeCents, 0);
+  const newCount = rxServiceLineItems.filter((li) => li.chargeType === 'new').length;
+  const refillCount = rxServiceLineItems.filter((li) => li.chargeType === 'refill').length;
 
   return {
     pharmacy: {
@@ -396,6 +485,10 @@ export async function generateDailyInvoices(
       periodEnd: periodEnd.toISOString(),
       lineItems: rxServiceLineItems,
       feePerPrescriptionCents: PRESCRIPTION_SERVICE_FEE_CENTS,
+      newFeeCents: PRESCRIPTION_SERVICE_FEE_CENTS,
+      refillFeeCents: PRESCRIPTION_SERVICE_REFILL_FEE_CENTS,
+      newPrescriptionCount: newCount,
+      refillPrescriptionCount: refillCount,
       totalPrescriptions: rxServiceLineItems.length,
       totalCents: rxServicesTotalCents,
     },
@@ -497,13 +590,16 @@ export function generatePrescriptionServicesCSV(invoice: PrescriptionServicesInv
   lines.push(`Clinic,${escapeCSV(invoice.clinicName)}`);
   lines.push(`Period,${new Date(invoice.periodStart).toLocaleDateString('en-US')} - ${new Date(invoice.periodEnd).toLocaleDateString('en-US')}`);
   lines.push(`Generated,${new Date(invoice.invoiceDate).toLocaleString('en-US')}`);
-  lines.push(`Fee Per Prescription,$${centsToDisplay(invoice.feePerPrescriptionCents)}`);
+  lines.push(`New Rx Fee,$${centsToDisplay(invoice.newFeeCents)}`);
+  lines.push(`Refill Fee (within ${PRESCRIPTION_SERVICE_CYCLE_DAYS} days),$${centsToDisplay(invoice.refillFeeCents)}`);
+  lines.push(`New Prescriptions,${invoice.newPrescriptionCount}`);
+  lines.push(`Refill Prescriptions,${invoice.refillPrescriptionCount}`);
   lines.push(`Total Prescriptions,${invoice.totalPrescriptions}`);
   lines.push('');
 
   lines.push('=== PRESCRIPTION LINE ITEMS ===');
   lines.push(
-    ['Date', 'Order ID', 'LF Order ID', 'Patient', 'Provider', 'Medications', 'Service Fee']
+    ['Date', 'Order ID', 'LF Order ID', 'Patient', 'Provider', 'Medications', 'Type', 'Service Fee']
       .map(escapeCSV)
       .join(',')
   );
@@ -517,6 +613,7 @@ export function generatePrescriptionServicesCSV(invoice: PrescriptionServicesInv
         li.patientName,
         li.providerName,
         li.medications,
+        li.chargeType === 'new' ? 'New' : 'Refill',
         `$${centsToDisplay(li.feeCents)}`,
       ]
         .map(escapeCSV)
@@ -525,7 +622,7 @@ export function generatePrescriptionServicesCSV(invoice: PrescriptionServicesInv
   }
 
   lines.push('');
-  lines.push(`TOTAL,,,,,,$${centsToDisplay(invoice.totalCents)}`);
+  lines.push(`TOTAL,,,,,,,$${centsToDisplay(invoice.totalCents)}`);
 
   return lines.join('\r\n');
 }
@@ -816,12 +913,17 @@ export async function generatePrescriptionServicesPDF(invoice: PrescriptionServi
   t(invoice.clinicName, M, helvB, 11);
   t(fmtPeriod(invoice.periodStart, invoice.periodEnd), PW - M - 260, sofia, 9, mid);
   y -= 14;
-  t(`${invoice.totalPrescriptions} prescriptions   |   ${$(invoice.feePerPrescriptionCents)} per Rx`, M, sofia, 8, mid);
+  const rxSummaryParts = [
+    `${invoice.totalPrescriptions} prescriptions`,
+    `${invoice.newPrescriptionCount} new @ ${$(invoice.newFeeCents)}`,
+    `${invoice.refillPrescriptionCount} refill @ ${$(invoice.refillFeeCents)}`,
+  ];
+  t(rxSummaryParts.join('   |   '), M, sofia, 8, mid);
   t(`Generated ${new Date().toLocaleString('en-US')}`, PW - M - 260, sofia, 7.5, light);
   y -= 22;
 
   // Column header
-  const rc = { paid: M + 6, sent: M + 85, order: M + 160, patient: M + 200, lf: M + 330, meds: M + 440, fee: TW + M - 60 };
+  const rc = { paid: M + 6, sent: M + 85, order: M + 155, patient: M + 195, lf: M + 310, meds: M + 400, type: M + 530, fee: TW + M - 60 };
   pg.drawRectangle({ x: M, y: y - 3, width: TW, height: 18, color: amber });
   t('Paid (ET)', rc.paid, helvB, 6.5, white);
   t('Sent (ET)', rc.sent, helvB, 6.5, white);
@@ -829,8 +931,12 @@ export async function generatePrescriptionServicesPDF(invoice: PrescriptionServi
   t('Patient', rc.patient, helvB, 7, white);
   t('LF Order ID', rc.lf, helvB, 7, white);
   t('Medications', rc.meds, helvB, 7, white);
+  t('Type', rc.type, helvB, 7, white);
   t('Fee', rc.fee, helvB, 7, white);
   y -= 20;
+
+  const newBadgeColor = rgb(0.15, 0.55, 0.35);
+  const refillBadgeColor = rgb(0.55, 0.45, 0.15);
 
   function drawRxH() {
     pg.drawRectangle({ x: M, y: y - 3, width: TW, height: 18, color: amber });
@@ -840,6 +946,7 @@ export async function generatePrescriptionServicesPDF(invoice: PrescriptionServi
     t('Patient', rc.patient, helvB, 7, white);
     t('LF Order ID', rc.lf, helvB, 7, white);
     t('Medications', rc.meds, helvB, 7, white);
+    t('Type', rc.type, helvB, 7, white);
     t('Fee', rc.fee, helvB, 7, white);
     y -= 20;
   }
@@ -859,9 +966,11 @@ export async function generatePrescriptionServicesPDF(invoice: PrescriptionServi
     t(li.paidAt ? fmtDateTimeET(li.paidAt) : '-', rc.paid, sofia, 6.5, rgb(0.15, 0.55, 0.35));
     t(fmtDateTimeET(li.orderDate), rc.sent, sofia, 6.5);
     t(String(li.orderId), rc.order, sofia, 7);
-    t(tr(li.patientName, 22), rc.patient, helvB, 7.5);
+    t(tr(li.patientName, 20), rc.patient, helvB, 7.5);
     t(li.lifefileOrderId ?? '-', rc.lf, sofia, 7, mid);
-    t(tr(li.medications, 24), rc.meds, sofia, 7);
+    t(tr(li.medications, 20), rc.meds, sofia, 7);
+    const isNew = li.chargeType === 'new';
+    t(isNew ? 'New' : 'Refill', rc.type, helvB, 6.5, isNew ? newBadgeColor : refillBadgeColor);
     t($(li.feeCents), rc.fee, helvB, 7.5, amber);
     y -= R;
   }

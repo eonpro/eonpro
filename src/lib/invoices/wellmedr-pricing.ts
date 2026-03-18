@@ -9,12 +9,18 @@
  *  - Single vial order: +$15
  *  - Overnight shipping:  +$20 (on any order)
  *
- * Prescription medical services: $20 per prescription sent.
+ * Prescription medical services:
+ *  - New patient cycle: $20 (first Rx or first after 90+ days)
+ *  - Refill within 90 days of the last $20: $6
  */
 
 export const WELLMEDR_CLINIC_SUBDOMAIN = 'wellmedr';
 
-export const PRESCRIPTION_SERVICE_FEE_CENTS = 2000; // $20 per prescription
+export const PRESCRIPTION_SERVICE_FEE_CENTS = 2000; // $20 per new prescription (cycle start)
+
+export const PRESCRIPTION_SERVICE_REFILL_FEE_CENTS = 600; // $6 per refill within 90-day cycle
+
+export const PRESCRIPTION_SERVICE_CYCLE_DAYS = 90; // Days before a new $20 charge resets
 
 export const SINGLE_VIAL_SHIPPING_FEE_CENTS = 1500; // $15 when only 1 vial in the order
 
