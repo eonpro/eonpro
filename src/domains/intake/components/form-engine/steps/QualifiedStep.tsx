@@ -51,12 +51,12 @@ const T = {
   semaName: { en: 'Semaglutide', es: 'Semaglutida' },
   semaTag: { en: 'Weekly GLP-1 injection', es: 'Inyección semanal GLP-1' },
   semaLoss: { en: '15–20% avg weight loss', es: '15–20% pérdida de peso promedio' },
-  semaPrice: { en: 'From $229/mo', es: 'Desde $229/mes' },
+  semaPrice: { en: '', es: '' },
   semaCta: { en: 'Clinically proven, gentle start', es: 'Clínicamente probado, inicio suave' },
   tirzName: { en: 'Tirzepatide', es: 'Tirzepatida' },
   tirzTag: { en: 'Dual GIP + GLP-1 action', es: 'Acción dual GIP + GLP-1' },
   tirzLoss: { en: '20–25% avg weight loss', es: '20–25% pérdida de peso promedio' },
-  tirzPrice: { en: 'From $329/mo', es: 'Desde $329/mes' },
+  tirzPrice: { en: '', es: '' },
   tirzCta: { en: 'Most powerful option available', es: 'La opción más potente disponible' },
   upgradeBadge: { en: 'Recommended Upgrade', es: 'Mejora Recomendada' },
   btnUpgrade: { en: 'Upgrade to Tirzepatide', es: 'Actualizar a Tirzepatida' },
@@ -74,11 +74,11 @@ export default function QualifiedStep({ basePath, prevStep }: QualifiedStepProps
   const [firstName, setFirstName] = useState('');
   const [showPhase2, setShowPhase2] = useState(false);
   const confettiRef = useRef(false);
+  const submittedRef = useRef(false);
   const isSpanish = language === 'es';
   const t = (key: keyof typeof T) => T[key][language];
 
   const glp1Type = (responses.glp1_type as string) || '';
-  const glp1History = (responses.glp1_history as string) || '';
 
   const segment: UserSegment =
     glp1Type === 'semaglutide' ? 'sema-user' :
@@ -90,6 +90,18 @@ export default function QualifiedStep({ basePath, prevStep }: QualifiedStepProps
     setTimeout(() => { fireConfetti(); }, 500);
     setTimeout(() => { setShowPhase2(true); }, 2000);
   }, [responses.firstName]);
+
+  useEffect(() => {
+    if (submittedRef.current) return;
+    if (!responses.firstName && !responses.email) return;
+    submittedRef.current = true;
+
+    fetch('/api/intake-forms/submit-to-eonpro', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ responses, submissionType: 'complete', qualified: 'Yes' }),
+    }).catch(() => {});
+  }, [responses]);
 
   const fireConfetti = () => {
     if (confettiRef.current) return;
@@ -200,10 +212,12 @@ function MedCard({ name, tag, loss, price, cta, badge, highlighted, onClick, btn
           <svg className="w-4 h-4 text-[#4fa87f] flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
           <span className="text-sm text-[#413d3d] font-medium">{loss}</span>
         </div>
-        <div className="flex items-center gap-2">
-          <svg className="w-4 h-4 text-[#4fa87f] flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
-          <span className="text-sm text-[#413d3d] font-medium">{price}</span>
-        </div>
+        {price && (
+          <div className="flex items-center gap-2">
+            <svg className="w-4 h-4 text-[#4fa87f] flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
+            <span className="text-sm text-[#413d3d] font-medium">{price}</span>
+          </div>
+        )}
       </div>
       <p className="text-xs text-gray-400 italic">{cta}</p>
       <button
