@@ -5,6 +5,9 @@
  * Registers platform providers as DoseSpot clinicians.
  * Handles email conflicts, NPI validation errors, and role mapping.
  *
+ * Uses the provider's own date-of-birth and fax if set, and falls back to
+ * the clinic's address / fax for the required practice-location fields.
+ *
  * @module domains/dosespot/services
  */
 
@@ -15,6 +18,15 @@ import { getClinicDoseSpotClient } from '@/lib/clinic-dosespot';
 import { BadRequestError, ForbiddenError, NotFoundError } from '@/domains/shared/errors/AppError';
 import type { DoseSpotProviderPayload, ClinicianRoleType } from '@/lib/dosespot';
 import type { ProviderSyncResult } from '../types';
+
+interface ClinicAddress {
+  address1?: string;
+  address2?: string;
+  city?: string;
+  state?: string;
+  zip?: string;
+  country?: string;
+}
 
 export interface DoseSpotProviderService {
   syncProvider(providerId: number, clinicId: number, userId: number): Promise<ProviderSyncResult>;
@@ -34,8 +46,10 @@ export function createDoseSpotProviderService(): DoseSpotProviderService {
           clinicId: true,
           firstName: true,
           lastName: true,
+          dateOfBirth: true,
           email: true,
           phone: true,
+          fax: true,
           npi: true,
           dea: true,
           licenseState: true,
@@ -102,19 +116,53 @@ export function createDoseSpotProviderService(): DoseSpotProviderService {
         };
       }
 
+      // Fetch clinic address and fax for practice-location defaults
+      const clinic = await basePrisma.clinic.findUnique({
+        where: { id: clinicId },
+        select: {
+          address: true,
+          phone: true,
+          lifefilePracticeFax: true,
+        },
+      });
+
+      const clinicAddr = (clinic?.address as ClinicAddress | null) ?? {};
+
+      // Validate all DoseSpot-required fields before calling the API
+      const missing: string[] = [];
+      if (!provider.dateOfBirth) missing.push('Date of Birth (set on provider profile)');
+      const address1 = clinicAddr.address1 || '';
+      if (!address1) missing.push('Address (set on clinic settings)');
+      const city = clinicAddr.city || '';
+      if (!city) missing.push('City (set on clinic settings)');
+      const zip = clinicAddr.zip || '';
+      if (!zip) missing.push('Zip Code (set on clinic settings)');
+      const fax = provider.fax || clinic?.lifefilePracticeFax || '';
+      if (!fax) missing.push('Fax (set on provider profile or clinic settings)');
+
+      if (missing.length > 0) {
+        throw new BadRequestError(
+          `Cannot register provider with DoseSpot. Missing required fields: ${missing.join(', ')}`
+        );
+      }
+
+      const dob = provider.dateOfBirth!;
+      const dobStr = `${dob.getFullYear()}-${String(dob.getMonth() + 1).padStart(2, '0')}-${String(dob.getDate()).padStart(2, '0')}`;
+
       const defaultRoles: ClinicianRoleType[] = ['PrescribingClinician'];
 
       const payload: DoseSpotProviderPayload = {
         FirstName: provider.firstName,
         LastName: provider.lastName,
-        DateOfBirth: '',
+        DateOfBirth: dobStr,
         Email: provider.email || '',
-        Address1: '',
-        City: '',
-        State: provider.licenseState || '',
-        ZipCode: '',
-        PrimaryPhone: (provider.phone || '').replace(/\D/g, ''),
+        Address1: address1,
+        City: city,
+        State: provider.licenseState || clinicAddr.state || '',
+        ZipCode: zip,
+        PrimaryPhone: (provider.phone || clinic?.phone || '').replace(/\D/g, ''),
         PrimaryPhoneType: 'Cell',
+        PrimaryFax: fax.replace(/\D/g, ''),
         NPINumber: provider.npi,
         ClinicianRoleType: defaultRoles,
         Active: true,

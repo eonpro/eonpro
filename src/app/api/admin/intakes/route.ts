@@ -13,6 +13,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { withClinicalAuth, AuthUser } from '@/lib/auth/middleware';
+import { PERMISSIONS, hasPermission as hasRolePermission } from '@/lib/auth/permissions';
 import { prisma, basePrisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { decryptPHI } from '@/lib/security/phi-encryption';
@@ -60,6 +61,22 @@ async function handleGet(req: NextRequest, user: AuthUser) {
 
     if (clinicId) {
       whereClause.clinicId = clinicId;
+    }
+
+    // Sales rep: restrict to assigned patients unless they have view-all permission
+    if (user.role === 'sales_rep') {
+      const canViewAll =
+        (user.permissions && user.permissions.includes(PERMISSIONS.SALES_REP_VIEW_ALL_PATIENTS)) ||
+        hasRolePermission(user.role, PERMISSIONS.SALES_REP_VIEW_ALL_PATIENTS);
+      if (!canViewAll) {
+        whereClause.salesRepAssignments = {
+          some: {
+            salesRepId: user.id,
+            isActive: true,
+            ...(clinicId ? { clinicId } : {}),
+          },
+        };
+      }
     }
 
     // Save base WHERE before adding search filter (used for fallback query)

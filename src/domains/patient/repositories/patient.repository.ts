@@ -1026,6 +1026,16 @@ function buildWhereClause(filter: PatientFilterOptions): Prisma.PatientWhereInpu
     where.source = filter.source;
   }
 
+  if (filter.assignedSalesRepId) {
+    where.salesRepAssignments = {
+      some: {
+        salesRepId: filter.assignedSalesRepId,
+        isActive: true,
+        ...(filter.clinicId ? { clinicId: filter.clinicId } : {}),
+      },
+    };
+  }
+
   // NOTE: Search is handled in-memory AFTER decryption in findMany/findManyWithClinic
   // because firstName, lastName, email are ENCRYPTED in the database.
   // SQL-level LIKE/contains queries won't match plaintext search terms.

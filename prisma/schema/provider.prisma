@@ -30,6 +30,7 @@ model Provider {
 
   firstName            String
   lastName             String
+  dateOfBirth          DateTime?
   titleLine            String?
   npi                  String    @unique
   licenseState         String?
@@ -37,6 +38,7 @@ model Provider {
   dea                  String?
   email                String?
   phone                String?
+  fax                  String?
   signatureDataUrl     String?
   npiVerifiedAt        DateTime?
   npiRawResponse       Json?

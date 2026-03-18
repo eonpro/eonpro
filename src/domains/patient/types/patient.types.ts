@@ -184,6 +184,8 @@ export interface PatientFilterOptions {
   tags?: string[];
   /** Filter by source */
   source?: PatientSource;
+  /** Restrict to patients assigned to this sales rep (when view-all is not granted) */
+  assignedSalesRepId?: number;
 }
 
 /**

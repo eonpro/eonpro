@@ -1085,7 +1085,7 @@ export default function PatientSidebar({
                 onClick={() => setShowDispositionModal(true)}
                 className="mt-2 w-full rounded-lg border border-[var(--brand-primary,#0EA5E9)] bg-[var(--brand-primary-light,rgba(14,165,233,0.06))] px-3 py-2 text-xs font-medium text-[var(--brand-primary,#0EA5E9)] transition-colors hover:bg-[var(--brand-primary-light,rgba(14,165,233,0.15))]"
               >
-                Disposition This Patient
+                New Sale Disposition
               </button>
             )}
           </div>

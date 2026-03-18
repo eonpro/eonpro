@@ -24,12 +24,14 @@ type EditableProvider = {
   npi: string;
   firstName: string;
   lastName: string;
+  dateOfBirth?: string | null;
   titleLine?: string | null;
   licenseState?: string | null;
   licenseNumber?: string | null;
   dea?: string | null;
   email?: string | null;
   phone?: string | null;
+  fax?: string | null;
   signatureDataUrl?: string | null;
   passwordHash?: string | null;
   clinicId?: number | null;
@@ -43,12 +45,14 @@ type Props = {
 export default function EditProviderForm({ provider }: Props) {
   const [form, setForm] = useState({
     ...provider,
+    dateOfBirth: provider.dateOfBirth ?? '',
     titleLine: provider.titleLine ?? '',
     licenseState: provider.licenseState ?? '',
     licenseNumber: provider.licenseNumber ?? '',
     dea: provider.dea ?? '',
     email: provider.email ?? '',
     phone: provider.phone ?? '',
+    fax: provider.fax ?? '',
     signatureDataUrl: provider.signatureDataUrl ?? '',
     clinicId: provider.clinicId ?? null,
   });
@@ -177,6 +181,24 @@ export default function EditProviderForm({ provider }: Props) {
           value={form.phone ?? ''}
           onChange={(e: any) => update('phone', e.target.value)}
         />
+        <input
+          className="border p-2"
+          placeholder="Fax"
+          value={form.fax ?? ''}
+          onChange={(e: any) => update('fax', e.target.value)}
+        />
+        <div>
+          <label className="mb-1 block text-xs uppercase tracking-wide text-gray-500">
+            Date of Birth
+          </label>
+          <input
+            type="date"
+            className="w-full border p-2"
+            value={form.dateOfBirth ? String(form.dateOfBirth).slice(0, 10) : ''}
+            onChange={(e: any) => update('dateOfBirth', e.target.value)}
+          />
+          <p className="mt-0.5 text-xs text-gray-400">Required for DoseSpot e-prescribing</p>
+        </div>
 
         {/* Clinic Assignment */}
         <div className="col-span-2">

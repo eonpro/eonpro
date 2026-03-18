@@ -21,6 +21,7 @@ export interface Provider {
   activeClinicId: number | null;
   firstName: string;
   lastName: string;
+  dateOfBirth: Date | null;
   titleLine: string | null;
   npi: string;
   licenseState: string | null;
@@ -28,6 +29,7 @@ export interface Provider {
   dea: string | null;
   email: string | null;
   phone: string | null;
+  fax: string | null;
   signatureDataUrl: string | null;
   npiVerifiedAt: Date | null;
   npiRawResponse: unknown;
@@ -76,12 +78,14 @@ export interface CreateProviderInput {
   npi: string;
   firstName: string;
   lastName: string;
+  dateOfBirth?: string | null;
   titleLine?: string;
   licenseState?: string | null;
   licenseNumber?: string;
   dea?: string;
   email?: string;
   phone?: string;
+  fax?: string;
   signatureDataUrl?: string;
   clinicId?: number | null;
 }
@@ -92,6 +96,7 @@ export interface CreateProviderInput {
 export interface UpdateProviderInput {
   firstName?: string;
   lastName?: string;
+  dateOfBirth?: string | null;
   titleLine?: string | null;
   npi?: string;
   licenseState?: string | null;
@@ -99,6 +104,7 @@ export interface UpdateProviderInput {
   dea?: string | null;
   email?: string | null;
   phone?: string | null;
+  fax?: string | null;
   signatureDataUrl?: string | null;
   clinicId?: number | null;
 }
@@ -166,6 +172,7 @@ export interface NpiVerificationResult {
 export const PROVIDER_AUDIT_FIELDS = [
   'firstName',
   'lastName',
+  'dateOfBirth',
   'titleLine',
   'npi',
   'licenseState',
@@ -173,6 +180,7 @@ export const PROVIDER_AUDIT_FIELDS = [
   'dea',
   'email',
   'phone',
+  'fax',
   'signatureDataUrl',
   'clinicId',
 ] as const;

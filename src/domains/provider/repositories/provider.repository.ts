@@ -33,6 +33,7 @@ const PROVIDER_WITH_CLINIC_SELECT = {
   activeClinicId: true,
   firstName: true,
   lastName: true,
+  dateOfBirth: true,
   titleLine: true,
   npi: true,
   licenseState: true,
@@ -40,6 +41,7 @@ const PROVIDER_WITH_CLINIC_SELECT = {
   dea: true,
   email: true,
   phone: true,
+  fax: true,
   signatureDataUrl: true,
   npiVerifiedAt: true,
   npiRawResponse: true,
@@ -87,6 +89,7 @@ const PROVIDER_BASE_SELECT = {
   activeClinicId: true,
   firstName: true,
   lastName: true,
+  dateOfBirth: true,
   titleLine: true,
   npi: true,
   licenseState: true,
@@ -94,6 +97,7 @@ const PROVIDER_BASE_SELECT = {
   dea: true,
   email: true,
   phone: true,
+  fax: true,
   signatureDataUrl: true,
   npiVerifiedAt: true,
   npiRawResponse: true,
@@ -390,6 +394,9 @@ export const providerRepository = {
       const updateData: Record<string, unknown> = {};
       if (input.firstName !== undefined) updateData.firstName = input.firstName;
       if (input.lastName !== undefined) updateData.lastName = input.lastName;
+      if (input.dateOfBirth !== undefined) {
+        updateData.dateOfBirth = input.dateOfBirth ? new Date(input.dateOfBirth) : null;
+      }
       if (input.titleLine !== undefined) updateData.titleLine = input.titleLine;
       if (input.npi !== undefined) updateData.npi = input.npi;
       if (input.licenseState !== undefined) updateData.licenseState = input.licenseState;
@@ -397,6 +404,7 @@ export const providerRepository = {
       if (input.dea !== undefined) updateData.dea = input.dea;
       if (input.email !== undefined) updateData.email = input.email?.toLowerCase() ?? null;
       if (input.phone !== undefined) updateData.phone = input.phone;
+      if (input.fax !== undefined) updateData.fax = input.fax;
       if (input.signatureDataUrl !== undefined)
         updateData.signatureDataUrl = input.signatureDataUrl;
       if (input.clinicId !== undefined) updateData.clinicId = input.clinicId;

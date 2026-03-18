@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PatientDocumentCategory } from '@prisma/client';
+import { PatientDocumentCategory, Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { withClinicalAuth, type AuthUser } from '@/lib/auth/middleware';
+import { PERMISSIONS, hasPermission as hasRolePermission } from '@/lib/auth/permissions';
 
 async function handleGet(_request: NextRequest, user: AuthUser) {
   try {
@@ -11,10 +12,28 @@ async function handleGet(_request: NextRequest, user: AuthUser) {
       return NextResponse.json({ error: 'Clinic context required' }, { status: 400 });
     }
 
+    const patientFilter: Prisma.PatientWhereInput = { clinicId };
+
+    // Sales rep: restrict to assigned patients unless they have view-all permission
+    if (user.role === 'sales_rep') {
+      const canViewAll =
+        (user.permissions && user.permissions.includes(PERMISSIONS.SALES_REP_VIEW_ALL_PATIENTS)) ||
+        hasRolePermission(user.role, PERMISSIONS.SALES_REP_VIEW_ALL_PATIENTS);
+      if (!canViewAll) {
+        patientFilter.salesRepAssignments = {
+          some: {
+            salesRepId: user.id,
+            isActive: true,
+            clinicId,
+          },
+        };
+      }
+    }
+
     const intakes = await prisma.patientDocument.findMany({
       where: {
         category: PatientDocumentCategory.MEDICAL_INTAKE_FORM,
-        patient: { clinicId },
+        patient: patientFilter,
       },
       select: {
         id: true,

@@ -191,7 +191,7 @@ function LoginContent() {
     if (!isBrowser) return;
     const staleCookieNames = [
       'auth-token', 'admin-token', 'super_admin-token', 'provider-token',
-      'patient-token', 'staff-token', 'support-token', 'affiliate-token', 'pharmacy_rep-token',
+      'patient-token', 'staff-token', 'support-token', 'affiliate-token', 'pharmacy_rep-token', 'sales_rep-token',
     ];
     staleCookieNames.forEach((name) => {
       // Clear on current hostname (e.g. ot.eonpro.io)
@@ -1033,6 +1033,8 @@ function LoginContent() {
       localStorage.setItem('staff-token', data.token);
     } else if (userRole === 'pharmacy_rep') {
       localStorage.setItem('pharmacy_rep-token', data.token);
+    } else if (userRole === 'sales_rep') {
+      localStorage.setItem('sales_rep-token', data.token);
     }
 
     // When the system logged the user out (session expired, invalid session, etc.),
@@ -1076,6 +1078,9 @@ function LoginContent() {
         window.location.href = '/staff';
         break;
       case 'pharmacy_rep':
+        window.location.href = '/admin';
+        break;
+      case 'sales_rep':
         window.location.href = '/admin';
         break;
       case 'support':

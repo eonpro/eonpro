@@ -90,9 +90,11 @@ interface Provider {
   id: number;
   firstName: string;
   lastName: string;
+  dateOfBirth: string | null;
   npi: string;
   email: string | null;
   phone: string | null;
+  fax: string | null;
   titleLine: string | null;
   licenseState: string | null;
   licenseNumber: string | null;
@@ -169,8 +171,10 @@ export default function SuperAdminProviderDetailPage() {
   const [editForm, setEditForm] = useState({
     firstName: '',
     lastName: '',
+    dateOfBirth: '',
     email: '',
     phone: '',
+    fax: '',
     titleLine: '',
     licenseState: '',
     licenseNumber: '',
@@ -299,8 +303,10 @@ export default function SuperAdminProviderDetailPage() {
         setEditForm({
           firstName: data.provider.firstName || '',
           lastName: data.provider.lastName || '',
+          dateOfBirth: data.provider.dateOfBirth ? data.provider.dateOfBirth.slice(0, 10) : '',
           email: data.provider.email || '',
           phone: data.provider.phone || '',
+          fax: data.provider.fax || '',
           titleLine: data.provider.titleLine || '',
           licenseState: data.provider.licenseState || '',
           licenseNumber: data.provider.licenseNumber || '',
@@ -987,8 +993,10 @@ export default function SuperAdminProviderDetailPage() {
                       setEditForm({
                         firstName: provider.firstName || '',
                         lastName: provider.lastName || '',
+                        dateOfBirth: provider.dateOfBirth ? provider.dateOfBirth.slice(0, 10) : '',
                         email: provider.email || '',
                         phone: provider.phone || '',
+                        fax: provider.fax || '',
                         titleLine: provider.titleLine || '',
                         licenseState: provider.licenseState || '',
                         licenseNumber: provider.licenseNumber || '',
@@ -1051,6 +1059,32 @@ export default function SuperAdminProviderDetailPage() {
                         onChange={(e) => setEditForm((f) => ({ ...f, titleLine: e.target.value }))}
                         className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-[#4fa77e] focus:outline-none focus:ring-1 focus:ring-[#4fa77e]"
                       />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Fax</label>
+                      <input
+                        type="tel"
+                        value={editForm.fax}
+                        onChange={(e) => setEditForm((f) => ({ ...f, fax: e.target.value }))}
+                        placeholder="Practice fax number"
+                        className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-[#4fa77e] focus:outline-none focus:ring-1 focus:ring-[#4fa77e]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">
+                        Date of Birth
+                      </label>
+                      <input
+                        type="date"
+                        value={editForm.dateOfBirth}
+                        onChange={(e) =>
+                          setEditForm((f) => ({ ...f, dateOfBirth: e.target.value }))
+                        }
+                        className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-[#4fa77e] focus:outline-none focus:ring-1 focus:ring-[#4fa77e]"
+                      />
+                      <p className="mt-0.5 text-xs text-gray-400">Required for DoseSpot</p>
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
@@ -1125,6 +1159,18 @@ export default function SuperAdminProviderDetailPage() {
                   <div>
                     <dt className="text-sm text-gray-500">Phone</dt>
                     <dd className="text-gray-900">{provider.phone || '-'}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-sm text-gray-500">Fax</dt>
+                    <dd className="text-gray-900">{provider.fax || '-'}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-sm text-gray-500">Date of Birth</dt>
+                    <dd className="text-gray-900">
+                      {provider.dateOfBirth
+                        ? new Date(provider.dateOfBirth).toLocaleDateString()
+                        : '-'}
+                    </dd>
                   </div>
                   <div>
                     <dt className="text-sm text-gray-500">Title Line</dt>

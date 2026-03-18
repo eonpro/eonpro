@@ -226,5 +226,5 @@ async function handlePost(req: NextRequest, user: AuthUser) {
   }
 }
 
-export const GET = withAuth(handleGet, { roles: ['super_admin', 'admin', 'provider'] });
+export const GET = withAuth(handleGet, { roles: ['super_admin', 'admin', 'provider', 'sales_rep'] });
 export const POST = withAuth(handlePost, { roles: ['super_admin', 'admin'] });

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   X,
   ClipboardCheck,
@@ -14,6 +14,8 @@ import {
   Video,
   Globe,
   Tag,
+  ChevronDown,
+  Package,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api/fetch';
 
@@ -27,6 +29,15 @@ interface DispositionModalProps {
   patient: Patient;
   onClose: () => void;
   onSubmitted: () => void;
+}
+
+interface ProductOption {
+  id: number;
+  name: string;
+  price: number;
+  category: string;
+  billingType: string;
+  type: 'product' | 'bundle';
 }
 
 const LEAD_SOURCES = [
@@ -52,18 +63,6 @@ const CONTACT_METHODS = [
   { value: 'OTHER', label: 'Other', icon: Tag },
 ] as const;
 
-const OUTCOMES = [
-  { value: 'SALE_COMPLETED', label: 'Sale Completed', color: 'bg-green-100 text-green-700 border-green-300' },
-  { value: 'INTERESTED', label: 'Interested', color: 'bg-blue-100 text-blue-700 border-blue-300' },
-  { value: 'CALLBACK_REQUESTED', label: 'Callback Requested', color: 'bg-yellow-100 text-yellow-700 border-yellow-300' },
-  { value: 'NOT_INTERESTED', label: 'Not Interested', color: 'bg-gray-100 text-gray-700 border-gray-300' },
-  { value: 'NO_ANSWER', label: 'No Answer', color: 'bg-orange-100 text-orange-700 border-orange-300' },
-  { value: 'WRONG_NUMBER', label: 'Wrong Number', color: 'bg-red-100 text-red-600 border-red-300' },
-  { value: 'ALREADY_PATIENT', label: 'Already a Patient', color: 'bg-purple-100 text-purple-700 border-purple-300' },
-  { value: 'DO_NOT_CONTACT', label: 'Do Not Contact', color: 'bg-red-100 text-red-700 border-red-300' },
-  { value: 'OTHER', label: 'Other', color: 'bg-gray-100 text-gray-600 border-gray-300' },
-] as const;
-
 const COMMON_TAGS = [
   'high-value',
   'returning',
@@ -77,6 +76,10 @@ const COMMON_TAGS = [
   'womens-health',
 ];
 
+function formatPrice(cents: number): string {
+  return `$${(cents / 100).toFixed(2)}`;
+}
+
 export default function DispositionModal({
   patient,
   onClose,
@@ -87,15 +90,64 @@ export default function DispositionModal({
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
-  // Form state
   const [leadSource, setLeadSource] = useState('');
   const [contactMethod, setContactMethod] = useState('');
-  const [outcome, setOutcome] = useState('');
-  const [productInterest, setProductInterest] = useState('');
+  const [selectedProductId, setSelectedProductId] = useState('');
   const [notes, setNotes] = useState('');
-  const [followUpDate, setFollowUpDate] = useState('');
-  const [followUpNotes, setFollowUpNotes] = useState('');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
+
+  const [productOptions, setProductOptions] = useState<ProductOption[]>([]);
+  const [productsLoading, setProductsLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchProductOptions() {
+      setProductsLoading(true);
+      try {
+        const [productsRes, bundlesRes] = await Promise.all([
+          apiFetch('/api/products?activeOnly=true'),
+          apiFetch('/api/bundles?activeOnly=true'),
+        ]);
+
+        const options: ProductOption[] = [];
+
+        if (productsRes.ok) {
+          const { products } = await productsRes.json();
+          for (const p of products) {
+            options.push({
+              id: p.id,
+              name: p.name,
+              price: p.price,
+              category: p.category,
+              billingType: p.billingType,
+              type: 'product',
+            });
+          }
+        }
+
+        if (bundlesRes.ok) {
+          const { bundles } = await bundlesRes.json();
+          for (const b of bundles) {
+            options.push({
+              id: b.id,
+              name: b.name,
+              price: b.bundlePrice,
+              category: 'PACKAGE',
+              billingType: b.billingType,
+              type: 'bundle',
+            });
+          }
+        }
+
+        setProductOptions(options);
+      } catch {
+        // Products will just be empty; the rep can still submit without a selection
+      } finally {
+        setProductsLoading(false);
+      }
+    }
+
+    fetchProductOptions();
+  }, []);
 
   const toggleTag = (tag: string) => {
     setSelectedTags((prev) =>
@@ -105,28 +157,34 @@ export default function DispositionModal({
 
   const canAdvance = () => {
     if (step === 1) return !!leadSource && !!contactMethod;
-    if (step === 2) return !!outcome;
-    return true;
+    return !!selectedProductId;
+  };
+
+  const getSelectedProductLabel = (): string => {
+    if (!selectedProductId) return '';
+    const [type, id] = selectedProductId.split(':');
+    const opt = productOptions.find((o) => o.type === type && o.id === Number(id));
+    return opt?.name ?? '';
   };
 
   const handleSubmit = async () => {
-    if (!outcome || !leadSource || !contactMethod) return;
+    if (!leadSource || !contactMethod || !selectedProductId) return;
 
     setLoading(true);
     setError(null);
 
     try {
+      const productLabel = getSelectedProductLabel();
+
       const body: Record<string, unknown> = {
         patientId: patient.id,
         leadSource,
         contactMethod,
-        outcome,
+        outcome: 'SALE_COMPLETED',
+        productInterest: productLabel,
       };
 
-      if (productInterest) body.productInterest = productInterest;
       if (notes) body.notes = notes;
-      if (followUpDate) body.followUpDate = new Date(followUpDate).toISOString();
-      if (followUpNotes) body.followUpNotes = followUpNotes;
       if (selectedTags.length > 0) body.tags = selectedTags;
 
       const response = await apiFetch('/api/sales-rep/dispositions', {
@@ -157,11 +215,9 @@ export default function DispositionModal({
             <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
               <CheckCircle2 className="h-8 w-8 text-green-600" />
             </div>
-            <h3 className="text-lg font-semibold text-gray-900">Disposition Submitted</h3>
+            <h3 className="text-lg font-semibold text-gray-900">New Sale Submitted</h3>
             <p className="mt-2 text-sm text-gray-500">
-              {outcome === 'SALE_COMPLETED'
-                ? 'Sale recorded! An admin will review and approve for commission assignment.'
-                : 'Your disposition has been recorded successfully.'}
+              Sale recorded! An admin will review and approve for commission assignment.
             </p>
           </div>
         </div>
@@ -185,7 +241,7 @@ export default function DispositionModal({
                 <ClipboardCheck className="h-5 w-5" style={{ color: 'var(--brand-primary, #0EA5E9)' }} />
               </div>
               <div>
-                <h2 className="text-lg font-semibold text-gray-900">Disposition</h2>
+                <h2 className="text-lg font-semibold text-gray-900">New Sale</h2>
                 <p className="text-sm text-gray-500">
                   {patient.firstName} {patient.lastName}
                 </p>
@@ -201,7 +257,7 @@ export default function DispositionModal({
 
           {/* Step indicator */}
           <div className="flex items-center gap-2 px-6 pt-4">
-            {[1, 2, 3].map((s) => (
+            {[1, 2].map((s) => (
               <div key={s} className="flex items-center gap-2">
                 <div
                   className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-medium transition-colors ${
@@ -214,15 +270,14 @@ export default function DispositionModal({
                 >
                   {s < step ? '✓' : s}
                 </div>
-                {s < 3 && (
+                {s < 2 && (
                   <div className={`h-0.5 w-8 ${s < step ? 'bg-green-300' : 'bg-gray-200'}`} />
                 )}
               </div>
             ))}
             <span className="ml-2 text-xs text-gray-500">
               {step === 1 && 'Source & Contact'}
-              {step === 2 && 'Outcome'}
-              {step === 3 && 'Details & Tags'}
+              {step === 2 && 'Plan / Package & Details'}
             </span>
           </div>
 
@@ -291,46 +346,65 @@ export default function DispositionModal({
               </div>
             )}
 
-            {/* Step 2: Outcome */}
+            {/* Step 2: Product/Bundle Selection & Details */}
             {step === 2 && (
-              <div className="space-y-5">
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-gray-700">
-                    What was the outcome?
-                  </label>
-                  <div className="space-y-2">
-                    {OUTCOMES.map((o) => (
-                      <button
-                        key={o.value}
-                        onClick={() => setOutcome(o.value)}
-                        className={`w-full rounded-lg border px-4 py-3 text-left text-sm transition-colors ${
-                          outcome === o.value
-                            ? `${o.color} border-2 font-medium`
-                            : 'border-gray-200 text-gray-700 hover:border-gray-300 hover:bg-gray-50'
-                        }`}
-                      >
-                        {o.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Step 3: Details & Tags */}
-            {step === 3 && (
               <div className="space-y-4">
                 <div>
                   <label className="mb-1 block text-sm font-medium text-gray-700">
-                    Product / Service Interest
+                    Plan / Package <span className="text-red-500">*</span>
                   </label>
-                  <input
-                    type="text"
-                    value={productInterest}
-                    onChange={(e) => setProductInterest(e.target.value)}
-                    placeholder="e.g., Weight loss program, Testosterone therapy"
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[var(--brand-primary,#0EA5E9)] focus:outline-none focus:ring-1 focus:ring-[var(--brand-primary,#0EA5E9)]"
-                  />
+                  {productsLoading ? (
+                    <div className="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2.5 text-sm text-gray-400">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Loading plans &amp; packages...
+                    </div>
+                  ) : productOptions.length === 0 ? (
+                    <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm text-amber-700">
+                      <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                      No plans or packages configured for this clinic.
+                    </div>
+                  ) : (
+                    <div className="relative">
+                      <select
+                        value={selectedProductId}
+                        onChange={(e) => setSelectedProductId(e.target.value)}
+                        className="w-full appearance-none rounded-lg border border-gray-300 bg-white px-3 py-2.5 pr-10 text-sm focus:border-[var(--brand-primary,#0EA5E9)] focus:outline-none focus:ring-1 focus:ring-[var(--brand-primary,#0EA5E9)]"
+                      >
+                        <option value="">Select a plan or package...</option>
+                        {productOptions.some((o) => o.type === 'product') && (
+                          <optgroup label="Products">
+                            {productOptions
+                              .filter((o) => o.type === 'product')
+                              .map((o) => (
+                                <option key={`product:${o.id}`} value={`product:${o.id}`}>
+                                  {o.name} — {formatPrice(o.price)}
+                                  {o.billingType === 'RECURRING' ? '/mo' : ''}
+                                </option>
+                              ))}
+                          </optgroup>
+                        )}
+                        {productOptions.some((o) => o.type === 'bundle') && (
+                          <optgroup label="Packages / Bundles">
+                            {productOptions
+                              .filter((o) => o.type === 'bundle')
+                              .map((o) => (
+                                <option key={`bundle:${o.id}`} value={`bundle:${o.id}`}>
+                                  {o.name} — {formatPrice(o.price)}
+                                  {o.billingType === 'RECURRING' ? '/mo' : ''}
+                                </option>
+                              ))}
+                          </optgroup>
+                        )}
+                      </select>
+                      <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                    </div>
+                  )}
+                  {selectedProductId && (
+                    <div className="mt-2 flex items-center gap-1.5 text-xs text-green-600">
+                      <Package className="h-3.5 w-3.5" />
+                      {getSelectedProductLabel()}
+                    </div>
+                  )}
                 </div>
 
                 <div>
@@ -339,38 +413,10 @@ export default function DispositionModal({
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
                     rows={3}
-                    placeholder="Any additional context about this interaction..."
+                    placeholder="Any additional context about this sale..."
                     className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[var(--brand-primary,#0EA5E9)] focus:outline-none focus:ring-1 focus:ring-[var(--brand-primary,#0EA5E9)]"
                   />
                 </div>
-
-                {(outcome === 'INTERESTED' || outcome === 'CALLBACK_REQUESTED') && (
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="mb-1 block text-sm font-medium text-gray-700">
-                        Follow-Up Date
-                      </label>
-                      <input
-                        type="date"
-                        value={followUpDate}
-                        onChange={(e) => setFollowUpDate(e.target.value)}
-                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[var(--brand-primary,#0EA5E9)] focus:outline-none focus:ring-1 focus:ring-[var(--brand-primary,#0EA5E9)]"
-                      />
-                    </div>
-                    <div>
-                      <label className="mb-1 block text-sm font-medium text-gray-700">
-                        Follow-Up Notes
-                      </label>
-                      <input
-                        type="text"
-                        value={followUpNotes}
-                        onChange={(e) => setFollowUpNotes(e.target.value)}
-                        placeholder="e.g., Call back at 3pm"
-                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[var(--brand-primary,#0EA5E9)] focus:outline-none focus:ring-1 focus:ring-[var(--brand-primary,#0EA5E9)]"
-                      />
-                    </div>
-                  </div>
-                )}
 
                 <div>
                   <label className="mb-2 block text-sm font-medium text-gray-700">
@@ -406,7 +452,7 @@ export default function DispositionModal({
               {step > 1 ? 'Back' : 'Cancel'}
             </button>
 
-            {step < 3 ? (
+            {step < 2 ? (
               <button
                 onClick={() => setStep(step + 1)}
                 disabled={!canAdvance()}

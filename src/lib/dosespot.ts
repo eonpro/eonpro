@@ -61,7 +61,7 @@ export interface DoseSpotProviderPayload {
   ZipCode: string;
   PrimaryPhone: string;
   PrimaryPhoneType: string;
-  PrimaryFax?: string;
+  PrimaryFax: string;
   NPINumber: string;
   ClinicianRoleType: ClinicianRoleType[];
   Active: boolean;

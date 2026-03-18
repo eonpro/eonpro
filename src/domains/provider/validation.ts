@@ -83,6 +83,14 @@ export const createProviderSchema = z.object({
     .string()
     .transform((val) => val.trim())
     .refine((val) => val.length > 0, 'Last name is required'),
+  dateOfBirth: z
+    .union([z.string(), z.null()])
+    .optional()
+    .transform((val) => {
+      if (!val || !val.trim()) return null;
+      const d = new Date(val.trim());
+      return isNaN(d.getTime()) ? null : d.toISOString().split('T')[0];
+    }),
   titleLine: z
     .string()
     .optional()
@@ -131,6 +139,13 @@ export const createProviderSchema = z.object({
     .string()
     .optional()
     .transform((val) => (val && val.trim() ? val.trim() : undefined)),
+  fax: z
+    .union([z.string(), z.null()])
+    .optional()
+    .transform((val) => {
+      if (!val || (typeof val === 'string' && !val.trim())) return null;
+      return typeof val === 'string' ? val.trim() : val;
+    }),
   signatureDataUrl: z
     .union([z.string(), z.null()])
     .optional()

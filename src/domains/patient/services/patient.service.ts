@@ -22,6 +22,7 @@ import {
 
 import type { UserContext } from '@/domains/shared/types';
 import { logPHIAccess, logPHIAccessDenied } from '@/lib/audit/hipaa-audit';
+import { PERMISSIONS, hasPermission as hasRolePermission } from '@/lib/auth/permissions';
 import { logger } from '@/lib/logger';
 
 import { type PatientRepository, patientRepository as defaultRepo } from '../repositories';
@@ -501,6 +502,14 @@ export function createPatientService(repo: PatientRepository = defaultRepo): Pat
           throw new ForbiddenError(ERR_NO_CLINIC);
         }
         filter.clinicId = user.clinicId;
+      }
+
+      // Sales rep: restrict to assigned patients unless they have view-all permission
+      if (user.role === 'sales_rep') {
+        const canViewAll = hasRolePermission(user.role, PERMISSIONS.SALES_REP_VIEW_ALL_PATIENTS);
+        if (!canViewAll) {
+          filter.assignedSalesRepId = user.id;
+        }
       }
 
       // Parse recent time filter

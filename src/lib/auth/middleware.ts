@@ -1036,7 +1036,7 @@ export function withProviderAuth(
 export function withClinicalAuth(
   handler: (req: NextRequest, user: AuthUser, context?: unknown) => Promise<Response>
 ): (req: NextRequest, context?: unknown) => Promise<Response> {
-  return withAuth<unknown>(handler, { roles: ['super_admin', 'admin', 'provider', 'staff', 'pharmacy_rep'] });
+  return withAuth<unknown>(handler, { roles: ['super_admin', 'admin', 'provider', 'staff', 'pharmacy_rep', 'sales_rep'] });
 }
 
 /**
