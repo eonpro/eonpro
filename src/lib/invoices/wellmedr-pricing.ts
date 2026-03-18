@@ -11,14 +11,14 @@
  *
  * Prescription medical services:
  *  - New patient cycle: $20 (first Rx or first after 90+ days)
- *  - Refill within 90 days of the last $20: $6
+ *  - Refill within 90 days of the last $20: $3
  */
 
 export const WELLMEDR_CLINIC_SUBDOMAIN = 'wellmedr';
 
 export const PRESCRIPTION_SERVICE_FEE_CENTS = 2000; // $20 per new prescription (cycle start)
 
-export const PRESCRIPTION_SERVICE_REFILL_FEE_CENTS = 600; // $6 per refill within 90-day cycle
+export const PRESCRIPTION_SERVICE_REFILL_FEE_CENTS = 300; // $3 per refill within 90-day cycle
 
 export const PRESCRIPTION_SERVICE_CYCLE_DAYS = 90; // Days before a new $20 charge resets
 
