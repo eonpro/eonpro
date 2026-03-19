@@ -270,38 +270,28 @@ export async function generateDailyInvoices(
     matchedOrders: filteredOrders.length,
   });
 
-  // ── 90-day Rx cycle: determine $20 (new) vs $6 (refill) per patient ──
+  // ── 90-day Rx cycle: determine $20 (new) vs $3 (refill) per patient ──
   // Look back up to 365 days to find each patient's current billing cycle anchor.
+  // Query orders directly — Invoice.orderId linkage is incomplete for older records.
   const patientIds = [...new Set(filteredOrders.map((o) => o.patientId))];
   const cycleAnchorByPatient = new Map<number, Date | null>();
 
   if (patientIds.length > 0) {
     const lookbackDate = new Date(periodStart.getTime() - 365 * 24 * 60 * 60 * 1000);
 
-    const historicalInvoiceRecords = await basePrisma.invoice.findMany({
+    const historicalOrders = await basePrisma.order.findMany({
       where: {
         clinicId,
         patientId: { in: patientIds },
-        prescriptionProcessed: true,
-        paidAt: { gte: lookbackDate, lt: periodStart },
-        orderId: { not: null },
+        fulfillmentChannel: 'lifefile',
+        cancelledAt: null,
+        status: { notIn: ['error', 'cancelled', 'declined', 'queued_for_provider'] },
+        createdAt: { gte: lookbackDate, lt: periodStart },
       },
-      select: { orderId: true, patientId: true },
+      select: { id: true, patientId: true, createdAt: true, approvedAt: true },
+      orderBy: { createdAt: 'asc' },
     });
 
-    const historicalOrderIds = [
-      ...new Set(historicalInvoiceRecords.map((r) => r.orderId!).filter(Boolean)),
-    ];
-
-    const historicalOrders = historicalOrderIds.length > 0
-      ? await basePrisma.order.findMany({
-          where: { id: { in: historicalOrderIds } },
-          select: { id: true, patientId: true, createdAt: true, approvedAt: true },
-          orderBy: { createdAt: 'asc' },
-        })
-      : [];
-
-    // Group historical order dates by patient, sorted chronologically
     const historyByPatient = new Map<number, Date[]>();
     for (const ho of historicalOrders) {
       const sentAt = ho.approvedAt ?? ho.createdAt;
@@ -313,14 +303,12 @@ export async function generateDailyInvoices(
       dates.sort((a, b) => a.getTime() - b.getTime());
     }
 
-    // Walk each patient's history forward to find their current cycle anchor.
-    // The cycle anchor is the date of the most recent $20 charge.
     for (const pid of patientIds) {
       const dates = historyByPatient.get(pid) ?? [];
       let anchor: Date | null = null;
       for (const d of dates) {
         if (!anchor || daysBetween(anchor, d) >= PRESCRIPTION_SERVICE_CYCLE_DAYS) {
-          anchor = d; // $20 charge — new cycle
+          anchor = d;
         }
       }
       cycleAnchorByPatient.set(pid, anchor);
@@ -330,6 +318,7 @@ export async function generateDailyInvoices(
       clinicId,
       patientsChecked: patientIds.length,
       historicalOrders: historicalOrders.length,
+      patientsWithHistory: [...historyByPatient.keys()].length,
     });
   }
 
@@ -421,7 +410,7 @@ export async function generateDailyInvoices(
       }
     }
 
-    // --- Prescription Services (90-day cycle: $20 new / $6 refill) ---
+    // --- Prescription Services (90-day cycle: $20 new / $3 refill) ---
     const anchor = cycleAnchorByPatient.get(order.patientId) ?? null;
     let chargeType: 'new' | 'refill';
     let rxFee: number;
