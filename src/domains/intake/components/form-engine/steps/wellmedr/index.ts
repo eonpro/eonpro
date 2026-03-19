@@ -1,4 +1,6 @@
 export { default as WmBmiCalcStep } from './WmBmiCalcStep';
+export { default as WmGoalWeightStep } from './WmGoalWeightStep';
+export { default as WmDobStep } from './WmDobStep';
 export { default as WmImageCardStep } from './WmImageCardStep';
 export { default as WmYesNoDetailStep } from './WmYesNoDetailStep';
 export { default as WmCheckboxListStep } from './WmCheckboxListStep';

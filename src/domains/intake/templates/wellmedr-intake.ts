@@ -48,9 +48,9 @@ const steps: FormStep[] = [
   {
     id: 'goal-weight', path: 'goal-weight',
     title: { en: 'What is your goal weight?', es: '' },
-    type: 'custom', component: 'WeightInputStep',
-    fields: [{ id: 'ideal_weight', type: 'number', label: { en: 'Your goal weight (lbs)', es: '' }, storageKey: 'ideal_weight', placeholder: { en: '150', es: '' }, validation: [{ type: 'required', message: { en: 'Required', es: '' } }] }],
-    autoAdvance: false, showContinueButton: true, nextStep: 'sex', prevStep: 'bmi-calc', progressPercent: 6,
+    type: 'custom', component: 'WmGoalWeightStep',
+    fields: [],
+    autoAdvance: false, showContinueButton: false, nextStep: 'sex', prevStep: 'bmi-calc', progressPercent: 6,
   },
 
   // 3. Sex Selection (image cards)
@@ -79,9 +79,9 @@ const steps: FormStep[] = [
   {
     id: 'dob', path: 'dob',
     title: { en: 'What is your date of birth?', es: '' },
-    type: 'custom', component: 'DateOfBirthStep',
-    fields: [{ id: 'dob', type: 'date', label: { en: 'Date of Birth', es: '' }, placeholder: { en: 'MM/DD/YYYY', es: '' }, storageKey: 'dob', validation: [{ type: 'required', message: { en: 'Required', es: '' } }, { type: 'age', value: 18, message: { en: 'Must be 18+', es: '' } }] }],
-    autoAdvance: false, showContinueButton: true, nextStep: 'health-effects', prevStep: 'sex', progressPercent: 12,
+    type: 'custom', component: 'WmDobStep',
+    fields: [],
+    autoAdvance: false, showContinueButton: false, nextStep: 'health-effects', prevStep: 'sex', progressPercent: 12,
   },
 
   // 5. Health Effects (image cards)

@@ -42,6 +42,8 @@ import {
 } from './steps';
 import {
   WmBmiCalcStep,
+  WmGoalWeightStep,
+  WmDobStep,
   WmImageCardStep,
   WmYesNoDetailStep,
   WmCheckboxListStep,
@@ -398,6 +400,10 @@ export default function FormStep({
         return null;
       case 'WmBmiCalcStep':
         return <WmBmiCalcStep {...customProps} />;
+      case 'WmGoalWeightStep':
+        return <WmGoalWeightStep {...customProps} />;
+      case 'WmDobStep':
+        return <WmDobStep {...customProps} />;
       case 'WmImageCardStep':
         return <WmImageCardStep {...customProps} {...(config.props as Record<string, unknown>)} />;
       case 'WmYesNoDetailStep':
@@ -432,7 +438,8 @@ export default function FormStep({
       <div className="min-h-screen flex flex-col" style={{ backgroundColor: 'var(--intake-bg, #ffffff)' }}>
         <div className="w-full h-1 bg-gray-100">
           <div
-            className="h-full bg-[var(--intake-accent,#f0feab)] transition-all duration-300"
+            className="h-full transition-all duration-300"
+            style={{ backgroundColor: 'var(--intake-accent, #f0feab)' }}
             style={{ width: `${config.progressPercent}%` }}
           />
         </div>
@@ -619,8 +626,8 @@ export default function FormStep({
       {/* Progress bar */}
       <div className="w-full h-1 bg-gray-100">
         <div
-          className="h-full bg-[var(--intake-accent,#f0feab)] transition-all duration-300"
-          style={{ width: `${config.progressPercent}%` }}
+          className="h-full transition-all duration-300"
+          style={{ width: `${config.progressPercent}%`, backgroundColor: 'var(--intake-accent, #f0feab)' }}
         />
       </div>
 
