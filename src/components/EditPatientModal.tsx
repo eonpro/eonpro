@@ -126,7 +126,7 @@ export default function EditPatientModal({ patient, onClose, onSave }: EditPatie
       await onSave(formData);
       onClose();
     } catch (err: unknown) {
-      setError(err.message || 'Failed to save changes');
+      setError((err as any).message || 'Failed to save changes');
     } finally {
       setSaving(false);
     }

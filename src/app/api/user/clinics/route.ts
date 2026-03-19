@@ -94,7 +94,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
     if (user.role === 'provider') {
       try {
         const provider = await prisma.provider.findFirst({
-          where: { userId: user.id },
+          where: { user: { id: user.id } },
           select: { id: true },
         });
 
@@ -155,7 +155,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       hasMultipleClinics: clinics.length > 1,
     });
   } catch (error: unknown) {
-    logger.error('Error fetching user clinics', { error: error.message, userId: user.id });
+    logger.error('Error fetching user clinics', { error: (error instanceof Error ? error.message : String(error)), userId: user.id });
     return NextResponse.json({ error: 'Failed to fetch clinics' }, { status: 500 });
   }
 }
@@ -190,7 +190,7 @@ async function handlePut(req: NextRequest, user: AuthUser) {
     if (user.role === 'provider') {
       try {
         const provider = await prisma.provider.findFirst({
-          where: { userId: user.id },
+          where: { user: { id: user.id } },
           select: { id: true },
         });
         if (provider) {

@@ -1626,7 +1626,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       return {
         ...item,
         hasPreviousRx: prevRx?.hasPreviousRx ?? false,
-        lastRxDetails: item.lastRxDetails ?? prevRx?.lastRxDetails ?? null,
+        lastRxDetails: (item as any).lastRxDetails ?? prevRx?.lastRxDetails ?? null,
         recentPrescription: dupCheck?.hasDuplicate
           ? {
               hasDuplicate: true,
@@ -1771,7 +1771,7 @@ async function handlePatch(req: NextRequest, user: AuthUser) {
           reason.trim(), providerId ?? user.id, invoiceId
         );
       } catch (sqlErr: unknown) {
-        logger.warn('[PRESCRIPTION-QUEUE] Hold columns missing - run migration 20260228120000', { error: sqlErr?.message?.substring(0, 100) });
+        logger.warn('[PRESCRIPTION-QUEUE] Hold columns missing - run migration 20260228120000', { error: (sqlErr as Error)?.message?.substring(0, 100) });
         return NextResponse.json({ error: 'Hold feature requires a database migration. Please contact your administrator.' }, { status: 503 });
       }
       logger.info('[PRESCRIPTION-QUEUE] Invoice held for more info', { invoiceId, userId: user.id });
@@ -1828,7 +1828,7 @@ async function handlePatch(req: NextRequest, user: AuthUser) {
           invoiceId
         );
       } catch (sqlErr: unknown) {
-        logger.warn('[PRESCRIPTION-QUEUE] Hold columns missing - run migration 20260228120000', { error: sqlErr?.message?.substring(0, 100) });
+        logger.warn('[PRESCRIPTION-QUEUE] Hold columns missing - run migration 20260228120000', { error: (sqlErr as Error)?.message?.substring(0, 100) });
         return NextResponse.json({ error: 'Hold feature requires a database migration. Please contact your administrator.' }, { status: 503 });
       }
       logger.info('[PRESCRIPTION-QUEUE] Invoice resumed from hold', { invoiceId, userId: user.id });

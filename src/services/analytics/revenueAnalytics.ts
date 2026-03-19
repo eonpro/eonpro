@@ -697,7 +697,7 @@ export class RevenueAnalyticsService {
     const overview = await this.getRevenueOverview(clinicId, { start: dayStart, end: dayEnd });
     const mrr = await this.getMrrBreakdown(clinicId);
 
-    await prisma.financialMetrics.upsert({
+    await (prisma as any).financialMetrics.upsert({
       where: {
         clinicId_date: {
           clinicId,

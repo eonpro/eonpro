@@ -17,7 +17,7 @@ const DEFAULT_TIMEZONE = 'America/New_York';
 const PHARMACY_ACCESS_ROLES_FILTER = Prisma.sql`AND u."role"::text IN (${Prisma.join(['SUPER_ADMIN', 'ADMIN', 'STAFF', 'PHARMACY_REP'])})`;
 
 
-async function resolveClinicTimezone(clinicId: number | null): Promise<string> {
+async function resolveClinicTimezone(clinicId: number | null | undefined): Promise<string> {
   if (!clinicId) return DEFAULT_TIMEZONE;
   try {
     const clinic = await prisma.clinic.findUnique({
@@ -175,7 +175,7 @@ function buildPerformanceResponse(
 
 async function postHandler(req: NextRequest, user: AuthUser) {
   try {
-    const formData = await req.formData();
+    const formData = (await req.formData()) as unknown as globalThis.FormData;
     const lifefileId = formData.get('lifefileId') as string | null;
     const photo = formData.get('photo') as File | null;
     const notes = formData.get('notes') as string | null;

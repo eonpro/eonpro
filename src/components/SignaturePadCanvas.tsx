@@ -35,7 +35,7 @@ export default function SignaturePadCanvas({ onChange, initialSignature }: Props
         pad.fromDataURL(initialSignature);
       } catch (err: unknown) {
         
-        logger.warn('Unable to load initial signature', err);
+        logger.warn('Unable to load initial signature', { error: err });
       }
     }
 
@@ -46,12 +46,10 @@ export default function SignaturePadCanvas({ onChange, initialSignature }: Props
     };
 
     // Listen to both stroke end and after update events
-    // @ts-expect-error — signature_pad endStroke event not in DOM typings
-    pad.addEventListener('endStroke', handleStrokeEnd);
+    (pad as any).addEventListener('endStroke', handleStrokeEnd);
 
     return () => {
-      // @ts-expect-error — signature_pad endStroke event not in DOM typings
-      pad.removeEventListener('endStroke', handleStrokeEnd);
+      (pad as any).removeEventListener('endStroke', handleStrokeEnd);
       pad.off();
     };
   }, [initialSignature, updateSignature]);

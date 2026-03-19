@@ -19,8 +19,9 @@ import { verifyCronAuth } from '@/lib/cron/tenant-isolation';
 export const maxDuration = 60;
 
 export async function GET(req: NextRequest) {
-  const authResult = verifyCronAuth(req);
-  if (authResult) return authResult;
+  if (!verifyCronAuth(req)) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
 
   const now = new Date();
   let sentCount = 0;

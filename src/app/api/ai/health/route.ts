@@ -90,17 +90,17 @@ export async function GET(req: NextRequest) {
     } catch (connectError: unknown) {
       report.status = 'unhealthy';
       report.checks.apiConnectivity = 'failed';
-      report.checks.errorDetails = `API connectivity failed: ${connectError.message}`;
+      report.checks.errorDetails = `API connectivity failed: ${(connectError as any).message}`;
 
-      if (connectError.status === 401) {
+      if ((connectError as any).status === 401) {
         report.recommendations?.push(
           'API key is invalid or expired. Generate a new key at https://platform.openai.com/api-keys'
         );
-      } else if (connectError.status === 429) {
+      } else if ((connectError as any).status === 429) {
         report.recommendations?.push(
           'Rate limit exceeded. Check your OpenAI usage at https://platform.openai.com/usage'
         );
-      } else if (connectError.code === 'ECONNREFUSED' || connectError.code === 'ENOTFOUND') {
+      } else if ((connectError as any).code === 'ECONNREFUSED' || (connectError as any).code === 'ENOTFOUND') {
         report.recommendations?.push(
           'Network connectivity issue. Check if the server can reach api.openai.com'
         );
@@ -138,16 +138,16 @@ export async function GET(req: NextRequest) {
         report.checks.completionTest = 'failed';
         report.status = 'degraded';
 
-        if (completionError.code === 'insufficient_quota') {
+        if ((completionError as any).code === 'insufficient_quota') {
           report.checks.errorDetails = 'OpenAI quota exceeded';
           report.recommendations?.push(
             'Your OpenAI account has exceeded its quota. Add payment method or upgrade plan.'
           );
-        } else if (completionError.status === 429) {
+        } else if ((completionError as any).status === 429) {
           report.checks.errorDetails = 'Rate limited during completion test';
           report.recommendations?.push('Too many requests. Wait a moment and try again.');
         } else {
-          report.checks.errorDetails = `Completion test failed: ${completionError.message}`;
+          report.checks.errorDetails = `Completion test failed: ${(completionError as any).message}`;
         }
       }
     }

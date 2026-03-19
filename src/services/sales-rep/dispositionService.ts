@@ -10,11 +10,11 @@
 
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
-import type {
-  DispositionLeadSource,
-  DispositionContactMethod,
-  DispositionOutcome,
-  DispositionStatus,
+import {
+  type DispositionLeadSource,
+  type DispositionContactMethod,
+  type DispositionOutcome,
+  type DispositionStatus,
   Prisma,
 } from '@prisma/client';
 

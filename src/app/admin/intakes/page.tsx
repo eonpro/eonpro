@@ -68,7 +68,7 @@ export default function AdminIntakesPage() {
   const [deletePatient, setDeletePatient] = useState<Patient | null>(null);
   const [openDropdownId, setOpenDropdownId] = useState<number | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const searchTimeoutRef = useRef<number | null>(null);
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -80,7 +80,7 @@ export default function AdminIntakesPage() {
     if (searchTimeoutRef.current) {
       clearTimeout(searchTimeoutRef.current);
     }
-    searchTimeoutRef.current = setTimeout(() => {
+    searchTimeoutRef.current = window.setTimeout(() => {
       setDebouncedSearch(searchTerm);
       setCurrentPage(1);
     }, 300);

@@ -5,7 +5,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { withAuth } from '@/lib/auth/middleware';
+import { withAuth, type AuthOptions } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
 import { z } from 'zod';
 import {
@@ -70,7 +70,7 @@ export const GET = withAuth(async (req: NextRequest, user) => {
  * POST /api/scheduling/availability
  * Set provider availability
  */
-const availabilityRoles = { roles: ['super_admin', 'admin', 'provider', 'staff'] as const };
+const availabilityRoles: AuthOptions = { roles: ['super_admin', 'admin', 'provider', 'staff'] };
 
 export const POST = withAuth(async (req: NextRequest, user) => {
   try {

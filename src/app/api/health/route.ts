@@ -105,12 +105,12 @@ async function checkDatabase(): Promise<HealthCheck> {
       details: { patientCount, latencyMs: healthResult.latencyMs },
     };
   } catch (error: unknown) {
-    logger.error('Database health check failed', { error: error.message });
+    logger.error('Database health check failed', { error: (error as any).message });
     return {
       name: 'Database',
       status: 'unhealthy',
       responseTime: Date.now() - start,
-      message: error.message,
+      message: (error as any).message,
     };
   }
 }
@@ -172,7 +172,7 @@ async function checkConnectionPool(): Promise<HealthCheck> {
       name: 'Connection Pool',
       status: 'degraded',
       responseTime: Date.now() - start,
-      message: `Unable to get pool stats: ${error.message}`,
+      message: `Unable to get pool stats: ${(error as any).message}`,
     };
   }
 }
@@ -207,12 +207,12 @@ async function checkStripe(): Promise<HealthCheck> {
       message: 'Connected and authenticated',
     };
   } catch (error: unknown) {
-    logger.error('Stripe health check failed', { error: error.message });
+    logger.error('Stripe health check failed', { error: (error as any).message });
     return {
       name: 'Stripe',
-      status: error.message?.includes('API key') ? 'degraded' : 'unhealthy',
+      status: (error as any).message?.includes('API key') ? 'degraded' : 'unhealthy',
       responseTime: Date.now() - start,
-      message: error.message,
+      message: (error as any).message,
     };
   }
 }
@@ -246,12 +246,12 @@ async function checkTwilio(): Promise<HealthCheck> {
       details: { accountStatus: account.status },
     };
   } catch (error: unknown) {
-    logger.error('Twilio health check failed', { error: error.message });
+    logger.error('Twilio health check failed', { error: (error as any).message });
     return {
       name: 'Twilio',
       status: 'degraded',
       responseTime: Date.now() - start,
-      message: error.message,
+      message: (error as any).message,
     };
   }
 }
@@ -324,12 +324,12 @@ async function checkOpenAI(): Promise<HealthCheck> {
       message: 'Connected and authenticated',
     };
   } catch (error: unknown) {
-    logger.error('OpenAI health check failed', { error: error.message });
+    logger.error('OpenAI health check failed', { error: (error as any).message });
     return {
       name: 'OpenAI',
       status: 'degraded',
       responseTime: Date.now() - start,
-      message: error.message,
+      message: (error as any).message,
     };
   }
 }
@@ -365,7 +365,7 @@ async function checkLifefile(): Promise<HealthCheck> {
       name: 'Lifefile (Pharmacy)',
       status: 'degraded',
       responseTime: Date.now() - start,
-      message: error.message,
+      message: (error as any).message,
     };
   }
 }
@@ -400,7 +400,7 @@ async function checkAuth(): Promise<HealthCheck> {
       name: 'Authentication',
       status: 'unhealthy',
       responseTime: Date.now() - start,
-      message: error.message,
+      message: (error as any).message,
     };
   }
 }
@@ -440,7 +440,7 @@ async function checkAPIRoutes(): Promise<HealthCheck> {
       name: 'API Routes',
       status: 'unhealthy',
       responseTime: Date.now() - start,
-      message: error.message,
+      message: (error as any).message,
     };
   }
 }
@@ -475,7 +475,7 @@ async function checkEncryption(): Promise<HealthCheck> {
       name: 'PHI Encryption',
       status: 'unhealthy',
       responseTime: Date.now() - start,
-      message: error.message,
+      message: (error as any).message,
     };
   }
 }
@@ -533,7 +533,7 @@ async function checkMigrations(): Promise<HealthCheck> {
     };
   } catch (error: unknown) {
     // If table doesn't exist, migrations haven't been run
-    if (error.message.includes('does not exist') || error.message.includes('_prisma_migrations')) {
+    if ((error as any).message.includes('does not exist') || (error as any).message.includes('_prisma_migrations')) {
       return {
         name: 'Migrations',
         status: 'degraded',
@@ -546,7 +546,7 @@ async function checkMigrations(): Promise<HealthCheck> {
       name: 'Migrations',
       status: 'unhealthy',
       responseTime: Date.now() - start,
-      message: error.message,
+      message: (error as any).message,
     };
   }
 }
@@ -662,7 +662,7 @@ async function checkAffiliateSystem(): Promise<HealthCheck> {
       name: 'Affiliate System',
       status: 'unhealthy',
       responseTime: Date.now() - start,
-      message: error.message,
+      message: (error as any).message,
     };
   }
 }
@@ -703,7 +703,7 @@ async function checkReadReplica(): Promise<HealthCheck> {
       name: 'Read Replica',
       status: 'unhealthy',
       responseTime: Date.now() - start,
-      message: error.message,
+      message: (error as any).message,
     };
   }
 }

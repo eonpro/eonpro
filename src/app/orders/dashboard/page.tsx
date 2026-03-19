@@ -49,7 +49,7 @@ export default function OrdersDashboardPage() {
         setOrders(data.orders ?? []);
       } catch (err: unknown) {
         
-        logger.error(err);
+        logger.error(String(err));
       } finally {
         setLoading(false);
       }

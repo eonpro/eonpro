@@ -51,7 +51,7 @@ const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
 
 function getIcon(iconName: string): LucideIcon {
   const Icon = ICON_MAP[iconName];
-  return Icon ?? Type;
+  return (Icon ?? Type) as LucideIcon;
 }
 
 // ---------------------------------------------------------------------------

@@ -102,7 +102,7 @@ export const POST = withAdminAuth(async (req: NextRequest, user) => {
 
     return NextResponse.json({ billingCode }, { status: 201 });
   } catch (error: unknown) {
-    if (error.code === 'P2002') {
+    if ((error as any).code === 'P2002') {
       return NextResponse.json({ error: 'This code already exists' }, { status: 409 });
     }
     logger.error('Failed to create billing code', { error });

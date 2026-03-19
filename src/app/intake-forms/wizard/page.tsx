@@ -103,7 +103,7 @@ export default function IntakeFormWizard() {
       router.push('/intake-forms');
     } catch (err: unknown) {
       logger.error('Failed to create template', err);
-      alert('Failed to create template: ' + err.message);
+      alert('Failed to create template: ' + (err as any).message);
     } finally {
       setIsSubmitting(false);
     }

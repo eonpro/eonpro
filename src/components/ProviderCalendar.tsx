@@ -61,6 +61,7 @@ export default function ProviderCalendar({
   };
 
   const renderMonthView = () => {
+    if (!currentDate) return [];
     const daysInMonth = getDaysInMonth(currentDate);
     const firstDay = getFirstDayOfMonth(currentDate);
     const days: React.ReactNode[] = [];
@@ -131,6 +132,7 @@ export default function ProviderCalendar({
   };
 
   const renderWeekView = () => {
+    if (!currentDate) return null;
     const startOfWeek = new Date(currentDate);
     startOfWeek.setDate(currentDate.getDate() - currentDate.getDay());
 

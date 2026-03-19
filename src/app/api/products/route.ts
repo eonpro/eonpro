@@ -185,7 +185,7 @@ async function handlePost(req: NextRequest, user: AuthUser) {
       } catch (stripeError: unknown) {
         logger.warn(
           '[Products API] Failed to create Stripe product (continuing without)',
-          stripeError.message
+          (stripeError as any).message
         );
       }
     }

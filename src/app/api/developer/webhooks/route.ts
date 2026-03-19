@@ -270,9 +270,9 @@ export const POST = withAuth(
     } catch (error: unknown) {
       logger.error('Error creating webhook:', error);
 
-      if (error.name === 'ZodError') {
+      if ((error as any).name === 'ZodError') {
         return NextResponse.json(
-          { error: 'Invalid request data', details: error.errors },
+          { error: 'Invalid request data', details: (error as any).errors },
           { status: 400 }
         );
       }

@@ -6,11 +6,11 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { withAuth } from '@/lib/auth/middleware';
+import { withAuth, type AuthOptions } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
 import { prisma } from '@/lib/db';
 
-const scheduleRoles = { roles: ['super_admin', 'admin', 'provider', 'staff'] as const };
+const scheduleRoles: AuthOptions = { roles: ['super_admin', 'admin', 'provider', 'staff'] };
 
 /**
  * GET /api/scheduling/availability/schedule?providerId=X

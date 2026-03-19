@@ -287,15 +287,15 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) 
     logger.error('[SUPER-ADMIN/PROVIDERS] Error creating provider:', error);
 
     // Handle specific error types
-    if (error.code === 'CONFLICT') {
+    if ((error as any).code === 'CONFLICT') {
       return NextResponse.json(
         { error: error instanceof Error ? error.message : String(error) || 'NPI already registered' },
         { status: 409 }
       );
     }
 
-    if (error.code === 'VALIDATION_ERROR') {
-      return NextResponse.json({ error: error instanceof Error ? error.message : String(error), details: error.details }, { status: 400 });
+    if ((error as any).code === 'VALIDATION_ERROR') {
+      return NextResponse.json({ error: error instanceof Error ? error.message : String(error), details: (error as any).details }, { status: 400 });
     }
 
     return NextResponse.json(

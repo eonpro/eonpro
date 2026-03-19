@@ -54,7 +54,7 @@ async function getHandler(request: NextRequest, user: AuthUser, context?: RouteC
     logger.error('[API] Error fetching SOAP note:', error);
     return NextResponse.json(
       { error: errorMessage || 'Failed to fetch SOAP note' },
-      { status: error.message === 'SOAP note not found' ? 404 : 500 }
+      { status: (error as any).message === 'SOAP note not found' ? 404 : 500 }
     );
   }
 }

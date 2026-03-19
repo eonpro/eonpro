@@ -153,12 +153,12 @@ export default function AdminShippingPage() {
   const [actionLoading, setActionLoading] = useState<number | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
-  const debounceTimer = useRef<NodeJS.Timeout | null>(null);
+  const debounceTimer = useRef<number | null>(null);
 
   const handleSearchChange = useCallback((value: string) => {
     setSearchTerm(value);
     if (debounceTimer.current) clearTimeout(debounceTimer.current);
-    debounceTimer.current = setTimeout(() => {
+    debounceTimer.current = window.setTimeout(() => {
       setDebouncedSearch(value);
     }, 300);
   }, []);
@@ -192,7 +192,7 @@ export default function AdminShippingPage() {
       setTotal(data.total ?? 0);
       setHasMore(data.hasMore ?? false);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load shipping data');
+      setError(err instanceof Error ? (err instanceof Error ? err.message : String(err)) : 'Failed to load shipping data');
     } finally {
       setLoading(false);
     }
@@ -240,7 +240,7 @@ export default function AdminShippingPage() {
       setTimeout(() => setSuccessMsg(null), 4000);
       fetchRecords();
     } catch (err: unknown) {
-      setError(err.message || 'Failed to void label');
+      setError((err instanceof Error ? err.message : String(err)) || 'Failed to void label');
       setTimeout(() => setError(null), 4000);
     } finally {
       setActionLoading(null);

@@ -75,12 +75,10 @@ export const GET = withAuth(
       }
 
       // Fetch settings from database
-      const settingsRecord = await prisma.systemSettings.findUnique({
+      const settingsRecord = await prisma.systemSettings.findFirst({
         where: {
-          category_key: {
-            category: SETTINGS_CATEGORY,
-            key: SETTINGS_KEY,
-          },
+          category: SETTINGS_CATEGORY,
+          key: SETTINGS_KEY,
         },
       });
 
@@ -131,26 +129,27 @@ export const PUT = withAuth(
       const newSettings = validationResult.data;
 
       // Upsert settings
-      const updatedSettings = await prisma.systemSettings.upsert({
-        where: {
-          category_key: {
-            category: SETTINGS_CATEGORY,
-            key: SETTINGS_KEY,
-          },
-        },
-        update: {
-          value: { ...defaultSettings, ...newSettings },
-          updatedById: user.id,
-        },
-        create: {
-          category: SETTINGS_CATEGORY,
-          key: SETTINGS_KEY,
-          value: { ...defaultSettings, ...newSettings },
-          description: 'Affiliate program configuration settings',
-          isPublic: false,
-          updatedById: user.id,
-        },
+      const existing = await prisma.systemSettings.findFirst({
+        where: { category: SETTINGS_CATEGORY, key: SETTINGS_KEY },
       });
+      const updatedSettings = existing
+        ? await prisma.systemSettings.update({
+            where: { id: existing.id },
+            data: {
+              value: { ...defaultSettings, ...newSettings },
+              updatedById: user.id,
+            },
+          })
+        : await prisma.systemSettings.create({
+            data: {
+              category: SETTINGS_CATEGORY,
+              key: SETTINGS_KEY,
+              value: { ...defaultSettings, ...newSettings },
+              description: 'Affiliate program configuration settings',
+              isPublic: false,
+              updatedById: user.id,
+            },
+          });
 
       logger.info('[AffiliateSettings] Settings updated', {
         userId: user.id,

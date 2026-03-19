@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
     } catch (stripeError: unknown) {
       const errorMessage = stripeError instanceof Error ? stripeError.message : String(stripeError);
       // If it's a permissions error, the keys are valid but limited
-      if (stripeError.type === 'StripePermissionError') {
+      if ((stripeError as any).type === 'StripePermissionError') {
         return NextResponse.json({
           valid: true,
           mode: config.isTestMode ? 'test' : 'live',

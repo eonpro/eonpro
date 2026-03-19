@@ -361,7 +361,7 @@ export async function notifyPatientOnOrderTrackingUpdate(
     }
 
     const clinic = await prisma.clinic.findUnique({
-      where: { id: order.clinicId },
+      where: { id: order.clinicId ?? 0 },
       select: { name: true },
     });
 
@@ -371,15 +371,15 @@ export async function notifyPatientOnOrderTrackingUpdate(
 
     await sendTrackingNotificationSMS({
       patientId: order.patient.id,
-      patientPhone: order.patient.phone,
-      patientEmail: order.patient.email,
-      patientFirstName: order.patient.firstName,
-      patientLastName: order.patient.lastName,
-      clinicId: order.clinicId,
+      patientPhone: order.patient.phone ?? null,
+      patientEmail: order.patient.email ?? undefined,
+      patientFirstName: order.patient.firstName ?? null,
+      patientLastName: order.patient.lastName ?? null,
+      clinicId: order.clinicId ?? 0,
       clinicName: clinic?.name || 'Your Clinic',
       trackingNumber: nextTracking,
-      carrier,
-      orderId: order.id,
+      carrier: carrier ?? 'Unknown',
+      orderId: order.id ?? undefined,
     });
   } catch (err) {
     logger.warn('[TRACKING SMS] Failed to notify for order tracking update (non-blocking)', {

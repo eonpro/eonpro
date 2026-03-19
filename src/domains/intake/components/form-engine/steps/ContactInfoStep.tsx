@@ -25,8 +25,8 @@ export default function ContactInfoStep({
   const responses = useIntakeStore((state) => state.responses);
   const { setResponse, markStepCompleted, setCurrentStep } = useIntakeActions();
   
-  const [email, setEmail] = useState(responses.email || '');
-  const [phone, setPhone] = useState(responses.phone || '');
+  const [email, setEmail] = useState(String(responses.email || ''));
+  const [phone, setPhone] = useState(String(responses.phone || ''));
   const [consent, setConsent] = useState(false);
   const [emailError, setEmailError] = useState('');
   const [phoneError, setPhoneError] = useState('');

@@ -188,7 +188,8 @@ async function getOrderData(clinicId: number, period: Period) {
       .then((groups) => {
         const counts: Record<string, number> = {};
         groups.forEach((g) => {
-          counts[g.status] = g._count.id;
+          const key = g.status ?? 'UNKNOWN';
+          counts[key] = g._count.id;
         });
         return counts;
       }),
@@ -278,7 +279,7 @@ async function getOrderTimeline(clinicId: number, period: Period) {
       total: intervalOrders.length,
       completed: intervalOrders.filter((o) => o.status === 'COMPLETED').length,
       pending: intervalOrders.filter((o) =>
-        ['PENDING', 'PENDING_REVIEW'].includes(o.status)
+        o.status != null && ['PENDING', 'PENDING_REVIEW'].includes(o.status)
       ).length,
     };
   });
@@ -357,7 +358,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
     return handleApiError(error, {
       requestId,
       route: 'GET /api/admin/clinic-analytics',
-      context: { userId: user.id },
+      context: { userId: user.id ?? undefined },
     });
   }
 }

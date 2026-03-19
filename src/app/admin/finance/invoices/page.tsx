@@ -76,12 +76,12 @@ export default function InvoicesPage() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [syncingId, setSyncingId] = useState<number | null>(null);
-  const debounceTimer = useRef<NodeJS.Timeout | null>(null);
+  const debounceTimer = useRef<number | null>(null);
 
   const handleSearchChange = useCallback((value: string) => {
     setSearchQuery(value);
     if (debounceTimer.current) clearTimeout(debounceTimer.current);
-    debounceTimer.current = setTimeout(() => {
+    debounceTimer.current = window.setTimeout(() => {
       setDebouncedSearch(value);
       setPage(1);
     }, 300);

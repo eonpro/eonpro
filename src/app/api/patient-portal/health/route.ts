@@ -209,7 +209,7 @@ export async function GET(req: NextRequest) {
 
     // Full response requires super_admin auth
     const authResult = await verifyAuth(req);
-    if (!authResult || authResult.role !== 'super_admin') {
+    if (!authResult || (authResult as any).role !== 'super_admin') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 

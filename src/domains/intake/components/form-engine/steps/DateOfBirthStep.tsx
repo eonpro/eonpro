@@ -25,7 +25,7 @@ export default function DateOfBirthStep({
   const responses = useIntakeStore((state) => state.responses);
   const { setResponse, markStepCompleted, setCurrentStep } = useIntakeActions();
   
-  const [dob, setDob] = useState(responses.dob || '');
+  const [dob, setDob] = useState(String(responses.dob || ''));
   const [certified, setCertified] = useState(false);
   const [isOver18, setIsOver18] = useState(true);
   const [showDateError, setShowDateError] = useState(false);

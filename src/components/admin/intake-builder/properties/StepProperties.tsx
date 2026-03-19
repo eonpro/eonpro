@@ -9,6 +9,7 @@ import type {
   StepNavigation,
   ConditionalNavigation,
 } from '../state/builderTypes';
+import type { ConditionalRule } from '@/domains/intake/types/form-engine';
 
 const STEP_TYPES: { value: StepType; label: string }[] = [
   { value: 'single-select', label: 'Single Select' },
@@ -53,7 +54,9 @@ export default function StepProperties({
 }: StepPropertiesProps) {
   const otherSteps = getOtherSteps(steps, step.id);
   const isConditionalNav = Array.isArray(step.nextStep);
-  const conditionalNavs = isConditionalNav ? step.nextStep : [];
+  const conditionalNavs: ConditionalNavigation[] = isConditionalNav
+    ? (step.nextStep as ConditionalNavigation[])
+    : [];
 
   const update = (updates: Partial<FormStep>) => {
     onUpdateStep(step.id, updates);
@@ -259,7 +262,7 @@ export default function StepProperties({
           </div>
         ) : (
           <div className="space-y-2">
-            {conditionalNavs.map((nav, idx) => (
+            {conditionalNavs.map((nav: ConditionalNavigation, idx: number) => (
               <div
                 key={idx}
                 className="p-3 rounded-lg border border-gray-200 bg-gray-50/50 space-y-2"
@@ -292,7 +295,7 @@ export default function StepProperties({
                     </option>
                   ))}
                 </select>
-                {nav.conditions.map((cond, cIdx) => (
+                {nav.conditions.map((cond: ConditionalRule, cIdx: number) => (
                   <div key={cIdx} className="flex gap-2 text-xs">
                     <select
                       value={cond.field}

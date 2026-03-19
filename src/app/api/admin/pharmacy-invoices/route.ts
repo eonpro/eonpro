@@ -65,7 +65,7 @@ export const POST = withAuth(
         return NextResponse.json({ error: 'Clinic context required' }, { status: 400 });
       }
 
-      const formData = await req.formData();
+      const formData = (await req.formData()) as unknown as globalThis.FormData;
       const file = formData.get('file') as File | null;
 
       if (!file) {

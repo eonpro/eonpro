@@ -239,7 +239,7 @@ export default function PatientPrescriptionsTab({
                 {/* Action */}
                 <div className="mt-2.5 flex gap-2">
                   <button
-                    onClick={() => handleNewPrescriptionClick(order)}
+                    onClick={() => handleNewPrescriptionClick()}
                     className="flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-center text-xs font-medium text-gray-700 active:bg-gray-50"
                   >
                     Refill / Adjust

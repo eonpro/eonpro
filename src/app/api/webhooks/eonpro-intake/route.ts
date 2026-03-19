@@ -146,7 +146,7 @@ export async function POST(req: NextRequest) {
   const existingRecord = await prisma.idempotencyRecord.findUnique({
     where: { key: idempotencyKey },
   }).catch((err) => {
-    logger.warn(`[EONPRO INTAKE ${requestId}] Idempotency lookup failed, proceeding`, { error: err instanceof Error ? err.message : String(err) });
+    logger.warn(`[EONPRO INTAKE ${requestId}] Idempotency lookup failed, proceeding`, { error: err instanceof Error ? (err instanceof Error ? err.message : String(err)) : String(err) });
     return null;
   });
 
@@ -320,16 +320,16 @@ export async function POST(req: NextRequest) {
         responseBody: response,
       },
     }).catch((err) => {
-      logger.warn(`[EONPRO INTAKE ${requestId}] Failed to store idempotency record`, { error: err instanceof Error ? err.message : String(err) });
+      logger.warn(`[EONPRO INTAKE ${requestId}] Failed to store idempotency record`, { error: err instanceof Error ? (err instanceof Error ? err.message : String(err)) : String(err) });
     });
 
     logger.debug(`[EONPRO INTAKE ${requestId}] Webhook completed successfully`);
     return Response.json(response, { status: 200 });
   } catch (err: unknown) {
     logger.error(`[EONPRO INTAKE ${requestId}] Failed to process intake`, {
-      error: err.message,
+      error: (err instanceof Error ? err.message : String(err)),
       // Stack trace logged only in development for security
-      ...(process.env.NODE_ENV === 'development' && { stack: err.stack }),
+      ...(process.env.NODE_ENV === 'development' && { stack: (err instanceof Error ? err.stack : undefined) }),
     });
 
     return Response.json(
@@ -337,7 +337,7 @@ export async function POST(req: NextRequest) {
         success: false,
         requestId,
         error: 'Processing failed',
-        message: err.message || 'Failed to process intake data',
+        message: (err instanceof Error ? err.message : String(err)) || 'Failed to process intake data',
       },
       { status: 500 }
     );

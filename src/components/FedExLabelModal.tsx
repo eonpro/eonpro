@@ -180,7 +180,7 @@ export default function FedExLabelModal({
       if (!res.ok) throw new Error(data.error || 'Failed to get rate');
       setRateQuote(data);
     } catch (err: unknown) {
-      setError(err.message || 'Failed to get rate quote');
+      setError((err as any).message || 'Failed to get rate quote');
     } finally {
       setRateLoading(false);
     }
@@ -260,7 +260,7 @@ export default function FedExLabelModal({
       if (!res.ok) throw new Error(data.error || 'Failed to retrieve label');
       downloadLabelFile(data.labelData, success.trackingNumber, data.labelFormat || 'PDF');
     } catch (err: unknown) {
-      setError(err.message || 'Failed to download label');
+      setError((err as any).message || 'Failed to download label');
     } finally {
       setRedownloading(false);
     }
@@ -295,7 +295,7 @@ export default function FedExLabelModal({
       const opened = printLabel4x6(data.labelData, fmt, data.trackingNumber);
       setSuccess({ trackingNumber: data.trackingNumber, labelId: data.id, popupBlocked: !opened });
     } catch (err: unknown) {
-      setError(err.message || 'An unexpected error occurred');
+      setError((err as any).message || 'An unexpected error occurred');
       setSubmitted(false);
     } finally {
       setLoading(false);

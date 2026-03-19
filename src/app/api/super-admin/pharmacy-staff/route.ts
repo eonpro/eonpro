@@ -199,11 +199,11 @@ export const POST = withSuperAdminAuth(async (req: NextRequest) => {
     const lastName = String(body?.lastName || '').trim();
     const password = String(body?.password || '');
     const clinicIdsRaw = Array.isArray(body?.clinicIds) ? body.clinicIds : [];
-    const clinicIds = Array.from(
+    const clinicIds: number[] = Array.from(
       new Set(
         clinicIdsRaw
           .map((value: unknown) => Number(value))
-          .filter((value: number) => Number.isFinite(value) && value > 0)
+          .filter((value: number): value is number => Number.isFinite(value) && value > 0)
       )
     );
 
@@ -233,7 +233,7 @@ export const POST = withSuperAdminAuth(async (req: NextRequest) => {
     }
 
     const passwordHash = await bcrypt.hash(password, 12);
-    const primaryClinicId = clinicIds[0];
+    const primaryClinicId = clinicIds[0] as number;
 
     const existingUser = await prisma.user.findUnique({
       where: { email },
@@ -318,16 +318,16 @@ export const POST = withSuperAdminAuth(async (req: NextRequest) => {
         select: { id: true },
       });
 
-      try {
-        await tx.userClinic.createMany({
-          data: clinicIds.map((clinicId) => ({
-            userId: user.id,
-            clinicId,
-            role: 'PHARMACY_REP',
-            isActive: true,
-            isPrimary: clinicId === primaryClinicId,
-          })),
-        });
+        try {
+          await tx.userClinic.createMany({
+            data: clinicIds.map((clinicId: number) => ({
+              userId: user.id,
+              clinicId,
+              role: 'PHARMACY_REP' as const,
+              isActive: true,
+              isPrimary: clinicId === primaryClinicId,
+            })),
+          });
       } catch (error) {
         logger.warn('[SUPER-ADMIN-PHARMACY-STAFF][POST] UserClinic create failed for new user, kept primary clinicId only', {
           userId: user.id,

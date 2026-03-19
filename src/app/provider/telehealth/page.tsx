@@ -79,7 +79,7 @@ function TelehealthContent() {
     }
 
     try {
-      const parsed = safeParseJsonString(user);
+      const parsed = safeParseJsonString<Record<string, unknown>>(user);
       if (!parsed) {
         setLoading(false);
         return;
@@ -87,11 +87,11 @@ function TelehealthContent() {
 
       const displayName =
         parsed.firstName && parsed.lastName
-          ? `Dr. ${parsed.firstName} ${parsed.lastName}`
-          : parsed.name ?? parsed.email?.split('@')[0] ?? 'Provider';
+          ? `Dr. ${String(parsed.firstName)} ${String(parsed.lastName)}`
+          : String(parsed.name ?? parsed.email ?? '').split('@')[0] || 'Provider';
 
       setUserName(displayName.trim());
-      setUserEmail(parsed.email ?? '');
+      setUserEmail(String(parsed.email ?? ''));
       setLoading(false);
     } catch {
       setLoading(false);

@@ -133,7 +133,7 @@ function StripeSettingsContent() {
         throw new Error(data.error || 'Failed to load Stripe status');
       }
     } catch (err: unknown) {
-      setError(err.message);
+      setError((err instanceof Error ? err.message : String(err)));
     }
   };
 
@@ -166,7 +166,7 @@ function StripeSettingsContent() {
       // Redirect to Stripe OAuth
       window.location.href = data.authorizeUrl;
     } catch (err: unknown) {
-      setError(err.message);
+      setError((err instanceof Error ? err.message : String(err)));
     } finally {
       setActionLoading(false);
     }
@@ -216,7 +216,7 @@ function StripeSettingsContent() {
       // Redirect to Stripe onboarding
       window.location.href = data.onboardingUrl;
     } catch (err: unknown) {
-      setError(err.message);
+      setError((err instanceof Error ? err.message : String(err)));
     } finally {
       setActionLoading(false);
     }
@@ -238,7 +238,7 @@ function StripeSettingsContent() {
         throw new Error(data.error || 'Failed to get onboarding link');
       }
     } catch (err: unknown) {
-      setError(err.message);
+      setError((err instanceof Error ? err.message : String(err)));
     } finally {
       setActionLoading(false);
     }
@@ -260,7 +260,7 @@ function StripeSettingsContent() {
         throw new Error(data.error || 'Dashboard access not available');
       }
     } catch (err: unknown) {
-      setError(err.message);
+      setError((err instanceof Error ? err.message : String(err)));
     } finally {
       setActionLoading(false);
     }
@@ -284,7 +284,7 @@ function StripeSettingsContent() {
         throw new Error(data.error || 'Failed to sync status');
       }
     } catch (err: unknown) {
-      setError(err.message);
+      setError((err instanceof Error ? err.message : String(err)));
     } finally {
       setActionLoading(false);
     }
@@ -311,7 +311,7 @@ function StripeSettingsContent() {
       setShowDisconnectConfirm(false);
       setSuccess('Stripe account disconnected');
     } catch (err: unknown) {
-      setError(err.message);
+      setError((err instanceof Error ? err.message : String(err)));
     } finally {
       setActionLoading(false);
     }

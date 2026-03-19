@@ -126,12 +126,12 @@ export default function PatientsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [filteredPatients, setFilteredPatients] = useState<Patient[]>([]);
-  const debounceTimer = useRef<NodeJS.Timeout | null>(null);
+  const debounceTimer = useRef<number | null>(null);
 
   const handleSearchChange = useCallback((value: string) => {
     setSearchQuery(value);
     if (debounceTimer.current) clearTimeout(debounceTimer.current);
-    debounceTimer.current = setTimeout(() => {
+    debounceTimer.current = window.setTimeout(() => {
       setDebouncedSearch(value);
     }, 300);
   }, []);
@@ -226,10 +226,10 @@ export default function PatientsPage() {
     const userData = localStorage.getItem('user');
     if (userData) {
       try {
-        const parsedUser = safeParseJsonString(userData);
+        const parsedUser = safeParseJsonString<Record<string, unknown>>(userData);
         if (!parsedUser) return;
-        setUserRole(parsedUser.role?.toLowerCase());
-        setUserClinicId(parsedUser.clinicId || null);
+        setUserRole(String(parsedUser?.role ?? '').toLowerCase());
+        setUserClinicId(Number(parsedUser?.clinicId) || null);
       } catch (e) {
         logger.error('Error parsing user data:', e);
       }

@@ -170,7 +170,7 @@ async function handlePost(req: NextRequest, user: AuthUser) {
         const stripePrice = await stripe.prices.create(priceData);
         stripePriceId = stripePrice.id;
       } catch (stripeError: unknown) {
-        logger.warn('[Bundles API] Stripe creation failed:', stripeError.message);
+        logger.warn('[Bundles API] Stripe creation failed:', (stripeError as any).message);
       }
     }
 

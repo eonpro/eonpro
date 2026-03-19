@@ -230,7 +230,7 @@ async function postOAuthHandler(request: NextRequest, user: AuthUser) {
     logger.error('[STRIPE OAUTH] POST Error:', error);
 
     // Handle specific Stripe OAuth errors
-    if (error.type === 'StripeInvalidGrantError') {
+    if ((error as any).type === 'StripeInvalidGrantError') {
       return NextResponse.json(
         { error: 'Invalid or expired authorization code. Please try again.' },
         { status: 400 }

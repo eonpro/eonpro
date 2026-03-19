@@ -7,10 +7,11 @@ import { logger } from '@/lib/logger';
 async function getHandler(
   req: NextRequest,
   user: AuthUser,
-  { params }: { params: Promise<{ id: string }> },
+  context?: unknown,
 ) {
   try {
-    const { id } = await params;
+    const ctx = context as { params: Promise<{ id: string }> };
+    const { id } = await ctx.params;
     const photoId = parseInt(id, 10);
     if (isNaN(photoId)) {
       return new NextResponse('Invalid photo ID', { status: 400 });
@@ -31,7 +32,7 @@ async function getHandler(
 
     const imageBuffer = await downloadFromS3(photo.s3Key);
 
-    return new NextResponse(imageBuffer, {
+    return new NextResponse(new Uint8Array(imageBuffer), {
       headers: {
         'Content-Type': photo.contentType || 'image/jpeg',
         'Cache-Control': 'private, max-age=86400, stale-while-revalidate=3600',

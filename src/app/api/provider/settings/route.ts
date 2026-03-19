@@ -335,7 +335,7 @@ async function handlePut(req: NextRequest, user: AuthUser) {
     logger.error('Error updating provider settings', {
       error: error instanceof Error ? error.message : String(error),
       userId: user.id,
-      code: error.code,
+      code: (error as any).code,
     });
     return NextResponse.json(
       { error: `Failed to update settings: ${error instanceof Error ? error.message : String(error)}` },

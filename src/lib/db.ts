@@ -1250,13 +1250,13 @@ class PrismaWithClinicFilter {
 
   // Financial Analytics
   get financialMetrics() {
-    return this.client.financialMetrics;
+    return (this.client as any).financialMetrics;
   }
   get savedReport() {
-    return this.client.savedReport;
+    return (this.client as any).savedReport;
   }
   get reportExport() {
-    return this.client.reportExport;
+    return (this.client as any).reportExport;
   }
 
   // Expose transaction support with proper options forwarding

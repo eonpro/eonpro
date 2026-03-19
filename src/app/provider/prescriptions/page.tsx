@@ -124,7 +124,7 @@ export default function ProviderPrescriptionsPage() {
   const [totalOrders, setTotalOrders] = useState(0);
   const [hasMore, setHasMore] = useState(false);
   const [expandedPatients, setExpandedPatients] = useState<Set<number>>(new Set());
-  const debounceTimer = useRef<NodeJS.Timeout | null>(null);
+  const debounceTimer = useRef<number | null>(null);
 
   // Debounce search input - send to server after 300ms of no typing
   const handleSearchChange = useCallback((value: string) => {
@@ -132,7 +132,7 @@ export default function ProviderPrescriptionsPage() {
     if (debounceTimer.current) {
       clearTimeout(debounceTimer.current);
     }
-    debounceTimer.current = setTimeout(() => {
+    debounceTimer.current = window.setTimeout(() => {
       setDebouncedSearch(value);
       setCurrentPage(1);
     }, 300);

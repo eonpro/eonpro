@@ -26,7 +26,7 @@ import { withAuth, AuthUser } from '@/lib/auth/middleware';
 async function uploadHandler(request: NextRequest, user: AuthUser) {
   try {
     // Parse form data
-    const formData = await request.formData();
+    const formData = (await request.formData()) as unknown as globalThis.FormData;
     const file = formData.get('file') as File;
     const fileName = (formData.get('fileName') as string) || file.name;
     const category = (formData.get('category') as FileCategory) || FileCategory.OTHER;

@@ -47,7 +47,7 @@ async function getHandler(request: NextRequest, user: AuthUser) {
       return NextResponse.json(report);
     }
 
-    const reports = await prisma.savedReport.findMany({
+    const reports = await (prisma as any).savedReport.findMany({
       where: { clinicId },
       orderBy: { createdAt: 'desc' },
       take: 100,
@@ -89,7 +89,7 @@ async function postHandler(request: NextRequest, user: AuthUser) {
       return NextResponse.json({ error: 'name, type, and config are required' }, { status: 400 });
     }
 
-    const report = await prisma.savedReport.create({
+    const report = await (prisma as any).savedReport.create({
       data: {
         clinicId,
         createdBy: user.id,

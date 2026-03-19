@@ -154,7 +154,6 @@ export const GET = withSuperAdminAuth(async (req: NextRequest, _user: AuthUser) 
         feeType: true,
         amountCents: true,
         createdAt: true,
-        description: true,
       },
     });
 

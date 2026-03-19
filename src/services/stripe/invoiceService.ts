@@ -174,7 +174,7 @@ export class StripeInvoiceService {
       } catch (emailError) {
         logger.warn(`[STRIPE] Failed to send payment link email`, {
           invoiceId,
-          error: emailError instanceof Error ? emailError.message : 'Unknown',
+          error: emailError instanceof Error ? (emailError instanceof Error ? emailError.message : String(emailError)) : 'Unknown',
         });
       }
     }
@@ -346,7 +346,7 @@ export class StripeInvoiceService {
       } catch (emailError) {
         logger.warn(`[STRIPE] Failed to send receipt email`, {
           invoiceId: invoice.id,
-          error: emailError instanceof Error ? emailError.message : 'Unknown',
+          error: emailError instanceof Error ? (emailError instanceof Error ? emailError.message : String(emailError)) : 'Unknown',
         });
       }
     }
@@ -370,7 +370,7 @@ export class StripeInvoiceService {
         logger.warn(`[STRIPE] SOAP note generation failed for paid invoice`, {
           invoiceId: invoice.id,
           patientId: invoice.patientId,
-          error: soapError.message,
+          error: (soapError as any).message,
         });
       }
 
@@ -384,7 +384,7 @@ export class StripeInvoiceService {
         logger.warn('[STRIPE] Affiliate commission processing failed for invoice (non-blocking)', {
           invoiceId: invoice.id,
           patientId: invoice.patientId,
-          error: commissionError instanceof Error ? commissionError.message : 'Unknown',
+          error: commissionError instanceof Error ? (commissionError instanceof Error ? commissionError.message : String(commissionError)) : 'Unknown',
         });
       }
 
@@ -397,7 +397,7 @@ export class StripeInvoiceService {
           logger.warn('[STRIPE] Portal invite on renewal payment failed (non-fatal)', {
             invoiceId: invoice.id,
             patientId: invoice.patientId,
-            error: inviteErr instanceof Error ? inviteErr.message : 'Unknown',
+            error: inviteErr instanceof Error ? (inviteErr instanceof Error ? inviteErr.message : String(inviteErr)) : 'Unknown',
           });
         }
 
@@ -418,7 +418,7 @@ export class StripeInvoiceService {
         } catch (notifErr) {
           logger.warn('[STRIPE] Payment notification for renewal failed (non-fatal)', {
             invoiceId: invoice.id,
-            error: notifErr instanceof Error ? notifErr.message : 'Unknown',
+            error: notifErr instanceof Error ? (notifErr instanceof Error ? notifErr.message : String(notifErr)) : 'Unknown',
           });
         }
       }
@@ -477,7 +477,7 @@ export class StripeInvoiceService {
       } catch (emailErr) {
         logger.warn('[STRIPE] Email fallback for invoice auto-create failed (non-blocking)', {
           stripeInvoiceId: stripeInvoice.id,
-          error: emailErr instanceof Error ? emailErr.message : 'Unknown',
+          error: emailErr instanceof Error ? (emailErr instanceof Error ? emailErr.message : String(emailErr)) : 'Unknown',
         });
       }
     }
@@ -526,7 +526,7 @@ export class StripeInvoiceService {
         logger.warn('[STRIPE] Could not compute renewal month for subscription invoice', {
           stripeInvoiceId: stripeInvoice.id,
           stripeSubscriptionId: subscriptionId,
-          error: err instanceof Error ? err.message : 'Unknown',
+          error: err instanceof Error ? (err instanceof Error ? err.message : String(err)) : 'Unknown',
         });
       }
     }
@@ -615,7 +615,7 @@ export class StripeInvoiceService {
       return fullInvoice;
     } catch (createErr: unknown) {
       // P2002 = unique constraint violation — another process already created this invoice
-      if (createErr.code === 'P2002') {
+      if ((createErr as any).code === 'P2002') {
         logger.info('[STRIPE] Invoice auto-create race: already exists (idempotent)', {
           stripeInvoiceId: stripeInvoice.id,
         });
@@ -627,7 +627,7 @@ export class StripeInvoiceService {
       logger.error('[STRIPE] Failed to auto-create invoice from Stripe webhook', {
         stripeInvoiceId: stripeInvoice.id,
         patientId: patient.id,
-        error: createErr.message,
+        error: (createErr as any).message,
       });
       return null;
     }
@@ -779,7 +779,7 @@ export class StripeInvoiceService {
         } catch (subError: unknown) {
           logger.error(
             `[STRIPE] Failed to create Stripe subscription for product ${product.id}:`,
-            subError.message
+            (subError as any).message
           );
         }
       }
@@ -839,7 +839,7 @@ export class StripeInvoiceService {
         });
       }
     } catch (error: unknown) {
-      logger.error(`[STRIPE] Error creating subscriptions from invoice:`, error.message);
+      logger.error(`[STRIPE] Error creating subscriptions from invoice:`, (error as any).message);
     }
   }
 

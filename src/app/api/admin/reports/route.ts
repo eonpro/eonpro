@@ -33,7 +33,7 @@ async function handleGet(req: NextRequest, user: any): Promise<Response> {
     const clinicFilter =
       user.role === 'super_admin' ? {} : user.clinicId ? { clinicId: user.clinicId } : {};
 
-    const reports = await prisma.savedReport.findMany({
+    const reports = await (prisma as any).savedReport.findMany({
       where: {
         ...clinicFilter,
         OR: [
@@ -88,7 +88,7 @@ async function handlePost(req: NextRequest, user: any): Promise<Response> {
       return NextResponse.json({ error: 'Clinic context required' }, { status: 400 });
     }
 
-    const report = await prisma.savedReport.create({
+    const report = await (prisma as any).savedReport.create({
       data: {
         clinicId: user.clinicId,
         createdBy: user.id,

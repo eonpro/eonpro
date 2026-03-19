@@ -42,7 +42,7 @@ export function PatientSearchBar({
   className = '',
 }: PatientSearchBarProps) {
   const [localValue, setLocalValue] = useState(value);
-  const debounceRef = useRef<NodeJS.Timeout | null>(null);
+  const debounceRef = useRef<number | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -51,7 +51,7 @@ export function PatientSearchBar({
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => {
+    debounceRef.current = window.setTimeout(() => {
       onSearch(localValue.trim());
     }, DEBOUNCE_MS);
     return () => {

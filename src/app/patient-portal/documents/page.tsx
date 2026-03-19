@@ -190,10 +190,10 @@ export default function PatientPortalDocuments() {
     setIsUploading(true);
     setUploadProgress(0);
 
-    let progressInterval: NodeJS.Timeout | null = null;
+    let progressInterval: number | null = null;
 
     try {
-      progressInterval = setInterval(() => {
+      progressInterval = window.setInterval(() => {
         setUploadProgress((prev) => {
           if (prev >= 90) {
             if (progressInterval) clearInterval(progressInterval);

@@ -342,7 +342,7 @@ async function createRefundHandler(request: NextRequest, user: AuthUser) {
               }
             }
           } catch (lookupError: unknown) {
-            logger.error('[Refunds] Failed to lookup charges', { error: lookupError.message });
+            logger.error('[Refunds] Failed to lookup charges', { error: (lookupError as any).message });
           }
 
           // If we still don't have a refund, return error
@@ -427,7 +427,7 @@ async function createRefundHandler(request: NextRequest, user: AuthUser) {
       } catch (dbError: unknown) {
         // Log DB error but don't fail - the Stripe refund already succeeded
         logger.error('[Refunds] Database update failed after successful Stripe refund', {
-          error: dbError.message,
+          error: (dbError as any).message,
           refundId: refund.id,
           paymentId: payment?.id,
           invoiceId: invoiceId,
@@ -459,8 +459,8 @@ async function createRefundHandler(request: NextRequest, user: AuthUser) {
 
       return NextResponse.json(
         {
-          error: stripeError.message || 'Failed to process refund',
-          code: stripeError.code,
+          error: (stripeError as any).message || 'Failed to process refund',
+          code: (stripeError as any).code,
         },
         { status: 500 }
       );

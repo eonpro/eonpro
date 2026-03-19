@@ -638,15 +638,16 @@ export async function handleParticipantWaiting(payload: WebhookPayload): Promise
   try {
     const provider = await prisma.provider.findUnique({
       where: { id: session.providerId },
-      select: { userId: true, clinicId: true },
+      select: { user: { select: { id: true } }, clinicId: true },
     });
 
-    if (provider?.userId) {
+    const providerUserId = provider?.user?.id;
+    if (providerUserId) {
       const { notificationService } = await import('@/services/notification');
       await notificationService.createNotification({
-        userId: provider.userId,
+        userId: providerUserId,
         clinicId: provider.clinicId ?? undefined,
-        category: 'CLINICAL',
+        category: 'APPOINTMENT',
         priority: 'HIGH',
         title: 'Patient in Waiting Room',
         message: `${participant.user_name ?? 'A patient'} is waiting to join your telehealth session.`,

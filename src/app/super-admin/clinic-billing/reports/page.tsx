@@ -257,7 +257,7 @@ function RevenueTab({ data }: { data: { trend: Record<string, number>[]; topClin
             <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
             <XAxis dataKey="label" tick={{ fontSize: 12 }} stroke="#9ca3af" />
             <YAxis tickFormatter={(v: number) => formatCurrency(v)} tick={{ fontSize: 12 }} stroke="#9ca3af" width={80} />
-            <Tooltip formatter={(v: number, name: string) => [formatCurrency(v), name]} contentStyle={{ borderRadius: 12, border: '1px solid #e5e7eb' }} />
+            <Tooltip formatter={((v: number | undefined, name: string) => [formatCurrency(v ?? 0), name]) as any} contentStyle={{ borderRadius: 12, border: '1px solid #e5e7eb' }} />
             <Legend />
             <Bar dataKey="prescriptionFees" name="Prescription" stackId="a" fill="#4fa77e" radius={[0, 0, 0, 0]} />
             <Bar dataKey="transmissionFees" name="Transmission" stackId="a" fill="#3b82f6" />
@@ -328,7 +328,7 @@ function ARAgingTab({ data }: { data: Record<string, unknown>[] }) {
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" horizontal={false} />
               <XAxis type="number" tickFormatter={(v: number) => formatCurrency(v)} tick={{ fontSize: 12 }} stroke="#9ca3af" />
               <YAxis type="category" dataKey="label" tick={{ fontSize: 12 }} stroke="#9ca3af" width={60} />
-              <Tooltip formatter={(v: number) => [formatCurrency(v), 'Amount']} contentStyle={{ borderRadius: 12, border: '1px solid #e5e7eb' }} />
+              <Tooltip formatter={((v: number | undefined) => [formatCurrency(v ?? 0), 'Amount']) as any} contentStyle={{ borderRadius: 12, border: '1px solid #e5e7eb' }} />
               <Bar dataKey="amountCents" radius={[0, 6, 6, 0]} barSize={28}>
                 {data.map((_e, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
               </Bar>
@@ -343,7 +343,7 @@ function ARAgingTab({ data }: { data: Record<string, unknown>[] }) {
               <Pie data={data.filter((d: Record<string, unknown>) => (d.amountCents as number) > 0)} cx="50%" cy="50%" innerRadius={50} outerRadius={90} paddingAngle={3} dataKey="amountCents" nameKey="label" stroke="none">
                 {data.map((_e, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
               </Pie>
-              <Tooltip formatter={(v: number) => [formatCurrency(v)]} contentStyle={{ borderRadius: 12 }} />
+              <Tooltip formatter={((v: number | undefined) => formatCurrency(v ?? 0)) as any} contentStyle={{ borderRadius: 12 }} />
               <Legend />
             </PieChart>
           </ResponsiveContainer>
@@ -410,7 +410,7 @@ function CollectionTab({ data }: { data: { collectionRate: number; avgDaysToPaym
                 <Pie data={data.paymentMethodBreakdown} cx="50%" cy="50%" innerRadius={50} outerRadius={90} paddingAngle={3} dataKey="amountCents" nameKey="method" stroke="none">
                   {data.paymentMethodBreakdown.map((_e, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                 </Pie>
-                <Tooltip formatter={(v: number) => [formatCurrency(v)]} contentStyle={{ borderRadius: 12 }} />
+                <Tooltip formatter={((v: number | undefined) => formatCurrency(v ?? 0)) as any} contentStyle={{ borderRadius: 12 }} />
                 <Legend formatter={(v: string) => v.replace(/_/g, ' ')} />
               </PieChart>
             </ResponsiveContainer>

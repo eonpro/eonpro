@@ -49,7 +49,7 @@ export default function RevenueAreaChart({ data }: Props) {
         <XAxis dataKey="label" tick={{ fontSize: 12 }} stroke="#9ca3af" />
         <YAxis tickFormatter={(v: number) => formatCurrency(v)} tick={{ fontSize: 12 }} stroke="#9ca3af" width={80} />
         <Tooltip
-          formatter={(value: number, name: string) => [formatCurrency(value), name]}
+          formatter={((value: number | undefined, name: string) => [formatCurrency(value ?? 0), name]) as any}
           contentStyle={{ borderRadius: 12, border: '1px solid #e5e7eb' }}
         />
         <Legend />

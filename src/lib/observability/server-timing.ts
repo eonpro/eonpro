@@ -34,7 +34,7 @@ export function createServerTiming(): ServerTiming {
       entries.push({ name, dur: Math.round(durationMs) });
     },
 
-    headers() {
+    headers(): Record<string, string> {
       if (entries.length === 0) return {};
       const value = entries.map((e) => `${e.name};dur=${e.dur}`).join(', ');
       return { 'Server-Timing': value };

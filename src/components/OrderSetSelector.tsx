@@ -191,7 +191,7 @@ function OrderSetModal({
       onSaved();
       onClose();
     } catch (err: unknown) {
-      setError(err.message || 'Failed to save order set');
+      setError((err instanceof Error ? err.message : String(err)) || 'Failed to save order set');
     } finally {
       setSaving(false);
     }
@@ -406,7 +406,7 @@ export default function OrderSetSelector({ onApply, externalSelectedId }: OrderS
       }
     } catch (err) {
       logger.error('[OrderSetSelector] Failed to fetch', {
-        error: err instanceof Error ? err.message : String(err),
+        error: err instanceof Error ? (err instanceof Error ? err.message : String(err)) : String(err),
       });
     } finally {
       setLoading(false);

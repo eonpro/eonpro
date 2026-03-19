@@ -3,11 +3,8 @@
 import React from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import LocalizedInput from '../shared/LocalizedInput';
-import type {
-  FormField,
-  FormStep,
-  ValidationRule,
-} from '../state/builderTypes';
+import type { FormField, FormStep } from '../state/builderTypes';
+import type { ValidationRule } from '@/domains/intake/types/form-engine';
 import { createLocalizedString } from '../state/builderTypes';
 
 const VALIDATION_RULE_TYPES = [
@@ -21,12 +18,15 @@ const VALIDATION_RULE_TYPES = [
   { value: 'phone' as const, label: 'Phone Format' },
 ] as const;
 
-function getApplicableRules(fieldType: string): (typeof VALIDATION_RULE_TYPES)[number]['value'][] {
-  const all = ['required', 'minLength', 'maxLength', 'pattern', 'min', 'max', 'email', 'phone'];
-  const text = ['required', 'minLength', 'maxLength', 'pattern'];
-  const number = ['required', 'min', 'max'];
-  const email = ['required', 'email'];
-  const phone = ['required', 'phone'];
+type ValidationRuleType = ValidationRule['type'];
+
+function getApplicableRules(
+  fieldType: string
+): ValidationRuleType[] {
+  const text: ValidationRuleType[] = ['required', 'minLength', 'maxLength', 'pattern'];
+  const number: ValidationRuleType[] = ['required', 'min', 'max'];
+  const email: ValidationRuleType[] = ['required', 'email'];
+  const phone: ValidationRuleType[] = ['required', 'phone'];
 
   if (['text', 'textarea'].includes(fieldType)) return text;
   if (fieldType === 'number') return number;

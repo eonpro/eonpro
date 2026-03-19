@@ -127,7 +127,7 @@ export default function ClinicLifefileSettingsPage() {
       });
     } catch (err: unknown) {
       logger.error('Error fetching Lifefile settings:', err);
-      setError(err.message);
+      setError((err as any).message);
     } finally {
       setLoading(false);
     }
@@ -178,7 +178,7 @@ export default function ClinicLifefileSettingsPage() {
       fetchSettings(); // Refresh settings
     } catch (err: unknown) {
       logger.error('Error saving Lifefile settings:', err);
-      setError(err.message);
+      setError((err as any).message);
     } finally {
       setSaving(false);
     }
@@ -203,7 +203,7 @@ export default function ClinicLifefileSettingsPage() {
       setSuccess('Connection test successful! Lifefile is configured correctly.');
     } catch (err: unknown) {
       logger.error('Error testing Lifefile connection:', err);
-      setError(`Connection test failed: ${err.message}`);
+      setError(`Connection test failed: ${(err as any).message}`);
     } finally {
       setTesting(false);
     }

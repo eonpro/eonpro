@@ -53,7 +53,7 @@ async function execute(config: ReportConfig): Promise<ReportResult> {
     include: {
       provider: { select: { id: true, firstName: true, lastName: true } },
       clinic: { select: { name: true } },
-      soapNotes: { select: { id: true }, take: 1 },
+      patient: { select: { soapNotes: { select: { id: true }, take: 1 } } },
     },
   });
 
@@ -62,7 +62,7 @@ async function execute(config: ReportConfig): Promise<ReportResult> {
     providerName: `${a.provider?.firstName || ''} ${a.provider?.lastName || ''}`.trim(),
     clinicName: a.clinic?.name || '', appointmentType: a.type, appointmentStatus: a.status,
     duration: a.duration || 0, patientId: a.patientId,
-    hasSoapNote: (a.soapNotes?.length || 0) > 0, isTelehealth: a.type === 'VIDEO',
+    hasSoapNote: (a.patient?.soapNotes?.length ?? 0) > 0, isTelehealth: a.type === 'VIDEO',
     month: a.startTime.toISOString().slice(0, 7),
     week: a.startTime.toISOString().slice(0, 10),
   }));

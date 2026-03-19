@@ -118,7 +118,7 @@ async function handlePut(req: NextRequest, user: AuthUser, context: RouteContext
           description: validated.description || undefined,
         });
       } catch (stripeError: unknown) {
-        logger.warn('[Products API] Failed to update Stripe product:', stripeError.message);
+        logger.warn('[Products API] Failed to update Stripe product:', (stripeError as any).message);
       }
     }
 
@@ -175,7 +175,7 @@ async function handlePut(req: NextRequest, user: AuthUser, context: RouteContext
 
         logger.info('[Products API] Created new Stripe price', { priceId: newPrice.id });
       } catch (stripeError: unknown) {
-        logger.warn('[Products API] Failed to update Stripe price:', stripeError.message);
+        logger.warn('[Products API] Failed to update Stripe price:', (stripeError as any).message);
       }
     }
 
@@ -229,7 +229,7 @@ async function handleDelete(req: NextRequest, user: AuthUser, context: RouteCont
           await stripe.prices.update(existingProduct.stripePriceId, { active: false });
         }
       } catch (stripeError: unknown) {
-        logger.warn('[Products API] Failed to archive Stripe product:', stripeError.message);
+        logger.warn('[Products API] Failed to archive Stripe product:', (stripeError as any).message);
       }
     }
 

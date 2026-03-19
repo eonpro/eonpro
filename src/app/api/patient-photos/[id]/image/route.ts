@@ -81,7 +81,7 @@ export const GET = withAuth<RouteContext>(async (req: NextRequest, user: AuthUse
     try {
       const imageBuffer = await downloadFromS3(s3Key);
 
-      return new NextResponse(imageBuffer, {
+      return new NextResponse(new Uint8Array(imageBuffer), {
         headers: {
           'Content-Type': photo.mimeType || 'image/jpeg',
           'Cache-Control': 'private, max-age=86400, stale-while-revalidate=3600',

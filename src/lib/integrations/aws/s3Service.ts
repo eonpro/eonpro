@@ -230,6 +230,7 @@ export async function generateSignedUrl(
 
     return url;
   } catch (error: unknown) {
+    const err = error as { name?: string; Code?: string; code?: string; message?: string };
     logger.error('[S3] Failed to generate signed URL', {
       operation,
       bucket: s3Config.bucketName,
@@ -237,12 +238,12 @@ export async function generateSignedUrl(
       keyPrefix: key.substring(0, 30),
       hasAccessKey: !!s3Config.accessKeyId,
       hasSecretKey: !!s3Config.secretAccessKey,
-      errorName: error?.name,
-      errorCode: error?.Code || error?.code,
-      errorMessage: error?.message,
+      errorName: err?.name,
+      errorCode: err?.Code || err?.code,
+      errorMessage: err?.message,
     });
     throw new Error(
-      `Failed to generate file access URL: ${error?.message || 'Unknown S3 error'}`
+      `Failed to generate file access URL: ${err?.message || 'Unknown S3 error'}`
     );
   }
 }

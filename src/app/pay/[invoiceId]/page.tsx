@@ -58,7 +58,7 @@ export default function PaymentPage() {
           window.location.href = data.invoice.stripeInvoiceUrl;
         }
       } catch (err: unknown) {
-        setError(err.message || 'Failed to load invoice');
+        setError((err as any).message || 'Failed to load invoice');
       } finally {
         setLoading(false);
       }

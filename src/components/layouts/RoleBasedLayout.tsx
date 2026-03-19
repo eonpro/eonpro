@@ -142,13 +142,14 @@ export function withRoleBasedLayout<P extends object>(
       // Get user data from localStorage or session
       const storedUser = localStorage.getItem('user');
       if (storedUser) {
-        const user = safeParseJsonString(storedUser);
+        const user = safeParseJsonString<Record<string, unknown>>(storedUser);
         if (!user) return;
-        setUserRole(user.role);
+        const role = String(user.role ?? '');
+        setUserRole(role);
         setUserData(user);
 
         // Check if specific role is required
-        if (requireRole && user.role.toLowerCase() !== requireRole.toLowerCase()) {
+        if (requireRole && role.toLowerCase() !== requireRole.toLowerCase()) {
           router.push('/unauthorized');
         }
       } else {

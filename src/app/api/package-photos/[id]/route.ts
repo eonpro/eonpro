@@ -13,10 +13,11 @@ const patchSchema = z.object({
 async function patchHandler(
   req: NextRequest,
   user: AuthUser,
-  { params }: { params: Promise<{ id: string }> },
+  context?: unknown,
 ) {
   try {
-    const { id } = await params;
+    const ctx = context as { params: Promise<{ id: string }> };
+    const { id } = await ctx.params;
     const photoId = parseInt(id, 10);
     if (isNaN(photoId)) {
       return NextResponse.json({ error: 'Invalid photo ID' }, { status: 400 });

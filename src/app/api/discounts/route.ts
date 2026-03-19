@@ -156,7 +156,7 @@ async function handlePost(req: NextRequest, user: AuthUser) {
         const stripeCoupon = await stripe.coupons.create(couponParams);
         stripeCouponId = stripeCoupon.id;
       } catch (stripeError: unknown) {
-        logger.warn('[Discounts API] Stripe coupon creation failed:', stripeError.message);
+        logger.warn('[Discounts API] Stripe coupon creation failed:', (stripeError as any).message);
       }
     }
 

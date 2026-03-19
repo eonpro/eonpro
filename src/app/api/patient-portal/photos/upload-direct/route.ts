@@ -76,7 +76,7 @@ async function handlePost(req: NextRequest, user: AuthUser) {
       );
     }
 
-    const formData = await req.formData();
+    const formData = (await req.formData()) as unknown as globalThis.FormData;
     const file = formData.get('file');
     const type = formData.get('type') as string | null;
     const widthStr = formData.get('width') as string | null;

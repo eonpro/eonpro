@@ -18,9 +18,10 @@ import { logger } from '@/lib/logger';
 async function handler(
   req: NextRequest,
   user: AuthUser,
-  { params }: { params: Promise<{ id: string }> }
+  context?: unknown,
 ) {
-  const { id } = await params;
+  const ctx = context as { params: Promise<{ id: string }> };
+  const { id } = await ctx.params;
   const patientId = parseInt(id, 10);
   if (isNaN(patientId)) {
     return NextResponse.json({ error: 'Invalid patient ID' }, { status: 400 });

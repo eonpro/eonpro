@@ -74,7 +74,7 @@ export async function GET(request: NextRequest) {
     }
 
     return NextResponse.json(
-      { error: error.message || S3_ERRORS.DOWNLOAD_FAILED },
+      { error: (error as any).message || S3_ERRORS.DOWNLOAD_FAILED },
       { status: 500 }
     );
   }

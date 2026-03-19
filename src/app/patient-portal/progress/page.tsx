@@ -6,6 +6,7 @@ import { usePatientPortalLanguage } from '@/lib/contexts/PatientPortalLanguageCo
 import { portalFetch } from '@/lib/api/patient-portal-client';
 import { safeParseJson, safeParseJsonString } from '@/lib/utils/safe-json';
 import { getEnabledProgressTabIds } from '@/lib/patient-portal';
+import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
 import { logger } from '@/lib/logger';
 import { getMinimalPortalUserPayload, setPortalUserStorage } from '@/lib/utils/portal-user-storage';
 import { toast } from '@/components/Toast';

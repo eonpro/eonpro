@@ -140,7 +140,7 @@ export async function POST(request: Request) {
   }
 
   const { safeParseJsonString } = await import('@/lib/utils/safe-json');
-  const rawPayload: unknown = rawBody ? safeParseJsonString(rawBody) : {};
+  const rawPayload: unknown = rawBody ? safeParseJsonString<Record<string, unknown>>(rawBody) : {};
   if (rawBody && (rawPayload === null || typeof rawPayload !== 'object')) {
     await sendAlert(config, 'webhook_invalid_json', { ip, err: 'Invalid JSON' });
     return Response.json({ error: 'Invalid JSON payload' }, { status: 400 });

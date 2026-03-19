@@ -99,7 +99,7 @@ export const GET = withAuth(
       } catch (dbError: unknown) {
         logger.error(`[LIFEFILE GET] Database query failed for clinic ${clinicId}:`, dbError);
         return Response.json(
-          { error: 'Database query failed', detail: dbError.message },
+          { error: 'Database query failed', detail: (dbError as any).message },
           { status: 500 }
         );
       }

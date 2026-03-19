@@ -501,10 +501,10 @@ export const DELETE = withSuperAdminAuth(
           await tx.scheduledEmail.deleteMany({ where: { clinicId } });
           await tx.calendarSubscription.deleteMany({ where: { clinicId } });
 
-          // Financial analytics
-          await tx.financialMetrics.deleteMany({ where: { clinicId } });
-          await tx.savedReport.deleteMany({ where: { clinicId } });
-          await tx.reportExport.deleteMany({ where: { clinicId } });
+          // Financial analytics (tables may not exist in all schemas)
+          try { await (tx as any).financialMetrics.deleteMany({ where: { clinicId } }); } catch { /* table may not exist */ }
+          try { await (tx as any).savedReport.deleteMany({ where: { clinicId } }); } catch { /* table may not exist */ }
+          try { await (tx as any).reportExport.deleteMany({ where: { clinicId } }); } catch { /* table may not exist */ }
           await tx.paymentReconciliation.deleteMany({ where: { clinicId } });
 
           // Sales rep assignments

@@ -54,7 +54,7 @@ export default function ProviderDashboard() {
   const [searchResults, setSearchResults] = useState<Patient[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [searchTotal, setSearchTotal] = useState<number | undefined>(undefined);
-  const searchDebounceRef = useRef<NodeJS.Timeout | null>(null);
+  const searchDebounceRef = useRef<number | null>(null);
   const searchAbortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -64,9 +64,9 @@ export default function ProviderDashboard() {
       return;
     }
     try {
-      const data = safeParseJsonString(user);
+      const data = safeParseJsonString<Record<string, unknown>>(user);
       if (!data) { router.push('/login'); return; }
-      if (data.role?.toLowerCase() !== 'provider') {
+      if (String(data?.role ?? '').toLowerCase() !== 'provider') {
         router.push('/login');
         return;
       }
@@ -141,7 +141,7 @@ export default function ProviderDashboard() {
       }
 
       setIsSearching(true);
-      searchDebounceRef.current = setTimeout(async () => {
+      searchDebounceRef.current = window.setTimeout(async () => {
         if (searchAbortRef.current) searchAbortRef.current.abort();
         searchAbortRef.current = new AbortController();
 

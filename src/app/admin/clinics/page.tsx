@@ -62,8 +62,8 @@ export default function ClinicsAdminPage() {
     const user = localStorage.getItem('user');
     if (user) {
       try {
-        const parsedUser = safeParseJsonString(user);
-        const role = parsedUser?.role?.toLowerCase();
+        const parsedUser = safeParseJsonString<Record<string, unknown>>(user);
+        const role = String(parsedUser?.role ?? '').toLowerCase();
         setUserRole(role);
 
         if (role !== 'super_admin') {

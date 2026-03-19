@@ -106,9 +106,9 @@ function PatientsLayoutInner({ children }: { children: React.ReactNode }) {
     }
 
     try {
-      const parsedUser = safeParseJsonString(user);
+      const parsedUser = safeParseJsonString<Record<string, unknown>>(user);
       if (!parsedUser) { router.push('/login'); return; }
-      const role = parsedUser.role?.toLowerCase();
+      const role = String(parsedUser?.role ?? '').toLowerCase();
       if (!ALLOWED_ROLES.includes(role)) {
         router.push('/dashboard');
         return;

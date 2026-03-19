@@ -49,12 +49,12 @@ export default function StateSelectStep({
   const responses = useIntakeStore((state) => state.responses);
   const { setResponse, markStepCompleted, setCurrentStep } = useIntakeActions();
   
-  const [selectedState, setSelectedState] = useState(responses.state || '');
+  const [selectedState, setSelectedState] = useState(String(responses.state ?? ''));
   const [termsAccepted, setTermsAccepted] = useState(false);
 
   const handleContinue = () => {
     if (selectedState && termsAccepted) {
-      const stateCode = stateCodeMap[selectedState] || selectedState;
+      const stateCode = stateCodeMap[String(selectedState)] || String(selectedState);
       setResponse('state', stateCode);
       setResponse('stateFull', selectedState);
       

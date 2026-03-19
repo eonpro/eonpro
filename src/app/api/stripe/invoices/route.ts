@@ -291,7 +291,7 @@ async function createInvoiceHandler(request: NextRequest, user: AuthUser) {
             });
           }
         } catch (itemError: unknown) {
-          logger.warn('[API] Could not create InvoiceItem records (demo mode):', itemError.message);
+          logger.warn('[API] Could not create InvoiceItem records (demo mode):', (itemError as any).message);
         }
 
         // Create payment record if marked as paid externally
@@ -313,7 +313,7 @@ async function createInvoiceHandler(request: NextRequest, user: AuthUser) {
               },
             });
           } catch (paymentError: unknown) {
-            logger.warn('[API] Could not create Payment record (demo mode):', paymentError.message);
+            logger.warn('[API] Could not create Payment record (demo mode):', (paymentError as any).message);
           }
         }
 
@@ -397,7 +397,7 @@ async function createInvoiceHandler(request: NextRequest, user: AuthUser) {
                 });
               }
             } catch (itemError: unknown) {
-              logger.warn('[API] Could not create InvoiceItem records:', itemError.message);
+              logger.warn('[API] Could not create InvoiceItem records:', (itemError as any).message);
             }
 
             // Create payment record
@@ -418,7 +418,7 @@ async function createInvoiceHandler(request: NextRequest, user: AuthUser) {
                 },
               });
             } catch (paymentError: unknown) {
-              logger.warn('[API] Could not create Payment record:', paymentError.message);
+              logger.warn('[API] Could not create Payment record:', (paymentError as any).message);
             }
 
             return newInvoice;
@@ -486,7 +486,7 @@ async function createInvoiceHandler(request: NextRequest, user: AuthUser) {
           }
         } catch (itemError: unknown) {
           // InvoiceItem table might not exist - not critical for invoice creation
-          logger.warn('[API] Could not create InvoiceItem records:', itemError.message);
+          logger.warn('[API] Could not create InvoiceItem records:', (itemError as any).message);
         }
           }, { timeout: 15000 }),
         {
@@ -506,9 +506,9 @@ async function createInvoiceHandler(request: NextRequest, user: AuthUser) {
       });
     } catch (stripeError: unknown) {
       logger.error('[API] Stripe service error:', {
-        message: stripeError.message,
-        code: stripeError.code,
-        type: stripeError.type,
+        message: (stripeError as any).message,
+        code: (stripeError as any).code,
+        type: (stripeError as any).type,
       });
 
       // If Stripe fails, try demo mode
@@ -547,7 +547,7 @@ async function createInvoiceHandler(request: NextRequest, user: AuthUser) {
         invoice,
         stripeInvoiceUrl: null,
         demoMode: true,
-        stripeError: stripeError.message,
+        stripeError: (stripeError as any).message,
         message: 'Invoice created in database (Stripe error - using fallback)',
       });
     }
@@ -705,11 +705,12 @@ async function getInvoicesHandler(request: NextRequest, user: AuthUser) {
     });
   } catch (error: unknown) {
     // Log and return detailed error
+    const err = error as { name?: string; message?: string; code?: unknown; constructor?: { name?: string } };
     const errorInfo = {
       error: 'Failed to fetch invoices',
-      errorType: error?.name || error?.constructor?.name || 'UnknownError',
-      errorMessage: error?.message || 'No error message',
-      errorCode: error?.code || null,
+      errorType: err?.name || err?.constructor?.name || 'UnknownError',
+      errorMessage: err?.message || 'No error message',
+      errorCode: err?.code ?? null,
       timestamp: new Date().toISOString(),
     };
 

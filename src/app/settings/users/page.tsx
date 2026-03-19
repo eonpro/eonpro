@@ -159,7 +159,7 @@ export default function UserManagementPage() {
       setUsers(data.users || []);
     } catch (err: unknown) {
       console.error('Error fetching users:', err);
-      setError(err.message);
+      setError((err instanceof Error ? err.message : String(err)));
     } finally {
       setLoading(false);
     }
@@ -212,7 +212,7 @@ export default function UserManagementPage() {
       setFormData(initialFormState);
       fetchUsers();
     } catch (err: unknown) {
-      toast.error(err.message || 'Failed to create user');
+      toast.error((err instanceof Error ? err.message : String(err)) || 'Failed to create user');
     } finally {
       setSubmitting(false);
     }
@@ -255,7 +255,7 @@ export default function UserManagementPage() {
       setFormData(initialFormState);
       fetchUsers();
     } catch (err: unknown) {
-      toast.error(err.message || 'Failed to update user');
+      toast.error((err instanceof Error ? err.message : String(err)) || 'Failed to update user');
     } finally {
       setSubmitting(false);
     }
@@ -288,7 +288,7 @@ export default function UserManagementPage() {
       );
       fetchUsers();
     } catch (err: unknown) {
-      toast.error(err.message || 'Failed to update user status');
+      toast.error((err instanceof Error ? err.message : String(err)) || 'Failed to update user status');
     }
   };
 

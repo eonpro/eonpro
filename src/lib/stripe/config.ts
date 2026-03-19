@@ -235,9 +235,9 @@ export async function validateStripeConfig(forceRefresh = false): Promise<Stripe
     });
   } catch (error: unknown) {
     // Check for specific error types
-    if (error.type === 'StripeAuthenticationError') {
+    if ((error as any).type === 'StripeAuthenticationError') {
       config.error = 'Invalid Stripe API key';
-    } else if (error.type === 'StripePermissionError') {
+    } else if ((error as any).type === 'StripePermissionError') {
       // Keys are valid but restricted - still consider configured
       config.isConfigured = true;
       config.error = 'API key has restricted permissions';
@@ -247,7 +247,7 @@ export async function validateStripeConfig(forceRefresh = false): Promise<Stripe
 
     logger.error('[STRIPE] Configuration validation failed', {
       error: config.error,
-      type: error.type,
+      type: (error as any).type,
     });
   }
 

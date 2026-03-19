@@ -465,7 +465,10 @@ export async function POST(req: NextRequest) {
             `[OVERTIME-INTAKE ${requestId}] ✓ Created patient: ${patient.id} (${patient.patientId}) → OVERTIME CLINIC ONLY (clinicId=${clinicId})`
           );
         } catch (createErr: unknown) {
-          if (createErr?.code === 'P2002' && createErr?.meta?.target?.includes('patientId')) {
+          const prismaErr = createErr as { code?: string; meta?: { target?: string | string[] } };
+          const target = prismaErr?.meta?.target;
+          const hasPatientIdTarget = Array.isArray(target) ? target.includes('patientId') : String(target ?? '').includes('patientId');
+          if (prismaErr?.code === 'P2002' && hasPatientIdTarget) {
             retryCount++;
             logger.warn(
               `[OVERTIME-INTAKE ${requestId}] PatientId conflict, retrying (${retryCount}/${MAX_RETRIES})...`

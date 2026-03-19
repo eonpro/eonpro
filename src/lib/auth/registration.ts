@@ -526,7 +526,7 @@ export async function registerPatient(
       // Log error but don't fail registration
       logger.error('Failed to send welcome email', {
         userId: result.user.id,
-        error: emailError.message,
+        error: (emailError as any).message,
       });
     }
 
@@ -689,7 +689,7 @@ export async function registerWithInviteToken(
     } catch (emailError: unknown) {
       logger.error('Failed to send welcome email after invite registration', {
         userId: result.user.id,
-        error: emailError.message,
+        error: (emailError as any).message,
       });
     }
 

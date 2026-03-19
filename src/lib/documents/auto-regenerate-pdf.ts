@@ -90,8 +90,8 @@ export async function tryAutoRegeneratePdf(
 
     await prisma.patientDocument.update({
       where: { id: document.id },
-      data: {
-        data: stored.dataBuffer,
+        data: {
+        data: new Uint8Array(stored.dataBuffer),
         s3DataKey: stored.s3DataKey,
         mimeType: 'application/pdf',
       },

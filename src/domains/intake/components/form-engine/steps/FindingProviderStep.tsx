@@ -54,7 +54,7 @@ export default function FindingProviderStep({
         'SD': 'South Dakota', 'TN': 'Tennessee', 'TX': 'Texas', 'UT': 'Utah', 'VT': 'Vermont',
         'VA': 'Virginia', 'WA': 'Washington', 'WV': 'West Virginia', 'WI': 'Wisconsin', 'WY': 'Wyoming'
       };
-      setStateName(stateNames[stateValue] || stateValue || 'your area');
+      setStateName(stateNames[String(stateValue)] || String(stateValue) || 'your area');
     }
     submitToBackend();
   }, [responses.state, submitToBackend]);

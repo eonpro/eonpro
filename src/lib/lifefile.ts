@@ -145,13 +145,13 @@ async function callLifefile<T = any>(
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : String(err);
 
-      if (err.response?.status && err.response.status >= 500) {
+      if ((err as any).response?.status && (err as any).response.status >= 500) {
         logger.warn(`[LIFEFILE RETRY] ${context}`);
         const res = await fn(client);
         return res.data;
       }
       // Extract user-friendly error details from Lifefile response
-      const responseData = err.response?.data;
+      const responseData = (err as any).response?.data;
       let detailMessage = errorMessage;
       if (responseData) {
         // Lifefile returns errors like: {"type":"error","messages":["The selected order.patient.gender is invalid."]}
@@ -164,7 +164,7 @@ async function callLifefile<T = any>(
         }
       }
       throw new Error(
-        `[Lifefile:${context}] ${err.response?.status ?? 'unknown'} ${detailMessage}`
+        `[Lifefile:${context}] ${(err as any).response?.status ?? 'unknown'} ${detailMessage}`
       );
     }
   });

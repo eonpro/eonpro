@@ -75,7 +75,7 @@ export const GET = withAuthParams(
       };
 
       // Transform the documents to match the frontend interface
-      const formattedDocuments = documents.map((doc: { id: number; filename?: string | null; category?: string | null; mimeType?: string | null; createdAt: unknown }) => ({
+      const formattedDocuments = documents.map((doc: { id: number; filename?: string | null; category?: string | null; mimeType?: string | null; createdAt: unknown }): Record<string, unknown> => ({
         id: doc.id,
         filename: doc.filename ?? 'Untitled Document',
         category: doc.category ?? 'other',
@@ -164,7 +164,7 @@ export const POST = withAuthParams(
       try {
         formData = await request.formData();
       } catch (formError: unknown) {
-        const msg = formError?.message || 'Invalid request body';
+        const msg = (formError as Error)?.message ?? 'Invalid request body';
         logger.error('Documents upload: formData parse failed', { userId: user?.id, error: msg });
         return NextResponse.json(
           {
@@ -347,7 +347,7 @@ export const POST = withAuthParams(
         /storage|S3|upload failed|not configured|credentials|bucket|Failed to upload file/i.test(
           errorMessage
         ) ||
-        (error?.name && /NetworkError|TimeoutError/i.test(error.name));
+        (error && typeof error === 'object' && 'name' in error && /NetworkError|TimeoutError/i.test((error as Error).name));
       const status = isStorageError ? 503 : 500;
       const body: {
         error: string;

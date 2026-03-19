@@ -238,14 +238,14 @@ export const POST = withAuth(
     } catch (error: unknown) {
       logger.error('User creation error:', error);
 
-      if (error.name === 'ZodError') {
+      if ((error as any).name === 'ZodError') {
         return NextResponse.json(
-          { error: 'Invalid request data', details: error.errors },
+          { error: 'Invalid request data', details: (error as any).errors },
           { status: 400 }
         );
       }
 
-      if (error.code === 'P2002') {
+      if ((error as any).code === 'P2002') {
         return NextResponse.json(
           { error: 'A user with this email already exists' },
           { status: 409 }

@@ -27,9 +27,9 @@ export default function ReviewStep({
   
   const [confirmed, setConfirmed] = useState(false);
 
-  const currentWeight = parseInt(responses.currentWeight) || 0;
-  const heightFeet = parseInt(responses.heightFeet) || 0;
-  const heightInches = parseInt(responses.heightInches) || 0;
+  const currentWeight = parseInt(String(responses.currentWeight || '')) || 0;
+  const heightFeet = parseInt(String(responses.heightFeet || '')) || 0;
+  const heightInches = parseInt(String(responses.heightInches || '')) || 0;
   const totalInches = heightFeet * 12 + heightInches;
   const bmi = totalInches > 0 ? Math.round(((currentWeight / (totalInches * totalInches)) * 703) * 10) / 10 : 0;
 
@@ -49,15 +49,15 @@ export default function ReviewStep({
   };
 
   const reviewItems = [
-    { label: isSpanish ? 'Nombre' : 'Name', value: `${responses.firstName || ''} ${responses.lastName || ''}`.trim() || '-' },
-    { label: isSpanish ? 'Fecha de nacimiento' : 'Date of birth', value: responses.dob || '-' },
-    { label: isSpanish ? 'Email' : 'Email', value: responses.email || '-' },
-    { label: isSpanish ? 'Teléfono' : 'Phone', value: responses.phone || '-' },
-    { label: isSpanish ? 'Estado' : 'State', value: responses.stateFull || responses.state || '-' },
+    { label: isSpanish ? 'Nombre' : 'Name', value: `${String(responses.firstName || '')} ${String(responses.lastName || '')}`.trim() || '-' },
+    { label: isSpanish ? 'Fecha de nacimiento' : 'Date of birth', value: String(responses.dob || '-') },
+    { label: isSpanish ? 'Email' : 'Email', value: String(responses.email || '-') },
+    { label: isSpanish ? 'Teléfono' : 'Phone', value: String(responses.phone || '-') },
+    { label: isSpanish ? 'Estado' : 'State', value: String(responses.stateFull || responses.state || '-') },
     { label: isSpanish ? 'Peso actual' : 'Current weight', value: currentWeight ? `${currentWeight} lbs` : '-' },
     { label: isSpanish ? 'Altura' : 'Height', value: heightFeet ? `${heightFeet}'${heightInches}"` : '-' },
     { label: isSpanish ? 'IMC' : 'BMI', value: bmi ? bmi.toString() : '-' },
-    { label: isSpanish ? 'Peso ideal' : 'Goal weight', value: responses.idealWeight ? `${responses.idealWeight} lbs` : '-' },
+    { label: isSpanish ? 'Peso ideal' : 'Goal weight', value: responses.idealWeight ? `${String(responses.idealWeight)} lbs` : '-' },
   ];
 
   return (

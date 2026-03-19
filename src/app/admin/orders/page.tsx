@@ -143,7 +143,7 @@ export default function AdminOrdersPage() {
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [pageSize, setPageSize] = useState(20);
-  const debounceTimer = useRef<NodeJS.Timeout | null>(null);
+  const debounceTimer = useRef<number | null>(null);
 
   // Tracked tab state
   const [trackedOrders, setTrackedOrders] = useState<OrderWithTracking[]>([]);
@@ -165,7 +165,7 @@ export default function AdminOrdersPage() {
   const handleSearchChange = useCallback((value: string) => {
     setSearchTerm(value);
     if (debounceTimer.current) clearTimeout(debounceTimer.current);
-    debounceTimer.current = setTimeout(() => {
+    debounceTimer.current = window.setTimeout(() => {
       setDebouncedSearch(value);
     }, 300);
   }, []);

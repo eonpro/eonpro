@@ -205,9 +205,9 @@ export default function TicketDetailPage() {
     try {
       const stored = localStorage.getItem('user');
       if (stored) {
-        const u = safeParseJsonString(stored);
+        const u = safeParseJsonString<Record<string, unknown>>(stored);
         if (!u) return;
-        setCurrentUser({ id: u.id, name: `${u.firstName || ''} ${u.lastName || ''}`.trim() });
+        setCurrentUser({ id: Number(u.id), name: `${String(u.firstName ?? '')} ${String(u.lastName ?? '')}`.trim() });
       }
     } catch { /* */ }
   }, []);

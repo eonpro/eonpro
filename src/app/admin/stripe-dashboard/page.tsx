@@ -354,7 +354,7 @@ export default function StripeDashboard() {
       return;
     }
     try {
-      const parsedUser = safeParseJsonString<{role?: string}>(user);
+      const parsedUser = safeParseJsonString<{role?: string; clinicId?: number}>(user);
       if (!parsedUser) { router.push('/login'); return; }
       const role = parsedUser.role?.toLowerCase();
       if (role !== 'admin' && role !== 'super_admin') {
@@ -366,7 +366,7 @@ export default function StripeDashboard() {
       // Load clinics for super_admin
       if (role === 'super_admin') {
         loadClinics();
-      } else if (parsedUser.clinicId) {
+      } else if (parsedUser.clinicId != null) {
         // Admin sees only their clinic - check if they have Stripe connected
         setSelectedClinicId(parsedUser.clinicId);
         checkClinicStripeStatus(parsedUser.clinicId);
@@ -503,7 +503,7 @@ export default function StripeDashboard() {
         setHasMoreCustomers(data.pagination?.hasMore || false);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load Stripe data');
+      setError(err instanceof Error ? (err instanceof Error ? err.message : String(err)) : 'Failed to load Stripe data');
     } finally {
       setLoading(false);
     }
@@ -1451,7 +1451,7 @@ function ConnectTab({
       window.open(data.onboardingUrl, '_blank');
       onRefresh();
     } catch (err: unknown) {
-      setError(err.message);
+      setError((err instanceof Error ? err.message : String(err)));
     } finally {
       setLoading(false);
     }
@@ -1466,7 +1466,7 @@ function ConnectTab({
         window.open(data.onboardingUrl, '_blank');
       }
     } catch (err: unknown) {
-      setError(err.message);
+      setError((err instanceof Error ? err.message : String(err)));
     } finally {
       setLoading(false);
     }
@@ -1483,7 +1483,7 @@ function ConnectTab({
         setError(data.error);
       }
     } catch (err: unknown) {
-      setError(err.message);
+      setError((err instanceof Error ? err.message : String(err)));
     } finally {
       setLoading(false);
     }
@@ -1495,7 +1495,7 @@ function ConnectTab({
       await apiFetch(`/api/stripe/connect?clinicId=${clinicId}&action=sync`);
       onRefresh();
     } catch (err: unknown) {
-      setError(err.message);
+      setError((err instanceof Error ? err.message : String(err)));
     } finally {
       setLoading(false);
     }

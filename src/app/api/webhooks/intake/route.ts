@@ -181,7 +181,7 @@ export async function POST(req: NextRequest) {
       logger.error(`[INTAKE WEBHOOK ${requestId}] Normalization error:`, normalizeError);
       webhookLogData.status = WebhookStatus.PROCESSING_ERROR;
       webhookLogData.statusCode = 422;
-      webhookLogData.errorMessage = `Normalization failed: ${normalizeError.message}`;
+      webhookLogData.errorMessage = `Normalization failed: ${(normalizeError as any).message}`;
       await logWebhookAttempt(webhookLogData);
 
       Sentry.captureException(normalizeError, { extra: { payload, requestId } });
@@ -190,7 +190,7 @@ export async function POST(req: NextRequest) {
         {
           error: 'Failed to normalize payload',
           requestId,
-          details: normalizeError.message,
+          details: (normalizeError as any).message,
         },
         { status: 422 }
       );

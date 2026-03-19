@@ -130,8 +130,8 @@ async function handler(req: NextRequest, user: AuthUser, context: RouteContext) 
 
         await tx.patientShippingUpdate.create({
           data: {
-            clinicId: order.clinicId,
-            patientId: order.patientId,
+            clinicId: order.clinicId ?? 0,
+            patientId: order.patientId ?? 0,
             orderId: order.id,
             trackingNumber: trackingNumber!,
             carrier: carrier!,
@@ -171,7 +171,7 @@ async function handler(req: NextRequest, user: AuthUser, context: RouteContext) 
           select: { id: true, phone: true, email: true, firstName: true, lastName: true },
         }),
         prisma.clinic.findUnique({
-          where: { id: order.clinicId },
+          where: { id: order.clinicId ?? 0 },
           select: { name: true },
         }),
       ]);
@@ -179,15 +179,15 @@ async function handler(req: NextRequest, user: AuthUser, context: RouteContext) 
       if (patient) {
         sendTrackingNotificationSMS({
           patientId: patient.id,
-          patientPhone: patient.phone,
-          patientEmail: patient.email,
-          patientFirstName: patient.firstName,
-          patientLastName: patient.lastName,
-          clinicId: order.clinicId,
-          clinicName: clinic?.name || 'Your Clinic',
+          patientPhone: patient.phone ?? null,
+          patientEmail: patient.email ?? undefined,
+          patientFirstName: patient.firstName ?? null,
+          patientLastName: patient.lastName ?? null,
+          clinicId: order.clinicId ?? 0,
+          clinicName: clinic?.name ?? 'Your Clinic',
           trackingNumber: trackingNumber!,
           carrier: carrier!,
-          orderId: order.id,
+          orderId: order.id ?? undefined,
         }).catch((err) => {
           logger.warn('[DISPOSITION] Tracking SMS failed (non-blocking)', {
             error: err instanceof Error ? err.message : String(err),
@@ -278,7 +278,7 @@ async function handler(req: NextRequest, user: AuthUser, context: RouteContext) 
 
     return NextResponse.json({ error: 'Unknown action' }, { status: 400 });
   } catch (error: unknown) {
-    logger.error('[DISPOSITION] Error:', { error: error.message, stack: error.stack });
+    logger.error('[DISPOSITION] Error:', { error: (error as any).message, stack: (error as any).stack });
     return NextResponse.json(
       { error: 'Failed to disposition order' },
       { status: 500 }

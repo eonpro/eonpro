@@ -59,6 +59,10 @@ function normalizeDob(input: string): string {
  * Creates and submits prescription to Lifefile pharmacy
  */
 async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
+  let invoiceClaimed = false;
+  let refillClaimed = false;
+  let claimedInvoiceId: number | null = null;
+  let claimedRefillId: number | null = null;
   try {
     // Verify user has prescribing permissions
     if (!['provider', 'admin', 'super_admin'].includes(user.role)) {
@@ -660,6 +664,7 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
         );
       }
       invoiceClaimed = true;
+      claimedInvoiceId = p.invoiceId ?? null;
     }
 
     if (p.refillId) {
@@ -676,7 +681,7 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
         // Rollback invoice claim if we already took it
         if (invoiceClaimed && p.invoiceId) {
           await prisma.invoice.update({
-            where: { id: p.invoiceId },
+            where: { id: p!.invoiceId },
             data: { prescriptionProcessed: false, prescriptionProcessedBy: null, prescriptionProcessedAt: null },
           });
         }
@@ -690,6 +695,7 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
         );
       }
       refillClaimed = true;
+      claimedRefillId = p.refillId ?? null;
     }
 
     try {
@@ -986,7 +992,7 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
         if (invoiceClaimed && p.invoiceId) {
           try {
             await prisma.invoice.update({
-              where: { id: p.invoiceId },
+              where: { id: p!.invoiceId },
               data: { prescriptionProcessed: false, prescriptionProcessedBy: null, prescriptionProcessedAt: null },
             });
           } catch (rollbackErr) {
@@ -1043,7 +1049,7 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
       if (invoiceClaimed && p.invoiceId) {
         try {
           await prisma.invoice.update({
-            where: { id: p.invoiceId },
+            where: { id: p!.invoiceId },
             data: { orderId: order.id },
           });
         } catch (linkErr) {
@@ -1228,7 +1234,7 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
       if (invoiceClaimed && p.invoiceId) {
         try {
           await prisma.invoice.update({
-            where: { id: p.invoiceId },
+            where: { id: p!.invoiceId },
             data: { prescriptionProcessed: false, prescriptionProcessedBy: null, prescriptionProcessedAt: null },
           });
         } catch (rollbackErr) {
@@ -1264,26 +1270,27 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
     logger.error('[PRESCRIPTIONS/POST] Unexpected error:', err);
 
     // Safety rollback: release claims if they were taken before this catch fired
-    if (invoiceClaimed && p.invoiceId) {
+    if (invoiceClaimed && claimedInvoiceId) {
       try {
         await prisma.invoice.update({
-          where: { id: p.invoiceId },
+          where: { id: claimedInvoiceId },
           data: { prescriptionProcessed: false, prescriptionProcessedBy: null, prescriptionProcessedAt: null },
         });
       } catch { /* best-effort rollback */ }
     }
-    if (refillClaimed && p.refillId) {
+    if (refillClaimed && claimedRefillId) {
       try {
         await prisma.refillQueue.update({
-          where: { id: p.refillId },
+          where: { id: claimedRefillId },
           data: { status: 'APPROVED' },
         });
       } catch { /* best-effort rollback */ }
     }
 
     // P2024 / connection pool exhaustion: return 503 so client can retry (matches login, messages)
+    const errObj = err as { code?: string };
     const isPoolExhausted =
-      err?.code === 'P2024' ||
+      errObj?.code === 'P2024' ||
       (typeof errorMessage === 'string' &&
         (errorMessage.toLowerCase().includes('connection pool') ||
           errorMessage.includes('pool timeout')));

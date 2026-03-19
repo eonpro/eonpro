@@ -376,6 +376,6 @@ export async function POST(
     }
 
     logger.error('Invoice action failed', error);
-    return NextResponse.json({ error: error.message || 'Action failed' }, { status: 500 });
+    return NextResponse.json({ error: (error as any).message || 'Action failed' }, { status: 500 });
   }
 }

@@ -22,6 +22,7 @@ import type {
   ClinicPlatformInvoice,
   PlatformFeeEvent,
 } from '@prisma/client';
+import type { Prisma } from '@prisma/client';
 import type Stripe from 'stripe';
 import { platformFeeService } from './platformFeeService';
 
@@ -556,7 +557,7 @@ export const clinicInvoiceService = {
           paidAmountCents: newTotalPaid,
           paymentMethod: paymentDetails.method,
           paymentRef: paymentDetails.reference,
-          paymentHistory: [...existingHistory, newEntry],
+          paymentHistory: [...existingHistory, newEntry] as Prisma.InputJsonValue,
         },
       });
 
@@ -642,15 +643,15 @@ export const clinicInvoiceService = {
           status: fullyPaid ? 'PAID' : cn.invoice.status === 'DRAFT' ? 'DRAFT' : 'PARTIALLY_PAID',
           paidAt: fullyPaid ? new Date() : cn.invoice.paidAt,
           paymentHistory: [
-            ...(Array.isArray(cn.invoice.paymentHistory) ? cn.invoice.paymentHistory as Record<string, unknown>[] : []),
+            ...(Array.isArray(cn.invoice.paymentHistory) ? (cn.invoice.paymentHistory as Prisma.InputJsonValue[]) : []),
             {
               amountCents: cn.amountCents,
               method: 'credit_note',
               reference: `CN-${creditNoteId}`,
               date: new Date().toISOString(),
               recordedBy: actorId,
-            },
-          ],
+            } as Prisma.InputJsonValue,
+          ] as Prisma.InputJsonValue,
         },
       });
     }, { timeout: 15000 });
@@ -1075,7 +1076,7 @@ export const clinicInvoiceService = {
     drawText('Total Due', col3 - 20, y, { font: fontBold, size: 12 });
     drawText(fmtCurrency(invoice.totalAmountCents), col4, y, { font: fontBold, size: 12, color: rgb(0.31, 0.65, 0.49) });
 
-    if ((invoice.paidAmountCents ?? 0) > 0 && invoice.paidAmountCents < invoice.totalAmountCents) {
+    if ((invoice.paidAmountCents ?? 0) > 0 && (invoice.paidAmountCents ?? 0) < invoice.totalAmountCents) {
       y -= 20;
       drawText('Paid', col3 - 20, y);
       drawText(fmtCurrency(invoice.paidAmountCents ?? 0), col4, y);

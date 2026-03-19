@@ -28,7 +28,7 @@ function withSalesRepAuth(
 
 const safeDecrypt = (v: string | null): string => {
   if (!v) return '';
-  try { return decryptPHI(v); } catch { return v; }
+  try { return decryptPHI(v) ?? ''; } catch { return v ?? ''; }
 };
 
 function parseDateRange(req: NextRequest): { startDate: Date; endDate: Date } {

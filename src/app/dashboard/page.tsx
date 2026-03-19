@@ -195,7 +195,7 @@ function HomePageInner() {
             try {
               const storedUser = localStorage.getItem('user');
               if (storedUser) {
-                previousRole = safeParseJsonString<{role?: string}>(storedUser)?.role?.toLowerCase();
+                previousRole = String(safeParseJsonString<{role?: string}>(storedUser)?.role ?? '').toLowerCase() || null;
               }
             } catch {}
 
@@ -258,9 +258,9 @@ function HomePageInner() {
       }
 
       try {
-        const parsedUser = safeParseJsonString(user);
+        const parsedUser = safeParseJsonString<Record<string, unknown>>(user);
         if (!parsedUser) return;
-        const role = parsedUser.role?.toLowerCase();
+        const role = String(parsedUser.role ?? '').toLowerCase();
 
         if (role === 'affiliate') {
           // Verify affiliate session is still valid
@@ -340,7 +340,7 @@ function HomePageInner() {
         const user = localStorage.getItem('user');
         if (user) {
           const parsed = safeParseJsonString<{role?: string}>(user);
-          isSalesRep = parsed?.role?.toLowerCase() === 'sales_rep';
+          isSalesRep = String(parsed?.role ?? '').toLowerCase() === 'sales_rep';
         }
       } catch {
         // ignore

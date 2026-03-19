@@ -283,10 +283,10 @@ export const providerService = {
       {
         ...data,
         titleLine,
-        clinicId,
+        clinicId: clinicId ?? undefined,
         npiVerifiedAt: npiRegistry ? new Date() : undefined,
         npiRawResponse: npiRegistry ?? undefined,
-      },
+      } as CreateProviderInput & { npiVerifiedAt?: Date; npiRawResponse?: unknown },
       userContext.email
     );
 

@@ -165,7 +165,7 @@ async function handleGet(request: NextRequest, user: AuthUser) {
       },
     });
   } catch (error: unknown) {
-    logger.error('[DataIntegrity] Check failed', { error: error.message });
+    logger.error('[DataIntegrity] Check failed', { error: (error instanceof Error ? error.message : String(error)) });
 
     return NextResponse.json(
       {
@@ -315,10 +315,10 @@ async function handlePost(req: NextRequest, user: AuthUser) {
     });
   } catch (error) {
     logger.error('searchIndex backfill failed', {
-      error: error instanceof Error ? error.message : String(error),
+      error: error instanceof Error ? (error instanceof Error ? error.message : String(error)) : String(error),
     });
     return NextResponse.json(
-      { error: 'Backfill failed', details: error instanceof Error ? error.message : String(error) },
+      { error: 'Backfill failed', details: error instanceof Error ? (error instanceof Error ? error.message : String(error)) : String(error) },
       { status: 500 }
     );
   }
@@ -553,7 +553,7 @@ async function checkDataIntegrity(clinicId?: number): Promise<DataIntegrityResul
       type: 'CHECK_FAILED',
       severity: 'critical',
       count: 1,
-      message: `Failed to check data integrity: ${error.message}`,
+      message: `Failed to check data integrity: ${(error instanceof Error ? error.message : String(error))}`,
     });
   }
 

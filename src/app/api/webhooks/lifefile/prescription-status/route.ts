@@ -98,7 +98,7 @@ async function findClinicByCredentials(authHeader: string | null): Promise<{
           `[LIFEFILE PRESCRIPTION] Decrypted password for ${clinic.name}: length=${decryptedPassword?.length}`
         );
       } catch (e: unknown) {
-        logger.error(`[LIFEFILE PRESCRIPTION] Decryption failed for ${clinic.name}:`, e.message);
+        logger.error(`[LIFEFILE PRESCRIPTION] Decryption failed for ${clinic.name}:`, (e as any).message);
         // Continue to try other clinics
         continue;
       }
@@ -356,10 +356,10 @@ export async function POST(req: NextRequest) {
       processingTime: `${processingTime}ms`,
     });
   } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errorMessage = error instanceof Error ? (error instanceof Error ? error.message : String(error)) : 'Unknown error';
     logger.error('[LIFEFILE PRESCRIPTION] Error', {
       message: errorMessage,
-      name: error instanceof Error ? error.name : undefined,
+      name: error instanceof Error ? (error instanceof Error ? error.name : 'Error') : undefined,
     });
 
     webhookLogData.status = WebhookStatus.ERROR;

@@ -159,7 +159,7 @@ export async function ensureSoapNoteExists(
     } catch (rxErr) {
       logger.warn('[SOAP-AUTOMATION] Failed to check previous prescriptions', {
         ...logContext,
-        error: rxErr instanceof Error ? rxErr.message : String(rxErr),
+        error: rxErr instanceof Error ? (rxErr instanceof Error ? rxErr.message : String(rxErr)) : String(rxErr),
       });
     }
 
@@ -276,13 +276,13 @@ export async function ensureSoapNoteExists(
           action: 'generated',
         };
       } catch (genError: unknown) {
-        const errorMsg = genError.message || 'Unknown error';
+        const errorMsg = (genError as any).message || 'Unknown error';
         logger.error('[SOAP-AUTOMATION] Failed to generate from intake', {
           ...logContext,
           error: errorMsg,
-          status: genError.status,
-          code: genError.code,
-          stack: genError.stack?.split('\n').slice(0, 3).join(' | '),
+          status: (genError as any).status,
+          code: (genError as any).code,
+          stack: (genError as any).stack?.split('\n').slice(0, 3).join(' | '),
         });
 
         // Check if this is a data parsing issue (which we can try to recover from)
@@ -381,7 +381,7 @@ export async function ensureSoapNoteExists(
             action: 'generated',
           };
         } catch (metaError: unknown) {
-          const errorMsg = metaError.message || 'Unknown error';
+          const errorMsg = (metaError as any).message || 'Unknown error';
           logger.error('[SOAP-AUTOMATION] Failed to generate from invoice metadata', {
             ...logContext,
             error: errorMsg,
@@ -455,12 +455,12 @@ export async function ensureSoapNoteExists(
           action: 'generated',
         };
       } catch (submissionError: unknown) {
-        const errorMsg = submissionError.message || 'Unknown error';
+        const errorMsg = (submissionError as any).message || 'Unknown error';
         logger.error('[SOAP-AUTOMATION] Failed to generate from intake submission', {
           ...logContext,
           error: errorMsg,
-          status: submissionError.status,
-          code: submissionError.code,
+          status: (submissionError as any).status,
+          code: (submissionError as any).code,
         });
 
         // Always fail on intake submission errors - this is the last data source

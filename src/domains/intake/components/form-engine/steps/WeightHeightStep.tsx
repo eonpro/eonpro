@@ -25,9 +25,9 @@ export default function WeightHeightStep({
   const responses = useIntakeStore((state) => state.responses);
   const { setResponse, markStepCompleted, setCurrentStep } = useIntakeActions();
   
-  const [currentWeight, setCurrentWeight] = useState(responses.currentWeight || '');
-  const [feet, setFeet] = useState(responses.heightFeet || '');
-  const [inches, setInches] = useState(responses.heightInches ?? '');
+  const [currentWeight, setCurrentWeight] = useState(String(responses.currentWeight || ''));
+  const [feet, setFeet] = useState(String(responses.heightFeet || ''));
+  const [inches, setInches] = useState(String(responses.heightInches ?? ''));
 
   const handleContinue = () => {
     if (currentWeight && feet && inches !== '') {

@@ -193,13 +193,14 @@ export default function ProvidersPage() {
     const userData = localStorage.getItem('user');
     if (!userData) return;
     try {
-      const user = safeParseJsonString(userData);
+      const user = safeParseJsonString<Record<string, unknown>>(userData);
       if (!user) return;
-      const role = user.role?.toLowerCase() || '';
+      const role = String(user.role ?? '').toLowerCase() || '';
       setUserRole(role);
-      setUserClinicId(user.clinicId ?? null);
-      if (role !== 'super_admin' && user.clinicId) {
-        setForm((prev) => ({ ...prev, clinicId: String(user.clinicId) }));
+      const clinicId = user.clinicId;
+      setUserClinicId(typeof clinicId === 'number' ? clinicId : null);
+      if (role !== 'super_admin' && clinicId != null) {
+        setForm((prev) => ({ ...prev, clinicId: String(clinicId) }));
       }
     } catch {
       // Invalid stored user; clear and let auth flow handle it
@@ -271,7 +272,7 @@ export default function ProvidersPage() {
       const data = await res.json();
       setProviders(data.providers ?? []);
     } catch (err: unknown) {
-      logger.error(err);
+      logger.error(String(err));
       setError('Failed to load providers');
     } finally {
       setLoading(false);

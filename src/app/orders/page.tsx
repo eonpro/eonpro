@@ -16,10 +16,10 @@ export default function OrdersStatusPage() {
       setResult(null);
       const res = await apiFetch(`/api/orders/${encodeURIComponent(orderId)}`);
       const data = await res.json();
-      setResult(data);
+      setResult(data as Record<string, unknown>);
     } catch (err: unknown) {
       
-      logger.error(err);
+      logger.error(String(err));
       setResult({ error: 'Failed to fetch order status' });
     } finally {
       setLoading(false);

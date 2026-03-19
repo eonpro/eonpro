@@ -404,7 +404,7 @@ export async function POST(req: NextRequest) {
       logger.info('[SEED PRODUCTS] Product table ensured');
     } catch (tableError: unknown) {
       // Table might already exist, continue
-      logger.info('[SEED PRODUCTS] Product table check:', tableError.message);
+      logger.info('[SEED PRODUCTS] Product table check:', (tableError as any).message);
     }
 
     // Find EONMEDS clinic (use select for backwards compatibility)

@@ -18,10 +18,11 @@ const TRACKING_SOURCE_LABELS: Record<string, string> = {
 async function getHandler(
   req: NextRequest,
   user: AuthUser,
-  { params }: { params: Promise<{ id: string }> },
+  context?: unknown,
 ) {
   try {
-    const { id } = await params;
+    const ctx = context as { params: Promise<{ id: string }> };
+    const { id } = await ctx.params;
     const photoId = parseInt(id, 10);
     if (isNaN(photoId)) {
       return NextResponse.json({ error: 'Invalid photo ID' }, { status: 400 });
@@ -263,7 +264,7 @@ async function getHandler(
     // Serialize
     const pdfBytes = await pdfDoc.save();
 
-    return new NextResponse(pdfBytes, {
+    return new NextResponse(new Uint8Array(pdfBytes), {
       headers: {
         'Content-Type': 'application/pdf',
         'Content-Disposition': `attachment; filename="package-audit-${photo.lifefileId}-${photo.id}.pdf"`,

@@ -161,7 +161,8 @@ export async function isOptedOut(phone: string, clinicId?: number | null): Promi
     });
 
     return !!optOut;
-  } catch (error) {
+  } catch (error: any) {
+    const __errorMsg = error instanceof Error ? error.message : String(error);
     logger.error('[SMS_OPT_OUT_CHECK_ERROR]', { phone, error });
     // Fail safe - don't block sending on database errors
     return false;
@@ -248,7 +249,8 @@ export async function processOptOut(
       clinicId: resolvedClinicId,
       patientId: resolvedPatientId,
     });
-  } catch (error) {
+  } catch (error: any) {
+    const __errorMsg = error instanceof Error ? error.message : String(error);
     logger.error('[SMS_OPT_OUT_ERROR]', { phone, error });
     throw error;
   }
@@ -291,7 +293,8 @@ export async function processOptIn(
     }
 
     logger.info('[SMS_OPT_IN_PROCESSED]', { phone: formattedPhone, clinicId, patientId });
-  } catch (error) {
+  } catch (error: any) {
+    const __errorMsg = error instanceof Error ? error.message : String(error);
     logger.error('[SMS_OPT_IN_ERROR]', { phone, error });
     throw error;
   }
@@ -353,7 +356,8 @@ export async function isQuietHours(clinicId?: number | null): Promise<boolean> {
       // Quiet hours within same day
       return currentMinutes >= startMinutes && currentMinutes < endMinutes;
     }
-  } catch (error) {
+  } catch (error: any) {
+    const __errorMsg = error instanceof Error ? error.message : String(error);
     logger.error('[SMS_QUIET_HOURS_CHECK_ERROR]', { clinicId, error });
     return false;
   }
@@ -468,7 +472,8 @@ export async function checkRateLimit(
     });
 
     return { blocked: false };
-  } catch (error) {
+  } catch (error: any) {
+    const __errorMsg = error instanceof Error ? error.message : String(error);
     logger.error('[SMS_RATE_LIMIT_CHECK_ERROR]', { phone, error });
     // Don't block on database errors
     return { blocked: false };
@@ -534,7 +539,8 @@ async function logSMSMessage(data: SMSLogData): Promise<void> {
       clinicId,
       status: data.status,
     });
-  } catch (error) {
+  } catch (error: any) {
+    const __errorMsg = error instanceof Error ? error.message : String(error);
     // Log error but don't fail the SMS operation
     logger.error('[SMS_LOG_ERROR]', { error, data: { to: data.to, status: data.status } });
   }
@@ -657,8 +663,8 @@ export async function sendSMS(message: SMSMessage): Promise<SMSResponse> {
       },
     };
   } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    const errorCode = error.code || error.errorCode;
+    const errorMessage = error instanceof Error ? (error instanceof Error ? error.message : String(error)) : 'Unknown error';
+    const errorCode = (error as any).code || (error as any).errorCode;
 
     logger.error('[TWILIO_SMS_ERROR]', { error: errorMessage, code: errorCode });
 
@@ -677,7 +683,7 @@ export async function sendSMS(message: SMSMessage): Promise<SMSResponse> {
 
     return {
       success: false,
-      error: error.message || TWILIO_ERRORS.MESSAGE_FAILED,
+      error: (error instanceof Error ? error.message : String(error)) || TWILIO_ERRORS.MESSAGE_FAILED,
       errorCode,
       details: error,
     };
@@ -745,7 +751,7 @@ export async function sendAppointmentReminder(
       templateType: 'APPOINTMENT_REMINDER',
     });
   } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errorMessage = error instanceof Error ? (error instanceof Error ? error.message : String(error)) : 'Unknown error';
     logger.error('[APPOINTMENT_REMINDER_ERROR]', { error, patientId });
     return {
       success: false,
@@ -799,7 +805,7 @@ export async function sendPrescriptionReady(
       templateType: 'PRESCRIPTION_READY',
     });
   } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errorMessage = error instanceof Error ? (error instanceof Error ? error.message : String(error)) : 'Unknown error';
     logger.error('[PRESCRIPTION_READY_ERROR]', { error, patientId });
     return {
       success: false,
@@ -847,7 +853,7 @@ export async function sendLabResultsReady(patientId: number): Promise<SMSRespons
       templateType: 'LAB_RESULTS_READY',
     });
   } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errorMessage = error instanceof Error ? (error instanceof Error ? error.message : String(error)) : 'Unknown error';
     logger.error('[LAB_RESULTS_ERROR]', { error, patientId });
     return {
       success: false,
@@ -999,7 +1005,7 @@ async function handleAppointmentConfirmation(
         });
       }
     }
-  } catch (error) {
+  } catch (error: any) {
     logger.error('[CONFIRMATION_ERROR]', { error });
   }
 }
@@ -1049,7 +1055,7 @@ async function handleAppointmentCancellation(
         });
       }
     }
-  } catch (error) {
+  } catch (error: any) {
     logger.error('[CANCELLATION_ERROR]', { error });
   }
 }
@@ -1117,7 +1123,7 @@ export async function updateSMSStatus(
     });
 
     logger.debug('[SMS_STATUS_UPDATED]', { messageSid, status });
-  } catch (error) {
+  } catch (error: any) {
     logger.error('[SMS_STATUS_UPDATE_ERROR]', { error, messageSid });
   }
 }

@@ -279,12 +279,12 @@ async function handleBatchGeneration(
     });
   } catch (error: unknown) {
     logger.error('[API] Batch SOAP note processing failed:', {
-      error: error.message,
+      error: (error as any).message,
       clinicId,
     });
 
     return NextResponse.json(
-      { error: 'Batch processing failed', details: error.message },
+      { error: 'Batch processing failed', details: (error as any).message },
       { status: 500 }
     );
   }
@@ -334,7 +334,7 @@ export const GET = withAuth(
       });
     } catch (error: unknown) {
       logger.error('[API] Error getting missing SOAP note count:', {
-        error: error.message,
+        error: (error as any).message,
       });
       return NextResponse.json({ error: 'Failed to get missing SOAP note count' }, { status: 500 });
     }

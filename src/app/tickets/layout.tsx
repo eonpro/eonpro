@@ -154,9 +154,9 @@ function TicketsLayoutInner({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      const parsedUser = safeParseJsonString(user);
+      const parsedUser = safeParseJsonString<Record<string, unknown>>(user);
       if (!parsedUser) { router.push('/login'); return; }
-      const role = parsedUser.role?.toLowerCase();
+      const role = String(parsedUser?.role ?? '').toLowerCase();
 
       // Allow multiple roles to access tickets
       if (!TICKETS_ALLOWED_ROLES.includes(role)) {

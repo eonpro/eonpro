@@ -72,11 +72,11 @@ export const POST = withSuperAdminAuth(
         logger.error('[SUPER-ADMIN/PROVIDERS/VERIFY-NPI] NPI lookup failed', {
           providerId,
           npi: provider.npi,
-          error: error instanceof Error ? error.message : 'Unknown error',
+          error: error instanceof Error ? (error instanceof Error ? error.message : String(error)) : 'Unknown error',
         });
         return NextResponse.json(
           {
-            error: error instanceof Error ? error.message : 'NPI lookup failed',
+            error: error instanceof Error ? (error instanceof Error ? error.message : String(error)) : 'NPI lookup failed',
             valid: false,
           },
           { status: 400 }
@@ -141,7 +141,7 @@ export const POST = withSuperAdminAuth(
       });
     } catch (error: unknown) {
       logger.error('[SUPER-ADMIN/PROVIDERS/VERIFY-NPI] Error:', error);
-      return NextResponse.json({ error: error.message || 'Failed to verify NPI' }, { status: 500 });
+      return NextResponse.json({ error: (error instanceof Error ? error.message : String(error)) || 'Failed to verify NPI' }, { status: 500 });
     }
   }
 );

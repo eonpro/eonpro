@@ -53,9 +53,9 @@ export default function CreateClinicPage() {
     }
     if (user) {
       try {
-        const userData = safeParseJsonString(user);
+        const userData = safeParseJsonString<Record<string, unknown>>(user);
         if (!userData) { router.push('/login'); return; }
-        const role = userData.role?.toLowerCase();
+        const role = String(userData?.role ?? '').toLowerCase();
         if (role !== 'super_admin') {
           setError('Access denied. Super Admin privileges required.');
           setTimeout(() => router.push('/admin'), 2000);
@@ -852,8 +852,8 @@ function ClinicAddressSection({
 
   useEffect(() => {
     let autocompleteInstance: any = null;
-    let intervalId: NodeJS.Timeout | null = null;
-    let timeoutId: NodeJS.Timeout | null = null;
+    let intervalId: number | null = null;
+    let timeoutId: number | null = null;
 
     const initializeAutocomplete = () => {
       if (
@@ -912,7 +912,7 @@ function ClinicAddressSection({
     // Try immediately
     if (!initializeAutocomplete()) {
       // Poll for Google Maps to be loaded
-      intervalId = setInterval(() => {
+      intervalId = window.setInterval(() => {
         if (initializeAutocomplete()) {
           if (intervalId) clearInterval(intervalId);
           if (timeoutId) clearTimeout(timeoutId);
@@ -920,7 +920,7 @@ function ClinicAddressSection({
       }, 500);
 
       // Timeout after 10 seconds
-      timeoutId = setTimeout(() => {
+      timeoutId = window.setTimeout(() => {
         if (intervalId) clearInterval(intervalId);
       }, 10000);
     }

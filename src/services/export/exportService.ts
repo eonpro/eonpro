@@ -533,7 +533,7 @@ startxref
     userId: number,
     config: ExportConfig
   ): Promise<number> {
-    const exportJob = await prisma.reportExport.create({
+    const exportJob = await (prisma as any).reportExport.create({
       data: {
         clinicId,
         createdBy: userId,
@@ -564,7 +564,7 @@ startxref
       completedAt: Date;
     }>
   ): Promise<void> {
-    await prisma.reportExport.update({
+    await (prisma as any).reportExport.update({
       where: { id: jobId },
       data: {
         status,

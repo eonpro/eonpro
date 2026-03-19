@@ -39,6 +39,7 @@ interface InvoiceSummary {
     fileName: string;
     invoiceNumber: string | null;
     invoiceDate: string | null;
+    createdAt?: string | null;
     pharmacyName: string | null;
     amountDueCents: number | null;
     status: string;

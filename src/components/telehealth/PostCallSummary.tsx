@@ -55,7 +55,7 @@ export default function PostCallSummary({ data, onBackToQueue, onSelectNextPatie
     try {
       const user = localStorage.getItem('user');
       if (user) {
-        const parsed = safeParseJsonString(user);
+        const parsed = safeParseJsonString<Record<string, unknown>>(user);
         if (parsed?.providerId) setProviderId(Number(parsed.providerId));
         else if (parsed?.id) setProviderId(Number(parsed.id));
       }

@@ -97,8 +97,8 @@ function getOpenAIClient(): OpenAI {
         timeout: 60000, // 60 seconds
       });
     } catch (error: unknown) {
-      logger.error('[OpenAI] Failed to initialize client', { error: error.message });
-      throw new Error(`OpenAI configuration error: ${error.message}`);
+      logger.error('[OpenAI] Failed to initialize client', { error: (error as any).message });
+      throw new Error(`OpenAI configuration error: ${(error as any).message}`);
     }
   }
   return openaiClient;
@@ -151,10 +151,10 @@ async function withRetry<T>(
     try {
       return await fn();
     } catch (error: unknown) {
-      lastError = error;
+      lastError = error as Error | null;
 
       // Only retry on rate limits (429) or server errors (5xx)
-      const isRetryable = error.status === 429 || (error.status >= 500 && error.status < 600);
+      const isRetryable = (error as any).status === 429 || ((error as any).status >= 500 && (error as any).status < 600);
 
       if (!isRetryable || attempt === maxRetries) {
         throw error;
@@ -1120,22 +1120,22 @@ Please provide a clear, accurate answer based on the available information. If a
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('[OpenAI] Error processing query:', {
       error: errorMessage,
-      status: error.status,
-      code: error.code,
-      type: error.type,
+      status: (error as any).status,
+      code: (error as any).code,
+      type: (error as any).type,
     });
 
     // Preserve OpenAI context in error message for proper handling upstream
-    if (error.status === 429) {
+    if ((error as any).status === 429) {
       throw new Error('OpenAI rate limit exceeded. Please wait a moment and try again.');
     }
-    if (error.status === 401) {
+    if ((error as any).status === 401) {
       throw new Error('OpenAI API key is invalid or not configured.');
     }
-    if (error.status === 500 || error.status === 502 || error.status === 503) {
+    if ((error as any).status === 500 || (error as any).status === 502 || (error as any).status === 503) {
       throw new Error('OpenAI service is temporarily unavailable. Please try again later.');
     }
-    if (error.code === 'insufficient_quota') {
+    if ((error as any).code === 'insufficient_quota') {
       throw new Error('OpenAI quota exceeded. Please contact support.');
     }
 

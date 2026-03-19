@@ -90,7 +90,7 @@ function calculateOptimalPoolSize(): { min: number; max: number } {
 class ConnectionPoolManager {
   private config: PoolConfig;
   private metrics: PoolMetrics;
-  private healthCheckTimer: NodeJS.Timeout | null = null;
+  private healthCheckTimer: ReturnType<typeof setInterval> | null = null;
   private isShuttingDown = false;
 
   constructor() {
@@ -297,7 +297,7 @@ export async function withTimeout<T>(
   operationName: string = 'Query'
 ): Promise<T> {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  const timeoutId: ReturnType<typeof setTimeout> = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
     const result = await Promise.race([

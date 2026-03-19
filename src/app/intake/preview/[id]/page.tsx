@@ -62,7 +62,7 @@ export default function PreviewIntakeFormPage({ params }: { params: Promise<{ id
       setTemplate(data.template);
     } catch (err: unknown) {
       logger.error('Failed to fetch template', err);
-      setError(err.message || 'Failed to load form template');
+      setError((err as any).message || 'Failed to load form template');
     } finally {
       setLoading(false);
     }

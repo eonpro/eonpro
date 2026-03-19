@@ -99,9 +99,9 @@ export default function ProviderSettingsPage() {
       return;
     }
     try {
-      const data = safeParseJsonString(user);
+      const data = safeParseJsonString<Record<string, unknown>>(user);
       if (!data) { router.push('/login'); return; }
-      if (data.role?.toLowerCase() !== 'provider') {
+      if (String(data?.role ?? '').toLowerCase() !== 'provider') {
         router.push('/login');
         return;
       }
@@ -139,7 +139,7 @@ export default function ProviderSettingsPage() {
         setLastName(data.user.lastName || '');
       }
     } catch (err: unknown) {
-      setError(err.message || 'Failed to load settings');
+      setError((err as any).message || 'Failed to load settings');
     } finally {
       setLoading(false);
     }
@@ -304,7 +304,7 @@ export default function ProviderSettingsPage() {
       setSuccess('Profile updated successfully');
       setTimeout(() => setSuccess(''), 3000);
     } catch (err: unknown) {
-      setError(err.message);
+      setError((err as any).message);
     } finally {
       setSaving(false);
     }
@@ -334,7 +334,7 @@ export default function ProviderSettingsPage() {
       setSuccess('Signature saved successfully');
       setTimeout(() => setSuccess(''), 3000);
     } catch (err: unknown) {
-      setError(err.message);
+      setError((err as any).message);
     } finally {
       setSaving(false);
     }
@@ -375,7 +375,7 @@ export default function ProviderSettingsPage() {
       setConfirmPassword('');
       setTimeout(() => setSuccess(''), 3000);
     } catch (err: unknown) {
-      setError(err.message);
+      setError((err as any).message);
     } finally {
       setSaving(false);
     }
@@ -463,7 +463,7 @@ export default function ProviderSettingsPage() {
       setSuccess('NPI verified successfully');
       setTimeout(() => setSuccess(''), 3000);
     } catch (err: unknown) {
-      setError(err.message || 'Failed to verify NPI');
+      setError((err as any).message || 'Failed to verify NPI');
     } finally {
       setVerifyingNpi(false);
     }
@@ -503,7 +503,7 @@ export default function ProviderSettingsPage() {
       fetchSettings(); // Refresh data
       setTimeout(() => setSuccess(''), 3000);
     } catch (err: unknown) {
-      setError(err.message);
+      setError((err as any).message);
     } finally {
       setSaving(false);
     }

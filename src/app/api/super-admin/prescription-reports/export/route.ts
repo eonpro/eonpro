@@ -336,7 +336,7 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) 
     // PDF
     const pdfBytes = await generatePDF(details, summary.byProvider, dateRange);
 
-    return new NextResponse(pdfBytes, {
+    return new NextResponse(new Uint8Array(pdfBytes), {
       headers: {
         'Content-Type': 'application/pdf',
         'Content-Disposition': `attachment; filename="prescription-report-${dateSlug}.pdf"`,

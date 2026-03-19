@@ -263,15 +263,15 @@ export const PUT = withSuperAdminAuth(
     } catch (error: unknown) {
       logger.error('[SUPER-ADMIN/PROVIDERS] Error updating provider:', error);
 
-      if (error.code === 'CONFLICT') {
+      if ((error as any).code === 'CONFLICT') {
         return NextResponse.json(
           { error: error instanceof Error ? error.message : String(error) || 'NPI already registered' },
           { status: 409 }
         );
       }
 
-      if (error.code === 'VALIDATION_ERROR') {
-        return NextResponse.json({ error: error instanceof Error ? error.message : String(error), details: error.details }, { status: 400 });
+      if ((error as any).code === 'VALIDATION_ERROR') {
+        return NextResponse.json({ error: error instanceof Error ? error.message : String(error), details: (error as any).details }, { status: 400 });
       }
 
       return NextResponse.json(

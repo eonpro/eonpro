@@ -135,12 +135,12 @@ async function getHandler(request: NextRequest, user: AuthUser) {
     let shipmentOnlyTotal = 0;
 
     if (hasTrackingNumber === 'true') {
-      const clinicFilter = userContext.role === 'super_admin' ? {} : { clinicId: userContext.clinicId };
+      const clinicFilter = userContext.role === 'super_admin' ? {} : (userContext.clinicId != null ? { clinicId: userContext.clinicId } : {});
       try {
         // Simplified query: avoid expensive OR with relation sub-queries.
         // Just fetch shipment records that have no linked orderId (true shipment-only records).
         patientShipments = await prisma.patientShippingUpdate.findMany({
-          where: { ...clinicFilter, orderId: null },
+          where: { ...clinicFilter, orderId: null } as any,
           include: {
             patient: { select: { id: true, firstName: true, lastName: true } },
           },
@@ -149,7 +149,7 @@ async function getHandler(request: NextRequest, user: AuthUser) {
         });
 
         shipmentOnlyTotal = await prisma.patientShippingUpdate.count({
-          where: { ...clinicFilter, orderId: null },
+          where: { ...clinicFilter, orderId: null } as any,
         });
       } catch (shipmentError) {
         logger.warn('[OrdersList] Shipment query failed, returning orders only', {

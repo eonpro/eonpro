@@ -91,7 +91,7 @@ async function handleSend(req: NextRequest, user: AuthUser) {
         return NextResponse.json(
           {
             error: 'Failed to send message via Twilio',
-            details: twilioError.message,
+            details: (twilioError as any).message,
           },
           { status: 500 }
         );

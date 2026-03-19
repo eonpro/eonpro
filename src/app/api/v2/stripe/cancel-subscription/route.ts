@@ -77,7 +77,7 @@ export async function POST(req: NextRequest) {
     } catch (stripeError: unknown) {
       const errorMessage = stripeError instanceof Error ? stripeError.message : 'Unknown error';
       // If subscription doesn't exist, treat as success (idempotent)
-      if (stripeError.code === 'resource_missing') {
+      if ((stripeError as any).code === 'resource_missing') {
         return NextResponse.json({
           success: true,
           message: "Subscription already canceled or doesn't exist",
@@ -87,7 +87,7 @@ export async function POST(req: NextRequest) {
 
       logger.error('[STRIPE_TEST] Cancellation failed:', { value: stripeError });
       return NextResponse.json(
-        { error: 'Failed to cancel subscription', details: stripeError.message },
+        { error: 'Failed to cancel subscription', details: (stripeError as any).message },
         { status: 400 }
       );
     }

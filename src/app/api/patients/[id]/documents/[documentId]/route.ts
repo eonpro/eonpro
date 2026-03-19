@@ -138,7 +138,7 @@ export const GET = withAuthParams(
           }
         } catch (err) {
           logger.warn(`S3 readPdfData failed for document ${documentId}, falling through`, {
-            error: err instanceof Error ? err.message : String(err),
+            error: err instanceof Error ? (err instanceof Error ? err.message : String(err)) : String(err),
           });
         }
       }
@@ -270,11 +270,11 @@ export const GET = withAuthParams(
           });
         } catch (error: unknown) {
           logger.error('Error retrieving from external storage:', {
-            error: error.message,
+            error: (error as any).message,
             externalUrl: document.externalUrl,
           });
           return NextResponse.json(
-            { error: `Failed to retrieve document: ${error.message}` },
+            { error: `Failed to retrieve document: ${(error as any).message}` },
             { status: 500 }
           );
         }

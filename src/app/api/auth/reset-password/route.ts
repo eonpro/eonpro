@@ -122,7 +122,7 @@ export const POST = strictRateLimit(async (req: NextRequest) => {
           select: { id: true, role: true },
         });
         userExists =
-          user?.role === 'admin' ||
+          (user?.role as string) === 'admin' ||
           email.toLowerCase() === process.env.ADMIN_EMAIL?.toLowerCase();
         break;
       }
@@ -136,7 +136,7 @@ export const POST = strictRateLimit(async (req: NextRequest) => {
           where: { email: email.toLowerCase() },
           select: { id: true, role: true },
         });
-        userExists = user?.role === role;
+        userExists = (user?.role as string) === role;
         break;
       }
       default:
@@ -329,7 +329,7 @@ export const PUT = strictRateLimit(async (req: NextRequest) => {
           where: { email: email.toLowerCase() },
           select: { id: true, role: true },
         });
-        if (userToUpdate && userToUpdate.role === role) {
+        if (userToUpdate && (userToUpdate.role as string) === role) {
           await prisma.user.update({
             where: { id: userToUpdate.id },
             data: { passwordHash },

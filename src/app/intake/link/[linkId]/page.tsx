@@ -79,7 +79,7 @@ export default function IntakeFormPage({ params }: { params: Promise<{ linkId: s
       }
     } catch (err: unknown) {
       logger.error('Failed to fetch form', err);
-      setError(err.message || 'Failed to load form');
+      setError((err as any).message || 'Failed to load form');
     } finally {
       setLoading(false);
     }
@@ -194,7 +194,7 @@ export default function IntakeFormPage({ params }: { params: Promise<{ linkId: s
       setSuccess(true);
     } catch (err: unknown) {
       logger.error('Failed to submit form', err);
-      setError(err.message || 'Failed to submit form. Please try again.');
+      setError((err as any).message || 'Failed to submit form. Please try again.');
     } finally {
       setSubmitting(false);
     }

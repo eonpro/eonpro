@@ -39,8 +39,8 @@ export default function FeatureFlagsPage() {
     try {
       const user = localStorage.getItem('user');
       if (user) {
-        const parsed = safeParseJsonString(user);
-        if (parsed.role === 'super_admin') {
+        const parsed = safeParseJsonString<Record<string, unknown>>(user);
+        if ((parsed as any).role === 'super_admin') {
           setAccessAllowed(true);
         } else {
           setAccessAllowed(false);

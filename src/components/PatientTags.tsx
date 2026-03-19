@@ -48,7 +48,7 @@ export default function PatientTags({ patientId, initialTags }: PatientTagsProps
       const data = await response.json();
       setTags(data.tags.map((t: string) => t.replace(/^#/, '')));
     } catch (err: unknown) {
-      setError(err.message);
+      setError((err as any).message);
     } finally {
       setIsLoading(null);
     }
@@ -78,7 +78,7 @@ export default function PatientTags({ patientId, initialTags }: PatientTagsProps
       setNewTag('');
       setIsAdding(false);
     } catch (err: unknown) {
-      setError(err.message);
+      setError((err as any).message);
     } finally {
       setIsLoading(null);
     }

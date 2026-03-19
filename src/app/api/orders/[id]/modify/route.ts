@@ -168,8 +168,8 @@ export const POST = withAuthParams(
                 lifefileModifyResponse
               );
             } catch (shippingErr: unknown) {
-              logger.warn(`[ORDER MODIFY] Lifefile shipping update failed:`, shippingErr.message);
-              lifefileError = shippingErr.message;
+              logger.warn(`[ORDER MODIFY] Lifefile shipping update failed:`, (shippingErr as any).message);
+              lifefileError = (shippingErr as any).message;
             }
           }
 
@@ -182,12 +182,12 @@ export const POST = withAuthParams(
               lifefileModifyResponse = { ...lifefileModifyResponse, notes: notesResponse };
               logger.info(`[ORDER MODIFY] Lifefile notes added:`, notesResponse);
             } catch (notesErr: unknown) {
-              logger.warn(`[ORDER MODIFY] Lifefile notes addition failed:`, notesErr.message);
-              if (!lifefileError) lifefileError = notesErr.message;
+              logger.warn(`[ORDER MODIFY] Lifefile notes addition failed:`, (notesErr as any).message);
+              if (!lifefileError) lifefileError = (notesErr as any).message;
             }
           }
         } catch (err: unknown) {
-          lifefileError = err.message || 'Failed to connect to Lifefile';
+          lifefileError = (err as any).message || 'Failed to connect to Lifefile';
           logger.error(`[ORDER MODIFY] Lifefile client error:`, err);
         }
       }

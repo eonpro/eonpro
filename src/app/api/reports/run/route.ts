@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { withoutClinicFilter } from '@/lib/db';
 import { runReport } from '@/services/reporting/reportEngine';
+import type { ReportConfig } from '@/services/reporting/types';
 import { z } from 'zod';
 import { handleApiError } from '@/domains/shared/errors';
 
@@ -34,7 +35,7 @@ async function handler(req: NextRequest, user: AuthUser) {
       filters: parsed.data.filters || [],
       columns: parsed.data.columns || [],
       clinicId: user.role === 'super_admin' ? parsed.data.clinicId : user.clinicId || undefined,
-    };
+    } as ReportConfig;
 
     const result = user.role === 'super_admin'
       ? await withoutClinicFilter(() => runReport(config))

@@ -215,7 +215,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
         }
       } catch (err: unknown) {
-        setError(err.message);
+        setError((err as any).message);
         throw err;
       } finally {
         setLoading(false);

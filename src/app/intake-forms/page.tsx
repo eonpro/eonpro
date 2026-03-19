@@ -185,7 +185,7 @@ export default function IntakeFormsPage() {
       setError(null);
     } catch (err: unknown) {
       logger.error('Failed to fetch templates', err);
-      showNotification('error', err.message || 'Failed to load intake forms');
+      showNotification('error', (err as any).message || 'Failed to load intake forms');
       setTemplates([]);
     } finally {
       setLoading(false);
@@ -306,7 +306,7 @@ export default function IntakeFormsPage() {
       await fetchTemplates();
     } catch (err: unknown) {
       logger.error('Failed to create form', err);
-      showNotification('error', err.message || 'Failed to create form');
+      showNotification('error', (err as any).message || 'Failed to create form');
     } finally {
       setCreatingForm(false);
     }
@@ -358,7 +358,7 @@ export default function IntakeFormsPage() {
       setActiveModal(null);
     } catch (err: unknown) {
       logger.error('Failed to send link', err);
-      showNotification('error', err.message || 'Failed to send link');
+      showNotification('error', (err as any).message || 'Failed to send link');
     } finally {
       setSendingLink(false);
     }

@@ -121,7 +121,7 @@ interface QueryMetrics {
 class L1Cache {
   private cache = new Map<string, { data: unknown; expires: number }>();
   private maxSize = 1000;
-  private cleanupInterval: NodeJS.Timeout | null = null;
+  private cleanupInterval: ReturnType<typeof setInterval> | null = null;
 
   constructor() {
     // Cleanup expired entries every 30 seconds
@@ -238,7 +238,7 @@ function createDataLoader<K, V>(
   const { maxBatchSize = 100, batchDelayMs = 10 } = options;
 
   let batch: { key: K; resolve: (v: V) => void; reject: (e: Error) => void }[] = [];
-  let batchTimeout: NodeJS.Timeout | null = null;
+  let batchTimeout: ReturnType<typeof setTimeout> | null = null;
   const cache = new Map<K, Promise<V>>();
 
   const executeBatch = async () => {

@@ -89,28 +89,28 @@ function EditForm({
   const [formData, setFormData] = useState<Record<string, string | number>>(() => {
     switch (type) {
       case 'weight':
-        return { weight: String(entry.weight ?? ''), notes: String(entry.notes ?? '') };
+        return { weight: String(entry.weight ?? ''), notes: String(entry.notes ?? '') } as Record<string, string | number>;
       case 'water':
-        return { amount: String(entry.amount ?? ''), notes: String(entry.notes ?? '') };
+        return { amount: String(entry.amount ?? ''), notes: String(entry.notes ?? '') } as Record<string, string | number>;
       case 'exercise':
         return {
           activityType: String(entry.activityType ?? 'walking'),
           duration: String(entry.duration ?? ''),
           intensity: String(entry.intensity ?? 'moderate'),
           notes: String(entry.notes ?? ''),
-        };
+        } as Record<string, string | number>;
       case 'sleep':
         return {
           quality: String(entry.quality ?? '7'),
           notes: String(entry.notes ?? ''),
-        };
+        } as Record<string, string | number>;
       case 'nutrition':
         return {
           mealType: String(entry.mealType ?? 'breakfast'),
           description: String(entry.description ?? ''),
           calories: String(entry.calories ?? ''),
           notes: String(entry.notes ?? ''),
-        };
+        } as Record<string, string | number>;
       default:
         return {};
     }

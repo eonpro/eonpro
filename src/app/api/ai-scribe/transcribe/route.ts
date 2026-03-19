@@ -28,7 +28,7 @@ export const POST = withProviderAuth(async (req: NextRequest, user) => {
 
     // Handle multipart form data (audio file upload)
     if (contentType.includes('multipart/form-data')) {
-      const formData = await req.formData();
+      const formData = (await req.formData()) as unknown as globalThis.FormData;
       const audioFile = formData.get('audio') as File;
       const sessionId = formData.get('sessionId') as string;
       const patientId = formData.get('patientId') as string;

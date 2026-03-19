@@ -53,7 +53,7 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) 
 
       case 'report-excel': {
         const buffer = await billingExportService.generateExcelReport(defaultStart, defaultEnd, clinicId);
-        return new NextResponse(buffer, {
+        return new NextResponse(new Uint8Array(buffer), {
           headers: {
             'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
             'Content-Disposition': `attachment; filename="billing-report-${defaultStart.toISOString().split('T')[0]}-to-${defaultEnd.toISOString().split('T')[0]}.xlsx"`,

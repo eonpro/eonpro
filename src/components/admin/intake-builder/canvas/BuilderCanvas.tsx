@@ -146,14 +146,26 @@ export default function BuilderCanvas({
 
   const handleTitleSave = useCallback(
     (text: string) => {
-      onUpdateStep({ title: { ...step.title, [language]: text } });
+      onUpdateStep({
+        title: {
+          en: step.title?.en ?? '',
+          es: step.title?.es ?? '',
+          [language]: text,
+        },
+      });
     },
     [step?.title, language, onUpdateStep]
   );
 
   const handleSubtitleSave = useCallback(
     (text: string) => {
-      onUpdateStep({ subtitle: { ...step.subtitle, [language]: text } });
+      onUpdateStep({
+        subtitle: {
+          en: step.subtitle?.en ?? '',
+          es: step.subtitle?.es ?? '',
+          [language]: text,
+        },
+      });
     },
     [step?.subtitle, language, onUpdateStep]
   );

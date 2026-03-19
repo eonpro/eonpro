@@ -133,7 +133,7 @@ export default function AdminPatientsPage() {
   const [salesRepFilter, setSalesRepFilter] = useState<string>('all');
   const [openDropdownId, setOpenDropdownId] = useState<number | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const searchTimeoutRef = useRef<number | null>(null);
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -161,7 +161,7 @@ export default function AdminPatientsPage() {
     if (searchTimeoutRef.current) {
       clearTimeout(searchTimeoutRef.current);
     }
-    searchTimeoutRef.current = setTimeout(() => {
+    searchTimeoutRef.current = window.setTimeout(() => {
       setDebouncedSearch(searchTerm);
       setCurrentPage(1); // Reset to first page on new search
     }, 300);

@@ -26,7 +26,7 @@ async function handler(req: NextRequest, user: AuthUser, context?: RouteParams) 
       return NextResponse.json({ error: 'Invalid patient ID', messages: [] }, { status: 400 });
     }
   } catch (paramError: unknown) {
-    logger.error('[Messages] Failed to parse params', { error: paramError.message });
+    logger.error('[Messages] Failed to parse params', { error: (paramError as any).message });
     return NextResponse.json(
       { error: 'Invalid request parameters', messages: [] },
       { status: 400 }
@@ -91,7 +91,7 @@ async function handler(req: NextRequest, user: AuthUser, context?: RouteParams) 
           });
           logger.info('[Messages] Outbound fetch success', { count: outboundMessages.length });
         } catch (outErr: unknown) {
-          logger.error('[Messages] Outbound fetch failed', { error: outErr.message });
+          logger.error('[Messages] Outbound fetch failed', { error: (outErr as any).message });
         }
 
         try {
@@ -103,7 +103,7 @@ async function handler(req: NextRequest, user: AuthUser, context?: RouteParams) 
           });
           logger.info('[Messages] Inbound fetch success', { count: inboundMessages.length });
         } catch (inErr: unknown) {
-          logger.error('[Messages] Inbound fetch failed', { error: inErr.message });
+          logger.error('[Messages] Inbound fetch failed', { error: (inErr as any).message });
         }
 
         logger.info('[Messages] Twilio messages fetched', {
@@ -175,8 +175,8 @@ async function handler(req: NextRequest, user: AuthUser, context?: RouteParams) 
         });
       } catch (twilioError: unknown) {
         logger.error('Twilio error fetching messages', {
-          error: twilioError.message,
-          code: twilioError.code,
+          error: (twilioError as any).message,
+          code: (twilioError as any).code,
           patientId,
         });
 
@@ -210,15 +210,15 @@ async function handler(req: NextRequest, user: AuthUser, context?: RouteParams) 
               })
             ),
             source: 'local',
-            twilioError: twilioError.message,
+            twilioError: (twilioError as any).message,
           });
         }
 
         // Return empty with error info
         return NextResponse.json({
           messages: [],
-          error: twilioError.message,
-          code: twilioError.code,
+          error: (twilioError as any).message,
+          code: (twilioError as any).code,
         });
       }
     }
@@ -262,7 +262,7 @@ async function handler(req: NextRequest, user: AuthUser, context?: RouteParams) 
         });
       }
     } catch (dbError: unknown) {
-      logger.error('[Messages] Database query failed', { error: dbError.message });
+      logger.error('[Messages] Database query failed', { error: (dbError as any).message });
       // Continue to return empty
     }
 
@@ -282,8 +282,8 @@ async function handler(req: NextRequest, user: AuthUser, context?: RouteParams) 
     return NextResponse.json({
       messages: [],
       error: error instanceof Error ? error.message : String(error) || 'Unknown error occurred',
-      errorType: error.name,
-      debug: process.env.NODE_ENV === 'development' ? error.stack : undefined,
+      errorType: (error as any).name,
+      debug: process.env.NODE_ENV === 'development' ? (error as any).stack : undefined,
     });
   }
 }

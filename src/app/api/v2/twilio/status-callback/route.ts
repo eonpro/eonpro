@@ -35,7 +35,7 @@ async function validateTwilioWebhook(
 export async function POST(req: NextRequest) {
   try {
     // Parse the form data from Twilio
-    const formData = await req.formData();
+    const formData = (await req.formData()) as unknown as globalThis.FormData;
 
     const messageSid = formData.get('MessageSid') as string;
     const messageStatus = formData.get('MessageStatus') as string;

@@ -199,21 +199,21 @@ export const POST = withAuth(
 
       logger.error('[API] Error creating SOAP note:', {
         message: errorMessage,
-        status: error.status,
-        code: error.code,
+        status: (error as any).status,
+        code: (error as any).code,
       });
 
       // Handle Zod validation errors
-      if (error.name === 'ZodError') {
+      if ((error as any).name === 'ZodError') {
         return NextResponse.json(
-          { error: 'Invalid request data', details: error.errors },
+          { error: 'Invalid request data', details: (error as any).errors },
           { status: 400 }
         );
       }
 
       // Handle OpenAI rate limit errors (429)
       if (
-        error.status === 429 ||
+        (error as any).status === 429 ||
         errorMessage.toLowerCase().includes('rate limit') ||
         errorMessage.toLowerCase().includes('ratelimit') ||
         errorMessage.toLowerCase().includes('too many requests') ||
@@ -231,7 +231,7 @@ export const POST = withAuth(
 
       // Handle OpenAI API busy/overloaded errors
       if (
-        error.status === 503 ||
+        (error as any).status === 503 ||
         errorMessage.includes('overloaded') ||
         errorMessage.includes('busy')
       ) {
@@ -246,7 +246,7 @@ export const POST = withAuth(
       }
 
       // Handle OpenAI API key/auth errors
-      if (error.status === 401 || errorMessage.includes('API key')) {
+      if ((error as any).status === 401 || errorMessage.includes('API key')) {
         logger.error('[SOAP Notes] OpenAI API key issue - check configuration');
         return NextResponse.json(
           { error: 'AI service configuration error. Please contact support.' },

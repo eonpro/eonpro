@@ -69,7 +69,7 @@ export default function ChatWidget({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const chatManagerRef = useRef<ChatClientManager | null>(null);
   const conversationRef = useRef<any>(null);
-  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const typingTimeoutRef = useRef<number | null>(null);
 
   // Check if feature is enabled
   const isEnabled = isFeatureEnabled('TWILIO_CHAT');
@@ -298,7 +298,7 @@ export default function ChatWidget({
     }
 
     // Set new timeout
-    typingTimeoutRef.current = setTimeout(() => {
+    typingTimeoutRef.current = window.setTimeout(() => {
       setIsTyping(false);
     }, CHAT_CONFIG.TYPING_INDICATOR_TIMEOUT);
   };

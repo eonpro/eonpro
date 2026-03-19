@@ -1247,7 +1247,7 @@ async function queueFailedEvent(
 
     // Store in WebhookLog table as failed event (parse payload safely to avoid double throw)
     const { safeParseJsonString } = await import('@/lib/utils/safe-json');
-    const payload: unknown = rawBody ? safeParseJsonString(rawBody) : null;
+    const payload: unknown = rawBody ? safeParseJsonString<Record<string, unknown>>(rawBody) : null;
     await prisma.webhookLog.create({
       data: {
         source: 'stripe',

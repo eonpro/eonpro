@@ -177,7 +177,7 @@ export default async function PatientDetailPage({
         }
       } catch (subErr) {
         logger.warn('[PATIENT-DETAIL] Subdomain clinic resolution failed', {
-          error: subErr instanceof Error ? subErr.message : String(subErr),
+          error: subErr instanceof Error ? (subErr instanceof Error ? subErr.message : String(subErr)) : String(subErr),
           userId: user.id,
         });
       }
@@ -246,7 +246,7 @@ export default async function PatientDetailPage({
         clinicId,
         userId: user.id,
         durationMs: Date.now() - t0,
-        error: dbError instanceof Error ? dbError.message : String(dbError),
+        error: dbError instanceof Error ? (dbError instanceof Error ? dbError.message : String(dbError)) : String(dbError),
       });
       return (
         <div className="p-10">
@@ -432,7 +432,7 @@ export default async function PatientDetailPage({
           patientId: id,
           clinicId,
           userId: user.id,
-          error: dbError instanceof Error ? dbError.message : String(dbError),
+          error: dbError instanceof Error ? (dbError instanceof Error ? dbError.message : String(dbError)) : String(dbError),
         });
         // Continue with whatever data we have — partial render is better than error
       }
@@ -527,7 +527,7 @@ export default async function PatientDetailPage({
       // Log the error but continue with original data
       logger.error('Failed to decrypt patient PHI, showing encrypted values:', {
         patientId: patient.id,
-        error: decryptError instanceof Error ? decryptError.message : String(decryptError),
+        error: decryptError instanceof Error ? (decryptError instanceof Error ? decryptError.message : String(decryptError)) : String(decryptError),
       });
       // Use original patient data as fallback
       patientWithDecryptedPHI = {
@@ -588,7 +588,7 @@ export default async function PatientDetailPage({
             return { ...doc, data: null };
           }
         } catch (err: unknown) {
-          logger.error('Failed to parse document data:', err.message);
+          logger.error('Failed to parse document data:', (err as any).message);
           return { ...doc, data: null };
         }
       }
@@ -1317,8 +1317,8 @@ export default async function PatientDetailPage({
     // Global error handler - catch any unexpected errors
     logger.error('Unexpected error in PatientDetailPage:', {
       patientId: patientIdForLog,
-      error: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : undefined,
+      error: error instanceof Error ? (error instanceof Error ? error.message : String(error)) : String(error),
+      stack: error instanceof Error ? (error instanceof Error ? error.stack : undefined) : undefined,
     });
     return (
       <div className="p-10">

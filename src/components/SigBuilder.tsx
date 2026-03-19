@@ -326,8 +326,8 @@ export default function SigBuilder({
         }
       }
     } catch (err: unknown) {
-      logger.error('[SigBuilder] AI generation failed', { error: err.message });
-      setError(err.message || 'Failed to generate sig');
+      logger.error('[SigBuilder] AI generation failed', { error: (err as any).message });
+      setError((err as any).message || 'Failed to generate sig');
     } finally {
       setIsAiGenerating(false);
     }

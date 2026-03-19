@@ -45,10 +45,8 @@ export default function FeeBreakdownPieChart({ data }: Props) {
           ))}
         </Pie>
         <Tooltip
-          formatter={(value: number, _name: string, props: { payload: { count: number } }) => [
-            `${formatCurrency(value)} (${props.payload.count} events)`,
-            '',
-          ]}
+          formatter={((value: number | undefined, _name: string, props: { payload: { count: number } }) =>
+            `${formatCurrency(value ?? 0)} (${props.payload.count} events)`) as any}
           contentStyle={{ borderRadius: 12, border: '1px solid #e5e7eb' }}
         />
         <Legend />

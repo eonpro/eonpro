@@ -477,7 +477,7 @@ export const POST = withSuperAdminAuth(
               },
             });
           } catch (ucError: unknown) {
-            logger.warn('Could not create UserClinic record', { error: ucError.message });
+            logger.warn('Could not create UserClinic record', { error: (ucError as any).message });
           }
 
           return NextResponse.json({
@@ -488,7 +488,7 @@ export const POST = withSuperAdminAuth(
         } catch (createError: unknown) {
           // If user creation fails due to unique constraint, the email might exist
           // Try to find and link the existing user
-          if (createError.code === 'P2002') {
+          if ((createError as any).code === 'P2002') {
             const existingUserByEmail = await prisma.user.findUnique({
               where: { email: email.toLowerCase() },
             });
@@ -568,7 +568,7 @@ export const POST = withSuperAdminAuth(
           },
         });
       } catch (ucError: unknown) {
-        logger.warn('Could not create UserClinic record', { error: ucError.message });
+        logger.warn('Could not create UserClinic record', { error: (ucError as any).message });
         // Continue anyway - the user was created successfully
       }
 
@@ -626,7 +626,7 @@ export const POST = withSuperAdminAuth(
     } catch (error: unknown) {
       logger.error('Error creating clinic user', { error: error instanceof Error ? error.message : String(error) });
       return NextResponse.json(
-        { error: error.message || 'Failed to create user' },
+        { error: (error as any).message || 'Failed to create user' },
         { status: 500 }
       );
     }

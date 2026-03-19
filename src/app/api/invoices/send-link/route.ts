@@ -194,7 +194,7 @@ async function sendInvoiceLinkHandler(req: NextRequest, user: AuthUser): Promise
         });
       } catch (smsError: unknown) {
         logger.error('Failed to send invoice SMS', smsError);
-        deliveryResults.push({ method: 'sms', success: false, error: smsError.message });
+        deliveryResults.push({ method: 'sms', success: false, error: (smsError as any).message });
       }
     }
 
@@ -238,7 +238,7 @@ async function sendInvoiceLinkHandler(req: NextRequest, user: AuthUser): Promise
         });
       } catch (emailError: unknown) {
         logger.error('Failed to send invoice email', emailError);
-        deliveryResults.push({ method: 'email', success: false, error: emailError.message });
+        deliveryResults.push({ method: 'email', success: false, error: (emailError as any).message });
       }
     }
 

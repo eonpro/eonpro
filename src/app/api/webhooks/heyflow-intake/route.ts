@@ -168,7 +168,7 @@ export async function POST(req: NextRequest) {
           }
         }
       } catch (trackError: unknown) {
-        logger.warn(`[HEYFLOW WEBHOOK] Affiliate tracking failed: ${trackError.message}`);
+        logger.warn(`[HEYFLOW WEBHOOK] Affiliate tracking failed: ${(trackError as any).message}`);
       }
     } else {
       // No promo code found — try fallback attribution via referrer URL or recent touch
@@ -185,7 +185,7 @@ export async function POST(req: NextRequest) {
           }
         }
       } catch (fallbackErr: unknown) {
-        logger.warn(`[HEYFLOW WEBHOOK] Fallback attribution failed: ${fallbackErr.message}`);
+        logger.warn(`[HEYFLOW WEBHOOK] Fallback attribution failed: ${(fallbackErr as any).message}`);
       }
     }
 

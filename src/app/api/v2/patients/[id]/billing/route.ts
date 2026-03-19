@@ -88,7 +88,7 @@ export async function GET(
       } catch (stripeError) {
         logger.warn('Failed to fetch Stripe payment methods', {
           patientId,
-          error: stripeError instanceof Error ? stripeError.message : String(stripeError),
+          error: stripeError instanceof Error ? (stripeError instanceof Error ? stripeError.message : String(stripeError)) : String(stripeError),
         });
       }
     }
@@ -172,7 +172,7 @@ export async function GET(
   } catch (error: unknown) {
     logger.error('Failed to get patient billing', error);
     return NextResponse.json(
-      { error: error.message || 'Failed to get billing info' },
+      { error: (error as any).message || 'Failed to get billing info' },
       { status: 500 }
     );
   }
@@ -292,6 +292,6 @@ export async function POST(
     }
 
     logger.error('Failed to add patient credit', error);
-    return NextResponse.json({ error: error.message || 'Failed to add credit' }, { status: 500 });
+    return NextResponse.json({ error: (error as any).message || 'Failed to add credit' }, { status: 500 });
   }
 }

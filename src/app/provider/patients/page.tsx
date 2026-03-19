@@ -304,7 +304,7 @@ export default function ProviderPatientsPage() {
         }
       }
     } catch (err: unknown) {
-      setError(err.message || 'Failed to create patient');
+      setError((err instanceof Error ? err.message : String(err)) || 'Failed to create patient');
     } finally {
       setCreating(false);
     }

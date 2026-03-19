@@ -31,7 +31,7 @@ export default function WeightInputStep({
   const responses = useIntakeStore((state) => state.responses);
   const { setResponse, markStepCompleted, setCurrentStep } = useIntakeActions();
   
-  const [weight, setWeightLocal] = useState(responses[fieldId] || '');
+  const [weight, setWeightLocal] = useState(String(responses[fieldId] ?? ''));
 
   const titleText = title 
     ? (isSpanish ? title.es : title.en)

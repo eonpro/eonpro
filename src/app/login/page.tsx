@@ -478,7 +478,7 @@ function LoginContent() {
       setCanResend(false);
       setStep('otp');
     } catch (err: unknown) {
-      setError(err.message || 'Failed to send verification code. Please try again.');
+      setError((err as any).message || 'Failed to send verification code. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -514,7 +514,7 @@ function LoginContent() {
       setCanResendEmailOtp(false);
       setStep('email-otp');
     } catch (err: unknown) {
-      setError(err.message || 'Failed to send login code. Please try again.');
+      setError((err as any).message || 'Failed to send login code. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -587,7 +587,7 @@ function LoginContent() {
 
       handleLoginSuccess(data);
     } catch (err: unknown) {
-      setError(err.message || 'Invalid login code. Please try again.');
+      setError((err as any).message || 'Invalid login code. Please try again.');
       setEmailOtp(['', '', '', '', '', '']);
       emailOtpRefs.current[0]?.focus();
     } finally {
@@ -618,7 +618,7 @@ function LoginContent() {
       setCanResendReset(false);
       setStep('forgot');
     } catch (err: unknown) {
-      setError(err.message || 'Failed to send reset code');
+      setError((err as any).message || 'Failed to send reset code');
     } finally {
       setLoading(false);
     }
@@ -712,7 +712,7 @@ function LoginContent() {
       setError(''); // Clear any errors
       setSessionMessage('Password reset successful! Please log in with your new password.');
     } catch (err: unknown) {
-      setError(err.message || 'Failed to reset password');
+      setError((err as any).message || 'Failed to reset password');
     } finally {
       setLoading(false);
     }
@@ -775,7 +775,7 @@ function LoginContent() {
       // Success - store tokens and redirect
       handleLoginSuccess(data);
     } catch (err: unknown) {
-      setError(err.message || 'Invalid verification code. Please try again.');
+      setError((err as any).message || 'Invalid verification code. Please try again.');
       setOtp(['', '', '', '', '', '']);
       otpRefs.current[0]?.focus();
     } finally {
@@ -885,7 +885,7 @@ function LoginContent() {
       handleLoginSuccess(data as Parameters<typeof handleLoginSuccess>[0]);
       return; // Don't run finally setLoading(false) — keep "Redirecting..." until nav
     } catch (err: unknown) {
-      const isTimeout = err?.name === 'AbortError';
+      const isTimeout = (err as { name?: string })?.name === 'AbortError';
       // AbortError (timeout): retry once if we haven't already
       if (!isRetry && isTimeout) {
         await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
@@ -894,7 +894,7 @@ function LoginContent() {
       setError(
         isTimeout
           ? 'Login is taking too long. Check your connection and try again, or use the Provider login link below.'
-          : err.message || 'An error occurred during login'
+          : (err as any).message || 'An error occurred during login'
       );
     } finally {
       setLoading(false);
@@ -968,7 +968,7 @@ function LoginContent() {
       handleLoginSuccess(data as Parameters<typeof handleLoginSuccess>[0]);
       return; // Keep "Redirecting..." until nav; don't run finally setLoading(false)
     } catch (err: unknown) {
-      const isTimeout = err?.name === 'AbortError';
+      const isTimeout = (err as { name?: string })?.name === 'AbortError';
       // AbortError (timeout): retry once if we haven't already
       if (!isRetry && isTimeout) {
         await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
@@ -977,7 +977,7 @@ function LoginContent() {
       setError(
         isTimeout
           ? 'Login is taking too long. Check your connection and try again.'
-          : err.message || 'An error occurred during login'
+          : (err as any).message || 'An error occurred during login'
       );
     } finally {
       setLoading(false);

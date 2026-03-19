@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({
         healthy: false,
         message: `Cannot access bucket: ${errorMessage}`,
-        error: error.Code || error.name,
+        error: (error as any).Code || (error as any).name,
       });
     }
   } catch (error: unknown) {

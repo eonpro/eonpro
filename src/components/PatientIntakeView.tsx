@@ -1281,7 +1281,7 @@ export default function PatientIntakeView({
         window.location.href = window.location.href;
       }, 500);
     } catch (error: unknown) {
-      setSaveError(error.message || 'Failed to save intake data');
+      setSaveError((error as any).message || 'Failed to save intake data');
       setIsSaving(false);
     }
   };

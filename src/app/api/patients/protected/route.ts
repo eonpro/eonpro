@@ -70,6 +70,11 @@ export const POST = withProviderAuth(async (req, user) => {
       }
     }
 
+    const clinicId = body.clinicId ?? user.clinicId;
+    if (!clinicId) {
+      return Response.json({ error: 'clinicId is required (or user must have clinic context)' }, { status: 400 });
+    }
+
     // Create patient with audit trail
     // IMPORTANT: Use user.providerId (Provider table ID), NOT user.id (User table ID)
     const patient = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
@@ -84,6 +89,7 @@ export const POST = withProviderAuth(async (req, user) => {
       // Whitelist fields to prevent mass assignment of privileged fields
       const newPatient = await tx.patient.create({
         data: {
+          clinicId,
           firstName: body.firstName,
           lastName: body.lastName,
           email: body.email,
@@ -96,9 +102,11 @@ export const POST = withProviderAuth(async (req, user) => {
           state: body.state,
           zip: body.zip,
           searchIndex,
-          createdById: user.id,
-          providerId:
-            user.role === 'provider' && user.providerId ? user.providerId : body.providerId,
+          ...(user.role === 'provider' && user.providerId
+            ? { providerId: user.providerId }
+            : body.providerId != null
+              ? { providerId: body.providerId }
+              : {}),
         },
       });
 

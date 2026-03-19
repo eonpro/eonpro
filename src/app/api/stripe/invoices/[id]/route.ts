@@ -150,7 +150,7 @@ export async function GET(request: NextRequest, { params }: Params) {
       } catch (decryptErr) {
         logger.warn('[API] Failed to decrypt invoice patient PHI', {
           patientId: invoice.patient?.id,
-          error: decryptErr instanceof Error ? decryptErr.message : String(decryptErr),
+          error: decryptErr instanceof Error ? (decryptErr instanceof Error ? decryptErr.message : String(decryptErr)) : String(decryptErr),
         });
       }
     }
@@ -213,7 +213,7 @@ export async function POST(request: NextRequest, { params }: Params) {
           } catch (stripeError: unknown) {
             logger.error('[API] Stripe send invoice error:', stripeError);
             return NextResponse.json(
-              { error: stripeError.message || 'Failed to send invoice' },
+              { error: (stripeError as any).message || 'Failed to send invoice' },
               { status: 500 }
             );
           }
@@ -246,7 +246,7 @@ export async function POST(request: NextRequest, { params }: Params) {
             const stripe = getStripeClient()!;
             await stripe.invoices.voidInvoice(invoice.stripeInvoiceId);
           } catch (stripeError: unknown) {
-            logger.warn('[API] Stripe void invoice error:', stripeError);
+            logger.warn('[API] Stripe void invoice error:', { error: stripeError } as Record<string, unknown>);
           }
         }
 
@@ -308,7 +308,7 @@ export async function POST(request: NextRequest, { params }: Params) {
             },
           });
         } catch (paymentError: unknown) {
-          logger.warn('[API] Could not create Payment record:', paymentError.message);
+          logger.warn('[API] Could not create Payment record:', (paymentError as any).message);
         }
 
         logger.info('[API] Invoice marked as paid externally', {
@@ -325,7 +325,7 @@ export async function POST(request: NextRequest, { params }: Params) {
           logger.warn('[API] Portal invite on external payment failed (non-blocking)', {
             invoiceId: id,
             patientId: invoice.patientId,
-            error: inviteErr instanceof Error ? inviteErr.message : 'Unknown',
+            error: inviteErr instanceof Error ? (inviteErr instanceof Error ? inviteErr.message : String(inviteErr)) : 'Unknown',
           });
         }
 
@@ -369,7 +369,7 @@ export async function POST(request: NextRequest, { params }: Params) {
           } catch (stripeError: unknown) {
             logger.error('[API] Stripe finalize invoice error:', stripeError);
             return NextResponse.json(
-              { error: stripeError.message || 'Failed to finalize invoice' },
+              { error: (stripeError as any).message || 'Failed to finalize invoice' },
               { status: 500 }
             );
           }
@@ -433,7 +433,7 @@ export async function POST(request: NextRequest, { params }: Params) {
           } catch (stripeError: unknown) {
             logger.error('[API] Stripe add credit error:', stripeError);
             return NextResponse.json(
-              { error: stripeError.message || 'Failed to add credit' },
+              { error: (stripeError as any).message || 'Failed to add credit' },
               { status: 500 }
             );
           }
@@ -506,7 +506,7 @@ export async function POST(request: NextRequest, { params }: Params) {
             const stripe = getStripeClient()!;
             await stripe.invoices.markUncollectible(invoice.stripeInvoiceId);
           } catch (stripeError: unknown) {
-            logger.warn('[API] Stripe mark uncollectible error:', stripeError);
+            logger.warn('[API] Stripe mark uncollectible error:', { error: stripeError } as Record<string, unknown>);
           }
         }
 
@@ -536,7 +536,7 @@ export async function POST(request: NextRequest, { params }: Params) {
           } catch (stripeError: unknown) {
             logger.error('[API] Stripe resend invoice error:', stripeError);
             return NextResponse.json(
-              { error: stripeError.message || 'Failed to resend invoice' },
+              { error: (stripeError as any).message || 'Failed to resend invoice' },
               { status: 500 }
             );
           }
@@ -821,7 +821,7 @@ export async function DELETE(request: NextRequest, { params }: Params) {
           logger.info('[API] Voided Stripe invoice', { stripeInvoiceId: invoice.stripeInvoiceId });
         }
       } catch (stripeError: unknown) {
-        logger.warn('[API] Could not delete/void Stripe invoice:', stripeError.message);
+        logger.warn('[API] Could not delete/void Stripe invoice:', (stripeError as any).message);
         // Continue with local deletion
       }
     }

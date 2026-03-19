@@ -106,8 +106,9 @@ async function handleGet(req: NextRequest, user: AuthUser, context?: unknown) {
     }> = [];
 
     // Check for internal intake form submissions
-    if (invoice.patient.intakeSubmissions && invoice.patient.intakeSubmissions.length > 0) {
-      const submission = invoice.patient.intakeSubmissions[0];
+    const patientWithSubs = invoice.patient as { intakeSubmissions?: typeof intakeSubmissions };
+    if (patientWithSubs.intakeSubmissions && patientWithSubs.intakeSubmissions.length > 0) {
+      const submission = patientWithSubs.intakeSubmissions[0];
       const sectionMap: Record<string, Array<{ question: string; answer: string }>> = {};
 
       submission.responses.forEach(

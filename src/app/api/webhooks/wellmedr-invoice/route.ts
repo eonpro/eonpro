@@ -216,7 +216,7 @@ export async function POST(req: NextRequest) {
       );
     }
   } catch (err) {
-    const errMsg = err instanceof Error ? err.message : 'Unknown error';
+    const errMsg = err instanceof Error ? (err instanceof Error ? err.message : String(err)) : 'Unknown error';
     logger.error(`[WELLMEDR-INVOICE ${requestId}] Database error finding clinic:`, {
       error: errMsg,
     });
@@ -258,7 +258,7 @@ export async function POST(req: NextRequest) {
     where: { key: idempotencyKey },
   }).catch((err) => {
     logger.warn(`[WELLMEDR-INVOICE ${requestId}] Idempotency lookup failed, proceeding`, {
-      error: err instanceof Error ? err.message : String(err),
+      error: err instanceof Error ? (err instanceof Error ? err.message : String(err)) : String(err),
     });
     return null;
   });
@@ -438,7 +438,7 @@ export async function POST(req: NextRequest) {
             }).catch((err) => {
               logger.warn(`[WELLMEDR-INVOICE ${requestId}] Self-heal searchIndex failed`, {
                 patientId: candidate.id,
-                error: err instanceof Error ? err.message : String(err),
+                error: err instanceof Error ? (err instanceof Error ? err.message : String(err)) : String(err),
               });
             });
           }
@@ -673,7 +673,7 @@ export async function POST(req: NextRequest) {
       });
     }
   } catch (err) {
-    const errMsg = err instanceof Error ? err.message : 'Unknown error';
+    const errMsg = err instanceof Error ? (err instanceof Error ? err.message : String(err)) : 'Unknown error';
     logger.error(`[WELLMEDR-INVOICE ${requestId}] Error finding/creating patient:`, { error: errMsg });
 
     // Queue to DLQ instead of losing the invoice
@@ -700,7 +700,7 @@ export async function POST(req: NextRequest) {
         }, { status: 202 });
       } catch (dlqErr) {
         logger.error(`[WELLMEDR-INVOICE ${requestId}] DLQ queueing also failed`, {
-          error: dlqErr instanceof Error ? dlqErr.message : String(dlqErr),
+          error: dlqErr instanceof Error ? (dlqErr instanceof Error ? dlqErr.message : String(dlqErr)) : String(dlqErr),
         });
       }
     }
@@ -1079,7 +1079,7 @@ export async function POST(req: NextRequest) {
           });
         }
       } catch (refillErr) {
-        const msg = refillErr instanceof Error ? refillErr.message : 'Unknown';
+        const msg = refillErr instanceof Error ? (refillErr instanceof Error ? refillErr.message : String(refillErr)) : 'Unknown';
         logger.warn(`[WELLMEDR-INVOICE ${requestId}] Refill scheduling failed (non-fatal)`, {
           error: msg,
           invoiceId: invoice.id,
@@ -1261,7 +1261,7 @@ export async function POST(req: NextRequest) {
         logger.warn(
           `[WELLMEDR-INVOICE ${requestId}] Failed to update patient address (non-fatal):`,
           {
-            error: addrErr instanceof Error ? addrErr.message : 'Unknown error',
+            error: addrErr instanceof Error ? (addrErr instanceof Error ? addrErr.message : String(addrErr)) : 'Unknown error',
           }
         );
       }
@@ -1432,7 +1432,7 @@ export async function POST(req: NextRequest) {
       } catch (medExtractErr) {
         // Non-fatal - the queue API has its own fallback
         logger.warn(`[WELLMEDR-INVOICE ${requestId}] Medication extraction failed (non-fatal)`, {
-          error: medExtractErr instanceof Error ? medExtractErr.message : String(medExtractErr),
+          error: medExtractErr instanceof Error ? (medExtractErr instanceof Error ? medExtractErr.message : String(medExtractErr)) : String(medExtractErr),
         });
       }
     }
@@ -1457,7 +1457,7 @@ export async function POST(req: NextRequest) {
       logger.warn(`[WELLMEDR-INVOICE ${requestId}] SOAP note generation failed (non-fatal)`, {
         patientId: verifiedPatient.id,
         invoiceId: invoice.id,
-        error: soapError.message,
+        error: (soapError as any).message,
       });
     }
 
@@ -1533,7 +1533,7 @@ export async function POST(req: NextRequest) {
         const code = (idemErr as any)?.code;
         if (code !== 'P2002') {
           logger.warn(`[WELLMEDR-INVOICE ${requestId}] Idempotency record creation failed`, {
-            error: idemErr instanceof Error ? idemErr.message : String(idemErr),
+            error: idemErr instanceof Error ? (idemErr instanceof Error ? idemErr.message : String(idemErr)) : String(idemErr),
             key: rec.key.substring(0, 40),
           });
         }
@@ -1542,7 +1542,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(responsePayload);
   } catch (err) {
-    const errMsg = err instanceof Error ? err.message : 'Unknown error';
+    const errMsg = err instanceof Error ? (err instanceof Error ? err.message : String(err)) : 'Unknown error';
     logger.error(`[WELLMEDR-INVOICE ${requestId}] Failed to create invoice:`, { error: errMsg });
 
     // Queue to DLQ for retry instead of losing the prescription
@@ -1572,7 +1572,7 @@ export async function POST(req: NextRequest) {
         );
       } catch (dlqErr) {
         logger.error(`[WELLMEDR-INVOICE ${requestId}] DLQ queueing also failed`, {
-          error: dlqErr instanceof Error ? dlqErr.message : String(dlqErr),
+          error: dlqErr instanceof Error ? (dlqErr instanceof Error ? dlqErr.message : String(dlqErr)) : String(dlqErr),
         });
       }
     }

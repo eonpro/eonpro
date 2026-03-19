@@ -25,7 +25,7 @@ export default function ConditionalHeader() {
   useEffect(() => {
     const userData = localStorage.getItem('user');
     if (userData) {
-      const parsed = safeParseJsonString(userData);
+      const parsed = safeParseJsonString<Record<string, unknown>>(userData);
       if (parsed) setUser(parsed);
     }
   }, []);

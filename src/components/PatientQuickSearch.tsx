@@ -45,7 +45,7 @@ export default function PatientQuickSearch({
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const debounceRef = useRef<NodeJS.Timeout | null>(null);
+  const debounceRef = useRef<number | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
   const searchPatients = useCallback(
@@ -142,7 +142,7 @@ export default function PatientQuickSearch({
       clearTimeout(debounceRef.current);
     }
 
-    debounceRef.current = setTimeout(() => {
+    debounceRef.current = window.setTimeout(() => {
       searchPatients(value);
     }, 300);
   };

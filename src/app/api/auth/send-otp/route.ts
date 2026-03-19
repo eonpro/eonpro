@@ -147,7 +147,7 @@ export const POST = standardRateLimit(async (req: NextRequest) => {
       });
       otpStored = true;
     } catch (err: unknown) {
-      logger.error('Failed to store OTP in database', { error: err.message });
+      logger.error('Failed to store OTP in database', { error: (err as any).message });
     }
 
     if (!otpStored) {
@@ -209,7 +209,7 @@ export const POST = standardRateLimit(async (req: NextRequest) => {
       }
     } catch (smsError: unknown) {
       logger.error('Failed to send OTP SMS', {
-        error: smsError.message,
+        error: (smsError as any).message,
         phone: maskPhone(formattedPhone),
       });
       return NextResponse.json(

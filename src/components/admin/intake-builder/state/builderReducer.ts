@@ -457,7 +457,7 @@ function applyAction(config: FormConfig, action: BuilderAction): FormConfig {
       const steps = config.steps.map((s) => {
         if (s.id !== action.stepId || !Array.isArray(s.nextStep)) return s;
         const navs = s.nextStep.filter((_, i) => i !== action.index);
-        return { ...s, nextStep: navs.length > 0 ? navs : steps[config.steps.indexOf(s) + 1]?.id ?? null };
+        return { ...s, nextStep: navs.length > 0 ? navs : config.steps[config.steps.indexOf(s) + 1]?.id ?? null };
       });
       return { ...config, steps };
     }

@@ -33,8 +33,8 @@ export default function AddressStep({
   const responses = useIntakeStore((state) => state.responses);
   const { setResponse, markStepCompleted, setCurrentStep } = useIntakeActions();
   
-  const [address, setAddressLocal] = useState(responses.street || '');
-  const [apartment, setApartment] = useState(responses.apartment || '');
+  const [address, setAddressLocal] = useState(String(responses.street ?? ''));
+  const [apartment, setApartment] = useState(String(responses.apartment ?? ''));
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [addressComponents, setAddressComponents] = useState<any>(null);
   const [mapUrl, setMapUrl] = useState<string | null>(null);

@@ -48,6 +48,7 @@ export default function TypewriterStep({
     } else {
       setIsTypingComplete(true);
     }
+    return undefined;
   }, [currentIndex, fullText, typewriterDelay]);
 
   useEffect(() => {
@@ -58,6 +59,7 @@ export default function TypewriterStep({
       }, autoAdvanceDelay);
       return () => clearTimeout(timer);
     }
+    return undefined;
   }, [isTypingComplete, router, basePath, nextStep, autoAdvanceDelay]);
 
   const handleBack = () => {

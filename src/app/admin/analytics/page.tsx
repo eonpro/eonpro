@@ -471,7 +471,7 @@ function OverviewSection({
                   width={60}
                 />
                 <Tooltip
-                  formatter={(value: number) => [formatCurrency(value)]}
+                  formatter={(value?: number) => formatCurrency(value ?? 0)}
                   contentStyle={{ borderRadius: 12, border: '1px solid #e5e7eb' }}
                 />
                 <Area
@@ -649,7 +649,7 @@ function RevenueSection({ data }: { data: RevenueData }) {
                   width={60}
                 />
                 <Tooltip
-                  formatter={(value: number) => [formatCurrency(value)]}
+                  formatter={(value?: number) => formatCurrency(value ?? 0)}
                   contentStyle={{ borderRadius: 12, border: '1px solid #e5e7eb' }}
                 />
                 <Area
@@ -681,8 +681,8 @@ function RevenueSection({ data }: { data: RevenueData }) {
                   outerRadius={100}
                   innerRadius={50}
                   paddingAngle={2}
-                  label={({ productName, percentageOfTotal }) =>
-                    `${productName} (${percentageOfTotal}%)`
+                  label={(props: any) =>
+                    `${props.productName ?? ''} (${props.percentageOfTotal ?? 0}%)`
                   }
                 >
                   {data.byProduct.map((_, i) => (
@@ -690,7 +690,7 @@ function RevenueSection({ data }: { data: RevenueData }) {
                   ))}
                 </Pie>
                 <Tooltip
-                  formatter={(value: number) => [formatCurrency(value)]}
+                  formatter={(value?: number) => formatCurrency(value ?? 0)}
                   contentStyle={{ borderRadius: 12, border: '1px solid #e5e7eb' }}
                 />
               </PieChart>
@@ -721,7 +721,7 @@ function RevenueSection({ data }: { data: RevenueData }) {
                 width={60}
               />
               <Tooltip
-                formatter={(value: number, name: string) => [formatCurrency(value), name]}
+                formatter={(value?: number, name?: string) => `${name ?? ''}: ${formatCurrency(value ?? 0)}`}
                 contentStyle={{ borderRadius: 12, border: '1px solid #e5e7eb' }}
               />
               <Area
@@ -1094,7 +1094,7 @@ function SubscriptionsSection({ data }: { data: SubscriptionData }) {
                   width={60}
                 />
                 <Tooltip
-                  formatter={(value: number) => [formatCurrency(value)]}
+                  formatter={(value?: number) => formatCurrency(value ?? 0)}
                   contentStyle={{ borderRadius: 12, border: '1px solid #e5e7eb' }}
                 />
                 <Line
@@ -1154,7 +1154,9 @@ function SubscriptionsSection({ data }: { data: SubscriptionData }) {
                 outerRadius={100}
                 innerRadius={50}
                 paddingAngle={2}
-                label={({ planName, count }) => `${planName} (${count})`}
+                label={(props: any) =>
+                  `${props.planName ?? ''} (${props.count ?? 0})`
+                }
               >
                 {data.metrics.subscriptionsByPlan.map((_, i) => (
                   <Cell key={i} fill={COLORS[i % COLORS.length]} />

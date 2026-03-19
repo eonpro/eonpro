@@ -146,7 +146,7 @@ export const POST = withAdminAuth(async (request: NextRequest, user) => {
       for (let i = 0; i < subs.data.length; i += SYNC_CONCURRENCY) {
         const batch = subs.data.slice(i, i + SYNC_CONCURRENCY);
         const batchResults = await Promise.all(
-          batch.map((sub) => syncOneSub(sub, clinicId, stripeAccountId)),
+          batch.map((sub) => syncOneSub(sub, clinicId, stripeAccountId ?? null)),
         );
         for (const br of batchResults) {
           results.synced += br.synced;

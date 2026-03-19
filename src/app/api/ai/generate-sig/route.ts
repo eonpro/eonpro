@@ -315,9 +315,9 @@ async function handleGenerateSig(req: NextRequest) {
       })),
     });
   } catch (error: unknown) {
-    if (error.name === 'ZodError') {
+    if ((error as any).name === 'ZodError') {
       return NextResponse.json(
-        { error: 'Invalid request', details: error.errors },
+        { error: 'Invalid request', details: (error as any).errors },
         { status: 400 }
       );
     }

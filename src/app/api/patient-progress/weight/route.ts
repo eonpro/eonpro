@@ -238,9 +238,9 @@ async function getIntakeWeight(
       return null;
     };
 
-    // Parse document data if it exists
+    // Parse document data if it exists (includeDocumentData: true ensures data is loaded)
     let parsedData = null;
-    const doc = patient.documents[0];
+    const doc = patient.documents[0] as { data?: Buffer | { type?: string; data?: number[] } | Record<string, unknown>; createdAt: Date } | undefined;
     if (doc?.data) {
       if (Buffer.isBuffer(doc.data)) {
         try {

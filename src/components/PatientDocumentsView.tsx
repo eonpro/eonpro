@@ -111,11 +111,11 @@ export default function PatientDocumentsView({
     formData.append('patientId', patientId.toString());
     formData.append('category', selectedCategory);
 
-    let progressInterval: NodeJS.Timeout | null = null;
+    let progressInterval: number | null = null;
 
     try {
       // Simulate upload progress
-      progressInterval = setInterval(() => {
+      progressInterval = window.setInterval(() => {
         setUploadProgress((prev: any) => {
           if (prev >= 90) {
             if (progressInterval) clearInterval(progressInterval);

@@ -241,7 +241,7 @@ export default function TelehealthDashboard({
       <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6 lg:px-8">
         <AnimatePresence mode="wait">
           {phase === 'queue' && (
-            <motion.div key={`queue-${refreshKey}`} {...pageVariants}>
+            <motion.div key={`queue-${refreshKey}`} {...(pageVariants as any)}>
               <SessionQueue
                 onSelectSession={handleSelectSession}
                 onScheduleNew={() => setShowScheduleModal(true)}
@@ -250,7 +250,7 @@ export default function TelehealthDashboard({
           )}
 
           {phase === 'lobby' && selectedSession && (
-            <motion.div key="lobby" {...pageVariants}>
+            <motion.div key="lobby" {...(pageVariants as any)}>
               {provisioningDeepLink ? (
                 <div className="flex h-[60vh] items-center justify-center">
                   <div className="text-center">
@@ -275,7 +275,7 @@ export default function TelehealthDashboard({
           )}
 
           {phase === 'postCall' && postCallData && (
-            <motion.div key="postCall" {...pageVariants}>
+            <motion.div key="postCall" {...(pageVariants as any)}>
               <PostCallSummary
                 data={postCallData}
                 onBackToQueue={handleBackToQueue}

@@ -112,7 +112,7 @@ export default function InvoicesPage() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [dateRange, setDateRange] = useState('this_month');
   const [showOverdueOnly, setShowOverdueOnly] = useState(false);
-  const debounceTimer = useRef<NodeJS.Timeout | null>(null);
+  const debounceTimer = useRef<number | null>(null);
 
   // Pagination
   const [page, setPage] = useState(1);
@@ -130,7 +130,7 @@ export default function InvoicesPage() {
   const handleSearchChange = useCallback((value: string) => {
     setSearchTerm(value);
     if (debounceTimer.current) clearTimeout(debounceTimer.current);
-    debounceTimer.current = setTimeout(() => {
+    debounceTimer.current = window.setTimeout(() => {
       setDebouncedSearch(value);
       setPage(1);
     }, 300);
@@ -164,7 +164,7 @@ export default function InvoicesPage() {
       setInvoices(data.invoices || []);
       setTotalPages(data.totalPages || 1);
     } catch (err: unknown) {
-      setError(err.message);
+      setError((err as any).message);
     } finally {
       setLoading(false);
     }
@@ -207,7 +207,7 @@ export default function InvoicesPage() {
       setShowSendModal(false);
       setSelectedInvoice(null);
     } catch (err: unknown) {
-      alert(err.message);
+      alert((err as any).message);
     }
   };
 
@@ -225,7 +225,7 @@ export default function InvoicesPage() {
       fetchInvoices();
       alert('Invoice voided successfully');
     } catch (err: unknown) {
-      alert(err.message);
+      alert((err as any).message);
     }
   };
 
@@ -250,7 +250,7 @@ export default function InvoicesPage() {
       fetchInvoices();
       fetchSummary();
     } catch (err: unknown) {
-      alert(err.message);
+      alert((err as any).message);
     }
   };
 
@@ -824,7 +824,7 @@ function CreateInvoiceModal({
 
       onSuccess();
     } catch (err: unknown) {
-      alert(err.message);
+      alert((err as any).message);
     } finally {
       setSubmitting(false);
     }

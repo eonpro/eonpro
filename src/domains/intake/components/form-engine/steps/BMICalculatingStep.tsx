@@ -33,7 +33,7 @@ export default function BMICalculatingStep({
   useEffect(() => {
     const name = responses.firstName;
     if (name) {
-      setFirstName(name);
+      setFirstName(String(name));
     }
   }, [responses.firstName]);
 

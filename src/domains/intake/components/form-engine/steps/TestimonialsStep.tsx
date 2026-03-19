@@ -54,6 +54,7 @@ export default function TestimonialsStep({
       }, 1500);
       return () => clearInterval(interval);
     }
+    return undefined;
   }, [isPaused, testimonialImages.length]);
 
   useEffect(() => {

@@ -98,7 +98,7 @@ export class IntakeProcessor {
     try {
       document = await this.generateAndStoreDocument(normalized, patient, clinicId);
     } catch (error: unknown) {
-      this.errors.push(`PDF generation failed: ${error.message}`);
+      this.errors.push(`PDF generation failed: ${(error instanceof Error ? error.message : String(error))}`);
       logger.error(`[INTAKE ${this.requestId}] PDF generation failed:`, error);
     }
 
@@ -108,7 +108,7 @@ export class IntakeProcessor {
       try {
         weightLog = await this.createInitialWeightLog(normalized, patient);
       } catch (error: unknown) {
-        this.errors.push(`Weight log creation failed: ${error.message}`);
+        this.errors.push(`Weight log creation failed: ${(error instanceof Error ? error.message : String(error))}`);
         logger.error(`[INTAKE ${this.requestId}] Weight log creation failed:`, error);
       }
     }
@@ -119,7 +119,7 @@ export class IntakeProcessor {
       try {
         soapNote = await this.generateSoapNote(patient.id, document.id);
       } catch (error: unknown) {
-        this.errors.push(`SOAP generation failed: ${error.message}`);
+        this.errors.push(`SOAP generation failed: ${(error instanceof Error ? error.message : String(error))}`);
         logger.error(`[INTAKE ${this.requestId}] SOAP generation failed:`, error);
       }
     }
@@ -129,7 +129,7 @@ export class IntakeProcessor {
       try {
         await this.trackReferralAttribution(patient.id, options.promoCode, clinicId, options.referralSource);
       } catch (error: unknown) {
-        this.errors.push(`Referral tracking failed: ${error.message}`);
+        this.errors.push(`Referral tracking failed: ${(error instanceof Error ? error.message : String(error))}`);
       }
     }
 
@@ -288,7 +288,7 @@ export class IntakeProcessor {
         logger.debug(`[INTAKE ${this.requestId}] PDF uploaded to S3: ${s3Result.key}`);
       }
     } catch (err) {
-      const errMsg = err instanceof Error ? err.message : String(err);
+      const errMsg = err instanceof Error ? (err instanceof Error ? err.message : String(err)) : String(err);
       logger.warn(`[INTAKE ${this.requestId}] PDF S3 upload failed (non-fatal):`, { error: errMsg });
       this.errors.push(`PDF S3 upload failed: ${errMsg}`);
     }
@@ -419,7 +419,7 @@ export class IntakeProcessor {
       }
     } catch (error) {
       logger.warn(`[INTAKE ${this.requestId}] Affiliate attribution failed:`, {
-        error: error instanceof Error ? error.message : 'Unknown error',
+        error: error instanceof Error ? (error instanceof Error ? error.message : String(error)) : 'Unknown error',
       });
     }
   }
@@ -456,7 +456,7 @@ export class IntakeProcessor {
         },
       });
     } catch (error) {
-      const errMsg = error instanceof Error ? error.message : 'Unknown error';
+      const errMsg = error instanceof Error ? (error instanceof Error ? error.message : String(error)) : 'Unknown error';
       logger.warn(`[INTAKE ${this.requestId}] Audit log failed:`, { error: errMsg });
     }
   }

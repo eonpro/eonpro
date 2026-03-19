@@ -59,7 +59,7 @@ async function handler(req: NextRequest, user: AuthUser) {
 
     if (format === 'pdf') {
       const pdf = await exportToPdf(result, columns, name);
-      return new Response(pdf, {
+      return new Response(new Uint8Array(pdf), {
         headers: {
           'Content-Type': 'application/pdf',
           'Content-Disposition': `attachment; filename="${name.replace(/\s/g, '-')}${dateSuffix}.pdf"`,
@@ -69,7 +69,7 @@ async function handler(req: NextRequest, user: AuthUser) {
 
     if (format === 'xlsx') {
       const xlsx = exportToXlsx(result, columns, name);
-      return new Response(xlsx, {
+      return new Response(new Uint8Array(xlsx), {
         headers: {
           'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
           'Content-Disposition': `attachment; filename="${name.replace(/\s/g, '-')}${dateSuffix}.xlsx"`,

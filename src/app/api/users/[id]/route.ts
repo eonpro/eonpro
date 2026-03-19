@@ -228,7 +228,7 @@ async function updateUserHandler(
       });
     } catch (auditError) {
       // Audit log creation is non-critical
-      const errMsg = auditError instanceof Error ? auditError.message : 'Unknown error';
+      const errMsg = auditError instanceof Error ? (auditError instanceof Error ? auditError.message : String(auditError)) : 'Unknown error';
       logger.warn('Failed to create audit log:', { error: errMsg });
     }
 
@@ -242,9 +242,9 @@ async function updateUserHandler(
   } catch (error: unknown) {
     logger.error('User update error:', error);
 
-    if (error.name === 'ZodError') {
+    if ((error as any).name === 'ZodError') {
       return NextResponse.json(
-        { error: 'Invalid request data', details: error.errors },
+        { error: 'Invalid request data', details: (error as any).errors },
         { status: 400 }
       );
     }

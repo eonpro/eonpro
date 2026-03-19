@@ -74,7 +74,9 @@ export default function NavigationEditor({
   const otherSteps = getOtherSteps(allSteps, step.id);
   const allFields = getAllFieldsWithStepLabels(allSteps);
   const isConditional = Array.isArray(step.nextStep);
-  const conditionalNavs = isConditional ? step.nextStep : [];
+  const conditionalNavs: ConditionalNavigation[] = isConditional
+    ? (step.nextStep as ConditionalNavigation[])
+    : [];
   const defaultNextStep =
     (step as StepWithDefault).defaultNextStep ?? null;
 
@@ -178,7 +180,7 @@ export default function NavigationEditor({
         </div>
       ) : (
         <div className="space-y-3">
-          {conditionalNavs.map((nav, idx) => {
+          {conditionalNavs.map((nav: ConditionalNavigation, idx: number) => {
             const cond = nav.conditions[0];
             const op = (cond?.operator ?? 'equals') as NavOperator;
             return (
@@ -316,7 +318,7 @@ export default function NavigationEditor({
           {conditionalNavs.length > 0 && (
             <div className="pt-2 border-t border-gray-100">
               <p className="text-xs text-gray-500">
-                {conditionalNavs.map((nav, i) => {
+                {conditionalNavs.map((nav: ConditionalNavigation, i: number) => {
                   const c = nav.conditions[0];
                   const fieldLabel =
                     allFields.find((f) => f.storageKey === c?.field)?.label ?? c?.field;

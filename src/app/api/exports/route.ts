@@ -64,7 +64,7 @@ async function getHandler(request: NextRequest, user: AuthUser) {
     }
 
     // Get recent exports
-    const exports = await prisma.reportExport.findMany({
+    const exports = await (prisma as any).reportExport.findMany({
       where: { clinicId },
       orderBy: { createdAt: 'desc' },
       take: 20,

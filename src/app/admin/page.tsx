@@ -165,7 +165,7 @@ export default function AdminPage() {
     }
     if (dashboardQuery.data) {
       setStats(dashboardQuery.data.stats);
-      setRecentIntakes(dashboardQuery.data.recentIntakes);
+      setRecentIntakes(dashboardQuery.data.recentIntakes as PatientIntake[]);
     }
     if (dashboardQuery.error) {
       if ((dashboardQuery.error as { isAuthError?: boolean }).isAuthError) {

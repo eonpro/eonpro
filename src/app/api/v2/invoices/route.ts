@@ -135,7 +135,7 @@ async function getInvoicesHandler(req: NextRequest, user: AuthUser): Promise<Res
         } catch (decryptErr) {
           logger.warn('[v2 Invoices] Failed to decrypt patient PHI', {
             patientId: inv.patient?.id,
-            error: decryptErr instanceof Error ? decryptErr.message : String(decryptErr),
+            error: decryptErr instanceof Error ? (decryptErr instanceof Error ? decryptErr.message : String(decryptErr)) : String(decryptErr),
           });
         }
       }
@@ -145,7 +145,7 @@ async function getInvoicesHandler(req: NextRequest, user: AuthUser): Promise<Res
     return NextResponse.json({ ...result, invoices });
   } catch (error: unknown) {
     logger.error('Failed to get invoices', error);
-    return NextResponse.json({ error: error.message || 'Failed to get invoices' }, { status: 500 });
+    return NextResponse.json({ error: (error as any).message || 'Failed to get invoices' }, { status: 500 });
   }
 }
 
@@ -243,7 +243,7 @@ async function createInvoiceHandler(req: NextRequest, user: AuthUser): Promise<R
 
     logger.error('Failed to create invoice', error);
     return NextResponse.json(
-      { error: error.message || 'Failed to create invoice' },
+      { error: (error as any).message || 'Failed to create invoice' },
       { status: 500 }
     );
   }

@@ -80,9 +80,9 @@ export const POST = withAuth(async (request: NextRequest, user: AuthUser) => {
 
     logger.error('[API] Error processing chat query:', {
       error: errorMessage,
-      status: error.status,
-      code: error.code,
-      ...(process.env.NODE_ENV === 'development' && { stack: error.stack?.split('\n').slice(0, 5).join('\n') }),
+      status: (error as any).status,
+      code: (error as any).code,
+      ...(process.env.NODE_ENV === 'development' && { stack: (error as any).stack?.split('\n').slice(0, 5).join('\n') }),
     });
 
     if (error instanceof z.ZodError) {
@@ -93,7 +93,7 @@ export const POST = withAuth(async (request: NextRequest, user: AuthUser) => {
     }
 
     // Check for rate limiting (internal or OpenAI)
-    if (errorMessage.toLowerCase().includes('rate limit') || error.status === 429) {
+    if (errorMessage.toLowerCase().includes('rate limit') || (error as any).status === 429) {
       return NextResponse.json(
         { error: 'Too many requests. Please wait a moment and try again.' },
         { status: 429 }
@@ -105,8 +105,8 @@ export const POST = withAuth(async (request: NextRequest, user: AuthUser) => {
       errorMessage.includes('OpenAI') ||
       errorMessage.includes('API key') ||
       errorMessage.includes('quota') ||
-      error.status === 401 ||
-      error.code === 'insufficient_quota'
+      (error as any).status === 401 ||
+      (error as any).code === 'insufficient_quota'
     ) {
       return NextResponse.json(
         { error: 'AI service temporarily unavailable. Please try again later.' },

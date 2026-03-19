@@ -60,9 +60,9 @@ export const POST = withProviderAuth(async (req: NextRequest, user: AuthUser) =>
     const clinicId = appointment.clinicId;
     const topic = appointment.title || 'Telehealth Consultation';
     const duration = appointment.duration || 30;
-    let meetingId: string;
-    let joinUrl: string;
-    let startUrl: string;
+    let meetingId = '';
+    let joinUrl = '';
+    let startUrl = '';
     let password: string | undefined;
     let uuid: string | undefined;
 

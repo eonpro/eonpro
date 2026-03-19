@@ -206,7 +206,7 @@ export const POST = withAuth(async (req: NextRequest, user) => {
         mimeType: parsed.data.mimeType,
         category: parsed.data.category as PatientDocumentCategory,
         source: 'patient_upload',
-        data: dataToStore,
+        data: dataToStore ? new Uint8Array(dataToStore) : null,
         s3DataKey,
         externalUrl: parsed.data.externalUrl,
       },

@@ -48,11 +48,12 @@ export default function TopClinicsBarChart({ data }: Props) {
         />
         <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} stroke="#9ca3af" width={120} />
         <Tooltip
-          formatter={(value: number, name: string) => [formatCurrency(value), name]}
-          labelFormatter={(_label: string, payload: { payload?: { fullName: string; rate: number } }[]) => {
-            const item = payload?.[0]?.payload;
-            return item ? `${item.fullName} (${item.rate}% collected)` : '';
-          }}
+          formatter={((value: number | undefined, name: string) => [formatCurrency(value ?? 0), name]) as any}
+          labelFormatter={((_label: React.ReactNode, payload: unknown) => {
+            const items = payload as { payload?: { fullName?: string; rate?: number } }[];
+            const item = items?.[0]?.payload;
+            return item ? `${item.fullName ?? ''} (${item.rate ?? 0}% collected)` : '';
+          }) as any}
           contentStyle={{ borderRadius: 12, border: '1px solid #e5e7eb' }}
         />
         <Bar dataKey="paid" name="Paid" stackId="a" fill="#4fa77e" radius={[0, 0, 0, 0]} barSize={20} />

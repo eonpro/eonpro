@@ -15,6 +15,7 @@ import type {
   FieldOption,
   StepNavigation,
   ConditionalNavigation,
+  ConditionalRule,
   LocalizedString,
 } from '@/domains/intake/types/form-engine';
 
@@ -29,6 +30,7 @@ export type {
   FieldOption,
   StepNavigation,
   ConditionalNavigation,
+  ConditionalRule,
   LocalizedString,
 };
 

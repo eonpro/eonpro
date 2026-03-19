@@ -69,9 +69,9 @@ export default function MonitoringDashboard() {
         router.replace('/login');
         return;
       }
-      const parsed = safeParseJsonString(user);
+      const parsed = safeParseJsonString<Record<string, unknown>>(user);
       if (!parsed) { router.replace('/login'); return; }
-      const role = parsed?.role?.toLowerCase();
+      const role = String(parsed?.role ?? '').toLowerCase();
       if (role !== 'super_admin') {
         router.replace('/admin');
         return;
@@ -96,7 +96,7 @@ export default function MonitoringDashboard() {
         setError(errorData.error || 'Failed to fetch health status');
       }
     } catch (err: unknown) {
-      setError(err.message || 'Network error');
+      setError((err instanceof Error ? err.message : String(err)) || 'Network error');
     } finally {
       setLoading(false);
       setLastRefresh(new Date());

@@ -1395,8 +1395,8 @@ export async function processAssistantQuery(
       query,
       patientId: patientId || conversation.patientId,
       userEmail,
-      status: error.status,
-      code: error.code,
+      status: (error as any).status,
+      code: (error as any).code,
     });
 
     // Store error message

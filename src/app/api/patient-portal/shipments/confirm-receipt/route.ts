@@ -103,13 +103,17 @@ export const POST = withAuth(
         }
       });
 
-      await auditLog({
-        eventType: AuditEventType.RECORD_UPDATED,
+      await auditLog(req, {
+        eventType: AuditEventType.PHI_UPDATE,
         userId: user.id,
-        patientId: user.patientId,
+        userEmail: user.email,
+        userRole: user.role,
+        clinicId: undefined,
         resourceType: 'PatientShippingUpdate',
         resourceId: String(shippingUpdate.id),
-        description: `Patient confirmed delivery receipt for tracking ${trackingNumber}`,
+        patientId: user.patientId ?? undefined,
+        action: 'patient_confirm_delivery',
+        outcome: 'SUCCESS',
         metadata: { trackingNumber, shippingUpdateId: shippingUpdate.id },
       }).catch((err) => {
         logger.error('[ConfirmReceipt] Audit log failed', {

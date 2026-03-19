@@ -161,7 +161,7 @@ async function handlePost(req: NextRequest, user: AuthUser) {
 
     // Handle direct file upload (multipart form data)
     if (contentType.includes('multipart/form-data')) {
-      const formData = await req.formData();
+      const formData = (await req.formData()) as unknown as globalThis.FormData;
       const file = formData.get('file') as File | null;
 
       if (!file) {

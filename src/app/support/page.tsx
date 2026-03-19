@@ -28,9 +28,9 @@ export default function SupportDashboard() {
     }
 
     try {
-      const data = safeParseJsonString(user);
+      const data = safeParseJsonString<Record<string, unknown>>(user);
       if (!data) { router.push('/login'); return; }
-      if (data.role?.toLowerCase() !== 'support') {
+      if (String(data?.role ?? '').toLowerCase() !== 'support') {
         router.push('/login');
         return;
       }

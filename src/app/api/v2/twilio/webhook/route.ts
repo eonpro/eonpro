@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Parse the form data from Twilio
-    const formData = await req.formData();
+    const formData = (await req.formData()) as unknown as globalThis.FormData;
     const from = formData.get('From') as string;
     const to = formData.get('To') as string;
     const body = formData.get('Body') as string;
@@ -248,7 +248,7 @@ export async function POST(req: NextRequest) {
           }
         } catch (chatError: unknown) {
           logger.error('[TWILIO_WEBHOOK] Failed to create PatientChatMessage', {
-            error: chatError.message,
+            error: (chatError as any).message,
             patientId: resolvedPatientId,
           });
         }
@@ -265,7 +265,7 @@ export async function POST(req: NextRequest) {
       });
     } catch (dbError: unknown) {
       logger.warn('[TWILIO_WEBHOOK] Failed to save incoming SMS to DB', {
-        error: dbError.message,
+        error: (dbError as any).message,
       });
     }
 

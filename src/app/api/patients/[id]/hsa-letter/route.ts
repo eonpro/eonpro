@@ -49,17 +49,20 @@ const hsaLetterHandler = withAuthParams(
 
       const { pdf, filename } = await generateHsaLetter(invoiceId, patientId);
 
-      await auditLog({
+      await auditLog(request, {
         eventType: AuditEventType.DOCUMENT_DOWNLOAD,
         userId: user.id,
-        patientId,
-        resource: 'hsa_letter',
+        userEmail: user.email,
+        userRole: user.role,
+        resourceType: 'hsa_letter',
         resourceId: String(invoiceId),
-        details: { invoiceId, filename },
-        ipAddress: request.headers.get('x-forwarded-for') || undefined,
+        patientId,
+        action: 'document_download',
+        outcome: 'SUCCESS',
+        metadata: { invoiceId, filename },
       });
 
-      return new NextResponse(pdf, {
+      return new NextResponse(pdf as BodyInit, {
         status: 200,
         headers: {
           'Content-Type': 'application/pdf',
