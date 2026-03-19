@@ -263,6 +263,14 @@ function ProviderCalendarContent() {
                 Availability
               </button>
             </div>
+
+            <a
+              href="/provider/availability"
+              className="ml-2 rounded-lg border border-[#4fa77e] bg-[#4fa77e]/5 px-3 py-1 text-xs font-medium text-[#4fa77e] transition-colors hover:bg-[#4fa77e]/10"
+            >
+              <Clock className="mr-1 inline h-3.5 w-3.5" />
+              Set Weekly Hours
+            </a>
           </div>
 
           <div className="flex items-center gap-3">

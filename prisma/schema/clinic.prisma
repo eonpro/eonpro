@@ -184,8 +184,9 @@ model Clinic {
   // Scheduling & Care Plan Relations
   appointments         Appointment[]
   appointmentTypes     AppointmentTypeConfig[]
-  providerAvailability ProviderAvailability[]
-  providerTimeOff      ProviderTimeOff[]
+  providerAvailability  ProviderAvailability[]
+  providerTimeOff       ProviderTimeOff[]
+  providerDateOverrides ProviderDateOverride[]
   superbills           Superbill[]
   billingCodes         BillingCode[]
   carePlans            CarePlan[]

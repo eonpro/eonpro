@@ -75,12 +75,14 @@ model Provider {
   // Telehealth & Calendar
   telehealthSessions    TelehealthSession[]
   calendarSubscriptions CalendarSubscription[]
+  dateOverrides         ProviderDateOverride[]
 
   // Per-state licenses with expiration (replaces single licenseState/licenseNumber for multi-state)
   licenses ProviderLicense[]
 
   @@index([status])
   @@index([isEonproProvider])
+  @@index([clinicId])
 }
 
 // Per-state license with expiration date
@@ -149,6 +151,7 @@ model ProviderAvailability {
 
   @@index([providerId])
   @@index([dayOfWeek])
+  @@index([providerId, clinicId])
 }
 
 model ProviderTimeOff {
@@ -170,6 +173,25 @@ model ProviderTimeOff {
 
   @@index([providerId])
   @@index([startDate, endDate])
+}
+
+model ProviderDateOverride {
+  id            Int      @id @default(autoincrement())
+  providerId    Int
+  provider      Provider @relation(fields: [providerId], references: [id])
+  clinicId      Int?
+  clinic        Clinic?  @relation(fields: [clinicId], references: [id])
+  date          DateTime @db.Date
+  startTime     String // "09:00" format
+  endTime       String // "17:00" format
+  isUnavailable Boolean  @default(false)
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([providerId, date, startTime, clinicId])
+  @@index([providerId, date])
+  @@index([providerId, clinicId, date])
 }
 
 model ProviderCalendarIntegration {

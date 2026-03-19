@@ -290,6 +290,7 @@ model Provider {
   // Telehealth & Calendar
   telehealthSessions    TelehealthSession[]
   calendarSubscriptions CalendarSubscription[]
+  dateOverrides         ProviderDateOverride[]
 
   @@index([status])
   @@index([isEonproProvider])
@@ -2758,8 +2759,9 @@ model Clinic {
   // Scheduling & Care Plan Relations
   appointments         Appointment[]
   appointmentTypes     AppointmentTypeConfig[]
-  providerAvailability ProviderAvailability[]
-  providerTimeOff      ProviderTimeOff[]
+  providerAvailability  ProviderAvailability[]
+  providerTimeOff       ProviderTimeOff[]
+  providerDateOverrides ProviderDateOverride[]
   superbills           Superbill[]
   billingCodes         BillingCode[]
   carePlans            CarePlan[]
@@ -2976,6 +2978,24 @@ model ProviderTimeOff {
 
   @@index([providerId])
   @@index([startDate, endDate])
+}
+
+model ProviderDateOverride {
+  id            Int      @id @default(autoincrement())
+  providerId    Int
+  provider      Provider @relation(fields: [providerId], references: [id])
+  clinicId      Int?
+  clinic        Clinic?  @relation(fields: [clinicId], references: [id])
+  date          DateTime @db.Date
+  startTime     String // "09:00" format
+  endTime       String // "17:00" format
+  isUnavailable Boolean  @default(false)
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([providerId, date, startTime, clinicId])
+  @@index([providerId, date])
 }
 
 model ProviderCalendarIntegration {

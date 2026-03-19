@@ -69,8 +69,23 @@ export interface AvailabilityInput {
   appointmentTypes?: number[];
 }
 
+export interface DateOverrideBlock {
+  startTime: string;
+  endTime: string;
+}
+
+export interface DaySchedule {
+  date: string;
+  dayOfWeek: number;
+  source: 'recurring' | 'override' | 'unavailable' | 'timeoff';
+  blocks: { startTime: string; endTime: string }[];
+  appointmentCount: number;
+  notes?: string;
+}
+
 /**
- * Get available time slots for a provider on a specific date
+ * Get available time slots for a provider on a specific date.
+ * Checks date-specific overrides first, falls back to recurring template.
  */
 export async function getAvailableSlots(
   providerId: number,
@@ -80,26 +95,11 @@ export async function getAvailableSlots(
 ): Promise<TimeSlot[]> {
   const dayOfWeek = date.getDay();
   const dateStr = date.toISOString().split('T')[0];
-
-  // Get provider's availability for this day of week
-  const availability = await prisma.providerAvailability.findMany({
-    where: {
-      providerId,
-      dayOfWeek,
-      isActive: true,
-      ...(clinicId && { clinicId }),
-    },
-  });
-
-  if (availability.length === 0) {
-    return [];
-  }
-
-  // Check for time off
   const startOfDay = new Date(dateStr);
   const endOfDay = new Date(dateStr);
   endOfDay.setDate(endOfDay.getDate() + 1);
 
+  // Check for time off first (applies regardless of overrides)
   const timeOff = await prisma.providerTimeOff.findFirst({
     where: {
       providerId,
@@ -112,6 +112,48 @@ export async function getAvailableSlots(
   if (timeOff) {
     logger.info('Provider has time off', { providerId, date: dateStr });
     return [];
+  }
+
+  // Check for date-specific overrides
+  const dateOverrides = await prisma.providerDateOverride.findMany({
+    where: {
+      providerId,
+      date: startOfDay,
+      ...(clinicId ? { OR: [{ clinicId }, { clinicId: null }] } : {}),
+    },
+    orderBy: { startTime: 'asc' },
+  });
+
+  let availabilityBlocks: { startTime: string; endTime: string }[];
+
+  if (dateOverrides.length > 0) {
+    // If any override marks the day as unavailable, return no slots
+    if (dateOverrides.some((o) => o.isUnavailable)) {
+      return [];
+    }
+    availabilityBlocks = dateOverrides.map((o) => ({
+      startTime: o.startTime,
+      endTime: o.endTime,
+    }));
+  } else {
+    // Fall back to recurring weekly template
+    const recurring = await prisma.providerAvailability.findMany({
+      where: {
+        providerId,
+        dayOfWeek,
+        isActive: true,
+        ...(clinicId && { clinicId }),
+      },
+    });
+
+    if (recurring.length === 0) {
+      return [];
+    }
+
+    availabilityBlocks = recurring.map((r) => ({
+      startTime: r.startTime,
+      endTime: r.endTime,
+    }));
   }
 
   // Get existing appointments for the day
@@ -127,22 +169,21 @@ export async function getAvailableSlots(
   });
 
   const slots: TimeSlot[] = [];
+  const now = new Date();
 
-  // Generate time slots based on availability
-  for (const avail of availability) {
-    const [startHour, startMin] = avail.startTime.split(':').map(Number);
-    const [endHour, endMin] = avail.endTime.split(':').map(Number);
+  for (const block of availabilityBlocks) {
+    const [startHour, startMin] = block.startTime.split(':').map(Number);
+    const [endHour, endMin] = block.endTime.split(':').map(Number);
 
     let slotStart = new Date(dateStr);
     slotStart.setHours(startHour, startMin, 0, 0);
 
-    const availEnd = new Date(dateStr);
-    availEnd.setHours(endHour, endMin, 0, 0);
+    const blockEnd = new Date(dateStr);
+    blockEnd.setHours(endHour, endMin, 0, 0);
 
-    while (slotStart.getTime() + duration * 60 * 1000 <= availEnd.getTime()) {
+    while (slotStart.getTime() + duration * 60 * 1000 <= blockEnd.getTime()) {
       const slotEnd = new Date(slotStart.getTime() + duration * 60 * 1000);
 
-      // Check if slot conflicts with existing appointments
       const isAvailable = !existingAppointments.some((apt: { startTime: Date; endTime: Date }) => {
         const aptStart = new Date(apt.startTime);
         const aptEnd = new Date(apt.endTime);
@@ -153,8 +194,6 @@ export async function getAvailableSlots(
         );
       });
 
-      // Don't show past slots
-      const now = new Date();
       if (slotStart > now) {
         slots.push({
           startTime: new Date(slotStart),
@@ -169,6 +208,210 @@ export async function getAvailableSlots(
   }
 
   return slots;
+}
+
+/**
+ * Set date-specific availability overrides for a provider on a given date.
+ * Replaces all existing overrides for that date.
+ */
+export async function setProviderDateOverrides(
+  providerId: number,
+  date: Date,
+  blocks: DateOverrideBlock[],
+  options?: { clinicId?: number; isUnavailable?: boolean; notes?: string }
+): Promise<{ success: boolean; overrides?: any[]; error?: string }> {
+  try {
+    const dateOnly = new Date(date.toISOString().split('T')[0]);
+    const clinicId = options?.clinicId ?? null;
+
+    await prisma.$transaction(async (tx) => {
+      // Delete existing overrides for this date
+      await tx.providerDateOverride.deleteMany({
+        where: {
+          providerId,
+          date: dateOnly,
+          ...(clinicId ? { clinicId } : { clinicId: null }),
+        },
+      });
+
+      if (options?.isUnavailable) {
+        // Create a single unavailable marker
+        await tx.providerDateOverride.create({
+          data: {
+            providerId,
+            clinicId,
+            date: dateOnly,
+            startTime: '00:00',
+            endTime: '00:00',
+            isUnavailable: true,
+            notes: options.notes,
+          },
+        });
+      } else if (blocks.length > 0) {
+        await tx.providerDateOverride.createMany({
+          data: blocks.map((b) => ({
+            providerId,
+            clinicId,
+            date: dateOnly,
+            startTime: b.startTime,
+            endTime: b.endTime,
+            isUnavailable: false,
+            notes: options?.notes,
+          })),
+        });
+      }
+    });
+
+    const overrides = await prisma.providerDateOverride.findMany({
+      where: { providerId, date: dateOnly },
+      orderBy: { startTime: 'asc' },
+    });
+
+    logger.info('Provider date overrides set', {
+      providerId,
+      date: dateOnly.toISOString(),
+      blockCount: blocks.length,
+      isUnavailable: options?.isUnavailable,
+    });
+
+    return { success: true, overrides };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    logger.error('Failed to set provider date overrides', { error: errorMessage });
+    return { success: false, error: errorMessage };
+  }
+}
+
+/**
+ * Get a multi-week schedule view for a provider.
+ * For each day, returns the effective availability source, blocks, and appointment count.
+ */
+export async function getProviderWeeklySchedule(
+  providerId: number,
+  startDate: Date,
+  weeks: number = 4,
+  clinicId?: number
+): Promise<DaySchedule[]> {
+  const start = new Date(startDate.toISOString().split('T')[0]);
+  const end = new Date(start);
+  end.setDate(end.getDate() + weeks * 7);
+
+  const [dateOverrides, recurring, timeOffs, appointmentCounts] = await Promise.all([
+    prisma.providerDateOverride.findMany({
+      where: {
+        providerId,
+        date: { gte: start, lt: end },
+        ...(clinicId ? { OR: [{ clinicId }, { clinicId: null }] } : {}),
+      },
+      orderBy: [{ date: 'asc' }, { startTime: 'asc' }],
+    }),
+    prisma.providerAvailability.findMany({
+      where: {
+        providerId,
+        isActive: true,
+        ...(clinicId && { clinicId }),
+      },
+      orderBy: [{ dayOfWeek: 'asc' }, { startTime: 'asc' }],
+    }),
+    prisma.providerTimeOff.findMany({
+      where: {
+        providerId,
+        startDate: { lte: end },
+        endDate: { gte: start },
+        isApproved: true,
+      },
+    }),
+    prisma.appointment.groupBy({
+      by: ['startTime'],
+      where: {
+        providerId,
+        startTime: { gte: start, lt: end },
+        status: { notIn: [AppointmentStatus.CANCELLED, AppointmentStatus.RESCHEDULED] },
+      },
+      _count: true,
+    }),
+  ]);
+
+  // Build appointment count by date string
+  const aptCountByDate: Record<string, number> = {};
+  for (const group of appointmentCounts) {
+    const d = new Date(group.startTime).toISOString().split('T')[0];
+    aptCountByDate[d] = (aptCountByDate[d] || 0) + group._count;
+  }
+
+  // Index overrides by date
+  const overridesByDate: Record<string, typeof dateOverrides> = {};
+  for (const o of dateOverrides) {
+    const d = new Date(o.date).toISOString().split('T')[0];
+    if (!overridesByDate[d]) overridesByDate[d] = [];
+    overridesByDate[d].push(o);
+  }
+
+  // Index recurring by dayOfWeek
+  const recurringByDay: Record<number, typeof recurring> = {};
+  for (const r of recurring) {
+    if (!recurringByDay[r.dayOfWeek]) recurringByDay[r.dayOfWeek] = [];
+    recurringByDay[r.dayOfWeek].push(r);
+  }
+
+  const schedule: DaySchedule[] = [];
+  const cursor = new Date(start);
+
+  while (cursor < end) {
+    const dateStr = cursor.toISOString().split('T')[0];
+    const dayOfWeek = cursor.getDay();
+    const cursorEnd = new Date(cursor);
+    cursorEnd.setDate(cursorEnd.getDate() + 1);
+
+    // Check time off
+    const hasTimeOff = timeOffs.some(
+      (t) => new Date(t.startDate) <= cursorEnd && new Date(t.endDate) >= cursor
+    );
+
+    if (hasTimeOff) {
+      schedule.push({
+        date: dateStr,
+        dayOfWeek,
+        source: 'timeoff',
+        blocks: [],
+        appointmentCount: aptCountByDate[dateStr] || 0,
+      });
+    } else if (overridesByDate[dateStr]) {
+      const dayOverrides = overridesByDate[dateStr];
+      if (dayOverrides.some((o) => o.isUnavailable)) {
+        schedule.push({
+          date: dateStr,
+          dayOfWeek,
+          source: 'unavailable',
+          blocks: [],
+          appointmentCount: aptCountByDate[dateStr] || 0,
+          notes: dayOverrides[0].notes || undefined,
+        });
+      } else {
+        schedule.push({
+          date: dateStr,
+          dayOfWeek,
+          source: 'override',
+          blocks: dayOverrides.map((o) => ({ startTime: o.startTime, endTime: o.endTime })),
+          appointmentCount: aptCountByDate[dateStr] || 0,
+          notes: dayOverrides[0].notes || undefined,
+        });
+      }
+    } else {
+      const dayRecurring = recurringByDay[dayOfWeek] || [];
+      schedule.push({
+        date: dateStr,
+        dayOfWeek,
+        source: 'recurring',
+        blocks: dayRecurring.map((r) => ({ startTime: r.startTime, endTime: r.endTime })),
+        appointmentCount: aptCountByDate[dateStr] || 0,
+      });
+    }
+
+    cursor.setDate(cursor.getDate() + 1);
+  }
+
+  return schedule;
 }
 
 /**

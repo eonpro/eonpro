@@ -286,43 +286,49 @@ export default async function PatientDetailPage({
         const phase2 = runWithClinicContext(effectiveClinicId, async () => {
           const parallelQueries: Promise<void>[] = [];
 
-          // Orders — sidebar needs recent 10; prescriptions tab needs 50 with relations
+          // Orders — sidebar needs recent 10 with minimal fields;
+          // prescriptions tab needs 50 with full relations.
           parallelQueries.push(
             prisma.order.findMany({
               where: { patientId: id },
               orderBy: { createdAt: 'desc' },
               take: needsDetailedOrders ? 50 : 10,
-              select: {
-                id: true,
-                createdAt: true,
-                primaryMedName: true,
-                primaryMedStrength: true,
-                trackingNumber: true,
-                trackingUrl: true,
-                status: true,
-                lifefileOrderId: true,
-                shippingMethod: true,
-                shippingStatus: true,
-                lastWebhookAt: true,
-                cancelledAt: true,
-                fulfillmentChannel: true,
-                externalPharmacyName: true,
-                ...(needsDetailedOrders
-                  ? {
-                      rxs: {
-                        select: {
-                          id: true, orderId: true, medicationKey: true, medName: true,
-                          strength: true, form: true, quantity: true, refills: true,
-                          sig: true, daysSupply: true,
-                        },
+              select: needsDetailedOrders
+                ? {
+                    id: true,
+                    createdAt: true,
+                    primaryMedName: true,
+                    primaryMedStrength: true,
+                    trackingNumber: true,
+                    trackingUrl: true,
+                    status: true,
+                    lifefileOrderId: true,
+                    shippingMethod: true,
+                    shippingStatus: true,
+                    lastWebhookAt: true,
+                    cancelledAt: true,
+                    fulfillmentChannel: true,
+                    externalPharmacyName: true,
+                    rxs: {
+                      select: {
+                        id: true, orderId: true, medicationKey: true, medName: true,
+                        strength: true, form: true, quantity: true, refills: true,
+                        sig: true, daysSupply: true,
                       },
-                      provider: {
-                        select: { id: true, firstName: true, lastName: true, email: true },
-                      },
-                      events: { orderBy: { createdAt: 'desc' } as const, take: 20 },
-                    }
-                  : {}),
-              },
+                    },
+                    provider: {
+                      select: { id: true, firstName: true, lastName: true, email: true },
+                    },
+                    events: { orderBy: { createdAt: 'desc' } as const, take: 20 },
+                  }
+                : {
+                    id: true,
+                    createdAt: true,
+                    primaryMedName: true,
+                    primaryMedStrength: true,
+                    trackingNumber: true,
+                    status: true,
+                  },
             }).then((r) => { orders = r; })
           );
 

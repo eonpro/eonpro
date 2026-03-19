@@ -109,6 +109,7 @@ model Appointment {
   @@index([providerId])
   @@index([startTime])
   @@index([status])
+  @@index([clinicId, startTime])
 }
 
 model AppointmentReminder {

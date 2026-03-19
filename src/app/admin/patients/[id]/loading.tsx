@@ -1,31 +1,55 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useState } from 'react';
 
 /**
  * Patient detail loading skeleton.
  *
  * On subdomain clinics, React hydration error #418 can trigger Suspense
  * recovery which shows this fallback while the RSC payload refetches.
- * The refetch runs the full PatientDetailPage server component (8-20s
- * DB queries) and may time out, leaving the user stuck on the skeleton.
+ * The server component runs 8-20s of DB queries, so we must NOT reload
+ * before that completes — a premature reload restarts the query from
+ * scratch and creates an infinite reload loop.
  *
- * Safety net: if this skeleton is visible for more than 4 seconds, force
- * a full page reload. The fresh server render bypasses the broken
- * hydration state entirely.
+ * Safety net: after 30s (matching maxDuration), offer a manual retry
+ * button. The reload is gated to fire at most once per page via
+ * sessionStorage to prevent infinite loops.
  */
 export default function PatientDetailLoading() {
-  const mountedAt = useRef(Date.now());
+  const [showRetry, setShowRetry] = useState(false);
 
   useEffect(() => {
+    const key = `patient-loading-reload-${window.location.pathname}`;
+    const alreadyReloaded = sessionStorage.getItem(key);
+
     const timer = setTimeout(() => {
-      window.location.reload();
-    }, 4000);
+      if (!alreadyReloaded) {
+        sessionStorage.setItem(key, '1');
+        window.location.reload();
+      } else {
+        setShowRetry(true);
+      }
+    }, 30000);
     return () => clearTimeout(timer);
   }, []);
 
   return (
     <div className="min-h-screen bg-[#efece7] p-6">
+      {showRetry && (
+        <div className="mb-4 flex items-center justify-between rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+          <span>This page is taking longer than expected to load.</span>
+          <button
+            onClick={() => {
+              const key = `patient-loading-reload-${window.location.pathname}`;
+              sessionStorage.removeItem(key);
+              window.location.reload();
+            }}
+            className="ml-3 rounded-md bg-amber-600 px-3 py-1 text-xs font-medium text-white hover:bg-amber-700"
+          >
+            Retry
+          </button>
+        </div>
+      )}
       <div className="flex gap-6">
         {/* Left sidebar skeleton */}
         <div className="hidden w-80 flex-shrink-0 lg:block">

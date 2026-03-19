@@ -86,6 +86,8 @@ model Order {
   @@index([lifefileOrderId])
   @@index([createdAt])
   @@index([lastWebhookAt])
+  @@index([patientId, createdAt])
+  @@index([clinicId, createdAt])
 }
 
 model Rx {

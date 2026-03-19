@@ -17,6 +17,7 @@ import {
   Settings,
 } from 'lucide-react';
 import AppointmentModal from '@/components/AppointmentModal';
+import BookTelehealthWizard from '@/components/BookTelehealthWizard';
 import { apiFetch } from '@/lib/api/fetch';
 
 interface Provider {
@@ -81,6 +82,8 @@ export default function AdminSchedulingPage() {
   });
   const [currentDay, setCurrentDay] = useState(new Date());
   const [error, setError] = useState<string | null>(null);
+  const [showBookWizard, setShowBookWizard] = useState(false);
+  const [availableSlots, setAvailableSlots] = useState<Record<string, { startTime: string; endTime: string; available: boolean }[]>>({});
 
   useEffect(() => {
     fetchProviders();
@@ -89,6 +92,50 @@ export default function AdminSchedulingPage() {
   useEffect(() => {
     fetchAppointments();
   }, [selectedProviderId, currentMonth, calendarView, currentWeekStart, currentDay]);
+
+  // Fetch available slots for week/day views when a provider is selected
+  useEffect(() => {
+    if (!selectedProviderId || calendarView === 'month') {
+      setAvailableSlots({});
+      return;
+    }
+    const fetchSlots = async () => {
+      try {
+        const dates: Date[] = [];
+        if (calendarView === 'week') {
+          for (let i = 0; i < 7; i++) {
+            const d = new Date(currentWeekStart);
+            d.setDate(d.getDate() + i);
+            dates.push(d);
+          }
+        } else {
+          dates.push(currentDay);
+        }
+
+        const slotMap: Record<string, { startTime: string; endTime: string; available: boolean }[]> = {};
+        await Promise.all(
+          dates.map(async (d) => {
+            const dateStr = d.toISOString().split('T')[0];
+            const res = await apiFetch(
+              `/api/scheduling/availability?providerId=${selectedProviderId}&date=${dateStr}&duration=30`
+            );
+            if (res.ok) {
+              const data = await res.json();
+              slotMap[dateStr] = (data.slots || []).map((s: any) => ({
+                startTime: new Date(s.startTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }),
+                endTime: new Date(s.endTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }),
+                available: s.available,
+              }));
+            }
+          })
+        );
+        setAvailableSlots(slotMap);
+      } catch {
+        // Slot fetch is best-effort
+      }
+    };
+    fetchSlots();
+  }, [selectedProviderId, calendarView, currentWeekStart, currentDay]);
 
   const fetchProviders = async () => {
     try {
@@ -285,6 +332,16 @@ export default function AdminSchedulingPage() {
     );
   };
 
+  const isHourAvailable = (dateStr: string, hour: number): boolean => {
+    const daySlots = availableSlots[dateStr];
+    if (!daySlots) return false;
+    const hourStr = hour.toString().padStart(2, '0');
+    return daySlots.some((s) => {
+      const sHour = s.startTime.substring(0, 2);
+      return sHour === hourStr && s.available;
+    });
+  };
+
   const renderWeekView = () => {
     const weekDays: Date[] = [];
     for (let i = 0; i < 7; i++) {
@@ -296,6 +353,18 @@ export default function AdminSchedulingPage() {
 
     return (
       <div className="overflow-x-auto rounded-lg border border-gray-200">
+        {selectedProviderId && Object.keys(availableSlots).length > 0 && (
+          <div className="flex items-center gap-4 border-b bg-gray-50/50 px-3 py-1.5 text-[10px] text-gray-500">
+            <span className="flex items-center gap-1">
+              <span className="inline-block h-2.5 w-2.5 rounded-sm bg-[#4fa77e]/20 ring-1 ring-[#4fa77e]/30" />
+              Available slot
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="inline-block h-2.5 w-2.5 rounded-sm bg-blue-100 ring-1 ring-blue-200" />
+              Booked telehealth
+            </span>
+          </div>
+        )}
         <div className="min-w-[800px]">
           <div className="grid grid-cols-[60px_repeat(7,1fr)] border-b bg-gray-50">
             <div className="p-2" />
@@ -315,17 +384,29 @@ export default function AdminSchedulingPage() {
                 {hour > 12 ? hour - 12 : hour}{hour >= 12 ? 'p' : 'a'}
               </div>
               {weekDays.map((d) => {
+                const dateStr = d.toISOString().split('T')[0];
                 const dayAppts = getAppointmentsForDate(d).filter((a) => a.date.getHours() === hour);
+                const slotAvailable = selectedProviderId ? isHourAvailable(dateStr, hour) : false;
+
                 return (
                   <div
                     key={d.toISOString() + hour}
-                    className="min-h-[48px] cursor-pointer border-r p-0.5 last:border-r-0 hover:bg-gray-50"
+                    className={`min-h-[48px] cursor-pointer border-r p-0.5 last:border-r-0 transition-colors ${
+                      slotAvailable && dayAppts.length === 0
+                        ? 'bg-[#4fa77e]/5 hover:bg-[#4fa77e]/15'
+                        : 'hover:bg-gray-50'
+                    }`}
                     onClick={() => {
                       const dt = new Date(d);
                       dt.setHours(hour, 0, 0, 0);
                       handleBookAppointment(dt);
                     }}
                   >
+                    {slotAvailable && dayAppts.length === 0 && (
+                      <div className="mb-0.5 rounded border border-dashed border-[#4fa77e]/30 p-0.5 text-center text-[9px] font-medium text-[#4fa77e]/70">
+                        Open
+                      </div>
+                    )}
                     {dayAppts.map((apt) => {
                       const TypeIcon = TYPE_ICONS[apt.type] || Calendar;
                       return (
@@ -357,6 +438,7 @@ export default function AdminSchedulingPage() {
     const hours = Array.from({ length: 14 }, (_, i) => i + 7);
     const dayAppts = getAppointmentsForDate(currentDay);
     const isToday = currentDay.toDateString() === new Date().toDateString();
+    const dayDateStr = currentDay.toISOString().split('T')[0];
 
     return (
       <div className="rounded-lg border border-gray-200">
@@ -370,13 +452,18 @@ export default function AdminSchedulingPage() {
         <div>
           {hours.map((hour) => {
             const hourAppts = dayAppts.filter((a) => a.date.getHours() === hour);
+            const slotAvailable = selectedProviderId ? isHourAvailable(dayDateStr, hour) : false;
             return (
               <div key={hour} className="flex border-b last:border-b-0">
                 <div className="w-16 flex-shrink-0 border-r p-2 text-right text-xs text-gray-400">
                   {hour > 12 ? hour - 12 : hour}:00 {hour >= 12 ? 'PM' : 'AM'}
                 </div>
                 <div
-                  className="min-h-[56px] flex-1 cursor-pointer p-1 hover:bg-gray-50"
+                  className={`min-h-[56px] flex-1 cursor-pointer p-1 transition-colors ${
+                    slotAvailable && hourAppts.length === 0
+                      ? 'bg-[#4fa77e]/5 hover:bg-[#4fa77e]/15'
+                      : 'hover:bg-gray-50'
+                  }`}
                   onClick={() => {
                     const dt = new Date(currentDay);
                     dt.setHours(hour, 0, 0, 0);
@@ -437,6 +524,13 @@ export default function AdminSchedulingPage() {
               <Settings className="h-4 w-4" />
               Manage Availability
             </a>
+            <button
+              onClick={() => setShowBookWizard(true)}
+              className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
+            >
+              <Video className="h-4 w-4" />
+              Book Telehealth
+            </button>
             <button
               onClick={() => handleBookAppointment()}
               className="flex items-center gap-2 rounded-lg bg-[#4fa77e] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#3f8660]"
@@ -646,6 +740,20 @@ export default function AdminSchedulingPage() {
           selectedDate={selectedDate}
           appointment={selectedAppointment}
           providerId={selectedProviderId || undefined}
+        />
+      )}
+
+      {/* Book Telehealth Wizard */}
+      {showBookWizard && (
+        <BookTelehealthWizard
+          isOpen={showBookWizard}
+          onClose={() => setShowBookWizard(false)}
+          onBooked={() => {
+            setShowBookWizard(false);
+            fetchAppointments();
+          }}
+          providers={providers}
+          preSelectedProviderId={selectedProviderId || undefined}
         />
       )}
     </div>
