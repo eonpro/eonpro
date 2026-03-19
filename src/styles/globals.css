@@ -63,6 +63,14 @@ body.intake-body {
   background-color: #ffffff;
 }
 
+/* Intake mobile horizontal padding: 32px (up from 24px default px-6) */
+@media (max-width: 639px) {
+  body.intake-body [class*="px-6"] {
+    padding-left: 32px;
+    padding-right: 32px;
+  }
+}
+
 /* =============================================================================
    INTAKE FORM DESIGN SYSTEM — Ported from eonmeds/weightlossintake
    ============================================================================= */
@@ -166,7 +174,7 @@ body.intake-body {
 .continue-button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 
 .sticky-bottom-button {
-  padding: 1rem 26px 1.5rem;
+  padding: 1rem 32px 1.5rem;
 }
 @media (min-width: 1024px) { .sticky-bottom-button { padding-left: 32px; padding-right: 32px; } }
 

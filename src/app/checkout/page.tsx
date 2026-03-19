@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
@@ -14,6 +14,21 @@ import type {
   PlanOption,
   AddonConfig,
 } from '@/domains/intake/config/products/types';
+import {
+  ExitIntentPopup,
+  SocialProofToast,
+  TrustBadges,
+  StickyOrderBar,
+  CountdownTimer,
+  ResumeModal,
+  ReferralCodeCard,
+  SmsOptIn,
+  lookupZipCode,
+  saveCheckoutState,
+  loadCheckoutState,
+  clearCheckoutState,
+  type CheckoutAutoSaveData,
+} from './conversion-widgets';
 
 // ============================================================================
 // Types
@@ -110,6 +125,8 @@ const translations = {
     monthlyBilling: '/month recurring',
     totalBilling: ' one payment',
     onceBilling: ' one-time',
+    smsOptIn: 'Text me order updates & health tips',
+    smartDefaultBanner: 'Based on your intake, we pre-selected the best options for you',
   },
   es: {
     congratulations: '¡Felicitaciones! Califica para el tratamiento',
@@ -181,6 +198,8 @@ const translations = {
     monthlyBilling: '/mes recurrente',
     totalBilling: ' pago único',
     onceBilling: ' compra única',
+    smsOptIn: 'Envíame actualizaciones por mensaje de texto',
+    smartDefaultBanner: 'Según tu evaluación, preseleccionamos las mejores opciones para ti',
   },
 };
 
@@ -346,6 +365,13 @@ export function CheckoutInner() {
   const [isCreatingIntent, setIsCreatingIntent] = useState(false);
   const [paymentComplete, setPaymentComplete] = useState<boolean>(false);
 
+  // Conversion optimization state
+  const [smsOptIn, setSmsOptIn] = useState(true);
+  const [showResumeModal, setShowResumeModal] = useState(false);
+  const [smartDefaultApplied, setSmartDefaultApplied] = useState(false);
+  const savedStateRef = useRef<CheckoutAutoSaveData | null>(null);
+  const zipLookupRef = useRef<string>('');
+
   // Body class for intake styles
   useEffect(() => {
     document.body.classList.add('intake-body');
@@ -384,12 +410,29 @@ export function CheckoutInner() {
       }));
     }
 
-    // Set defaults for dose/plan
-    if (hasDoseBasedPricing && doses.length > 0) {
-      const defaultDoseId = productConfig.defaultDoseId || doses[0].id;
-      setSelectedDose(defaultDoseId);
+    // Smart defaults from GLP-1 intake answers
+    const glp1History = getSessionValue('intake_glp1_history');
+    const glp1Type = getSessionValue('intake_glp1_type');
+    const semaDosage = getSessionValue('intake_semaglutide_dosage');
+    const tirzDosage = getSessionValue('intake_tirzepatide_dosage');
 
-      const doseData = doses.find((d) => d.id === defaultDoseId);
+    if (hasDoseBasedPricing && doses.length > 0) {
+      let smartDoseId = productConfig.defaultDoseId || doses[0].id;
+
+      if (medication === 'semaglutide') {
+        const isExperienced = glp1Type === 'semaglutide' &&
+          (glp1History === 'currently_taking' || glp1History === 'previously_taken');
+        const highDosages = ['1mg', '1.7mg', '2mg', '2.4mg'];
+        if (isExperienced && semaDosage && highDosages.includes(semaDosage)) {
+          const higherDose = doses.find((d) => !d.isStarterDose);
+          if (higherDose) smartDoseId = higherDose.id;
+        }
+      }
+
+      setSelectedDose(smartDoseId);
+      setSmartDefaultApplied(glp1Type === medication || (!!glp1History && glp1History !== 'never_taken' && glp1History !== 'considering'));
+
+      const doseData = doses.find((d) => d.id === smartDoseId);
       if (doseData && doseData.plans.length > 0) {
         const defaultPlanId = productConfig.defaultPlanId || doseData.plans[0].id;
         const planExists = doseData.plans.some((p) => p.id === defaultPlanId);
@@ -398,8 +441,66 @@ export function CheckoutInner() {
     } else if (productConfig.defaultPlanId) {
       setSelectedPlan(productConfig.defaultPlanId);
     }
+
+    // Check for auto-saved state to offer resume
+    const saved = loadCheckoutState();
+    if (saved && saved.medication === medication && saved.currentStep > 1) {
+      savedStateRef.current = saved;
+      setShowResumeModal(true);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams, medication]);
+
+  // Auto-save checkout state on changes (non-PHI selections only)
+  useEffect(() => {
+    if (paymentComplete) return;
+    saveCheckoutState({
+      medication,
+      selectedDose,
+      selectedPlan,
+      selectedAddons,
+      expeditedShipping,
+      promoCode,
+      promoApplied,
+      currentStep,
+    });
+  }, [medication, selectedDose, selectedPlan, selectedAddons, expeditedShipping, promoCode, promoApplied, currentStep, paymentComplete]);
+
+  // ZIP code auto-fill for city/state
+  const handleZipChange = useCallback(async (zip: string) => {
+    setShippingAddress((prev) => ({ ...prev, zipCode: zip }));
+    if (zip.length === 5 && zip !== zipLookupRef.current) {
+      zipLookupRef.current = zip;
+      const result = await lookupZipCode(zip);
+      if (result) {
+        setShippingAddress((prev) => ({
+          ...prev,
+          city: result.city,
+          state: result.state,
+        }));
+      }
+    }
+  }, []);
+
+  // Resume handler
+  const handleResume = useCallback(() => {
+    const saved = savedStateRef.current;
+    if (saved) {
+      setSelectedDose(saved.selectedDose);
+      setSelectedPlan(saved.selectedPlan);
+      setSelectedAddons(saved.selectedAddons);
+      setExpeditedShipping(saved.expeditedShipping);
+      if (saved.promoCode) setPromoCode(saved.promoCode);
+      if (saved.promoApplied) setPromoApplied(true);
+      setCurrentStep(saved.currentStep);
+    }
+    setShowResumeModal(false);
+  }, []);
+
+  const handleStartFresh = useCallback(() => {
+    clearCheckoutState();
+    setShowResumeModal(false);
+  }, []);
 
   // Derived: selected dose object
   const selectedDoseData = useMemo(() => {
@@ -469,6 +570,11 @@ export function CheckoutInner() {
     }
   };
 
+  const handlePromoExpire = useCallback(() => {
+    setPromoApplied(false);
+    setPromoCode('');
+  }, []);
+
   // Addon toggle
   const toggleAddon = (id: string) => {
     setSelectedAddons((prev) =>
@@ -528,7 +634,7 @@ export function CheckoutInner() {
             discount: totals.discount,
             total: totals.total,
           },
-          metadata: { product_id: productConfig.id },
+          metadata: { product_id: productConfig.id, sms_opt_in: smsOptIn ? 'yes' : 'no' },
           language,
         }),
       });
@@ -553,7 +659,7 @@ export function CheckoutInner() {
   // ========================================================================
   if (paymentComplete) {
     return (
-      <div className="mx-auto max-w-lg px-4 py-16 text-center">
+      <div className="mx-auto max-w-lg px-8 sm:px-4 py-16 text-center">
         <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-green-100">
           <svg
             className="h-10 w-10 text-green-600"
@@ -664,6 +770,8 @@ export function CheckoutInner() {
           </a>
         </div>
 
+        <ReferralCodeCard language={language as 'en' | 'es'} primaryColor={primaryColor} />
+
         <p className="mt-6 text-sm text-gray-500">
           {t.confirmationEmail} <strong>{patientData.email}</strong>
         </p>
@@ -680,7 +788,25 @@ export function CheckoutInner() {
   // Checkout Flow
   // ========================================================================
   return (
-    <div className="mx-auto max-w-2xl px-4 py-8">
+    <div className="mx-auto max-w-2xl px-8 sm:px-4 py-8 pb-24 sm:pb-8">
+      <ExitIntentPopup language={language as 'en' | 'es'} primaryColor={primaryColor} onStay={() => {}} />
+      <SocialProofToast language={language as 'en' | 'es'} />
+      {showResumeModal && (
+        <ResumeModal
+          language={language as 'en' | 'es'}
+          primaryColor={primaryColor}
+          onResume={handleResume}
+          onStartFresh={handleStartFresh}
+        />
+      )}
+      <StickyOrderBar
+        total={totals.total}
+        primaryColor={primaryColor}
+        ctaLabel={currentStep === 1 ? t.continueShipping : currentStep === 2 ? t.continuePayment : t.completePurchase}
+        onClick={currentStep === 1 ? () => setCurrentStep(2) : currentStep === 2 ? handleContinueToPayment : () => {}}
+        disabled={currentStep === 1 ? !canProceedStep1 : currentStep === 2 ? (!canProceedStep2 || isCreatingIntent) : false}
+        visible={currentStep <= 2}
+      />
       <LanguageToggle />
 
       {/* Progress Indicator */}
@@ -720,6 +846,16 @@ export function CheckoutInner() {
       {/* ================================================================ */}
       {currentStep === 1 && (
         <div>
+          {/* Smart default banner */}
+          {smartDefaultApplied && (
+            <div className="mb-4 flex items-center gap-2 rounded-xl border border-green-200 bg-green-50 px-4 py-2.5 text-sm text-green-700">
+              <svg className="h-4 w-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+              </svg>
+              {t.smartDefaultBanner}
+            </div>
+          )}
+
           {/* Congratulations Header */}
           <div className="mb-8 text-center">
             <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-green-100">
@@ -840,6 +976,12 @@ export function CheckoutInner() {
               {promoInvalid && (
                 <p className="mt-1 text-sm text-red-500">{t.promoInvalid}</p>
               )}
+              <CountdownTimer
+                language={language as 'en' | 'es'}
+                durationMinutes={15}
+                onExpire={handlePromoExpire}
+                active={promoApplied}
+              />
             </div>
           )}
 
@@ -1047,12 +1189,11 @@ export function CheckoutInner() {
                 <input
                   type="text"
                   value={shippingAddress.zipCode}
-                  onChange={(e) =>
-                    setShippingAddress({ ...shippingAddress, zipCode: e.target.value })
-                  }
+                  onChange={(e) => handleZipChange(e.target.value.replace(/\D/g, '').slice(0, 5))}
                   className="input-field"
                   placeholder="12345"
                   maxLength={5}
+                  inputMode="numeric"
                 />
               </div>
             </div>
@@ -1069,6 +1210,14 @@ export function CheckoutInner() {
                 <span className="text-sm text-gray-700">{t.expeditedShipping}</span>
               </label>
             )}
+
+            {/* SMS Opt-In */}
+            <SmsOptIn
+              language={language as 'en' | 'es'}
+              checked={smsOptIn}
+              onChange={setSmsOptIn}
+              primaryColor={primaryColor}
+            />
           </div>
 
           {paymentError && (
@@ -1134,6 +1283,7 @@ export function CheckoutInner() {
             onBack={() => setCurrentStep(2)}
             onSuccess={() => {
               setPaymentComplete(true);
+              clearCheckoutState();
               try { const { track } = require('@vercel/analytics'); track('intake_payment_completed', { medication: productConfig.name, total: totals.total }); } catch {}
             }}
           />
@@ -1540,13 +1690,16 @@ function PaymentStep({
           <PaymentElement options={{ layout: 'tabs' }} />
         </div>
 
+        {/* Trust Badges */}
+        <TrustBadges language={language as 'en' | 'es'} />
+
         {error && (
-          <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+          <div className="mt-6 mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
             {error}
           </div>
         )}
 
-        <div className="flex gap-3">
+        <div className="mt-6 flex gap-3">
           <button
             type="button"
             onClick={onBack}

@@ -1,11 +1,27 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLanguage } from '../../../contexts/LanguageContext';
 import { useIntakeStore, useIntakeActions } from '../../../store/intakeStore';
 import BMIWidget from '../../BMIWidget';
 import Image from 'next/image';
+
+// Before/after transformation carousel images (EN and ES)
+const CAROUSEL_IMAGES = {
+  en: [
+    'https://static.wixstatic.com/media/c49a9b_9aef40faf6684d73829744872b83dcce~mv2.webp',
+    'https://static.wixstatic.com/media/c49a9b_366d79f5e59040a899c267d3675494c6~mv2.webp',
+    'https://static.wixstatic.com/media/c49a9b_6bb33332ffa7459ba48bea94f24b5c5c~mv2.webp',
+    'https://static.wixstatic.com/media/c49a9b_1c31b2006e6544a29aebb0e95342aecd~mv2.webp',
+  ],
+  es: [
+    'https://static.wixstatic.com/media/c49a9b_b4dbc66741324c1f9124e3bff2094d84~mv2.webp',
+    'https://static.wixstatic.com/media/c49a9b_b020b2170766409e850210d418615da1~mv2.webp',
+    'https://static.wixstatic.com/media/c49a9b_e54335aad0164b22aa8a2b123bb34b7c~mv2.webp',
+    'https://static.wixstatic.com/media/c49a9b_98e7e84f7213491a97bd9f27542c96af~mv2.webp',
+  ],
+};
 
 interface BMIResultStepProps {
   basePath: string;
@@ -30,15 +46,28 @@ export default function BMIResultStep({
   const [bmi, setBmi] = useState(0);
   const [goalBMI, setGoalBMI] = useState(0);
   const [showBmiInfo, setShowBmiInfo] = useState(false);
+  const [carouselIndex, setCarouselIndex] = useState(0);
+  const carouselImages = CAROUSEL_IMAGES[isSpanish ? 'es' : 'en'];
+  const carouselPaused = useRef(false);
 
-  const firstName = responses.firstName || '';
-  const currentWeight = parseInt(responses.currentWeight) || 0;
-  const idealWeight = parseInt(responses.idealWeight) || 0;
-  const heightFeet = parseInt(responses.heightFeet) || 0;
-  const heightInches = parseInt(responses.heightInches) || 0;
+  const firstName = String(responses.firstName || '');
+  const currentWeight = parseInt(String(responses.currentWeight || '')) || 0;
+  const idealWeight = parseInt(String(responses.idealWeight || '')) || 0;
+  const heightFeet = parseInt(String(responses.heightFeet || '')) || 0;
+  const heightInches = parseInt(String(responses.heightInches || '')) || 0;
   const totalInches = heightFeet * 12 + heightInches;
   const heightStr = `${heightFeet}'${heightInches}"`;
   const weightToLose = currentWeight - idealWeight;
+
+  useEffect(() => {
+    if (!carouselPaused.current) {
+      const interval = setInterval(() => {
+        setCarouselIndex((prev) => (prev + 1) % carouselImages.length);
+      }, 2500);
+      return () => clearInterval(interval);
+    }
+    return undefined;
+  }, [carouselImages.length]);
 
   useEffect(() => {
     if (currentWeight && totalInches) {
@@ -197,6 +226,56 @@ export default function BMIResultStep({
                   : 'Rest assured that your treatment plan will be carefully reviewed by a licensed physician in your state.'}
               </p>
             </div>
+          </div>
+
+          {/* Before/After Transformation Carousel */}
+          <div className="rounded-3xl bg-white border border-gray-200 p-5 space-y-3">
+            <div className="flex items-center gap-2">
+              <img
+                src="https://static.wixstatic.com/shapes/c49a9b_d96c5f8c37844a39bfa47b0503e6167a.svg"
+                alt="Verified"
+                className="w-8 h-8"
+              />
+              <h3 className="text-base font-semibold text-[#413d3d]">
+                {isSpanish ? 'Transformaciones reales' : 'Real transformations'}
+              </h3>
+            </div>
+            <div
+              className="relative w-full max-w-[220px] mx-auto aspect-[3/4]"
+              onMouseEnter={() => { carouselPaused.current = true; }}
+              onMouseLeave={() => { carouselPaused.current = false; }}
+            >
+              {carouselImages.map((img, index) => (
+                <div
+                  key={index}
+                  className="absolute inset-0 transition-opacity duration-500 ease-in-out"
+                  style={{ opacity: carouselIndex === index ? 1 : 0 }}
+                >
+                  <Image
+                    src={img}
+                    alt={`Transformation ${index + 1}`}
+                    fill
+                    className="object-contain rounded-xl"
+                    sizes="220px"
+                    priority={index === 0}
+                  />
+                </div>
+              ))}
+            </div>
+            <div className="flex justify-center gap-1.5">
+              {carouselImages.map((_, index) => (
+                <button
+                  key={index}
+                  onClick={() => setCarouselIndex(index)}
+                  className={`h-1.5 rounded-full transition-all duration-300 ${
+                    carouselIndex === index ? 'w-4 bg-[#4fa87f]' : 'w-1.5 bg-gray-300'
+                  }`}
+                />
+              ))}
+            </div>
+            <p className="text-[10px] text-gray-400 text-center">
+              {isSpanish ? 'Resultados individuales pueden variar.' : 'Individual results may vary.'}
+            </p>
           </div>
         </div>
       </div>
