@@ -563,32 +563,12 @@ export default function FormStep({
 
   return (
     <div className="min-h-screen bg-white flex flex-col">
-      {/* Language toggle + Progress bar */}
-      <div className="relative">
-        {onLanguageChange && (
-          <div className="fixed top-3 right-3 z-50 flex items-center bg-white rounded-full border border-gray-200">
-            <button
-              onClick={() => onLanguageChange('en')}
-              className={`flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full transition-all ${language === 'en' ? 'bg-[#413d3d] text-white' : 'text-gray-600 hover:text-gray-900'}`}
-            >
-              <svg width="14" height="9" viewBox="0 0 18 12" fill="none"><rect width="18" height="12" rx="1" fill="#B22234"/><rect y="1" width="18" height="1" fill="white"/><rect y="3" width="18" height="1" fill="white"/><rect y="5" width="18" height="1" fill="white"/><rect y="7" width="18" height="1" fill="white"/><rect y="9" width="18" height="1" fill="white"/><rect y="11" width="18" height="1" fill="white"/><rect width="7.2" height="6" rx="0.5" fill="#3C3B6E"/></svg>
-              EN
-            </button>
-            <button
-              onClick={() => onLanguageChange('es')}
-              className={`flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full transition-all ${language === 'es' ? 'bg-[#413d3d] text-white' : 'text-gray-600 hover:text-gray-900'}`}
-            >
-              <svg width="14" height="9" viewBox="0 0 18 12" fill="none"><rect width="18" height="12" rx="1" fill="#FFC400"/><rect width="18" height="3" fill="#C60A1D"/><rect y="9" width="18" height="3" fill="#C60A1D"/></svg>
-              ES
-            </button>
-          </div>
-        )}
-        <div className="w-full h-1 bg-gray-100">
-          <div
-            className="h-full bg-[var(--intake-accent,#f0feab)] transition-all duration-300"
-            style={{ width: `${config.progressPercent}%` }}
-          />
-        </div>
+      {/* Progress bar */}
+      <div className="w-full h-1 bg-gray-100">
+        <div
+          className="h-full bg-[var(--intake-accent,#f0feab)] transition-all duration-300"
+          style={{ width: `${config.progressPercent}%` }}
+        />
       </div>
 
       {/* Back button - ghost style */}
