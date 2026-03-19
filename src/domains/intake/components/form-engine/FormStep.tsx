@@ -41,6 +41,20 @@ import {
   BookAppointmentStep,
 } from './steps';
 import {
+  WmImageCardStep,
+  WmYesNoDetailStep,
+  WmCheckboxListStep,
+  WmMotivationRadioStep,
+  WmAnimatedWeightChartStep,
+  WmMetabolicChartStep,
+  WmPatternInfoStep,
+  WmTestimonialStep,
+  WmCongratsStep,
+  WmMedicalReviewStep,
+  WmContactInfoStep,
+  WmGlp1TypeStep,
+} from './steps/wellmedr';
+import {
   OptionButton,
   TextField,
   TextAreaField,
@@ -381,6 +395,30 @@ export default function FormStep({
         return <BookAppointmentStep {...customProps} />;
       case 'CheckoutStep':
         return null;
+      case 'WmImageCardStep':
+        return <WmImageCardStep {...customProps} {...(config.props as Record<string, unknown>)} />;
+      case 'WmYesNoDetailStep':
+        return <WmYesNoDetailStep {...customProps} {...(config.props as Record<string, unknown>)} />;
+      case 'WmCheckboxListStep':
+        return <WmCheckboxListStep {...customProps} {...(config.props as Record<string, unknown>)} />;
+      case 'WmMotivationRadioStep':
+        return <WmMotivationRadioStep {...customProps} {...(config.props as Record<string, unknown>)} />;
+      case 'WmAnimatedWeightChartStep':
+        return <WmAnimatedWeightChartStep {...customProps} />;
+      case 'WmMetabolicChartStep':
+        return <WmMetabolicChartStep {...customProps} />;
+      case 'WmPatternInfoStep':
+        return <WmPatternInfoStep {...customProps} />;
+      case 'WmTestimonialStep':
+        return <WmTestimonialStep {...customProps} {...(config.props as Record<string, unknown>)} />;
+      case 'WmCongratsStep':
+        return <WmCongratsStep {...customProps} />;
+      case 'WmMedicalReviewStep':
+        return <WmMedicalReviewStep {...customProps} />;
+      case 'WmContactInfoStep':
+        return <WmContactInfoStep {...customProps} />;
+      case 'WmGlp1TypeStep':
+        return <WmGlp1TypeStep {...customProps} />;
     }
   }
 
