@@ -59,11 +59,11 @@ export default function WeightInputStep({
   };
 
   return (
-    <div className="min-h-screen bg-white flex flex-col">
+    <div className="min-h-screen flex flex-col" style={{ backgroundColor: "var(--intake-bg, #ffffff)" }}>
       {/* Progress bar */}
       <div className="w-full h-1 bg-gray-100">
         <div 
-          className="h-full bg-[#f0feab] transition-all duration-300"
+          className="h-full bg-[var(--intake-accent,#f0feab)] transition-all duration-300"
           style={{ width: `${progressPercent}%` }}
         />
       </div>

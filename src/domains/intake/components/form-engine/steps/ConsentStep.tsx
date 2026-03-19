@@ -53,7 +53,7 @@ export default function ConsentStep({
       {/* Progress bar */}
       <div className="w-full h-1 bg-gray-100">
         <div 
-          className="h-full bg-[#f0feab] transition-all duration-300"
+          className="h-full bg-[var(--intake-accent,#f0feab)] transition-all duration-300"
           style={{ width: `${progressPercent}%` }}
         />
       </div>

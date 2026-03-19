@@ -78,7 +78,7 @@ export default function InfoImageStep({
       {/* Progress bar */}
       <div className="w-full h-1 bg-white/20">
         <div 
-          className="h-full bg-[#f0feab] transition-all duration-300"
+          className="h-full bg-[var(--intake-accent,#f0feab)] transition-all duration-300"
           style={{ width: `${progressPercent}%` }}
         />
       </div>

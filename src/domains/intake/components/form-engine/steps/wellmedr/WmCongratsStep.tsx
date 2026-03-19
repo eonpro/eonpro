@@ -77,8 +77,8 @@ export default function WmCongratsStep({
               <svg className="w-8 h-16 opacity-30" viewBox="0 0 30 60" fill="currentColor"><ellipse cx="15" cy="8" rx="5" ry="6.5"/><path d="M7,22 Q15,19 23,22 L21,50 Q15,51 9,50 Z"/></svg>
               <div className="space-y-1.5 flex-1">
                 <div className="rounded-lg px-3 py-1.5 bg-white/60"><p className="text-[10px] opacity-60">Weight</p><p className="text-sm font-bold" style={{ color: '#c5a55a' }}>{Math.round(weight * 0.95)} Lbs</p></div>
-                <div className="rounded-lg px-3 py-1.5 bg-white/60"><p className="text-[10px] opacity-60">BMI</p><p className="text-sm font-bold" style={{ color: '#22c55e' }}>{projectedBmi}</p></div>
-                <div className="rounded-lg px-3 py-1.5 bg-white/60"><p className="text-[10px] opacity-60">Cravings</p><p className="text-sm font-bold" style={{ color: '#22c55e' }}>Reduced</p></div>
+                <div className="rounded-lg px-3 py-1.5 bg-white/60"><p className="text-[10px] opacity-60">BMI</p><p className="text-sm font-bold" style={{ color: '#c3b29e' }}>{projectedBmi}</p></div>
+                <div className="rounded-lg px-3 py-1.5 bg-white/60"><p className="text-[10px] opacity-60">Cravings</p><p className="text-sm font-bold" style={{ color: '#c3b29e' }}>Reduced</p></div>
               </div>
             </div>
           </div>
@@ -106,9 +106,9 @@ export default function WmCongratsStep({
           Your <span style={{ color: '#7B95A9' }}>Wellmedr +</span><br />Complete Support
         </h2>
         <div className="flex gap-4 justify-center mb-8 text-sm">
-          <span className="flex items-center gap-1"><span className="text-green-500">&#10004;</span> All-in-one</span>
-          <span className="flex items-center gap-1"><span className="text-green-500">&#10004;</span> 48-hour delivery</span>
-          <span className="flex items-center gap-1"><span className="text-green-500">&#10004;</span> Always Free</span>
+          <span className="flex items-center gap-1"><span className="text-[#c3b29e]">&#10004;</span> All-in-one</span>
+          <span className="flex items-center gap-1"><span className="text-[#c3b29e]">&#10004;</span> 48-hour delivery</span>
+          <span className="flex items-center gap-1"><span className="text-[#c3b29e]">&#10004;</span> Always Free</span>
         </div>
 
         {/* Why switching */}
@@ -120,10 +120,10 @@ export default function WmCongratsStep({
 
         <div className="w-full rounded-2xl p-5 mb-6" style={{ backgroundColor: '#fdf8ec' }}>
           <div className="space-y-2">
-            <p className="flex items-center gap-2"><span className="text-green-500 text-lg">&#10004;</span> Starting Weight: <span style={{ color: '#c5a55a' }} className="font-bold">{weight} lbs</span></p>
-            <p className="flex items-center gap-2"><span className="text-green-500 text-lg">&#10004;</span> Goal Weight: <span style={{ color: '#c5a55a' }} className="font-bold">{goalWeight} lbs</span></p>
-            <p className="flex items-center gap-2"><span className="text-green-500 text-lg">&#10004;</span> Lose <span style={{ color: '#c5a55a' }} className="font-bold">{lbsToLose} lbs</span> in {weeksToGoal} weeks</p>
-            <p className="flex items-center gap-2"><span className="text-green-500 text-lg">&#10004;</span> Minimize side effects</p>
+            <p className="flex items-center gap-2"><span className="text-[#c3b29e] text-lg">&#10004;</span> Starting Weight: <span style={{ color: '#c5a55a' }} className="font-bold">{weight} lbs</span></p>
+            <p className="flex items-center gap-2"><span className="text-[#c3b29e] text-lg">&#10004;</span> Goal Weight: <span style={{ color: '#c5a55a' }} className="font-bold">{goalWeight} lbs</span></p>
+            <p className="flex items-center gap-2"><span className="text-[#c3b29e] text-lg">&#10004;</span> Lose <span style={{ color: '#c5a55a' }} className="font-bold">{lbsToLose} lbs</span> in {weeksToGoal} weeks</p>
+            <p className="flex items-center gap-2"><span className="text-[#c3b29e] text-lg">&#10004;</span> Minimize side effects</p>
           </div>
         </div>
 
@@ -133,10 +133,10 @@ export default function WmCongratsStep({
 
         <div className="w-full rounded-2xl p-5 mb-6" style={{ backgroundColor: '#fdf8ec' }}>
           <div className="space-y-2">
-            <p className="flex items-center gap-2"><span className="text-green-500 text-lg">&#10004;</span> GLP-1 Prescription</p>
-            <p className="flex items-center gap-2"><span className="text-green-500 text-lg">&#10004;</span> Clinical Support</p>
-            <p className="flex items-center gap-2"><span className="text-green-500 text-lg">&#10004;</span> Delivered to your door</p>
-            <p className="flex items-center gap-2"><span className="text-green-500 text-lg">&#10004;</span> Results guaranteed</p>
+            <p className="flex items-center gap-2"><span className="text-[#c3b29e] text-lg">&#10004;</span> GLP-1 Prescription</p>
+            <p className="flex items-center gap-2"><span className="text-[#c3b29e] text-lg">&#10004;</span> Clinical Support</p>
+            <p className="flex items-center gap-2"><span className="text-[#c3b29e] text-lg">&#10004;</span> Delivered to your door</p>
+            <p className="flex items-center gap-2"><span className="text-[#c3b29e] text-lg">&#10004;</span> Results guaranteed</p>
           </div>
         </div>
 

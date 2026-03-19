@@ -180,7 +180,7 @@ export function ChronicConditionsDetailStep({
               value={otherText}
               onChange={(e) => setOtherText(e.target.value)}
               placeholder={isSpanish ? 'Por favor especifica...' : 'Please specify...'}
-              className="w-full p-4 border-2 border-gray-200 rounded-xl text-[15px] focus:border-[#4fa87f] focus:outline-none"
+              className="w-full p-4 border-2 border-gray-200 rounded-xl text-[15px] focus:border-[var(--intake-accent,#4fa87f)] focus:outline-none"
             />
           </div>
         )}

@@ -95,7 +95,7 @@ export default function TreatmentBenefitsStep({
     <div className="min-h-screen bg-white flex flex-col">
       <div className="w-full h-1 bg-gray-200">
         <div 
-          className="h-full bg-[#f0feab] transition-all duration-300"
+          className="h-full bg-[var(--intake-accent,#f0feab)] transition-all duration-300"
           style={{ width: `${progressPercent}%` }}
         />
       </div>

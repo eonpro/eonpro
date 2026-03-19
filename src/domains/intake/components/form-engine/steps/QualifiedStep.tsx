@@ -157,7 +157,7 @@ export default function QualifiedStep({ basePath, prevStep }: QualifiedStepProps
   return (
     <div className="min-h-screen bg-white flex flex-col relative overflow-hidden">
       <div className="w-full h-1 bg-gray-200">
-        <div className="h-full w-full bg-[#f0feab] transition-all duration-300" />
+        <div className="h-full w-full bg-[var(--intake-accent,#f0feab)] transition-all duration-300" />
       </div>
 
       {prevStep && (
