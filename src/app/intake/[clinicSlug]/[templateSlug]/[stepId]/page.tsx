@@ -35,8 +35,14 @@ function IntakeStepContent() {
 
   useEffect(() => {
     document.body.classList.add('intake-body');
-    return () => { document.body.classList.remove('intake-body'); };
-  }, []);
+    if (clinicSlug === 'wellmedr') {
+      document.body.style.setProperty('--intake-bg', '#F7F7F9');
+    }
+    return () => {
+      document.body.classList.remove('intake-body');
+      document.body.style.removeProperty('--intake-bg');
+    };
+  }, [clinicSlug]);
 
   // Transition animation on step change
   useEffect(() => {
@@ -131,7 +137,7 @@ function IntakeStepContent() {
   );
 
   if (loading) {
-    return <div className="min-h-screen bg-white" />;
+    return <div className="min-h-screen" style={{ backgroundColor: clinicSlug === 'wellmedr' ? '#F7F7F9' : '#ffffff' }} />;
   }
 
   if (error || !formConfig || !stepConfig) return notFound();

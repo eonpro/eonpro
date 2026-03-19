@@ -60,7 +60,7 @@ body {
 
 /* Intake form: pure white background — no brand beige */
 body.intake-body {
-  background-color: #ffffff;
+  background-color: var(--intake-bg, #ffffff);
 }
 
 /* Intake mobile horizontal padding: 32px (up from Tailwind's 24px px-6) */
