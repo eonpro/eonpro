@@ -1,6 +1,5 @@
 import calculateGoalWeightInWeeks from '@/app/wellmedr-checkout/lib/calculateGoalWeightInWeeks';
 import Image from 'next/image';
-import weightProgressGraph from '/assets/graphs/weight-progress.webp';
 
 interface WeightProgressChartProps {
   weight?: number;
@@ -17,11 +16,10 @@ export default function WeightProgressChart({
   return (
     <div className="relative w-full max-w-[387px] max-h-[360px]! sm:max-w-2xl mx-auto h-[250px] sm:h-[440px] rounded-smoother text-white">
       <Image
-        src={weightProgressGraph}
+        src="/assets/graphs/weight-progress.webp"
         alt="Weight progress chart that shows your weight loss journey"
         fill
         sizes="(max-width: 640px) 100vw, 1024px"
-        placeholder="blur"
         className="object-cover rounded-smoother"
       />
 

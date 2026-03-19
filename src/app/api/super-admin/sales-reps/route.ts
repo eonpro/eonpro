@@ -127,7 +127,8 @@ async function handler(req: NextRequest): Promise<Response> {
 
   try {
     return await withoutClinicFilter(async () => {
-    const clinicFilter = clinicIdParam ? { clinicId: parseInt(clinicIdParam, 10) } : {};
+    const parsedClinicId = clinicIdParam ? parseInt(clinicIdParam, 10) : null;
+    const clinicFilter = parsedClinicId && !Number.isNaN(parsedClinicId) ? { clinicId: parsedClinicId } : {};
 
     // Sales reps are Users with role SALES_REP
     const salesReps = await prisma.user.findMany({
@@ -201,7 +202,10 @@ async function handler(req: NextRequest): Promise<Response> {
           status: { in: ['PENDING', 'APPROVED', 'PAID'] },
         },
         _sum: { commissionAmountCents: true, eventAmountCents: true },
-      }).catch(() => [] as any[]),
+      }).catch((err) => {
+        logger.warn('[SalesReps] Commission groupBy failed', { error: err instanceof Error ? err.message : 'Unknown' });
+        return [] as any[];
+      }),
     ]);
 
     const clicksMap = new Map(clicksByRep.map((r) => [r.salesRepId, r._count]));

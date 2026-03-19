@@ -29,16 +29,22 @@ async function handleGet(req: NextRequest, user: AuthUser): Promise<Response> {
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
     const clinicFilter = searchParams.get('clinicId');
-    const limit = Math.min(parseInt(searchParams.get('limit') || '100', 10), 500);
-    const offset = parseInt(searchParams.get('offset') || '0', 10);
+    const rawLimit = parseInt(searchParams.get('limit') || '100', 10);
+    const limit = Number.isNaN(rawLimit) ? 100 : Math.min(Math.max(rawLimit, 1), 500);
+    const rawOffset = parseInt(searchParams.get('offset') || '0', 10);
+    const offset = Number.isNaN(rawOffset) ? 0 : Math.max(rawOffset, 0);
 
+    const clinicIdParsed = clinicFilter ? parseInt(clinicFilter, 10) : undefined;
     const clinicId = user.role === 'super_admin'
-      ? (clinicFilter ? parseInt(clinicFilter, 10) : undefined)
+      ? (clinicIdParsed && !Number.isNaN(clinicIdParsed) ? clinicIdParsed : undefined)
       : user.clinicId;
 
     const where: Record<string, any> = {};
     if (clinicId) where.clinicId = clinicId;
-    if (salesRepId) where.salesRepId = parseInt(salesRepId, 10);
+    if (salesRepId) {
+      const repId = parseInt(salesRepId, 10);
+      if (!Number.isNaN(repId)) where.salesRepId = repId;
+    }
     if (status) where.status = status;
     if (startDate || endDate) {
       where.occurredAt = {};
@@ -85,7 +91,10 @@ async function handleGet(req: NextRequest, user: AuthUser): Promise<Response> {
       // Override commission events for the same filters
       const overrideWhere: Record<string, any> = {};
       if (clinicId) overrideWhere.clinicId = clinicId;
-      if (salesRepId) overrideWhere.overrideRepId = parseInt(salesRepId, 10);
+      if (salesRepId) {
+        const repId = parseInt(salesRepId, 10);
+        if (!Number.isNaN(repId)) overrideWhere.overrideRepId = repId;
+      }
       if (status) overrideWhere.status = status;
       if (where.occurredAt) overrideWhere.occurredAt = where.occurredAt;
 

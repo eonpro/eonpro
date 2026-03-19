@@ -14,7 +14,7 @@ import { z } from 'zod';
 const createSchema = z.object({
   userId: z.number().positive(),
   clinicId: z.number().positive().optional(),
-  weeklyBasePayCents: z.number().int().min(0),
+  weeklyBasePayCents: z.number().int().positive(),
   hourlyRateCents: z.number().int().min(0).nullable().optional(),
   effectiveFrom: z.string().datetime().optional(),
   notes: z.string().max(500).optional(),
@@ -26,9 +26,10 @@ export const GET = withAuth(
       const p = req.nextUrl.searchParams;
       const clinicIdParam = p.get('clinicId');
 
+      const parsedClinicId = clinicIdParam ? parseInt(clinicIdParam, 10) : null;
       const effectiveClinicId =
         user.role === 'super_admin'
-          ? clinicIdParam ? parseInt(clinicIdParam, 10) : null
+          ? (parsedClinicId && !Number.isNaN(parsedClinicId) ? parsedClinicId : null)
           : user.clinicId;
 
       const where: Record<string, any> = { isActive: true };
@@ -53,7 +54,7 @@ export const GET = withAuth(
           : [];
 
       return NextResponse.json({
-        salaries: salaries.map((s) => ({
+        salaries: (salaries as any[]).map((s: any) => ({
           id: s.id,
           clinicId: s.clinicId,
           clinicName: s.clinic?.name || '',
@@ -70,7 +71,16 @@ export const GET = withAuth(
         })),
       });
     } catch (error) {
-      logger.error('[EmployeeSalaries GET]', { error: error instanceof Error ? error.message : 'Unknown' });
+      const errMsg = error instanceof Error ? error.message : String(error);
+      const errName = error instanceof Error ? error.constructor.name : 'Unknown';
+      logger.error('[EmployeeSalaries GET]', {
+        error: errMsg,
+        errorType: errName,
+        stack: error instanceof Error ? error.stack?.split('\n').slice(0, 5).join(' | ') : undefined,
+        userId: user.id,
+        role: user.role,
+        clinicId: user.clinicId,
+      });
       return NextResponse.json({ error: 'Failed to list salaries' }, { status: 500 });
     }
   },
@@ -98,9 +108,6 @@ export const POST = withAuth(
       }
 
       const verifyAndCreate = async () => {
-        // Sales reps may not have User.clinicId set — they can be associated
-        // with clinics only through SalesRepPlanAssignment. For super_admin,
-        // verify user exists with the right role; for admin, also check clinicId.
         const targetUser = await prisma.user.findFirst({
           where: {
             id: userId,
@@ -112,25 +119,31 @@ export const POST = withAuth(
 
         if (!targetUser) {
           return NextResponse.json(
-            { error: 'User not found or not a STAFF/SALES_REP' },
+            { error: 'User not found or not a STAFF/SALES_REP in this clinic' },
             { status: 404 }
           );
         }
 
-        await prisma.employeeSalary.updateMany({
-          where: { clinicId: effectiveClinicId, userId, isActive: true },
-          data: { isActive: false, effectiveTo: new Date() },
-        });
+        const salary = await prisma.$transaction(async (tx) => {
+          await tx.employeeSalary.deleteMany({
+            where: { clinicId: effectiveClinicId, userId, isActive: false },
+          });
 
-        const salary = await prisma.employeeSalary.create({
-          data: {
-            clinicId: effectiveClinicId,
-            userId,
-            weeklyBasePayCents,
-            hourlyRateCents: hourlyRateCents ?? null,
-            effectiveFrom: effectiveFrom ? new Date(effectiveFrom) : new Date(),
-            notes: notes || null,
-          },
+          await tx.employeeSalary.updateMany({
+            where: { clinicId: effectiveClinicId, userId, isActive: true },
+            data: { isActive: false, effectiveTo: new Date() },
+          });
+
+          return tx.employeeSalary.create({
+            data: {
+              clinicId: effectiveClinicId,
+              userId,
+              weeklyBasePayCents,
+              hourlyRateCents: hourlyRateCents ?? null,
+              effectiveFrom: effectiveFrom ? new Date(effectiveFrom) : new Date(),
+              notes: notes || null,
+            },
+          });
         });
 
         logger.info('[EmployeeSalaries] Created', {

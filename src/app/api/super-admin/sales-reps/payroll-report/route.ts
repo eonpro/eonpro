@@ -295,8 +295,8 @@ async function handleGet(req: NextRequest): Promise<Response> {
       const overrideWhere: Record<string, any> = {
         occurredAt: { gte: startDate, lte: endDate },
       };
-      if (clinicIdParam) overrideWhere.clinicId = parseInt(clinicIdParam, 10);
-      if (salesRepIdParam) overrideWhere.overrideRepId = parseInt(salesRepIdParam, 10);
+      if (clinicIdNum) overrideWhere.clinicId = clinicIdNum;
+      if (salesRepIdNum) overrideWhere.overrideRepId = salesRepIdNum;
       if (statusFilter && statusFilter !== 'ALL') {
         overrideWhere.status = statusFilter;
       } else if (!statusFilter) {
@@ -367,16 +367,24 @@ async function handleGet(req: NextRequest): Promise<Response> {
       };
 
       const statusBreakdown = {
-        pending: { count: events.filter((e) => e.status === 'PENDING').length, cents: events.filter((e) => e.status === 'PENDING').reduce((a, e) => a + e.commissionAmountCents, 0) },
-        approved: { count: events.filter((e) => e.status === 'APPROVED').length, cents: events.filter((e) => e.status === 'APPROVED').reduce((a, e) => a + e.commissionAmountCents, 0) },
-        paid: { count: events.filter((e) => e.status === 'PAID').length, cents: events.filter((e) => e.status === 'PAID').reduce((a, e) => a + e.commissionAmountCents, 0) },
-        reversed: { count: events.filter((e) => e.status === 'REVERSED').length, cents: events.filter((e) => e.status === 'REVERSED').reduce((a, e) => a + e.commissionAmountCents, 0) },
+        pending: { count: 0, cents: 0 },
+        approved: { count: 0, cents: 0 },
+        paid: { count: 0, cents: 0 },
+        reversed: { count: 0, cents: 0 },
       };
-
       const newVsRecurring = {
-        newSale: { count: events.filter((e) => !e.isRecurring).length, cents: events.filter((e) => !e.isRecurring).reduce((a, e) => a + e.commissionAmountCents, 0) },
-        recurring: { count: events.filter((e) => e.isRecurring).length, cents: events.filter((e) => e.isRecurring).reduce((a, e) => a + e.commissionAmountCents, 0) },
+        newSale: { count: 0, cents: 0 },
+        recurring: { count: 0, cents: 0 },
       };
+      for (const ev of events) {
+        const c = ev.commissionAmountCents;
+        if (ev.status === 'PENDING') { statusBreakdown.pending.count++; statusBreakdown.pending.cents += c; }
+        else if (ev.status === 'APPROVED') { statusBreakdown.approved.count++; statusBreakdown.approved.cents += c; }
+        else if (ev.status === 'PAID') { statusBreakdown.paid.count++; statusBreakdown.paid.cents += c; }
+        else if (ev.status === 'REVERSED') { statusBreakdown.reversed.count++; statusBreakdown.reversed.cents += c; }
+        if (ev.isRecurring) { newVsRecurring.recurring.count++; newVsRecurring.recurring.cents += c; }
+        else { newVsRecurring.newSale.count++; newVsRecurring.newSale.cents += c; }
+      }
 
       const totalBasePayCents = Array.from(repSummaries.values()).reduce((a, r) => a + r.periodBasePayCents, 0);
       const directCommCents = events.reduce((a, e) => a + e.commissionAmountCents, 0);

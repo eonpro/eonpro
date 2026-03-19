@@ -1,7 +1,4 @@
 import Image from 'next/image';
-import image1 from '/assets/images/whats-included/1.webp';
-import image2 from '/assets/images/whats-included/2.webp';
-import image3 from '/assets/images/whats-included/3.webp';
 
 export default function WhatIsIncluded() {
   return (
@@ -24,12 +21,11 @@ export default function WhatIsIncluded() {
 
           <div className="relative w-[200px] h-[200px]">
             <Image
-              src={image1}
-              alt="Wellmedr product with recommended badge and 100% trusted Certificate of Analysis badge"
+              src="/assets/images/whats-included/1.webp"
+              alt="Wellmedr product with recommended badge"
               fill
               sizes="(max-width: 640px) 100vw, 200px"
               className="object-cover"
-              placeholder="blur"
               loading="lazy"
             />
           </div>
@@ -50,12 +46,11 @@ export default function WhatIsIncluded() {
 
           <div className="relative w-[231px] h-[200px]">
             <Image
-              src={image2}
-              alt="Smiling clinician on the FaceTime"
+              src="/assets/images/whats-included/2.webp"
+              alt="Smiling clinician on FaceTime"
               fill
               sizes="(max-width: 640px) 100vw, 231px"
               className="object-cover"
-              placeholder="blur"
               loading="lazy"
             />
           </div>
@@ -80,12 +75,11 @@ export default function WhatIsIncluded() {
 
           <div className="relative w-[198.5px] h-[183.5px]">
             <Image
-              src={image3}
+              src="/assets/images/whats-included/3.webp"
               alt="Online interface of Wellmedr app"
               fill
               sizes="(max-width: 640px) 100vw, 198.5px"
               className="object-cover"
-              placeholder="blur"
               loading="lazy"
             />
           </div>

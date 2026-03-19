@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback, useMemo, Fragment } from 'react';
 import {
   DollarSign, TrendingUp, BadgeDollarSign, Clock, CheckCircle2,
   XCircle, Download, Calendar, Building2, Search, RefreshCw,
@@ -258,7 +258,7 @@ export default function PayrollReportPage() {
         const err = await res.json().catch(() => ({}));
         alert(err.error || 'Failed to update');
       }
-    } catch { alert('Failed to update'); }
+    } catch (err) { alert(err instanceof Error ? err.message : 'Failed to update'); }
     finally { setBatchLoading(false); }
   };
 
@@ -491,8 +491,8 @@ export default function PayrollReportPage() {
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {sortedReps.map((rep) => (
-                  <>
-                    <tr key={rep.salesRepId} className="cursor-pointer hover:bg-gray-50" onClick={() => setExpandedRep(expandedRep === rep.salesRepId ? null : rep.salesRepId)}>
+                  <Fragment key={rep.salesRepId}>
+                    <tr className="cursor-pointer hover:bg-gray-50" onClick={() => setExpandedRep(expandedRep === rep.salesRepId ? null : rep.salesRepId)}>
                       <td className="px-3 py-3">
                         <div className="flex items-center gap-2">
                           <div>
@@ -521,8 +521,8 @@ export default function PayrollReportPage() {
                       <td className="px-3 py-3 text-center">{expandedRep === rep.salesRepId ? <ChevronUp className="inline h-4 w-4 text-gray-400" /> : <ChevronDown className="inline h-4 w-4 text-gray-400" />}</td>
                     </tr>
                     {expandedRep === rep.salesRepId && (
-                      <tr key={`${rep.salesRepId}-detail`}>
-                        <td colSpan={12} className="bg-gray-50 px-4 py-3">
+                      <tr>
+                        <td colSpan={11} className="bg-gray-50 px-4 py-3">
                           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
                             <div className="rounded-lg bg-white p-3"><p className="text-xs text-gray-500">Base Commission</p><p className="text-sm font-semibold">{$(rep.totalBaseCents)}</p></div>
                             <div className="rounded-lg bg-white p-3"><p className="text-xs text-gray-500">Volume Tier Bonus</p><p className="text-sm font-semibold">{$(rep.totalVolumeTierCents)}</p></div>
@@ -542,10 +542,10 @@ export default function PayrollReportPage() {
                         </td>
                       </tr>
                     )}
-                  </>
+                  </Fragment>
                 ))}
                 {sortedReps.length === 0 && !loading && (
-                  <tr><td colSpan={12} className="py-12 text-center text-gray-500">No commission data for this period</td></tr>
+                  <tr><td colSpan={11} className="py-12 text-center text-gray-500">No commission data for this period</td></tr>
                 )}
               </tbody>
             </table>

@@ -30,7 +30,7 @@ const BRAND_ASSETS: Record<IntakeBrand, BrandAssets> = {
   },
   otmens: {
     logo: 'https://static.wixstatic.com/shapes/c49a9b_5139736743794db7af38c583595f06fb.svg',
-    lottie: 'https://lottie.host/34070443-ae33-4f25-b944-452a94704677/Ol2wOdhexp.lottie',
+    lottie: 'https://lottie.host/embed/34070443-ae33-4f25-b944-452a94704677/Ol2wOdhexp.lottie',
     nursePhoto: 'https://static.wixstatic.com/media/c49a9b_5b9a0976f96044ccbf05c4d90c382f2d~mv2.webp',
     patientPhotos: 'https://static.wixstatic.com/media/c49a9b_e11bf27141fa4676b7c9d9f2438b334a~mv2.webp',
     ratingImage: 'https://static.wixstatic.com/shapes/c49a9b_ea75afc771f74c108742b781ab47157d.svg',

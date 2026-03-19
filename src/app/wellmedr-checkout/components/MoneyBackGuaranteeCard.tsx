@@ -1,23 +1,23 @@
 import Image from 'next/image';
-import Illustration from '/assets/illustrations/money-back-guarantee.svg';
-import MeshGradient from '/assets/patterns/mesh-gradient.webp';
 
 export default function MoneyBackGuaranteeCard() {
   return (
     <div className="relative bg-linear-to-r from-secondary text-white to-secondary/70 rounded-2xl p-6 sm:p-8 max-w-2xl mx-auto">
       <div className="absolute inset-0">
         <Image
-          src={MeshGradient}
+          src="/assets/patterns/mesh-gradient.webp"
           alt="Mesh gradient"
-          className="w-full h-full"
+          fill
+          className="w-full h-full object-cover"
         />
       </div>
 
       <div className="relative z-10 flex flex-col sm:flex-row gap-6 sm:gap-10 items-center">
-        <Image
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
           width={120}
           height={120}
-          src={Illustration}
+          src="/assets/illustrations/money-back-guarantee.svg"
           alt="Money back guarantee"
           className="shrink-0"
           loading="lazy"

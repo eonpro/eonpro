@@ -22,11 +22,16 @@ const patchSchema = z.object({
 });
 
 async function findSalary(id: number, user: AuthUser) {
-  const { basePrisma } = await import('@/lib/db');
-  const salary = await basePrisma.employeeSalary.findUnique({
-    where: { id },
-    include: { user: { select: { id: true, firstName: true, lastName: true, email: true, role: true } } },
-  });
+  const fetcher = () =>
+    prisma.employeeSalary.findUnique({
+      where: { id },
+      include: { user: { select: { id: true, firstName: true, lastName: true, email: true, role: true } } },
+    });
+
+  const salary = user.role === 'super_admin'
+    ? await withoutClinicFilter(fetcher)
+    : await fetcher();
+
   if (!salary) return null;
   if (user.role !== 'super_admin' && salary.clinicId !== user.clinicId) return null;
   return salary;

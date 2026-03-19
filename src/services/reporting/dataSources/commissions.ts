@@ -50,15 +50,22 @@ function buildWhere(config: ReportConfig): Record<string, any> {
   const where: Record<string, any> = {};
   if (config.clinicId) where.clinicId = config.clinicId;
   if (config.dateRange) {
+    const endDateStr = config.dateRange.endDate;
+    const endDateNormalized = endDateStr.includes('T')
+      ? new Date(endDateStr)
+      : new Date(endDateStr + 'T23:59:59.999Z');
     where.occurredAt = {
       gte: new Date(config.dateRange.startDate),
-      lte: new Date(config.dateRange.endDate + 'T23:59:59.999Z'),
+      lte: endDateNormalized,
     };
   }
   for (const f of config.filters) {
     if (f.field === 'status' && f.operator === 'in') where.status = { in: f.value };
     if (f.field === 'status' && f.operator === 'eq') where.status = f.value;
-    if (f.field === 'salesRepId' && f.operator === 'eq') where.salesRepId = Number(f.value);
+    if (f.field === 'salesRepId' && f.operator === 'eq') {
+      const repId = Number(f.value);
+      if (!Number.isNaN(repId)) where.salesRepId = repId;
+    }
     if (f.field === 'isRecurring' && f.operator === 'eq') where.isRecurring = f.value === 'true';
   }
   if (!where.status) where.status = { in: ['PENDING', 'APPROVED', 'PAID'] };

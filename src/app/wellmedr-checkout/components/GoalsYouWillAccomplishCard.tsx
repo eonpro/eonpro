@@ -1,6 +1,5 @@
 import CheckboxWithText from '@/app/wellmedr-checkout/components/ui/CheckboxWithText';
 import Image from 'next/image';
-import goalsYouWillAccomplishImage from '/assets/images/goals-you-will-accomplish.webp';
 
 interface GoalsYouWillAccomplishCardProps {
   weight?: number;
@@ -57,12 +56,11 @@ export default function GoalsYouWillAccomplishCard({
 
       <div className="w-[220px] h-[210px] sm:w-[340px] sm:h-[328px] absolute -bottom-4 sm:right-0">
         <Image
-          src={goalsYouWillAccomplishImage}
+          src="/assets/images/goals-you-will-accomplish.webp"
           alt="Medical equipments"
           fill
           sizes="(max-width: 640px) 220px, 340px"
           className="object-cover object-center"
-          placeholder="blur"
           loading="lazy"
         />
       </div>

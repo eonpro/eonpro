@@ -108,15 +108,15 @@ export default function EmployeeSalariesPage() {
     fetchAllEmployees();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const salaryByUserId = useMemo(() => {
-    const map = new Map<number, SalaryRecord>();
-    for (const s of salaries) map.set(s.userId, s);
+  const salaryByKey = useMemo(() => {
+    const map = new Map<string, SalaryRecord>();
+    for (const s of salaries) map.set(`${s.userId}-${s.clinicId}`, s);
     return map;
   }, [salaries]);
 
   const merged = useMemo(() => {
     return allEmployees.map((emp) => {
-      const salary = salaryByUserId.get(emp.id);
+      const salary = salaryByKey.get(`${emp.id}-${emp.clinicId}`) || null;
       return {
         userId: emp.id,
         userName: `${emp.firstName || ''} ${emp.lastName || ''}`.trim() || emp.email,
@@ -125,14 +125,17 @@ export default function EmployeeSalariesPage() {
         userStatus: emp.status,
         clinicId: emp.clinicId,
         clinicName: emp.clinicName,
-        salary: salary || null,
+        salary,
       };
     });
-  }, [allEmployees, salaryByUserId]);
+  }, [allEmployees, salaryByKey]);
 
   const filtered = useMemo(() => {
     let result = merged;
-    if (clinicFilter) result = result.filter((r) => r.clinicId === parseInt(clinicFilter, 10));
+    if (clinicFilter) {
+      const cid = parseInt(clinicFilter, 10);
+      if (!Number.isNaN(cid)) result = result.filter((r) => r.clinicId === cid);
+    }
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       result = result.filter((r) =>
@@ -178,11 +181,16 @@ export default function EmployeeSalariesPage() {
 
   const handleSave = async () => {
     setModalError('');
-    const weeklyCents = Math.round(parseFloat(weeklyPay || '0') * 100);
-    if (weeklyCents <= 0) { setModalError('Weekly salary must be greater than $0'); return; }
+    const weeklyParsed = parseFloat(weeklyPay || '0');
+    if (Number.isNaN(weeklyParsed) || weeklyParsed <= 0) {
+      setModalError('Weekly salary must be a valid amount greater than $0');
+      return;
+    }
+    const weeklyCents = Math.round(weeklyParsed * 100);
     if (!editingUser) return;
 
-    const hourlyCents = hourlyRate ? Math.round(parseFloat(hourlyRate) * 100) : null;
+    const hourlyParsed = hourlyRate ? parseFloat(hourlyRate) : null;
+    const hourlyCents = hourlyParsed !== null && !Number.isNaN(hourlyParsed) ? Math.round(hourlyParsed * 100) : null;
 
     setSaving(true);
     try {
@@ -226,8 +234,8 @@ export default function EmployeeSalariesPage() {
     }
   };
 
-  const handleDelete = async (userId: number) => {
-    const salary = salaryByUserId.get(userId);
+  const handleDelete = async (userId: number, clinicId: number) => {
+    const salary = salaryByKey.get(`${userId}-${clinicId}`);
     if (!salary) return;
     if (!confirm('Remove this employee\'s weekly salary?')) return;
     setDeletingId(salary.id);
@@ -354,7 +362,7 @@ export default function EmployeeSalariesPage() {
                         </button>
                         {emp.salary && (
                           <button
-                            onClick={() => handleDelete(emp.userId)}
+                            onClick={() => handleDelete(emp.userId, emp.clinicId)}
                             disabled={deletingId === emp.salary?.id}
                             className="rounded p-1.5 text-gray-400 hover:bg-gray-100 hover:text-red-600 disabled:opacity-50"
                             title="Remove salary"

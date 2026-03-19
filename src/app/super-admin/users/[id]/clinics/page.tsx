@@ -95,6 +95,8 @@ export default function UserClinicsPage() {
   const [selectedClinicId, setSelectedClinicId] = useState<number | null>(null);
   const [selectedRole, setSelectedRole] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+  const [clinicsLoading, setClinicsLoading] = useState(false);
+  const [clinicsError, setClinicsError] = useState(false);
 
   useEffect(() => {
     if (userId) {
@@ -146,15 +148,32 @@ export default function UserClinicsPage() {
   };
 
   const fetchAllClinics = async () => {
+    setClinicsLoading(true);
+    setClinicsError(false);
     try {
       const response = await apiFetch('/api/super-admin/clinics');
 
       if (response.ok) {
         const data = await response.json();
         setAllClinics(data.clinics || []);
+      } else {
+        setClinicsError(true);
       }
     } catch (error) {
+      setClinicsError(true);
       process.env.NODE_ENV === 'development' && console.error('Error fetching clinics:', error);
+    } finally {
+      setClinicsLoading(false);
+    }
+  };
+
+  const openAddModal = () => {
+    setShowAddModal(true);
+    setSearchTerm('');
+    setSelectedClinicId(null);
+    setSelectedRole('');
+    if (allClinics.length === 0 || clinicsError) {
+      fetchAllClinics();
     }
   };
 
@@ -367,7 +386,7 @@ export default function UserClinicsPage() {
                 </div>
               </div>
               <button
-                onClick={() => setShowAddModal(true)}
+                onClick={openAddModal}
                 className="flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-white transition-colors hover:bg-emerald-700"
               >
                 <Plus className="h-4 w-4" />
@@ -470,7 +489,7 @@ export default function UserClinicsPage() {
                 <Building2 className="mx-auto mb-3 h-10 w-10 text-gray-300" />
                 <p className="text-sm text-gray-500">No clinic assignments</p>
                 <button
-                  onClick={() => setShowAddModal(true)}
+                  onClick={openAddModal}
                   className="mt-3 text-sm font-medium text-emerald-600 hover:text-emerald-700"
                 >
                   Add to a clinic
@@ -618,7 +637,22 @@ export default function UserClinicsPage() {
                   Select Clinic
                 </label>
                 <div className="max-h-48 overflow-y-auto rounded-lg border border-gray-200">
-                  {availableClinics.length === 0 ? (
+                  {clinicsLoading ? (
+                    <div className="flex items-center justify-center gap-2 p-4 text-sm text-gray-500">
+                      <RefreshCw className="h-4 w-4 animate-spin" />
+                      Loading clinics...
+                    </div>
+                  ) : clinicsError ? (
+                    <div className="p-4 text-center">
+                      <p className="text-sm text-red-600">Failed to load clinics</p>
+                      <button
+                        onClick={fetchAllClinics}
+                        className="mt-2 text-sm font-medium text-emerald-600 hover:text-emerald-700"
+                      >
+                        Try again
+                      </button>
+                    </div>
+                  ) : availableClinics.length === 0 ? (
                     <div className="p-4 text-center text-sm text-gray-500">
                       {searchTerm
                         ? 'No matching clinics found'

@@ -1,6 +1,5 @@
 import cn from '@/app/wellmedr-checkout/lib/cn';
 import Image from 'next/image';
-import bgPattern from '/assets/patterns/bg-pattern.webp';
 
 export default function PatternBgCard({
   className,
@@ -17,12 +16,11 @@ export default function PatternBgCard({
       )}
     >
       <Image
-        src={bgPattern}
+        src="/assets/patterns/bg-pattern.webp"
         alt="Background pattern"
         fill
         sizes="(max-width: 768px) 100vw, (max-width: 1024px) 100vw, 1536px"
         className="absolute inset-0 w-full h-full object-cover rounded-smooth -z-10"
-        placeholder="blur"
       />
 
       {children}
