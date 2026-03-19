@@ -30,6 +30,21 @@ const heightInchesOptions: FieldOption[] = Array.from({ length: 12 }, (_, i) => 
 }));
 
 const steps: FormStep[] = [
+  // ===== LANGUAGE SELECTION (first thing user sees) =====
+  {
+    id: 'language',
+    path: 'language',
+    title: { en: 'Choose your language', es: 'Elige tu idioma' },
+    type: 'custom',
+    component: 'LanguageSelectStep',
+    fields: [],
+    autoAdvance: false,
+    showContinueButton: false,
+    nextStep: 'intro',
+    prevStep: null,
+    progressPercent: 0,
+  },
+
   // ===== INTRO / LANDING =====
   {
     id: 'intro',
@@ -41,7 +56,7 @@ const steps: FormStep[] = [
     autoAdvance: false,
     showContinueButton: true,
     nextStep: 'goals',
-    prevStep: null,
+    prevStep: 'language',
     progressPercent: 0,
   },
 
@@ -1140,7 +1155,7 @@ export const weightLossIntakeConfig: FormConfig = {
   description: 'Comprehensive medical intake questionnaire for weight loss programs with GLP-1 medication assessment',
   treatmentType: 'weight-loss',
   steps,
-  startStep: 'intro',
+  startStep: 'language',
   languages: ['en', 'es'],
   defaultLanguage: 'en',
   integrations: [

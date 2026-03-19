@@ -9,6 +9,7 @@ import type {
 } from '../../types/form-engine';
 import { resolveNextStep } from '../../types/form-engine';
 import {
+  LanguageSelectStep,
   InfoImageStep,
   TypewriterStep,
   BMICalculatingStep,
@@ -314,6 +315,8 @@ export default function FormStep({
     };
 
     switch (config.component) {
+      case 'LanguageSelectStep':
+        return <LanguageSelectStep basePath={basePath} nextStep={customProps.nextStep} />;
       case 'InfoImageStep':
         return <InfoImageStep {...customProps} imageEn={config.props?.imageEn as string} imageEs={config.props?.imageEs as string} autoAdvanceDelay={config.props?.autoAdvanceDelay as number} />;
       case 'TypewriterStep':

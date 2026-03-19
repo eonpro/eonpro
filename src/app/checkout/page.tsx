@@ -258,44 +258,6 @@ const iconMap: Record<string, typeof PillIcon> = {
 // Flag SVGs for Language Toggle
 // ============================================================================
 
-const US_FLAG = (
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 30" width="24" height="12">
-    <clipPath id="us"><rect width="60" height="30" /></clipPath>
-    <g clipPath="url(#us)">
-      <rect width="60" height="30" fill="#bf0a30" />
-      {[0, 1, 2, 3, 4, 5, 6].map((i) => (
-        <rect key={i} y={i * 30 / 13 * 2} width="60" height={30 / 13} fill="#fff" />
-      ))}
-      <rect width="24" height={30 * 7 / 13} fill="#002868" />
-    </g>
-  </svg>
-);
-
-const ES_FLAG = (
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 40" width="24" height="16">
-    <rect width="60" height="40" fill="#c60b1e" />
-    <rect y="10" width="60" height="20" fill="#ffc400" />
-  </svg>
-);
-
-// ============================================================================
-// Language Toggle
-// ============================================================================
-
-function LanguageToggle() {
-  const { language, setLanguage } = useLanguage();
-  return (
-    <button
-      type="button"
-      onClick={() => setLanguage(language === 'en' ? 'es' : 'en')}
-      className="fixed right-4 top-4 z-50 flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-sm font-medium shadow-md transition hover:shadow-lg"
-    >
-      {language === 'en' ? ES_FLAG : US_FLAG}
-      <span>{language === 'en' ? 'Español' : 'English'}</span>
-    </button>
-  );
-}
-
 // ============================================================================
 // Prefill Helpers
 // ============================================================================
@@ -807,7 +769,6 @@ export function CheckoutInner() {
         disabled={currentStep === 1 ? !canProceedStep1 : currentStep === 2 ? (!canProceedStep2 || isCreatingIntent) : false}
         visible={currentStep <= 2}
       />
-      <LanguageToggle />
 
       {/* Progress Indicator */}
       <div className="mb-8">

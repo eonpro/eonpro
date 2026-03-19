@@ -1,3 +1,4 @@
+export { default as LanguageSelectStep } from './LanguageSelectStep';
 export { default as InfoImageStep } from './InfoImageStep';
 export { default as TypewriterStep } from './TypewriterStep';
 export { default as BMICalculatingStep } from './BMICalculatingStep';
