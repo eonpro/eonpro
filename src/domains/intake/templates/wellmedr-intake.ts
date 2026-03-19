@@ -35,7 +35,7 @@ const steps: FormStep[] = [
     id: 'bmi-calc', path: 'bmi-calc',
     title: { en: "Let\u2019s calculate your BMI.", es: "Let\u2019s calculate your BMI." },
     subtitle: { en: 'Body Mass Index (BMI) helps determine eligibility for weight loss medication and assess weight-related health risks.', es: '' },
-    type: 'custom', component: 'WeightHeightStep',
+    type: 'custom', component: 'WmBmiCalcStep',
     fields: [
       { id: 'current_weight', type: 'number', label: { en: 'Weight (lbs)', es: 'Weight (lbs)' }, storageKey: 'current_weight', placeholder: { en: '200', es: '200' }, validation: [{ type: 'required', message: { en: 'Please enter your weight', es: '' } }] },
       { id: 'height_feet', type: 'select', label: { en: 'Feet', es: 'Feet' }, storageKey: 'height_feet', options: heightFeetOptions, validation: [{ type: 'required', message: { en: 'Required', es: '' } }] },

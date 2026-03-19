@@ -41,6 +41,7 @@ import {
   BookAppointmentStep,
 } from './steps';
 import {
+  WmBmiCalcStep,
   WmImageCardStep,
   WmYesNoDetailStep,
   WmCheckboxListStep,
@@ -395,6 +396,8 @@ export default function FormStep({
         return <BookAppointmentStep {...customProps} />;
       case 'CheckoutStep':
         return null;
+      case 'WmBmiCalcStep':
+        return <WmBmiCalcStep {...customProps} />;
       case 'WmImageCardStep':
         return <WmImageCardStep {...customProps} {...(config.props as Record<string, unknown>)} />;
       case 'WmYesNoDetailStep':
