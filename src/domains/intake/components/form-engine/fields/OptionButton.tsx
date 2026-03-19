@@ -28,12 +28,13 @@ export default function OptionButton({
     >
       {showCheckbox && (
         <div
-          className={`
-            w-5 h-5 min-w-[1.25rem] rounded-[5px] flex items-center justify-center flex-shrink-0
-            transition-all duration-150
-            ${selected ? 'bg-[#413d3d] border-[#413d3d]' : 'bg-white border-[#d1d5db]'}
-          `}
-          style={{ borderWidth: '2px', borderStyle: 'solid' }}
+          className="w-5 h-5 min-w-[1.25rem] rounded-[5px] flex items-center justify-center flex-shrink-0 transition-all duration-150"
+          style={{
+            borderWidth: '2px',
+            borderStyle: 'solid',
+            borderColor: selected ? 'var(--intake-accent, #413d3d)' : '#d1d5db',
+            backgroundColor: selected ? 'var(--intake-accent, #413d3d)' : '#ffffff',
+          }}
         >
           {selected && (
             <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">

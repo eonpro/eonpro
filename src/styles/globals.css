@@ -143,11 +143,11 @@ body.intake-body {
   font-size: 16px;
   font-weight: 500;
 }
-.option-button:hover { border-color: #4fa87f; background: #fafafa; }
-.option-button:focus, .option-button:focus-visible { border-color: #4fa87f; outline: none; box-shadow: none; }
-.option-button:active { border-color: #4fa87f; background: #f0feab; }
-.option-button.selected { border-color: #4fa87f; background: #f0feab; }
-.option-button.selected:hover { background: #f0feab; }
+.option-button:hover { border-color: var(--intake-accent, #4fa87f); background: #fafafa; }
+.option-button:focus, .option-button:focus-visible { border-color: var(--intake-accent, #4fa87f); outline: none; box-shadow: none; }
+.option-button:active { border-color: var(--intake-accent, #4fa87f); background: var(--intake-selected-bg, #f0feab); }
+.option-button.selected { border-color: var(--intake-accent, #4fa87f); background: var(--intake-selected-bg, #f0feab); }
+.option-button.selected:hover { background: var(--intake-selected-bg, #f0feab); }
 
 .continue-button {
   width: 100%;

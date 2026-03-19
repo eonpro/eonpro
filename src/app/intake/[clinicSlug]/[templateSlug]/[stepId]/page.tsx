@@ -229,6 +229,7 @@ function IntakeStepContent() {
         '--intake-text': isWellmedr ? '#0C2631' : '#1f2937',
         '--intake-text-secondary': isWellmedr ? '#7B95A9' : '#6b7280',
         '--intake-border': isWellmedr ? '#e5eaee' : '#e5e7eb',
+        '--intake-selected-bg': isWellmedr ? '#e5eaee' : '#f0feab',
         '--intake-bg': isWellmedr ? '#F7F7F9' : '#ffffff',
       } as React.CSSProperties}
     >
