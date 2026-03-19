@@ -35,9 +35,9 @@ export default function WmTestimonialStep({
   };
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ backgroundColor: 'var(--intake-bg, #F7F7F9)' }}>
-      <div className="w-full h-1 bg-gray-100">
-        <div className="h-full transition-all duration-300" style={{ width: `${progressPercent}%`, backgroundColor: 'var(--intake-accent, #7B95A9)' }} />
+    <div className="min-h-screen flex flex-col" style={{ backgroundColor: '#F7F7F9' }}>
+      <div className="w-full h-1" style={{ backgroundColor: '#e5e0d8' }}>
+        <div className="h-full transition-all duration-300" style={{ width: `${progressPercent}%`, backgroundColor: '#c3b29e' }} />
       </div>
 
       <div className="flex-1 flex flex-col items-center px-6 lg:px-8 pt-8 pb-6 max-w-2xl mx-auto w-full">
@@ -71,7 +71,7 @@ export default function WmTestimonialStep({
         <button
           onClick={handleContinue}
           className="w-full flex items-center justify-center gap-3 py-4 px-8 text-white font-medium rounded-full"
-          style={{ backgroundColor: 'var(--intake-primary, #0C2631)' }}
+          style={{ backgroundColor: '#0C2631' }}
         >
           Next <span className="text-lg">&rarr;</span>
         </button>

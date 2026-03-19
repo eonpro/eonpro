@@ -36,9 +36,9 @@ export default function WmCongratsStep({
   };
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ backgroundColor: 'var(--intake-bg, #F7F7F9)' }}>
-      <div className="w-full h-1 bg-gray-100">
-        <div className="h-full transition-all duration-300" style={{ width: `${progressPercent}%`, backgroundColor: 'var(--intake-accent, #7B95A9)' }} />
+    <div className="min-h-screen flex flex-col" style={{ backgroundColor: '#F7F7F9' }}>
+      <div className="w-full h-1" style={{ backgroundColor: '#e5e0d8' }}>
+        <div className="h-full transition-all duration-300" style={{ width: `${progressPercent}%`, backgroundColor: '#c3b29e' }} />
       </div>
 
       <div className="flex flex-col items-center px-6 lg:px-8 pt-8 pb-6 max-w-2xl mx-auto w-full">
@@ -50,7 +50,7 @@ export default function WmCongratsStep({
           <span style={{ color: '#101010' }}>you&apos;re in!</span>
         </h1>
 
-        <p className="text-lg sm:text-xl font-bold text-left w-full mb-1" style={{ color: 'var(--intake-accent, #7B95A9)' }}>
+        <p className="text-lg sm:text-xl font-bold text-left w-full mb-1" style={{ color: '#7B95A9' }}>
           America&apos;s #1 GLP-1 Weight Loss Program is ready for you.
         </p>
         <p className="text-base text-left w-full mb-6" style={{ color: '#101010' }}>
@@ -103,7 +103,7 @@ export default function WmCongratsStep({
 
         {/* Support badges */}
         <h2 className="text-xl sm:text-2xl font-bold text-center mb-3" style={{ color: '#101010' }}>
-          Your <span style={{ color: 'var(--intake-accent, #7B95A9)' }}>Wellmedr +</span><br />Complete Support
+          Your <span style={{ color: '#7B95A9' }}>Wellmedr +</span><br />Complete Support
         </h2>
         <div className="flex gap-4 justify-center mb-8 text-sm">
           <span className="flex items-center gap-1"><span className="text-green-500">&#10004;</span> All-in-one</span>
@@ -113,10 +113,10 @@ export default function WmCongratsStep({
 
         {/* Why switching */}
         <h2 className="text-xl sm:text-2xl font-bold text-center mb-2" style={{ color: '#101010' }}>
-          Why is everyone switching to<br /><span style={{ color: 'var(--intake-accent, #7B95A9)' }}>Wellmedr</span>?
+          Why is everyone switching to<br /><span style={{ color: '#7B95A9' }}>Wellmedr</span>?
         </h2>
-        <p className="text-center font-bold mb-1">Our members hit their goals <span className="italic" style={{ color: 'var(--intake-accent, #7B95A9)', fontFamily: 'var(--font-bodoni, serif)' }}>faster.</span></p>
-        <p className="text-center mb-4">And <span className="italic" style={{ color: 'var(--intake-accent, #7B95A9)', fontFamily: 'var(--font-bodoni, serif)' }}>you will too.</span></p>
+        <p className="text-center font-bold mb-1">Our members hit their goals <span className="italic" style={{ color: '#7B95A9', fontFamily: 'var(--font-bodoni, serif)' }}>faster.</span></p>
+        <p className="text-center mb-4">And <span className="italic" style={{ color: '#7B95A9', fontFamily: 'var(--font-bodoni, serif)' }}>you will too.</span></p>
 
         <div className="w-full rounded-2xl p-5 mb-6" style={{ backgroundColor: '#fdf8ec' }}>
           <div className="space-y-2">
@@ -157,7 +157,7 @@ export default function WmCongratsStep({
         <button
           onClick={handleContinue}
           className="w-full flex items-center justify-center gap-3 py-4 px-8 text-white font-medium rounded-full text-lg"
-          style={{ backgroundColor: 'var(--intake-primary, #0C2631)' }}
+          style={{ backgroundColor: '#0C2631' }}
         >
           Continue to Checkout
         </button>

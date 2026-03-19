@@ -58,9 +58,9 @@ export default function WmMedicalReviewStep({
   ];
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ backgroundColor: 'var(--intake-bg, #F7F7F9)' }}>
-      <div className="w-full h-1 bg-gray-100">
-        <div className="h-full transition-all duration-300" style={{ width: `${progressPercent}%`, backgroundColor: 'var(--intake-accent, #7B95A9)' }} />
+    <div className="min-h-screen flex flex-col" style={{ backgroundColor: '#F7F7F9' }}>
+      <div className="w-full h-1" style={{ backgroundColor: '#e5e0d8' }}>
+        <div className="h-full transition-all duration-300" style={{ width: `${progressPercent}%`, backgroundColor: '#c3b29e' }} />
       </div>
 
       <div className="flex-1 flex flex-col items-center px-6 lg:px-8 pt-8 pb-6 max-w-2xl mx-auto w-full">
@@ -70,9 +70,9 @@ export default function WmMedicalReviewStep({
         <h2 className="text-[1.5rem] sm:text-[1.75rem] font-bold text-center mb-4" style={{ color: '#101010' }}>Your medical review</h2>
 
         <div className="w-full text-left space-y-1 mb-4">
-          <p className="font-bold">BMI: <span style={{ color: 'var(--intake-accent)' }}>{bmi}</span></p>
-          <p className="font-bold">Current Weight: <span style={{ color: 'var(--intake-accent)' }}>{weight} lbs</span></p>
-          <p className="font-bold">Goal Weight: <span style={{ color: 'var(--intake-accent)' }}>{goalWeight} lbs</span> within <span style={{ color: 'var(--intake-accent)' }}>{weeksToGoal}</span> weeks</p>
+          <p className="font-bold">BMI: <span style={{ color: '#7B95A9' }}>{bmi}</span></p>
+          <p className="font-bold">Current Weight: <span style={{ color: '#7B95A9' }}>{weight} lbs</span></p>
+          <p className="font-bold">Goal Weight: <span style={{ color: '#7B95A9' }}>{goalWeight} lbs</span> within <span style={{ color: '#7B95A9' }}>{weeksToGoal}</span> weeks</p>
         </div>
 
         <p className="text-base mb-6 text-left w-full" style={{ color: '#101010' }}>
@@ -86,12 +86,12 @@ export default function WmMedicalReviewStep({
         <div className="w-full space-y-4 mb-4">
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-medium mb-1" style={{ color: 'var(--intake-accent)' }}>First Name <span className="text-red-400">*</span></label>
+              <label className="block text-sm font-medium mb-1" style={{ color: '#7B95A9' }}>First Name <span className="text-red-400">*</span></label>
               <input value={firstName} onChange={(e) => setFirstName(e.target.value)} className="w-full h-14 px-4 rounded-2xl border bg-white text-base" style={{ borderColor: errors.firstName ? '#ef4444' : '#e5e7eb' }} />
               {errors.firstName && <p className="text-xs text-red-500 mt-1">{errors.firstName}</p>}
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1" style={{ color: 'var(--intake-accent)' }}>Last Name <span className="text-red-400">*</span></label>
+              <label className="block text-sm font-medium mb-1" style={{ color: '#7B95A9' }}>Last Name <span className="text-red-400">*</span></label>
               <input value={lastName} onChange={(e) => setLastName(e.target.value)} className="w-full h-14 px-4 rounded-2xl border bg-white text-base" style={{ borderColor: errors.lastName ? '#ef4444' : '#e5e7eb' }} />
               {errors.lastName && <p className="text-xs text-red-500 mt-1">{errors.lastName}</p>}
             </div>
@@ -114,7 +114,7 @@ export default function WmMedicalReviewStep({
         <button
           onClick={handleContinue}
           className="w-full flex items-center justify-center gap-3 py-4 px-8 text-white font-medium rounded-full"
-          style={{ backgroundColor: 'var(--intake-primary, #0C2631)' }}
+          style={{ backgroundColor: '#0C2631' }}
         >
           Next <span className="text-lg">&rarr;</span>
         </button>

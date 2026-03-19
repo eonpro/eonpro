@@ -28,7 +28,7 @@ export default function WmAnimatedWeightChartStep({
 
   useEffect(() => {
     const start = performance.now();
-    const duration = 2500;
+    const duration = 1200;
     const animate = (now: number) => {
       const elapsed = now - start;
       const t = Math.min(elapsed / duration, 1);
@@ -80,9 +80,9 @@ export default function WmAnimatedWeightChartStep({
   const circlePos = points[Math.min(animIdx, points.length - 1)];
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ backgroundColor: 'var(--intake-bg, #F7F7F9)' }}>
-      <div className="w-full h-1 bg-gray-100">
-        <div className="h-full transition-all duration-300" style={{ width: `${progressPercent}%`, backgroundColor: 'var(--intake-accent, #7B95A9)' }} />
+    <div className="min-h-screen flex flex-col" style={{ backgroundColor: '#F7F7F9' }}>
+      <div className="w-full h-1" style={{ backgroundColor: '#e5e0d8' }}>
+        <div className="h-full transition-all duration-300" style={{ width: `${progressPercent}%`, backgroundColor: '#c3b29e' }} />
       </div>
 
       <div className="flex-1 flex flex-col items-center px-6 lg:px-8 pt-8 pb-6 max-w-2xl mx-auto w-full">
@@ -91,7 +91,7 @@ export default function WmAnimatedWeightChartStep({
 
         <h1 className="text-[1.5rem] sm:text-[2rem] font-bold text-center leading-tight mb-2" style={{ color: '#101010' }}>
           It feels like magic, but it&apos;s{' '}
-          <span className="font-normal italic" style={{ color: 'var(--intake-accent, #7B95A9)', fontFamily: 'var(--font-bodoni, serif)' }}>metabolic science.</span>
+          <span className="font-normal italic" style={{ color: '#7B95A9', fontFamily: 'var(--font-bodoni, serif)' }}>metabolic science.</span>
         </h1>
 
         <div className="w-full mt-6 rounded-2xl overflow-hidden" style={{ backgroundColor: '#6b6256' }}>
@@ -143,7 +143,7 @@ export default function WmAnimatedWeightChartStep({
           </p>
           <p className="text-base" style={{ color: '#101010' }}>
             GLP-1 medications are <strong>extremely effective</strong> &ndash; offering you a strong path toward your{' '}
-            <span className="font-bold" style={{ color: 'var(--intake-accent, #7B95A9)' }}>{goalWeight} pound</span> goal weight.
+            <span className="font-bold" style={{ color: '#7B95A9' }}>{goalWeight} pound</span> goal weight.
           </p>
         </div>
       </div>
@@ -152,7 +152,7 @@ export default function WmAnimatedWeightChartStep({
         <button
           onClick={handleContinue}
           className="w-full flex items-center justify-center gap-3 py-4 px-8 text-white font-medium rounded-full"
-          style={{ backgroundColor: 'var(--intake-primary, #0C2631)' }}
+          style={{ backgroundColor: '#0C2631' }}
         >
           Next <span className="text-lg">&rarr;</span>
         </button>

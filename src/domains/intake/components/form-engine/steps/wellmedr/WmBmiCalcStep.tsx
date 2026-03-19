@@ -37,7 +37,7 @@ export default function WmBmiCalcStep({
     router.push(`${basePath}/${nextStep}`);
   };
 
-  const inputStyle = {
+  const inputStyle: React.CSSProperties = {
     width: '100%',
     height: '64px',
     padding: '0 1.5rem',
@@ -48,19 +48,28 @@ export default function WmBmiCalcStep({
     border: '1px solid rgba(53, 28, 12, 0.12)',
     borderRadius: '20px',
     outline: 'none',
-  } as const;
+  };
 
-  const selectStyle = {
+  const selectStyle: React.CSSProperties = {
     ...inputStyle,
-    appearance: 'none' as const,
+    appearance: 'none',
     paddingRight: '3rem',
     cursor: 'pointer',
   };
 
+  const handleFocus = (e: React.FocusEvent<HTMLSelectElement | HTMLInputElement>) => {
+    e.target.style.borderColor = '#c3b29e';
+    e.target.style.boxShadow = '0 0 0 2px rgba(195,178,158,0.3)';
+  };
+  const handleBlur = (e: React.FocusEvent<HTMLSelectElement | HTMLInputElement>) => {
+    e.target.style.borderColor = 'rgba(53,28,12,0.12)';
+    e.target.style.boxShadow = 'none';
+  };
+
   return (
     <div className="min-h-screen flex flex-col" style={{ backgroundColor: '#F7F7F9' }}>
-      <div className="w-full h-1 bg-gray-100">
-        <div className="h-full transition-all duration-300" style={{ width: `${progressPercent}%`, backgroundColor: '#7B95A9' }} />
+      <div className="w-full h-1" style={{ backgroundColor: '#e5e0d8' }}>
+        <div className="h-full transition-all duration-300" style={{ width: `${progressPercent}%`, backgroundColor: '#c3b29e' }} />
       </div>
 
       <div className="flex-1 flex flex-col items-center px-6 lg:px-8 pt-8 pb-6 max-w-2xl mx-auto w-full">
@@ -78,18 +87,15 @@ export default function WmBmiCalcStep({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-sm font-bold mb-1.5" style={{ color: '#101010' }}>
-                Feet <span style={{ color: '#7B95A9' }}>*</span>
+                Feet <span style={{ color: '#c3b29e' }}>*</span>
               </label>
               <div className="relative">
-                <select
-                  value={feet}
-                  onChange={(e) => setFeet(e.target.value)}
-                  style={selectStyle}
-                  onFocus={(e) => { e.target.style.borderColor = '#7B95A9'; e.target.style.boxShadow = '0 0 0 2px rgba(123,149,169,0.2)'; }}
-                  onBlur={(e) => { e.target.style.borderColor = 'rgba(53,28,12,0.12)'; e.target.style.boxShadow = 'none'; }}
-                >
-                  <option value="">5</option>
-                  {[4, 5, 6, 7].map((f) => <option key={f} value={f}>{f}</option>)}
+                <select value={feet} onChange={(e) => setFeet(e.target.value)} style={selectStyle} onFocus={handleFocus} onBlur={handleBlur}>
+                  <option value="" disabled>Select</option>
+                  <option value="4">4</option>
+                  <option value="5">5</option>
+                  <option value="6">6</option>
+                  <option value="7">7</option>
                 </select>
                 <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
                   <svg className="w-4 h-4" style={{ color: '#999' }} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
@@ -99,15 +105,9 @@ export default function WmBmiCalcStep({
             <div>
               <label className="block text-sm font-bold mb-1.5" style={{ color: '#101010' }}>Inches</label>
               <div className="relative">
-                <select
-                  value={inches}
-                  onChange={(e) => setInches(e.target.value)}
-                  style={selectStyle}
-                  onFocus={(e) => { e.target.style.borderColor = '#7B95A9'; e.target.style.boxShadow = '0 0 0 2px rgba(123,149,169,0.2)'; }}
-                  onBlur={(e) => { e.target.style.borderColor = 'rgba(53,28,12,0.12)'; e.target.style.boxShadow = 'none'; }}
-                >
-                  <option value="">4</option>
-                  {Array.from({ length: 12 }, (_, i) => <option key={i} value={i}>{i}</option>)}
+                <select value={inches} onChange={(e) => setInches(e.target.value)} style={selectStyle} onFocus={handleFocus} onBlur={handleBlur}>
+                  <option value="" disabled>Select</option>
+                  {Array.from({ length: 12 }, (_, i) => <option key={i} value={String(i)}>{i}</option>)}
                 </select>
                 <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
                   <svg className="w-4 h-4" style={{ color: '#999' }} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
@@ -118,7 +118,7 @@ export default function WmBmiCalcStep({
 
           <div>
             <label className="block text-sm font-bold mb-1.5" style={{ color: '#101010' }}>
-              Weight (lbs) <span style={{ color: '#7B95A9' }}>*</span>
+              Weight (lbs) <span style={{ color: '#c3b29e' }}>*</span>
             </label>
             <input
               type="text"
@@ -128,8 +128,8 @@ export default function WmBmiCalcStep({
               value={weight}
               onChange={(e) => setWeight(e.target.value.replace(/[^0-9]/g, ''))}
               style={inputStyle}
-              onFocus={(e) => { e.target.style.borderColor = '#7B95A9'; e.target.style.boxShadow = '0 0 0 2px rgba(123,149,169,0.2)'; }}
-              onBlur={(e) => { e.target.style.borderColor = 'rgba(53,28,12,0.12)'; e.target.style.boxShadow = 'none'; }}
+              onFocus={handleFocus}
+              onBlur={handleBlur}
             />
           </div>
         </div>

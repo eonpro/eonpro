@@ -224,12 +224,12 @@ function IntakeStepContent() {
       className={transitionClass}
       style={{
         '--intake-primary': branding?.primaryColor ?? (isWellmedr ? '#0C2631' : '#10b981'),
-        '--intake-accent': branding?.accentColor ?? (isWellmedr ? '#7B95A9' : '#f0feab'),
+        '--intake-accent': isWellmedr ? '#c3b29e' : (branding?.accentColor ?? '#f0feab'),
         '--intake-secondary': branding?.secondaryColor ?? (isWellmedr ? '#F7F7F9' : '#4fa87f'),
         '--intake-text': isWellmedr ? '#0C2631' : '#1f2937',
         '--intake-text-secondary': isWellmedr ? '#7B95A9' : '#6b7280',
         '--intake-border': isWellmedr ? '#e5eaee' : '#e5e7eb',
-        '--intake-selected-bg': isWellmedr ? '#e5eaee' : '#f0feab',
+        '--intake-selected-bg': isWellmedr ? '#f5f0e8' : '#f0feab',
         '--intake-bg': isWellmedr ? '#F7F7F9' : '#ffffff',
       } as React.CSSProperties}
     >

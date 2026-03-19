@@ -47,9 +47,9 @@ export default function WmMotivationRadioStep({
   };
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ backgroundColor: 'var(--intake-bg, #F7F7F9)' }}>
-      <div className="w-full h-1 bg-gray-100">
-        <div className="h-full transition-all duration-300" style={{ width: `${progressPercent}%`, backgroundColor: 'var(--intake-accent, #7B95A9)' }} />
+    <div className="min-h-screen flex flex-col" style={{ backgroundColor: '#F7F7F9' }}>
+      <div className="w-full h-1" style={{ backgroundColor: '#e5e0d8' }}>
+        <div className="h-full transition-all duration-300" style={{ width: `${progressPercent}%`, backgroundColor: '#c3b29e' }} />
       </div>
 
       <div className="flex-1 flex flex-col items-center px-6 lg:px-8 pt-8 pb-6 max-w-2xl mx-auto w-full">
@@ -59,13 +59,13 @@ export default function WmMotivationRadioStep({
         {(headerText || headerItalic) && (
           <h1 className="text-[1.25rem] sm:text-[1.75rem] font-bold text-center leading-tight mb-4" style={{ color: '#101010' }}>
             {headerText}
-            {headerItalic && <>{' '}<span className="font-normal italic" style={{ color: 'var(--intake-accent, #7B95A9)', fontFamily: 'var(--font-bodoni, serif)' }}>{headerItalic}</span></>}
+            {headerItalic && <>{' '}<span className="font-normal italic" style={{ color: '#7B95A9', fontFamily: 'var(--font-bodoni, serif)' }}>{headerItalic}</span></>}
           </h1>
         )}
 
         <h2 className="text-[1.125rem] sm:text-[1.375rem] font-bold text-center mb-6" style={{ color: '#101010' }}>
           {question}
-          <span className="ml-1" style={{ color: 'var(--intake-accent, #7B95A9)' }}>*</span>
+          <span className="ml-1" style={{ color: '#7B95A9' }}>*</span>
         </h2>
 
         <div className="w-full space-y-3">
@@ -79,7 +79,7 @@ export default function WmMotivationRadioStep({
               }}
             >
               <div className="w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0" style={{ borderColor: selected === opt.id ? 'var(--intake-accent, #7B95A9)' : '#d1d5db' }}>
-                {selected === opt.id && <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: 'var(--intake-accent, #7B95A9)' }} />}
+                {selected === opt.id && <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: '#c3b29e' }} />}
               </div>
               <span className="font-medium text-base" style={{ color: '#101010' }}>{opt.label}</span>
             </button>
@@ -92,7 +92,7 @@ export default function WmMotivationRadioStep({
           onClick={handleContinue}
           disabled={!selected}
           className="w-full flex items-center justify-center gap-3 py-4 px-8 text-white font-medium rounded-full transition-all duration-200 disabled:opacity-40"
-          style={{ backgroundColor: 'var(--intake-primary, #0C2631)' }}
+          style={{ backgroundColor: '#0C2631' }}
         >
           Next <span className="text-lg">&rarr;</span>
         </button>
