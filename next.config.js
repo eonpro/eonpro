@@ -120,6 +120,9 @@ const nextConfig = {
       ? { type: 'memory' }
       : { type: 'filesystem' };
 
+    // Resolve /assets imports to public/assets (ported wellmedr-checkout components)
+    config.resolve.alias['/assets'] = path.resolve(__dirname, 'public/assets');
+
     // Handle "node:" built-in imports for different server runtimes.
     if (isServer && nextRuntime === 'edge') {
       // Edge Runtime: node:* modules must NOT appear as externals.
