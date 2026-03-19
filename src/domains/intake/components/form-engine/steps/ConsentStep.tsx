@@ -140,7 +140,7 @@ export default function ConsentStep({
               <button
                 type="button"
                 onClick={() => setAgreed(!agreed)}
-                className={`mt-0.5 flex-shrink-0 w-7 h-7 rounded-lg flex items-center justify-center cursor-pointer transition-all ${
+                className={`mt-0.5 flex-shrink-0 w-6 h-6 rounded flex items-center justify-center cursor-pointer transition-all ${
                   agreed ? 'bg-[#413d3d] border-[#413d3d]' : 'bg-white border-gray-300'
                 }`}
                 style={{ border: agreed ? '2px solid #413d3d' : '2px solid #d1d5db' }}

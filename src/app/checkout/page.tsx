@@ -659,7 +659,7 @@ export function CheckoutInner() {
   // ========================================================================
   if (paymentComplete) {
     return (
-      <div className="mx-auto max-w-lg px-8 sm:px-4 py-16 text-center">
+      <div className="mx-auto max-w-lg px-6 py-16 text-center">
         <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-green-100">
           <svg
             className="h-10 w-10 text-green-600"
@@ -788,7 +788,7 @@ export function CheckoutInner() {
   // Checkout Flow
   // ========================================================================
   return (
-    <div className="mx-auto max-w-2xl px-8 sm:px-4 py-8 pb-24 sm:pb-8">
+    <div className="mx-auto max-w-2xl px-6 py-8 pb-24 sm:pb-8">
       <ExitIntentPopup language={language as 'en' | 'es'} primaryColor={primaryColor} onStay={() => {}} />
       <SocialProofToast language={language as 'en' | 'es'} />
       {showResumeModal && (

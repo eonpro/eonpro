@@ -135,7 +135,7 @@ export default function StateSelectStep({
             >
               <button
                 type="button"
-                className="mt-0.5 flex-shrink-0 w-7 h-7 rounded-lg flex items-center justify-center transition-all border-2 border-gray-300"
+                className="mt-0.5 flex-shrink-0 w-6 h-6 rounded flex items-center justify-center transition-all border-2 border-gray-300"
                 style={{ 
                   backgroundColor: termsAccepted ? '#f0feab' : 'white'
                 }}

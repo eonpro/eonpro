@@ -128,31 +128,8 @@ function IntakeStepContent() {
     [store],
   );
 
-  // Skeleton loading state
   if (loading) {
-    return (
-      <div className="min-h-screen bg-white flex flex-col">
-        <div className="w-full h-1 intake-skeleton" />
-        <div className="flex-1 px-6 lg:px-8 py-8 max-w-[480px] lg:max-w-[560px] mx-auto w-full">
-          <div className="space-y-6">
-            <div className="space-y-3">
-              <div className="intake-skeleton h-10 w-3/4" />
-              <div className="intake-skeleton h-5 w-full" />
-              <div className="intake-skeleton h-5 w-2/3" />
-            </div>
-            <div className="space-y-3 pt-4">
-              <div className="intake-skeleton h-14 w-full" />
-              <div className="intake-skeleton h-14 w-full" />
-              <div className="intake-skeleton h-14 w-full" />
-              <div className="intake-skeleton h-14 w-full" />
-            </div>
-          </div>
-        </div>
-        <div className="px-6 lg:px-8 pb-8 max-w-[480px] lg:max-w-[560px] mx-auto w-full">
-          <div className="intake-skeleton h-14 w-full rounded-full" />
-        </div>
-      </div>
-    );
+    return <div className="min-h-screen bg-white" />;
   }
 
   if (error || !formConfig || !stepConfig) return notFound();
