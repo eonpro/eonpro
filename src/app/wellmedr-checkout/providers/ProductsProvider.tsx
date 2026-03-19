@@ -45,9 +45,7 @@ export function ProductsProvider({
       if (priceId) return priceId;
     }
 
-    // Fallback to hardcoded IDs
-    const { getStripePriceId: getFallbackPriceId } = require('@/data/stripe-price-ids');
-    return getFallbackPriceId(productName, medicationType, planType);
+    return `price_${productName}_${medicationType}_${planType}`;
   };
 
   return (
