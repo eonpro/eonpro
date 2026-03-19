@@ -51,14 +51,14 @@ export default function WmContactInfoStep({
   };
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ backgroundColor: '#F7F7F9' }}>
+    <div className="min-h-[100dvh] flex flex-col" style={{ backgroundColor: '#F7F7F9' }}>
       <div className="w-full h-1" style={{ backgroundColor: '#e5e0d8' }}>
-        <div className="h-full transition-all duration-300" style={{ width: `${progressPercent}%`, backgroundColor: '#c3b29e' }} />
+        <div className="h-full transition-all duration-500 ease-out" style={{ width: `${progressPercent}%`, backgroundColor: '#c3b29e' }} />
       </div>
 
-      <div className="flex-1 flex flex-col items-center px-6 lg:px-8 pt-8 pb-6 max-w-2xl mx-auto w-full">
+      <div className="flex-1 flex flex-col items-center px-6 lg:px-8 pt-8 pb-6 max-w-xl sm:max-w-2xl mx-auto w-full">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/wellmedr-logo.svg" alt="wellmedr." className="h-7 mb-8" />
+        <img src="/wellmedr-logo.svg" alt="wellmedr." className="h-6 sm:h-7 mb-6 sm:mb-8" />
 
         <h2 className="text-[1.25rem] sm:text-[1.5rem] font-bold text-center mb-2" style={{ color: '#101010' }}>
           <span className="italic font-normal" style={{ color: '#7B95A9', fontFamily: 'var(--font-bodoni, serif)' }}>{firstName || 'Friend'}</span>, how can you be reached if necessary?
@@ -100,11 +100,11 @@ export default function WmContactInfoStep({
         </div>
       </div>
 
-      <div className="px-6 lg:px-8 pb-8 max-w-2xl mx-auto w-full">
+      <div className="sticky bottom-0 px-5 sm:px-8 pb-6 pt-3 max-w-xl sm:max-w-2xl mx-auto w-full">
         <button
           onClick={handleContinue}
           disabled={!consent}
-          className="w-full flex items-center justify-center gap-3 py-4 px-8 text-white font-medium rounded-full transition-all disabled:opacity-40"
+          className="w-full flex items-center justify-center gap-3 py-4 text-white font-medium text-base rounded-full active:scale-[0.98] transition-all disabled:opacity-40"
           style={{ backgroundColor: '#0C2631' }}
         >
           Next <span className="text-lg">&rarr;</span>

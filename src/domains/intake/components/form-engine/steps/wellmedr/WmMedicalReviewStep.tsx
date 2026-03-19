@@ -58,14 +58,14 @@ export default function WmMedicalReviewStep({
   ];
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ backgroundColor: '#F7F7F9' }}>
+    <div className="min-h-[100dvh] flex flex-col" style={{ backgroundColor: '#F7F7F9' }}>
       <div className="w-full h-1" style={{ backgroundColor: '#e5e0d8' }}>
-        <div className="h-full transition-all duration-300" style={{ width: `${progressPercent}%`, backgroundColor: '#c3b29e' }} />
+        <div className="h-full transition-all duration-500 ease-out" style={{ width: `${progressPercent}%`, backgroundColor: '#c3b29e' }} />
       </div>
 
-      <div className="flex-1 flex flex-col items-center px-6 lg:px-8 pt-8 pb-6 max-w-2xl mx-auto w-full">
+      <div className="flex-1 flex flex-col items-center px-6 lg:px-8 pt-8 pb-6 max-w-xl sm:max-w-2xl mx-auto w-full">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/wellmedr-logo.svg" alt="wellmedr." className="h-7 mb-8" />
+        <img src="/wellmedr-logo.svg" alt="wellmedr." className="h-6 sm:h-7 mb-6 sm:mb-8" />
 
         <h2 className="text-[1.5rem] sm:text-[1.75rem] font-bold text-center mb-4" style={{ color: '#101010' }}>Your medical review</h2>
 
@@ -110,10 +110,10 @@ export default function WmMedicalReviewStep({
         <p className="text-sm text-center" style={{ color: '#666' }}>Your information is never shared and is protected by HIPAA.</p>
       </div>
 
-      <div className="px-6 lg:px-8 pb-8 max-w-2xl mx-auto w-full">
+      <div className="sticky bottom-0 px-5 sm:px-8 pb-6 pt-3 max-w-xl sm:max-w-2xl mx-auto w-full">
         <button
           onClick={handleContinue}
-          className="w-full flex items-center justify-center gap-3 py-4 px-8 text-white font-medium rounded-full"
+          className="w-full flex items-center justify-center gap-3 py-4 text-white font-medium text-base rounded-full active:scale-[0.98]"
           style={{ backgroundColor: '#0C2631' }}
         >
           Next <span className="text-lg">&rarr;</span>

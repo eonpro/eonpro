@@ -36,14 +36,14 @@ export default function WmCongratsStep({
   };
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ backgroundColor: '#F7F7F9' }}>
+    <div className="min-h-[100dvh] flex flex-col" style={{ backgroundColor: '#F7F7F9' }}>
       <div className="w-full h-1" style={{ backgroundColor: '#e5e0d8' }}>
-        <div className="h-full transition-all duration-300" style={{ width: `${progressPercent}%`, backgroundColor: '#c3b29e' }} />
+        <div className="h-full transition-all duration-500 ease-out" style={{ width: `${progressPercent}%`, backgroundColor: '#c3b29e' }} />
       </div>
 
-      <div className="flex flex-col items-center px-6 lg:px-8 pt-8 pb-6 max-w-2xl mx-auto w-full">
+      <div className="flex flex-col items-center px-6 lg:px-8 pt-8 pb-6 max-w-xl sm:max-w-2xl mx-auto w-full">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/wellmedr-logo.svg" alt="wellmedr." className="h-7 mb-8" />
+        <img src="/wellmedr-logo.svg" alt="wellmedr." className="h-6 sm:h-7 mb-6 sm:mb-8" />
 
         <h1 className="text-[2rem] sm:text-[2.5rem] font-bold text-left w-full mb-2">
           <span style={{ color: '#c5a55a' }}>Congrats,</span>{' '}
@@ -153,10 +153,10 @@ export default function WmCongratsStep({
         <p className="text-center text-sm mb-2 font-bold">Program structure and care process verified. Individual results may vary.</p>
       </div>
 
-      <div className="px-6 lg:px-8 pb-8 max-w-2xl mx-auto w-full">
+      <div className="sticky bottom-0 px-5 sm:px-8 pb-6 pt-3 max-w-xl sm:max-w-2xl mx-auto w-full">
         <button
           onClick={handleContinue}
-          className="w-full flex items-center justify-center gap-3 py-4 px-8 text-white font-medium rounded-full text-lg"
+          className="w-full flex items-center justify-center gap-3 py-4 text-white font-medium text-base rounded-full active:scale-[0.98] text-lg"
           style={{ backgroundColor: '#0C2631' }}
         >
           Continue to Checkout

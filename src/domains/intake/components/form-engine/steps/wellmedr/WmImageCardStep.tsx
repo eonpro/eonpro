@@ -51,8 +51,7 @@ export default function WmImageCardStep({
   const handleSelect = (id: string) => {
     if (mode === 'multi') {
       const arr = Array.isArray(selected) ? selected : [];
-      const next = arr.includes(id) ? arr.filter((v) => v !== id) : [...arr, id];
-      setSelected(next);
+      setSelected(arr.includes(id) ? arr.filter((v) => v !== id) : [...arr, id]);
     } else {
       setSelected(id);
     }
@@ -68,64 +67,60 @@ export default function WmImageCardStep({
   };
 
   const isSelected = (id: string) =>
-    mode === 'multi'
-      ? Array.isArray(selected) && selected.includes(id)
-      : selected === id;
-
-  const gridCols = columns === 3 ? 'grid-cols-3' : 'grid-cols-2';
+    mode === 'multi' ? Array.isArray(selected) && selected.includes(id) : selected === id;
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ backgroundColor: '#F7F7F9' }}>
+    <div className="min-h-[100dvh] flex flex-col" style={{ backgroundColor: '#F7F7F9' }}>
       <div className="w-full h-1" style={{ backgroundColor: '#e5e0d8' }}>
-        <div className="h-full transition-all duration-300" style={{ width: `${progressPercent}%`, backgroundColor: '#c3b29e' }} />
+        <div className="h-full transition-all duration-500 ease-out" style={{ width: `${progressPercent}%`, backgroundColor: '#c3b29e' }} />
       </div>
 
-      <div className="flex-1 flex flex-col items-center px-6 lg:px-8 pt-8 pb-6 max-w-2xl mx-auto w-full">
+      <div className="flex-1 flex flex-col items-center px-5 sm:px-8 pt-6 sm:pt-8 pb-4 max-w-xl sm:max-w-2xl mx-auto w-full">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/wellmedr-logo.svg" alt="wellmedr." className="h-7 mb-8" />
+        <img src="/wellmedr-logo.svg" alt="wellmedr." className="h-6 sm:h-7 mb-6 sm:mb-8" />
 
         {(headerText || headerItalic) && (
-          <h1 className="text-[1.5rem] sm:text-[2rem] font-bold text-center leading-tight mb-4" style={{ color: '#101010' }}>
+          <h1 className="text-xl sm:text-[2rem] font-bold text-center leading-snug mb-3 sm:mb-4 px-2" style={{ color: '#101010' }}>
             {headerItalic && <span className="font-normal italic" style={{ color: '#7B95A9', fontFamily: 'var(--font-bodoni, serif)' }}>{headerItalic} </span>}
             {headerText}
           </h1>
         )}
 
-        <h2 className="text-[1.25rem] sm:text-[1.5rem] font-bold text-center mb-2" style={{ color: '#101010' }}>
+        <h2 className="text-lg sm:text-[1.5rem] font-bold text-center mb-1 sm:mb-2" style={{ color: '#101010' }}>
           {question}
-          <span className="ml-1" style={{ color: '#7B95A9' }}>*</span>
+          <span className="ml-1" style={{ color: '#c3b29e' }}>*</span>
         </h2>
 
         {subtitle && (
-          <p className="text-center text-sm sm:text-base mb-6" style={{ color: '#555' }}>{subtitle}</p>
+          <p className="text-center text-[13px] sm:text-base mb-4 sm:mb-6 px-4" style={{ color: '#666' }}>{subtitle}</p>
         )}
 
-        <div className={`grid ${gridCols} gap-3 sm:gap-4 w-full mt-4`}>
+        <div className={`grid ${columns === 3 ? 'grid-cols-2 sm:grid-cols-3' : 'grid-cols-2'} gap-3 w-full mt-2 sm:mt-4`}>
           {cards.map((card) => (
             <button
               key={card.id}
               onClick={() => handleSelect(card.id)}
-              className="relative flex flex-col items-center justify-center p-4 sm:p-6 rounded-2xl border-2 transition-all duration-200 bg-white hover:shadow-md"
+              className="relative flex flex-col items-center justify-center min-h-[80px] sm:min-h-[100px] p-4 sm:p-6 rounded-2xl border-2 transition-all duration-200 bg-white active:scale-[0.97]"
               style={{
-                borderColor: isSelected(card.id) ? '#c3b29e' : '#e5e7eb',
-                boxShadow: isSelected(card.id) ? '0 0 0 1px #c3b29e' : undefined,
+                borderColor: isSelected(card.id) ? '#c3b29e' : '#e8e8e8',
+                boxShadow: isSelected(card.id) ? '0 0 0 1px #c3b29e' : '0 1px 3px rgba(0,0,0,0.04)',
               }}
             >
-              <div className="absolute top-3 right-3 w-5 h-5 rounded-full border-2 flex items-center justify-center" style={{ borderColor: isSelected(card.id) ? '#c3b29e' : '#d1d5db' }}>
+              <div className="absolute top-2.5 right-2.5 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors" style={{ borderColor: isSelected(card.id) ? '#c3b29e' : '#d1d5db' }}>
                 {isSelected(card.id) && <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: '#c3b29e' }} />}
               </div>
-              <span className="font-medium text-sm sm:text-base text-center" style={{ color: '#101010' }}>{card.label}</span>
-              {card.subtitle && <span className="text-xs sm:text-sm text-center mt-0.5" style={{ color: '#888' }}>{card.subtitle}</span>}
+              <span className="font-medium text-[13px] sm:text-base text-center leading-tight" style={{ color: '#101010' }}>{card.label}</span>
+              {card.subtitle && <span className="text-[11px] sm:text-sm text-center mt-0.5" style={{ color: '#999' }}>{card.subtitle}</span>}
             </button>
           ))}
         </div>
       </div>
 
-      <div className="px-6 lg:px-8 pb-8 max-w-2xl mx-auto w-full">
+      <div className="sticky bottom-0 px-5 sm:px-8 pb-6 pt-3 max-w-xl sm:max-w-2xl mx-auto w-full" style={{ backgroundColor: '#F7F7F9' }}>
         <button
           onClick={handleContinue}
           disabled={mode === 'single' ? !selected : (!Array.isArray(selected) || selected.length === 0)}
-          className="w-full flex items-center justify-center gap-3 py-4 px-8 text-white font-medium rounded-full transition-all duration-200 disabled:opacity-40"
+          className="w-full flex items-center justify-center gap-2.5 py-4 text-white font-medium text-base rounded-full transition-all duration-200 disabled:opacity-30 active:scale-[0.98]"
           style={{ backgroundColor: '#0C2631' }}
         >
           Next <span className="text-lg">&rarr;</span>
