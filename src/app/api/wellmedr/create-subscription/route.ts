@@ -1,0 +1,167 @@
+import { NextRequest, NextResponse } from 'next/server';
+import Stripe from 'stripe';
+import { createOrder } from '@/app/wellmedr-checkout/lib/order-store';
+
+const RATE_LIMIT_WINDOW = 60 * 1000;
+const RATE_LIMIT_MAX = process.env.NODE_ENV === 'production' ? 5 : 100;
+const requestCounts = new Map<string, { count: number; resetAt: number }>();
+
+function getStripeInstance(): Stripe {
+  const key = process.env.WELLMEDR_STRIPE_SECRET_KEY
+    || process.env.EONMEDS_STRIPE_SECRET_KEY
+    || process.env.STRIPE_SECRET_KEY;
+  if (!key) throw new Error('Stripe secret key not configured');
+  return new Stripe(key, { apiVersion: '2025-02-24.acacia' as Stripe.LatestApiVersion });
+}
+
+function getPaymentConfigId(): string | undefined {
+  return process.env.WELLMEDR_STRIPE_PAYMENT_CONFIG_ID
+    || process.env.STRIPE_PAYMENT_CONFIG_ID;
+}
+
+export async function POST(req: NextRequest) {
+  const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+  const now = Date.now();
+  const entry = requestCounts.get(ip);
+  if (entry && now < entry.resetAt) {
+    entry.count++;
+    if (entry.count > RATE_LIMIT_MAX) {
+      return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
+    }
+  } else {
+    requestCounts.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW });
+  }
+
+  try {
+    const body = await req.json();
+    const {
+      priceId, customerEmail, customerName, cardholderName,
+      shippingAddress, billingAddress, submissionId,
+      productName, medicationType, planType, promotionCodeId,
+    } = body;
+
+    if (!priceId || !customerEmail) {
+      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+    }
+
+    const stripe = getStripeInstance();
+
+    const customers = await stripe.customers.list({ email: customerEmail, limit: 1 });
+    let customer: Stripe.Customer;
+
+    const shippingData = shippingAddress ? {
+      name: `${shippingAddress.firstName} ${shippingAddress.lastName}`,
+      address: {
+        line1: shippingAddress.address,
+        line2: shippingAddress.apt || '',
+        city: shippingAddress.city,
+        state: shippingAddress.state,
+        postal_code: shippingAddress.zipCode,
+        country: 'US',
+      },
+    } : undefined;
+
+    if (customers.data.length > 0) {
+      customer = await stripe.customers.update(customers.data[0].id, {
+        name: customerName,
+        ...(shippingData ? { shipping: shippingData } : {}),
+        metadata: { submissionId, productName, medicationType, planType },
+      }) as Stripe.Customer;
+    } else {
+      customer = await stripe.customers.create({
+        email: customerEmail,
+        name: customerName,
+        ...(shippingData ? { shipping: shippingData } : {}),
+        metadata: { submissionId, productName, medicationType, planType },
+      });
+    }
+
+    const subscriptionParams: Stripe.SubscriptionCreateParams = {
+      customer: customer.id,
+      items: [{ price: priceId }],
+      payment_behavior: 'default_incomplete',
+      payment_settings: {
+        save_default_payment_method: 'on_subscription',
+        ...(getPaymentConfigId() ? { payment_method_configuration: getPaymentConfigId() } : {}),
+      },
+      metadata: {
+        submissionId,
+        productName,
+        medicationType,
+        planType,
+        cardholderName: cardholderName || customerName,
+        shippingAddress: JSON.stringify(shippingAddress),
+        billingAddress: JSON.stringify(billingAddress),
+      },
+      expand: ['latest_invoice'],
+    };
+
+    if (promotionCodeId) {
+      subscriptionParams.discounts = [{ promotion_code: promotionCodeId }];
+    }
+
+    const subscription = await stripe.subscriptions.create(subscriptionParams);
+
+    let clientSecret: string | null = null;
+
+    if (subscription.status === 'active') {
+      createOrder({
+        submissionId,
+        subscriptionId: subscription.id,
+        customerId: customer.id,
+        customerEmail,
+        productName, medicationType, planType,
+        priceId,
+        amount: 0,
+        shippingAddress: shippingAddress || {},
+        billingAddress: billingAddress || {},
+      }).catch(() => {});
+
+      return NextResponse.json({
+        success: true,
+        subscriptionId: subscription.id,
+        customerId: customer.id,
+        clientSecret: null,
+        status: subscription.status,
+      });
+    }
+
+    const latestInvoice = subscription.latest_invoice as Stripe.Invoice;
+    if (latestInvoice?.id) {
+      const invoicePayments = await stripe.invoicePayments.list({ invoice: latestInvoice.id, limit: 1 });
+      if (invoicePayments.data.length > 0) {
+        const paymentRecord = invoicePayments.data[0];
+        if (paymentRecord.payment?.type === 'payment_intent') {
+          const piId = (paymentRecord.payment as { type: 'payment_intent'; payment_intent: string }).payment_intent;
+          const pi = await stripe.paymentIntents.retrieve(piId);
+          clientSecret = pi.client_secret;
+        }
+      }
+    }
+
+    const amount = latestInvoice?.amount_due ? latestInvoice.amount_due / 100 : 0;
+
+    createOrder({
+      submissionId,
+      subscriptionId: subscription.id,
+      customerId: customer.id,
+      customerEmail,
+      productName, medicationType, planType,
+      priceId,
+      amount,
+      shippingAddress: shippingAddress || {},
+      billingAddress: billingAddress || {},
+    }).catch(() => {});
+
+    return NextResponse.json({
+      subscriptionId: subscription.id,
+      customerId: customer.id,
+      clientSecret,
+      status: subscription.status,
+    });
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : 'Internal error';
+    console.error('[wellmedr/create-subscription]', msg);
+    return NextResponse.json({ error: msg }, { status: 500 });
+  }
+}

@@ -1,0 +1,99 @@
+import { StateAbbreviation } from '@/app/wellmedr-checkout/lib/states';
+import { StaticImageData } from 'next/image';
+
+// Product Types
+export type ProductNameType = 'semaglutide' | 'tirzepatide';
+export type MedicationType = 'injections' | 'tablets';
+
+type PricingTier = {
+  monthlyPrice: number;
+  quarterlyPrice: number;
+  sixMonthPrice?: number;
+  annualPrice?: number;
+  image: string | StaticImageData;
+  noBgImage: string | StaticImageData;
+  rotatedImage: string | StaticImageData;
+};
+
+export type Pricing = {
+  injections: PricingTier;
+  tablets: PricingTier;
+};
+
+export type ProductType = {
+  pricing: Pricing;
+  badgeText: string;
+  additionalFeatures?: string[];
+};
+
+export type SelectedProductType = {
+  name: ProductNameType;
+  medicationType: MedicationType;
+};
+
+export type PlanOptions = string;
+
+export type Plan = {
+  id: PlanOptions;
+  plan_type: 'quarterly' | 'monthly' | 'sixMonth' | 'annual';
+  title: string;
+  totalPayToday: number;
+  monthlyPrice: number;
+  originalPrice?: number;
+  savings?: number;
+};
+
+// Address Types
+export type ShippingAddress = {
+  firstName: string;
+  lastName: string;
+  address: string;
+  apt?: string;
+  city: string;
+  state: StateAbbreviation | '';
+  zipCode: string;
+  billingAddressSameAsShipment: boolean;
+};
+
+export type BillingAddress = {
+  firstName: string;
+  lastName: string;
+  address: string;
+  apt?: string;
+  city: string;
+  state: StateAbbreviation | '';
+  zipCode: string;
+};
+
+// Checkout Form Data
+export type CheckoutFormData = {
+  // Product & Plan
+  selectedProduct: SelectedProductType | null;
+  selectedPlan: PlanOptions;
+  planDetails: Plan | null;
+
+  // Addresses
+  shippingAddress: ShippingAddress;
+  billingAddress: BillingAddress;
+
+  // Payment
+  cardholderName: string;
+
+  // Promo Code
+  promoCode?: string;
+  promotionCodeId?: string;
+  discountPercentage?: number;
+  discountAmount?: number;
+
+  // Patient Data (optional, from Fillout)
+  weight?: number;
+  goalWeight?: number;
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  state?: string;
+  bmi?: number;
+  dateOfBirth?: string;
+  sex?: string;
+  formTarget?: string;
+};

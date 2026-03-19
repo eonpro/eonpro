@@ -140,7 +140,29 @@ function IntakeStepContent() {
     : (clinicSlug === 'ot' || clinicSlug === 'otmens') ? 'otmens'
     : 'eonmeds';
 
-  if (stepId === 'intro') {
+  if (stepId === 'wellmedr-checkout-redirect') {
+    const sessionId = store.getState().sessionId || crypto.randomUUID();
+    const r = responses;
+    const params = new URLSearchParams({
+      uid: sessionId,
+      ...(r.firstName ? { firstName: String(r.firstName) } : {}),
+      ...(r.lastName ? { lastName: String(r.lastName) } : {}),
+      ...(r.email ? { email: String(r.email) } : {}),
+      ...(r.state ? { state: String(r.state) } : {}),
+      ...(r.sex ? { sex: String(r.sex) } : {}),
+      ...(r.current_weight ? { weight: String(r.current_weight) } : {}),
+      ...(r.ideal_weight ? { goalWeight: String(r.ideal_weight) } : {}),
+      ...(r.height_feet ? { heightFeet: String(r.height_feet) } : {}),
+      ...(r.height_inches ? { heightInches: String(r.height_inches) } : {}),
+      ...(r.dob ? { dob: String(r.dob) } : {}),
+    });
+    if (typeof window !== 'undefined') {
+      window.location.href = `/wellmedr-checkout?${params.toString()}`;
+    }
+    return <div className="min-h-screen bg-white flex items-center justify-center"><div className="w-12 h-12 border-4 border-[#7b95a9] border-t-transparent rounded-full animate-spin" /></div>;
+  }
+
+  if (stepId === 'intro' && intakeBrand !== 'wellmedr') {
     return (
       <div className={transitionClass}>
         <IntakeLandingStep
@@ -182,6 +204,8 @@ function IntakeStepContent() {
     );
   }
 
+  const isWellmedr = intakeBrand === 'wellmedr';
+
   const logoElement = branding?.logo ? (
     <div className="px-6 lg:px-8 pt-4 max-w-[480px] lg:max-w-[560px] mx-auto w-full">
       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -193,12 +217,13 @@ function IntakeStepContent() {
     <div
       className={transitionClass}
       style={{
-        '--intake-primary': branding?.primaryColor ?? '#10b981',
-        '--intake-accent': branding?.accentColor ?? '#f0feab',
-        '--intake-secondary': branding?.secondaryColor ?? '#4fa87f',
-        '--intake-text': '#1f2937',
-        '--intake-text-secondary': '#6b7280',
-        '--intake-border': '#e5e7eb',
+        '--intake-primary': branding?.primaryColor ?? (isWellmedr ? '#0C2631' : '#10b981'),
+        '--intake-accent': branding?.accentColor ?? (isWellmedr ? '#7B95A9' : '#f0feab'),
+        '--intake-secondary': branding?.secondaryColor ?? (isWellmedr ? '#F7F7F9' : '#4fa87f'),
+        '--intake-text': isWellmedr ? '#0C2631' : '#1f2937',
+        '--intake-text-secondary': isWellmedr ? '#7B95A9' : '#6b7280',
+        '--intake-border': isWellmedr ? '#e5eaee' : '#e5e7eb',
+        '--intake-bg': isWellmedr ? '#F7F7F9' : '#ffffff',
       } as React.CSSProperties}
     >
       <FormStep

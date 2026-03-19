@@ -1,0 +1,223 @@
+:root {
+  --wm-background: #f7f7f9;
+  --wm-foreground: #101010;
+  --wm-foreground-muted: rgba(16, 16, 16, 0.12);
+  --wm-primary: #7b95a9;
+  --wm-primary-dark: #0c2631;
+  --wm-primary-light: #e5eaee;
+  --wm-secondary: #41362a;
+  --wm-secondary-light: #c3b29e;
+  --wm-success: #5ebd92;
+  --wm-border: #d6d6d6;
+
+  --wm-rainbow-1: #41362a;
+  --wm-rainbow-2: #6a5b4b;
+  --wm-rainbow-3: #8f7e6a;
+  --wm-rainbow-4: #c3b29e;
+
+  --wm-gradient-rainbow: linear-gradient(
+    90deg,
+    var(--wm-rainbow-1) 0%,
+    var(--wm-rainbow-2) 33%,
+    var(--wm-rainbow-3) 66%,
+    var(--wm-rainbow-4) 100%
+  );
+
+  --wm-gradient-rainbow-to-b: linear-gradient(
+    to bottom,
+    var(--wm-rainbow-1) 0%,
+    var(--wm-rainbow-2) 33%,
+    var(--wm-rainbow-3) 66%,
+    var(--wm-rainbow-4) 100%
+  );
+
+  --wm-radius-smooth: 20px;
+  --wm-radius-smoother: 30px;
+  --wm-radius-smoothest: 36px;
+}
+
+.wellmedr-checkout {
+  background: var(--wm-background);
+  color: var(--wm-foreground);
+  font-family: var(--font-outfit, 'Outfit'), sans-serif;
+}
+
+.wellmedr-checkout h1,
+.wellmedr-checkout h2,
+.wellmedr-checkout h3,
+.wellmedr-checkout .title {
+  font-size: 1.25rem;
+  font-weight: 500;
+  line-height: 30px;
+}
+
+@media (min-width: 640px) {
+  .wellmedr-checkout h1,
+  .wellmedr-checkout h2,
+  .wellmedr-checkout h3,
+  .wellmedr-checkout .title {
+    font-size: 2rem;
+    line-height: 40px;
+  }
+}
+
+.wellmedr-checkout h1,
+.wellmedr-checkout h2 {
+  letter-spacing: -0.02em;
+}
+
+.wellmedr-checkout p,
+.wellmedr-checkout .label,
+.wellmedr-checkout label {
+  font-size: 1rem;
+  line-height: 26px;
+  letter-spacing: -0.01em;
+}
+
+@media (min-width: 640px) {
+  .wellmedr-checkout p,
+  .wellmedr-checkout .label,
+  .wellmedr-checkout label {
+    font-size: 1.25rem;
+    line-height: 24px;
+  }
+
+  .wellmedr-checkout .form-label {
+    font-size: 1.125rem;
+    line-height: 24px;
+  }
+}
+
+.wellmedr-checkout label,
+.wellmedr-checkout .form-label {
+  font-weight: 500;
+}
+
+.wellmedr-checkout .form-input {
+  position: relative;
+  width: 100%;
+  height: 64px;
+  padding-left: 2rem;
+  padding-right: 2rem;
+  padding-top: 0.75rem;
+  padding-bottom: 0.75rem;
+  border: 1px solid rgba(53, 28, 12, 12%);
+  background-color: white;
+  border-radius: var(--wm-radius-smooth);
+  font-weight: 500;
+}
+
+.wellmedr-checkout .form-input:focus {
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+  border-color: var(--wm-primary);
+  box-shadow: 0 0 0 2px var(--wm-primary);
+}
+
+@media (min-width: 640px) {
+  .wellmedr-checkout .form-input {
+    height: 72px;
+  }
+}
+
+.wellmedr-checkout .form-input::placeholder {
+  opacity: 0.3;
+  color: var(--wm-foreground);
+  font-weight: 400;
+}
+
+.wellmedr-checkout .card {
+  width: 100%;
+  overflow: hidden;
+  background-color: white;
+  border-radius: var(--wm-radius-smooth);
+  padding: 1.5rem;
+  border: 1px solid var(--wm-border);
+}
+
+@media (min-width: 640px) {
+  .wellmedr-checkout .card {
+    padding: 2rem;
+  }
+}
+
+.wellmedr-checkout .card-title {
+  font-size: 1.5rem;
+}
+
+.wellmedr-checkout .checkout-title {
+  font-size: 1.5rem;
+  line-height: 32px;
+}
+
+@media (min-width: 640px) {
+  .wellmedr-checkout .checkout-title {
+    font-size: 2rem;
+    line-height: 40px;
+  }
+}
+
+.wellmedr-checkout .italic-primary {
+  font-style: italic;
+  color: var(--wm-primary);
+  font-family: var(--font-bodoni, serif);
+}
+
+.wellmedr-checkout .description-text {
+  font-size: 0.75rem;
+  line-height: 20px;
+  letter-spacing: -0.01em;
+  font-weight: 500;
+  color: var(--wm-foreground);
+  opacity: 0.3;
+}
+
+@media (min-width: 640px) {
+  .wellmedr-checkout .description-text {
+    font-size: 1rem;
+  }
+}
+
+.wellmedr-checkout .bg-rainbow {
+  background: var(--wm-gradient-rainbow);
+}
+
+.wellmedr-checkout .bg-rainbow-to-b {
+  background: var(--wm-gradient-rainbow-to-b);
+}
+
+.wellmedr-checkout .rounded-smooth {
+  border-radius: var(--wm-radius-smooth);
+}
+
+.wellmedr-checkout .rounded-smoother {
+  border-radius: var(--wm-radius-smoother);
+}
+
+.wellmedr-checkout .rounded-smoothest {
+  border-radius: var(--wm-radius-smoothest);
+}
+
+.wellmedr-checkout .text-primary {
+  color: var(--wm-primary);
+}
+
+.wellmedr-checkout .text-secondary {
+  color: var(--wm-secondary);
+}
+
+.wellmedr-checkout .text-foreground {
+  color: var(--wm-foreground);
+}
+
+.wellmedr-checkout .bg-primary {
+  background-color: var(--wm-primary);
+}
+
+.wellmedr-checkout .border-primary {
+  border-color: var(--wm-primary);
+}
+
+.wellmedr-checkout .border-border {
+  border-color: var(--wm-border);
+}

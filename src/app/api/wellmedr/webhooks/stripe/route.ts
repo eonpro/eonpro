@@ -1,0 +1,114 @@
+import { NextRequest, NextResponse } from 'next/server';
+import Stripe from 'stripe';
+import {
+  findOrderBySubscriptionId,
+  findOrderByCustomerId,
+  updateOrderPaymentStatus,
+  updateOrderSubscriptionStatus,
+  updateOrderStatus,
+  updateOrderPaymentDetails,
+} from '@/app/wellmedr-checkout/lib/order-store';
+
+function getStripeInstance(): Stripe {
+  const key = process.env.WELLMEDR_STRIPE_SECRET_KEY
+    || process.env.EONMEDS_STRIPE_SECRET_KEY
+    || process.env.STRIPE_SECRET_KEY;
+  if (!key) throw new Error('Stripe secret key not configured');
+  return new Stripe(key, { apiVersion: '2025-02-24.acacia' as Stripe.LatestApiVersion });
+}
+
+function getWebhookSecret(): string {
+  return process.env.WELLMEDR_STRIPE_WEBHOOK_SECRET
+    || process.env.STRIPE_WEBHOOK_SECRET
+    || '';
+}
+
+export async function POST(req: NextRequest) {
+  const body = await req.text();
+  const sig = req.headers.get('stripe-signature');
+
+  if (!sig) {
+    return NextResponse.json({ error: 'Missing signature' }, { status: 400 });
+  }
+
+  const stripe = getStripeInstance();
+  let event: Stripe.Event;
+
+  try {
+    event = stripe.webhooks.constructEvent(body, sig, getWebhookSecret());
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Webhook verification failed';
+    console.error('[wellmedr/webhooks/stripe]', msg);
+    return NextResponse.json({ error: msg }, { status: 400 });
+  }
+
+  try {
+    switch (event.type) {
+      case 'invoice.payment_succeeded': {
+        const invoice = event.data.object as Stripe.Invoice;
+        const subscriptionId = typeof invoice.subscription === 'string' ? invoice.subscription : invoice.subscription?.id;
+        if (subscriptionId) {
+          const order = await findOrderBySubscriptionId(subscriptionId);
+          if (order) await updateOrderPaymentStatus(order.id, 'succeeded');
+        }
+        break;
+      }
+      case 'invoice.payment_failed': {
+        const invoice = event.data.object as Stripe.Invoice;
+        const subscriptionId = typeof invoice.subscription === 'string' ? invoice.subscription : invoice.subscription?.id;
+        if (subscriptionId) {
+          const order = await findOrderBySubscriptionId(subscriptionId);
+          if (order) await updateOrderPaymentStatus(order.id, 'failed');
+        }
+        break;
+      }
+      case 'customer.subscription.updated': {
+        const subscription = event.data.object as Stripe.Subscription;
+        const order = await findOrderBySubscriptionId(subscription.id);
+        if (order) {
+          const status = subscription.status === 'active' ? 'succeeded' : subscription.status === 'past_due' ? 'failed' : subscription.status;
+          await updateOrderSubscriptionStatus(order.id, status);
+        }
+        break;
+      }
+      case 'customer.subscription.deleted': {
+        const subscription = event.data.object as Stripe.Subscription;
+        const order = await findOrderBySubscriptionId(subscription.id);
+        if (order) await updateOrderStatus(order.id, 'cancelled');
+        break;
+      }
+      case 'payment_intent.succeeded': {
+        const pi = event.data.object as Stripe.PaymentIntent;
+        const customerId = typeof pi.customer === 'string' ? pi.customer : pi.customer?.id;
+        if (customerId) {
+          const order = await findOrderByCustomerId(customerId);
+          if (order) {
+            await updateOrderPaymentStatus(order.id, 'succeeded');
+            if (pi.payment_method) {
+              const pm = await stripe.paymentMethods.retrieve(typeof pi.payment_method === 'string' ? pi.payment_method : pi.payment_method.id);
+              await updateOrderPaymentDetails(order.id, {
+                paymentMethodType: pm.type,
+                cardBrand: pm.card?.brand,
+                cardLast4: pm.card?.last4,
+              });
+            }
+          }
+        }
+        break;
+      }
+      case 'payment_intent.payment_failed': {
+        const pi = event.data.object as Stripe.PaymentIntent;
+        const customerId = typeof pi.customer === 'string' ? pi.customer : pi.customer?.id;
+        if (customerId) {
+          const order = await findOrderByCustomerId(customerId);
+          if (order) await updateOrderPaymentStatus(order.id, 'failed');
+        }
+        break;
+      }
+    }
+  } catch (error) {
+    console.error('[wellmedr/webhooks/stripe] Processing error:', error);
+  }
+
+  return NextResponse.json({ received: true });
+}

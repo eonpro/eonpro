@@ -159,7 +159,7 @@ body.intake-body {
   font-size: 1.0625rem;
   font-weight: 500;
   color: white;
-  background: linear-gradient(135deg, #1f2937 0%, #111827 100%);
+  background: var(--intake-primary, linear-gradient(135deg, #1f2937 0%, #111827 100%));
   border: none;
   border-radius: 9999px;
   cursor: pointer;

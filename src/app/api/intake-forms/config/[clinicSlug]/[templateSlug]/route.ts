@@ -120,13 +120,20 @@ export async function GET(_req: NextRequest, { params }: RouteParams) {
         const settings = clinic.settings as Record<string, unknown> | null;
         const portalSettings = settings?.patientPortal as Record<string, unknown> | null;
 
-        const branding: FormBranding = {
-          logo: (portalSettings?.logoUrl as string) ?? undefined,
-          primaryColor: (portalSettings?.primaryColor as string) ?? '#413d3d',
-          accentColor: (portalSettings?.accentColor as string) ?? '#f0feab',
-          secondaryColor: (portalSettings?.secondaryColor as string) ?? '#4fa87f',
-          ...(dbFormConfig?.branding ?? {}),
-        };
+        const branding: FormBranding = isWellmedr
+          ? {
+              logo: wellmedrIntakeConfig.branding?.logo ?? '/wellmedr-logo.svg',
+              primaryColor: '#0C2631',
+              accentColor: '#7B95A9',
+              secondaryColor: '#F7F7F9',
+            }
+          : {
+              logo: (portalSettings?.logoUrl as string) ?? undefined,
+              primaryColor: (portalSettings?.primaryColor as string) ?? '#413d3d',
+              accentColor: (portalSettings?.accentColor as string) ?? '#f0feab',
+              secondaryColor: (portalSettings?.secondaryColor as string) ?? '#4fa87f',
+              ...(dbFormConfig?.branding ?? {}),
+            };
 
         return NextResponse.json({
           config: formConfig,
@@ -145,10 +152,10 @@ export async function GET(_req: NextRequest, { params }: RouteParams) {
           : isOtFallback ? otMensIntakeConfig : weightLossIntakeConfig;
         const branding: FormBranding = isWellmedrFallback
           ? {
-              logo: wellmedrIntakeConfig.branding?.logo ?? undefined,
-              primaryColor: '#7b95a9',
-              accentColor: '#c3b29e',
-              secondaryColor: '#41362a',
+              logo: wellmedrIntakeConfig.branding?.logo ?? '/wellmedr-logo.svg',
+              primaryColor: '#0C2631',
+              accentColor: '#7B95A9',
+              secondaryColor: '#F7F7F9',
             }
           : isOtFallback
           ? {

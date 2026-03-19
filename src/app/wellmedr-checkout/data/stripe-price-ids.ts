@@ -1,0 +1,62 @@
+import { ProductNameType, MedicationType } from '@/app/wellmedr-checkout/types/checkout';
+
+// Fallback Stripe Price IDs (test mode)
+// These are used if dynamic Stripe fetching fails
+// Production IDs are fetched dynamically via stripe-server.ts
+const STRIPE_PRICE_IDS: Record<
+  ProductNameType,
+  Record<MedicationType, Record<string, string>>
+> = {
+  semaglutide: {
+    injections: {
+      monthly: 'price_1StAGYDfH4PWyxxdePAervoq',
+      quarterly: 'price_1StAGXDfH4PWyxxdiDPj5YCT',
+      sixMonth: 'price_1StAIqDfH4PWyxxdpKvzMVhV',
+    },
+    tablets: {
+      monthly: 'price_1StAIVDfH4PWyxxdiKKHocUW',
+      quarterly: 'price_1StAIUDfH4PWyxxdBr3ZAK50',
+      sixMonth: 'price_1StAITDfH4PWyxxd0kpTnor1',
+    },
+  },
+  tirzepatide: {
+    injections: {
+      monthly: 'price_1StAGdDfH4PWyxxdguJ3dcVa',
+      quarterly: 'price_1StAGbDfH4PWyxxdYqbwetNF',
+      sixMonth: 'price_1StAGaDfH4PWyxxdSvHqicEH',
+    },
+    tablets: {
+      monthly: 'price_1StAGSDfH4PWyxxdcq4U4LIn',
+      quarterly: 'price_1StAGQDfH4PWyxxdwUgpcciy',
+      sixMonth: 'price_1StAGODfH4PWyxxduoLJXLd0',
+    },
+  },
+};
+
+export const getStripePriceId = (
+  productName: ProductNameType,
+  medicationType: MedicationType,
+  planType: 'monthly' | 'quarterly' | 'sixMonth',
+): string => {
+  const product = STRIPE_PRICE_IDS[productName];
+  if (!product) {
+    console.warn(`Product not found for stripe price id: ${productName}`);
+    return '';
+  }
+
+  const type = product[medicationType];
+  if (!type) {
+    console.warn(
+      `Medication type not found for stripe price id: ${medicationType}`,
+    );
+    return '';
+  }
+
+  const priceId = type[planType];
+  if (!priceId) {
+    console.warn(`Plan type not found for stripe price id: ${planType}`);
+    return '';
+  }
+
+  return priceId;
+};
