@@ -35,6 +35,10 @@ import {
   MedicalTeamStep,
   PersonalizedTreatmentStep,
   TreatmentBenefitsStep,
+  HealthImprovementsStep,
+  ReferralSourceStep,
+  ReferralNameStep,
+  BookAppointmentStep,
 } from './steps';
 import {
   OptionButton,
@@ -367,6 +371,14 @@ export default function FormStep({
         return <PersonalizedTreatmentStep {...customProps} />;
       case 'TreatmentBenefitsStep':
         return <TreatmentBenefitsStep {...customProps} />;
+      case 'HealthImprovementsStep':
+        return <HealthImprovementsStep {...customProps} />;
+      case 'ReferralSourceStep':
+        return <ReferralSourceStep {...customProps} />;
+      case 'ReferralNameStep':
+        return <ReferralNameStep {...customProps} />;
+      case 'BookAppointmentStep':
+        return <BookAppointmentStep {...customProps} />;
       case 'CheckoutStep':
         return null;
     }

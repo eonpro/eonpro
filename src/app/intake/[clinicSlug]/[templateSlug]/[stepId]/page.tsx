@@ -4,6 +4,8 @@ import { useParams, useRouter, notFound } from 'next/navigation';
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { FormStep } from '@/domains/intake/components/form-engine';
 import IntakeLandingStep from '@/domains/intake/components/IntakeLandingStep';
+import type { IntakeBrand } from '@/domains/intake/components/IntakeLandingStep';
+import { BookAppointmentStep } from '@/domains/intake/components/form-engine/steps';
 import { CheckoutInner } from '@/app/checkout/page';
 import { useIntakeStore } from '@/domains/intake/store/intakeStore';
 import { LanguageProvider, useLanguage } from '@/domains/intake/contexts/LanguageContext';
@@ -134,14 +136,37 @@ function IntakeStepContent() {
 
   if (error || !formConfig || !stepConfig) return notFound();
 
+  const intakeBrand: IntakeBrand = (clinicSlug === 'ot' || clinicSlug === 'otmens') ? 'otmens' : 'eonmeds';
+
   if (stepId === 'intro') {
     return (
       <div className={transitionClass}>
         <IntakeLandingStep
           branding={branding}
+          brand={intakeBrand}
           language={language}
           onLanguageChange={setLanguage}
           onStart={() => handleNavigate('goals')}
+        />
+      </div>
+    );
+  }
+
+  if (stepId === 'book-appointment') {
+    return (
+      <div
+        className={transitionClass}
+        style={{
+          '--intake-primary': branding?.primaryColor ?? '#413d3d',
+          '--intake-accent': branding?.accentColor ?? '#cab172',
+          '--intake-secondary': branding?.secondaryColor ?? '#f5ecd8',
+        } as React.CSSProperties}
+      >
+        <BookAppointmentStep
+          basePath={basePath}
+          nextStep=""
+          prevStep={stepConfig?.prevStep ?? 'qualified'}
+          progressPercent={100}
         />
       </div>
     );

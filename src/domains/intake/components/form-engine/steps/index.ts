@@ -24,3 +24,7 @@ export { default as GLP1DataStep } from './GLP1DataStep';
 export { default as MedicalTeamStep } from './MedicalTeamStep';
 export { default as PersonalizedTreatmentStep } from './PersonalizedTreatmentStep';
 export { default as TreatmentBenefitsStep } from './TreatmentBenefitsStep';
+export { default as HealthImprovementsStep } from './HealthImprovementsStep';
+export { default as ReferralSourceStep } from './ReferralSourceStep';
+export { default as ReferralNameStep } from './ReferralNameStep';
+export { default as BookAppointmentStep } from './BookAppointmentStep';

@@ -41,7 +41,7 @@ export default function BMIResultStep({
   const isSpanish = language === 'es';
   
   const responses = useIntakeStore((state) => state.responses);
-  const { markStepCompleted, setCurrentStep } = useIntakeActions();
+  const { markStepCompleted, setCurrentStep, setResponse } = useIntakeActions();
   
   const [bmi, setBmi] = useState(0);
   const [goalBMI, setGoalBMI] = useState(0);
@@ -72,14 +72,16 @@ export default function BMIResultStep({
   useEffect(() => {
     if (currentWeight && totalInches) {
       const calculatedBMI = (currentWeight / (totalInches * totalInches)) * 703;
-      setBmi(Math.round(calculatedBMI * 100) / 100);
+      const rounded = Math.round(calculatedBMI * 100) / 100;
+      setBmi(rounded);
+      setResponse('bmi', rounded.toFixed(2));
       
       if (idealWeight && totalInches) {
         const calculatedGoalBMI = (idealWeight / (totalInches * totalInches)) * 703;
         setGoalBMI(Math.round(calculatedGoalBMI * 100) / 100);
       }
     }
-  }, [currentWeight, idealWeight, totalInches]);
+  }, [currentWeight, idealWeight, totalInches, setResponse]);
 
   const handleContinue = () => {
     markStepCompleted('bmi-result');

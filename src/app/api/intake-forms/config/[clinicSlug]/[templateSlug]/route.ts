@@ -12,6 +12,7 @@ import { logger } from '@/lib/logger';
 import { handleApiError } from '@/domains/shared/errors';
 import type { FormConfig, FormBranding } from '@/domains/intake/types/form-engine';
 import { weightLossIntakeConfig } from '@/domains/intake/templates/weight-loss-intake';
+import { otMensIntakeConfig } from '@/domains/intake/templates/ot-mens-intake';
 
 interface RouteParams {
   params: Promise<{ clinicSlug: string; templateSlug: string }>;
@@ -78,7 +79,11 @@ export async function GET(_req: NextRequest, { params }: RouteParams) {
         templateSlug === 'weight-loss' ||
         template.treatmentType === 'weight-loss';
 
-      const formConfig = isWeightLoss
+      const isOtMens = isWeightLoss && (clinicSlug === 'ot' || clinicSlug === 'otmens');
+
+      const formConfig = isOtMens
+        ? { ...otMensIntakeConfig, id: `template-${template.id}` }
+        : isWeightLoss
         ? { ...weightLossIntakeConfig, id: `template-${template.id}` }
         : dbFormConfig;
 
@@ -104,14 +109,23 @@ export async function GET(_req: NextRequest, { params }: RouteParams) {
       if (templateSlug === 'weight-loss') {
         const settings = clinic.settings as Record<string, unknown> | null;
         const portalSettings = settings?.patientPortal as Record<string, unknown> | null;
-        const branding: FormBranding = {
-          logo: (portalSettings?.logoUrl as string) ?? undefined,
-          primaryColor: (portalSettings?.primaryColor as string) ?? '#413d3d',
-          accentColor: (portalSettings?.accentColor as string) ?? '#f0feab',
-          secondaryColor: (portalSettings?.secondaryColor as string) ?? '#4fa87f',
-        };
+        const isOtFallback = clinicSlug === 'ot' || clinicSlug === 'otmens';
+        const fallbackConfig = isOtFallback ? otMensIntakeConfig : weightLossIntakeConfig;
+        const branding: FormBranding = isOtFallback
+          ? {
+              logo: otMensIntakeConfig.branding?.logo ?? undefined,
+              primaryColor: '#413d3d',
+              accentColor: '#cab172',
+              secondaryColor: '#f5ecd8',
+            }
+          : {
+              logo: (portalSettings?.logoUrl as string) ?? undefined,
+              primaryColor: (portalSettings?.primaryColor as string) ?? '#413d3d',
+              accentColor: (portalSettings?.accentColor as string) ?? '#f0feab',
+              secondaryColor: (portalSettings?.secondaryColor as string) ?? '#4fa87f',
+            };
         return NextResponse.json({
-          config: { ...weightLossIntakeConfig, id: `template-${template.id}` },
+          config: { ...fallbackConfig, id: `template-${template.id}` },
           branding,
           clinicName: clinic.name,
         });
