@@ -59,7 +59,32 @@ export async function GET(_req: NextRequest, { params }: RouteParams) {
         },
       });
 
+      // No DB template — fall back to hardcoded TS configs for known clinic/template combos
       if (candidates.length === 0) {
+        const isOtNoDb = clinicSlug === 'ot' || clinicSlug === 'otmens';
+        if (templateSlug === 'weight-loss') {
+          const fallback = isOtNoDb ? otMensIntakeConfig : weightLossIntakeConfig;
+          const settings = clinic.settings as Record<string, unknown> | null;
+          const portalSettings = settings?.patientPortal as Record<string, unknown> | null;
+          const branding: FormBranding = isOtNoDb
+            ? {
+                logo: otMensIntakeConfig.branding?.logo ?? undefined,
+                primaryColor: '#413d3d',
+                accentColor: '#cab172',
+                secondaryColor: '#f5ecd8',
+              }
+            : {
+                logo: (portalSettings?.logoUrl as string) ?? undefined,
+                primaryColor: (portalSettings?.primaryColor as string) ?? '#413d3d',
+                accentColor: (portalSettings?.accentColor as string) ?? '#f0feab',
+                secondaryColor: (portalSettings?.secondaryColor as string) ?? '#4fa87f',
+              };
+          return NextResponse.json({
+            config: { ...fallback, id: `clinic-${clinic.id}-weight-loss` },
+            branding,
+            clinicName: clinic.name,
+          });
+        }
         return NextResponse.json({ error: 'Template not found' }, { status: 404 });
       }
 

@@ -1140,7 +1140,7 @@ export default async function PatientDetailPage({
                       <p
                         className={`text-lg font-bold md:text-2xl ${vitals.weight ? weightColor.text : 'text-gray-900'}`}
                       >
-                        {vitals.weight ? `${vitals.weight}lbs` : '—'}
+                        {vitals.weight ? (vitals.weight.toLowerCase().includes('lb') ? vitals.weight : `${vitals.weight} lbs`) : '—'}
                       </p>
                       <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-gray-300 md:mt-3 md:h-2">
                         <div

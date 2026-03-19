@@ -137,27 +137,48 @@ export function extractVitalsFromIntake(
     return null;
   };
 
-  const heightFeet = findValue('height (feet)', 'height feet', 'heightfeet');
-  const heightInches = findValue('height (inches)', 'height inches', 'heightinches');
-  if (heightFeet) {
-    result.height = heightInches ? `${heightFeet}'${heightInches}"` : `${heightFeet}'0"`;
+  // Height — try composed "5'8"" first, then feet/inches separately
+  const composedHeight = findValue('height');
+  if (composedHeight && composedHeight.includes("'")) {
+    result.height = composedHeight;
   } else {
-    result.height = findValue('height');
+    const heightFeet = findValue('height (feet)', 'height feet', 'heightfeet');
+    const heightInches = findValue('height (inches)', 'height inches', 'heightinches');
+    if (heightFeet) {
+      const ft = heightFeet.replace(/[^0-9]/g, '');
+      const inches = heightInches ? heightInches.replace(/[^0-9]/g, '') : '0';
+      result.height = `${ft}'${inches}"`;
+    } else if (composedHeight) {
+      result.height = composedHeight;
+    }
   }
 
-  result.weight = findValue('starting weight', 'current weight', 'weight');
+  // Weight — strip "lbs" suffix for clean number display
+  const rawWeight = findValue('starting weight', 'current weight', 'weight');
+  if (rawWeight) {
+    result.weight = rawWeight.replace(/\s*lbs?\s*$/i, '').trim();
+  }
 
+  // BMI — use stored value or calculate from height/weight
   let bmiValue = findValue('bmi');
+  if (bmiValue) {
+    bmiValue = bmiValue.replace(/[^0-9.]/g, '');
+  }
   if (!bmiValue && result.height && result.weight) {
     const calculated = calculateBMI(result.height, result.weight);
     if (calculated) bmiValue = calculated.toFixed(2);
   }
   result.bmi = bmiValue;
 
+  // Blood pressure
   const bp = findValue('blood pressure', 'bloodpressure');
-  result.bloodPressure = bp && bp.toLowerCase() !== 'unknown' ? bp : null;
+  result.bloodPressure = bp && bp.toLowerCase() !== 'unknown' && bp.toLowerCase() !== 'unknown / not sure' ? bp : null;
 
-  result.idealWeight = findValue('ideal weight', 'goal weight', 'target weight');
+  // Ideal weight — strip "lbs" suffix
+  const rawIdeal = findValue('ideal weight', 'goal weight', 'target weight');
+  if (rawIdeal) {
+    result.idealWeight = rawIdeal.replace(/\s*lbs?\s*$/i, '').trim();
+  }
 
   return result;
 }

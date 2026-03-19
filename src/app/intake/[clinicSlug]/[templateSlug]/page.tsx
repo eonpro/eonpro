@@ -35,6 +35,8 @@ export default async function IntakeLandingPage({ params }: Props) {
     );
   }
 
+  const isOt = clinicSlug === 'ot' || clinicSlug === 'otmens';
+
   const startStep = await runWithClinicContext(clinic.id, async () => {
     const candidates = await prisma.intakeFormTemplate.findMany({
       where: {
@@ -46,7 +48,13 @@ export default async function IntakeLandingPage({ params }: Props) {
       take: 20,
     });
 
-    if (candidates.length === 0) return null;
+    // No DB template — fall back to hardcoded TS configs for known clinic/template combos
+    if (candidates.length === 0) {
+      if (templateSlug === 'weight-loss') {
+        return isOt ? otMensIntakeConfig.startStep : weightLossIntakeConfig.startStep;
+      }
+      return null;
+    }
 
     const template = candidates.find((t) => {
       const meta = t.metadata as Record<string, unknown> | null;
@@ -54,12 +62,10 @@ export default async function IntakeLandingPage({ params }: Props) {
       return !!cfg?.startStep && Array.isArray(cfg?.steps) && cfg.steps.length > 0;
     }) ?? candidates[0];
 
-    // For weight-loss, always use the canonical TypeScript config (DB may have stale startStep)
     if (
       templateSlug === 'weight-loss' ||
       template.treatmentType === 'weight-loss'
     ) {
-      const isOt = clinicSlug === 'ot' || clinicSlug === 'otmens';
       return isOt ? otMensIntakeConfig.startStep : weightLossIntakeConfig.startStep;
     }
 
