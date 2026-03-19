@@ -109,7 +109,7 @@ const postHandler = withAuthParams(
       });
     }
   },
-  { roles: ['super_admin', 'admin', 'provider', 'staff'] }
+  { roles: ['super_admin', 'admin', 'provider', 'staff', 'sales_rep'] }
 );
 
 export const POST = postHandler;
