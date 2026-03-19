@@ -11,7 +11,7 @@ interface BookAppointmentStepProps {
   progressPercent: number;
 }
 
-const BOOKING_URL = 'https://calendly.com/otmens';
+const BOOKING_URL = 'https://api.leadconnectorhq.com/widget/bookings/overtime-mens-health-initial-c';
 
 const T = {
   title: { en: 'You\'re all set!', es: '¡Todo listo!' },

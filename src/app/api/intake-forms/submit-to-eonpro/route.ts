@@ -13,6 +13,7 @@ import type { NormalizedIntake, NormalizedPatient, IntakeSection, IntakeEntry } 
  */
 
 const EONMEDS_SUBDOMAIN = 'eonmeds';
+const WELLMEDR_SUBDOMAIN = 'wellmedr';
 
 // ============================================================================
 // Field labels for the intake document display
@@ -75,6 +76,9 @@ const FIELD_LABELS: Record<string, string> = {
   dosage_interest: 'Personalized Dosage Interest',
   alcohol_consumption: 'Alcohol Intake',
   common_side_effects: 'Side Effect Concerns',
+  referral_source: 'Referral Source',
+  referrer_name: 'Referrer Name',
+  health_improvements: 'Health Improvement Interests',
   ipAddress: 'IP Address',
   userAgent: 'Device/Browser',
 };
@@ -128,8 +132,41 @@ const VALUE_TRANSLATIONS: Record<string, Record<string, string>> = {
     low: 'Low blood pressure',
     high: 'High blood pressure (hypertension)',
     controlled: 'High blood pressure, controlled with medication',
+    elevated: 'Elevated blood pressure',
+    high_stage1: 'High blood pressure — Stage 1',
+    high_stage2: 'High blood pressure — Stage 2',
+    crisis: 'Hypertensive crisis',
     unknown: 'Unknown / not sure',
     not_sure: 'Unknown / not sure',
+  },
+  mental_health_conditions: {
+    none: 'None',
+    depression: 'Depression',
+    bipolar: 'Bipolar disorder',
+    bpd: 'Borderline personality disorder (BPD)',
+    panic: 'Panic disorder / anxiety',
+    schizophrenia: 'Schizophrenia',
+    psychosis: 'Psychosis',
+  },
+  digestive_conditions: {
+    none: 'None',
+    ibs: 'Irritable bowel syndrome (IBS)',
+    celiac: 'Celiac disease',
+    constipation: 'Chronic constipation',
+    heartburn: 'Chronic heartburn / GERD',
+    gastroparesis: 'Gastroparesis',
+    ulcer: 'Stomach ulcer',
+    crohns: 'Crohn\'s disease',
+    colitis: 'Ulcerative colitis',
+    diverticulitis: 'Diverticulitis',
+  },
+  surgery_types: {
+    none: 'No previous bariatric surgery',
+    gastric_bypass: 'Gastric bypass',
+    duodenal_switch: 'Duodenal switch',
+    lap_band: 'Lap band',
+    gastric_sleeve: 'Gastric sleeve',
+    intestinal_surgery: 'Intestinal surgery',
   },
   glp1_history: {
     currently_taking: 'Currently taking a GLP-1 medication',
@@ -144,17 +181,43 @@ const VALUE_TRANSLATIONS: Record<string, Record<string, string>> = {
     oral_glp1: 'Oral GLP-1 (Rybelsus)',
     other: 'Other GLP-1 medication',
   },
+  semaglutide_side_effects: {
+    none: 'No side effects experienced',
+    nausea: 'Nausea',
+    vomiting: 'Vomiting',
+    diarrhea: 'Diarrhea',
+    constipation: 'Constipation',
+    headache: 'Headache',
+    fatigue: 'Fatigue',
+    abdominal_pain: 'Abdominal pain',
+    appetite_decrease: 'Decreased appetite',
+    dizziness: 'Dizziness',
+  },
+  tirzepatide_side_effects: {
+    none: 'No side effects experienced',
+    nausea: 'Nausea',
+    vomiting: 'Vomiting',
+    diarrhea: 'Diarrhea',
+    constipation: 'Constipation',
+    headache: 'Headache',
+    fatigue: 'Fatigue',
+    abdominal_pain: 'Abdominal pain',
+    appetite_decrease: 'Decreased appetite',
+    dizziness: 'Dizziness',
+  },
   semaglutide_success: {
     very_successful: 'Very successful — achieved significant weight loss',
     somewhat_successful: 'Somewhat successful — lost some weight',
     not_successful: 'Not successful — minimal or no weight loss',
     hard_to_stay_consistent: 'Hard to stay consistent with treatment',
+    hard_consistency: 'Hard to stay consistent with treatment',
   },
   tirzepatide_success: {
     very_successful: 'Very successful — achieved significant weight loss',
     somewhat_successful: 'Somewhat successful — lost some weight',
     not_successful: 'Not successful — minimal or no weight loss',
     hard_to_stay_consistent: 'Hard to stay consistent with treatment',
+    hard_consistency: 'Hard to stay consistent with treatment',
   },
   dosage_satisfaction: {
     increase: 'I would like to increase my dosage',
@@ -168,15 +231,59 @@ const VALUE_TRANSLATIONS: Record<string, Record<string, string>> = {
   },
   alcohol_consumption: {
     none: 'I don\'t drink alcohol',
+    never: 'I don\'t drink alcohol',
     rarely: 'Rarely (a few times a month)',
+    few_times_year: 'Rarely (a few times a year)',
+    few_times_month: 'Occasionally (a few times a month)',
     moderate: 'Moderately (a few times a week)',
+    few_times_week: 'Moderately (a few times a week)',
     heavy: 'Frequently (daily or almost daily)',
+    daily: 'Daily or almost daily',
     social: 'Socially (only on occasions)',
   },
   common_side_effects: {
     yes: 'Yes, I am concerned about potential side effects',
     no: 'No, I am not concerned about side effects',
     not_sure: 'I\'d like more information about side effects',
+    gastrointestinal: 'Gastrointestinal issues',
+    abdominal_pain: 'Abdominal pain',
+    appetite_decrease: 'Decreased appetite',
+    fatigue: 'Fatigue',
+    dizziness: 'Dizziness',
+    headache: 'Headache',
+    nausea: 'Nausea',
+    none: 'No concerns about side effects',
+  },
+  recreational_drugs: {
+    none: 'None',
+    cocaine: 'Cocaine',
+    kratom: 'Kratom',
+    opiates: 'Opiates',
+    meth: 'Methamphetamine',
+    cannabis: 'Cannabis / marijuana',
+  },
+  weight_loss_methods: {
+    none: 'No previous weight loss attempts',
+    diet: 'Diet changes',
+    exercise: 'Exercise program',
+    supplements: 'Weight loss supplements',
+    programs: 'Structured weight loss programs',
+    surgery: 'Bariatric surgery',
+    medication: 'Prescription weight loss medication',
+  },
+  weight_loss_support: {
+    nutrition: 'Nutritional guidance',
+    meals: 'Meal planning support',
+    digital: 'Digital health tools / app tracking',
+    dosage: 'Personalized dosage management',
+    community: 'Community support group',
+    other: 'Other',
+  },
+  semaglutide_dosage: {
+    oral: 'Oral semaglutide',
+  },
+  tirzepatide_dosage: {
+    oral: 'Oral tirzepatide',
   },
   contact_consent: {
     true: 'Yes, I consent to being contacted',
@@ -265,7 +372,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { responses, submissionType, qualified } = body;
+    const { responses, submissionType, qualified, clinicSlug } = body;
 
     if (!responses || typeof responses !== 'object') {
       logger.warn(`[submit-to-eonpro ${requestId}] Missing responses`);
@@ -283,12 +390,15 @@ export async function POST(req: NextRequest) {
       || 'unknown';
     const userAgent = req.headers.get('user-agent') || 'unknown';
 
-    // Resolve clinic
+    // Resolve clinic — support WellMedR and other clinic slugs
+    const targetSubdomain = clinicSlug === 'wellmedr' ? WELLMEDR_SUBDOMAIN : EONMEDS_SUBDOMAIN;
+    const targetName = clinicSlug === 'wellmedr' ? 'WELLMEDR' : 'EONMEDS';
+
     const clinic = await basePrisma.clinic.findFirst({
       where: {
         OR: [
-          { subdomain: EONMEDS_SUBDOMAIN },
-          { name: { contains: 'EONMEDS', mode: 'insensitive' } },
+          { subdomain: targetSubdomain },
+          { name: { contains: targetName, mode: 'insensitive' } },
         ],
       },
       select: { id: true, name: true },
@@ -397,7 +507,14 @@ export async function POST(req: NextRequest) {
         title: 'Lifestyle',
         entries: answers.filter((a) =>
           ['recreational_drugs', 'weight_loss_methods', 'weight_loss_support',
-           'dosage_interest', 'alcohol_consumption', 'common_side_effects', 'goals'].includes(a.id)
+           'dosage_interest', 'alcohol_consumption', 'common_side_effects', 'goals',
+           'health_improvements'].includes(a.id)
+        ),
+      },
+      {
+        title: 'Referral',
+        entries: answers.filter((a) =>
+          ['referral_source', 'referrer_name'].includes(a.id)
         ),
       },
       {
@@ -426,13 +543,15 @@ export async function POST(req: NextRequest) {
 
     const processor = new IntakeProcessor({ source: 'eonpro', requestId });
 
+    const clinicTag = clinicSlug === 'wellmedr' ? 'wellmedr' : 'eonmeds';
+
     const result = await runWithClinicContext(clinic.id, () =>
       processor.process(normalized, {
         clinicId: clinic.id,
-        clinicSubdomain: EONMEDS_SUBDOMAIN,
+        clinicSubdomain: targetSubdomain,
         isPartialSubmission: submissionType === 'partial',
         generateSoapNote: submissionType !== 'partial',
-        tags: ['weightlossintake', 'eonmeds', 'glp1', 'complete-intake', 'native-form'],
+        tags: ['weightlossintake', clinicTag, 'glp1', 'complete-intake', 'native-form'],
       })
     );
 

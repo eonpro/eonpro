@@ -54,11 +54,14 @@ async function handleGet(req: NextRequest): Promise<Response> {
 
   try {
     return await withoutClinicFilter(async () => {
+      const clinicIdNum = clinicIdParam ? parseInt(clinicIdParam, 10) : null;
+      const salesRepIdNum = salesRepIdParam ? parseInt(salesRepIdParam, 10) : null;
+
       const where: Record<string, any> = {
         occurredAt: { gte: startDate, lte: endDate },
       };
-      if (clinicIdParam) where.clinicId = parseInt(clinicIdParam, 10);
-      if (salesRepIdParam) where.salesRepId = parseInt(salesRepIdParam, 10);
+      if (clinicIdNum && !Number.isNaN(clinicIdNum)) where.clinicId = clinicIdNum;
+      if (salesRepIdNum && !Number.isNaN(salesRepIdNum)) where.salesRepId = salesRepIdNum;
       if (statusFilter && statusFilter !== 'ALL') {
         where.status = statusFilter;
       } else if (!statusFilter) {
@@ -74,7 +77,7 @@ async function handleGet(req: NextRequest): Promise<Response> {
         },
       });
 
-      type EventRow = (typeof events)[number];
+      type EventRow = typeof events[number];
 
       // Calculate weeks in the reporting period for base pay proration
       const periodMs = endDate.getTime() - startDate.getTime();
@@ -82,38 +85,60 @@ async function handleGet(req: NextRequest): Promise<Response> {
 
       // ---------------------------------------------------------------
       // Salary sources: EmployeeSalary (primary) + SalesRepPlanAssignment (legacy fallback)
+      // Both queries are wrapped defensively so the report still works
+      // if a migration hasn't been applied yet.
       // ---------------------------------------------------------------
-      const employeeSalaryWhere: Record<string, any> = {
-        isActive: true,
-        effectiveFrom: { lte: endDate },
-        OR: [{ effectiveTo: null }, { effectiveTo: { gte: startDate } }],
-      };
-      if (clinicIdParam) employeeSalaryWhere.clinicId = parseInt(clinicIdParam, 10);
-      if (salesRepIdParam) employeeSalaryWhere.userId = parseInt(salesRepIdParam, 10);
+      let employeeSalaries: Array<{
+        userId: number; weeklyBasePayCents: number; hourlyRateCents: number | null;
+        clinicId: number; user: { id: number; firstName: string; lastName: string; email: string; role: string } | null;
+        clinic: { id: number; name: string } | null;
+      }> = [];
+      try {
+        const employeeSalaryWhere: Record<string, any> = {
+          isActive: true,
+          effectiveFrom: { lte: endDate },
+          OR: [{ effectiveTo: null }, { effectiveTo: { gte: startDate } }],
+        };
+        if (clinicIdNum) employeeSalaryWhere.clinicId = clinicIdNum;
+        if (salesRepIdNum) employeeSalaryWhere.userId = salesRepIdNum;
 
-      const employeeSalaries = await prisma.employeeSalary.findMany({
-        where: employeeSalaryWhere,
-        include: {
-          user: { select: { id: true, firstName: true, lastName: true, email: true, role: true } },
-          clinic: { select: { id: true, name: true } },
-        },
-      });
+        employeeSalaries = await prisma.employeeSalary.findMany({
+          where: employeeSalaryWhere,
+          include: {
+            user: { select: { id: true, firstName: true, lastName: true, email: true, role: true } },
+            clinic: { select: { id: true, name: true } },
+          },
+        });
+      } catch (salaryErr) {
+        logger.warn('[SalesReps] EmployeeSalary query failed — table may not exist yet', {
+          error: salaryErr instanceof Error ? salaryErr.message : 'Unknown',
+        });
+      }
 
       const repIds = [...new Set(events.map((e) => e.salesRepId))];
-      const planAssignments = repIds.length > 0
-        ? await prisma.salesRepPlanAssignment.findMany({
-            where: {
-              salesRepId: { in: repIds },
-              effectiveFrom: { lte: endDate },
-              OR: [{ effectiveTo: null }, { effectiveTo: { gte: startDate } }],
-            },
-            select: {
-              salesRepId: true,
-              weeklyBasePayCents: true,
-              hourlyRateCents: true,
-            },
-          })
-        : [];
+      let planAssignments: Array<{
+        salesRepId: number; weeklyBasePayCents: number | null; hourlyRateCents: number | null;
+      }> = [];
+      try {
+        planAssignments = repIds.length > 0
+          ? await prisma.salesRepPlanAssignment.findMany({
+              where: {
+                salesRepId: { in: repIds },
+                effectiveFrom: { lte: endDate },
+                OR: [{ effectiveTo: null }, { effectiveTo: { gte: startDate } }],
+              },
+              select: {
+                salesRepId: true,
+                weeklyBasePayCents: true,
+                hourlyRateCents: true,
+              },
+            })
+          : [];
+      } catch (planErr) {
+        logger.warn('[SalesReps] PlanAssignment salary query failed — column may not exist yet', {
+          error: planErr instanceof Error ? planErr.message : 'Unknown',
+        });
+      }
 
       // Build combined base pay map: EmployeeSalary takes priority over SalesRepPlanAssignment
       const basePayByUser = new Map<number, {
@@ -278,14 +303,28 @@ async function handleGet(req: NextRequest): Promise<Response> {
         overrideWhere.status = { in: ['PENDING', 'APPROVED', 'PAID'] };
       }
 
-      const overrideEvents = await prisma.salesRepOverrideCommissionEvent.findMany({
-        where: overrideWhere,
-        orderBy: [{ overrideRepId: 'asc' }, { occurredAt: 'asc' }],
-        include: {
-          overrideRep: { select: { id: true, firstName: true, lastName: true, email: true } },
-          clinic: { select: { id: true, name: true } },
-        },
-      });
+      let overrideEvents: Array<{
+        id: number; occurredAt: Date; overrideRepId: number; subordinateRepId: number;
+        clinicId: number; eventAmountCents: number; overridePercentBps: number;
+        commissionAmountCents: number; status: string; stripeEventId: string | null;
+        isManual: boolean; notes: string | null; metadata: any;
+        overrideRep: { id: number; firstName: string; lastName: string; email: string } | null;
+        clinic: { id: number; name: string } | null;
+      }> = [];
+      try {
+        overrideEvents = await prisma.salesRepOverrideCommissionEvent.findMany({
+          where: overrideWhere,
+          orderBy: [{ overrideRepId: 'asc' }, { occurredAt: 'asc' }],
+          include: {
+            overrideRep: { select: { id: true, firstName: true, lastName: true, email: true } },
+            clinic: { select: { id: true, name: true } },
+          },
+        }) as any;
+      } catch (overrideErr) {
+        logger.warn('[SalesReps] Override commission query failed — table may not exist yet', {
+          error: overrideErr instanceof Error ? overrideErr.message : 'Unknown',
+        });
+      }
 
       const overrideRepSummaries = new Map<number, {
         name: string;
@@ -471,8 +510,12 @@ async function handleGet(req: NextRequest): Promise<Response> {
       });
     });
   } catch (error) {
+    const errObj = error instanceof Error ? error : new Error(String(error));
     logger.error('[SalesReps] Payroll report failed', {
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: errObj.message,
+      stack: errObj.stack?.split('\n').slice(0, 5).join(' | '),
+      code: (error as any)?.code,
+      meta: (error as any)?.meta,
     });
     return serverError('Failed to generate payroll report');
   }
@@ -565,8 +608,12 @@ async function handlePatch(req: NextRequest): Promise<Response> {
       });
     });
   } catch (error) {
+    const errObj = error instanceof Error ? error : new Error(String(error));
     logger.error('[SalesReps] Payroll batch update failed', {
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: errObj.message,
+      stack: errObj.stack?.split('\n').slice(0, 5).join(' | '),
+      code: (error as any)?.code,
+      meta: (error as any)?.meta,
     });
     return serverError('Failed to update commission status');
   }

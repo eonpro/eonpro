@@ -3,6 +3,7 @@ import { basePrisma, runWithClinicContext } from '@/lib/db';
 import { prisma } from '@/lib/db';
 import { weightLossIntakeConfig } from '@/domains/intake/templates/weight-loss-intake';
 import { otMensIntakeConfig } from '@/domains/intake/templates/ot-mens-intake';
+import { wellmedrIntakeConfig } from '@/domains/intake/templates/wellmedr-intake';
 import type { FormConfig } from '@/domains/intake/types/form-engine';
 
 interface Props {
@@ -36,6 +37,7 @@ export default async function IntakeLandingPage({ params }: Props) {
   }
 
   const isOt = clinicSlug === 'ot' || clinicSlug === 'otmens';
+  const isWellmedr = clinicSlug === 'wellmedr';
 
   const startStep = await runWithClinicContext(clinic.id, async () => {
     const candidates = await prisma.intakeFormTemplate.findMany({
@@ -51,7 +53,9 @@ export default async function IntakeLandingPage({ params }: Props) {
     // No DB template — fall back to hardcoded TS configs for known clinic/template combos
     if (candidates.length === 0) {
       if (templateSlug === 'weight-loss') {
-        return isOt ? otMensIntakeConfig.startStep : weightLossIntakeConfig.startStep;
+        return isWellmedr ? wellmedrIntakeConfig.startStep
+          : isOt ? otMensIntakeConfig.startStep
+          : weightLossIntakeConfig.startStep;
       }
       return null;
     }
@@ -66,7 +70,9 @@ export default async function IntakeLandingPage({ params }: Props) {
       templateSlug === 'weight-loss' ||
       template.treatmentType === 'weight-loss'
     ) {
-      return isOt ? otMensIntakeConfig.startStep : weightLossIntakeConfig.startStep;
+      return isWellmedr ? wellmedrIntakeConfig.startStep
+        : isOt ? otMensIntakeConfig.startStep
+        : weightLossIntakeConfig.startStep;
     }
 
     const metadata = template.metadata as Record<string, unknown> | null;

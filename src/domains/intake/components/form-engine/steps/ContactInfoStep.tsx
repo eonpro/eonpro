@@ -78,6 +78,8 @@ export default function ContactInfoStep({
     
     setResponse('email', email);
     setResponse('phone', formattedPhone);
+    setResponse('contact_consent', true);
+    setResponse('smsConsentAccepted', new Date().toISOString());
     
     markStepCompleted('contact-info');
     setCurrentStep(nextStep);
@@ -156,7 +158,7 @@ export default function ContactInfoStep({
             <div className="flex items-start gap-4 cursor-pointer" onClick={() => setConsent(!consent)}>
               <button
                 type="button"
-                className="mt-0.5 flex-shrink-0 w-6 h-6 rounded-md flex items-center justify-center transition-all border-2 border-gray-300"
+                className="mt-0.5 flex-shrink-0 w-6 h-6 rounded flex items-center justify-center transition-all border-2 border-gray-300"
                 style={{ backgroundColor: consent ? '#f0feab' : 'white' }}
               >
                 {consent && (

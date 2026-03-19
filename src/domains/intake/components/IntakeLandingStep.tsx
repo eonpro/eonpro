@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import type { FormBranding } from '../types/form-engine';
 
-export type IntakeBrand = 'eonmeds' | 'otmens';
+export type IntakeBrand = 'eonmeds' | 'otmens' | 'wellmedr';
 
 interface BrandAssets {
   logo: string;
@@ -38,6 +38,16 @@ const BRAND_ASSETS: Record<IntakeBrand, BrandAssets> = {
     privacyUrl: 'https://www.otmens.com/privacypolicy',
     brandName: 'Overtime Men\'s Health',
   },
+  wellmedr: {
+    logo: 'https://static.wixstatic.com/shapes/c49a9b_5139736743794db7af38c583595f06fb.svg',
+    lottie: 'https://lottie.host/embed/9c7564a3-b6ee-4e8b-8b5e-14a59b28c515/3Htnjbp08p.lottie',
+    nursePhoto: 'https://static.wixstatic.com/media/c49a9b_3505f05c6c774d748c2e20f178e7c917~mv2.png',
+    patientPhotos: 'https://static.wixstatic.com/media/c49a9b_eb72f3aa74474c7bb2e447a5e852a8f7~mv2.webp',
+    ratingImage: 'https://static.wixstatic.com/shapes/c49a9b_ea75afc771f74c108742b781ab47157d.svg',
+    accentColor: '#7b95a9',
+    privacyUrl: 'https://www.wellmedr.com/privacypolicy',
+    brandName: 'WellMedR',
+  },
 };
 
 interface IntakeLandingStepProps {
@@ -60,8 +70,12 @@ function getBrandContent(brand: IntakeBrand) {
       es: 'Descubre soluciones personalizadas basadas en tus objetivos, hábitos e historial médico.',
     },
     trusted: {
-      en: brand === 'otmens' ? 'Trusted by over 10,000+ patients' : 'Trusted by over 20,000 patients',
-      es: brand === 'otmens' ? 'Confiado por más de 10,000+ pacientes' : 'Confiado por más de 20,000 pacientes',
+      en: brand === 'otmens' ? 'Trusted by over 10,000+ patients'
+        : brand === 'wellmedr' ? 'Trusted by thousands of patients'
+        : 'Trusted by over 20,000 patients',
+      es: brand === 'otmens' ? 'Confiado por más de 10,000+ pacientes'
+        : brand === 'wellmedr' ? 'Confiado por miles de pacientes'
+        : 'Confiado por más de 20,000 pacientes',
     },
     privacy: {
       en: `By clicking "Start", you agree that ${assets.brandName} may use your responses to personalize your experience and for other purposes in accordance with our `,
@@ -105,7 +119,7 @@ export default function IntakeLandingStep({
   return (
     <div className="min-h-screen bg-white flex flex-col">
       {/* Progress bar accent */}
-      <div className="w-full h-1" style={{ backgroundColor: brand === 'otmens' ? '#f5ecd8' : '#f0feab' }} />
+      <div className="w-full h-1" style={{ backgroundColor: brand === 'otmens' ? '#f5ecd8' : brand === 'wellmedr' ? '#e5eaee' : '#f0feab' }} />
 
       {/* Main content */}
       <div className="flex-1 flex flex-col px-6 lg:px-8 pt-8 lg:pt-12 pb-6 max-w-md lg:max-w-2xl mx-auto w-full">

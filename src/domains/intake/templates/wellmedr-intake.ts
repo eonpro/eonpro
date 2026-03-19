@@ -1,11 +1,10 @@
 /**
- * OT Mens Health Intake Form — Ported from eonpro/OTMens-intakes
+ * WellMedR Intake Form — Weight-loss intake for wellmedr.eonpro.io
  *
- * Weight-loss intake for ot.eonpro.io (Overtime Men's Health).
- * Shares most medical steps with the EONMeds weight-loss template but adds
- * OT-specific steps: personalized-treatment-interest, referral-source,
- * referral-name, health-improvements, and ends with a booking link instead
- * of checkout.
+ * Telehealth for Weight Loss, ED & Hormones.
+ * Shares most medical steps with the EONMeds/OT templates but uses
+ * WellMedR branding, consent links, and referral sources.
+ * Ends with checkout (Stripe subscription flow) instead of booking.
  */
 
 import type { FormConfig, FormStep, FieldOption } from '../types/form-engine';
@@ -30,18 +29,33 @@ const heightInchesOptions: FieldOption[] = Array.from({ length: 12 }, (_, i) => 
 }));
 
 const steps: FormStep[] = [
-  // ===== INTRO / LANDING (English only — no language selector for OT) =====
+  // ===== LANGUAGE SELECTION =====
+  {
+    id: 'language',
+    path: 'language',
+    title: { en: 'Choose your language', es: 'Elige tu idioma' },
+    type: 'custom',
+    component: 'LanguageSelectStep',
+    fields: [],
+    autoAdvance: false,
+    showContinueButton: false,
+    nextStep: 'intro',
+    prevStep: null,
+    progressPercent: 0,
+  },
+
+  // ===== INTRO / LANDING =====
   {
     id: 'intro',
     path: 'intro',
-    title: { en: "Let's evaluate your treatment options.", es: "Let's evaluate your treatment options." },
-    subtitle: { en: 'Discover personalized solutions based on your goals, habits, and health history.', es: 'Discover personalized solutions based on your goals, habits, and health history.' },
+    title: { en: "Let's evaluate your treatment options.", es: 'Evaluemos tus opciones de tratamiento.' },
+    subtitle: { en: 'Discover personalized solutions based on your goals, habits, and health history.', es: 'Descubre soluciones personalizadas basadas en tus metas, hábitos e historial de salud.' },
     type: 'info',
     fields: [],
     autoAdvance: false,
     showContinueButton: true,
     nextStep: 'goals',
-    prevStep: null,
+    prevStep: 'language',
     progressPercent: 0,
   },
 
@@ -140,10 +154,10 @@ const steps: FormStep[] = [
     progressPercent: 8,
     props: {
       consentLinks: {
-        terms: 'https://www.otmens.com/termsandconditions',
-        privacy: 'https://www.otmens.com/privacypolicy',
-        telehealth: 'https://www.otmens.com/telehealthconsent',
-        cancellation: 'https://www.otmens.com/cancellationpolicy',
+        terms: 'https://www.wellmedr.com/termsandconditions',
+        privacy: 'https://www.wellmedr.com/privacypolicy',
+        telehealth: 'https://www.wellmedr.com/telehealthconsent',
+        cancellation: 'https://www.wellmedr.com/cancellationpolicy',
       },
     },
   },
@@ -176,8 +190,8 @@ const steps: FormStep[] = [
     progressPercent: 10,
     props: {
       consentLinks: {
-        terms: 'https://www.otmens.com/termsandconditions',
-        privacy: 'https://www.otmens.com/privacypolicy',
+        terms: 'https://www.wellmedr.com/termsandconditions',
+        privacy: 'https://www.wellmedr.com/privacypolicy',
       },
     },
   },
@@ -900,7 +914,7 @@ const steps: FormStep[] = [
     nextStep: 'safety-quality', prevStep: 'glp1-data', progressPercent: 82,
   },
 
-  // ===== SECTION 8: REVIEW & SUBMISSION (OT-specific ending) =====
+  // ===== SECTION 8: REVIEW & SUBMISSION =====
   {
     id: 'safety-quality', path: 'safety-quality',
     title: { en: 'Your safety and quality of care are our top priorities.', es: 'Tu seguridad y calidad de atención son nuestras principales prioridades.' },
@@ -939,10 +953,10 @@ const steps: FormStep[] = [
     nextStep: 'referral-source', prevStep: 'common-side-effects', progressPercent: 88,
   },
 
-  // ===== OT-SPECIFIC: Referral, Health Improvements, Review =====
+  // ===== WELLMEDR-SPECIFIC: Referral, Health Improvements, Review =====
   {
     id: 'referral-source', path: 'referral-source',
-    title: { en: 'How did you hear about Overtime?', es: '¿Cómo escuchaste sobre Overtime?' },
+    title: { en: 'How did you hear about WellMedR?', es: '¿Cómo escuchaste sobre WellMedR?' },
     type: 'custom', component: 'ReferralSourceStep', fields: [{
       id: 'referral_source', type: 'radio',
       label: { en: 'Referral Source', es: 'Fuente de Referencia' },
@@ -952,16 +966,16 @@ const steps: FormStep[] = [
         { id: 'facebook', label: { en: 'Facebook', es: 'Facebook' }, value: 'facebook' },
         { id: 'friend_family', label: { en: 'Friend/Family', es: 'Amigo/Familia' }, value: 'friend_family' },
         { id: 'google', label: { en: 'Google', es: 'Google' }, value: 'google' },
-        { id: 'univision', label: { en: 'Univision/Telemundo', es: 'Univision/Telemundo' }, value: 'univision' },
         { id: 'youtube', label: { en: 'Youtube', es: 'Youtube' }, value: 'youtube' },
         { id: 'tiktok', label: { en: 'Tiktok', es: 'Tiktok' }, value: 'tiktok' },
-        { id: 'ot_rep', label: { en: 'Overtime Representative', es: 'Representante de Overtime' }, value: 'ot_rep' },
+        { id: 'wellmedr_rep', label: { en: 'WellMedR Representative', es: 'Representante de WellMedR' }, value: 'wellmedr_rep' },
+        { id: 'other', label: { en: 'Other', es: 'Otro' }, value: 'other' },
       ],
     }],
     autoAdvance: false, showContinueButton: false,
     nextStep: [
-      { conditions: [{ field: 'referral_source', operator: 'in', value: ['friend_family', 'ot_rep'] }], target: 'referral-name' },
-      { conditions: [{ field: 'referral_source', operator: 'notIn', value: ['friend_family', 'ot_rep'] }], target: 'health-improvements' },
+      { conditions: [{ field: 'referral_source', operator: 'in', value: ['friend_family', 'wellmedr_rep'] }], target: 'referral-name' },
+      { conditions: [{ field: 'referral_source', operator: 'notIn', value: ['friend_family', 'wellmedr_rep'] }], target: 'health-improvements' },
     ],
     prevStep: 'personalized-treatment', progressPercent: 89,
   },
@@ -1020,36 +1034,35 @@ const steps: FormStep[] = [
     subtitle: { en: 'Based on your responses, you may qualify for treatment. A licensed provider will review your information.', es: 'Según tus respuestas, puedes calificar para el tratamiento. Un proveedor licenciado revisará tu información.' },
     type: 'custom', component: 'QualifiedStep', fields: [],
     autoAdvance: false, showContinueButton: false,
-    nextStep: 'book-appointment', prevStep: 'review', progressPercent: 100,
+    nextStep: 'checkout', prevStep: 'review', progressPercent: 100,
   },
   {
-    id: 'book-appointment', path: 'book-appointment',
-    title: { en: 'Book Your Appointment', es: 'Reserva Tu Cita' },
-    subtitle: { en: 'Schedule a consultation with one of our licensed providers.', es: 'Programa una consulta con uno de nuestros proveedores licenciados.' },
-    type: 'custom', component: 'BookAppointmentStep', fields: [],
+    id: 'checkout', path: 'checkout',
+    title: { en: 'Select your treatment plan', es: 'Selecciona tu plan de tratamiento' },
+    type: 'custom', component: 'CheckoutStep', fields: [],
     autoAdvance: false, showContinueButton: false,
     nextStep: null, prevStep: 'qualified', progressPercent: 100,
   },
 ];
 
-export const otMensIntakeConfig: FormConfig = {
-  id: 'ot-mens-intake',
-  name: 'OT Mens Health Weight Loss Intake',
+export const wellmedrIntakeConfig: FormConfig = {
+  id: 'wellmedr-intake',
+  name: 'WellMedR Weight Loss Intake',
   version: '1.0.0',
-  description: 'Comprehensive medical intake for Overtime Men\'s Health weight loss programs with GLP-1 assessment',
+  description: 'Comprehensive medical intake for WellMedR telehealth weight loss programs with GLP-1 assessment',
   treatmentType: 'weight-loss',
   steps,
-  startStep: 'intro',
-  languages: ['en'],
+  startStep: 'language',
+  languages: ['en', 'es'],
   defaultLanguage: 'en',
   integrations: [
     { type: 'platform', triggers: ['complete'] },
   ],
   branding: {
-    logo: 'https://static.wixstatic.com/shapes/c49a9b_5139736743794db7af38c583595f06fb.svg',
-    primaryColor: '#413d3d',
-    accentColor: '#cab172',
-    secondaryColor: '#f5ecd8',
+    logo: '/logo.svg',
+    primaryColor: '#7b95a9',
+    accentColor: '#c3b29e',
+    secondaryColor: '#41362a',
   },
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),

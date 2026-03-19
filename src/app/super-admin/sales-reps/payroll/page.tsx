@@ -128,6 +128,7 @@ const statusBadge: Record<string, string> = {
 export default function PayrollReportPage() {
   const [data, setData] = useState<PayrollData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [clinics, setClinics] = useState<Clinic[]>([]);
   const [preset, setPreset] = useState('this-month');
   const [customStart, setCustomStart] = useState('');
@@ -154,6 +155,7 @@ export default function PayrollReportPage() {
 
   const fetchData = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
       const p = new URLSearchParams();
       if (preset === 'custom' && customStart && customEnd) {
@@ -174,9 +176,13 @@ export default function PayrollReportPage() {
         setData(json);
         setSelectedEventIds(new Set());
         setSelectedOverrideIds(new Set());
+      } else {
+        const body = await res.json().catch(() => ({}));
+        setError(body.error || `Server error (${res.status})`);
       }
-    } catch { /* ignore */ }
-    finally { setLoading(false); }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load payroll data');
+    } finally { setLoading(false); }
   }, [preset, customStart, customEnd, clinicId, statusFilter, typeFilter]);
 
   useEffect(() => { fetchClinics(); }, [fetchClinics]);
@@ -225,9 +231,10 @@ export default function PayrollReportPage() {
         a.click();
         URL.revokeObjectURL(url);
       } else {
-        alert('Failed to download CSV');
+        const body = await res.json().catch(() => ({}));
+        alert(body.error || 'Failed to download CSV');
       }
-    } catch { alert('Failed to download CSV'); }
+    } catch (err) { alert(err instanceof Error ? err.message : 'Failed to download CSV'); }
     finally { setDownloadingCsv(false); }
   };
 
@@ -365,6 +372,20 @@ export default function PayrollReportPage() {
         </div>
         {data?.dateRange && <div className="mt-3 text-xs text-gray-500">Period: {dateRange(data.dateRange.startDate, data.dateRange.endDate)}</div>}
       </div>
+
+      {/* Error Banner */}
+      {error && (
+        <div className="mb-6 flex items-center gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3">
+          <XCircle className="h-5 w-5 flex-shrink-0 text-red-500" />
+          <div className="flex-1">
+            <p className="text-sm font-medium text-red-800">{error}</p>
+            <p className="text-xs text-red-600">Check server logs for details or try refreshing.</p>
+          </div>
+          <button onClick={fetchData} className="rounded-lg bg-red-100 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-200">
+            Retry
+          </button>
+        </div>
+      )}
 
       {/* Summary Cards */}
       {loading && !data ? (

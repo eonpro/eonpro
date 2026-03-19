@@ -578,7 +578,11 @@ export default async function PatientDetailPage({
           // Parse the JSON string (skip if it's PDF binary data)
           const trimmed = dataStr.trim();
           if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
-            const parsedData = JSON.parse(trimmed);
+            let parsedData = JSON.parse(trimmed);
+            // Handle double-serialized JSON (string inside a JSON string)
+            if (typeof parsedData === 'string') {
+              try { parsedData = JSON.parse(parsedData); } catch { /* use as-is */ }
+            }
             return {
               ...doc,
               data: parsedData,

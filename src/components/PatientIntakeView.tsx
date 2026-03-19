@@ -1108,6 +1108,24 @@ export default function PatientIntakeView({
 
   // Find answer for a field
   const findAnswer = (field: { id: string; label: string; aliases?: string[] }): string => {
+    // Special case: compose height from feet + inches if stored separately
+    if (field.id === 'height') {
+      const composed = answerMap.get(normalizeKey('height'));
+      if (composed && composed !== '—' && composed.includes("'")) return composed;
+
+      const ft = answerMap.get(normalizeKey('heightFeet'))
+        || answerMap.get(normalizeKey('height_feet'))
+        || answerMap.get(normalizeKey('Height (feet)'));
+      const inches = answerMap.get(normalizeKey('heightInches'))
+        || answerMap.get(normalizeKey('height_inches'))
+        || answerMap.get(normalizeKey('Height (inches)'));
+      if (ft && ft !== '—') {
+        const feetNum = ft.replace(/[^0-9]/g, '');
+        const inchNum = inches ? inches.replace(/[^0-9]/g, '') : '0';
+        return `${feetNum}'${inchNum}"`;
+      }
+    }
+
     const byId = answerMap.get(normalizeKey(field.id));
     if (byId && byId !== '—') return byId;
 

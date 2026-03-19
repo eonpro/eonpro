@@ -13,6 +13,7 @@ import { handleApiError } from '@/domains/shared/errors';
 import type { FormConfig, FormBranding } from '@/domains/intake/types/form-engine';
 import { weightLossIntakeConfig } from '@/domains/intake/templates/weight-loss-intake';
 import { otMensIntakeConfig } from '@/domains/intake/templates/ot-mens-intake';
+import { wellmedrIntakeConfig } from '@/domains/intake/templates/wellmedr-intake';
 
 interface RouteParams {
   params: Promise<{ clinicSlug: string; templateSlug: string }>;
@@ -105,8 +106,11 @@ export async function GET(_req: NextRequest, { params }: RouteParams) {
         template.treatmentType === 'weight-loss';
 
       const isOtMens = isWeightLoss && (clinicSlug === 'ot' || clinicSlug === 'otmens');
+      const isWellmedr = isWeightLoss && clinicSlug === 'wellmedr';
 
-      const formConfig = isOtMens
+      const formConfig = isWellmedr
+        ? { ...wellmedrIntakeConfig, id: `template-${template.id}` }
+        : isOtMens
         ? { ...otMensIntakeConfig, id: `template-${template.id}` }
         : isWeightLoss
         ? { ...weightLossIntakeConfig, id: `template-${template.id}` }
@@ -135,8 +139,18 @@ export async function GET(_req: NextRequest, { params }: RouteParams) {
         const settings = clinic.settings as Record<string, unknown> | null;
         const portalSettings = settings?.patientPortal as Record<string, unknown> | null;
         const isOtFallback = clinicSlug === 'ot' || clinicSlug === 'otmens';
-        const fallbackConfig = isOtFallback ? otMensIntakeConfig : weightLossIntakeConfig;
-        const branding: FormBranding = isOtFallback
+        const isWellmedrFallback = clinicSlug === 'wellmedr';
+        const fallbackConfig = isWellmedrFallback
+          ? wellmedrIntakeConfig
+          : isOtFallback ? otMensIntakeConfig : weightLossIntakeConfig;
+        const branding: FormBranding = isWellmedrFallback
+          ? {
+              logo: wellmedrIntakeConfig.branding?.logo ?? undefined,
+              primaryColor: '#7b95a9',
+              accentColor: '#c3b29e',
+              secondaryColor: '#41362a',
+            }
+          : isOtFallback
           ? {
               logo: otMensIntakeConfig.branding?.logo ?? undefined,
               primaryColor: '#413d3d',

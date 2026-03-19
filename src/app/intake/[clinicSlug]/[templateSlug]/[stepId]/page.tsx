@@ -136,7 +136,9 @@ function IntakeStepContent() {
 
   if (error || !formConfig || !stepConfig) return notFound();
 
-  const intakeBrand: IntakeBrand = (clinicSlug === 'ot' || clinicSlug === 'otmens') ? 'otmens' : 'eonmeds';
+  const intakeBrand: IntakeBrand = clinicSlug === 'wellmedr' ? 'wellmedr'
+    : (clinicSlug === 'ot' || clinicSlug === 'otmens') ? 'otmens'
+    : 'eonmeds';
 
   if (stepId === 'intro') {
     return (
