@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useIntakeActions, useIntakeStore } from '../../../../store/intakeStore';
 
@@ -19,27 +19,30 @@ export default function WmAnimatedWeightChartStep({
   const router = useRouter();
   const responses = useIntakeStore((s) => s.responses);
   const { markStepCompleted, setCurrentStep } = useIntakeActions();
-  const [animProgress, setAnimProgress] = useState(0);
-  const animRef = useRef<number>(0);
+  const pathRef = useRef<SVGPathElement>(null);
+  const [showBadge, setShowBadge] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
   const weight = Number(responses.current_weight || responses.currentWeight) || 200;
   const goalWeight = Number(responses.ideal_weight || responses.idealWeight) || 150;
   const diff = Math.max(weight - goalWeight, 1);
 
+  useEffect(() => { requestAnimationFrame(() => setMounted(true)); }, []);
+
   useEffect(() => {
+    const el = pathRef.current;
+    if (!el) return;
+    const len = el.getTotalLength();
+    el.style.strokeDasharray = `${len}`;
+    el.style.strokeDashoffset = `${len}`;
+
     const delay = setTimeout(() => {
-      const start = performance.now();
-      const duration = 1800;
-      const animate = (now: number) => {
-        const elapsed = now - start;
-        const t = Math.min(elapsed / duration, 1);
-        const eased = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
-        setAnimProgress(eased);
-        if (t < 1) animRef.current = requestAnimationFrame(animate);
-      };
-      animRef.current = requestAnimationFrame(animate);
-    }, 400);
-    return () => { clearTimeout(delay); cancelAnimationFrame(animRef.current); };
+      el.style.transition = 'stroke-dashoffset 2.2s cubic-bezier(0.4, 0, 0.15, 1)';
+      el.style.strokeDashoffset = '0';
+    }, 600);
+
+    const badge = setTimeout(() => setShowBadge(true), 2400);
+    return () => { clearTimeout(delay); clearTimeout(badge); };
   }, []);
 
   const handleContinue = () => {
@@ -50,77 +53,98 @@ export default function WmAnimatedWeightChartStep({
 
   const W = 600, H = 320, L = 70, R = 40, T = 50, B = 55;
   const cW = W - L - R, cH = H - T - B;
-  const N = 12;
 
-  const pt = (i: number, decay: number): [number, number] => {
-    const t = i / N;
-    const y = goalWeight + diff * Math.exp(-decay * t);
-    return [L + t * cW, T + ((weight - y) / diff) * cH];
+  const buildCurve = (decay: number) => {
+    const pts: string[] = [];
+    const steps = 60;
+    for (let i = 0; i <= steps; i++) {
+      const t = i / steps;
+      const y = goalWeight + diff * Math.exp(-decay * t);
+      const px = (L + t * cW).toFixed(1);
+      const py = (T + ((weight - y) / diff) * cH).toFixed(1);
+      pts.push(i === 0 ? `M${px},${py}` : `L${px},${py}`);
+    }
+    return pts.join(' ');
   };
 
-  const points = Array.from({ length: N + 1 }, (_, i) => pt(i, 3));
-  const without = Array.from({ length: N + 1 }, (_, i) => {
-    const t = i / N;
+  const withCurve = buildCurve(3);
+
+  const withoutPts: string[] = [];
+  for (let i = 0; i <= 60; i++) {
+    const t = i / 60;
     const y = weight - diff * 0.15 * t;
-    return [L + t * cW, T + ((weight - y) / diff) * cH] as [number, number];
-  });
+    const px = (L + t * cW).toFixed(1);
+    const py = (T + ((weight - y) / diff) * cH).toFixed(1);
+    withoutPts.push(i === 0 ? `M${px},${py}` : `L${px},${py}`);
+  }
+  const withoutCurve = withoutPts.join(' ');
 
-  const path = (pts: [number, number][]) => pts.map((p, i) => `${i ? 'L' : 'M'}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(' ');
-
-  const idx = Math.min(Math.floor(animProgress * N), N);
-  const cp = points[idx] || points[0];
+  const endX = L + cW;
+  const endY = T + ((weight - goalWeight) / diff) * cH;
+  const withoutEndY = T + ((weight - (weight - diff * 0.15)) / diff) * cH;
 
   return (
     <div className="min-h-[100dvh] flex flex-col" style={{ backgroundColor: '#F7F7F9' }}>
       <div className="w-full h-1" style={{ backgroundColor: '#e5e0d8' }}>
-        <div className="h-full transition-all duration-500 ease-out" style={{ width: `${progressPercent}%`, backgroundColor: '#c3b29e' }} />
+        <div className="h-full" style={{ width: `${progressPercent}%`, backgroundColor: '#c3b29e', transition: 'width 0.8s cubic-bezier(0.4,0,0.2,1)' }} />
       </div>
 
       <div className="flex-1 flex flex-col items-center px-5 sm:px-8 pt-6 sm:pt-8 pb-4 max-w-xl sm:max-w-2xl mx-auto w-full">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/wellmedr-logo.svg" alt="wellmedr." className="h-6 sm:h-7 mb-6 sm:mb-8" />
+        <img src="/wellmedr-logo.svg" alt="wellmedr." className="h-6 sm:h-7 mb-6 sm:mb-8"
+          style={{ opacity: mounted ? 1 : 0, transition: 'opacity 0.5s ease' }} />
 
-        <h1 className="text-xl sm:text-[2rem] font-bold text-center leading-tight mb-4" style={{ color: '#101010' }}>
+        <h1 className="text-xl sm:text-[2rem] font-bold text-center leading-tight mb-4"
+          style={{ color: '#101010', opacity: mounted ? 1 : 0, transform: mounted ? 'translateY(0)' : 'translateY(12px)', transition: 'all 0.6s cubic-bezier(0.4,0,0.2,1) 0.1s' }}>
           It feels like magic, but it&apos;s{' '}
           <span className="font-normal italic" style={{ color: '#7B95A9', fontFamily: "'BodoniSvtyTwo', serif" }}>metabolic science.</span>
         </h1>
 
-        <div className="w-full rounded-2xl overflow-hidden" style={{ backgroundColor: '#6b6256' }}>
+        <div className="w-full rounded-2xl overflow-hidden"
+          style={{ backgroundColor: '#6b6256', opacity: mounted ? 1 : 0, transform: mounted ? 'scale(1)' : 'scale(0.97)', transition: 'all 0.7s cubic-bezier(0.4,0,0.2,1) 0.2s' }}>
           <svg viewBox={`0 0 ${W} ${H}`} className="w-full" preserveAspectRatio="xMidYMid meet">
-            {/* Axes */}
-            <line x1={L} y1={T} x2={L} y2={H - B} stroke="rgba(255,255,255,0.15)" strokeWidth="1" />
-            <line x1={L} y1={H - B} x2={W - R} y2={H - B} stroke="rgba(255,255,255,0.15)" strokeWidth="1" />
+            {/* Grid lines */}
+            <line x1={L} y1={T} x2={L} y2={H - B} stroke="rgba(255,255,255,0.12)" strokeWidth="1" />
+            <line x1={L} y1={H - B} x2={W - R} y2={H - B} stroke="rgba(255,255,255,0.12)" strokeWidth="1" />
 
-            {/* Labels */}
-            <text x={L - 8} y={T + 5} fill="rgba(255,255,255,0.5)" fontSize="10" textAnchor="end">{weight}</text>
-            <text x={L - 8} y={H - B + 4} fill="rgba(255,255,255,0.5)" fontSize="10" textAnchor="end">{goalWeight}</text>
+            {/* Y labels */}
+            <text x={L - 8} y={T + 5} fill="rgba(255,255,255,0.45)" fontSize="10" textAnchor="end">{weight}</text>
+            <text x={L - 8} y={H - B + 4} fill="rgba(255,255,255,0.45)" fontSize="10" textAnchor="end">{goalWeight}</text>
+
+            {/* X labels */}
             {[1, 4, 8, 12].map((m) => (
-              <text key={m} x={L + (m / N) * cW} y={H - 15} fill="rgba(255,255,255,0.6)" fontSize="11" textAnchor="middle">Month {m}</text>
+              <text key={m} x={L + (m / 12) * cW} y={H - 15} fill="rgba(255,255,255,0.55)" fontSize="11" textAnchor="middle" fontWeight="500">Month {m}</text>
             ))}
 
-            {/* "without" dashed line */}
-            <path d={path(without)} fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="2" strokeDasharray="6,4" />
-            <text x={without[N][0] - 5} y={without[N][1] - 8} fill="rgba(255,255,255,0.4)" fontSize="10" textAnchor="end">without wellmedr.</text>
+            {/* "without" dashed line — static */}
+            <path d={withoutCurve} fill="none" stroke="rgba(255,255,255,0.18)" strokeWidth="1.5" strokeDasharray="6,4" />
+            <circle cx={endX} cy={withoutEndY} r="3.5" fill="rgba(255,255,255,0.3)" />
+            <text x={endX - 8} y={withoutEndY - 10} fill="rgba(255,255,255,0.35)" fontSize="10" textAnchor="end">without wellmedr.</text>
 
-            {/* Animated "with" line */}
-            <path d={path(points.slice(0, idx + 1))} fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" />
+            {/* Animated "with" curve — pure CSS stroke-dashoffset */}
+            <path ref={pathRef} d={withCurve} fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" />
 
-            {/* Start dot */}
-            <circle cx={points[0][0]} cy={points[0][1]} r="4" fill="white" />
-            <text x={points[0][0] + 8} y={points[0][1] - 6} fill="white" fontSize="11" fontWeight="500">Current weight</text>
+            {/* Start dot — always visible */}
+            <circle cx={L} cy={T} r="4.5" fill="white">
+              <animate attributeName="opacity" from="0" to="1" dur="0.4s" begin="0.3s" fill="freeze" />
+            </circle>
+            <text x={L + 10} y={T - 8} fill="white" fontSize="11" fontWeight="500" opacity="0">
+              Current weight
+              <animate attributeName="opacity" from="0" to="1" dur="0.4s" begin="0.5s" fill="freeze" />
+            </text>
 
-            {/* End badge */}
-            {animProgress > 0.7 && (
-              <g style={{ opacity: Math.min((animProgress - 0.7) / 0.3, 1) }}>
-                <rect x={cp[0] - 42} y={cp[1] - 26} width="92" height="22" rx="11" fill="#7B95A9" />
-                <text x={cp[0] + 4} y={cp[1] - 11} fill="white" fontSize="10" fontWeight="600" textAnchor="middle">with wellmedr.</text>
-              </g>
-            )}
-            <circle cx={cp[0]} cy={cp[1]} r="5" fill="white" stroke="#7B95A9" strokeWidth="2" />
+            {/* End badge — fades in after line finishes */}
+            <g style={{ opacity: showBadge ? 1 : 0, transition: 'opacity 0.6s cubic-bezier(0.4,0,0.2,1)' }}>
+              <rect x={endX - 50} y={endY - 28} width="96" height="24" rx="12" fill="#7B95A9" />
+              <text x={endX - 2} y={endY - 12} fill="white" fontSize="10" fontWeight="600" textAnchor="middle">with wellmedr.</text>
+            </g>
+            <circle cx={endX} cy={endY} r="5.5" fill="white" stroke="#7B95A9" strokeWidth="2.5"
+              style={{ opacity: showBadge ? 1 : 0, transition: 'opacity 0.4s ease', transform: showBadge ? 'scale(1)' : 'scale(0)', transformOrigin: `${endX}px ${endY}px` }} />
           </svg>
         </div>
 
-        <div className="mt-5 text-center space-y-2 px-2">
+        <div className="mt-5 text-center space-y-2 px-2"
+          style={{ opacity: mounted ? 1 : 0, transform: mounted ? 'translateY(0)' : 'translateY(10px)', transition: 'all 0.6s cubic-bezier(0.4,0,0.2,1) 0.4s' }}>
           <p className="text-[15px] sm:text-base" style={{ color: '#101010' }}>
             On average, Wellmedr patients <strong>lose over 22% of their body weight.</strong>
           </p>
@@ -132,11 +156,9 @@ export default function WmAnimatedWeightChartStep({
       </div>
 
       <div className="sticky bottom-0 px-5 sm:px-8 pb-6 pt-3 max-w-xl sm:max-w-2xl mx-auto w-full" style={{ backgroundColor: '#F7F7F9' }}>
-        <button
-          onClick={handleContinue}
+        <button onClick={handleContinue}
           className="w-full flex items-center justify-center gap-2.5 py-4 text-white font-medium text-base rounded-full active:scale-[0.98]"
-          style={{ backgroundColor: '#0C2631' }}
-        >
+          style={{ backgroundColor: '#0C2631', transition: 'transform 0.15s ease' }}>
           Next <span className="text-lg">&rarr;</span>
         </button>
       </div>
