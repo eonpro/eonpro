@@ -12,31 +12,80 @@ interface CardOption {
 }
 
 function CardIcon({ iconId }: { iconId: string }) {
-  const color = '#7B95A9';
+  const c = '#7B95A9';
+  const s = { stroke: c, strokeWidth: 1.8, fill: 'none', strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
   switch (iconId) {
     case 'male':
       return (
-        <svg width="60" height="120" viewBox="0 0 60 140" fill={color} xmlns="http://www.w3.org/2000/svg">
-          <ellipse cx="30" cy="12" rx="9" ry="10" />
-          <path d="M30 24C30 24 22 24 18 28C14 32 13 38 13 38L10 62H18L16 52L20 38H24V62L22 100H28V68H32V100H38L36 62H40L38 38L42 52L40 62H48L45 38C45 38 44 32 40 28C36 24 30 24 30 24Z" />
-          <rect x="22" y="100" width="6" height="28" rx="2" />
-          <rect x="32" y="100" width="6" height="28" rx="2" />
-          <ellipse cx="24" cy="130" rx="6" ry="3" />
-          <ellipse cx="36" cy="130" rx="6" ry="3" />
-        </svg>
+        <svg width="56" height="100" viewBox="0 0 50 120" fill={c}><ellipse cx="25" cy="10" rx="7.5" ry="8.5"/><path d="M25 20c-8 0-13 5-14 12l-2 22h7l1-14 3-8v22l-2 32h6V58h2v28h6l-2-32V34l3 8 1 14h7l-2-22c-1-7-6-12-14-12z"/><rect x="18" y="86" width="5" height="24" rx="2"/><rect x="27" y="86" width="5" height="24" rx="2"/><ellipse cx="20" cy="112" rx="5" ry="2.5"/><ellipse cx="30" cy="112" rx="5" ry="2.5"/></svg>
       );
     case 'female':
       return (
-        <svg width="60" height="120" viewBox="0 0 60 140" fill={color} xmlns="http://www.w3.org/2000/svg">
-          <ellipse cx="30" cy="11" rx="8" ry="9" />
-          <path d="M30 22C30 22 26 20 22 22C18 24 16 22 14 26L12 30C11 33 13 34 15 33L18 30L17 36L14 56H20L19 44L22 36C22 36 21 42 21 48L20 62H26L27 50H33L34 62H40L39 48C39 42 38 36 38 36L41 44L40 56H46L43 36L42 30L45 33C47 34 49 33 48 30L46 26C44 22 42 24 38 22C34 20 30 22 30 22Z" />
-          <rect x="23" y="62" width="5" height="6" rx="1" />
-          <rect x="32" y="62" width="5" height="6" rx="1" />
-          <path d="M22 68L20 100H27L26 72H34L33 100H40L38 68H22Z" />
-          <rect x="20" y="100" width="7" height="26" rx="2" />
-          <rect x="33" y="100" width="7" height="26" rx="2" />
-          <ellipse cx="23" cy="128" rx="6" ry="3" />
-          <ellipse cx="37" cy="128" rx="6" ry="3" />
+        <svg width="56" height="100" viewBox="0 0 50 120" fill={c}><ellipse cx="25" cy="10" rx="7" ry="8"/><path d="M25 20c-7 0-12 4-13 10l-1 4c-.5 2 1 3 2.5 2l2.5-2-.5 6-3 18h6l-1-10 3-8c0 0-.5 6-.5 10l-1 12h6l1-10h4l1 10h6l-1-12c0-4-.5-10-.5-10l3 8-1 10h6l-3-18-.5-6 2.5 2c1.5 1 3 0 2.5-2l-1-4c-1-6-6-10-13-10z"/><path d="M19 62l-2 28h7l1-24h4l1 24h7l-2-28H19z"/><rect x="17" y="90" width="6" height="22" rx="2"/><rect x="27" y="90" width="6" height="22" rx="2"/><ellipse cx="20" cy="114" rx="5" ry="2.5"/><ellipse cx="30" cy="114" rx="5" ry="2.5"/></svg>
+      );
+    case 'low_libido':
+      return (
+        <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M24 44c11 0 20-9 20-20S35 4 24 4 4 13 4 24s9 20 20 20z" {...s} strokeWidth={1.5}/>
+          <path d="M14 30c0 0 4-6 10-6s10 6 10 6" {...s} strokeWidth={1.5}/>
+          <path d="M12 24l8-8M20 24l-8-8" {...s} strokeWidth={1.5}/>
+          <circle cx="34" cy="20" r="2" fill={c}/>
+        </svg>
+      );
+    case 'hair_loss':
+      return (
+        <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <line x1="12" y1="4" x2="12" y2="32" {...s}/><line x1="20" y1="4" x2="20" y2="32" {...s}/><line x1="28" y1="4" x2="28" y2="32" {...s}/><line x1="36" y1="4" x2="36" y2="32" {...s}/>
+          <circle cx="12" cy="34" r="2.5" fill={c}/><circle cx="20" cy="36" r="2.5" fill={c}/><circle cx="28" cy="34" r="2.5" fill={c}/><circle cx="36" cy="36" r="2.5" fill={c}/>
+          <path d="M8 40c0 0 2 6 8 6s6-4 8-4 2 4 8 4 8-6 8-6" {...s}/>
+        </svg>
+      );
+    case 'skin_issues':
+      return (
+        <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M4 36c4-2 8-8 12-8s4 4 8 4 4-6 8-6 4 4 8 4 4-2 4-2" {...s}/>
+          <circle cx="16" cy="18" r="2" fill={c}/><circle cx="24" cy="14" r="1.5" fill={c}/><circle cx="32" cy="20" r="2.5" fill={c}/><circle cx="20" cy="24" r="1" fill={c}/><circle cx="28" cy="28" r="1.5" fill={c}/>
+          <path d="M12 8l-2 6M16 6l-1 5M24 4l-1 6M32 6l-1 5M36 8l-2 6" {...s} strokeWidth={1.2}/>
+        </svg>
+      );
+    case 'cognition':
+      return (
+        <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M24 4C14 4 8 12 8 20c0 6 3 10 6 12v8c0 2 2 4 4 4h12c2 0 4-2 4-4v-8c3-2 6-6 6-12 0-8-6-16-16-16z" {...s}/>
+          <path d="M18 44v-4h12v4" {...s}/>
+          <path d="M24 12v16M16 20h16" {...s} strokeWidth={1.5}/>
+          <path d="M18 28c2 2 4 3 6 3s4-1 6-3" {...s}/>
+        </svg>
+      );
+    case 'ok_hand':
+      return (
+        <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M20 18c0-3 2-6 4-6s4 2 4 6v8" {...s}/>
+          <path d="M28 26v-12c0-3 2-5 4-5s3 2 3 5v10" {...s}/>
+          <path d="M35 24v-8c0-3 1.5-5 3.5-5s3 2 3 5v12c0 8-6 16-14 16H24c-6 0-12-4-14-10l-2-6c-1-3 0-5 2-6s4 0 5 3l2 4" {...s}/>
+          <path d="M20 26v-8c0-3-2-5-3.5-5" {...s}/>
+        </svg>
+      );
+    case 'lose_weight':
+      return (
+        <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M16 8h16v4c0 6-3 10-8 12-5-2-8-6-8-12V8z" {...s}/>
+          <path d="M12 8h24" {...s}/>
+          <path d="M24 24v4" {...s}/>
+          <path d="M16 40h16v-4c0-6-3-10-8-12-5 2-8 6-8 12v4z" {...s}/>
+          <path d="M12 40h24" {...s}/>
+          <circle cx="36" cy="14" r="2" fill={c}/><path d="M36 14l4-6" {...s} strokeWidth={1.2}/>
+        </svg>
+      );
+    case 'gain_muscle':
+      return (
+        <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M8 32c0 0 2-12 6-16s6-4 10-4" {...s}/>
+          <path d="M24 12c4 0 6 0 10 4s6 16 6 16" {...s}/>
+          <path d="M14 16c2-4 6-6 10-6s8 2 10 6" {...s} strokeWidth={2}/>
+          <path d="M10 32h28" {...s}/>
+          <path d="M24 12v-6M20 8l4-4 4 4" {...s} strokeWidth={1.5}/>
+          <circle cx="18" cy="24" r="3" {...s}/><circle cx="30" cy="24" r="3" {...s}/>
         </svg>
       );
     default:
