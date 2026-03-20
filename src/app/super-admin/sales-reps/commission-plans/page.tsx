@@ -21,9 +21,18 @@ interface Plan {
   multiItemBonusPercentBps?: number | null;
   multiItemBonusFlatCents?: number | null;
   multiItemMinQuantity?: number | null;
-  volumeTierEnabled: boolean; volumeTierWindow: string | null;
+  volumeTierEnabled: boolean;
+  volumeTierBasis?: 'SALE_COUNT' | 'WEEKLY_REVENUE_CENTS';
+  volumeTierWindow: string | null;
   volumeTierRetroactive?: boolean;
-  volumeTiers: Array<{ id?: number; minSales: number; maxSales: number | null; amountCents: number }>;
+  volumeTiers: Array<{
+    id?: number;
+    minSales: number;
+    maxSales: number | null;
+    amountCents: number;
+    minRevenueCents?: number | null;
+    additionalPercentBps?: number | null;
+  }>;
 }
 
 interface Clinic { id: number; name: string; }
@@ -220,7 +229,21 @@ export default function CommissionPlansPage() {
     body.volumeTierEnabled = form.volumeTierEnabled;
     body.volumeTierWindow = form.volumeTierEnabled ? form.volumeTierWindow : null;
     body.volumeTierRetroactive = form.volumeTierEnabled ? form.volumeTierRetroactive : true;
-    body.volumeTiers = form.volumeTierEnabled ? form.volumeTiers.map((t) => ({ minSales: t.minSales, maxSales: t.maxSales, amountCents: t.amountCents })) : [];
+    if (
+      form.volumeTierEnabled &&
+      editPlan?.volumeTierBasis === 'WEEKLY_REVENUE_CENTS'
+    ) {
+      body.volumeTierBasis = 'WEEKLY_REVENUE_CENTS';
+      body.volumeTiers = (editPlan.volumeTiers || []).map((t) => ({
+        minRevenueCents: t.minRevenueCents ?? 0,
+        additionalPercentBps: t.additionalPercentBps ?? 0,
+      }));
+    } else {
+      body.volumeTierBasis = 'SALE_COUNT';
+      body.volumeTiers = form.volumeTierEnabled
+        ? form.volumeTiers.map((t) => ({ minSales: t.minSales, maxSales: t.maxSales, amountCents: t.amountCents }))
+        : [];
+    }
     const validRules = productRuleLines.filter((l) => (l.productId !== '' || l.productBundleId !== '') && (l.productId === '' || l.productBundleId === ''));
     body.productRules = validRules.map((l) => ({ productId: l.productId === '' ? null : l.productId, productBundleId: l.productBundleId === '' ? null : l.productBundleId, bonusType: l.bonusType, percentBps: l.bonusType === 'PERCENT' ? l.percentBps : null, flatAmountCents: l.bonusType === 'FLAT' ? l.flatAmountCents : null }));
     return body;
@@ -501,7 +524,14 @@ export default function CommissionPlansPage() {
                   <input type="checkbox" checked={form.volumeTierEnabled} onChange={(e) => setForm((f) => ({ ...f, volumeTierEnabled: e.target.checked }))} className="h-4 w-4 rounded border-gray-300 text-teal-600 focus:ring-teal-500" />
                   <span className="text-sm font-semibold text-teal-900">Weekly sales volume tiers</span>
                 </label>
-                <p className="mt-1 ml-7 text-xs text-teal-700">Set per-sale flat rates by total sales count in a 7-day period.</p>
+                <p className="mt-1 ml-7 text-xs text-teal-700">Set per-sale flat rates by total sales count in a 7-day period, or use clinic Admin commission plans for weekly revenue % tiers.</p>
+                {editPlan?.volumeTierBasis === 'WEEKLY_REVENUE_CENTS' && (
+                  <p className="mt-2 ml-7 rounded border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                    This plan uses <strong>weekly initial-sale revenue</strong> tiers. Tier rows are preserved
+                    when you save from here; edit brackets in <strong>Admin → Sales Rep → Commission Plans</strong>{' '}
+                    for full control.
+                  </p>
+                )}
                 {form.volumeTierEnabled && (
                   <div className="mt-4 ml-7 space-y-3">
                     <div>
@@ -515,6 +545,10 @@ export default function CommissionPlansPage() {
                       <input type="checkbox" checked={form.volumeTierRetroactive} onChange={(e) => setForm((f) => ({ ...f, volumeTierRetroactive: e.target.checked }))} className="h-4 w-4 rounded border-gray-300 text-teal-600 focus:ring-teal-500" />
                       <span className="text-sm text-teal-900">Retroactive to first sale in period</span>
                     </label>
+                    {editPlan?.volumeTierBasis === 'WEEKLY_REVENUE_CENTS' ? (
+                      <p className="text-xs text-teal-800">Tier table hidden — revenue brackets unchanged unless edited in clinic admin.</p>
+                    ) : (
+                      <>
                     <div className="overflow-x-auto">
                       <table className="w-full text-sm">
                         <thead><tr className="border-b border-teal-200 text-left text-teal-900"><th className="pb-2 font-medium">Min sales</th><th className="pb-2 font-medium">Max sales</th><th className="pb-2 font-medium">Rate per sale ($)</th><th className="w-10 pb-2" /></tr></thead>
@@ -531,6 +565,8 @@ export default function CommissionPlansPage() {
                       </table>
                     </div>
                     <button type="button" onClick={() => setForm((f) => ({ ...f, volumeTiers: [...f.volumeTiers, { minSales: Math.max(1, (f.volumeTiers[f.volumeTiers.length - 1]?.maxSales ?? f.volumeTiers[f.volumeTiers.length - 1]?.minSales ?? 1) + 1), maxSales: null, amountCents: 0 }] }))} className="inline-flex items-center gap-1 rounded border border-teal-400 bg-white px-3 py-1.5 text-sm font-medium text-teal-800 hover:bg-teal-50"><Plus className="h-4 w-4" />Add tier</button>
+                      </>
+                    )}
                   </div>
                 )}
               </div>

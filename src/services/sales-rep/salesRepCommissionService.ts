@@ -19,6 +19,11 @@ import { logger } from '@/lib/logger';
 import { getDatePartsInTz, midnightInTz } from '@/lib/utils/timezone';
 import type { CommissionEventStatus, CommissionPlanType } from '@prisma/client';
 
+/** Count-based tiers: minSales/maxSales + flat amountCents per commissioned sale */
+const VOLUME_TIER_BASIS_SALE_COUNT = 'SALE_COUNT';
+/** Revenue-based tiers: sum of initial (non-recurring) sale amounts Mon–Sun (clinic TZ); tier adds additionalPercentBps */
+const VOLUME_TIER_BASIS_WEEKLY_REVENUE = 'WEEKLY_REVENUE_CENTS';
+
 // ============================================================================
 // Types
 // ============================================================================
@@ -105,24 +110,40 @@ function getWeekBounds(timezone: string = 'America/New_York'): { weekStart: Date
   return { weekStart, weekEnd };
 }
 
-interface VolumeTierResult {
-  amountCents: number;
-  salesCount: number;
-  windowStart: Date;
-  windowEnd: Date;
-  crossedNewTier: boolean;
-  previousTierAmount: number;
-}
+type VolumeTierResult =
+  | {
+      kind: 'COUNT_FLAT';
+      amountCents: number;
+      salesCount: number;
+      windowStart: Date;
+      windowEnd: Date;
+      crossedNewTier: boolean;
+      previousTierAmount: number;
+    }
+  | {
+      kind: 'REVENUE_PERCENT';
+      additionalPercentBps: number;
+      windowStart: Date;
+      windowEnd: Date;
+      crossedNewTier: boolean;
+      previousAdditionalPercentBps: number;
+      weeklyRevenueCentsAfterSale: number;
+    };
 
 async function resolveVolumeTier(
   salesRepId: number,
   clinicId: number,
   planId: number,
-  volumeTierWindow: string | null
+  volumeTierBasis: string,
+  pendingEventAmountCents: number,
+  applyRevenueTiersToThisPayment: boolean
 ): Promise<VolumeTierResult | null> {
   const tiers = await prisma.salesRepVolumeCommissionTier.findMany({
     where: { planId },
-    orderBy: { minSales: 'asc' },
+    orderBy:
+      volumeTierBasis === VOLUME_TIER_BASIS_WEEKLY_REVENUE
+        ? [{ minRevenueCents: 'asc' }, { id: 'asc' }]
+        : [{ minSales: 'asc' }, { id: 'asc' }],
   });
 
   if (tiers.length === 0) return null;
@@ -131,9 +152,55 @@ async function resolveVolumeTier(
     where: { id: clinicId },
     select: { timezone: true },
   });
-  const bounds = getWeekBounds((clinic as any)?.timezone || 'America/New_York');
+  const bounds = getWeekBounds((clinic as { timezone?: string } | null)?.timezone || 'America/New_York');
   const windowStart = bounds.weekStart;
   const windowEnd = bounds.weekEnd;
+
+  if (volumeTierBasis === VOLUME_TIER_BASIS_WEEKLY_REVENUE) {
+    if (!applyRevenueTiersToThisPayment || pendingEventAmountCents <= 0) return null;
+
+    const sumRow = await prisma.salesRepCommissionEvent.aggregate({
+      where: {
+        salesRepId,
+        clinicId,
+        occurredAt: { gte: windowStart, lte: windowEnd },
+        status: { in: ['PENDING', 'APPROVED', 'PAID'] },
+        isRecurring: false,
+      },
+      _sum: { eventAmountCents: true },
+    });
+    const previousRevenue = sumRow._sum.eventAmountCents ?? 0;
+    const currentRevenue = previousRevenue + pendingEventAmountCents;
+
+    const findTierByRevenue = (revenueCents: number) => {
+      let matched: (typeof tiers)[number] | null = null;
+      for (const tier of tiers) {
+        const min = tier.minRevenueCents;
+        if (min != null && revenueCents >= min) {
+          matched = tier;
+        }
+      }
+      return matched;
+    };
+
+    const currentTier = findTierByRevenue(currentRevenue);
+    if (!currentTier || currentTier.additionalPercentBps == null) return null;
+
+    const previousTier = previousRevenue > 0 ? findTierByRevenue(previousRevenue) : null;
+    const additionalPercentBps = currentTier.additionalPercentBps;
+    const previousAdditionalPercentBps = previousTier?.additionalPercentBps ?? 0;
+    const crossedNewTier = additionalPercentBps > previousAdditionalPercentBps;
+
+    return {
+      kind: 'REVENUE_PERCENT',
+      additionalPercentBps,
+      previousAdditionalPercentBps,
+      crossedNewTier,
+      windowStart,
+      windowEnd,
+      weeklyRevenueCentsAfterSale: currentRevenue,
+    };
+  }
 
   const salesCount = await prisma.salesRepCommissionEvent.count({
     where: {
@@ -167,6 +234,7 @@ async function resolveVolumeTier(
   const crossedNewTier = !previousTier || currentTier.amountCents > previousTier.amountCents;
 
   return {
+    kind: 'COUNT_FLAT',
     amountCents: currentTier.amountCents,
     salesCount: currentCount,
     windowStart,
@@ -178,7 +246,7 @@ async function resolveVolumeTier(
 
 /**
  * When volumeTierRetroactive=true and a new sale pushes the rep into a higher tier,
- * update all earlier events in the same window to the higher tier amount.
+ * update all earlier events in the same window to the higher tier amount / rate.
  */
 async function applyRetroactiveTierUpdate(
   tx: any,
@@ -187,6 +255,48 @@ async function applyRetroactiveTierUpdate(
   tierResult: VolumeTierResult,
   newEventId: number
 ): Promise<number> {
+  if (tierResult.kind === 'REVENUE_PERCENT') {
+    if (!tierResult.crossedNewTier) return 0;
+
+    const prior = await tx.salesRepCommissionEvent.findMany({
+      where: {
+        salesRepId,
+        clinicId,
+        occurredAt: { gte: tierResult.windowStart, lte: tierResult.windowEnd },
+        status: { in: ['PENDING', 'APPROVED', 'PAID'] },
+        id: { not: newEventId },
+        isRecurring: false,
+      },
+      select: { id: true, eventAmountCents: true, volumeTierBonusCents: true, commissionAmountCents: true },
+    });
+
+    let n = 0;
+    for (const ev of prior) {
+      const newVol = Math.round((ev.eventAmountCents * tierResult.additionalPercentBps) / 10000);
+      const delta = newVol - ev.volumeTierBonusCents;
+      if (delta === 0) continue;
+      await tx.salesRepCommissionEvent.update({
+        where: { id: ev.id },
+        data: {
+          volumeTierBonusCents: newVol,
+          commissionAmountCents: ev.commissionAmountCents + delta,
+        },
+      });
+      n += 1;
+    }
+
+    if (n > 0) {
+      logger.info('[SalesRepCommission] Retroactive revenue-tier update applied', {
+        salesRepId,
+        clinicId,
+        eventsUpdated: n,
+        newAdditionalPercentBps: tierResult.additionalPercentBps,
+        previousAdditionalPercentBps: tierResult.previousAdditionalPercentBps,
+      });
+    }
+    return n;
+  }
+
   if (!tierResult.crossedNewTier || tierResult.previousTierAmount >= tierResult.amountCents) {
     return 0;
   }
@@ -306,6 +416,7 @@ async function calculateFullCommission(
     volumeTierEnabled: boolean;
     volumeTierWindow: string | null;
     volumeTierRetroactive: boolean;
+    volumeTierBasis: string;
     multiItemBonusEnabled: boolean;
     multiItemBonusType: string | null;
     multiItemBonusPercentBps: number | null;
@@ -342,17 +453,32 @@ async function calculateFullCommission(
     effectivePercentBps
   );
 
-  // 3. Volume tier bonus
+  // 3. Volume tier bonus (sale-count flat $, or weekly initial-sale revenue → extra %)
   let volumeTierBonusCents = 0;
   let volumeTierResult: VolumeTierResult | null = null;
   if (plan.volumeTierEnabled) {
-    volumeTierResult = await resolveVolumeTier(
-      salesRepId,
-      clinicId,
-      plan.id,
-      plan.volumeTierWindow
-    );
-    if (volumeTierResult) {
+    const basis = plan.volumeTierBasis || VOLUME_TIER_BASIS_SALE_COUNT;
+    const useRevenueTiers =
+      basis === VOLUME_TIER_BASIS_WEEKLY_REVENUE &&
+      plan.planType === 'PERCENT' &&
+      !options.isRecurring;
+    const useCountTiers = basis === VOLUME_TIER_BASIS_SALE_COUNT;
+
+    if (useRevenueTiers || useCountTiers) {
+      volumeTierResult = await resolveVolumeTier(
+        salesRepId,
+        clinicId,
+        plan.id,
+        basis,
+        eventAmountCents,
+        useRevenueTiers
+      );
+    }
+    if (volumeTierResult?.kind === 'REVENUE_PERCENT') {
+      volumeTierBonusCents = Math.round(
+        (eventAmountCents * volumeTierResult.additionalPercentBps) / 10000
+      );
+    } else if (volumeTierResult?.kind === 'COUNT_FLAT') {
       volumeTierBonusCents = volumeTierResult.amountCents;
     }
   }
@@ -609,6 +735,7 @@ export async function processPaymentForSalesRepCommission(
         volumeTierEnabled: plan.volumeTierEnabled,
         volumeTierWindow: plan.volumeTierWindow,
         volumeTierRetroactive: plan.volumeTierRetroactive,
+        volumeTierBasis: plan.volumeTierBasis || VOLUME_TIER_BASIS_SALE_COUNT,
         multiItemBonusEnabled: plan.multiItemBonusEnabled,
         multiItemBonusType: plan.multiItemBonusType,
         multiItemBonusPercentBps: plan.multiItemBonusPercentBps,

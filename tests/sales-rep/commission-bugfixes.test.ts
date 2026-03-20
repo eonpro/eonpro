@@ -20,7 +20,10 @@ const { mockPrisma, mockLogger, mockGetDatePartsInTz, mockMidnightInTz } = vi.ho
         findFirst: fn(),
         create: fn(),
         count: fn(),
+        aggregate: fn(),
+        findMany: fn(),
         updateMany: fn(),
+        update: fn(),
       },
       salesRepOverrideCommissionEvent: {
         findFirst: fn(),
@@ -70,6 +73,7 @@ function makePlan(overrides: Record<string, unknown> = {}) {
     multiItemBonusPercentBps: null, multiItemBonusFlatCents: null,
     multiItemMinQuantity: null,
     volumeTierEnabled: false, volumeTierWindow: null, volumeTierRetroactive: true,
+    volumeTierBasis: 'SALE_COUNT',
     reactivationDays: null,
     ...overrides,
   };
@@ -96,6 +100,7 @@ function setupPipeline(planOverrides: Record<string, unknown> = {}) {
   mockPrisma.salesRepProductCommission.findMany.mockResolvedValue([]);
   mockPrisma.salesRepOverrideAssignment.findMany.mockResolvedValue([]);
   mockPrisma.salesRepCommissionEvent.count.mockResolvedValue(0);
+  mockPrisma.salesRepCommissionEvent.aggregate.mockResolvedValue({ _sum: { eventAmountCents: 0 } });
   mockPrisma.clinic.findUnique.mockResolvedValue({ timezone: 'America/New_York' });
 
   const txProxy = {

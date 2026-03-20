@@ -18,12 +18,15 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const { mockPrisma, mockLogger } = vi.hoisted(() => {
   const fn = () => vi.fn();
   return {
-    mockPrisma: {
+      mockPrisma: {
       salesRepCommissionEvent: {
         findFirst: fn(),
         create: fn(),
         count: fn(),
+        aggregate: fn(),
+        findMany: fn(),
         updateMany: fn(),
+        update: fn(),
       },
       salesRepOverrideCommissionEvent: {
         findFirst: fn(),
@@ -71,6 +74,7 @@ function makePlan(overrides: Record<string, unknown> = {}) {
     multiItemBonusPercentBps: null, multiItemBonusFlatCents: null,
     multiItemMinQuantity: null,
     volumeTierEnabled: false, volumeTierWindow: null, volumeTierRetroactive: true,
+    volumeTierBasis: 'SALE_COUNT',
     reactivationDays: null,
     ...overrides,
   };
@@ -339,6 +343,93 @@ describe('Volume Tier Resolution', () => {
     );
 
     expect(getCreatedEventData().volumeTierBonusCents).toBe(0);
+  });
+
+  it('WEEKLY_REVENUE_CENTS: adds extra bps on initial sale when week revenue crosses threshold', async () => {
+    setupPipeline({
+      volumeTierEnabled: true,
+      volumeTierBasis: 'WEEKLY_REVENUE_CENTS',
+      initialPercentBps: 800,
+      percentBps: 800,
+    });
+    mockPrisma.salesRepVolumeCommissionTier.findMany.mockResolvedValue([
+      {
+        id: 1,
+        planId: 1,
+        minSales: 1,
+        maxSales: null,
+        amountCents: 0,
+        minRevenueCents: 0,
+        additionalPercentBps: 0,
+        sortOrder: 0,
+      },
+      {
+        id: 2,
+        planId: 1,
+        minSales: 2,
+        maxSales: null,
+        amountCents: 0,
+        minRevenueCents: 1_730_000,
+        additionalPercentBps: 100,
+        sortOrder: 1,
+      },
+    ]);
+    mockPrisma.salesRepCommissionEvent.aggregate.mockResolvedValue({
+      _sum: { eventAmountCents: 1_720_000 },
+    });
+
+    const amountCents = 100_000;
+    await processPaymentForSalesRepCommission(
+      makePaymentEvent({ amountCents, isRecurring: false })
+    );
+
+    const base = Math.round((amountCents * 800) / 10000);
+    const vol = Math.round((amountCents * 100) / 10000);
+    expect(base).toBe(8000);
+    expect(vol).toBe(1000);
+    expect(getCreatedEventData().baseCommissionCents).toBe(base);
+    expect(getCreatedEventData().volumeTierBonusCents).toBe(vol);
+    expect(getCreatedEventData().commissionAmountCents).toBe(base + vol);
+  });
+
+  it('WEEKLY_REVENUE_CENTS: skips tier on recurring payment', async () => {
+    setupPipeline({
+      volumeTierEnabled: true,
+      volumeTierBasis: 'WEEKLY_REVENUE_CENTS',
+      initialPercentBps: 800,
+      percentBps: 800,
+      recurringPercentBps: 200,
+    });
+    mockPrisma.salesRepVolumeCommissionTier.findMany.mockResolvedValue([
+      {
+        id: 1,
+        planId: 1,
+        minSales: 1,
+        maxSales: null,
+        amountCents: 0,
+        minRevenueCents: 0,
+        additionalPercentBps: 0,
+        sortOrder: 0,
+      },
+      {
+        id: 2,
+        planId: 1,
+        minSales: 2,
+        maxSales: null,
+        amountCents: 0,
+        minRevenueCents: 0,
+        additionalPercentBps: 500,
+        sortOrder: 1,
+      },
+    ]);
+
+    await processPaymentForSalesRepCommission(
+      makePaymentEvent({ amountCents: 100_000, isRecurring: true })
+    );
+
+    expect(mockPrisma.salesRepCommissionEvent.aggregate).not.toHaveBeenCalled();
+    expect(getCreatedEventData().volumeTierBonusCents).toBe(0);
+    expect(getCreatedEventData().baseCommissionCents).toBe(2000);
   });
 });
 

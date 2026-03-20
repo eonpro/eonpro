@@ -110,6 +110,9 @@ model SalesRepCommissionPlan {
   volumeTierEnabled    Boolean @default(false)
   volumeTierWindow     String? // 'CALENDAR_WEEK_MON_SUN' | 'REPORT_PERIOD'
   volumeTierRetroactive Boolean @default(true) // when true, highest reached tier applies to all sales in period
+  // SALE_COUNT: minSales/maxSales + flat amountCents per sale (existing behavior).
+  // WEEKLY_REVENUE_CENTS: minRevenueCents + additionalPercentBps on initial (non-recurring) sales; week = Mon–Sun clinic TZ.
+  volumeTierBasis      String  @default("SALE_COUNT")
 
   assignments       SalesRepPlanAssignment[]
   productCommissions SalesRepProductCommission[]
@@ -213,9 +216,12 @@ model SalesRepVolumeCommissionTier {
   planId           Int
   plan             SalesRepCommissionPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
   minSales         Int
-  maxSales         Int?                   // null means open-ended (e.g. 21+)
-  amountCents      Int                    // flat dollar amount per sale in this tier
+  maxSales         Int?                   // null means open-ended (e.g. 21+); used when volumeTierBasis = SALE_COUNT
+  amountCents      Int                    // flat dollar amount per sale in this tier (SALE_COUNT basis)
   sortOrder        Int                    @default(0)
+  // When plan.volumeTierBasis = WEEKLY_REVENUE_CENTS: cumulative initial-sale revenue in the week (cents) >= minRevenueCents → add additionalPercentBps on top of plan initial rate for that sale.
+  minRevenueCents       Int?
+  additionalPercentBps  Int?
 
   @@index([planId])
   @@index([planId, minSales])

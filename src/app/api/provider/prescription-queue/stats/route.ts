@@ -10,6 +10,8 @@ import type { NextRequest } from 'next/server';
 
 import { handleApiError } from '@/domains/shared/errors';
 import { withProviderAuth, type AuthUser } from '@/lib/auth/middleware';
+import type { Prisma } from '@prisma/client';
+
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { addCalendarDaysET, startOfDayET, startOfMonthET } from '@/lib/utils/timezone';
@@ -17,21 +19,27 @@ import { addCalendarDaysET, startOfDayET, startOfMonthET } from '@/lib/utils/tim
 export const dynamic = 'force-dynamic';
 
 const ET_PERIOD_NOTE_EMPTY =
-  'Periods use US Eastern Time (America/New_York): daily = since midnight ET today; weekly = last 7 ET calendar days including today; monthly = month-to-date ET.';
+  'Periods use US Eastern Time (America/New_York): daily = since midnight ET today; weekly = last 7 ET calendar days including today; monthly = month-to-date ET. Each Rx is counted on the day it was sent to the pharmacy (approved-at time when present, otherwise order created time for direct sends).';
 
 const NO_STORE_HEADERS = {
   'Cache-Control': 'private, no-store, max-age=0, must-revalidate',
 } as const;
 
-function jsonStatsPayload(
-  body: Record<string, unknown> & {
-    daily: number;
-    weekly: number;
-    monthly: number;
-    glp1: Record<string, unknown>;
-    periodNote: string;
-  },
-): Response {
+type StatsResponseBody = {
+  daily: number;
+  weekly: number;
+  monthly: number;
+  glp1: Record<string, unknown>;
+  periodNote: string;
+  periodBoundsEt?: {
+    dailyStart: string;
+    weekStart: string;
+    monthStart: string;
+    asOf: string;
+  };
+};
+
+function jsonStatsPayload(body: StatsResponseBody): Response {
   return NextResponse.json(
     { ...body, timezone: 'America/New_York' },
     { headers: NO_STORE_HEADERS },
@@ -60,6 +68,16 @@ function zeroStatsResponse(periodNote: string): Response {
     },
     periodNote,
   });
+}
+
+/** Count only orders whose pharmacy-send instant falls on/after `bound` (Eastern calendar windows above). */
+function sentToPharmacyOnOrAfter(bound: Date): Prisma.OrderWhereInput {
+  return {
+    OR: [
+      { approvedAt: { gte: bound } },
+      { AND: [{ approvedAt: null }, { createdAt: { gte: bound } }] },
+    ],
+  };
 }
 
 function aggregateGlp1Split(orders: { primaryMedName: string | null }[]): {
@@ -103,7 +121,7 @@ async function handleGet(_req: NextRequest, user: AuthUser): Promise<Response> {
 
     // Attribute Rx to the logged-in actor: direct submits (providerId + no approver) or
     // admin-queued orders where this user approved-and-sent (approvedByUserId).
-    const baseWhere = {
+    const actorWhere: Prisma.OrderWhereInput = {
       clinicId: user.clinicId,
       cancelledAt: null,
       lifefileOrderId: { not: null },
@@ -119,16 +137,16 @@ async function handleGet(_req: NextRequest, user: AuthUser): Promise<Response> {
 
     const [daily, weekly, monthly, glp1Orders] = await Promise.all([
       prisma.order.count({
-        where: { ...baseWhere, createdAt: { gte: etDayStart } },
+        where: { AND: [actorWhere, sentToPharmacyOnOrAfter(etDayStart)] },
       }),
       prisma.order.count({
-        where: { ...baseWhere, createdAt: { gte: etWeekStart } },
+        where: { AND: [actorWhere, sentToPharmacyOnOrAfter(etWeekStart)] },
       }),
       prisma.order.count({
-        where: { ...baseWhere, createdAt: { gte: etMonthStart } },
+        where: { AND: [actorWhere, sentToPharmacyOnOrAfter(etMonthStart)] },
       }),
       prisma.order.findMany({
-        where: { ...baseWhere, createdAt: { gte: etMonthStart } },
+        where: { AND: [actorWhere, sentToPharmacyOnOrAfter(etMonthStart)] },
         select: { primaryMedName: true },
       }),
     ]);
@@ -141,6 +159,12 @@ async function handleGet(_req: NextRequest, user: AuthUser): Promise<Response> {
       monthly,
       glp1,
       periodNote: `${ET_PERIOD_NOTE_EMPTY} Semaglutide vs tirzepatide is the share among GLP‑1 orders month-to-date (ET).`,
+      periodBoundsEt: {
+        dailyStart: etDayStart.toISOString(),
+        weekStart: etWeekStart.toISOString(),
+        monthStart: etMonthStart.toISOString(),
+        asOf: now.toISOString(),
+      },
     });
   } catch (error: unknown) {
     logger.error('[PRESCRIPTION-QUEUE-STATS] Failed', {

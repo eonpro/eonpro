@@ -173,6 +173,13 @@ interface PrescriptionQueueStats {
   periodNote?: string;
   /** IANA timezone used for period boundaries (always Eastern for this endpoint). */
   timezone?: string;
+  /** UTC instants for Eastern window starts (debug / reconcile with your logs). */
+  periodBoundsEt?: {
+    dailyStart: string;
+    weekStart: string;
+    monthStart: string;
+    asOf: string;
+  };
 }
 
 interface QueueItem {

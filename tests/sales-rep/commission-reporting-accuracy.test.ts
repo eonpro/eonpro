@@ -71,6 +71,7 @@ function makePlan(overrides: Record<string, unknown> = {}) {
     multiItemBonusPercentBps: null, multiItemBonusFlatCents: null,
     multiItemMinQuantity: null,
     volumeTierEnabled: false, volumeTierWindow: null, volumeTierRetroactive: true,
+    volumeTierBasis: 'SALE_COUNT',
     reactivationDays: null,
     ...overrides,
   };

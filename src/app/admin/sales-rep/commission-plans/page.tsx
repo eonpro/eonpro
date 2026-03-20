@@ -41,6 +41,7 @@ interface CommissionPlan {
   multiItemBonusFlatCents?: number | null;
   multiItemMinQuantity?: number | null;
   volumeTierEnabled?: boolean;
+  volumeTierBasis?: 'SALE_COUNT' | 'WEEKLY_REVENUE_CENTS';
   volumeTierWindow?: 'CALENDAR_WEEK_MON_SUN' | 'REPORT_PERIOD' | null;
   volumeTierRetroactive?: boolean;
   volumeTiers?: Array<{
@@ -48,6 +49,8 @@ interface CommissionPlan {
     minSales: number;
     maxSales: number | null;
     amountCents: number;
+    minRevenueCents?: number | null;
+    additionalPercentBps?: number | null;
   }>;
 }
 
@@ -73,12 +76,15 @@ interface PlanFormData {
   multiItemBonusFlatCents: number;
   multiItemMinQuantity: number;
   volumeTierEnabled: boolean;
+  volumeTierBasis: 'SALE_COUNT' | 'WEEKLY_REVENUE_CENTS';
   volumeTierWindow: 'CALENDAR_WEEK_MON_SUN' | 'REPORT_PERIOD';
   volumeTierRetroactive: boolean;
   volumeTiers: Array<{
     minSales: number;
     maxSales: number | null;
     amountCents: number;
+    minRevenueCents: number;
+    totalInitialPercentBps: number;
   }>;
 }
 
@@ -100,6 +106,15 @@ function formatCurrency(cents: number): string {
 function formatPercent(bps: number): string {
   return `${(bps / 100).toFixed(1)}%`;
 }
+
+/** OT-style weekly initial-sale revenue brackets (amounts in cents); rate = total % on initial sales */
+const DEFAULT_WEEKLY_REVENUE_TIERS: PlanFormData['volumeTiers'] = [
+  { minSales: 1, maxSales: null, amountCents: 0, minRevenueCents: 0, totalInitialPercentBps: 800 },
+  { minSales: 2, maxSales: null, amountCents: 0, minRevenueCents: 1_730_000, totalInitialPercentBps: 900 },
+  { minSales: 3, maxSales: null, amountCents: 0, minRevenueCents: 2_300_000, totalInitialPercentBps: 1000 },
+  { minSales: 4, maxSales: null, amountCents: 0, minRevenueCents: 2_900_000, totalInitialPercentBps: 1100 },
+  { minSales: 5, maxSales: null, amountCents: 0, minRevenueCents: 3_500_000, totalInitialPercentBps: 1200 },
+];
 
 const defaultFormData: PlanFormData = {
   name: '',
@@ -123,12 +138,13 @@ const defaultFormData: PlanFormData = {
   multiItemBonusFlatCents: 0,
   multiItemMinQuantity: 2,
   volumeTierEnabled: false,
+  volumeTierBasis: 'SALE_COUNT',
   volumeTierWindow: 'CALENDAR_WEEK_MON_SUN',
   volumeTierRetroactive: true,
   volumeTiers: [
-    { minSales: 1, maxSales: 8, amountCents: 500 },
-    { minSales: 9, maxSales: 20, amountCents: 1000 },
-    { minSales: 21, maxSales: null, amountCents: 1500 },
+    { minSales: 1, maxSales: 8, amountCents: 500, minRevenueCents: 0, totalInitialPercentBps: 800 },
+    { minSales: 9, maxSales: 20, amountCents: 1000, minRevenueCents: 0, totalInitialPercentBps: 800 },
+    { minSales: 21, maxSales: null, amountCents: 1500, minRevenueCents: 0, totalInitialPercentBps: 800 },
   ],
 };
 
@@ -244,23 +260,38 @@ export default function SalesRepCommissionPlansPage() {
       multiItemBonusFlatCents: plan.multiItemBonusFlatCents ?? 0,
       multiItemMinQuantity: plan.multiItemMinQuantity ?? 2,
       volumeTierEnabled: plan.volumeTierEnabled === true,
+      volumeTierBasis:
+        plan.volumeTierBasis === 'WEEKLY_REVENUE_CENTS' ? 'WEEKLY_REVENUE_CENTS' : 'SALE_COUNT',
       volumeTierWindow:
         plan.volumeTierWindow === 'REPORT_PERIOD' ? 'REPORT_PERIOD' : 'CALENDAR_WEEK_MON_SUN',
       volumeTierRetroactive: plan.volumeTierRetroactive !== false,
-      volumeTiers:
-        plan.volumeTiers && plan.volumeTiers.length > 0
-          ? [...plan.volumeTiers]
-              .sort((a, b) => a.minSales - b.minSales)
+      volumeTiers: (() => {
+        const baseBps = plan.initialPercentBps ?? plan.percentBps ?? 1000;
+        if (plan.volumeTiers && plan.volumeTiers.length > 0) {
+          if (plan.volumeTierBasis === 'WEEKLY_REVENUE_CENTS') {
+            return [...plan.volumeTiers]
+              .sort((a, b) => (a.minRevenueCents ?? 0) - (b.minRevenueCents ?? 0))
               .map((tier) => ({
                 minSales: tier.minSales,
                 maxSales: tier.maxSales,
                 amountCents: tier.amountCents,
-              }))
-          : [
-              { minSales: 1, maxSales: 8, amountCents: 500 },
-              { minSales: 9, maxSales: 20, amountCents: 1000 },
-              { minSales: 21, maxSales: null, amountCents: 1500 },
-            ],
+                minRevenueCents: tier.minRevenueCents ?? 0,
+                totalInitialPercentBps:
+                  baseBps + (tier.additionalPercentBps ?? 0),
+              }));
+          }
+          return [...plan.volumeTiers]
+            .sort((a, b) => a.minSales - b.minSales)
+            .map((tier) => ({
+              minSales: tier.minSales,
+              maxSales: tier.maxSales,
+              amountCents: tier.amountCents,
+              minRevenueCents: 0,
+              totalInitialPercentBps: baseBps,
+            }));
+        }
+        return defaultFormData.volumeTiers;
+      })(),
     });
     setError(null);
     await fetchProductsAndBundles();
@@ -350,15 +381,26 @@ export default function SalesRepCommissionPlansPage() {
       body.multiItemBonusPercentBps = null;
       body.multiItemBonusFlatCents = null;
     }
+    const initialRateBps = formData.useSeperateRates ? formData.initialPercentBps : formData.percentBps;
+
     body.volumeTierEnabled = formData.volumeTierEnabled;
+    body.volumeTierBasis =
+      formData.volumeTierEnabled && formData.planType === 'PERCENT'
+        ? formData.volumeTierBasis
+        : 'SALE_COUNT';
     body.volumeTierWindow = formData.volumeTierEnabled ? formData.volumeTierWindow : null;
     body.volumeTierRetroactive = formData.volumeTierEnabled ? formData.volumeTierRetroactive : true;
     body.volumeTiers = formData.volumeTierEnabled
-      ? formData.volumeTiers.map((tier) => ({
-          minSales: tier.minSales,
-          maxSales: tier.maxSales,
-          amountCents: tier.amountCents,
-        }))
+      ? formData.volumeTierBasis === 'WEEKLY_REVENUE_CENTS' && formData.planType === 'PERCENT'
+        ? formData.volumeTiers.map((tier) => ({
+            minRevenueCents: tier.minRevenueCents,
+            additionalPercentBps: Math.max(0, tier.totalInitialPercentBps - initialRateBps),
+          }))
+        : formData.volumeTiers.map((tier) => ({
+            minSales: tier.minSales,
+            maxSales: tier.maxSales,
+            amountCents: tier.amountCents,
+          }))
       : [];
     const validRules = productRuleLines.filter(
       (l) =>
@@ -581,7 +623,8 @@ export default function SalesRepCommissionPlansPage() {
               )}
               {plan.volumeTierEnabled && (
                 <span className="rounded-full bg-emerald-100 px-2 py-1 text-emerald-700">
-                  Volume tiers ({plan.volumeTierWindow === 'REPORT_PERIOD' ? 'Report window' : 'Mon-Sun'})
+                  {plan.volumeTierBasis === 'WEEKLY_REVENUE_CENTS' ? 'Weekly $ tiers' : 'Sale-count tiers'} (
+                  {plan.volumeTierWindow === 'REPORT_PERIOD' ? 'Report window' : 'Mon-Sun'})
                 </span>
               )}
               {plan.holdDays > 0 && (
@@ -593,19 +636,38 @@ export default function SalesRepCommissionPlansPage() {
 
             {plan.volumeTierEnabled && plan.volumeTiers && plan.volumeTiers.length > 0 && (
               <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 p-2 text-xs text-emerald-800">
-                {[...plan.volumeTiers]
-                  .sort((a, b) => a.minSales - b.minSales)
-                  .slice(0, 3)
-                  .map((tier, idx) => (
-                    <div key={`${plan.id}-tier-${idx}`} className="flex items-center justify-between">
-                      <span>
-                        {tier.maxSales == null
-                          ? `${tier.minSales}+ sales`
-                          : `${tier.minSales}-${tier.maxSales} sales`}
-                      </span>
-                      <span className="font-semibold">{formatCurrency(tier.amountCents)}/sale</span>
-                    </div>
-                  ))}
+                {plan.volumeTierBasis === 'WEEKLY_REVENUE_CENTS'
+                  ? [...plan.volumeTiers]
+                      .sort(
+                        (a, b) =>
+                          (a.minRevenueCents ?? 0) - (b.minRevenueCents ?? 0)
+                      )
+                      .slice(0, 5)
+                      .map((tier, idx) => {
+                        const baseBps = plan.initialPercentBps ?? plan.percentBps ?? 0;
+                        const totalBps = baseBps + (tier.additionalPercentBps ?? 0);
+                        return (
+                          <div key={`${plan.id}-rtier-${idx}`} className="flex items-center justify-between">
+                            <span>
+                              {formatCurrency(tier.minRevenueCents ?? 0)}+ weekly initial sales
+                            </span>
+                            <span className="font-semibold">{formatPercent(totalBps)}</span>
+                          </div>
+                        );
+                      })
+                  : [...plan.volumeTiers]
+                      .sort((a, b) => a.minSales - b.minSales)
+                      .slice(0, 3)
+                      .map((tier, idx) => (
+                        <div key={`${plan.id}-tier-${idx}`} className="flex items-center justify-between">
+                          <span>
+                            {tier.maxSales == null
+                              ? `${tier.minSales}+ sales`
+                              : `${tier.minSales}-${tier.maxSales} sales`}
+                          </span>
+                          <span className="font-semibold">{formatCurrency(tier.amountCents)}/sale</span>
+                        </div>
+                      ))}
                 {plan.volumeTierRetroactive && (
                   <p className="mt-1 text-[11px] text-emerald-700">Retroactive to first sale in period</p>
                 )}
@@ -690,9 +752,14 @@ export default function SalesRepCommissionPlansPage() {
                 <label className="block text-sm font-medium text-gray-700">Commission Type *</label>
                 <select
                   value={formData.planType}
-                  onChange={(e) =>
-                    setFormData((f) => ({ ...f, planType: e.target.value as 'FLAT' | 'PERCENT' }))
-                  }
+                  onChange={(e) => {
+                    const planType = e.target.value as 'FLAT' | 'PERCENT';
+                    setFormData((f) =>
+                      planType === 'FLAT' && f.volumeTierBasis === 'WEEKLY_REVENUE_CENTS'
+                        ? { ...f, planType, volumeTierBasis: 'SALE_COUNT', volumeTiers: [...defaultFormData.volumeTiers] }
+                        : { ...f, planType }
+                    );
+                  }}
                   className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-[var(--brand-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--brand-primary)]"
                 >
                   <option value="PERCENT">Percentage</option>
@@ -1067,11 +1134,36 @@ export default function SalesRepCommissionPlansPage() {
                   </span>
                 </label>
                 <p className="mt-1 ml-7 text-xs text-teal-700">
-                  Set per-sale flat rates by total sales count in a 7-day period (for example: 1-8 sales
-                  $5/sale, 9-20 sales $10/sale, 21+ sales $15/sale).
+                  <strong>Sale count:</strong> flat dollars per sale by number of commissioned sales in the
+                  week. <strong>Weekly revenue:</strong> cumulative initial-sale dollars Mon–Sun (clinic
+                  timezone); rate bumps apply to initial commissions only (matches % on top of your initial
+                  rate).
                 </p>
                 {formData.volumeTierEnabled && (
                   <div className="mt-4 ml-7 space-y-3">
+                    <div>
+                      <label className="block text-sm font-medium text-teal-900">Tier mode</label>
+                      <select
+                        value={formData.volumeTierBasis}
+                        onChange={(e) => {
+                          const v = e.target.value as 'SALE_COUNT' | 'WEEKLY_REVENUE_CENTS';
+                          setFormData((f) => ({
+                            ...f,
+                            volumeTierBasis: v,
+                            volumeTiers:
+                              v === 'WEEKLY_REVENUE_CENTS' ? [...DEFAULT_WEEKLY_REVENUE_TIERS] : [...defaultFormData.volumeTiers],
+                          }));
+                        }}
+                        disabled={formData.planType !== 'PERCENT'}
+                        className="mt-1 w-full rounded-lg border border-teal-300 bg-white px-3 py-2 text-gray-900 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500 disabled:bg-gray-100"
+                      >
+                        <option value="SALE_COUNT">By sale count (flat $ / sale)</option>
+                        <option value="WEEKLY_REVENUE_CENTS">By weekly initial-sale revenue (%)</option>
+                      </select>
+                      {formData.planType !== 'PERCENT' && (
+                        <p className="mt-1 text-xs text-amber-700">Percent plans only for weekly revenue tiers.</p>
+                      )}
+                    </div>
                     <div>
                       <label className="block text-sm font-medium text-teal-900">Period basis</label>
                       <select
@@ -1101,140 +1193,266 @@ export default function SalesRepCommissionPlansPage() {
                         Retroactive to first sale in period
                       </span>
                     </label>
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-sm">
-                        <thead>
-                          <tr className="border-b border-teal-200 text-left text-teal-900">
-                            <th className="pb-2 font-medium">Min sales</th>
-                            <th className="pb-2 font-medium">Max sales</th>
-                            <th className="pb-2 font-medium">Rate per sale ($)</th>
-                            <th className="w-10 pb-2" />
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {formData.volumeTiers.map((tier, idx) => (
-                            <tr key={`volume-tier-${idx}`} className="border-b border-teal-100">
-                              <td className="py-2">
-                                <input
-                                  type="number"
-                                  min={1}
-                                  value={tier.minSales}
-                                  onChange={(e) =>
-                                    setFormData((f) => ({
-                                      ...f,
-                                      volumeTiers: f.volumeTiers.map((row, rowIndex) =>
-                                        rowIndex === idx
-                                          ? {
-                                              ...row,
-                                              minSales: Math.max(1, parseInt(e.target.value, 10) || 1),
-                                            }
-                                          : row
-                                      ),
-                                    }))
-                                  }
-                                  className="w-20 rounded border border-teal-300 px-2 py-1 text-gray-900"
-                                />
-                              </td>
-                              <td className="py-2">
-                                <input
-                                  type="number"
-                                  min={tier.minSales}
-                                  placeholder="+"
-                                  value={tier.maxSales ?? ''}
-                                  onChange={(e) =>
-                                    setFormData((f) => ({
-                                      ...f,
-                                      volumeTiers: f.volumeTiers.map((row, rowIndex) =>
-                                        rowIndex === idx
-                                          ? {
-                                              ...row,
-                                              maxSales:
-                                                e.target.value === ''
-                                                  ? null
-                                                  : Math.max(
-                                                      row.minSales,
-                                                      parseInt(e.target.value, 10) || row.minSales
+                    {formData.volumeTierBasis === 'WEEKLY_REVENUE_CENTS' ? (
+                      <>
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-sm">
+                            <thead>
+                              <tr className="border-b border-teal-200 text-left text-teal-900">
+                                <th className="pb-2 font-medium">Min weekly initial sales</th>
+                                <th className="pb-2 font-medium">Total initial %</th>
+                                <th className="w-10 pb-2" />
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {formData.volumeTiers.map((tier, idx) => (
+                                <tr key={`volume-rtier-${idx}`} className="border-b border-teal-100">
+                                  <td className="py-2">
+                                    <div className="flex items-center gap-1">
+                                      <span className="text-gray-500">$</span>
+                                      <input
+                                        type="number"
+                                        min={0}
+                                        step={1}
+                                        value={tier.minRevenueCents / 100}
+                                        onChange={(e) =>
+                                          setFormData((f) => ({
+                                            ...f,
+                                            volumeTiers: f.volumeTiers.map((row, rowIndex) =>
+                                              rowIndex === idx
+                                                ? {
+                                                    ...row,
+                                                    minRevenueCents: Math.max(
+                                                      0,
+                                                      Math.round(parseFloat(e.target.value || '0') * 100)
                                                     ),
-                                            }
-                                          : row
-                                      ),
-                                    }))
-                                  }
-                                  className="w-20 rounded border border-teal-300 px-2 py-1 text-gray-900"
-                                />
-                              </td>
-                              <td className="py-2">
-                                <div className="flex items-center gap-1">
-                                  <span className="text-gray-500">$</span>
-                                  <input
-                                    type="number"
-                                    min={0}
-                                    step={0.01}
-                                    value={tier.amountCents / 100}
-                                    onChange={(e) =>
-                                      setFormData((f) => ({
-                                        ...f,
-                                        volumeTiers: f.volumeTiers.map((row, rowIndex) =>
-                                          rowIndex === idx
-                                            ? {
-                                                ...row,
-                                                amountCents: Math.round(
-                                                  parseFloat(e.target.value || '0') * 100
-                                                ),
-                                              }
-                                            : row
-                                        ),
-                                      }))
-                                    }
-                                    className="w-24 rounded border border-teal-300 px-2 py-1 text-gray-900"
-                                  />
-                                </div>
-                              </td>
-                              <td className="py-2">
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    setFormData((f) => ({
-                                      ...f,
-                                      volumeTiers: f.volumeTiers.filter((_, rowIndex) => rowIndex !== idx),
-                                    }))
-                                  }
-                                  className="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-600"
-                                  disabled={formData.volumeTiers.length <= 1}
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </button>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setFormData((f) => ({
-                          ...f,
-                          volumeTiers: [
-                            ...f.volumeTiers,
-                            {
-                              minSales: Math.max(
-                                1,
-                                (f.volumeTiers[f.volumeTiers.length - 1]?.maxSales ??
-                                  f.volumeTiers[f.volumeTiers.length - 1]?.minSales ??
-                                  1) + 1
-                              ),
-                              maxSales: null,
-                              amountCents: 0,
-                            },
-                          ],
-                        }))
-                      }
-                      className="inline-flex items-center gap-1 rounded border border-teal-400 bg-white px-3 py-1.5 text-sm font-medium text-teal-800 hover:bg-teal-50"
-                    >
-                      <Plus className="h-4 w-4" />
-                      Add tier
-                    </button>
+                                                  }
+                                                : row
+                                            ),
+                                          }))
+                                        }
+                                        className="w-28 rounded border border-teal-300 px-2 py-1 text-gray-900"
+                                      />
+                                    </div>
+                                  </td>
+                                  <td className="py-2">
+                                    <div className="flex items-center gap-1">
+                                      <input
+                                        type="number"
+                                        min={0}
+                                        max={100}
+                                        step={0.1}
+                                        value={tier.totalInitialPercentBps / 100}
+                                        onChange={(e) =>
+                                          setFormData((f) => ({
+                                            ...f,
+                                            volumeTiers: f.volumeTiers.map((row, rowIndex) =>
+                                              rowIndex === idx
+                                                ? {
+                                                    ...row,
+                                                    totalInitialPercentBps: Math.min(
+                                                      10000,
+                                                      Math.round(parseFloat(e.target.value || '0') * 100)
+                                                    ),
+                                                  }
+                                                : row
+                                            ),
+                                          }))
+                                        }
+                                        className="w-20 rounded border border-teal-300 px-2 py-1 text-gray-900"
+                                      />
+                                      <span className="text-gray-500">%</span>
+                                    </div>
+                                  </td>
+                                  <td className="py-2">
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        setFormData((f) => ({
+                                          ...f,
+                                          volumeTiers: f.volumeTiers.filter((_, rowIndex) => rowIndex !== idx),
+                                        }))
+                                      }
+                                      className="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-600"
+                                      disabled={formData.volumeTiers.length <= 1}
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </button>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setFormData((f) => {
+                              const last = f.volumeTiers[f.volumeTiers.length - 1];
+                              const nextMin = (last?.minRevenueCents ?? 0) + 100_000;
+                              return {
+                                ...f,
+                                volumeTiers: [
+                                  ...f.volumeTiers,
+                                  {
+                                    minSales: f.volumeTiers.length + 1,
+                                    maxSales: null,
+                                    amountCents: 0,
+                                    minRevenueCents: nextMin,
+                                    totalInitialPercentBps: last?.totalInitialPercentBps ?? 800,
+                                  },
+                                ],
+                              };
+                            })
+                          }
+                          className="inline-flex items-center gap-1 rounded border border-teal-400 bg-white px-3 py-1.5 text-sm font-medium text-teal-800 hover:bg-teal-50"
+                        >
+                          <Plus className="h-4 w-4" />
+                          Add tier
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-sm">
+                            <thead>
+                              <tr className="border-b border-teal-200 text-left text-teal-900">
+                                <th className="pb-2 font-medium">Min sales</th>
+                                <th className="pb-2 font-medium">Max sales</th>
+                                <th className="pb-2 font-medium">Rate per sale ($)</th>
+                                <th className="w-10 pb-2" />
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {formData.volumeTiers.map((tier, idx) => (
+                                <tr key={`volume-tier-${idx}`} className="border-b border-teal-100">
+                                  <td className="py-2">
+                                    <input
+                                      type="number"
+                                      min={1}
+                                      value={tier.minSales}
+                                      onChange={(e) =>
+                                        setFormData((f) => ({
+                                          ...f,
+                                          volumeTiers: f.volumeTiers.map((row, rowIndex) =>
+                                            rowIndex === idx
+                                              ? {
+                                                  ...row,
+                                                  minSales: Math.max(1, parseInt(e.target.value, 10) || 1),
+                                                }
+                                              : row
+                                          ),
+                                        }))
+                                      }
+                                      className="w-20 rounded border border-teal-300 px-2 py-1 text-gray-900"
+                                    />
+                                  </td>
+                                  <td className="py-2">
+                                    <input
+                                      type="number"
+                                      min={tier.minSales}
+                                      placeholder="+"
+                                      value={tier.maxSales ?? ''}
+                                      onChange={(e) =>
+                                        setFormData((f) => ({
+                                          ...f,
+                                          volumeTiers: f.volumeTiers.map((row, rowIndex) =>
+                                            rowIndex === idx
+                                              ? {
+                                                  ...row,
+                                                  maxSales:
+                                                    e.target.value === ''
+                                                      ? null
+                                                      : Math.max(
+                                                          row.minSales,
+                                                          parseInt(e.target.value, 10) || row.minSales
+                                                        ),
+                                                }
+                                              : row
+                                          ),
+                                        }))
+                                      }
+                                      className="w-20 rounded border border-teal-300 px-2 py-1 text-gray-900"
+                                    />
+                                  </td>
+                                  <td className="py-2">
+                                    <div className="flex items-center gap-1">
+                                      <span className="text-gray-500">$</span>
+                                      <input
+                                        type="number"
+                                        min={0}
+                                        step={0.01}
+                                        value={tier.amountCents / 100}
+                                        onChange={(e) =>
+                                          setFormData((f) => ({
+                                            ...f,
+                                            volumeTiers: f.volumeTiers.map((row, rowIndex) =>
+                                              rowIndex === idx
+                                                ? {
+                                                    ...row,
+                                                    amountCents: Math.round(
+                                                      parseFloat(e.target.value || '0') * 100
+                                                    ),
+                                                  }
+                                                : row
+                                            ),
+                                          }))
+                                        }
+                                        className="w-24 rounded border border-teal-300 px-2 py-1 text-gray-900"
+                                      />
+                                    </div>
+                                  </td>
+                                  <td className="py-2">
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        setFormData((f) => ({
+                                          ...f,
+                                          volumeTiers: f.volumeTiers.filter((_, rowIndex) => rowIndex !== idx),
+                                        }))
+                                      }
+                                      className="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-600"
+                                      disabled={formData.volumeTiers.length <= 1}
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </button>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setFormData((f) => ({
+                              ...f,
+                              volumeTiers: [
+                                ...f.volumeTiers,
+                                {
+                                  minSales: Math.max(
+                                    1,
+                                    (f.volumeTiers[f.volumeTiers.length - 1]?.maxSales ??
+                                      f.volumeTiers[f.volumeTiers.length - 1]?.minSales ??
+                                      1) + 1
+                                  ),
+                                  maxSales: null,
+                                  amountCents: 0,
+                                  minRevenueCents: 0,
+                                  totalInitialPercentBps: f.useSeperateRates
+                                    ? f.initialPercentBps
+                                    : f.percentBps,
+                                },
+                              ],
+                            }))
+                          }
+                          className="inline-flex items-center gap-1 rounded border border-teal-400 bg-white px-3 py-1.5 text-sm font-medium text-teal-800 hover:bg-teal-50"
+                        >
+                          <Plus className="h-4 w-4" />
+                          Add tier
+                        </button>
+                      </>
+                    )}
                   </div>
                 )}
               </div>

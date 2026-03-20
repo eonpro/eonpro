@@ -12,80 +12,10 @@ import crypto from 'crypto';
 import { prisma, runWithClinicContext } from '@/lib/db';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
-
-type VolumeTierInput = {
-  minSales?: number | null;
-  maxSales?: number | null;
-  amountCents?: number | null;
-};
-
-function validateAndNormalizeVolumeTiers(
-  enabled: boolean,
-  tiers: unknown
-): { valid: true; normalized: Array<{ minSales: number; maxSales: number | null; amountCents: number; sortOrder: number }> } | { valid: false; error: string; code: string } {
-  if (!enabled) {
-    return { valid: true, normalized: [] };
-  }
-
-  if (!Array.isArray(tiers) || tiers.length === 0) {
-    return {
-      valid: false,
-      error: 'volumeTiers must include at least one tier when volume tiers are enabled',
-      code: 'INVALID_VOLUME_TIERS',
-    };
-  }
-
-  const normalized = (tiers as VolumeTierInput[])
-    .map((tier, idx) => ({
-      minSales: Number(tier.minSales),
-      maxSales: tier.maxSales == null ? null : Number(tier.maxSales),
-      amountCents: Number(tier.amountCents),
-      sortOrder: idx,
-    }))
-    .sort((a, b) => a.minSales - b.minSales);
-
-  for (let i = 0; i < normalized.length; i += 1) {
-    const tier = normalized[i];
-    if (!Number.isInteger(tier.minSales) || tier.minSales < 1) {
-      return { valid: false, error: 'Each tier minSales must be an integer >= 1', code: 'INVALID_VOLUME_TIERS' };
-    }
-    if (!Number.isInteger(tier.amountCents) || tier.amountCents < 0) {
-      return {
-        valid: false,
-        error: 'Each tier amountCents must be a non-negative integer',
-        code: 'INVALID_VOLUME_TIERS',
-      };
-    }
-    if (tier.maxSales != null) {
-      if (!Number.isInteger(tier.maxSales) || tier.maxSales < tier.minSales) {
-        return {
-          valid: false,
-          error: 'Each tier maxSales must be null or an integer >= minSales',
-          code: 'INVALID_VOLUME_TIERS',
-        };
-      }
-    }
-    if (i < normalized.length - 1) {
-      const next = normalized[i + 1];
-      if (tier.maxSales == null) {
-        return {
-          valid: false,
-          error: 'Only the last tier may be open-ended (maxSales = null)',
-          code: 'INVALID_VOLUME_TIERS',
-        };
-      }
-      if (next.minSales <= tier.maxSales) {
-        return {
-          valid: false,
-          error: 'Volume tiers must not overlap; each next minSales must be greater than previous maxSales',
-          code: 'INVALID_VOLUME_TIERS',
-        };
-      }
-    }
-  }
-
-  return { valid: true, normalized };
-}
+import {
+  validateAndNormalizeVolumeTiers,
+  VOLUME_TIER_BASIS_WEEKLY_REVENUE,
+} from '@/lib/sales-rep/volume-tier-validation';
 
 // GET - List sales rep commission plans
 export const GET = withAuth(
@@ -148,6 +78,7 @@ export const GET = withAuth(
           multiItemBonusFlatCents: plan.multiItemBonusFlatCents,
           multiItemMinQuantity: plan.multiItemMinQuantity,
           volumeTierEnabled: plan.volumeTierEnabled,
+          volumeTierBasis: plan.volumeTierBasis,
           volumeTierWindow: plan.volumeTierWindow,
           volumeTierRetroactive: plan.volumeTierRetroactive,
           volumeTiers: plan.volumeTiers.map((tier) => ({
@@ -155,6 +86,8 @@ export const GET = withAuth(
             minSales: tier.minSales,
             maxSales: tier.maxSales,
             amountCents: tier.amountCents,
+            minRevenueCents: tier.minRevenueCents,
+            additionalPercentBps: tier.additionalPercentBps,
           })),
         })),
       });
@@ -203,6 +136,7 @@ export const POST = withAuth(
         volumeTierEnabled,
         volumeTierWindow,
         volumeTierRetroactive,
+        volumeTierBasis,
         volumeTiers,
         productRules,
       } = body;
@@ -316,8 +250,24 @@ export const POST = withAuth(
         );
       }
 
+      const resolvedTierBasis =
+        volumeTierBasis === VOLUME_TIER_BASIS_WEEKLY_REVENUE
+          ? VOLUME_TIER_BASIS_WEEKLY_REVENUE
+          : 'SALE_COUNT';
+
+      if (volumeTierEnabled && resolvedTierBasis === VOLUME_TIER_BASIS_WEEKLY_REVENUE && planType !== 'PERCENT') {
+        return NextResponse.json(
+          {
+            error: 'Weekly revenue volume tiers require planType PERCENT',
+            code: 'INVALID_VOLUME_TIER_BASIS',
+          },
+          { status: 400 }
+        );
+      }
+
       const normalizedVolumeTiers = validateAndNormalizeVolumeTiers(
         Boolean(volumeTierEnabled),
+        resolvedTierBasis,
         volumeTiers
       );
       if (!normalizedVolumeTiers.valid) {
@@ -352,6 +302,7 @@ export const POST = withAuth(
             multiItemBonusFlatCents: multiItemBonusEnabled && multiItemBonusType === 'FLAT' ? multiItemBonusFlatCents ?? null : null,
             multiItemMinQuantity: multiItemBonusEnabled ? (multiItemMinQuantity ?? 2) : null,
             volumeTierEnabled: volumeTierEnabled ?? false,
+            volumeTierBasis: volumeTierEnabled ? resolvedTierBasis : 'SALE_COUNT',
             volumeTierWindow: volumeTierEnabled ? volumeTierWindow ?? 'CALENDAR_WEEK_MON_SUN' : null,
             volumeTierRetroactive: volumeTierEnabled ? volumeTierRetroactive ?? true : true,
             volumeTiers: volumeTierEnabled
@@ -361,6 +312,8 @@ export const POST = withAuth(
                     maxSales: tier.maxSales,
                     amountCents: tier.amountCents,
                     sortOrder: tier.sortOrder,
+                    minRevenueCents: tier.minRevenueCents,
+                    additionalPercentBps: tier.additionalPercentBps,
                   })),
                 }
               : undefined,

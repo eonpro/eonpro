@@ -19,6 +19,7 @@ import {
   BadgeDollarSign,
   Truck,
   FileText,
+  Timer,
 } from 'lucide-react';
 import { useAuthStore } from '@/lib/stores/authStore';
 import { isBrowser, safeLocalStorage } from '@/lib/utils/ssr-safe';
@@ -46,6 +47,7 @@ const navItems = [
   // Clinic Billing (config, invoices, reports) — super-admin only; do not add to tickets or admin nav
   { icon: Receipt, path: '/super-admin/clinic-billing', label: 'Clinic Billing' },
   { icon: FileText, path: '/super-admin/wellmedr-invoices', label: 'WellMedR Invoices' },
+  { icon: Timer, path: '/super-admin/ot-invoices', label: 'OT Invoices' },
   { icon: Settings, path: '/super-admin/settings', label: 'Settings' },
 ];
 

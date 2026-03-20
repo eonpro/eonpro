@@ -262,7 +262,10 @@ export default function EmployeeSalariesPage() {
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Employee Weekly Salaries</h1>
-            <p className="text-gray-500">Manage weekly base pay for sales reps and staff</p>
+            <p className="text-gray-500">Manage weekly base pay for sales reps and staff.</p>
+            <p className="mt-1 text-sm text-gray-600">
+              To add pay: click <strong className="font-semibold text-gray-800">Set Salary</strong> in the right-hand Actions column, or click <strong className="font-semibold text-gray-800">Not set</strong> under Weekly Salary. On small screens, scroll the table sideways to reach Actions.
+            </p>
           </div>
           <button onClick={handleRefresh} disabled={loading} className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50">
             <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /> Refresh
@@ -304,6 +307,9 @@ export default function EmployeeSalariesPage() {
 
       {/* Table */}
       <div className="overflow-hidden rounded-xl bg-white shadow-sm">
+        <p className="border-b border-gray-100 bg-amber-50 px-4 py-2 text-xs text-amber-900 sm:hidden">
+          Tip: swipe the table left to see the Actions column and <strong>Set Salary</strong>.
+        </p>
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200 text-sm">
             <thead className="bg-gray-50">
@@ -343,7 +349,14 @@ export default function EmployeeSalariesPage() {
                       {emp.salary ? (
                         <span className="font-semibold text-orange-700">{$(emp.salary.weeklyBasePayCents)}/wk</span>
                       ) : (
-                        <span className="text-gray-400">Not set</span>
+                        <button
+                          type="button"
+                          onClick={() => openSetSalary(emp)}
+                          className="rounded-md border border-dashed border-gray-300 bg-gray-50 px-2 py-1 text-sm text-blue-600 underline decoration-blue-300 underline-offset-2 hover:border-blue-300 hover:bg-blue-50"
+                          title="Add weekly salary"
+                        >
+                          Not set — click to add
+                        </button>
                       )}
                     </td>
                     <td className="px-4 py-3 text-right text-gray-600">
@@ -353,9 +366,14 @@ export default function EmployeeSalariesPage() {
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-center gap-1">
                         <button
+                          type="button"
                           onClick={() => openSetSalary(emp)}
-                          className="flex items-center gap-1 rounded px-2 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-100 hover:text-blue-600"
-                          title={emp.salary ? 'Edit salary' : 'Set salary'}
+                          className={
+                            emp.salary
+                              ? 'flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 shadow-sm hover:bg-gray-50'
+                              : 'flex items-center gap-1 rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-800 shadow-sm hover:bg-blue-100'
+                          }
+                          title={emp.salary ? 'Edit salary' : 'Set weekly salary'}
                         >
                           {emp.salary ? <Pencil className="h-3.5 w-3.5" /> : <DollarSign className="h-3.5 w-3.5" />}
                           {emp.salary ? 'Edit' : 'Set Salary'}
