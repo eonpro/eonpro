@@ -16,19 +16,27 @@ function CardIcon({ iconId }: { iconId: string }) {
   switch (iconId) {
     case 'male':
       return (
-        <svg width="48" height="48" viewBox="0 0 64 80" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <circle cx="32" cy="12" r="10" stroke={color} strokeWidth="2.5" fill="none"/>
-          <path d="M32 26C22 26 16 32 16 38V54C16 56 18 58 20 58H44C46 58 48 56 48 54V38C48 32 42 26 32 26Z" stroke={color} strokeWidth="2.5" fill="none"/>
-          <line x1="32" y1="58" x2="32" y2="76" stroke={color} strokeWidth="2.5"/>
-          <line x1="20" y1="76" x2="32" y2="76" stroke={color} strokeWidth="2.5" strokeLinecap="round"/>
-          <line x1="44" y1="76" x2="32" y2="76" stroke={color} strokeWidth="2.5" strokeLinecap="round"/>
+        <svg width="60" height="120" viewBox="0 0 60 140" fill={color} xmlns="http://www.w3.org/2000/svg">
+          <ellipse cx="30" cy="12" rx="9" ry="10" />
+          <path d="M30 24C30 24 22 24 18 28C14 32 13 38 13 38L10 62H18L16 52L20 38H24V62L22 100H28V68H32V100H38L36 62H40L38 38L42 52L40 62H48L45 38C45 38 44 32 40 28C36 24 30 24 30 24Z" />
+          <rect x="22" y="100" width="6" height="28" rx="2" />
+          <rect x="32" y="100" width="6" height="28" rx="2" />
+          <ellipse cx="24" cy="130" rx="6" ry="3" />
+          <ellipse cx="36" cy="130" rx="6" ry="3" />
         </svg>
       );
     case 'female':
       return (
-        <svg width="48" height="48" viewBox="0 0 64 80" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <circle cx="32" cy="12" r="10" stroke={color} strokeWidth="2.5" fill="none"/>
-          <path d="M32 26C24 26 18 30 18 36L16 52C16 54 17 56 20 56H26L24 76H40L38 56H44C47 56 48 54 48 52L46 36C46 30 40 26 32 26Z" stroke={color} strokeWidth="2.5" fill="none"/>
+        <svg width="60" height="120" viewBox="0 0 60 140" fill={color} xmlns="http://www.w3.org/2000/svg">
+          <ellipse cx="30" cy="11" rx="8" ry="9" />
+          <path d="M30 22C30 22 26 20 22 22C18 24 16 22 14 26L12 30C11 33 13 34 15 33L18 30L17 36L14 56H20L19 44L22 36C22 36 21 42 21 48L20 62H26L27 50H33L34 62H40L39 48C39 42 38 36 38 36L41 44L40 56H46L43 36L42 30L45 33C47 34 49 33 48 30L46 26C44 22 42 24 38 22C34 20 30 22 30 22Z" />
+          <rect x="23" y="62" width="5" height="6" rx="1" />
+          <rect x="32" y="62" width="5" height="6" rx="1" />
+          <path d="M22 68L20 100H27L26 72H34L33 100H40L38 68H22Z" />
+          <rect x="20" y="100" width="7" height="26" rx="2" />
+          <rect x="33" y="100" width="7" height="26" rx="2" />
+          <ellipse cx="23" cy="128" rx="6" ry="3" />
+          <ellipse cx="37" cy="128" rx="6" ry="3" />
         </svg>
       );
     default:
