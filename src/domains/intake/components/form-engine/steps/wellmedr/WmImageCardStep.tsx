@@ -107,7 +107,7 @@ export default function WmImageCardStep({
 
         {(headerText || headerItalic) && (
           <h1 className="text-xl sm:text-[2rem] font-bold text-center leading-snug mb-3 sm:mb-4 px-2" style={{ color: '#101010' }}>
-            {headerItalic && <span className="font-normal italic" style={{ color: '#7B95A9', fontFamily: 'var(--font-bodoni, serif)' }}>{headerItalic} </span>}
+            {headerItalic && <span className="font-normal italic" style={{ color: '#7B95A9', fontFamily: "'BodoniSvtyTwo', serif" }}>{headerItalic} </span>}
             {headerText}
           </h1>
         )}

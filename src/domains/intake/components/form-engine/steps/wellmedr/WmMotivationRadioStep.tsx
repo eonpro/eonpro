@@ -59,7 +59,7 @@ export default function WmMotivationRadioStep({
         {(headerText || headerItalic) && (
           <h1 className="text-[1.25rem] sm:text-[1.75rem] font-bold text-center leading-tight mb-4" style={{ color: '#101010' }}>
             {headerText}
-            {headerItalic && <>{' '}<span className="font-normal italic" style={{ color: '#7B95A9', fontFamily: 'var(--font-bodoni, serif)' }}>{headerItalic}</span></>}
+            {headerItalic && <>{' '}<span className="font-normal italic" style={{ color: '#7B95A9', fontFamily: "'BodoniSvtyTwo', serif" }}>{headerItalic}</span></>}
           </h1>
         )}
 

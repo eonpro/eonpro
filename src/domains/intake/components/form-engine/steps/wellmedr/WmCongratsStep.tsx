@@ -115,8 +115,8 @@ export default function WmCongratsStep({
         <h2 className="text-xl sm:text-2xl font-bold text-center mb-2" style={{ color: '#101010' }}>
           Why is everyone switching to<br /><span style={{ color: '#7B95A9' }}>Wellmedr</span>?
         </h2>
-        <p className="text-center font-bold mb-1">Our members hit their goals <span className="italic" style={{ color: '#7B95A9', fontFamily: 'var(--font-bodoni, serif)' }}>faster.</span></p>
-        <p className="text-center mb-4">And <span className="italic" style={{ color: '#7B95A9', fontFamily: 'var(--font-bodoni, serif)' }}>you will too.</span></p>
+        <p className="text-center font-bold mb-1">Our members hit their goals <span className="italic" style={{ color: '#7B95A9', fontFamily: "'BodoniSvtyTwo', serif" }}>faster.</span></p>
+        <p className="text-center mb-4">And <span className="italic" style={{ color: '#7B95A9', fontFamily: "'BodoniSvtyTwo', serif" }}>you will too.</span></p>
 
         <div className="w-full rounded-2xl p-5 mb-6" style={{ backgroundColor: '#fdf8ec' }}>
           <div className="space-y-2">

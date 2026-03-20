@@ -75,7 +75,7 @@ export default function WmCheckboxListStep({
         {(headerItalic || headerText) && (
           <div className="text-center mb-4">
             {headerItalic && (
-              <p className="italic text-lg sm:text-xl mb-1" style={{ color: '#7B95A9', fontFamily: 'var(--font-bodoni, serif)' }}>{headerItalic}</p>
+              <p className="italic text-lg sm:text-xl mb-1" style={{ color: '#7B95A9', fontFamily: "'BodoniSvtyTwo', serif" }}>{headerItalic}</p>
             )}
             {headerText && (
               <p className="text-base sm:text-lg font-bold" style={{ color: '#101010' }}>{headerText}</p>

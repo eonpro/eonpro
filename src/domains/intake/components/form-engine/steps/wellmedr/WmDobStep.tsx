@@ -68,7 +68,7 @@ export default function WmDobStep({ basePath, nextStep, prevStep, progressPercen
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/wellmedr-logo.svg" alt="wellmedr." className="h-6 sm:h-7 mb-6 sm:mb-8" />
 
-        <h1 className="text-xl sm:text-[1.75rem] font-bold text-center leading-snug mb-1" style={{ color: '#7B95A9', fontFamily: 'var(--font-bodoni, serif)' }}>
+        <h1 className="text-xl sm:text-[1.75rem] font-bold text-center leading-snug mb-1" style={{ color: '#7B95A9', fontFamily: "'BodoniSvtyTwo', serif" }}>
           Medication can be tailored to <em>your unique needs,</em>
         </h1>
         <p className="text-lg sm:text-xl font-bold text-center mb-4" style={{ color: '#101010' }}>

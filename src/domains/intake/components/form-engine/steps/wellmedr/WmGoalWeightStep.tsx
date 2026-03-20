@@ -64,7 +64,7 @@ export default function WmGoalWeightStep({ basePath, nextStep, prevStep, progres
         <h1 className="text-xl sm:text-[1.75rem] font-bold text-center mb-0.5" style={{ color: '#101010' }}>
           We&rsquo;re in this together.
         </h1>
-        <p className="text-lg sm:text-xl italic text-center mb-4" style={{ color: '#7B95A9', fontFamily: 'var(--font-bodoni, serif)' }}>
+        <p className="text-lg sm:text-xl italic text-center mb-4" style={{ color: '#7B95A9', fontFamily: "'BodoniSvtyTwo', serif" }}>
           Your goal is our goal.
         </p>
 

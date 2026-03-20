@@ -61,7 +61,7 @@ export default function WmContactInfoStep({
         <img src="/wellmedr-logo.svg" alt="wellmedr." className="h-6 sm:h-7 mb-6 sm:mb-8" />
 
         <h2 className="text-[1.25rem] sm:text-[1.5rem] font-bold text-center mb-2" style={{ color: '#101010' }}>
-          <span className="italic font-normal" style={{ color: '#7B95A9', fontFamily: 'var(--font-bodoni, serif)' }}>{firstName || 'Friend'}</span>, how can you be reached if necessary?
+          <span className="italic font-normal" style={{ color: '#7B95A9', fontFamily: "'BodoniSvtyTwo', serif" }}>{firstName || 'Friend'}</span>, how can you be reached if necessary?
         </h2>
         <p className="text-sm text-center mb-6" style={{ color: '#666' }}>Our medical teams and pharmacy use email and text for patient communication.</p>
 

@@ -3,6 +3,14 @@
 @tailwind components;
 @tailwind utilities;
 
+@font-face {
+  font-family: 'BodoniSvtyTwo';
+  src: url('/fonts/bodoni/Bodoni72-Book-Italic.woff') format('woff');
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+
 :root {
   font-family:
     var(--font-sofia-pro),

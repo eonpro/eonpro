@@ -79,7 +79,7 @@ export default function WmAnimatedWeightChartStep({
 
         <h1 className="text-xl sm:text-[2rem] font-bold text-center leading-tight mb-4" style={{ color: '#101010' }}>
           It feels like magic, but it&apos;s{' '}
-          <span className="font-normal italic" style={{ color: '#7B95A9', fontFamily: 'var(--font-bodoni, serif)' }}>metabolic science.</span>
+          <span className="font-normal italic" style={{ color: '#7B95A9', fontFamily: "'BodoniSvtyTwo', serif" }}>metabolic science.</span>
         </h1>
 
         <div className="w-full rounded-2xl overflow-hidden" style={{ backgroundColor: '#6b6256' }}>
