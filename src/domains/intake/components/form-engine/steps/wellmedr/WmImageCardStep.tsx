@@ -38,10 +38,10 @@ function CardIcon({ iconId }: { iconId: string }) {
       return <img src="/assets/icons/wellmedr/ok-hand.svg" alt="OK" style={{ width: 48, height: 48, objectFit: 'contain' }} />;
     case 'lose_weight':
       /* eslint-disable-next-line @next/next/no-img-element */
-      return <img src="/assets/icons/wellmedr/ok-hand.svg" alt="Lose weight" style={{ width: 48, height: 48, objectFit: 'contain', transform: 'scaleX(-1)' }} />;
+      return <img src="/assets/icons/wellmedr/lose-weight.svg" alt="Lose weight" style={{ width: 48, height: 48, objectFit: 'contain' }} />;
     case 'gain_muscle':
       /* eslint-disable-next-line @next/next/no-img-element */
-      return <img src="/assets/icons/wellmedr/ok-hand.svg" alt="Gain muscle" style={{ width: 48, height: 48, objectFit: 'contain' }} />;
+      return <img src="/assets/icons/wellmedr/gain-muscle.svg" alt="Gain muscle" style={{ width: 48, height: 48, objectFit: 'contain' }} />;
     default:
       return null;
   }
