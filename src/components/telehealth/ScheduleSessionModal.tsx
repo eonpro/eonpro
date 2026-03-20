@@ -15,6 +15,7 @@ import {
 
 import { apiFetch } from '@/lib/api/fetch';
 import { CONSULTATION_DURATIONS } from '@/lib/integrations/zoom/config';
+import { todayET } from '@/lib/utils/timezone';
 
 interface Patient {
   id: number;
@@ -225,7 +226,7 @@ export default function ScheduleSessionModal({ onClose, onCreated }: ScheduleSes
                   type="date"
                   value={date}
                   onChange={(e) => setDate(e.target.value)}
-                  min={new Date().toISOString().split('T')[0]}
+                  min={todayET()}
                   className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 />
               </div>

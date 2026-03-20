@@ -10,6 +10,7 @@ import { safeParseJson, safeParseJsonString } from '@/lib/utils/safe-json';
 import { getMinimalPortalUserPayload, setPortalUserStorage } from '@/lib/utils/portal-user-storage';
 import { ringColorStyle } from '@/lib/utils/css-ring-color';
 import { logger } from '@/lib/logger';
+import { todayET } from '@/lib/utils/timezone';
 import { toast } from '@/components/Toast';
 import dynamic from 'next/dynamic';
 import type { AddressData } from '@/components/AddressAutocomplete';
@@ -658,7 +659,7 @@ export default function SettingsPage() {
                   onChange={(e) => { setProfile({ ...profile, dateOfBirth: e.target.value }); setValidationErrors((prev) => { const { dateOfBirth: _, ...rest } = prev; return rest; }); }}
                   className={`w-full rounded-xl border px-4 py-3 focus:outline-none focus:ring-2 focus:ring-opacity-50 ${validationErrors.dateOfBirth ? 'border-red-300' : 'border-gray-200'}`}
                   style={ringColorStyle(primaryColor)}
-                  max={new Date().toISOString().split('T')[0]}
+                  max={todayET()}
                 />
                 {validationErrors.dateOfBirth && <p className="mt-1 text-sm text-red-600">{validationErrors.dateOfBirth}</p>}
               </div>

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, Video, Clock } from 'lucide-react';
+import { EASTERN_TZ } from '@/lib/utils/timezone';
 
 interface Appointment {
   id: number;
@@ -110,6 +111,7 @@ export default function ProviderCalendar({
                   {apt.type === 'telehealth' && <Video className="h-3 w-3 text-blue-500" />}
                   <span className="truncate font-medium">
                     {apt.date.toLocaleTimeString('en-US', {
+                      timeZone: EASTERN_TZ,
                       hour: 'numeric',
                       minute: '2-digit',
                     })}
@@ -182,6 +184,7 @@ export default function ProviderCalendar({
                     <p className="font-medium">{apt.patientName}</p>
                     <p className="text-gray-600">
                       {apt.date.toLocaleTimeString('en-US', {
+                        timeZone: EASTERN_TZ,
                         hour: 'numeric',
                         minute: '2-digit',
                       })}
@@ -203,7 +206,7 @@ export default function ProviderCalendar({
           {weekDays.map((date, index) => (
             <div key={index} className="flex-1 border-r border-gray-200 p-2 text-center">
               <p className="text-xs text-gray-500">
-                {date.toLocaleDateString('en-US', { weekday: 'short' })}
+                {date.toLocaleDateString('en-US', { timeZone: EASTERN_TZ, weekday: 'short' })}
               </p>
               <p
                 className={`text-sm font-medium ${

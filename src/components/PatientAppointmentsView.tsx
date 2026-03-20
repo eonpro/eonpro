@@ -17,6 +17,7 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api/fetch';
+import { todayET, EASTERN_TZ } from '@/lib/utils/timezone';
 
 interface Provider {
   id: number;
@@ -194,6 +195,7 @@ export default function PatientAppointmentsView({
             id: apt.id,
             date: startDate,
             time: startDate.toLocaleTimeString('en-US', {
+              timeZone: EASTERN_TZ,
               hour: 'numeric',
               minute: '2-digit',
               hour12: true,
@@ -425,11 +427,11 @@ export default function PatientAppointmentsView({
                     <div className="min-w-[80px] text-center">
                       <div className="rounded-lg bg-gray-100 p-3">
                         <div className="text-xs uppercase text-gray-600">
-                          {aptDate.toLocaleDateString('en-US', { month: 'short' })}
+                          {aptDate.toLocaleDateString('en-US', { timeZone: EASTERN_TZ, month: 'short' })}
                         </div>
                         <div className="text-2xl font-bold">{aptDate.getDate()}</div>
                         <div className="text-xs text-gray-600">
-                          {aptDate.toLocaleDateString('en-US', { weekday: 'short' })}
+                          {aptDate.toLocaleDateString('en-US', { timeZone: EASTERN_TZ, weekday: 'short' })}
                         </div>
                       </div>
                     </div>
@@ -631,7 +633,7 @@ export default function PatientAppointmentsView({
                     onChange={(e) =>
                       setAppointmentForm((prev) => ({ ...prev, date: e.target.value }))
                     }
-                    min={new Date().toISOString().split('T')[0]}
+                    min={todayET()}
                     className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-transparent focus:ring-2 focus:ring-[#4fa77e]"
                   />
                 </div>

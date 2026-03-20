@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Calendar, Clock, User, MapPin, Video, Phone, Building } from 'lucide-react';
+import { todayET } from '@/lib/utils/timezone';
 
 interface Appointment {
   id: string;
@@ -15,7 +16,7 @@ interface Appointment {
 }
 
 export default function ProviderSchedulePage() {
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [selectedDate, setSelectedDate] = useState(todayET());
   const [view, setView] = useState<'day' | 'week' | 'month'>('day');
 
   // Mock appointments

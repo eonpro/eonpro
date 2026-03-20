@@ -7,6 +7,7 @@ import { portalFetch, getPortalResponseError } from '@/lib/api/patient-portal-cl
 import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
 import { safeParseJson } from '@/lib/utils/safe-json';
 import { logger } from '@/lib/logger';
+import { todayET, EASTERN_TZ } from '@/lib/utils/timezone';
 import {
   Calendar,
   Clock,
@@ -318,6 +319,7 @@ export default function AppointmentsPage() {
     return isNaN(date.getTime())
       ? '—'
       : date.toLocaleDateString('en-US', {
+          timeZone: EASTERN_TZ,
           weekday: 'short',
           month: 'short',
           day: 'numeric',
@@ -327,6 +329,7 @@ export default function AppointmentsPage() {
   const formatTime = (dateStr: string) => {
     const date = new Date(dateStr);
     return date.toLocaleTimeString('en-US', {
+      timeZone: EASTERN_TZ,
       hour: 'numeric',
       minute: '2-digit',
       hour12: true,
@@ -371,9 +374,10 @@ export default function AppointmentsPage() {
   };
 
   const getMinDate = () => {
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    return tomorrow.toISOString().split('T')[0];
+    const todayStr = todayET();
+    const [y, m, d] = todayStr.split('-').map(Number);
+    const tomorrow = new Date(y, m - 1, d + 1);
+    return `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, '0')}-${String(tomorrow.getDate()).padStart(2, '0')}`;
   };
 
   if (loading) {
@@ -516,6 +520,7 @@ export default function AppointmentsPage() {
                           <>
                             <span className="text-xs font-medium uppercase">
                               {date.toLocaleDateString('en-US', {
+                                timeZone: EASTERN_TZ,
                                 month: 'short',
                               })}
                             </span>
@@ -820,6 +825,7 @@ export default function AppointmentsPage() {
                                 }`}
                               >
                                 {new Date(slot.startTime).toLocaleTimeString('en-US', {
+                                  timeZone: EASTERN_TZ,
                                   hour: 'numeric',
                                   minute: '2-digit',
                                   hour12: true,
@@ -874,6 +880,7 @@ export default function AppointmentsPage() {
                                   return isNaN(date.getTime())
                                     ? '—'
                                     : date.toLocaleDateString('en-US', {
+                                        timeZone: EASTERN_TZ,
                                         weekday: 'long',
                                         month: 'long',
                                         day: 'numeric',
@@ -887,6 +894,7 @@ export default function AppointmentsPage() {
                           <span className="font-medium text-gray-900">
                             {selectedSlot &&
                               new Date(selectedSlot.startTime).toLocaleTimeString('en-US', {
+                                timeZone: EASTERN_TZ,
                                 hour: 'numeric',
                                 minute: '2-digit',
                                 hour12: true,

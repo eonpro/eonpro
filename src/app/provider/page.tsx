@@ -16,6 +16,7 @@ import { ProviderDashboardSkeleton } from '@/components/dashboards/ProviderDashb
 import ProviderCalendarStatusCard from '@/components/ProviderCalendarStatusCard';
 import { apiFetch } from '@/lib/api/fetch';
 import { safeParseJsonString } from '@/lib/utils/safe-json';
+import { todayET } from '@/lib/utils/timezone';
 
 interface DashboardStats {
   totalIntakes: number;
@@ -104,7 +105,7 @@ export default function ProviderDashboard() {
       }
 
       // Fetch appointments for today
-      const today = new Date().toISOString().split('T')[0];
+      const today = todayET();
       try {
         const appointmentsRes = await apiFetch(`/api/scheduling/appointments?date=${today}`);
         if (appointmentsRes.ok) {

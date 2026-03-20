@@ -12,6 +12,7 @@ import {
   Plus,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api/fetch';
+import { todayET } from '@/lib/utils/timezone';
 
 interface Consultation {
   id: number;
@@ -155,7 +156,7 @@ export default function ProviderConsultationsPage() {
       : ['COMPLETED', 'CANCELLED', 'NO_SHOW'].includes(c.status)
   );
 
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = todayET();
   const todayCount = consultations.filter((c) => c.startTime?.startsWith(todayStr)).length;
   const videoCount = consultations.filter((c) => c.type === 'VIDEO').length;
   const completedCount = consultations.filter((c) => c.status === 'COMPLETED').length;
