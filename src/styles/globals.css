@@ -227,13 +227,21 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
 input[type="number"] { -moz-appearance: textfield; }
 
 /* Intake step transitions — fast, smooth opacity-only fades */
+@keyframes intakeSlideIn {
+  from { opacity: 0; transform: translateX(20px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@keyframes intakeSlideBack {
+  from { opacity: 0; transform: translateX(-20px); }
+  to { opacity: 1; transform: translateX(0); }
+}
 @keyframes intakeFadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
 }
-.intake-step-enter { animation: intakeFadeIn 0.15s ease-out both; }
-.intake-step-enter-back { animation: intakeFadeIn 0.15s ease-out both; }
-.intake-step-fade { animation: intakeFadeIn 0.15s ease-out both; }
+.intake-step-enter { animation: intakeSlideIn 0.35s cubic-bezier(0.4, 0, 0.2, 1) both; }
+.intake-step-enter-back { animation: intakeSlideBack 0.35s cubic-bezier(0.4, 0, 0.2, 1) both; }
+.intake-step-fade { animation: intakeFadeIn 0.3s cubic-bezier(0.4, 0, 0.2, 1) both; }
 
 /* Chat textarea: CSS-based auto-resize to avoid JS DOM mutation CLS */
 .chat-textarea {

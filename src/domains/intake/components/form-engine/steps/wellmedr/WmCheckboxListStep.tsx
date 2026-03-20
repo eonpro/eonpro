@@ -1,13 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useIntakeActions, useIntakeStore } from '../../../../store/intakeStore';
 
-interface CheckboxOption {
-  id: string;
-  label: string;
-}
+interface CheckboxOption { id: string; label: string; }
 
 interface WmCheckboxListStepProps {
   basePath: string;
@@ -24,34 +21,24 @@ interface WmCheckboxListStepProps {
 }
 
 export default function WmCheckboxListStep({
-  basePath,
-  nextStep,
-  prevStep,
-  progressPercent,
-  headerItalic,
-  headerText,
-  subtitleText,
-  question,
-  storageKey,
-  options,
-  noneOptionId = 'none',
+  basePath, nextStep, progressPercent,
+  headerItalic, headerText, subtitleText, question,
+  storageKey, options, noneOptionId = 'none',
 }: WmCheckboxListStepProps) {
   const router = useRouter();
   const responses = useIntakeStore((s) => s.responses);
   const { setResponse, markStepCompleted, setCurrentStep } = useIntakeActions();
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { requestAnimationFrame(() => setMounted(true)); }, []);
 
   const [selected, setSelected] = useState<string[]>(
     Array.isArray(responses[storageKey]) ? (responses[storageKey] as string[]) : []
   );
 
   const handleToggle = (id: string) => {
-    if (id === noneOptionId) {
-      setSelected(selected.includes(noneOptionId) ? [] : [noneOptionId]);
-      return;
-    }
+    if (id === noneOptionId) { setSelected(selected.includes(noneOptionId) ? [] : [noneOptionId]); return; }
     const withoutNone = selected.filter((s) => s !== noneOptionId);
-    const next = withoutNone.includes(id) ? withoutNone.filter((s) => s !== id) : [...withoutNone, id];
-    setSelected(next);
+    setSelected(withoutNone.includes(id) ? withoutNone.filter((s) => s !== id) : [...withoutNone, id]);
   };
 
   const handleContinue = () => {
@@ -65,63 +52,57 @@ export default function WmCheckboxListStep({
   return (
     <div className="min-h-[100dvh] flex flex-col" style={{ backgroundColor: '#F7F7F9' }}>
       <div className="w-full h-1" style={{ backgroundColor: '#e5e0d8' }}>
-        <div className="h-full transition-all duration-500 ease-out" style={{ width: `${progressPercent}%`, backgroundColor: '#c3b29e' }} />
+        <div className="h-full" style={{ width: `${progressPercent}%`, backgroundColor: '#c3b29e', transition: 'width 0.8s cubic-bezier(0.4,0,0.2,1)' }} />
       </div>
 
-      <div className="flex-1 flex flex-col items-center px-6 lg:px-8 pt-8 pb-6 max-w-xl sm:max-w-2xl mx-auto w-full">
+      <div className="flex-1 flex flex-col items-center px-5 sm:px-8 pt-6 sm:pt-8 pb-4 max-w-xl sm:max-w-2xl mx-auto w-full">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/wellmedr-logo.svg" alt="wellmedr." className="h-6 sm:h-7 mb-6 sm:mb-8" />
+        <img src="/wellmedr-logo.svg" alt="wellmedr." className="h-6 sm:h-7 mb-6 sm:mb-8"
+          style={{ opacity: mounted ? 1 : 0, transition: 'opacity 0.5s ease' }} />
 
         {(headerItalic || headerText) && (
-          <div className="text-center mb-4">
-            {headerItalic && (
-              <p className="italic text-lg sm:text-xl mb-1" style={{ color: '#7B95A9', fontFamily: "'BodoniSvtyTwo', serif" }}>{headerItalic}</p>
-            )}
-            {headerText && (
-              <p className="text-base sm:text-lg font-bold" style={{ color: '#101010' }}>{headerText}</p>
-            )}
+          <div className="text-center mb-3" style={{ opacity: mounted ? 1 : 0, transform: mounted ? 'translateY(0)' : 'translateY(10px)', transition: 'all 0.6s cubic-bezier(0.4,0,0.2,1) 0.05s' }}>
+            {headerItalic && <p className="italic text-lg sm:text-xl mb-1" style={{ color: '#7B95A9', fontFamily: "'BodoniSvtyTwo', serif" }}>{headerItalic}</p>}
+            {headerText && <p className="text-[15px] sm:text-lg font-bold" style={{ color: '#101010' }}>{headerText}</p>}
           </div>
         )}
 
-        {subtitleText && (
-          <p className="text-sm text-center mb-4" style={{ color: '#888' }}>{subtitleText}</p>
-        )}
+        {subtitleText && <p className="text-xs sm:text-sm text-center mb-3" style={{ color: '#888', opacity: mounted ? 1 : 0, transition: 'opacity 0.5s ease 0.15s' }}>{subtitleText}</p>}
 
-        <h2 className="text-[1.25rem] sm:text-[1.5rem] font-bold text-center mb-6" style={{ color: '#101010' }}>
-          {question}
-          <span className="ml-1" style={{ color: '#7B95A9' }}>*</span>
+        <h2 className="text-lg sm:text-[1.4rem] font-bold text-center mb-5"
+          style={{ color: '#101010', opacity: mounted ? 1 : 0, transform: mounted ? 'translateY(0)' : 'translateY(10px)', transition: 'all 0.6s cubic-bezier(0.4,0,0.2,1) 0.1s' }}>
+          {question}<span className="ml-1" style={{ color: '#c3b29e' }}>*</span>
         </h2>
 
-        <div className="w-full space-y-2.5">
-          {options.map((opt) => (
-            <button
-              key={opt.id}
-              onClick={() => handleToggle(opt.id)}
-              className="w-full flex items-start gap-3 px-4 py-3.5 rounded-xl border bg-white transition-all text-left"
-              style={{
-                borderColor: selected.includes(opt.id) ? 'var(--intake-accent, #7B95A9)' : '#e5e7eb',
-              }}
-            >
-              <div className="w-5 h-5 mt-0.5 rounded border-2 flex items-center justify-center shrink-0" style={{ borderColor: selected.includes(opt.id) ? 'var(--intake-accent, #7B95A9)' : '#d1d5db', backgroundColor: selected.includes(opt.id) ? 'var(--intake-accent, #7B95A9)' : 'transparent' }}>
-                {selected.includes(opt.id) && (
-                  <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                  </svg>
-                )}
-              </div>
-              <span className="text-sm sm:text-base" style={{ color: '#101010' }}>{opt.label}</span>
-            </button>
-          ))}
+        <div className="w-full space-y-2">
+          {options.map((opt, i) => {
+            const sel = selected.includes(opt.id);
+            return (
+              <button key={opt.id} onClick={() => handleToggle(opt.id)}
+                className="w-full flex items-start gap-3 px-4 py-3.5 rounded-[14px] text-left"
+                style={{
+                  backgroundColor: sel ? '#f5f0e8' : '#fff',
+                  border: `1.5px solid ${sel ? '#c3b29e' : 'rgba(0,0,0,0.06)'}`,
+                  boxShadow: sel ? '0 0 0 1px #c3b29e' : '0 1px 2px rgba(0,0,0,0.03)',
+                  opacity: mounted ? 1 : 0,
+                  transform: mounted ? 'translateX(0)' : 'translateX(-8px)',
+                  transition: `all 0.3s cubic-bezier(0.4,0,0.2,1) ${Math.min(i * 0.02, 0.3)}s`,
+                }}>
+                <div className="w-5 h-5 mt-0.5 rounded flex items-center justify-center shrink-0"
+                  style={{ border: `2px solid ${sel ? '#c3b29e' : '#d1d5db'}`, backgroundColor: sel ? '#c3b29e' : 'transparent', borderRadius: '5px', transition: 'all 0.2s ease' }}>
+                  {sel && <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M2.5 6L5 8.5L9.5 3.5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                </div>
+                <span className="text-[14px] sm:text-[15px] leading-snug" style={{ color: '#101010' }}>{opt.label}</span>
+              </button>
+            );
+          })}
         </div>
       </div>
 
-      <div className="sticky bottom-0 px-5 sm:px-8 pb-6 pt-3 max-w-xl sm:max-w-2xl mx-auto w-full">
-        <button
-          onClick={handleContinue}
-          disabled={selected.length === 0}
-          className="w-full flex items-center justify-center gap-3 py-4 text-white font-medium text-base rounded-full active:scale-[0.98] transition-all duration-200 disabled:opacity-40"
-          style={{ backgroundColor: '#0C2631' }}
-        >
+      <div className="sticky bottom-0 px-5 sm:px-8 pb-6 pt-3 max-w-xl sm:max-w-2xl mx-auto w-full" style={{ backgroundColor: '#F7F7F9' }}>
+        <button onClick={handleContinue} disabled={selected.length === 0}
+          className="w-full flex items-center justify-center gap-2.5 py-4 text-white font-medium text-base rounded-full disabled:opacity-30 active:scale-[0.98]"
+          style={{ backgroundColor: '#0C2631', transition: 'all 0.3s ease' }}>
           Next <span className="text-lg">&rarr;</span>
         </button>
       </div>
