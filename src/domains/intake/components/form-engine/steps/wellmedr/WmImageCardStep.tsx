@@ -22,70 +22,26 @@ function CardIcon({ iconId }: { iconId: string }) {
       /* eslint-disable-next-line @next/next/no-img-element */
       return <img src="/assets/icons/wellmedr/female-silhouette.svg" alt="Female" style={{ width: 56, height: 100, objectFit: 'contain', opacity: 0.55 }} />;
     case 'low_libido':
-      return (
-        <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M24 44c11 0 20-9 20-20S35 4 24 4 4 13 4 24s9 20 20 20z" {...s} strokeWidth={1.5}/>
-          <path d="M14 30c0 0 4-6 10-6s10 6 10 6" {...s} strokeWidth={1.5}/>
-          <path d="M12 24l8-8M20 24l-8-8" {...s} strokeWidth={1.5}/>
-          <circle cx="34" cy="20" r="2" fill={c}/>
-        </svg>
-      );
+      /* eslint-disable-next-line @next/next/no-img-element */
+      return <img src="/assets/icons/wellmedr/low-libido.svg" alt="Low libido" style={{ width: 48, height: 48, objectFit: 'contain' }} />;
     case 'hair_loss':
-      return (
-        <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <line x1="12" y1="4" x2="12" y2="32" {...s}/><line x1="20" y1="4" x2="20" y2="32" {...s}/><line x1="28" y1="4" x2="28" y2="32" {...s}/><line x1="36" y1="4" x2="36" y2="32" {...s}/>
-          <circle cx="12" cy="34" r="2.5" fill={c}/><circle cx="20" cy="36" r="2.5" fill={c}/><circle cx="28" cy="34" r="2.5" fill={c}/><circle cx="36" cy="36" r="2.5" fill={c}/>
-          <path d="M8 40c0 0 2 6 8 6s6-4 8-4 2 4 8 4 8-6 8-6" {...s}/>
-        </svg>
-      );
+      /* eslint-disable-next-line @next/next/no-img-element */
+      return <img src="/assets/icons/wellmedr/hair-loss.svg" alt="Hair loss" style={{ width: 48, height: 48, objectFit: 'contain' }} />;
     case 'skin_issues':
-      return (
-        <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M4 36c4-2 8-8 12-8s4 4 8 4 4-6 8-6 4 4 8 4 4-2 4-2" {...s}/>
-          <circle cx="16" cy="18" r="2" fill={c}/><circle cx="24" cy="14" r="1.5" fill={c}/><circle cx="32" cy="20" r="2.5" fill={c}/><circle cx="20" cy="24" r="1" fill={c}/><circle cx="28" cy="28" r="1.5" fill={c}/>
-          <path d="M12 8l-2 6M16 6l-1 5M24 4l-1 6M32 6l-1 5M36 8l-2 6" {...s} strokeWidth={1.2}/>
-        </svg>
-      );
+      /* eslint-disable-next-line @next/next/no-img-element */
+      return <img src="/assets/icons/wellmedr/skin-issues.svg" alt="Skin issues" style={{ width: 48, height: 48, objectFit: 'contain' }} />;
     case 'cognition':
-      return (
-        <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M24 4C14 4 8 12 8 20c0 6 3 10 6 12v8c0 2 2 4 4 4h12c2 0 4-2 4-4v-8c3-2 6-6 6-12 0-8-6-16-16-16z" {...s}/>
-          <path d="M18 44v-4h12v4" {...s}/>
-          <path d="M24 12v16M16 20h16" {...s} strokeWidth={1.5}/>
-          <path d="M18 28c2 2 4 3 6 3s4-1 6-3" {...s}/>
-        </svg>
-      );
+      /* eslint-disable-next-line @next/next/no-img-element */
+      return <img src="/assets/icons/wellmedr/cognition.svg" alt="Cognition" style={{ width: 48, height: 48, objectFit: 'contain' }} />;
     case 'ok_hand':
-      return (
-        <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M20 18c0-3 2-6 4-6s4 2 4 6v8" {...s}/>
-          <path d="M28 26v-12c0-3 2-5 4-5s3 2 3 5v10" {...s}/>
-          <path d="M35 24v-8c0-3 1.5-5 3.5-5s3 2 3 5v12c0 8-6 16-14 16H24c-6 0-12-4-14-10l-2-6c-1-3 0-5 2-6s4 0 5 3l2 4" {...s}/>
-          <path d="M20 26v-8c0-3-2-5-3.5-5" {...s}/>
-        </svg>
-      );
+      /* eslint-disable-next-line @next/next/no-img-element */
+      return <img src="/assets/icons/wellmedr/ok-hand.svg" alt="OK" style={{ width: 48, height: 48, objectFit: 'contain' }} />;
     case 'lose_weight':
-      return (
-        <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M16 8h16v4c0 6-3 10-8 12-5-2-8-6-8-12V8z" {...s}/>
-          <path d="M12 8h24" {...s}/>
-          <path d="M24 24v4" {...s}/>
-          <path d="M16 40h16v-4c0-6-3-10-8-12-5 2-8 6-8 12v4z" {...s}/>
-          <path d="M12 40h24" {...s}/>
-          <circle cx="36" cy="14" r="2" fill={c}/><path d="M36 14l4-6" {...s} strokeWidth={1.2}/>
-        </svg>
-      );
+      /* eslint-disable-next-line @next/next/no-img-element */
+      return <img src="/assets/icons/wellmedr/ok-hand.svg" alt="Lose weight" style={{ width: 48, height: 48, objectFit: 'contain', transform: 'scaleX(-1)' }} />;
     case 'gain_muscle':
-      return (
-        <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M8 32c0 0 2-12 6-16s6-4 10-4" {...s}/>
-          <path d="M24 12c4 0 6 0 10 4s6 16 6 16" {...s}/>
-          <path d="M14 16c2-4 6-6 10-6s8 2 10 6" {...s} strokeWidth={2}/>
-          <path d="M10 32h28" {...s}/>
-          <path d="M24 12v-6M20 8l4-4 4 4" {...s} strokeWidth={1.5}/>
-          <circle cx="18" cy="24" r="3" {...s}/><circle cx="30" cy="24" r="3" {...s}/>
-        </svg>
-      );
+      /* eslint-disable-next-line @next/next/no-img-element */
+      return <img src="/assets/icons/wellmedr/ok-hand.svg" alt="Gain muscle" style={{ width: 48, height: 48, objectFit: 'contain' }} />;
     default:
       return null;
   }
