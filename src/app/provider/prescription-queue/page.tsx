@@ -34,6 +34,7 @@ import {
   Sparkles,
   ClipboardCheck,
   FileWarning,
+  BarChart3,
 } from 'lucide-react';
 import { MEDS, GLP1_PRODUCT_IDS } from '@/lib/medications';
 import { SHIPPING_METHODS } from '@/lib/shipping';
@@ -157,6 +158,20 @@ function getPatientAddress(patient: {
 }
 
 // ============================================================================
+
+interface PrescriptionQueueStats {
+  daily: number;
+  weekly: number;
+  monthly: number;
+  glp1: {
+    sema: number;
+    tirz: number;
+    semaPercent: number | null;
+    tirzPercent: number | null;
+    totalClassified: number;
+  };
+  periodNote?: string;
+}
 
 interface QueueItem {
   queueType?: 'invoice' | 'refill' | 'queued_order';
@@ -392,6 +407,8 @@ export default function PrescriptionQueuePage() {
   const [successMessage, setSuccessMessage] = useState('');
   const [successLifefileId, setSuccessLifefileId] = useState<string | null>(null);
   const [total, setTotal] = useState(0);
+  const [stats, setStats] = useState<PrescriptionQueueStats | null>(null);
+  const [statsLoading, setStatsLoading] = useState(true);
 
   // Expanded patient details
   const [expandedItem, setExpandedItem] = useState<number | null>(null);
@@ -472,6 +489,25 @@ export default function PrescriptionQueuePage() {
     return localStorage.getItem('auth-token') || localStorage.getItem('provider-token');
   };
 
+  const fetchStats = useCallback(async () => {
+    try {
+      setStatsLoading(true);
+      const response = await apiFetch('/api/provider/prescription-queue/stats', {
+        headers: { Authorization: `Bearer ${getAuthToken()}` },
+      });
+      if (response.ok) {
+        const data: PrescriptionQueueStats = await response.json();
+        setStats(data);
+      } else {
+        setStats(null);
+      }
+    } catch {
+      setStats(null);
+    } finally {
+      setStatsLoading(false);
+    }
+  }, []);
+
   const fetchQueue = useCallback(async (retryAttempt = 0) => {
     const MAX_RETRIES = 2;
     try {
@@ -518,7 +554,8 @@ export default function PrescriptionQueuePage() {
 
   useEffect(() => {
     fetchQueue();
-  }, [fetchQueue]);
+    fetchStats();
+  }, [fetchQueue, fetchStats]);
 
   const fetchPatientDetails = async (invoiceId: number) => {
     setLoadingDetails(true);
@@ -1436,6 +1473,7 @@ export default function PrescriptionQueuePage() {
             <button
               onClick={() => {
                 setLoading(true);
+                void fetchStats();
                 fetchQueue();
               }}
               className="flex min-h-[44px] touch-manipulation items-center justify-center gap-2 self-end rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-gray-600 transition-all hover:bg-white/80 hover:text-gray-900 active:bg-gray-100 sm:self-auto"
@@ -1486,6 +1524,71 @@ export default function PrescriptionQueuePage() {
             </button>
           </div>
         )}
+
+        {/* Provider Rx volume — successful pharmacy submissions (this clinic, you as prescriber) */}
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
+          {(
+            [
+              { key: 'daily', label: 'Daily Rx', value: stats?.daily },
+              { key: 'weekly', label: 'Weekly Rx', value: stats?.weekly },
+              { key: 'monthly', label: 'Monthly Rx', value: stats?.monthly },
+            ] as const
+          ).map(({ key, label, value }) => (
+            <div
+              key={key}
+              className="rounded-2xl border border-gray-200/80 bg-white p-4 shadow-sm"
+            >
+              <div className="flex items-center gap-2 text-xs font-medium text-gray-500">
+                <BarChart3 className="h-3.5 w-3.5 shrink-0 text-gray-400" aria-hidden />
+                {label}
+              </div>
+              <p className="mt-2 text-2xl font-bold tabular-nums text-gray-900">
+                {statsLoading ? (
+                  <span className="inline-block h-8 w-10 animate-pulse rounded bg-gray-100" />
+                ) : (
+                  value ?? '—'
+                )}
+              </p>
+              <p className="mt-1 text-[11px] leading-snug text-gray-400">UTC calendar window</p>
+            </div>
+          ))}
+          <div className="col-span-2 rounded-2xl border border-gray-200/80 bg-white p-4 shadow-sm sm:col-span-1">
+            <div className="flex items-center gap-2 text-xs font-medium text-gray-500">
+              <Pill className="h-3.5 w-3.5 shrink-0 text-gray-400" aria-hidden />
+              Sema vs Tirz (MTD)
+            </div>
+            {statsLoading ? (
+              <div className="mt-3 h-10 animate-pulse rounded-lg bg-gray-100" />
+            ) : stats && stats.glp1.totalClassified > 0 ? (
+              <>
+                <div className="mt-3 flex h-2.5 overflow-hidden rounded-full bg-gray-100">
+                  <div
+                    className="bg-emerald-500 transition-all"
+                    style={{ width: `${stats.glp1.semaPercent ?? 0}%` }}
+                    title={`Semaglutide ${stats.glp1.semaPercent}%`}
+                  />
+                  <div
+                    className="bg-violet-500 transition-all"
+                    style={{ width: `${stats.glp1.tirzPercent ?? 0}%` }}
+                    title={`Tirzepatide ${stats.glp1.tirzPercent}%`}
+                  />
+                </div>
+                <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-gray-600">
+                  <span>
+                    <span className="font-semibold text-emerald-700">{stats.glp1.semaPercent}%</span>{' '}
+                    Sema ({stats.glp1.sema})
+                  </span>
+                  <span>
+                    <span className="font-semibold text-violet-700">{stats.glp1.tirzPercent}%</span>{' '}
+                    Tirz ({stats.glp1.tirz})
+                  </span>
+                </div>
+              </>
+            ) : (
+              <p className="mt-3 text-sm text-gray-500">No GLP‑1 Rx this month yet</p>
+            )}
+          </div>
+        </div>
 
         {/* Search - touch-friendly height on mobile */}
         <div className="relative">

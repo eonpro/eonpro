@@ -102,6 +102,7 @@ export const staffNavConfig: AdminNavItemConfig[] = [
   { path: '/admin/verification-queue', label: 'ID Verification', iconKey: 'Shield' },
   { path: '/admin/messages', label: 'Messages', iconKey: 'MessageSquare' },
   { path: '/admin/scheduling', label: 'Telehealth', iconKey: 'Video' },
+  { path: '/staff/appointments', label: 'Appointments', iconKey: 'Calendar' },
   { path: '/admin/orders', label: 'Orders', iconKey: 'ShoppingCart' },
   { path: '/admin/shipping', label: 'Shipping', iconKey: 'Truck' },
   { path: '/admin/shipment-monitor', label: 'Shipments', iconKey: 'BarChart3' },

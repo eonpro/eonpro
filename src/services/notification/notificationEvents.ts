@@ -38,6 +38,7 @@
  */
 
 import { notificationService } from './notificationService';
+import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import type { NotificationCategory, NotificationPriority } from '@prisma/client';
 
@@ -90,6 +91,15 @@ interface AppointmentInput extends PatientEventInput {
   appointmentTime: Date;
   providerName?: string;
   appointmentType?: string;
+}
+
+interface AppointmentBookedInput extends PatientEventInput {
+  appointmentId: number;
+  appointmentTime: Date;
+  providerId: number;
+  providerName?: string;
+  appointmentType?: string;
+  bookedByName?: string;
 }
 
 interface RefillDueInput extends PatientEventInput {
@@ -404,6 +414,72 @@ class NotificationEventsService {
       });
     } catch (error) {
       logger.error('[NotificationEvents] Failed to send appointment notification', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        appointmentId: input.appointmentId,
+      });
+    }
+  }
+
+  /**
+   * APPOINTMENT BOOKED - New appointment placed on provider's calendar
+   * Notifies the specific provider that someone booked a consultation
+   */
+  async appointmentBooked(input: AppointmentBookedInput): Promise<void> {
+    try {
+      // Resolve the provider's User ID from the Provider record
+      const providerUser = await prisma.user.findFirst({
+        where: { providerId: input.providerId, status: 'ACTIVE' },
+        select: { id: true },
+      });
+
+      if (!providerUser) {
+        logger.warn('[NotificationEvents] No user found for provider', {
+          providerId: input.providerId,
+        });
+        return;
+      }
+
+      const timeFormatted = input.appointmentTime.toLocaleString('en-US', {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+      });
+
+      const isVideo =
+        input.appointmentType?.toUpperCase() === 'VIDEO' ||
+        input.appointmentType?.toLowerCase() === 'telehealth';
+      const typeLabel = isVideo ? 'Telehealth consultation' : 'Appointment';
+      const bookedBy = input.bookedByName ? ` (booked by ${input.bookedByName})` : '';
+
+      await notificationService.createNotification({
+        userId: providerUser.id,
+        clinicId: input.clinicId,
+        category: 'APPOINTMENT' as NotificationCategory,
+        priority: isVideo ? ('HIGH' as NotificationPriority) : ('NORMAL' as NotificationPriority),
+        title: `New ${typeLabel} Booked`,
+        message: `${input.patientName} - ${timeFormatted}${bookedBy}`,
+        actionUrl: isVideo
+          ? `/provider/telehealth?consultationId=${input.appointmentId}`
+          : `/provider/calendar`,
+        sourceType: 'appointment_booked',
+        sourceId: `appt_booked_${input.appointmentId}`,
+        metadata: {
+          patientId: input.patientId,
+          patientName: input.patientName,
+          appointmentId: input.appointmentId,
+          appointmentTime: input.appointmentTime.toISOString(),
+          appointmentType: input.appointmentType,
+        },
+      });
+
+      logger.info('[NotificationEvents] Appointment booked notification sent to provider', {
+        appointmentId: input.appointmentId,
+        providerId: input.providerId,
+      });
+    } catch (error) {
+      logger.error('[NotificationEvents] Failed to send appointment booked notification', {
         error: error instanceof Error ? error.message : 'Unknown error',
         appointmentId: input.appointmentId,
       });

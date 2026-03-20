@@ -570,6 +570,31 @@ export async function createAppointment(input: CreateAppointmentInput): Promise<
       });
     }
 
+    // Notify the provider that a new appointment was booked on their calendar
+    import('@/services/notification')
+      .then(({ notificationEvents }) =>
+        notificationEvents.appointmentBooked({
+          clinicId: input.clinicId || 0,
+          patientId: input.patientId,
+          patientName: finalAppointment.patient
+            ? `${finalAppointment.patient.firstName} ${finalAppointment.patient.lastName}`
+            : 'Patient',
+          appointmentId: finalAppointment.id,
+          appointmentTime: input.startTime,
+          providerId: input.providerId,
+          providerName: finalAppointment.provider
+            ? `${finalAppointment.provider.firstName} ${finalAppointment.provider.lastName}`
+            : undefined,
+          appointmentType: input.type,
+        })
+      )
+      .catch((err) => {
+        logger.error('Failed to send provider booking notification (non-blocking)', {
+          appointmentId: finalAppointment.id,
+          error: err instanceof Error ? err.message : 'Unknown',
+        });
+      });
+
     return { success: true, appointment: finalAppointment };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
