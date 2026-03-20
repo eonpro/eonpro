@@ -30,7 +30,11 @@ import {
   Loader2,
 } from 'lucide-react';
 
-const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || '');
+const stripePublishableKey =
+  process.env.NEXT_PUBLIC_EONMEDS_STRIPE_PUBLISHABLE_KEY ||
+  process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ||
+  '';
+const stripePromise = stripePublishableKey ? loadStripe(stripePublishableKey) : null;
 
 interface PaymentMethod {
   id: string;
@@ -209,6 +213,10 @@ export default function SubscriptionPage() {
 
     let mounted = true;
     const mountCard = async () => {
+      if (!stripePromise) {
+        setAddCardError('Payment system is not configured. Please contact support.');
+        return;
+      }
       const stripeInstance = await stripePromise;
       if (!stripeInstance || !mounted) return;
       stripeInstanceRef.current = stripeInstance;

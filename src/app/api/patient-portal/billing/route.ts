@@ -7,18 +7,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
-import Stripe from 'stripe';
 import { auditLog, AuditEventType } from '@/lib/audit/hipaa-audit';
 import { handleApiError } from '@/domains/shared/errors';
-
-function getStripe(): Stripe {
-  if (!process.env.STRIPE_SECRET_KEY) {
-    throw new Error('STRIPE_SECRET_KEY environment variable is not configured');
-  }
-  return new Stripe(process.env.STRIPE_SECRET_KEY, {
-    apiVersion: '2026-01-28.clover',
-  });
-}
+import { requireStripeClient } from '@/lib/stripe/config';
 
 /**
  * GET /api/patient-portal/billing
@@ -26,7 +17,7 @@ function getStripe(): Stripe {
  */
 export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
   try {
-    const stripe = getStripe();
+    const stripe = requireStripeClient();
     if (!user.patientId) {
       return NextResponse.json(
         { error: 'Patient ID required', code: 'PATIENT_ID_REQUIRED' },
@@ -166,8 +157,8 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
     if (paymentMethods.length === 0 && patient.paymentMethods.length > 0) {
       paymentMethods = patient.paymentMethods.map((pm: any) => ({
         id: pm.id.toString(),
-        brand: pm.brand || 'card',
-        last4: pm.last4 || '****',
+        brand: pm.cardBrand || 'card',
+        last4: pm.cardLast4 || '****',
         expMonth: pm.expiryMonth || 0,
         expYear: pm.expiryYear || 0,
         isDefault: pm.isDefault || false,

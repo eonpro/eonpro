@@ -12,16 +12,7 @@ import { prisma } from '@/lib/db';
 import { handleApiError } from '@/domains/shared/errors';
 import { logger } from '@/lib/logger';
 import { auditLog, AuditEventType } from '@/lib/audit/hipaa-audit';
-import Stripe from 'stripe';
-
-function getStripe(): Stripe {
-  if (!process.env.STRIPE_SECRET_KEY) {
-    throw new Error('STRIPE_SECRET_KEY environment variable is not configured');
-  }
-  return new Stripe(process.env.STRIPE_SECRET_KEY, {
-    apiVersion: '2026-01-28.clover',
-  });
-}
+import { requireStripeClient } from '@/lib/stripe/config';
 
 const requestSchema = z.object({
   stripePaymentMethodId: z.string().min(1),
@@ -30,7 +21,7 @@ const requestSchema = z.object({
 
 export const POST = withAuth(async (req: NextRequest, user: AuthUser) => {
   try {
-    const stripe = getStripe();
+    const stripe = requireStripeClient();
 
     if (!user.patientId) {
       return NextResponse.json(

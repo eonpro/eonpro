@@ -148,6 +148,54 @@ function rewriteDirectionsForMonth(directions: string, monthLabel: string, weeks
   return d;
 }
 
+function parseMultiMonthDirections(directions: string): Array<{
+  monthNumber: number;
+  segment: string;
+  dose: { mg: string; units: string } | null;
+  weeks: number;
+}> | null {
+  if (!directions) return null;
+
+  const monthMatches = [...directions.matchAll(/Month\s+(\d+)\s*:/gi)];
+  if (monthMatches.length < 2) return null;
+
+  const uniqueMonths = new Map<number, { index: number; matchLength: number }>();
+  for (const m of monthMatches) {
+    const num = parseInt(m[1]);
+    if (!uniqueMonths.has(num)) {
+      uniqueMonths.set(num, { index: m.index!, matchLength: m[0].length });
+    }
+  }
+
+  if (uniqueMonths.size < 2) return null;
+
+  const sorted = [...uniqueMonths.entries()].sort((a, b) => a[1].index - b[1].index);
+  const results: Array<{
+    monthNumber: number;
+    segment: string;
+    dose: { mg: string; units: string } | null;
+    weeks: number;
+  }> = [];
+
+  for (let i = 0; i < sorted.length; i++) {
+    const [monthNum, { index, matchLength }] = sorted[i];
+    const contentStart = index + matchLength;
+    const contentEnd = i < sorted.length - 1 ? sorted[i + 1][1].index : directions.length;
+
+    let segment = directions.slice(contentStart, contentEnd).trim();
+    segment = segment.replace(/\s*\|\s*$/, '').trim();
+    segment = segment.replace(/^Month\s+\d+\s*:\s*/i, '').trim();
+
+    const dose = parseDoseFromDirections(segment);
+    const weeksMatch = segment.match(/for\s+(\d+)\s+weeks?/i);
+    const weeks = weeksMatch ? parseInt(weeksMatch[1]) : 4;
+
+    results.push({ monthNumber: monthNum, segment, dose, weeks });
+  }
+
+  return results;
+}
+
 function extractMlValue(...inputs: Array<string | null | undefined>): string | null {
   for (const input of inputs) {
     if (!input) continue;
@@ -551,63 +599,117 @@ END:VCALENDAR`;
       if (injectableMeds.length === 0) continue;
 
       for (const med of injectableMeds) {
-        const weeksFromDaysSupply = med.daysSupply > 0 ? Math.round(med.daysSupply / 7) : 4;
-
-        let weeksFromVial = 0;
-        const vialMl = extractMlValue(med.quantity, med.name, med.form);
-        const parsedDose = parseDoseFromDirections(med.directions);
-        if (vialMl && parsedDose?.units) {
-          const mlPerInjection = parseFloat(parsedDose.units) / 100;
-          if (mlPerInjection > 0) {
-            weeksFromVial = Math.floor(parseFloat(vialMl) / mlPerInjection);
-          }
-        }
-
-        const weeksInSupply = Math.max(weeksFromDaysSupply, weeksFromVial);
-        const monthsCovered = Math.max(1, Math.ceil(weeksInSupply / WEEKS_PER_MONTH));
-
-        const dose = parseDoseFromDirections(med.directions);
-        const doseKey = dose ? `${dose.mg}-${dose.units}` : med.directions;
-        const isTitration = prevDoseKey !== '' && doseKey !== prevDoseKey;
-        const isSameDose = prevDoseKey !== '' && doseKey === prevDoseKey;
-        prevDoseKey = doseKey;
-
         const medName = getMedicationDisplayName(med);
+        const multiMonthDoses = parseMultiMonthDirections(med.directions);
 
-        for (let m = 0; m < monthsCovered; m++) {
-          monthNum++;
-          const mWeekStart = weekCursor + m * WEEKS_PER_MONTH;
-          const mWeekEnd = Math.min(mWeekStart + WEEKS_PER_MONTH - 1, weekCursor + weeksInSupply - 1);
+        if (multiMonthDoses && multiMonthDoses.length >= 2) {
+          for (const segment of multiMonthDoses) {
+            monthNum++;
+            const weekStart = weekCursor;
+            const weekEnd = weekCursor + segment.weeks - 1;
 
-          const periodStart = new Date(firstPrescribedDate);
-          periodStart.setDate(periodStart.getDate() + (mWeekStart - 1) * 7);
-          const periodEnd = new Date(firstPrescribedDate);
-          periodEnd.setDate(periodEnd.getDate() + mWeekEnd * 7);
+            const dose = segment.dose;
+            const doseKey = dose ? `${dose.mg}-${dose.units}` : segment.segment;
+            const isTitration = prevDoseKey !== '' && doseKey !== prevDoseKey;
+            const isSameDose = prevDoseKey !== '' && doseKey === prevDoseKey;
+            prevDoseKey = doseKey;
 
-          const monthDirections = rewriteDirectionsForMonth(
-            med.directions,
-            `Month ${monthNum}`,
-            mWeekEnd - mWeekStart + 1,
-          );
+            const periodStart = new Date(firstPrescribedDate);
+            periodStart.setDate(periodStart.getDate() + (weekStart - 1) * 7);
+            const periodEnd = new Date(firstPrescribedDate);
+            periodEnd.setDate(periodEnd.getDate() + weekEnd * 7);
 
-          items.push({
-            monthNumber: monthNum,
-            weekStart: mWeekStart,
-            weekEnd: mWeekEnd,
-            prescriptionId: order.id,
-            date: order.prescribedDate,
-            medName,
-            directions: monthDirections,
-            dose,
-            isTitration: m === 0 ? isTitration : false,
-            isSameDose: m === 0 ? isSameDose : true,
-            status: order.status,
-            periodStart,
-            periodEnd,
-          });
+            let displayDir = reformatDirectionsUnitsFirst(segment.segment);
+            displayDir = displayDir.replace(/for\s+\d+\s+weeks?/i, `for ${segment.weeks} weeks`);
+            displayDir = `Month ${monthNum}: ${displayDir}`;
+
+            items.push({
+              monthNumber: monthNum,
+              weekStart,
+              weekEnd,
+              prescriptionId: order.id,
+              date: order.prescribedDate,
+              medName,
+              directions: displayDir,
+              dose,
+              isTitration,
+              isSameDose,
+              status: order.status,
+              periodStart,
+              periodEnd,
+            });
+
+            weekCursor += segment.weeks;
+          }
+        } else {
+          const weeksFromDaysSupply = med.daysSupply > 0 ? Math.round(med.daysSupply / 7) : 0;
+
+          const weeksFromSig = (() => {
+            const wm = med.directions.match(/for\s+(\d+)\s+weeks?/i);
+            return wm ? parseInt(wm[1]) : 0;
+          })();
+
+          let weeksFromVial = 0;
+          const vialMl = extractMlValue(med.quantity, med.name, med.form);
+          const parsedDose = parseDoseFromDirections(med.directions);
+          if (vialMl && parsedDose?.units) {
+            const mlPerInjection = parseFloat(parsedDose.units) / 100;
+            if (mlPerInjection > 0) {
+              weeksFromVial = Math.floor(parseFloat(vialMl) / mlPerInjection);
+            }
+          }
+
+          const weeksInSupply = weeksFromDaysSupply > 0
+            ? weeksFromDaysSupply
+            : weeksFromSig > 0
+              ? weeksFromSig
+              : weeksFromVial > 0
+                ? weeksFromVial
+                : 4;
+
+          const monthsCovered = Math.max(1, Math.ceil(weeksInSupply / WEEKS_PER_MONTH));
+
+          const dose = parseDoseFromDirections(med.directions);
+          const doseKey = dose ? `${dose.mg}-${dose.units}` : med.directions;
+          const isTitration = prevDoseKey !== '' && doseKey !== prevDoseKey;
+          const isSameDose = prevDoseKey !== '' && doseKey === prevDoseKey;
+          prevDoseKey = doseKey;
+
+          for (let m = 0; m < monthsCovered; m++) {
+            monthNum++;
+            const mWeekStart = weekCursor + m * WEEKS_PER_MONTH;
+            const mWeekEnd = Math.min(mWeekStart + WEEKS_PER_MONTH - 1, weekCursor + weeksInSupply - 1);
+
+            const periodStart = new Date(firstPrescribedDate);
+            periodStart.setDate(periodStart.getDate() + (mWeekStart - 1) * 7);
+            const periodEnd = new Date(firstPrescribedDate);
+            periodEnd.setDate(periodEnd.getDate() + mWeekEnd * 7);
+
+            const monthDirections = rewriteDirectionsForMonth(
+              med.directions,
+              `Month ${monthNum}`,
+              mWeekEnd - mWeekStart + 1,
+            );
+
+            items.push({
+              monthNumber: monthNum,
+              weekStart: mWeekStart,
+              weekEnd: mWeekEnd,
+              prescriptionId: order.id,
+              date: order.prescribedDate,
+              medName,
+              directions: monthDirections,
+              dose,
+              isTitration: m === 0 ? isTitration : false,
+              isSameDose: m === 0 ? isSameDose : true,
+              status: order.status,
+              periodStart,
+              periodEnd,
+            });
+          }
+
+          weekCursor += weeksInSupply;
         }
-
-        weekCursor += weeksInSupply;
       }
     }
 
