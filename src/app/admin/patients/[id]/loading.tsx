@@ -11,7 +11,7 @@ import { useEffect, useState } from 'react';
  * before that completes — a premature reload restarts the query from
  * scratch and creates an infinite reload loop.
  *
- * Safety net: after 30s (matching maxDuration), offer a manual retry
+ * Safety net: after 8s, attempt one auto-reload. If still stuck, offer a manual retry
  * button. The reload is gated to fire at most once per page via
  * sessionStorage to prevent infinite loops.
  */
@@ -29,7 +29,7 @@ export default function PatientDetailLoading() {
       } else {
         setShowRetry(true);
       }
-    }, 30000);
+    }, 8000);
     return () => clearTimeout(timer);
   }, []);
 

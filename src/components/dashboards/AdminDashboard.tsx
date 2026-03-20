@@ -16,7 +16,8 @@ import {
   ChevronRight,
   Eye,
 } from 'lucide-react';
-import Link from 'next/link';
+// Link removed — patient detail pages are server components; plain <a> tags
+// avoid RSC fetch hangs on subdomain deployments (see rule #6).
 import { apiFetch } from '@/lib/api/fetch';
 import { normalizedIncludes } from '@/lib/utils/search';
 import { safeParseJsonString } from '@/lib/utils/safe-json';
@@ -332,12 +333,12 @@ export default function AdminDashboard({ userName }: AdminDashboardProps) {
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <Link
+                      <a
                         href={`/admin/patients/${patient.id}`}
                         className="flex items-center gap-1 text-sm font-medium text-[#4fa77e] hover:text-[#3d8a66]"
                       >
                         View profile
-                      </Link>
+                      </a>
                     </td>
                   </tr>
                 ))

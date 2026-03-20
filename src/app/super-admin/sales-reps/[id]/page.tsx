@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import Link from 'next/link';
+// Link removed — patient detail pages use plain <a> tags to avoid RSC fetch hangs
 import {
   ChevronLeft, BadgeDollarSign, TrendingUp, DollarSign, MousePointer,
   Target, Download, Calendar, Building2, RefreshCw, Mail, Clock,
@@ -429,7 +429,7 @@ export default function SalesRepDetailPage() {
                         }
                       </td>
                       <td className="whitespace-nowrap px-4 py-2.5 text-right">
-                        <Link href={`/patients/${pt.patientId}`} className="text-xs text-[var(--brand-primary)] hover:underline">View</Link>
+                        <a href={`/patients/${pt.patientId}`} className="text-xs text-[var(--brand-primary)] hover:underline">View</a>
                       </td>
                     </tr>
                   ))}

@@ -1031,9 +1031,9 @@ export default function AdminRefillQueuePage() {
               {/* View patient profile */}
               {selectedRefill.patientId && (
                 <button
-                  onClick={() =>
-                    router.push(`/patients/${selectedRefill.patientId}?tab=billing`)
-                  }
+                  onClick={() => {
+                    window.location.href = `/patients/${selectedRefill.patientId}?tab=billing`;
+                  }}
                   className="flex w-full items-center justify-center gap-2 rounded-lg border border-gray-200 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50"
                 >
                   <ExternalLink className="h-4 w-4" />

@@ -179,7 +179,7 @@ export default function ProviderDashboard() {
   }, []);
 
   const navigateToPatient = (patientId: number) => {
-    router.push(`/provider/patients/${patientId}`);
+    window.location.href = `/provider/patients/${patientId}`;
   };
 
   const navigateToPatients = (search?: string) => {

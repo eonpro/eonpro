@@ -1014,9 +1014,9 @@ function HomePageInner() {
                           tabIndex={0}
                           role="link"
                           onClick={() => {
-                            router.push(`/patients/${patient.id}`);
+                            window.location.href = `/patients/${patient.id}`;
                           }}
-                          onKeyDown={(e) => { if (e.key === 'Enter') router.push(`/patients/${patient.id}`); }}
+                          onKeyDown={(e) => { if (e.key === 'Enter') window.location.href = `/patients/${patient.id}`; }}
                         >
                           <td className="px-6 py-4">
                             <div className="flex items-center gap-3">

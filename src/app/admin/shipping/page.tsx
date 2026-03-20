@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import Link from 'next/link';
+// Link removed — patient detail pages use plain <a> tags to avoid RSC fetch hangs
 import {
   Truck,
   Package,
@@ -354,12 +354,12 @@ export default function AdminShippingPage() {
                   {/* Patient */}
                   <td className="px-4 py-3">
                     {rec.patientId ? (
-                      <Link
+                      <a
                         href={`/admin/patients/${rec.patientId}`}
                         className="text-sm font-medium text-gray-900 hover:text-[#4fa77e] hover:underline"
                       >
                         {rec.patientName || `Patient #${rec.patientId}`}
-                      </Link>
+                      </a>
                     ) : (
                       <span className="text-sm text-gray-400">Unmatched</span>
                     )}
@@ -429,13 +429,13 @@ export default function AdminShippingPage() {
                         <span className="rounded-full bg-red-50 px-2 py-0.5 text-xs text-red-600">Voided</span>
                       )}
                       {rec.patientId && (
-                        <Link
+                        <a
                           href={`/admin/patients/${rec.patientId}?tab=prescriptions`}
                           title="View patient"
                           className="rounded p-1.5 text-gray-500 transition hover:bg-gray-100 hover:text-gray-700"
                         >
                           <ExternalLink className="h-4 w-4" />
-                        </Link>
+                        </a>
                       )}
                     </div>
                   </td>
