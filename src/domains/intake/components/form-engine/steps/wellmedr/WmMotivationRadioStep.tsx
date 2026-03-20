@@ -43,7 +43,7 @@ export default function WmMotivationRadioStep({
         <div className="h-full" style={{ width: `${progressPercent}%`, backgroundColor: '#c3b29e', transition: 'width 0.8s cubic-bezier(0.4,0,0.2,1)' }} />
       </div>
 
-      <div className="flex-1 flex flex-col items-center px-5 sm:px-8 pt-6 sm:pt-8 pb-4 max-w-xl sm:max-w-2xl mx-auto w-full">
+      <div className="flex-1 flex flex-col items-center justify-center px-5 sm:px-8 pt-6 sm:pt-8 pb-4 max-w-md sm:max-w-lg mx-auto w-full">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/wellmedr-logo.svg" alt="wellmedr." className="h-6 sm:h-7 mb-6 sm:mb-8"
           style={{ opacity: mounted ? 1 : 0, transition: 'opacity 0.5s ease' }} />

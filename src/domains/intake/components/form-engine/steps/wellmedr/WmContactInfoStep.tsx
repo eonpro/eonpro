@@ -56,7 +56,7 @@ export default function WmContactInfoStep({
         <div className="h-full transition-all duration-500 ease-out" style={{ width: `${progressPercent}%`, backgroundColor: '#c3b29e' }} />
       </div>
 
-      <div className="flex-1 flex flex-col items-center px-6 lg:px-8 pt-8 pb-6 max-w-xl sm:max-w-2xl mx-auto w-full">
+      <div className="flex-1 flex flex-col items-center justify-center px-6 lg:px-8 pt-8 pb-6 max-w-md sm:max-w-lg mx-auto w-full">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/wellmedr-logo.svg" alt="wellmedr." className="h-6 sm:h-7 mb-6 sm:mb-8" />
 
@@ -100,7 +100,7 @@ export default function WmContactInfoStep({
         </div>
       </div>
 
-      <div className="sticky bottom-0 px-5 sm:px-8 pb-6 pt-3 max-w-xl sm:max-w-2xl mx-auto w-full">
+      <div className="sticky bottom-0 px-5 sm:px-8 pb-6 pt-3 max-w-md sm:max-w-lg mx-auto w-full">
         <button
           onClick={handleContinue}
           disabled={!consent}

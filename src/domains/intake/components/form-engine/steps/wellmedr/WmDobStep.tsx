@@ -57,14 +57,14 @@ export default function WmDobStep({ basePath, nextStep, prevStep, progressPercen
       </div>
 
       {prevStep && (
-        <div className="px-5 sm:px-8 pt-4 max-w-xl sm:max-w-2xl mx-auto w-full">
+        <div className="px-5 sm:px-8 pt-4 max-w-md sm:max-w-lg mx-auto w-full">
           <button onClick={handleBack} className="p-2 -ml-2 rounded-lg hover:bg-black/5 active:scale-95 transition-all">
             <svg className="w-5 h-5" style={{ color: '#101010' }} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
           </button>
         </div>
       )}
 
-      <div className="flex-1 flex flex-col items-center px-5 sm:px-8 pt-4 sm:pt-6 pb-4 max-w-xl sm:max-w-2xl mx-auto w-full">
+      <div className="flex-1 flex flex-col items-center justify-center px-5 sm:px-8 pt-4 sm:pt-6 pb-4 max-w-md sm:max-w-lg mx-auto w-full">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/wellmedr-logo.svg" alt="wellmedr." className="h-6 sm:h-7 mb-6 sm:mb-8" />
 
@@ -118,7 +118,7 @@ export default function WmDobStep({ basePath, nextStep, prevStep, progressPercen
         </div>
       </div>
 
-      <div className="sticky bottom-0 px-5 sm:px-8 pb-6 pt-3 max-w-xl sm:max-w-2xl mx-auto w-full" style={{ backgroundColor: '#F7F7F9' }}>
+      <div className="sticky bottom-0 px-5 sm:px-8 pb-6 pt-3 max-w-md sm:max-w-lg mx-auto w-full" style={{ backgroundColor: '#F7F7F9' }}>
         <button
           onClick={handleContinue}
           disabled={!month || !day || !year}
