@@ -28,13 +28,15 @@ export default function WmMetabolicChartStep({
     path.style.strokeDasharray = `${length}`;
     path.style.strokeDashoffset = `${length}`;
 
-    requestAnimationFrame(() => {
-      path.style.transition = 'stroke-dashoffset 2.5s cubic-bezier(0.25, 0.1, 0.25, 1)';
-      path.style.strokeDashoffset = '0';
-    });
+    const delay = setTimeout(() => {
+      requestAnimationFrame(() => {
+        path.style.transition = 'stroke-dashoffset 2s cubic-bezier(0.4, 0, 0.2, 1)';
+        path.style.strokeDashoffset = '0';
+      });
+    }, 400);
 
-    const timer = setTimeout(() => setAnimDone(true), 2600);
-    return () => clearTimeout(timer);
+    const timer = setTimeout(() => setAnimDone(true), 2500);
+    return () => { clearTimeout(delay); clearTimeout(timer); };
   }, []);
 
   const handleContinue = () => {

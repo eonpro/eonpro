@@ -27,16 +27,19 @@ export default function WmAnimatedWeightChartStep({
   const diff = Math.max(weight - goalWeight, 1);
 
   useEffect(() => {
-    const start = performance.now();
-    const duration = 1200;
-    const animate = (now: number) => {
-      const elapsed = now - start;
-      const t = Math.min(elapsed / duration, 1);
-      setAnimProgress(1 - Math.pow(1 - t, 3));
-      if (t < 1) animRef.current = requestAnimationFrame(animate);
-    };
-    animRef.current = requestAnimationFrame(animate);
-    return () => cancelAnimationFrame(animRef.current);
+    const delay = setTimeout(() => {
+      const start = performance.now();
+      const duration = 1800;
+      const animate = (now: number) => {
+        const elapsed = now - start;
+        const t = Math.min(elapsed / duration, 1);
+        const eased = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+        setAnimProgress(eased);
+        if (t < 1) animRef.current = requestAnimationFrame(animate);
+      };
+      animRef.current = requestAnimationFrame(animate);
+    }, 400);
+    return () => { clearTimeout(delay); cancelAnimationFrame(animRef.current); };
   }, []);
 
   const handleContinue = () => {
