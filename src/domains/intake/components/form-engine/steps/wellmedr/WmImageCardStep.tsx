@@ -16,13 +16,11 @@ function CardIcon({ iconId }: { iconId: string }) {
   const s = { stroke: c, strokeWidth: 1.8, fill: 'none', strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
   switch (iconId) {
     case 'male':
-      return (
-        <svg width="56" height="100" viewBox="0 0 50 120" fill={c}><ellipse cx="25" cy="10" rx="7.5" ry="8.5"/><path d="M25 20c-8 0-13 5-14 12l-2 22h7l1-14 3-8v22l-2 32h6V58h2v28h6l-2-32V34l3 8 1 14h7l-2-22c-1-7-6-12-14-12z"/><rect x="18" y="86" width="5" height="24" rx="2"/><rect x="27" y="86" width="5" height="24" rx="2"/><ellipse cx="20" cy="112" rx="5" ry="2.5"/><ellipse cx="30" cy="112" rx="5" ry="2.5"/></svg>
-      );
+      /* eslint-disable-next-line @next/next/no-img-element */
+      return <img src="/assets/icons/wellmedr/male-silhouette.svg" alt="Male" style={{ width: 56, height: 100, objectFit: 'contain', opacity: 0.55 }} />;
     case 'female':
-      return (
-        <svg width="56" height="100" viewBox="0 0 50 120" fill={c}><ellipse cx="25" cy="10" rx="7" ry="8"/><path d="M25 20c-7 0-12 4-13 10l-1 4c-.5 2 1 3 2.5 2l2.5-2-.5 6-3 18h6l-1-10 3-8c0 0-.5 6-.5 10l-1 12h6l1-10h4l1 10h6l-1-12c0-4-.5-10-.5-10l3 8-1 10h6l-3-18-.5-6 2.5 2c1.5 1 3 0 2.5-2l-1-4c-1-6-6-10-13-10z"/><path d="M19 62l-2 28h7l1-24h4l1 24h7l-2-28H19z"/><rect x="17" y="90" width="6" height="22" rx="2"/><rect x="27" y="90" width="6" height="22" rx="2"/><ellipse cx="20" cy="114" rx="5" ry="2.5"/><ellipse cx="30" cy="114" rx="5" ry="2.5"/></svg>
-      );
+      /* eslint-disable-next-line @next/next/no-img-element */
+      return <img src="/assets/icons/wellmedr/female-silhouette.svg" alt="Female" style={{ width: 56, height: 100, objectFit: 'contain', opacity: 0.55 }} />;
     case 'low_libido':
       return (
         <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
