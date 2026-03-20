@@ -1,6 +1,42 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+
 export default function SalesRepsLoading() {
+  const [showRetry, setShowRetry] = useState(false);
+
+  useEffect(() => {
+    const key = `sa-loading-reload-${window.location.pathname}`;
+    const alreadyReloaded = sessionStorage.getItem(key);
+
+    const timer = setTimeout(() => {
+      if (!alreadyReloaded) {
+        sessionStorage.setItem(key, '1');
+        window.location.reload();
+      } else {
+        setShowRetry(true);
+      }
+    }, 8000);
+    return () => clearTimeout(timer);
+  }, []);
+
   return (
     <div className="animate-pulse p-6">
+      {showRetry && (
+        <div className="mb-4 flex items-center justify-between rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+          <span>This page is taking longer than expected to load.</span>
+          <button
+            onClick={() => {
+              const key = `sa-loading-reload-${window.location.pathname}`;
+              sessionStorage.removeItem(key);
+              window.location.reload();
+            }}
+            className="ml-3 rounded-md bg-amber-600 px-3 py-1 text-xs font-medium text-white hover:bg-amber-700"
+          >
+            Retry
+          </button>
+        </div>
+      )}
       {/* Header */}
       <div className="mb-6 flex items-center justify-between">
         <div>

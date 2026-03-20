@@ -87,7 +87,16 @@ export function midnightInTz(
  * Return the UTC Date for the start of "today" in a given timezone,
  * plus common relative boundaries (yesterday, start of week, start of month).
  */
-export function getTimezoneAwareBoundaries(tz: string = DEFAULT_TIMEZONE) {
+export function getTimezoneAwareBoundaries(tz: string = DEFAULT_TIMEZONE): {
+  todayStart: Date;
+  yesterdayStart: Date;
+  weekStart: Date;
+  monthStart: Date;
+  year: number;
+  month: number;
+  day: number;
+  dayOfWeek: number;
+} {
   const { year, month, day, dayOfWeek } = getDatePartsInTz(tz);
 
   const todayStart = midnightInTz(year, month, day, tz);
@@ -120,6 +129,29 @@ export function toDateStringET(d: Date): string {
 export function parseDateET(dateStr: string): Date {
   const [y, m, d] = dateStr.split('-').map(Number);
   return midnightInTz(y, m - 1, d, EASTERN_TZ);
+}
+
+/**
+ * Shift a calendar date in Eastern Time by `deltaDays` (negative allowed).
+ * Returns the UTC instant of midnight at the result date in Eastern Time.
+ */
+export function addCalendarDaysET(d: Date, deltaDays: number): Date {
+  const { year, month, day } = getDatePartsForDate(d);
+  const rolled = new Date(Date.UTC(year, month, day + deltaDays));
+  return midnightInTz(
+    rolled.getUTCFullYear(),
+    rolled.getUTCMonth(),
+    rolled.getUTCDate(),
+    EASTERN_TZ,
+  );
+}
+
+/**
+ * Midnight Eastern on the first day of the calendar month containing `d` (in ET).
+ */
+export function startOfMonthET(d: Date): Date {
+  const parts = getDatePartsForDate(d);
+  return midnightInTz(parts.year, parts.month, 1, EASTERN_TZ);
 }
 
 /**

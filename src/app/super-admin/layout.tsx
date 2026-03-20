@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import Link from 'next/link';
+// Link removed — plain <a> tags prevent RSC fetch hangs on subdomain deployments
 import {
   Shield,
   Building2,

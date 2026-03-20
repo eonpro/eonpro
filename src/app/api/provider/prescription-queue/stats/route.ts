@@ -12,9 +12,30 @@ import { handleApiError } from '@/domains/shared/errors';
 import { withProviderAuth, type AuthUser } from '@/lib/auth/middleware';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import { addCalendarDaysET, startOfDayET, startOfMonthET } from '@/lib/utils/timezone';
 
-function startOfUtcDay(d: Date): Date {
-  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+export const dynamic = 'force-dynamic';
+
+const ET_PERIOD_NOTE_EMPTY =
+  'Periods use US Eastern Time (America/New_York): daily = since midnight ET today; weekly = last 7 ET calendar days including today; monthly = month-to-date ET.';
+
+const NO_STORE_HEADERS = {
+  'Cache-Control': 'private, no-store, max-age=0, must-revalidate',
+} as const;
+
+function jsonStatsPayload(
+  body: Record<string, unknown> & {
+    daily: number;
+    weekly: number;
+    monthly: number;
+    glp1: Record<string, unknown>;
+    periodNote: string;
+  },
+): Response {
+  return NextResponse.json(
+    { ...body, timezone: 'America/New_York' },
+    { headers: NO_STORE_HEADERS },
+  );
 }
 
 function classifyGlp1(primaryMedName: string | null): 'sema' | 'tirz' | null {
@@ -26,7 +47,7 @@ function classifyGlp1(primaryMedName: string | null): 'sema' | 'tirz' | null {
 }
 
 function zeroStatsResponse(periodNote: string): Response {
-  return NextResponse.json({
+  return jsonStatsPayload({
     daily: 0,
     weekly: 0,
     monthly: 0,
@@ -66,22 +87,19 @@ function aggregateGlp1Split(orders: { primaryMedName: string | null }[]): {
 async function handleGet(_req: NextRequest, user: AuthUser): Promise<Response> {
   try {
     if (!user.clinicId) {
-      return zeroStatsResponse(
-        'Set a clinic context to see stats. Periods use UTC (daily = since UTC midnight; weekly = last 7 UTC calendar days including today; monthly = month-to-date UTC).'
-      );
+      return zeroStatsResponse(`Set a clinic context to see stats. ${ET_PERIOD_NOTE_EMPTY}`);
     }
 
     if (!user.providerId) {
       return zeroStatsResponse(
-        'Link a provider profile to your account to see personal Rx stats. Periods use UTC.'
+        `Link a provider profile to your account to see personal Rx stats. ${ET_PERIOD_NOTE_EMPTY}`
       );
     }
 
     const now = new Date();
-    const utcDayStart = startOfUtcDay(now);
-    const utcWeekStart = new Date(utcDayStart);
-    utcWeekStart.setUTCDate(utcWeekStart.getUTCDate() - 6);
-    const utcMonthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+    const etDayStart = startOfDayET(now);
+    const etWeekStart = addCalendarDaysET(now, -6);
+    const etMonthStart = startOfMonthET(now);
 
     // Attribute Rx to the logged-in actor: direct submits (providerId + no approver) or
     // admin-queued orders where this user approved-and-sent (approvedByUserId).
@@ -101,29 +119,28 @@ async function handleGet(_req: NextRequest, user: AuthUser): Promise<Response> {
 
     const [daily, weekly, monthly, glp1Orders] = await Promise.all([
       prisma.order.count({
-        where: { ...baseWhere, createdAt: { gte: utcDayStart } },
+        where: { ...baseWhere, createdAt: { gte: etDayStart } },
       }),
       prisma.order.count({
-        where: { ...baseWhere, createdAt: { gte: utcWeekStart } },
+        where: { ...baseWhere, createdAt: { gte: etWeekStart } },
       }),
       prisma.order.count({
-        where: { ...baseWhere, createdAt: { gte: utcMonthStart } },
+        where: { ...baseWhere, createdAt: { gte: etMonthStart } },
       }),
       prisma.order.findMany({
-        where: { ...baseWhere, createdAt: { gte: utcMonthStart } },
+        where: { ...baseWhere, createdAt: { gte: etMonthStart } },
         select: { primaryMedName: true },
       }),
     ]);
 
     const glp1 = aggregateGlp1Split(glp1Orders);
 
-    return NextResponse.json({
+    return jsonStatsPayload({
       daily,
       weekly,
       monthly,
       glp1,
-      periodNote:
-        'Periods are UTC: Daily = since midnight UTC today; Weekly = last 7 UTC calendar days (including today); Monthly = month-to-date UTC. Semaglutide vs tirzepatide is the split among GLP‑1 orders month-to-date.',
+      periodNote: `${ET_PERIOD_NOTE_EMPTY} Semaglutide vs tirzepatide is the share among GLP‑1 orders month-to-date (ET).`,
     });
   } catch (error: unknown) {
     logger.error('[PRESCRIPTION-QUEUE-STATS] Failed', {

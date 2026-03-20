@@ -171,6 +171,8 @@ interface PrescriptionQueueStats {
     totalClassified: number;
   };
   periodNote?: string;
+  /** IANA timezone used for period boundaries (always Eastern for this endpoint). */
+  timezone?: string;
 }
 
 interface QueueItem {
@@ -493,6 +495,7 @@ export default function PrescriptionQueuePage() {
     try {
       setStatsLoading(true);
       const response = await apiFetch('/api/provider/prescription-queue/stats', {
+        cache: 'no-store',
         headers: { Authorization: `Bearer ${getAuthToken()}` },
       });
       if (response.ok) {
@@ -1551,7 +1554,7 @@ export default function PrescriptionQueuePage() {
                   value ?? '—'
                 )}
               </p>
-              <p className="mt-1 text-[11px] leading-snug text-gray-400">UTC calendar window</p>
+              <p className="mt-1 text-[11px] leading-snug text-gray-400">US Eastern — not UTC</p>
             </div>
           ))}
           <div className="col-span-2 rounded-2xl border border-gray-200/80 bg-white p-4 shadow-sm sm:col-span-1">
@@ -1589,8 +1592,17 @@ export default function PrescriptionQueuePage() {
             ) : (
               <p className="mt-3 text-sm text-gray-500">No GLP‑1 Rx this month yet</p>
             )}
+            <p className="mt-2 text-[11px] leading-snug text-gray-400">
+              US Eastern — not UTC
+            </p>
           </div>
         </div>
+        {!statsLoading && stats?.timezone && (
+          <p className="text-center text-[11px] text-gray-500">
+            Period boundaries: <span className="font-medium text-gray-700">{stats.timezone}</span>{' '}
+            (handles EST / EDT)
+          </p>
+        )}
 
         {/* Search - touch-friendly height on mobile */}
         <div className="relative">

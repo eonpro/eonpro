@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import Link from 'next/link';
+// Link removed — plain <a> tags prevent RSC fetch hangs on subdomain deployments
 import {
   Home,
   Users,
@@ -191,7 +191,7 @@ function PatientsLayoutInner({ children }: { children: React.ReactNode }) {
           <>
             {/* Logo */}
             <div className="mb-6 flex flex-col items-center px-4">
-              <Link href="/dashboard">
+              <a href="/dashboard">
                 {sidebarExpanded ? (
                   <img
                     src={clinicLogo}
@@ -201,7 +201,7 @@ function PatientsLayoutInner({ children }: { children: React.ReactNode }) {
                 ) : (
                   <img src={clinicIcon} alt={clinicName} className="h-10 w-10 object-contain" />
                 )}
-              </Link>
+              </a>
               {isWhiteLabeled && sidebarExpanded && (
                 <span className="mt-1 flex items-center justify-center gap-1 text-[10px] text-gray-400">
                   Powered by{' '}
@@ -230,7 +230,7 @@ function PatientsLayoutInner({ children }: { children: React.ReactNode }) {
                 const Icon = item.icon;
                 const active = isActive(item.path);
                 return (
-                  <Link
+                  <a
                     key={item.path}
                     href={item.path}
                     title={!sidebarExpanded ? item.label : undefined}
@@ -243,7 +243,7 @@ function PatientsLayoutInner({ children }: { children: React.ReactNode }) {
                     {sidebarExpanded && (
                       <span className="whitespace-nowrap text-sm font-medium">{item.label}</span>
                     )}
-                  </Link>
+                  </a>
                 );
               })}
             </nav>

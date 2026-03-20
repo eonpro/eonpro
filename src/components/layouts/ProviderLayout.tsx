@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Link from 'next/link';
+// Link removed — plain <a> tags prevent RSC fetch hangs on subdomain deployments
 import { usePathname, useRouter } from 'next/navigation';
 import { getRoleConfig, getRoleTheme } from '@/lib/auth/roles.config';
 import { EONPRO_LOGO } from '@/lib/constants/brand-assets';
@@ -515,12 +515,12 @@ export default function ProviderLayout({ children, userData }: ProviderLayoutPro
                 Lab Results: <strong className="ml-1">5 New</strong>
               </span>
             </div>
-            <Link
+            <a
               href="/provider/schedule"
               className="font-medium text-green-600 hover:text-green-700"
             >
               View Full Schedule →
-            </Link>
+            </a>
           </div>
         </div>
       </header>
@@ -540,7 +540,7 @@ export default function ProviderLayout({ children, userData }: ProviderLayoutPro
                 const isActive = pathname === item.path || pathname.startsWith(item.path + '/');
 
                 return (
-                  <Link
+                  <a
                     key={item.path}
                     href={item.path}
                     className={`flex items-center rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
@@ -557,7 +557,7 @@ export default function ProviderLayout({ children, userData }: ProviderLayoutPro
                         3
                       </span>
                     )}
-                  </Link>
+                  </a>
                 );
               })}
             </div>
@@ -569,27 +569,27 @@ export default function ProviderLayout({ children, userData }: ProviderLayoutPro
                   Clinical Tools
                 </h3>
                 <div className="space-y-1">
-                  <Link
+                  <a
                     href="/provider/drug-reference"
                     className="flex items-center rounded-lg px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 hover:text-gray-900"
                   >
                     <BookOpen className="mr-2 h-4 w-4" />
                     Drug Reference
-                  </Link>
-                  <Link
+                  </a>
+                  <a
                     href="/provider/icd-lookup"
                     className="flex items-center rounded-lg px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 hover:text-gray-900"
                   >
                     <Search className="mr-2 h-4 w-4" />
                     ICD-10 Lookup
-                  </Link>
-                  <Link
+                  </a>
+                  <a
                     href="/provider/calculators"
                     className="flex items-center rounded-lg px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 hover:text-gray-900"
                   >
                     <Activity className="mr-2 h-4 w-4" />
                     Medical Calculators
-                  </Link>
+                  </a>
                 </div>
               </div>
             )}
