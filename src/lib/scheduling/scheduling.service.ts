@@ -9,6 +9,13 @@ import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { AppointmentStatus, AppointmentModeType } from '@prisma/client';
 import {
+  toDateStringET,
+  parseDateET,
+  startOfDayET,
+  endOfDayET,
+  EASTERN_TZ,
+} from '@/lib/utils/timezone';
+import {
   createAppointmentReminders,
   cancelAppointmentReminders,
   sendAppointmentConfirmation,
@@ -93,18 +100,19 @@ export async function getAvailableSlots(
   duration: number = 30,
   clinicId?: number
 ): Promise<TimeSlot[]> {
-  const dayOfWeek = date.getDay();
-  const dateStr = date.toISOString().split('T')[0];
-  const startOfDay = new Date(dateStr);
-  const endOfDay = new Date(dateStr);
-  endOfDay.setDate(endOfDay.getDate() + 1);
+  const dateStr = toDateStringET(date);
+  const dayStart = startOfDayET(date);
+  const dayEnd = endOfDayET(date);
+  const dayOfWeek = new Intl.DateTimeFormat('en-US', { timeZone: EASTERN_TZ, weekday: 'short' })
+    .format(date);
+  const dayIdx = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(dayOfWeek);
 
   // Check for time off first (applies regardless of overrides)
   const timeOff = await prisma.providerTimeOff.findFirst({
     where: {
       providerId,
-      startDate: { lte: endOfDay },
-      endDate: { gte: startOfDay },
+      startDate: { lte: dayEnd },
+      endDate: { gte: dayStart },
       isApproved: true,
     },
   });
@@ -118,7 +126,7 @@ export async function getAvailableSlots(
   const dateOverrides = await prisma.providerDateOverride.findMany({
     where: {
       providerId,
-      date: startOfDay,
+      date: dayStart,
       ...(clinicId ? { OR: [{ clinicId }, { clinicId: null }] } : {}),
     },
     orderBy: { startTime: 'asc' },
@@ -140,7 +148,7 @@ export async function getAvailableSlots(
     const recurring = await prisma.providerAvailability.findMany({
       where: {
         providerId,
-        dayOfWeek,
+        dayOfWeek: dayIdx,
         isActive: true,
         ...(clinicId && { clinicId }),
       },
@@ -160,7 +168,7 @@ export async function getAvailableSlots(
   const existingAppointments = await prisma.appointment.findMany({
     where: {
       providerId,
-      startTime: { gte: startOfDay, lt: endOfDay },
+      startTime: { gte: dayStart, lt: dayEnd },
       status: {
         notIn: [AppointmentStatus.CANCELLED, AppointmentStatus.RESCHEDULED],
       },
@@ -175,11 +183,8 @@ export async function getAvailableSlots(
     const [startHour, startMin] = block.startTime.split(':').map(Number);
     const [endHour, endMin] = block.endTime.split(':').map(Number);
 
-    let slotStart = new Date(dateStr);
-    slotStart.setHours(startHour, startMin, 0, 0);
-
-    const blockEnd = new Date(dateStr);
-    blockEnd.setHours(endHour, endMin, 0, 0);
+    let slotStart = new Date(dayStart.getTime() + (startHour * 60 + startMin) * 60 * 1000);
+    const blockEnd = new Date(dayStart.getTime() + (endHour * 60 + endMin) * 60 * 1000);
 
     while (slotStart.getTime() + duration * 60 * 1000 <= blockEnd.getTime()) {
       const slotEnd = new Date(slotStart.getTime() + duration * 60 * 1000);
@@ -221,7 +226,7 @@ export async function setProviderDateOverrides(
   options?: { clinicId?: number; isUnavailable?: boolean; notes?: string }
 ): Promise<{ success: boolean; overrides?: any[]; error?: string }> {
   try {
-    const dateOnly = new Date(date.toISOString().split('T')[0]);
+    const dateOnly = parseDateET(toDateStringET(date));
     const clinicId = options?.clinicId ?? null;
 
     await prisma.$transaction(async (tx) => {
@@ -292,9 +297,12 @@ export async function getProviderWeeklySchedule(
   weeks: number = 4,
   clinicId?: number
 ): Promise<DaySchedule[]> {
-  const start = new Date(startDate.toISOString().split('T')[0]);
-  const end = new Date(start);
-  end.setDate(end.getDate() + weeks * 7);
+  const startStr = toDateStringET(startDate);
+  const start = parseDateET(startStr);
+  const endParts = startStr.split('-').map(Number);
+  const end = parseDateET(
+    toDateStringET(new Date(endParts[0], endParts[1] - 1, endParts[2] + weeks * 7))
+  );
 
   const [dateOverrides, recurring, timeOffs, appointmentCounts] = await Promise.all([
     prisma.providerDateOverride.findMany({
@@ -332,17 +340,17 @@ export async function getProviderWeeklySchedule(
     }),
   ]);
 
-  // Build appointment count by date string
+  // Build appointment count by date string (Eastern)
   const aptCountByDate: Record<string, number> = {};
   for (const group of appointmentCounts) {
-    const d = new Date(group.startTime).toISOString().split('T')[0];
+    const d = toDateStringET(new Date(group.startTime));
     aptCountByDate[d] = (aptCountByDate[d] || 0) + group._count;
   }
 
-  // Index overrides by date
+  // Index overrides by date (Eastern)
   const overridesByDate: Record<string, typeof dateOverrides> = {};
   for (const o of dateOverrides) {
-    const d = new Date(o.date).toISOString().split('T')[0];
+    const d = toDateStringET(new Date(o.date));
     if (!overridesByDate[d]) overridesByDate[d] = [];
     overridesByDate[d].push(o);
   }
@@ -355,17 +363,19 @@ export async function getProviderWeeklySchedule(
   }
 
   const schedule: DaySchedule[] = [];
-  const cursor = new Date(start);
+  const totalDays = weeks * 7;
 
-  while (cursor < end) {
-    const dateStr = cursor.toISOString().split('T')[0];
-    const dayOfWeek = cursor.getDay();
-    const cursorEnd = new Date(cursor);
-    cursorEnd.setDate(cursorEnd.getDate() + 1);
+  for (let i = 0; i < totalDays; i++) {
+    const cursorDate = new Date(start.getTime() + i * 24 * 60 * 60 * 1000);
+    const dateStr = toDateStringET(cursorDate);
+    const dayOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(
+      new Intl.DateTimeFormat('en-US', { timeZone: EASTERN_TZ, weekday: 'short' }).format(cursorDate)
+    );
+    const cursorStart = parseDateET(dateStr);
+    const cursorEnd = endOfDayET(cursorDate);
 
-    // Check time off
     const hasTimeOff = timeOffs.some(
-      (t) => new Date(t.startDate) <= cursorEnd && new Date(t.endDate) >= cursor
+      (t) => new Date(t.startDate) <= cursorEnd && new Date(t.endDate) >= cursorStart
     );
 
     if (hasTimeOff) {
@@ -408,7 +418,6 @@ export async function getProviderWeeklySchedule(
       });
     }
 
-    cursor.setDate(cursor.getDate() + 1);
   }
 
   return schedule;

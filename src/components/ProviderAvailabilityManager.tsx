@@ -14,6 +14,7 @@ import {
   CalendarOff,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api/fetch';
+import { todayET, EASTERN_TZ } from '@/lib/utils/timezone';
 
 interface AvailabilityBlock {
   id: number;
@@ -371,7 +372,7 @@ export default function ProviderAvailabilityManager({
                   type="date"
                   value={newTimeOff.startDate}
                   onChange={(e) => setNewTimeOff({ ...newTimeOff, startDate: e.target.value })}
-                  min={new Date().toISOString().split('T')[0]}
+                  min={todayET()}
                   className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
                 />
               </div>
@@ -381,7 +382,7 @@ export default function ProviderAvailabilityManager({
                   type="date"
                   value={newTimeOff.endDate}
                   onChange={(e) => setNewTimeOff({ ...newTimeOff, endDate: e.target.value })}
-                  min={newTimeOff.startDate || new Date().toISOString().split('T')[0]}
+                  min={newTimeOff.startDate || todayET()}
                   className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
                 />
               </div>
@@ -436,8 +437,8 @@ export default function ProviderAvailabilityManager({
                     <div>
                       <div className="text-sm font-medium text-gray-900">
                         {isSameDay
-                          ? start.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
-                          : `${start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`}
+                          ? start.toLocaleDateString('en-US', { timeZone: EASTERN_TZ, weekday: 'short', month: 'short', day: 'numeric' })
+                          : `${start.toLocaleDateString('en-US', { timeZone: EASTERN_TZ, month: 'short', day: 'numeric' })} - ${end.toLocaleDateString('en-US', { timeZone: EASTERN_TZ, month: 'short', day: 'numeric', year: 'numeric' })}`}
                       </div>
                       {entry.reason && (
                         <div className="text-xs text-gray-500">{entry.reason}</div>

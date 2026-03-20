@@ -19,6 +19,7 @@ import {
 import AppointmentModal from '@/components/AppointmentModal';
 import BookTelehealthWizard from '@/components/BookTelehealthWizard';
 import { apiFetch } from '@/lib/api/fetch';
+import { todayET, EASTERN_TZ } from '@/lib/utils/timezone';
 
 interface Provider {
   id: number;
@@ -115,15 +116,15 @@ export default function AdminSchedulingPage() {
         const slotMap: Record<string, { startTime: string; endTime: string; available: boolean }[]> = {};
         await Promise.all(
           dates.map(async (d) => {
-            const dateStr = d.toISOString().split('T')[0];
+            const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
             const res = await apiFetch(
               `/api/scheduling/availability?providerId=${selectedProviderId}&date=${dateStr}&duration=30`
             );
             if (res.ok) {
               const data = await res.json();
               slotMap[dateStr] = (data.slots || []).map((s: any) => ({
-                startTime: new Date(s.startTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }),
-                endTime: new Date(s.endTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }),
+                startTime: new Date(s.startTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: EASTERN_TZ }),
+                endTime: new Date(s.endTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: EASTERN_TZ }),
                 available: s.available,
               }));
             }
@@ -315,7 +316,7 @@ export default function AdminSchedulingPage() {
                     >
                       <TypeIcon className="h-2.5 w-2.5 flex-shrink-0" />
                       <span className="truncate">
-                        {apt.date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                        {apt.date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: EASTERN_TZ })}
                         {' '}{apt.patientName.split(' ')[0]}
                       </span>
                     </div>
@@ -384,7 +385,7 @@ export default function AdminSchedulingPage() {
                 {hour > 12 ? hour - 12 : hour}{hour >= 12 ? 'p' : 'a'}
               </div>
               {weekDays.map((d) => {
-                const dateStr = d.toISOString().split('T')[0];
+                const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
                 const dayAppts = getAppointmentsForDate(d).filter((a) => a.date.getHours() === hour);
                 const slotAvailable = selectedProviderId ? isHourAvailable(dateStr, hour) : false;
 
@@ -438,14 +439,14 @@ export default function AdminSchedulingPage() {
     const hours = Array.from({ length: 14 }, (_, i) => i + 7);
     const dayAppts = getAppointmentsForDate(currentDay);
     const isToday = currentDay.toDateString() === new Date().toDateString();
-    const dayDateStr = currentDay.toISOString().split('T')[0];
+    const dayDateStr = `${currentDay.getFullYear()}-${String(currentDay.getMonth() + 1).padStart(2, '0')}-${String(currentDay.getDate()).padStart(2, '0')}`;
 
     return (
       <div className="rounded-lg border border-gray-200">
         <div className={`border-b p-3 text-center ${isToday ? 'bg-[#4fa77e]/10' : 'bg-gray-50'}`}>
           <div className="text-sm text-gray-500">{dayNames[currentDay.getDay()]}</div>
           <div className={`text-lg font-semibold ${isToday ? 'text-[#4fa77e]' : 'text-gray-900'}`}>
-            {currentDay.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+            {currentDay.toLocaleDateString('en-US', { timeZone: EASTERN_TZ, month: 'long', day: 'numeric', year: 'numeric' })}
           </div>
           <div className="mt-1 text-xs text-gray-500">{dayAppts.length} appointment{dayAppts.length !== 1 ? 's' : ''}</div>
         </div>
@@ -490,7 +491,7 @@ export default function AdminSchedulingPage() {
                           </span>
                         </div>
                         <div className="mt-1 text-xs text-gray-500">
-                          {apt.date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })} - {apt.duration}min
+                          {apt.date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: EASTERN_TZ })} - {apt.duration}min
                           {apt.providerName && <span className="ml-2">with {apt.providerName}</span>}
                         </div>
                         {apt.reason && <div className="mt-0.5 text-xs text-gray-400">{apt.reason}</div>}
@@ -651,7 +652,7 @@ export default function AdminSchedulingPage() {
                         <span className="text-xs font-medium text-gray-900">{apt.patientName}</span>
                       </div>
                       <div className="ml-5 mt-0.5 text-[10px] text-gray-500">
-                        {apt.date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })} - {apt.duration}min
+                        {apt.date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: EASTERN_TZ })} - {apt.duration}min
                         <span className="ml-1 text-gray-400">({apt.providerName})</span>
                       </div>
                     </div>
@@ -678,8 +679,8 @@ export default function AdminSchedulingPage() {
                 >
                   <div className="text-xs font-medium text-gray-900">{apt.patientName}</div>
                   <div className="mt-0.5 text-[10px] text-gray-500">
-                    {apt.date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
-                    {' '}at {apt.date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                    {apt.date.toLocaleDateString('en-US', { timeZone: EASTERN_TZ, weekday: 'short', month: 'short', day: 'numeric' })}
+                    {' '}at {apt.date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: EASTERN_TZ })}
                   </div>
                   <div className="mt-0.5 text-[10px] text-gray-400">{apt.providerName}</div>
                 </div>
@@ -711,8 +712,8 @@ export default function AdminSchedulingPage() {
                 </button>
                 <h2 className="text-lg font-semibold text-gray-900">
                   {calendarView === 'month' && `${monthNames[currentMonth.getMonth()]} ${currentMonth.getFullYear()}`}
-                  {calendarView === 'week' && `Week of ${currentWeekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`}
-                  {calendarView === 'day' && currentDay.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+                  {calendarView === 'week' && `Week of ${currentWeekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: EASTERN_TZ })}`}
+                  {calendarView === 'day' && currentDay.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric', timeZone: EASTERN_TZ })}
                 </h2>
                 <button
                   onClick={() => calendarView === 'month' ? navigateMonth(1) : calendarView === 'week' ? navigateWeek(1) : navigateDay(1)}

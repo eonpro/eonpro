@@ -18,6 +18,7 @@ import {
   RotateCcw,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api/fetch';
+import { todayET, EASTERN_TZ } from '@/lib/utils/timezone';
 
 interface DaySchedule {
   date: string;
@@ -59,14 +60,14 @@ function getWeekStart(date: Date): Date {
 }
 
 function formatDateShort(dateStr: string): string {
-  const d = new Date(dateStr + 'T00:00:00');
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  const d = new Date(dateStr + 'T12:00:00');
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: EASTERN_TZ });
 }
 
 function formatWeekRange(weekStart: Date): string {
   const end = new Date(weekStart);
   end.setDate(end.getDate() + 6);
-  const opts: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' };
+  const opts: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric', timeZone: EASTERN_TZ };
   return `${weekStart.toLocaleDateString('en-US', opts)} – ${end.toLocaleDateString('en-US', { ...opts, year: 'numeric' })}`;
 }
 
@@ -88,7 +89,8 @@ export default function ProviderWeeklyAvailabilityEditor({
     setIsLoading(true);
     setError(null);
     try {
-      const startStr = weekStart.toISOString().split('T')[0];
+      const y = weekStart.getFullYear(), m = String(weekStart.getMonth() + 1).padStart(2, '0'), dd = String(weekStart.getDate()).padStart(2, '0');
+      const startStr = `${y}-${m}-${dd}`;
       const res = await apiFetch(
         `/api/scheduling/availability/weekly?providerId=${providerId}&startDate=${startStr}&weeks=4`
       );
@@ -265,7 +267,7 @@ export default function ProviderWeeklyAvailabilityEditor({
   };
 
   const weeks = getWeeksFromSchedule();
-  const today = new Date().toISOString().split('T')[0];
+  const today = todayET();
 
   if (isLoading) {
     return (

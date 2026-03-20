@@ -741,6 +741,7 @@ export default function PrescriptionQueuePage() {
         setPrescriptionPanel(null);
         setSuccessMessage(`Prescription for ${patientName} approved and sent to pharmacy.`);
         setSuccessLifefileId(lifefileId ? String(lifefileId) : null);
+        void fetchStats();
       } else if (res.status === 409) {
         setQueueItems((prev) => prev.filter((i) => (i as QueueItem).orderId !== orderId));
         setTotal((prev) => Math.max(0, prev - 1));
@@ -1125,6 +1126,7 @@ export default function PrescriptionQueuePage() {
         setShowConfirmation(false);
         setSuccessMessage(`Prescription for ${item.patientName} sent to pharmacy successfully!`);
         setSuccessLifefileId(lifefileId ? String(lifefileId) : null);
+        void fetchStats();
       } else if (response.status === 409) {
         // Another provider already sent this prescription — remove from local queue and refresh
         if (item.queueType === 'refill' && item.refillId) {

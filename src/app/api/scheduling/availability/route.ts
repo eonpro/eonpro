@@ -14,6 +14,7 @@ import {
   addProviderTimeOff,
 } from '@/lib/scheduling/scheduling.service';
 import { prisma } from '@/lib/db';
+import { parseDateET } from '@/lib/utils/timezone';
 
 const setAvailabilitySchema = z.object({
   providerId: z.number(),
@@ -54,7 +55,7 @@ export const GET = withAuth(async (req: NextRequest, user) => {
 
     const slots = await getAvailableSlots(
       parseInt(providerId),
-      new Date(date),
+      parseDateET(date),
       duration ? parseInt(duration) : 30,
       resolvedClinicId
     );

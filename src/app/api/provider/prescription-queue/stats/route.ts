@@ -5,10 +5,12 @@
  * GET /api/provider/prescription-queue/stats
  */
 
-import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/db';
-import { withProviderAuth, AuthUser } from '@/lib/auth/middleware';
+import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
+
 import { handleApiError } from '@/domains/shared/errors';
+import { withProviderAuth, type AuthUser } from '@/lib/auth/middleware';
+import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 
 function startOfUtcDay(d: Date): Date {
@@ -23,43 +25,56 @@ function classifyGlp1(primaryMedName: string | null): 'sema' | 'tirz' | null {
   return null;
 }
 
-async function handleGet(_req: NextRequest, user: AuthUser) {
+function zeroStatsResponse(periodNote: string): Response {
+  return NextResponse.json({
+    daily: 0,
+    weekly: 0,
+    monthly: 0,
+    glp1: {
+      sema: 0,
+      tirz: 0,
+      semaPercent: null,
+      tirzPercent: null,
+      totalClassified: 0,
+    },
+    periodNote,
+  });
+}
+
+function aggregateGlp1Split(orders: { primaryMedName: string | null }[]): {
+  sema: number;
+  tirz: number;
+  semaPercent: number | null;
+  tirzPercent: number | null;
+  totalClassified: number;
+} {
+  let sema = 0;
+  let tirz = 0;
+  for (const o of orders) {
+    const c = classifyGlp1(o.primaryMedName);
+    if (c === 'sema') sema += 1;
+    else if (c === 'tirz') tirz += 1;
+  }
+  const totalClassified = sema + tirz;
+  const semaPercent =
+    totalClassified > 0 ? Math.round((sema / totalClassified) * 1000) / 10 : null;
+  const tirzPercent =
+    totalClassified > 0 ? Math.round((tirz / totalClassified) * 1000) / 10 : null;
+  return { sema, tirz, semaPercent, tirzPercent, totalClassified };
+}
+
+async function handleGet(_req: NextRequest, user: AuthUser): Promise<Response> {
   try {
     if (!user.clinicId) {
-      return NextResponse.json(
-        {
-          daily: 0,
-          weekly: 0,
-          monthly: 0,
-          glp1: {
-            sema: 0,
-            tirz: 0,
-            semaPercent: null as number | null,
-            tirzPercent: null as number | null,
-            totalClassified: 0,
-          },
-          periodNote:
-            'Set a clinic context to see stats. Periods use UTC (daily = since UTC midnight; weekly = last 7 UTC calendar days including today; monthly = month-to-date UTC).',
-        },
-        { status: 200 }
+      return zeroStatsResponse(
+        'Set a clinic context to see stats. Periods use UTC (daily = since UTC midnight; weekly = last 7 UTC calendar days including today; monthly = month-to-date UTC).'
       );
     }
 
     if (!user.providerId) {
-      return NextResponse.json({
-        daily: 0,
-        weekly: 0,
-        monthly: 0,
-        glp1: {
-          sema: 0,
-          tirz: 0,
-          semaPercent: null,
-          tirzPercent: null,
-          totalClassified: 0,
-        },
-        periodNote:
-          'Link a provider profile to your account to see personal Rx stats. Periods use UTC.',
-      });
+      return zeroStatsResponse(
+        'Link a provider profile to your account to see personal Rx stats. Periods use UTC.'
+      );
     }
 
     const now = new Date();
@@ -68,12 +83,20 @@ async function handleGet(_req: NextRequest, user: AuthUser) {
     utcWeekStart.setUTCDate(utcWeekStart.getUTCDate() - 6);
     const utcMonthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
 
+    // Attribute Rx to the logged-in actor: direct submits (providerId + no approver) or
+    // admin-queued orders where this user approved-and-sent (approvedByUserId).
     const baseWhere = {
       clinicId: user.clinicId,
-      providerId: user.providerId,
       cancelledAt: null,
       lifefileOrderId: { not: null },
-      status: { not: 'error' },
+      status: { notIn: ['error', 'declined'] },
+      OR: [
+        { approvedByUserId: user.id },
+        {
+          providerId: user.providerId,
+          approvedByUserId: null,
+        },
+      ],
     };
 
     const [daily, weekly, monthly, glp1Orders] = await Promise.all([
@@ -92,30 +115,13 @@ async function handleGet(_req: NextRequest, user: AuthUser) {
       }),
     ]);
 
-    let sema = 0;
-    let tirz = 0;
-    for (const o of glp1Orders) {
-      const c = classifyGlp1(o.primaryMedName);
-      if (c === 'sema') sema += 1;
-      else if (c === 'tirz') tirz += 1;
-    }
-    const totalClassified = sema + tirz;
-    const semaPercent =
-      totalClassified > 0 ? Math.round((sema / totalClassified) * 1000) / 10 : null;
-    const tirzPercent =
-      totalClassified > 0 ? Math.round((tirz / totalClassified) * 1000) / 10 : null;
+    const glp1 = aggregateGlp1Split(glp1Orders);
 
     return NextResponse.json({
       daily,
       weekly,
       monthly,
-      glp1: {
-        sema,
-        tirz,
-        semaPercent,
-        tirzPercent,
-        totalClassified,
-      },
+      glp1,
       periodNote:
         'Periods are UTC: Daily = since midnight UTC today; Weekly = last 7 UTC calendar days (including today); Monthly = month-to-date UTC. Semaglutide vs tirzepatide is the split among GLP‑1 orders month-to-date.',
     });

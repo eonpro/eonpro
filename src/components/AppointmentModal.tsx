@@ -25,6 +25,7 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api/fetch';
+import { toDateStringET } from '@/lib/utils/timezone';
 
 interface Patient {
   id: number;
@@ -485,7 +486,7 @@ export default function AppointmentModal({
                           </label>
                           <input
                             type="date"
-                            value={formData.date.toISOString().split('T')[0]}
+                            value={toDateStringET(formData.date)}
                             onChange={(e) =>
                               setFormData({ ...formData, date: new Date(e.target.value) })
                             }

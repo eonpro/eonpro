@@ -40,6 +40,7 @@
 import { notificationService } from './notificationService';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import { EASTERN_TZ } from '@/lib/utils/timezone';
 import type { NotificationCategory, NotificationPriority } from '@prisma/client';
 
 // ============================================================================
@@ -376,6 +377,7 @@ class NotificationEventsService {
   async appointmentReminder(input: AppointmentInput): Promise<void> {
     try {
       const timeFormatted = input.appointmentTime.toLocaleString('en-US', {
+        timeZone: EASTERN_TZ,
         weekday: 'short',
         month: 'short',
         day: 'numeric',
@@ -440,6 +442,7 @@ class NotificationEventsService {
       }
 
       const timeFormatted = input.appointmentTime.toLocaleString('en-US', {
+        timeZone: EASTERN_TZ,
         weekday: 'short',
         month: 'short',
         day: 'numeric',

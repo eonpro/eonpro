@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import BookTelehealthWizard from '@/components/BookTelehealthWizard';
 import { apiFetch } from '@/lib/api/fetch';
+import { todayET, EASTERN_TZ } from '@/lib/utils/timezone';
 
 interface Provider {
   id: number;
@@ -56,7 +57,7 @@ function getTypeIcon(type: string) {
 }
 
 export default function StaffAppointmentsPage() {
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [selectedDate, setSelectedDate] = useState(todayET());
   const [filterProviderId, setFilterProviderId] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [appointments, setAppointments] = useState<Appointment[]>([]);
@@ -245,7 +246,8 @@ export default function StaffAppointmentsPage() {
       <div className="rounded-lg bg-white shadow">
         <div className="border-b p-6">
           <h2 className="text-lg font-semibold text-gray-900">
-            {new Date(selectedDate + 'T00:00:00').toLocaleDateString('en-US', {
+            {new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-US', {
+              timeZone: EASTERN_TZ,
               weekday: 'long',
               year: 'numeric',
               month: 'long',
@@ -270,6 +272,7 @@ export default function StaffAppointmentsPage() {
                     <div className="min-w-[90px] text-center">
                       <div className="text-base font-semibold text-gray-900">
                         {apt.date.toLocaleTimeString('en-US', {
+                          timeZone: EASTERN_TZ,
                           hour: 'numeric',
                           minute: '2-digit',
                         })}

@@ -16,6 +16,7 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api/fetch';
+import { todayET, EASTERN_TZ } from '@/lib/utils/timezone';
 
 interface Provider {
   id: number;
@@ -52,7 +53,7 @@ type Step = 'provider' | 'patient' | 'datetime' | 'confirm';
 function formatTime12(isoOrTime: string): string {
   const d = new Date(isoOrTime);
   if (!isNaN(d.getTime())) {
-    return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: EASTERN_TZ });
   }
   const [h, m] = isoOrTime.split(':').map(Number);
   const ampm = h >= 12 ? 'PM' : 'AM';
@@ -426,11 +427,11 @@ export default function BookTelehealthWizard({
                     <ChevronLeft className="h-4 w-4" />
                   </button>
                   <span className="text-sm font-medium text-gray-700">
-                    {weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} –{' '}
+                    {weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: EASTERN_TZ })} –{' '}
                     {(() => {
                       const end = new Date(weekStart);
                       end.setDate(end.getDate() + 6);
-                      return end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                      return end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: EASTERN_TZ });
                     })()}
                   </span>
                   <button
@@ -448,10 +449,12 @@ export default function BookTelehealthWizard({
                 {/* Day Picker */}
                 <div className="mb-4 grid grid-cols-7 gap-1">
                   {getWeekDays().map((d) => {
-                    const dateStr = d.toISOString().split('T')[0];
+                    const y = d.getFullYear(), m = String(d.getMonth() + 1).padStart(2, '0'), dd = String(d.getDate()).padStart(2, '0');
+                    const dateStr = `${y}-${m}-${dd}`;
                     const isSelected = selectedDate === dateStr;
-                    const isPast = d < new Date(new Date().toISOString().split('T')[0]);
-                    const isToday = dateStr === new Date().toISOString().split('T')[0];
+                    const todayStr = todayET();
+                    const isPast = dateStr < todayStr;
+                    const isToday = dateStr === todayStr;
 
                     return (
                       <button
@@ -557,7 +560,8 @@ export default function BookTelehealthWizard({
                         Date
                       </span>
                       <p className="text-sm font-medium text-gray-900">
-                        {new Date(selectedDate + 'T00:00:00').toLocaleDateString('en-US', {
+                        {new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-US', {
+                          timeZone: EASTERN_TZ,
                           weekday: 'long',
                           month: 'long',
                           day: 'numeric',
