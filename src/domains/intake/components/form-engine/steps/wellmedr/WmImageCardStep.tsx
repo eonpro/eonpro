@@ -137,6 +137,12 @@ export default function WmImageCardStep({
       setSelected(arr.includes(id) ? arr.filter((v) => v !== id) : [...arr, id]);
     } else {
       setSelected(id);
+      setResponse(storageKey, id);
+      markStepCompleted(storageKey);
+      setTimeout(() => {
+        setCurrentStep(nextStep);
+        router.push(`${basePath}/${nextStep}`);
+      }, 250);
     }
   };
 
@@ -200,16 +206,18 @@ export default function WmImageCardStep({
         </div>
       </div>
 
-      <div className="sticky bottom-0 px-5 sm:px-8 pb-6 pt-3 max-w-xl sm:max-w-2xl mx-auto w-full" style={{ backgroundColor: '#F7F7F9' }}>
-        <button
-          onClick={handleContinue}
-          disabled={mode === 'single' ? !selected : (!Array.isArray(selected) || selected.length === 0)}
-          className="w-full flex items-center justify-center gap-2.5 py-4 text-white font-medium text-base rounded-full transition-all duration-200 disabled:opacity-30 active:scale-[0.98]"
-          style={{ backgroundColor: '#0C2631' }}
-        >
-          Next <span className="text-lg">&rarr;</span>
-        </button>
-      </div>
+      {mode === 'multi' && (
+        <div className="sticky bottom-0 px-5 sm:px-8 pb-6 pt-3 max-w-xl sm:max-w-2xl mx-auto w-full" style={{ backgroundColor: '#F7F7F9' }}>
+          <button
+            onClick={handleContinue}
+            disabled={!Array.isArray(selected) || selected.length === 0}
+            className="w-full flex items-center justify-center gap-2.5 py-4 text-white font-medium text-base rounded-full transition-all duration-200 disabled:opacity-30 active:scale-[0.98]"
+            style={{ backgroundColor: '#0C2631' }}
+          >
+            Next <span className="text-lg">&rarr;</span>
+          </button>
+        </div>
+      )}
     </div>
   );
 }

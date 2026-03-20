@@ -38,12 +38,14 @@ export default function WmMotivationRadioStep({
 
   const [selected, setSelected] = useState<string>(String(responses[storageKey] || ''));
 
-  const handleContinue = () => {
-    if (!selected) return;
-    setResponse(storageKey, selected);
+  const handleSelect = (id: string) => {
+    setSelected(id);
+    setResponse(storageKey, id);
     markStepCompleted(storageKey);
-    setCurrentStep(nextStep);
-    router.push(`${basePath}/${nextStep}`);
+    setTimeout(() => {
+      setCurrentStep(nextStep);
+      router.push(`${basePath}/${nextStep}`);
+    }, 250);
   };
 
   return (
@@ -72,7 +74,7 @@ export default function WmMotivationRadioStep({
           {options.map((opt) => (
             <button
               key={opt.id}
-              onClick={() => setSelected(opt.id)}
+              onClick={() => handleSelect(opt.id)}
               className="w-full flex items-center gap-3 px-5 py-4 rounded-2xl border-2 bg-white transition-all text-left"
               style={{
                 borderColor: selected === opt.id ? 'var(--intake-accent, #7B95A9)' : '#e5e7eb',
@@ -87,16 +89,7 @@ export default function WmMotivationRadioStep({
         </div>
       </div>
 
-      <div className="sticky bottom-0 px-5 sm:px-8 pb-6 pt-3 max-w-xl sm:max-w-2xl mx-auto w-full">
-        <button
-          onClick={handleContinue}
-          disabled={!selected}
-          className="w-full flex items-center justify-center gap-3 py-4 text-white font-medium text-base rounded-full active:scale-[0.98] transition-all duration-200 disabled:opacity-40"
-          style={{ backgroundColor: '#0C2631' }}
-        >
-          Next <span className="text-lg">&rarr;</span>
-        </button>
-      </div>
+      <div className="pb-6" />
     </div>
   );
 }
