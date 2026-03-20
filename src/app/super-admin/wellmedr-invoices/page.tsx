@@ -14,6 +14,10 @@ import {
   AlertCircle,
   ChevronDown,
   ChevronRight,
+  Users,
+  Layers,
+  BarChart3,
+  Sparkles,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api/fetch';
 
@@ -106,6 +110,11 @@ type ActiveTab = 'pharmacy' | 'prescription_services';
 
 function centsToDisplay(cents: number): string {
   return `$${(cents / 100).toFixed(2)}`;
+}
+
+/** Rounds to nearest cent for display (averages may be fractional). */
+function roundedCentsToDisplay(cents: number): string {
+  return centsToDisplay(Math.round(cents));
 }
 
 function formatDate(iso: string): string {
@@ -214,6 +223,58 @@ export default function WellmedrInvoicesPage() {
 
   const pharmacy = data?.pharmacy;
   const rxServices = data?.prescriptionServices;
+
+  const insights = useMemo(() => {
+    if (!pharmacy || !rxServices) return null;
+
+    const patientIds = new Set<number>();
+    for (const li of pharmacy.lineItems) patientIds.add(li.patientId);
+    for (const li of rxServices.lineItems) patientIds.add(li.patientId);
+    const uniquePatients = patientIds.size;
+
+    const combinedCents = pharmacy.totalCents + rxServices.totalCents;
+    const orderCount = pharmacy.orderCount;
+
+    const avgPerPatientCents =
+      uniquePatients > 0 ? combinedCents / uniquePatients : null;
+    const avgPerOrderCents = orderCount > 0 ? combinedCents / orderCount : null;
+
+    const medBuckets = new Map<string, number>();
+    for (const li of pharmacy.lineItems) {
+      const raw = li.medicationName.trim();
+      const family = (raw.split('/')[0] ?? raw).trim() || raw || 'Other';
+      medBuckets.set(family, (medBuckets.get(family) ?? 0) + li.quantity);
+    }
+    let topMedication = '';
+    let topMedVials = 0;
+    for (const [name, qty] of medBuckets) {
+      if (qty > topMedVials) {
+        topMedication = name;
+        topMedVials = qty;
+      }
+    }
+    const vialsDen = pharmacy.vialCount > 0 ? pharmacy.vialCount : topMedVials;
+    const topMedSharePct =
+      topMedication && vialsDen > 0 ? Math.round((topMedVials / vialsDen) * 100) : null;
+
+    const rxNew = rxServices.newPrescriptionCount;
+    const rxRefill = rxServices.refillPrescriptionCount;
+    const rxTotal = rxServices.totalPrescriptions || rxNew + rxRefill;
+    const newRxSharePct = rxTotal > 0 ? Math.round((rxNew / rxTotal) * 100) : null;
+
+    return {
+      uniquePatients,
+      combinedCents,
+      avgPerPatientCents,
+      avgPerOrderCents,
+      topMedication,
+      topMedSharePct,
+      rxNew,
+      rxRefill,
+      rxTotal,
+      newRxSharePct,
+    };
+  }, [pharmacy, rxServices]);
 
   return (
     <div className="min-h-screen p-6 lg:p-8">
@@ -327,6 +388,66 @@ export default function WellmedrInvoicesPage() {
             />
           </div>
 
+          {insights && (
+            <div className="mb-6 grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">
+              <SummaryCard
+                icon={<Users className="h-5 w-5 text-sky-600" />}
+                label="Avg. cost / patient"
+                value={
+                  insights.avgPerPatientCents != null
+                    ? roundedCentsToDisplay(insights.avgPerPatientCents)
+                    : '—'
+                }
+                subvalue={`${insights.uniquePatients} unique patients`}
+                bg="bg-sky-50"
+              />
+              <SummaryCard
+                icon={<Layers className="h-5 w-5 text-indigo-600" />}
+                label="Avg. cost / order"
+                value={
+                  insights.avgPerOrderCents != null
+                    ? roundedCentsToDisplay(insights.avgPerOrderCents)
+                    : '—'
+                }
+                subvalue={`÷ ${pharmacy?.orderCount ?? 0} pharmacy orders`}
+                bg="bg-indigo-50"
+              />
+              <SummaryCard
+                icon={<BarChart3 className="h-5 w-5 text-teal-600" />}
+                label="Top product (vials)"
+                value={
+                  insights.topMedication
+                    ? insights.topMedication.length > 28
+                      ? `${insights.topMedication.slice(0, 26)}…`
+                      : insights.topMedication
+                    : '—'
+                }
+                valueTitle={insights.topMedication || undefined}
+                subvalue={
+                  insights.topMedSharePct != null
+                    ? `${insights.topMedSharePct}% of vials this period`
+                    : undefined
+                }
+                bg="bg-teal-50"
+              />
+              <SummaryCard
+                icon={<Sparkles className="h-5 w-5 text-rose-600" />}
+                label="Rx services mix"
+                value={
+                  insights.newRxSharePct != null
+                    ? `${insights.newRxSharePct}% new`
+                    : '—'
+                }
+                subvalue={
+                  insights.rxTotal > 0
+                    ? `${insights.rxNew} new · ${insights.rxRefill} refill · ${insights.rxTotal} total`
+                    : undefined
+                }
+                bg="bg-rose-50"
+              />
+            </div>
+          )}
+
           {/* Tab Selector */}
           <div className="mb-4 flex flex-wrap gap-2">
             <TabButton
@@ -406,20 +527,29 @@ function SummaryCard({
   icon,
   label,
   value,
+  valueTitle,
+  subvalue,
   bg,
 }: {
   icon: React.ReactNode;
   label: string;
   value: string;
+  valueTitle?: string;
+  subvalue?: string;
   bg: string;
 }) {
   return (
     <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
       <div className="flex items-center gap-3">
-        <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${bg}`}>{icon}</div>
-        <div>
+        <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${bg}`}>
+          {icon}
+        </div>
+        <div className="min-w-0 flex-1">
           <p className="text-xs font-medium text-gray-500">{label}</p>
-          <p className="text-lg font-bold text-gray-900">{value}</p>
+          <p className="truncate text-lg font-bold text-gray-900" title={valueTitle ?? value}>
+            {value}
+          </p>
+          {subvalue ? <p className="text-xs leading-snug text-gray-500">{subvalue}</p> : null}
         </div>
       </div>
     </div>
