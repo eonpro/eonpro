@@ -213,9 +213,9 @@ function IntakeStepContent() {
   const isWellmedr = intakeBrand === 'wellmedr';
 
   const logoElement = branding?.logo ? (
-    <div className="px-6 lg:px-8 pt-4 max-w-[480px] lg:max-w-[560px] mx-auto w-full">
+    <div className={`px-6 lg:px-8 pt-4 mx-auto w-full ${isWellmedr ? 'max-w-[520px] text-center pt-8' : 'max-w-[480px] lg:max-w-[560px]'}`}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={branding.logo} alt="Clinic logo" className="h-8 object-contain" />
+      <img src={branding.logo} alt="Clinic logo" className={isWellmedr ? 'h-7 sm:h-8 mx-auto' : 'h-8 object-contain'} />
     </div>
   ) : null;
 
