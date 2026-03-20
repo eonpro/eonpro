@@ -155,6 +155,27 @@ export function startOfMonthET(d: Date): Date {
 }
 
 /**
+ * Convert a "YYYY-MM-DD" string to a UTC midnight Date for use with Prisma @db.Date columns.
+ * PostgreSQL DATE columns store calendar dates and Prisma returns them at UTC midnight.
+ * Use this (not parseDateET) when querying or writing to @db.Date fields.
+ */
+export function dbDate(dateStr: string): Date {
+  return new Date(dateStr + 'T00:00:00.000Z');
+}
+
+/**
+ * Extract "YYYY-MM-DD" from a Date that came from a Prisma @db.Date column.
+ * These are always at UTC midnight, so we use UTC methods to get the correct calendar date.
+ * Use this (not toDateStringET) when reading @db.Date field values.
+ */
+export function dbDateToString(d: Date): string {
+  const y = d.getUTCFullYear();
+  const m = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(d.getUTCDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+/**
  * Get start of day in Eastern Time for a given Date.
  */
 export function startOfDayET(d: Date): Date {

@@ -13,6 +13,8 @@ import {
   parseDateET,
   startOfDayET,
   endOfDayET,
+  dbDate,
+  dbDateToString,
   EASTERN_TZ,
 } from '@/lib/utils/timezone';
 import {
@@ -122,11 +124,11 @@ export async function getAvailableSlots(
     return [];
   }
 
-  // Check for date-specific overrides
+  // Check for date-specific overrides (date column is @db.Date, uses UTC midnight)
   const dateOverrides = await prisma.providerDateOverride.findMany({
     where: {
       providerId,
-      date: dayStart,
+      date: dbDate(dateStr),
       ...(clinicId ? { OR: [{ clinicId }, { clinicId: null }] } : {}),
     },
     orderBy: { startTime: 'asc' },
@@ -226,7 +228,7 @@ export async function setProviderDateOverrides(
   options?: { clinicId?: number; isUnavailable?: boolean; notes?: string }
 ): Promise<{ success: boolean; overrides?: any[]; error?: string }> {
   try {
-    const dateOnly = parseDateET(toDateStringET(date));
+    const dateOnly = dbDate(toDateStringET(date));
     const clinicId = options?.clinicId ?? null;
 
     await prisma.$transaction(async (tx) => {
@@ -298,17 +300,20 @@ export async function getProviderWeeklySchedule(
   clinicId?: number
 ): Promise<DaySchedule[]> {
   const startStr = toDateStringET(startDate);
-  const start = parseDateET(startStr);
+  const startET = parseDateET(startStr);
   const endParts = startStr.split('-').map(Number);
-  const end = parseDateET(
-    toDateStringET(new Date(endParts[0], endParts[1] - 1, endParts[2] + weeks * 7))
-  );
+  const endStr = toDateStringET(new Date(endParts[0], endParts[1] - 1, endParts[2] + weeks * 7));
+  const endET = parseDateET(endStr);
+
+  // For @db.Date queries, use UTC midnight
+  const dbStart = dbDate(startStr);
+  const dbEnd = dbDate(endStr);
 
   const [dateOverrides, recurring, timeOffs, appointmentCounts] = await Promise.all([
     prisma.providerDateOverride.findMany({
       where: {
         providerId,
-        date: { gte: start, lt: end },
+        date: { gte: dbStart, lt: dbEnd },
         ...(clinicId ? { OR: [{ clinicId }, { clinicId: null }] } : {}),
       },
       orderBy: [{ date: 'asc' }, { startTime: 'asc' }],
@@ -324,8 +329,8 @@ export async function getProviderWeeklySchedule(
     prisma.providerTimeOff.findMany({
       where: {
         providerId,
-        startDate: { lte: end },
-        endDate: { gte: start },
+        startDate: { lte: endET },
+        endDate: { gte: startET },
         isApproved: true,
       },
     }),
@@ -333,7 +338,7 @@ export async function getProviderWeeklySchedule(
       by: ['startTime'],
       where: {
         providerId,
-        startTime: { gte: start, lt: end },
+        startTime: { gte: startET, lt: endET },
         status: { notIn: [AppointmentStatus.CANCELLED, AppointmentStatus.RESCHEDULED] },
       },
       _count: true,
@@ -347,10 +352,10 @@ export async function getProviderWeeklySchedule(
     aptCountByDate[d] = (aptCountByDate[d] || 0) + group._count;
   }
 
-  // Index overrides by date (Eastern)
+  // Index overrides by date (use UTC for @db.Date fields)
   const overridesByDate: Record<string, typeof dateOverrides> = {};
   for (const o of dateOverrides) {
-    const d = toDateStringET(new Date(o.date));
+    const d = dbDateToString(new Date(o.date));
     if (!overridesByDate[d]) overridesByDate[d] = [];
     overridesByDate[d].push(o);
   }
@@ -364,10 +369,12 @@ export async function getProviderWeeklySchedule(
 
   const schedule: DaySchedule[] = [];
   const totalDays = weeks * 7;
+  const startParts = startStr.split('-').map(Number);
 
   for (let i = 0; i < totalDays; i++) {
-    const cursorDate = new Date(start.getTime() + i * 24 * 60 * 60 * 1000);
-    const dateStr = toDateStringET(cursorDate);
+    const calDate = new Date(startParts[0], startParts[1] - 1, startParts[2] + i);
+    const dateStr = `${calDate.getFullYear()}-${String(calDate.getMonth() + 1).padStart(2, '0')}-${String(calDate.getDate()).padStart(2, '0')}`;
+    const cursorDate = parseDateET(dateStr);
     const dayOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(
       new Intl.DateTimeFormat('en-US', { timeZone: EASTERN_TZ, weekday: 'short' }).format(cursorDate)
     );

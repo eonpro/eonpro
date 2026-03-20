@@ -11,7 +11,7 @@ import { logger } from '@/lib/logger';
 import { z } from 'zod';
 import { setProviderDateOverrides } from '@/lib/scheduling/scheduling.service';
 import { prisma } from '@/lib/db';
-import { parseDateET } from '@/lib/utils/timezone';
+import { dbDate } from '@/lib/utils/timezone';
 
 const overrideRoles: AuthOptions = {
   roles: ['super_admin', 'admin', 'provider', 'staff', 'sales_rep'],
@@ -55,8 +55,8 @@ export const GET = withAuth(async (req: NextRequest, user) => {
 
     if (startDate && endDate) {
       where.date = {
-        gte: new Date(startDate),
-        lte: new Date(endDate),
+        gte: dbDate(startDate),
+        lte: dbDate(endDate),
       };
     }
 
@@ -109,7 +109,7 @@ export const POST = withAuth(async (req: NextRequest, user) => {
 
     const result = await setProviderDateOverrides(
       parsed.data.providerId,
-      parseDateET(parsed.data.date),
+      dbDate(parsed.data.date),
       parsed.data.blocks,
       {
         clinicId,
@@ -146,7 +146,7 @@ export const DELETE = withAuth(async (req: NextRequest, user) => {
       );
     }
 
-    const dateOnly = parseDateET(date);
+    const dateOnly = dbDate(date);
     const resolvedClinicId =
       user.role === 'super_admin' ? undefined : (user.clinicId ?? undefined);
 
