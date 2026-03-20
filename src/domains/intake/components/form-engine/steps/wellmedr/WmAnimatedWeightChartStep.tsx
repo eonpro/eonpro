@@ -42,7 +42,12 @@ export default function WmAnimatedWeightChartStep({
     }, 600);
 
     const badge = setTimeout(() => setShowBadge(true), 2400);
-    return () => { clearTimeout(delay); clearTimeout(badge); };
+    const autoNav = setTimeout(() => {
+      markStepCompleted('weight-chart');
+      setCurrentStep(nextStep);
+      router.push(`${basePath}/${nextStep}`);
+    }, 3800);
+    return () => { clearTimeout(delay); clearTimeout(badge); clearTimeout(autoNav); };
   }, []);
 
   const handleContinue = () => {
@@ -155,13 +160,7 @@ export default function WmAnimatedWeightChartStep({
         </div>
       </div>
 
-      <div className="sticky bottom-0 px-5 sm:px-8 pb-6 pt-3 max-w-xl sm:max-w-2xl mx-auto w-full" style={{ backgroundColor: '#F7F7F9' }}>
-        <button onClick={handleContinue}
-          className="w-full flex items-center justify-center gap-2.5 py-4 text-white font-medium text-base rounded-full active:scale-[0.98]"
-          style={{ backgroundColor: '#0C2631', transition: 'transform 0.15s ease' }}>
-          Next <span className="text-lg">&rarr;</span>
-        </button>
-      </div>
+      <div className="pb-6" />
     </div>
   );
 }
