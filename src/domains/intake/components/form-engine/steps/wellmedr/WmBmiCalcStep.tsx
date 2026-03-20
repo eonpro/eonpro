@@ -54,7 +54,7 @@ export default function WmBmiCalcStep({ basePath, nextStep, progressPercent }: W
 
       <div className="flex flex-col items-center w-full max-w-[520px] mx-auto px-6 sm:px-8">
         {/* Logo */}
-        <div className="pt-8 sm:pt-10 pb-8 sm:pb-10"
+        <div className="pt-12 sm:pt-16 pb-8 sm:pb-10"
           style={{ opacity: mounted ? 1 : 0, transform: mounted ? 'translateY(0)' : 'translateY(-6px)', transition: 'all 0.5s cubic-bezier(0.4,0,0.2,1)' }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/wellmedr-logo.svg" alt="wellmedr." className="h-7 sm:h-8" />

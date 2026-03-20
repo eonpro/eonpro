@@ -58,7 +58,7 @@ export default function WmContactInfoStep({
 
       <div className="flex flex-col items-center w-full max-w-[520px] mx-auto px-6 sm:px-8">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/wellmedr-logo.svg" alt="wellmedr." className="h-7 sm:h-8 mt-8 sm:mt-10 mb-8 sm:mb-10" />
+        <img src="/wellmedr-logo.svg" alt="wellmedr." className="h-7 sm:h-8 mt-12 sm:mt-16 mb-8 sm:mb-10" />
 
         <h2 className="text-[1.25rem] sm:text-[1.5rem] font-bold text-center mb-2" style={{ color: '#101010' }}>
           <span className="italic font-normal" style={{ color: '#7B95A9', fontFamily: "'BodoniSvtyTwo', serif" }}>{firstName || 'Friend'}</span>, how can you be reached if necessary?

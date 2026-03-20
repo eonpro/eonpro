@@ -43,7 +43,7 @@ export default function WmCongratsStep({
 
       <div className="flex flex-col items-center px-6 lg:px-8 pt-8 pb-6 max-w-md sm:max-w-lg mx-auto w-full">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/wellmedr-logo.svg" alt="wellmedr." className="h-7 sm:h-8 mt-8 sm:mt-10 mb-8 sm:mb-10" />
+        <img src="/wellmedr-logo.svg" alt="wellmedr." className="h-7 sm:h-8 mt-12 sm:mt-16 mb-8 sm:mb-10" />
 
         <h1 className="text-[2rem] sm:text-[2.5rem] font-bold text-left w-full mb-2">
           <span style={{ color: '#c5a55a' }}>Congrats,</span>{' '}
