@@ -51,9 +51,9 @@ export default function WmGoalWeightStep({ basePath, nextStep, prevStep, progres
         </div>
       )}
 
-      <div className="flex-1 flex flex-col items-center justify-center px-5 sm:px-8 pt-4 sm:pt-6 pb-4 max-w-md sm:max-w-lg mx-auto w-full">
+      <div className="flex flex-col items-center w-full max-w-[520px] mx-auto px-6 sm:px-8">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/wellmedr-logo.svg" alt="wellmedr." className="h-6 sm:h-7 mb-6 sm:mb-8" />
+        <img src="/wellmedr-logo.svg" alt="wellmedr." className="h-7 sm:h-8 mt-8 sm:mt-10 mb-8 sm:mb-10" />
 
         {w > 0 && (
           <p className="text-center text-sm sm:text-base mb-2" style={{ color: '#666' }}>
@@ -95,7 +95,7 @@ export default function WmGoalWeightStep({ basePath, nextStep, prevStep, progres
         </div>
       </div>
 
-      <div className="sticky bottom-0 px-5 sm:px-8 pb-6 pt-3 max-w-md sm:max-w-lg mx-auto w-full" style={{ backgroundColor: '#F7F7F9' }}>
+      <div className="w-full max-w-[520px] mx-auto px-6 sm:px-8 mt-8 pb-8" style={{ backgroundColor: '#F7F7F9' }}>
         <button
           onClick={handleContinue}
           disabled={!weight}

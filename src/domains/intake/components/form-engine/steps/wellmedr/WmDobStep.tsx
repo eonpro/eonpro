@@ -64,9 +64,9 @@ export default function WmDobStep({ basePath, nextStep, prevStep, progressPercen
         </div>
       )}
 
-      <div className="flex-1 flex flex-col items-center justify-center px-5 sm:px-8 pt-4 sm:pt-6 pb-4 max-w-md sm:max-w-lg mx-auto w-full">
+      <div className="flex flex-col items-center w-full max-w-[520px] mx-auto px-6 sm:px-8">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/wellmedr-logo.svg" alt="wellmedr." className="h-6 sm:h-7 mb-6 sm:mb-8" />
+        <img src="/wellmedr-logo.svg" alt="wellmedr." className="h-7 sm:h-8 mt-8 sm:mt-10 mb-8 sm:mb-10" />
 
         <h1 className="text-xl sm:text-[1.75rem] font-bold text-center leading-snug mb-1" style={{ color: '#7B95A9', fontFamily: "'BodoniSvtyTwo', serif" }}>
           Medication can be tailored to <em>your unique needs,</em>
@@ -118,7 +118,7 @@ export default function WmDobStep({ basePath, nextStep, prevStep, progressPercen
         </div>
       </div>
 
-      <div className="sticky bottom-0 px-5 sm:px-8 pb-6 pt-3 max-w-md sm:max-w-lg mx-auto w-full" style={{ backgroundColor: '#F7F7F9' }}>
+      <div className="w-full max-w-[520px] mx-auto px-6 sm:px-8 mt-8 pb-8" style={{ backgroundColor: '#F7F7F9' }}>
         <button
           onClick={handleContinue}
           disabled={!month || !day || !year}
