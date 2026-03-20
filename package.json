@@ -17,6 +17,7 @@
     "generate:enums": "node scripts/generate-prisma-enums.js",
     "vercel-build": "node scripts/vercel-build.js",
     "db:migrate": "prisma migrate deploy",
+    "db:migrate:production": "bash scripts/migrate-deploy-production.sh",
     "db:migrate:safe": "node scripts/pre-migrate.js && prisma migrate deploy",
     "db:migrate:dev": "prisma migrate dev",
     "db:migrate:status": "node scripts/migration-status.js",
