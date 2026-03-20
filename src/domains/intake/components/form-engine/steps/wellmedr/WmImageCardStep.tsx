@@ -8,6 +8,32 @@ interface CardOption {
   id: string;
   label: string;
   subtitle?: string;
+  iconId?: string;
+}
+
+function CardIcon({ iconId }: { iconId: string }) {
+  const color = '#7B95A9';
+  switch (iconId) {
+    case 'male':
+      return (
+        <svg width="48" height="48" viewBox="0 0 64 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="32" cy="12" r="10" stroke={color} strokeWidth="2.5" fill="none"/>
+          <path d="M32 26C22 26 16 32 16 38V54C16 56 18 58 20 58H44C46 58 48 56 48 54V38C48 32 42 26 32 26Z" stroke={color} strokeWidth="2.5" fill="none"/>
+          <line x1="32" y1="58" x2="32" y2="76" stroke={color} strokeWidth="2.5"/>
+          <line x1="20" y1="76" x2="32" y2="76" stroke={color} strokeWidth="2.5" strokeLinecap="round"/>
+          <line x1="44" y1="76" x2="32" y2="76" stroke={color} strokeWidth="2.5" strokeLinecap="round"/>
+        </svg>
+      );
+    case 'female':
+      return (
+        <svg width="48" height="48" viewBox="0 0 64 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="32" cy="12" r="10" stroke={color} strokeWidth="2.5" fill="none"/>
+          <path d="M32 26C24 26 18 30 18 36L16 52C16 54 17 56 20 56H26L24 76H40L38 56H44C47 56 48 54 48 52L46 36C46 30 40 26 32 26Z" stroke={color} strokeWidth="2.5" fill="none"/>
+        </svg>
+      );
+    default:
+      return null;
+  }
 }
 
 interface WmImageCardStepProps {
@@ -109,6 +135,7 @@ export default function WmImageCardStep({
               <div className="absolute top-2.5 right-2.5 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors" style={{ borderColor: isSelected(card.id) ? '#c3b29e' : '#d1d5db' }}>
                 {isSelected(card.id) && <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: '#c3b29e' }} />}
               </div>
+              {card.iconId && <div className="mb-2"><CardIcon iconId={card.iconId} /></div>}
               <span className="font-medium text-[13px] sm:text-base text-center leading-tight" style={{ color: '#101010' }}>{card.label}</span>
               {card.subtitle && <span className="text-[11px] sm:text-sm text-center mt-0.5" style={{ color: '#999' }}>{card.subtitle}</span>}
             </button>

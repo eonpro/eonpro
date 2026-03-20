@@ -69,8 +69,8 @@ const steps: FormStep[] = [
       columns: 2,
       mode: 'single',
       cards: [
-        { id: 'male', label: 'Male' },
-        { id: 'female', label: 'Female' },
+        { id: 'male', label: 'Male', iconId: 'male' },
+        { id: 'female', label: 'Female', iconId: 'female' },
       ],
     },
   },
