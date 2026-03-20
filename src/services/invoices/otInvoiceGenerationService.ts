@@ -391,7 +391,7 @@ export async function generateOtDailyInvoices(date: string, endDate?: string): P
       const pricingStatus = priced ? 'priced' : 'missing';
       const displayName = priced?.name ?? rx.medName;
       const displayStrength = priced?.strength ?? rx.strength;
-      const displayVial = priced?.vialSize ?? rx.form || '';
+      const displayVial = priced?.vialSize ?? (rx.form || '');
 
       for (let v = 0; v < qty; v++) {
         pharmacyLineItems.push({
