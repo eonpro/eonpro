@@ -37,6 +37,7 @@ export default function ConditionalLayout({ children }: ConditionalLayoutProps) 
     '/patient-portal',
     '/dashboard',
     '/checkout',
+    '/wellmedr-checkout',
   ];
 
   const isFullWidthPage =

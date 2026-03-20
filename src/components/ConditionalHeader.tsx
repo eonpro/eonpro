@@ -113,6 +113,7 @@ export default function ConditionalHeader() {
     '/affiliate',
     '/dashboard',
     '/checkout',
+    '/wellmedr-checkout',
   ];
 
   const isNoHeaderPage =
