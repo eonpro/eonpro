@@ -576,10 +576,17 @@ export async function generateOtDailyInvoices(date: string, endDate?: string): P
   const wideStart = new Date(periodStart.getTime() - 7 * 24 * 60 * 60 * 1000);
   const wideEnd = new Date(periodEnd.getTime() + 7 * 24 * 60 * 60 * 1000);
 
+  // Prisma rejects `in: []`; when all period invoices are unlinked (no orderId yet), only query by date window.
+  const orderIdsMatchedToInvoice = [...orderIdsFromInvoices];
+  const orderOrClause =
+    orderIdsMatchedToInvoice.length > 0
+      ? [{ id: { in: orderIdsMatchedToInvoice } }, { createdAt: { gte: wideStart, lte: wideEnd } }]
+      : [{ createdAt: { gte: wideStart, lte: wideEnd } }];
+
   const allOrders = await basePrisma.order.findMany({
     where: {
       clinicId,
-      OR: [{ id: { in: [...orderIdsFromInvoices] } }, { createdAt: { gte: wideStart, lte: wideEnd } }],
+      OR: orderOrClause,
       cancelledAt: null,
       fulfillmentChannel: 'lifefile',
       status: { notIn: ['error', 'cancelled', 'declined', 'queued_for_provider'] },
