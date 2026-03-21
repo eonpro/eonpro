@@ -53,7 +53,13 @@ export const GET = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) =
         endDate,
         clinicId: data.pharmacy.clinicId,
         orderCount: data.pharmacy.orderCount,
+        grossSalesCents: data.platformCompensation.grossSalesCents,
         grandTotalCents: data.grandTotalCents,
+        clinicNetPayoutCents: data.clinicNetPayoutCents,
+        salesRepCommissionTotalCents: data.salesRepCommissionTotalCents,
+        managerOverrideTotalCents: data.managerOverrideTotalCents,
+        merchantFeeCents: data.merchantProcessing.feeCents,
+        platformFeeCents: data.platformCompensation.feeCents,
       },
     });
 

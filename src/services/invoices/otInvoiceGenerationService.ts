@@ -1,6 +1,9 @@
 /**
- * OT (Overtime / ot.eonpro.io) — EONPro internal invoices: pharmacy, doctor approvals,
- * fulfillment (non-SKU invoice lines), and platform compensation (% of gross sales).
+ * OT (Overtime / ot.eonpro.io) — reconciliation statement: EONPro collects patient payments
+ * (Stripe gross), then this breakdown allocates pharmacy cost, shipping, TRT telehealth ($50 when applicable),
+ * a combined doctor/Rx fee ($30 async or sync; waived if refill <90d after prior paid Rx), fulfillment lines,
+ * merchant processing, EONPro platform share, and sales-comp ledger lines when present.
+ * `clinicNetPayoutCents` is gross minus those allocations (what remains for the OT clinic).
  */
 
 import path from 'path';
@@ -12,12 +15,16 @@ import { midnightInTz } from '@/lib/utils/timezone';
 import {
   OT_CLINIC_SUBDOMAIN,
   OT_FULFILLMENT_FEE_PER_OTHER_LINE_CENTS,
+  OT_MERCHANT_PROCESSING_BPS,
   OT_PLATFORM_COMPENSATION_BPS,
   getOtProductPrice,
-  getOtShippingMethodSurchargeCents,
+  getOtPrescriptionShippingCentsForOrder,
+  getOtDoctorRxFeeCentsForSale,
+  findPriorPaidOtPrescriptionInvoice,
+  isOtTestosteroneReplacementTherapyOrder,
   OT_RX_ASYNC_APPROVAL_FEE_CENTS,
   OT_RX_SYNC_APPROVAL_FEE_CENTS,
-  OT_SINGLE_VIAL_SURCHARGE_CENTS,
+  OT_TRT_TELEHEALTH_FEE_CENTS,
 } from '@/lib/invoices/ot-pricing';
 import { BRAND } from '@/lib/constants/brand-assets';
 
@@ -61,8 +68,14 @@ export interface OtPharmacyInvoice {
   periodEnd: string;
   lineItems: OtPharmacyLineItem[];
   shippingLineItems: OtShippingLineItem[];
+  /** $30 per order with ≥1 Rx */
+  prescriptionFeeLineItems: OtShippingLineItem[];
+  /** $50 telehealth when order is TRT */
+  trtTelehealthLineItems: OtShippingLineItem[];
   subtotalMedicationsCents: number;
   subtotalShippingCents: number;
+  subtotalPrescriptionFeesCents: number;
+  subtotalTrtTelehealthCents: number;
   totalCents: number;
   orderCount: number;
   vialCount: number;
@@ -81,6 +94,8 @@ export interface OtDoctorApprovalLineItem {
   medications: string;
   feeCents: number;
   approvalMode: 'async' | 'sync';
+  /** Set when fee is $0 due to refill within 90 days of prior paid Rx. */
+  doctorFeeWaivedReason: string | null;
 }
 
 export interface OtDoctorApprovalsInvoice {
@@ -128,13 +143,70 @@ export interface OtPlatformCompensation {
   invoiceCount: number;
 }
 
+export interface OtMerchantProcessingFee {
+  grossSalesCents: number;
+  rateBps: number;
+  feeCents: number;
+}
+
+/** One row per order/sale: full allocation from patient gross to OT clinic net. */
+export interface OtPerSaleReconciliationLine {
+  orderId: number;
+  invoiceDbId: number | null;
+  lifefileOrderId: string | null;
+  orderDate: string;
+  paidAt: string | null;
+  patientName: string;
+  /** Stripe invoice gross (amount paid, or amount due fallback). */
+  patientGrossCents: number;
+  medicationsCostCents: number;
+  shippingCents: number;
+  trtTelehealthCents: number;
+  /** Meds + shipping + TRT only (doctor/Rx allocation is separate). */
+  pharmacyTotalCents: number;
+  /** Doctor/Rx fee charged on this sale ($0 when refill &lt;90d after prior paid Rx). */
+  doctorApprovalCents: number;
+  /** Standard $30 doctor/Rx rate for async/sync before refill rule. */
+  doctorRxFeeNominalCents: number;
+  /** Amount of nominal fee waived (0 or nominal). */
+  doctorRxFeeWaivedCents: number;
+  /** Days since patient’s prior paid prescription invoice at this clinic; null if first paid Rx or unknown. */
+  doctorRxFeeDaysSincePrior: number | null;
+  /** Explains $0 fee or empty when full fee applies. */
+  doctorRxFeeNote: string | null;
+  fulfillmentFeesCents: number;
+  /** 4% of this sale gross, rounded. */
+  merchantProcessingCents: number;
+  /** 10% of this sale gross, rounded. */
+  platformCompensationCents: number;
+  /** Ledger: `SalesRepCommissionEvent` for this Stripe invoice (rep payout). */
+  salesRepCommissionCents: number;
+  salesRepId: number | null;
+  salesRepName: string | null;
+  /** Sum of `SalesRepOverrideCommissionEvent` tied to that commission (manager / oversight). */
+  managerOverrideTotalCents: number;
+  /** Short breakdown, e.g. "Doe, Jane: $1.50" — omit PHI. */
+  managerOverrideSummary: string | null;
+  totalDeductionsCents: number;
+  clinicNetPayoutCents: number;
+}
+
 export interface OtDailyInvoices {
   pharmacy: OtPharmacyInvoice;
   doctorApprovals: OtDoctorApprovalsInvoice;
   fulfillment: OtFulfillmentInvoice;
+  merchantProcessing: OtMerchantProcessingFee;
   platformCompensation: OtPlatformCompensation;
-  /** Pharmacy + doctor + fulfillment + platform (what OT owes EONPro for the period). */
+  /** Sum of pharmacy + doctor + fulfillment + merchant + platform + rep commission + manager overrides. */
   grandTotalCents: number;
+  /** Patient gross minus `grandTotalCents` — net for OT clinic payout from EONPro (may be negative if data is inconsistent). */
+  clinicNetPayoutCents: number;
+  /** Sum of per-sale sales rep commissions (from commission ledger). */
+  salesRepCommissionTotalCents: number;
+  /** Sum of per-sale manager override / oversight commissions. */
+  managerOverrideTotalCents: number;
+  /** Every sale in the period, same accounting as the summary (merchant/platform rounded per sale then summed). */
+  perSaleReconciliation: OtPerSaleReconciliationLine[];
 }
 
 interface RawInvoiceLine {
@@ -174,6 +246,148 @@ function normalizeGrossCents(inv: { amountPaid: number; amountDue: number | null
   if (inv.amountPaid > 0) return inv.amountPaid;
   if (inv.amountDue != null && inv.amountDue > 0) return inv.amountDue;
   return 0;
+}
+
+function moneyLabel(cents: number): string {
+  return `$${(cents / 100).toFixed(2)}`;
+}
+
+/** Match OT `Invoice.stripeInvoiceId` to ledger rows (`stripeObjectId` = Stripe invoice id on payment webhook). */
+async function loadOtPaidPrescriptionInvoicesByPatient(
+  clinicId: number,
+  patientIds: number[],
+): Promise<Map<number, { id: number; paidAt: Date }[]>> {
+  const map = new Map<number, { id: number; paidAt: Date }[]>();
+  if (patientIds.length === 0) return map;
+  const rows = await basePrisma.invoice.findMany({
+    where: {
+      clinicId,
+      patientId: { in: patientIds },
+      prescriptionProcessed: true,
+      paidAt: { not: null },
+      status: { notIn: ['VOID', 'REFUNDED'] },
+    },
+    select: { id: true, patientId: true, paidAt: true, amountPaid: true, amountDue: true },
+    orderBy: [{ patientId: 'asc' }, { paidAt: 'asc' }, { id: 'asc' }],
+  });
+  for (const row of rows) {
+    if (!row.paidAt) continue;
+    if (normalizeGrossCents({ amountPaid: row.amountPaid, amountDue: row.amountDue }) <= 0) continue;
+    const list = map.get(row.patientId) ?? [];
+    list.push({ id: row.id, paidAt: row.paidAt });
+    map.set(row.patientId, list);
+  }
+  return map;
+}
+
+async function loadOtSalesRepCommissionLookup(
+  clinicId: number,
+  invoiceDbIds: number[],
+): Promise<{
+  stripeByInvoiceDbId: Map<number, string | null>;
+  commissionByStripeObjectId: Map<
+    string,
+    { id: number; salesRepId: number; commissionAmountCents: number }
+  >;
+  overrideBySourceEventId: Map<number, { totalCents: number; summary: string }>;
+  repLabelById: Map<number, string>;
+}> {
+  const stripeByInvoiceDbId = new Map<number, string | null>();
+  const commissionByStripeObjectId = new Map<
+    string,
+    { id: number; salesRepId: number; commissionAmountCents: number }
+  >();
+  const overrideBySourceEventId = new Map<number, { totalCents: number; summary: string }>();
+  const repLabelById = new Map<number, string>();
+
+  if (invoiceDbIds.length === 0) {
+    return { stripeByInvoiceDbId, commissionByStripeObjectId, overrideBySourceEventId, repLabelById };
+  }
+
+  const invoices = await basePrisma.invoice.findMany({
+    where: { id: { in: invoiceDbIds } },
+    select: { id: true, stripeInvoiceId: true },
+  });
+  for (const inv of invoices) {
+    stripeByInvoiceDbId.set(inv.id, inv.stripeInvoiceId);
+  }
+
+  const stripeIds = [...new Set(invoices.map((i) => i.stripeInvoiceId).filter((x): x is string => !!x))];
+  if (stripeIds.length === 0) {
+    return { stripeByInvoiceDbId, commissionByStripeObjectId, overrideBySourceEventId, repLabelById };
+  }
+
+  const events = await basePrisma.salesRepCommissionEvent.findMany({
+    where: {
+      clinicId,
+      stripeObjectId: { in: stripeIds },
+      status: { not: 'REVERSED' },
+    },
+    orderBy: { id: 'desc' },
+    select: {
+      id: true,
+      stripeObjectId: true,
+      salesRepId: true,
+      commissionAmountCents: true,
+    },
+  });
+  for (const ev of events) {
+    if (!ev.stripeObjectId) continue;
+    if (!commissionByStripeObjectId.has(ev.stripeObjectId)) {
+      commissionByStripeObjectId.set(ev.stripeObjectId, {
+        id: ev.id,
+        salesRepId: ev.salesRepId,
+        commissionAmountCents: ev.commissionAmountCents,
+      });
+    }
+  }
+
+  const sourceIds = [...commissionByStripeObjectId.values()].map((v) => v.id);
+  const overrides =
+    sourceIds.length > 0
+      ? await basePrisma.salesRepOverrideCommissionEvent.findMany({
+          where: {
+            clinicId,
+            sourceCommissionEventId: { in: sourceIds },
+            status: { not: 'REVERSED' },
+          },
+          select: {
+            sourceCommissionEventId: true,
+            overrideRepId: true,
+            commissionAmountCents: true,
+          },
+        })
+      : [];
+
+  const userIds = new Set<number>();
+  for (const v of commissionByStripeObjectId.values()) userIds.add(v.salesRepId);
+  for (const o of overrides) userIds.add(o.overrideRepId);
+
+  if (userIds.size > 0) {
+    const users = await basePrisma.user.findMany({
+      where: { id: { in: [...userIds] } },
+      select: { id: true, firstName: true, lastName: true },
+    });
+    for (const u of users) {
+      repLabelById.set(u.id, `${u.lastName}, ${u.firstName}`);
+    }
+  }
+
+  const agg = new Map<number, { parts: string[]; total: number }>();
+  for (const o of overrides) {
+    const sid = o.sourceCommissionEventId;
+    if (sid == null) continue;
+    const label = repLabelById.get(o.overrideRepId) ?? `User #${o.overrideRepId}`;
+    const cur = agg.get(sid) ?? { parts: [], total: 0 };
+    cur.total += o.commissionAmountCents;
+    cur.parts.push(`${label}: ${moneyLabel(o.commissionAmountCents)}`);
+    agg.set(sid, cur);
+  }
+  for (const [sid, v] of agg) {
+    overrideBySourceEventId.set(sid, { totalCents: v.total, summary: v.parts.join('; ') });
+  }
+
+  return { stripeByInvoiceDbId, commissionByStripeObjectId, overrideBySourceEventId, repLabelById };
 }
 
 async function resolveOtClinic(): Promise<{ clinicId: number; clinicName: string }> {
@@ -345,13 +559,31 @@ export async function generateOtDailyInvoices(date: string, endDate?: string): P
     matchedOrders: filteredOrders.length,
   });
 
+  const invoiceDbIdsForCommissions = [
+    ...new Set(
+      filteredOrders
+        .map((o) => invoiceByOrderId.get(o.id)?.invoiceDbId)
+        .filter((x): x is number => x != null),
+    ),
+  ];
+  const salesRepLookup = await loadOtSalesRepCommissionLookup(clinicId, invoiceDbIdsForCommissions);
+
+  const patientIdsForDoctorFee = [...new Set(filteredOrders.map((o) => o.patientId))];
+  const paidRxHistoryByPatient = await loadOtPaidPrescriptionInvoicesByPatient(
+    clinicId,
+    patientIdsForDoctorFee,
+  );
+
   const pharmacyLineItems: OtPharmacyLineItem[] = [];
   const shippingLineItems: OtShippingLineItem[] = [];
+  const trtTelehealthLineItems: OtShippingLineItem[] = [];
   const doctorLines: OtDoctorApprovalLineItem[] = [];
   const fulfillmentLines: OtFulfillmentLineItem[] = [];
+  const perSaleReconciliation: OtPerSaleReconciliationLine[] = [];
 
   let subtotalMedicationsCents = 0;
   let subtotalShippingCents = 0;
+  let subtotalTrtTelehealthCents = 0;
   let totalVials = 0;
   let missingPriceCount = 0;
   let grossSalesCents = 0;
@@ -418,37 +650,68 @@ export async function generateOtDailyInvoices(date: string, endDate?: string): P
     subtotalMedicationsCents += orderMedTotalCents;
     totalVials += orderVialCount;
 
-    if (orderVialCount > 0) {
-      if (orderVialCount === 1 && OT_SINGLE_VIAL_SURCHARGE_CENTS > 0) {
-        subtotalShippingCents += OT_SINGLE_VIAL_SURCHARGE_CENTS;
+    let orderShippingCents = 0;
+    let orderTrtTelehealthCents = 0;
+
+    if (order.rxs.length > 0) {
+      const { feeCents: shipFee, tier: shipTier } = getOtPrescriptionShippingCentsForOrder(order.rxs);
+      orderShippingCents = shipFee;
+      if (shipFee > 0) {
+        subtotalShippingCents += shipFee;
+        const shipLabel =
+          shipTier === 'premium'
+            ? 'Prescription shipping — NAD+/peptide/GLP-1 tier ($30)'
+            : 'Prescription shipping — standard ($20)';
         shippingLineItems.push({
           orderId: order.id,
           lifefileOrderId: order.lifefileOrderId,
           orderDate,
           paidAt,
           patientName,
-          description: 'Single vial shipping surcharge',
-          feeCents: OT_SINGLE_VIAL_SURCHARGE_CENTS,
+          description: shipLabel,
+          feeCents: shipFee,
         });
       }
-      const shipExtra = getOtShippingMethodSurchargeCents(order.shippingMethod);
-      if (shipExtra > 0) {
-        subtotalShippingCents += shipExtra;
-        shippingLineItems.push({
+
+      if (isOtTestosteroneReplacementTherapyOrder(order.rxs)) {
+        orderTrtTelehealthCents = OT_TRT_TELEHEALTH_FEE_CENTS;
+        subtotalTrtTelehealthCents += OT_TRT_TELEHEALTH_FEE_CENTS;
+        trtTelehealthLineItems.push({
           orderId: order.id,
           lifefileOrderId: order.lifefileOrderId,
           orderDate,
           paidAt,
           patientName,
-          description: `Shipping method ${order.shippingMethod} surcharge`,
-          feeCents: shipExtra,
+          description: 'Telehealth visit — testosterone replacement therapy ($50)',
+          feeCents: OT_TRT_TELEHEALTH_FEE_CENTS,
         });
       }
     }
 
     const approvalMode: 'async' | 'sync' = order.queuedForProviderAt ? 'async' : 'sync';
-    const approvalFee =
-      approvalMode === 'async' ? OT_RX_ASYNC_APPROVAL_FEE_CENTS : OT_RX_SYNC_APPROVAL_FEE_CENTS;
+    const currentPaidAtDate = invMeta?.paidAt ?? null;
+    const patientRxList = paidRxHistoryByPatient.get(order.patientId) ?? [];
+    const priorPaidRx =
+      currentPaidAtDate != null && invMeta
+        ? findPriorPaidOtPrescriptionInvoice(
+            patientRxList,
+            invMeta.invoiceDbId,
+            currentPaidAtDate,
+          )
+        : null;
+    const doctorRxFee = getOtDoctorRxFeeCentsForSale({
+      priorPaidPrescriptionInvoice: priorPaidRx,
+      currentPaidAt: currentPaidAtDate,
+      approvalMode,
+    });
+    const approvalFee = doctorRxFee.feeCents;
+    const doctorRxFeeNote =
+      doctorRxFee.waivedReason ??
+      (approvalFee > 0 && priorPaidRx != null && doctorRxFee.daysSincePriorPaidRx != null
+        ? `Full fee (${doctorRxFee.daysSincePriorPaidRx}d since prior paid Rx)`
+        : approvalFee > 0 && priorPaidRx == null
+          ? 'Full fee (no prior paid Rx in history)'
+          : null);
     const medicationsList = order.rxs.map((rx) => `${rx.medName} ${rx.strength}`).join(', ');
 
     doctorLines.push({
@@ -463,8 +726,10 @@ export async function generateOtDailyInvoices(date: string, endDate?: string): P
       medications: medicationsList,
       feeCents: approvalFee,
       approvalMode,
+      doctorFeeWaivedReason: doctorRxFee.waivedReason,
     });
 
+    let orderFulfillmentFeesCents = 0;
     if (invMeta?.lineItems != null) {
       const lines = parseInvoiceLineItemsJson(invMeta.lineItems);
       for (const li of lines) {
@@ -474,6 +739,7 @@ export async function generateOtDailyInvoices(date: string, endDate?: string): P
         const patientAmt = typeof li.amount === 'number' ? li.amount : 0;
         const fee = OT_FULFILLMENT_FEE_PER_OTHER_LINE_CENTS;
         if (fee <= 0 && patientAmt <= 0) continue;
+        orderFulfillmentFeesCents += fee;
         fulfillmentLines.push({
           orderId: order.id,
           invoiceDbId: invMeta.invoiceDbId,
@@ -487,15 +753,101 @@ export async function generateOtDailyInvoices(date: string, endDate?: string): P
         });
       }
     }
+
+    const patientGrossCents = invMeta
+      ? normalizeGrossCents({ amountPaid: invMeta.amountPaid, amountDue: invMeta.amountDue })
+      : 0;
+    const saleMerchantCents = Math.round((patientGrossCents * OT_MERCHANT_PROCESSING_BPS) / 10_000);
+    const salePlatformCents = Math.round((patientGrossCents * OT_PLATFORM_COMPENSATION_BPS) / 10_000);
+    const pharmacyTotalForOrder =
+      orderMedTotalCents + orderShippingCents + orderTrtTelehealthCents;
+
+    const invDbId = invMeta?.invoiceDbId ?? null;
+    const stripeInvId =
+      invDbId != null ? (salesRepLookup.stripeByInvoiceDbId.get(invDbId) ?? null) : null;
+    const comm =
+      stripeInvId != null ? (salesRepLookup.commissionByStripeObjectId.get(stripeInvId) ?? null) : null;
+    const salesRepCommissionCents = comm?.commissionAmountCents ?? 0;
+    const salesRepId = comm?.salesRepId ?? null;
+    const salesRepName =
+      salesRepId != null
+        ? (salesRepLookup.repLabelById.get(salesRepId) ?? `User #${salesRepId}`)
+        : null;
+    const ov = comm ? salesRepLookup.overrideBySourceEventId.get(comm.id) : undefined;
+    const managerOverrideTotalCentsForOrder = ov?.totalCents ?? 0;
+    const managerOverrideSummary = ov?.summary ?? null;
+
+    const totalDeductionsForOrder =
+      pharmacyTotalForOrder +
+      approvalFee +
+      orderFulfillmentFeesCents +
+      saleMerchantCents +
+      salePlatformCents +
+      salesRepCommissionCents +
+      managerOverrideTotalCentsForOrder;
+
+    perSaleReconciliation.push({
+      orderId: order.id,
+      invoiceDbId: invMeta?.invoiceDbId ?? null,
+      lifefileOrderId: order.lifefileOrderId,
+      orderDate,
+      paidAt,
+      patientName,
+      patientGrossCents,
+      medicationsCostCents: orderMedTotalCents,
+      shippingCents: orderShippingCents,
+      trtTelehealthCents: orderTrtTelehealthCents,
+      pharmacyTotalCents: pharmacyTotalForOrder,
+      doctorApprovalCents: approvalFee,
+      doctorRxFeeNominalCents: doctorRxFee.nominalFeeCents,
+      doctorRxFeeWaivedCents: doctorRxFee.waivedAmountCents,
+      doctorRxFeeDaysSincePrior: doctorRxFee.daysSincePriorPaidRx,
+      doctorRxFeeNote: doctorRxFeeNote,
+      fulfillmentFeesCents: orderFulfillmentFeesCents,
+      merchantProcessingCents: saleMerchantCents,
+      platformCompensationCents: salePlatformCents,
+      salesRepCommissionCents,
+      salesRepId,
+      salesRepName,
+      managerOverrideTotalCents: managerOverrideTotalCentsForOrder,
+      managerOverrideSummary,
+      totalDeductionsCents: totalDeductionsForOrder,
+      clinicNetPayoutCents: patientGrossCents - totalDeductionsForOrder,
+    });
   }
 
-  const pharmacyTotal = subtotalMedicationsCents + subtotalShippingCents;
+  perSaleReconciliation.sort((a, b) => {
+    const ta = a.paidAt ? new Date(a.paidAt).getTime() : 0;
+    const tb = b.paidAt ? new Date(b.paidAt).getTime() : 0;
+    if (ta !== tb) return ta - tb;
+    return a.orderId - b.orderId;
+  });
+
+  const pharmacyTotal =
+    subtotalMedicationsCents + subtotalShippingCents + subtotalTrtTelehealthCents;
   const asyncCount = doctorLines.filter((l) => l.approvalMode === 'async').length;
   const syncCount = doctorLines.filter((l) => l.approvalMode === 'sync').length;
   const doctorTotal = doctorLines.reduce((s, l) => s + l.feeCents, 0);
   const fulfillmentTotal = fulfillmentLines.reduce((s, l) => s + l.feeCents, 0);
-  const platformFee = Math.round((grossSalesCents * OT_PLATFORM_COMPENSATION_BPS) / 10_000);
-  const grandTotal = pharmacyTotal + doctorTotal + fulfillmentTotal + platformFee;
+  const merchantFee = perSaleReconciliation.reduce((s, r) => s + r.merchantProcessingCents, 0);
+  const platformFee = perSaleReconciliation.reduce((s, r) => s + r.platformCompensationCents, 0);
+  const salesRepCommissionTotalCents = perSaleReconciliation.reduce(
+    (s, r) => s + r.salesRepCommissionCents,
+    0,
+  );
+  const managerOverrideTotalCents = perSaleReconciliation.reduce(
+    (s, r) => s + r.managerOverrideTotalCents,
+    0,
+  );
+  const grandTotal =
+    pharmacyTotal +
+    doctorTotal +
+    fulfillmentTotal +
+    merchantFee +
+    platformFee +
+    salesRepCommissionTotalCents +
+    managerOverrideTotalCents;
+  const clinicNetPayoutCents = grossSalesCents - grandTotal;
 
   const nowIso = new Date().toISOString();
 
@@ -509,8 +861,12 @@ export async function generateOtDailyInvoices(date: string, endDate?: string): P
       periodEnd: periodEnd.toISOString(),
       lineItems: pharmacyLineItems,
       shippingLineItems,
+      prescriptionFeeLineItems: [],
+      trtTelehealthLineItems,
       subtotalMedicationsCents,
       subtotalShippingCents,
+      subtotalPrescriptionFeesCents: 0,
+      subtotalTrtTelehealthCents,
       totalCents: pharmacyTotal,
       orderCount: filteredOrders.length,
       vialCount: totalVials,
@@ -540,6 +896,11 @@ export async function generateOtDailyInvoices(date: string, endDate?: string): P
       lineItems: fulfillmentLines,
       totalCents: fulfillmentTotal,
     },
+    merchantProcessing: {
+      grossSalesCents,
+      rateBps: OT_MERCHANT_PROCESSING_BPS,
+      feeCents: merchantFee,
+    },
     platformCompensation: {
       grossSalesCents,
       rateBps: OT_PLATFORM_COMPENSATION_BPS,
@@ -547,6 +908,10 @@ export async function generateOtDailyInvoices(date: string, endDate?: string): P
       invoiceCount: grossInvoicesCounted.size,
     },
     grandTotalCents: grandTotal,
+    clinicNetPayoutCents,
+    salesRepCommissionTotalCents,
+    managerOverrideTotalCents,
+    perSaleReconciliation,
   };
 }
 
@@ -612,7 +977,7 @@ export function generateOtPharmacyCSV(invoice: OtPharmacyInvoice): string {
   lines.push(`Medications Subtotal,,,,,,,,,,$${centsToDisplay(invoice.subtotalMedicationsCents)}`);
   if (invoice.shippingLineItems.length > 0) {
     lines.push('');
-    lines.push('=== SHIPPING SURCHARGES ===');
+    lines.push('=== PRESCRIPTION SHIPPING (ONE FEE PER ORDER) ===');
     lines.push(['Date', 'Order ID', 'LF Order ID', 'Patient', 'Description', 'Fee'].map(escapeCSV).join(','));
     for (const sl of invoice.shippingLineItems) {
       lines.push(
@@ -628,7 +993,47 @@ export function generateOtPharmacyCSV(invoice: OtPharmacyInvoice): string {
           .join(','),
       );
     }
-    lines.push(`Shipping Subtotal,,,,,$${centsToDisplay(invoice.subtotalShippingCents)}`);
+    lines.push(`Prescription shipping subtotal,,,,,$${centsToDisplay(invoice.subtotalShippingCents)}`);
+  }
+  if (invoice.prescriptionFeeLineItems.length > 0) {
+    lines.push('');
+    lines.push('=== PRESCRIPTION FEE ($30 PER ORDER) ===');
+    lines.push(['Date', 'Order ID', 'LF Order ID', 'Patient', 'Description', 'Fee'].map(escapeCSV).join(','));
+    for (const sl of invoice.prescriptionFeeLineItems) {
+      lines.push(
+        [
+          new Date(sl.orderDate).toLocaleDateString('en-US'),
+          sl.orderId,
+          sl.lifefileOrderId ?? '',
+          sl.patientName,
+          sl.description,
+          `$${centsToDisplay(sl.feeCents)}`,
+        ]
+          .map(escapeCSV)
+          .join(','),
+      );
+    }
+    lines.push(`Prescription fees subtotal,,,,,$${centsToDisplay(invoice.subtotalPrescriptionFeesCents)}`);
+  }
+  if (invoice.trtTelehealthLineItems.length > 0) {
+    lines.push('');
+    lines.push('=== TRT TELEHEALTH ($50 PER TRT ORDER) ===');
+    lines.push(['Date', 'Order ID', 'LF Order ID', 'Patient', 'Description', 'Fee'].map(escapeCSV).join(','));
+    for (const sl of invoice.trtTelehealthLineItems) {
+      lines.push(
+        [
+          new Date(sl.orderDate).toLocaleDateString('en-US'),
+          sl.orderId,
+          sl.lifefileOrderId ?? '',
+          sl.patientName,
+          sl.description,
+          `$${centsToDisplay(sl.feeCents)}`,
+        ]
+          .map(escapeCSV)
+          .join(','),
+      );
+    }
+    lines.push(`TRT telehealth subtotal,,,,,$${centsToDisplay(invoice.subtotalTrtTelehealthCents)}`);
   }
   lines.push('');
   lines.push(`PHARMACY TOTAL,,,,,,,,,,$${centsToDisplay(invoice.totalCents)}`);
@@ -638,18 +1043,20 @@ export function generateOtPharmacyCSV(invoice: OtPharmacyInvoice): string {
 export function generateOtDoctorApprovalsCSV(invoice: OtDoctorApprovalsInvoice): string {
   const BOM = '\uFEFF';
   const lines: string[] = [BOM];
-  lines.push('OT DOCTOR APPROVAL SERVICES INVOICE');
+  lines.push('OT DOCTOR / RX FEE ($30 async or sync; $0 if paid Rx within 90d of prior at this clinic)');
   lines.push(`Clinic,${escapeCSV(invoice.clinicName)}`);
   lines.push(
     `Period,${new Date(invoice.periodStart).toLocaleDateString('en-US')} - ${new Date(invoice.periodEnd).toLocaleDateString('en-US')}`,
   );
-  lines.push(`Async fee,$${centsToDisplay(invoice.asyncFeeCents)}`);
-  lines.push(`Sync fee,$${centsToDisplay(invoice.syncFeeCents)}`);
+  lines.push(`Async (queue) rate,$${centsToDisplay(invoice.asyncFeeCents)}`);
+  lines.push(`Sync rate,$${centsToDisplay(invoice.syncFeeCents)}`);
   lines.push(`Async count,${invoice.asyncCount}`);
   lines.push(`Sync count,${invoice.syncCount}`);
   lines.push('');
   lines.push(
-    ['Date', 'Order ID', 'LF Order ID', 'Patient', 'Provider', 'Medications', 'Mode', 'Fee'].map(escapeCSV).join(','),
+    ['Date', 'Order ID', 'LF Order ID', 'Patient', 'Provider', 'Medications', 'Mode', 'Fee', 'Note']
+      .map(escapeCSV)
+      .join(','),
   );
   for (const li of invoice.lineItems) {
     lines.push(
@@ -662,13 +1069,14 @@ export function generateOtDoctorApprovalsCSV(invoice: OtDoctorApprovalsInvoice):
         li.medications,
         li.approvalMode === 'async' ? 'async' : 'sync',
         `$${centsToDisplay(li.feeCents)}`,
+        li.doctorFeeWaivedReason ?? '',
       ]
         .map(escapeCSV)
         .join(','),
     );
   }
   lines.push('');
-  lines.push(`TOTAL,,,,,,,$${centsToDisplay(invoice.totalCents)}`);
+  lines.push(`TOTAL,,,,,,,$${centsToDisplay(invoice.totalCents)},`);
   return lines.join('\r\n');
 }
 
@@ -704,21 +1112,180 @@ export function generateOtFulfillmentCSV(invoice: OtFulfillmentInvoice): string 
   return lines.join('\r\n');
 }
 
-export function generateOtCombinedCSV(data: OtDailyInvoices): string {
+export function generateOtPerSaleReconciliationCSV(data: OtDailyInvoices): string {
   const BOM = '\uFEFF';
   const lines: string[] = [
     BOM,
-    'OT / EONPRO COMBINED INTERNAL INVOICE (SUMMARY)',
+    'OT / EONPRO PER-SALE RECONCILIATION (ONE ROW PER ORDER / SALE)',
+    `Clinic,${escapeCSV(data.pharmacy.clinicName)}`,
+    `Period,${new Date(data.pharmacy.periodStart).toLocaleDateString('en-US')} - ${new Date(data.pharmacy.periodEnd).toLocaleDateString('en-US')}`,
+    `Generated,${new Date(data.pharmacy.invoiceDate).toLocaleString('en-US')}`,
+    `Sales count,${data.perSaleReconciliation.length}`,
+    '',
+    'Merchant/platform are computed per sale (rounded) then summed — matches period summary totals.',
+    'Sales rep + manager amounts come from the commission ledger (Stripe invoice id match).',
+    'Doctor / Rx: $30 async/sync; charged only on new sale or if ≥90 days since prior paid Rx at this clinic; otherwise waived ($0).',
+    '',
+  ];
+  const header = [
+    'Paid (ET)',
+    'Order ID',
+    'Invoice DB id',
+    'LF Order ID',
+    'Patient',
+    'Patient gross',
+    'Medications cost',
+    'Shipping',
+    'TRT telehealth ($50)',
+    'Pharmacy total',
+    'Doctor / Rx fee (charged)',
+    'Doctor / Rx nominal',
+    'Doctor / Rx waived',
+    'Days since prior paid Rx',
+    'Doctor / Rx note',
+    'Fulfillment fees',
+    'Merchant 4%',
+    'EONPro 10%',
+    'Attributed sales rep',
+    'Sales rep commission',
+    'Manager oversight total',
+    'Manager oversight detail',
+    'Total deductions',
+    'Net to OT clinic',
+  ];
+  lines.push(header.map(escapeCSV).join(','));
+  for (const r of data.perSaleReconciliation) {
+    const paidEt = r.paidAt
+      ? new Date(r.paidAt).toLocaleString('en-US', {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric',
+          hour: 'numeric',
+          minute: '2-digit',
+          hour12: true,
+          timeZone: 'America/New_York',
+        })
+      : new Date(r.orderDate).toLocaleDateString('en-US');
+    lines.push(
+      [
+        paidEt,
+        r.orderId,
+        r.invoiceDbId ?? '',
+        r.lifefileOrderId ?? '',
+        r.patientName,
+        `$${centsToDisplay(r.patientGrossCents)}`,
+        `$${centsToDisplay(r.medicationsCostCents)}`,
+        `$${centsToDisplay(r.shippingCents)}`,
+        `$${centsToDisplay(r.trtTelehealthCents)}`,
+        `$${centsToDisplay(r.pharmacyTotalCents)}`,
+        `$${centsToDisplay(r.doctorApprovalCents)}`,
+        `$${centsToDisplay(r.doctorRxFeeNominalCents)}`,
+        `$${centsToDisplay(r.doctorRxFeeWaivedCents)}`,
+        r.doctorRxFeeDaysSincePrior != null ? String(r.doctorRxFeeDaysSincePrior) : '',
+        r.doctorRxFeeNote ?? '',
+        `$${centsToDisplay(r.fulfillmentFeesCents)}`,
+        `$${centsToDisplay(r.merchantProcessingCents)}`,
+        `$${centsToDisplay(r.platformCompensationCents)}`,
+        r.salesRepName ?? '',
+        `$${centsToDisplay(r.salesRepCommissionCents)}`,
+        `$${centsToDisplay(r.managerOverrideTotalCents)}`,
+        r.managerOverrideSummary ?? '',
+        `$${centsToDisplay(r.totalDeductionsCents)}`,
+        `$${centsToDisplay(r.clinicNetPayoutCents)}`,
+      ]
+        .map(escapeCSV)
+        .join(','),
+    );
+  }
+  const sum = (pick: (row: OtPerSaleReconciliationLine) => number) =>
+    data.perSaleReconciliation.reduce((s, row) => s + pick(row), 0);
+  lines.push('');
+  lines.push(
+    [
+      'COLUMN TOTALS (check vs summary)',
+      '',
+      '',
+      '',
+      '',
+      `$${centsToDisplay(sum((x) => x.patientGrossCents))}`,
+      `$${centsToDisplay(sum((x) => x.medicationsCostCents))}`,
+      `$${centsToDisplay(sum((x) => x.shippingCents))}`,
+      `$${centsToDisplay(sum((x) => x.trtTelehealthCents))}`,
+      `$${centsToDisplay(sum((x) => x.pharmacyTotalCents))}`,
+      `$${centsToDisplay(sum((x) => x.doctorApprovalCents))}`,
+      `$${centsToDisplay(sum((x) => x.doctorRxFeeNominalCents))}`,
+      `$${centsToDisplay(sum((x) => x.doctorRxFeeWaivedCents))}`,
+      '',
+      '',
+      `$${centsToDisplay(sum((x) => x.fulfillmentFeesCents))}`,
+      `$${centsToDisplay(sum((x) => x.merchantProcessingCents))}`,
+      `$${centsToDisplay(sum((x) => x.platformCompensationCents))}`,
+      '',
+      `$${centsToDisplay(sum((x) => x.salesRepCommissionCents))}`,
+      `$${centsToDisplay(sum((x) => x.managerOverrideTotalCents))}`,
+      '',
+      `$${centsToDisplay(sum((x) => x.totalDeductionsCents))}`,
+      `$${centsToDisplay(sum((x) => x.clinicNetPayoutCents))}`,
+    ]
+      .map(escapeCSV)
+      .join(','),
+  );
+  lines.push(
+    [
+      'Summary reconciliation (same period)',
+      '',
+      '',
+      '',
+      '',
+      `$${centsToDisplay(data.platformCompensation.grossSalesCents)}`,
+      '',
+      '',
+      '',
+      `$${centsToDisplay(data.pharmacy.totalCents)}`,
+      `$${centsToDisplay(data.doctorApprovals.totalCents)}`,
+      `$${centsToDisplay(sum((x) => x.doctorRxFeeNominalCents))}`,
+      `$${centsToDisplay(sum((x) => x.doctorRxFeeWaivedCents))}`,
+      '',
+      '',
+      `$${centsToDisplay(data.fulfillment.totalCents)}`,
+      `$${centsToDisplay(data.merchantProcessing.feeCents)}`,
+      `$${centsToDisplay(data.platformCompensation.feeCents)}`,
+      '',
+      `$${centsToDisplay(data.salesRepCommissionTotalCents)}`,
+      `$${centsToDisplay(data.managerOverrideTotalCents)}`,
+      '',
+      `$${centsToDisplay(data.grandTotalCents)}`,
+      `$${centsToDisplay(data.clinicNetPayoutCents)}`,
+    ]
+      .map(escapeCSV)
+      .join(','),
+  );
+  return lines.join('\r\n');
+}
+
+export function generateOtCombinedCSV(data: OtDailyInvoices): string {
+  const BOM = '\uFEFF';
+  const invCount = data.platformCompensation.invoiceCount;
+  const lines: string[] = [
+    BOM,
+    'OT / EONPRO CLINIC RECONCILIATION (EONPro holds patient payments; allocations determine OT clinic payout)',
     `Clinic,${escapeCSV(data.pharmacy.clinicName)}`,
     `Period,${new Date(data.pharmacy.periodStart).toLocaleDateString('en-US')} - ${new Date(data.pharmacy.periodEnd).toLocaleDateString('en-US')}`,
     '',
-    `Pharmacy (meds + shipping),$${centsToDisplay(data.pharmacy.totalCents)}`,
-    `Doctor approvals,$${centsToDisplay(data.doctorApprovals.totalCents)}`,
-    `Fulfillment (other lines),$${centsToDisplay(data.fulfillment.totalCents)}`,
-    `Platform compensation (${data.platformCompensation.rateBps / 100}% of gross),$${centsToDisplay(data.platformCompensation.feeCents)}`,
-    `Gross sales (patient paid, ${data.platformCompensation.invoiceCount} invoices),$${centsToDisplay(data.platformCompensation.grossSalesCents)}`,
+    `Patient gross (paid invoices: ${invCount}),$${centsToDisplay(data.platformCompensation.grossSalesCents)}`,
+    `Less — Pharmacy (meds + shipping + TRT telehealth when applicable),$${centsToDisplay(data.pharmacy.totalCents)}`,
+    `Less — Doctor / Rx fee ($30; $0 refill <90d after prior paid Rx),$${centsToDisplay(data.doctorApprovals.totalCents)}`,
+    `Less — Fulfillment (other Stripe lines),$${centsToDisplay(data.fulfillment.totalCents)}`,
+    `Less — Merchant processing (${data.merchantProcessing.rateBps / 100}% of gross),$${centsToDisplay(data.merchantProcessing.feeCents)}`,
+    `Less — EONPro platform (${data.platformCompensation.rateBps / 100}% of gross),$${centsToDisplay(data.platformCompensation.feeCents)}`,
+    `Less — Sales rep commission (ledger),$${centsToDisplay(data.salesRepCommissionTotalCents)}`,
+    `Less — Manager oversight / override (ledger),$${centsToDisplay(data.managerOverrideTotalCents)}`,
     '',
-    `GRAND TOTAL,$${centsToDisplay(data.grandTotalCents)}`,
+    `Total deductions from gross,$${centsToDisplay(data.grandTotalCents)}`,
+    `Net payable to OT clinic,$${centsToDisplay(data.clinicNetPayoutCents)}`,
+    '',
+    '--- PER-SALE: FULL BREAKDOWN (EVERY SALE) ---',
+    stripCsvBom(generateOtPerSaleReconciliationCSV(data)),
     '',
     '--- DETAIL: PHARMACY ---',
     stripCsvBom(generateOtPharmacyCSV(data.pharmacy)),
@@ -807,23 +1374,38 @@ export async function generateOtSummaryPDF(data: OtDailyInvoices): Promise<Uint8
     y -= 8;
   }
 
-  draw('OT / OVERTIME — EONPRO INTERNAL INVOICE', M, 15, fontBold, green);
-  y -= 28;
+  draw('OT / OVERTIME — CLINIC RECONCILIATION', M, 15, fontBold, green);
+  y -= 20;
+  draw('EONPro collects patient payments; allocations below determine OT clinic payout.', M, 9, font, mid);
+  y -= 22;
   draw(data.pharmacy.clinicName, M, 11, fontBold);
   y -= 16;
   const period = `${new Date(data.pharmacy.periodStart).toLocaleDateString('en-US')} — ${new Date(data.pharmacy.periodEnd).toLocaleDateString('en-US')}`;
   draw(period, M, 9, font, mid);
   y -= 28;
 
+  const invN = data.platformCompensation.invoiceCount;
   const rows: [string, string][] = [
-    ['Pharmacy (medications + shipping)', `$${centsToDisplay(data.pharmacy.totalCents)}`],
-    ['Doctor approvals (async + sync)', `$${centsToDisplay(data.doctorApprovals.totalCents)}`],
-    ['Fulfillment (other Stripe lines)', `$${centsToDisplay(data.fulfillment.totalCents)}`],
+    [`Patient gross (${invN} paid invoices)`, `$${centsToDisplay(data.platformCompensation.grossSalesCents)}`],
     [
-      `Platform compensation (${data.platformCompensation.rateBps / 100}% of gross sales)`,
+      'Less — Pharmacy (medications + shipping + TRT telehealth if applicable)',
+      `$${centsToDisplay(data.pharmacy.totalCents)}`,
+    ],
+    [
+      'Less — Doctor / Rx fee ($30; $0 refill <90d after prior paid Rx)',
+      `$${centsToDisplay(data.doctorApprovals.totalCents)}`,
+    ],
+    ['Less — Fulfillment (other Stripe lines)', `$${centsToDisplay(data.fulfillment.totalCents)}`],
+    [
+      `Less — Merchant processing (${data.merchantProcessing.rateBps / 100}% of gross)`,
+      `$${centsToDisplay(data.merchantProcessing.feeCents)}`,
+    ],
+    [
+      `Less — EONPro platform (${data.platformCompensation.rateBps / 100}% of gross)`,
       `$${centsToDisplay(data.platformCompensation.feeCents)}`,
     ],
-    ['Patient gross (reference)', `$${centsToDisplay(data.platformCompensation.grossSalesCents)}`],
+    ['Less — Sales rep commission (ledger)', `$${centsToDisplay(data.salesRepCommissionTotalCents)}`],
+    ['Less — Manager oversight / override (ledger)', `$${centsToDisplay(data.managerOverrideTotalCents)}`],
   ];
 
   for (const [label, amt] of rows) {
@@ -835,8 +1417,12 @@ export async function generateOtSummaryPDF(data: OtDailyInvoices): Promise<Uint8
   y -= 10;
   page.drawLine({ start: { x: M, y }, end: { x: PW - M, y }, thickness: 1, color: green });
   y -= 20;
-  draw('TOTAL DUE TO EONPRO', M, 12, fontBold, green);
-  draw(`$${centsToDisplay(data.grandTotalCents)}`, PW - M - 100, 12, fontBold, green);
+  draw('Total deductions from gross', M, 11, fontBold, dark);
+  draw(`$${centsToDisplay(data.grandTotalCents)}`, PW - M - 100, 11, fontBold, dark);
+  y -= 22;
+  const netColor = data.clinicNetPayoutCents < 0 ? rgb(0.65, 0.12, 0.12) : green;
+  draw('Net payable to OT clinic', M, 12, fontBold, netColor);
+  draw(`$${centsToDisplay(data.clinicNetPayoutCents)}`, PW - M - 100, 12, fontBold, netColor);
   y -= 36;
   draw(`Pharmacy orders: ${data.pharmacy.orderCount} · Vials: ${data.pharmacy.vialCount}`, M, 8, font, mid);
   y -= 14;
@@ -849,6 +1435,14 @@ export async function generateOtSummaryPDF(data: OtDailyInvoices): Promise<Uint8
   );
   y -= 14;
   draw(`Unpriced medication lines (qty): ${data.pharmacy.missingPriceCount}`, M, 8, font, mid);
+  y -= 16;
+  draw(
+    `Per-sale breakdown: export Combined CSV or Per-sale CSV (${data.perSaleReconciliation.length} sales).`,
+    M,
+    8,
+    font,
+    mid,
+  );
 
   return doc.save();
 }

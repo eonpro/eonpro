@@ -7,6 +7,7 @@ import {
   generateOtDoctorApprovalsCSV,
   generateOtFulfillmentCSV,
   generateOtCombinedCSV,
+  generateOtPerSaleReconciliationCSV,
   generateOtSummaryPDF,
 } from '@/services/invoices/otInvoiceGenerationService';
 import { auditLog, AuditEventType } from '@/lib/audit/hipaa-audit';
@@ -20,7 +21,7 @@ const exportSchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   format: z.enum(['csv', 'pdf']),
-  invoiceType: z.enum(['pharmacy', 'doctor_approvals', 'fulfillment', 'combined', 'summary']),
+  invoiceType: z.enum(['pharmacy', 'doctor_approvals', 'fulfillment', 'per_sale', 'combined', 'summary']),
 });
 
 /**
@@ -83,6 +84,10 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) 
       case 'fulfillment':
         csv = generateOtFulfillmentCSV(data.fulfillment);
         filename = `ot-fulfillment-invoice-${dateSlug}.csv`;
+        break;
+      case 'per_sale':
+        csv = generateOtPerSaleReconciliationCSV(data);
+        filename = `ot-per-sale-reconciliation-${dateSlug}.csv`;
         break;
       case 'combined':
         csv = generateOtCombinedCSV(data);

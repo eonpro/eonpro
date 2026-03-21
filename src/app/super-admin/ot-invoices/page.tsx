@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   FileText,
   Download,
@@ -14,8 +14,15 @@ import {
   Layers,
   Percent,
   Truck,
+  BookOpen,
+  CreditCard,
+  Landmark,
+  LayoutList,
+  UserCircle,
+  Users,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api/fetch';
+import { OtMedicationPricingCatalog } from '@/components/invoices/OtMedicationPricingCatalog';
 
 interface OtPharmacyLineItem {
   orderId: number;
@@ -54,8 +61,12 @@ interface OtPharmacyInvoice {
   periodEnd: string;
   lineItems: OtPharmacyLineItem[];
   shippingLineItems: OtShippingLineItem[];
+  prescriptionFeeLineItems: OtShippingLineItem[];
+  trtTelehealthLineItems: OtShippingLineItem[];
   subtotalMedicationsCents: number;
   subtotalShippingCents: number;
+  subtotalPrescriptionFeesCents: number;
+  subtotalTrtTelehealthCents: number;
   totalCents: number;
   orderCount: number;
   vialCount: number;
@@ -74,6 +85,7 @@ interface OtDoctorApprovalLineItem {
   medications: string;
   feeCents: number;
   approvalMode: 'async' | 'sync';
+  doctorFeeWaivedReason?: string | null;
 }
 
 interface OtDoctorApprovalsInvoice {
@@ -112,6 +124,12 @@ interface OtFulfillmentInvoice {
   totalCents: number;
 }
 
+interface OtMerchantProcessingFee {
+  grossSalesCents: number;
+  rateBps: number;
+  feeCents: number;
+}
+
 interface OtPlatformCompensation {
   grossSalesCents: number;
   rateBps: number;
@@ -119,15 +137,50 @@ interface OtPlatformCompensation {
   invoiceCount: number;
 }
 
+interface OtPerSaleReconciliationLine {
+  orderId: number;
+  invoiceDbId: number | null;
+  lifefileOrderId: string | null;
+  orderDate: string;
+  paidAt: string | null;
+  patientName: string;
+  patientGrossCents: number;
+  medicationsCostCents: number;
+  shippingCents: number;
+  trtTelehealthCents: number;
+  pharmacyTotalCents: number;
+  doctorApprovalCents: number;
+  doctorRxFeeNominalCents?: number;
+  doctorRxFeeWaivedCents?: number;
+  doctorRxFeeDaysSincePrior?: number | null;
+  doctorRxFeeNote?: string | null;
+  fulfillmentFeesCents: number;
+  merchantProcessingCents: number;
+  platformCompensationCents: number;
+  salesRepCommissionCents?: number;
+  salesRepId?: number | null;
+  salesRepName?: string | null;
+  managerOverrideTotalCents?: number;
+  managerOverrideSummary?: string | null;
+  totalDeductionsCents: number;
+  clinicNetPayoutCents: number;
+}
+
 interface OtInvoiceData {
   pharmacy: OtPharmacyInvoice;
   doctorApprovals: OtDoctorApprovalsInvoice;
   fulfillment: OtFulfillmentInvoice;
+  merchantProcessing: OtMerchantProcessingFee;
   platformCompensation: OtPlatformCompensation;
   grandTotalCents: number;
+  clinicNetPayoutCents: number;
+  salesRepCommissionTotalCents?: number;
+  managerOverrideTotalCents?: number;
+  /** Present after API deploy; empty array when missing. */
+  perSaleReconciliation?: OtPerSaleReconciliationLine[];
 }
 
-type ActiveTab = 'pharmacy' | 'doctor_approvals' | 'fulfillment';
+type ActiveTab = 'pharmacy' | 'doctor_approvals' | 'fulfillment' | 'per_sale' | 'pricing_catalog';
 
 function centsToDisplay(cents: number): string {
   return `$${(cents / 100).toFixed(2)}`;
@@ -181,7 +234,7 @@ export default function OtInvoicesPage() {
   }, [startDate, endDate, useRange]);
 
   const handleExport = async (
-    invoiceType: ActiveTab | 'combined' | 'summary',
+    invoiceType: 'pharmacy' | 'doctor_approvals' | 'fulfillment' | 'per_sale' | 'combined' | 'summary',
     format: 'csv' | 'pdf',
   ) => {
     const key = `${invoiceType}_${format}`;
@@ -220,21 +273,25 @@ export default function OtInvoicesPage() {
     }
   };
 
-  const insights = useMemo(() => {
-    if (!data) return null;
-    return {
-      platformPct: data.platformCompensation.rateBps / 100,
-    };
-  }, [data]);
-
   return (
     <div className="min-h-screen p-6 lg:p-8">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">OT (Overtime) Invoices</h1>
         <p className="mt-1 text-gray-500">
-          Internal billing for ot.eonpro.io — pharmacy costs, doctor approvals (async vs sync), other
-          Stripe line fulfillment fees, and {insights ? `${insights.platformPct}%` : '10%'} platform
-          compensation on gross patient payments.
+          EONPro collects patient payments (Stripe); this report is a reconciliation statement: it lists
+          cost and fee allocations so you can see what remains as the OT clinic payout. Line items include
+          pharmacy costs,{' '}
+          <strong className="font-medium text-gray-700">$20 shipping per prescription</strong> ($30 if the
+          order includes NAD+, glutathione, sermorelin, semaglutide, or tirzepatide),{' '}
+          <strong className="font-medium text-gray-700">$30 doctor / Rx fee</strong> on new sales or if the last paid
+          Rx was ≥90 days ago; <strong className="font-medium text-gray-700">$0</strong> for refills within 90 days,{' '}
+          <strong className="font-medium text-gray-700">$50 TRT telehealth</strong> for testosterone replacement
+          therapy orders only, other Stripe lines, plus{' '}
+          <strong className="font-medium text-gray-700">4% merchant processing</strong> and{' '}
+          <strong className="font-medium text-gray-700">10% EONPro</strong> on gross patient payments, plus{' '}
+          <strong className="font-medium text-gray-700">sales rep commission</strong> and{' '}
+          <strong className="font-medium text-gray-700">manager oversight</strong> from the commission ledger when
+          present.
         </p>
       </div>
 
@@ -299,9 +356,57 @@ export default function OtInvoicesPage() {
         </div>
       )}
 
-      {data && (
+      <div className="mb-4 flex flex-wrap gap-2">
+        <TabButton
+          active={activeTab === 'pharmacy'}
+          onClick={() => setActiveTab('pharmacy')}
+          icon={<Pill className="h-4 w-4" />}
+          label="Pharmacy"
+          badge={data ? centsToDisplay(data.pharmacy.totalCents) : '—'}
+        />
+        <TabButton
+          active={activeTab === 'doctor_approvals'}
+          onClick={() => setActiveTab('doctor_approvals')}
+          icon={<Receipt className="h-4 w-4" />}
+          label="Doctor approvals"
+          badge={data ? centsToDisplay(data.doctorApprovals.totalCents) : '—'}
+        />
+        <TabButton
+          active={activeTab === 'fulfillment'}
+          onClick={() => setActiveTab('fulfillment')}
+          icon={<Layers className="h-4 w-4" />}
+          label="Fulfillment"
+          badge={data ? centsToDisplay(data.fulfillment.totalCents) : '—'}
+        />
+        <TabButton
+          active={activeTab === 'per_sale'}
+          onClick={() => setActiveTab('per_sale')}
+          icon={<LayoutList className="h-4 w-4" />}
+          label="Per-sale reconciliation"
+          badge={data ? String(data.perSaleReconciliation?.length ?? 0) : '—'}
+        />
+        <TabButton
+          active={activeTab === 'pricing_catalog'}
+          onClick={() => setActiveTab('pricing_catalog')}
+          icon={<BookOpen className="h-4 w-4" />}
+          label="OT medication pricing"
+          badge="Ref"
+        />
+      </div>
+
+      {activeTab === 'pricing_catalog' && (
+        <div className="mb-8 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm lg:p-6">
+          <h2 className="mb-1 text-lg font-semibold text-gray-900">OT.EONPRO.IO medication pricing</h2>
+          <p className="mb-4 text-sm text-gray-500">
+            Official 1-month and quarterly options — select rows to copy quotes for reps and admins.
+          </p>
+          <OtMedicationPricingCatalog embedded />
+        </div>
+      )}
+
+      {data && activeTab !== 'pricing_catalog' && (
         <>
-          <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4 xl:grid-cols-7">
+          <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6">
             <SummaryCard
               icon={<Package className="h-5 w-5 text-blue-600" />}
               label="Orders"
@@ -339,41 +444,46 @@ export default function OtInvoicesPage() {
               bg="bg-indigo-50"
             />
             <SummaryCard
+              icon={<CreditCard className="h-5 w-5 text-slate-600" />}
+              label="Merchant processing (4%)"
+              value={centsToDisplay(data.merchantProcessing.feeCents)}
+              subvalue={`on ${centsToDisplay(data.merchantProcessing.grossSalesCents)} gross`}
+              bg="bg-slate-50"
+            />
+            <SummaryCard
               icon={<Percent className="h-5 w-5 text-rose-600" />}
-              label="Platform fee"
+              label="EONPro platform (10%)"
               value={centsToDisplay(data.platformCompensation.feeCents)}
               subvalue={`on ${centsToDisplay(data.platformCompensation.grossSalesCents)} gross`}
               bg="bg-rose-50"
             />
             <SummaryCard
+              icon={<UserCircle className="h-5 w-5 text-cyan-700" />}
+              label="Sales rep commission"
+              value={centsToDisplay(data.salesRepCommissionTotalCents ?? 0)}
+              subvalue="from ledger"
+              bg="bg-cyan-50"
+            />
+            <SummaryCard
+              icon={<Users className="h-5 w-5 text-orange-700" />}
+              label="Manager oversight"
+              value={centsToDisplay(data.managerOverrideTotalCents ?? 0)}
+              subvalue="override / % of subordinate gross"
+              bg="bg-orange-50"
+            />
+            <SummaryCard
               icon={<DollarSign className="h-5 w-5 text-red-600" />}
-              label="Grand total"
+              label="Total deductions"
               value={centsToDisplay(data.grandTotalCents)}
+              subvalue="from patient gross"
               bg="bg-red-50"
             />
-          </div>
-
-          <div className="mb-4 flex flex-wrap gap-2">
-            <TabButton
-              active={activeTab === 'pharmacy'}
-              onClick={() => setActiveTab('pharmacy')}
-              icon={<Pill className="h-4 w-4" />}
-              label="Pharmacy"
-              badge={centsToDisplay(data.pharmacy.totalCents)}
-            />
-            <TabButton
-              active={activeTab === 'doctor_approvals'}
-              onClick={() => setActiveTab('doctor_approvals')}
-              icon={<Receipt className="h-4 w-4" />}
-              label="Doctor approvals"
-              badge={centsToDisplay(data.doctorApprovals.totalCents)}
-            />
-            <TabButton
-              active={activeTab === 'fulfillment'}
-              onClick={() => setActiveTab('fulfillment')}
-              icon={<Layers className="h-4 w-4" />}
-              label="Fulfillment"
-              badge={centsToDisplay(data.fulfillment.totalCents)}
+            <SummaryCard
+              icon={<Landmark className="h-5 w-5 text-[#4fa77e]" />}
+              label="Net to OT clinic"
+              value={centsToDisplay(data.clinicNetPayoutCents)}
+              subvalue="payout from EONPro"
+              bg="bg-emerald-50/80"
             />
           </div>
 
@@ -398,7 +508,16 @@ export default function OtInvoicesPage() {
               className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 disabled:opacity-50"
             >
               {exporting === `combined_csv` ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-              Combined CSV
+              Combined CSV (includes per-sale)
+            </button>
+            <button
+              type="button"
+              onClick={() => handleExport('per_sale', 'csv')}
+              disabled={exporting !== null}
+              className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 disabled:opacity-50"
+            >
+              {exporting === `per_sale_csv` ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+              Per-sale CSV only
             </button>
             <button
               type="button"
@@ -411,13 +530,16 @@ export default function OtInvoicesPage() {
             </button>
           </div>
 
-          {activeTab === 'pharmacy' && <PharmacyTable invoice={data.pharmacy} />}
-          {activeTab === 'doctor_approvals' && <DoctorTable invoice={data.doctorApprovals} />}
-          {activeTab === 'fulfillment' && <FulfillmentTable invoice={data.fulfillment} />}
+            {activeTab === 'pharmacy' && <PharmacyTable invoice={data.pharmacy} />}
+            {activeTab === 'doctor_approvals' && <DoctorTable invoice={data.doctorApprovals} />}
+            {activeTab === 'fulfillment' && <FulfillmentTable invoice={data.fulfillment} />}
+            {activeTab === 'per_sale' && (
+              <PerSaleReconciliationTable rows={data.perSaleReconciliation ?? []} />
+            )}
         </>
       )}
 
-      {!loading && !data && !error && (
+      {!loading && !data && !error && activeTab !== 'pricing_catalog' && (
         <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-300 bg-gray-50 py-20 text-center">
           <FileText className="mb-4 h-12 w-12 text-gray-300" />
           <p className="text-lg font-medium text-gray-500">Select a date and generate</p>
@@ -538,7 +660,7 @@ function PharmacyTable({ invoice }: { invoice: OtPharmacyInvoice }) {
       </table>
       {invoice.shippingLineItems.length > 0 && (
         <div className="border-t border-gray-100 px-4 py-3 text-xs font-semibold uppercase text-gray-500">
-          Shipping surcharges
+          Prescription shipping (per order)
         </div>
       )}
       {invoice.shippingLineItems.map((s, i) => (
@@ -547,6 +669,19 @@ function PharmacyTable({ invoice }: { invoice: OtPharmacyInvoice }) {
             Order {s.orderId} · {s.description}
           </span>
           <span className="font-medium text-amber-900">{centsToDisplay(s.feeCents)}</span>
+        </div>
+      ))}
+      {invoice.trtTelehealthLineItems.length > 0 && (
+        <div className="border-t border-gray-100 px-4 py-3 text-xs font-semibold uppercase text-gray-500">
+          TRT telehealth ($50)
+        </div>
+      )}
+      {invoice.trtTelehealthLineItems.map((s, i) => (
+        <div key={`trt-${i}`} className="flex justify-between border-t border-violet-50 bg-violet-50/50 px-4 py-2 text-sm">
+          <span className="text-violet-900">
+            Order {s.orderId} · {s.description}
+          </span>
+          <span className="font-medium text-violet-900">{centsToDisplay(s.feeCents)}</span>
         </div>
       ))}
       <div className="flex justify-between border-t border-gray-200 bg-gray-50 px-4 py-3 font-semibold">
@@ -561,7 +696,8 @@ function DoctorTable({ invoice }: { invoice: OtDoctorApprovalsInvoice }) {
   return (
     <div className="overflow-x-auto rounded-2xl border border-gray-100 bg-white shadow-sm">
       <p className="border-b border-gray-100 px-4 py-3 text-sm text-gray-600">
-        Async (queue): {centsToDisplay(invoice.asyncFeeCents)} · Sync: {centsToDisplay(invoice.syncFeeCents)}
+        Doctor / Rx rate {centsToDisplay(invoice.asyncFeeCents)} (async) · {centsToDisplay(invoice.syncFeeCents)} (sync).
+        No fee when the patient had another paid prescription invoice at this clinic within the last 90 days.
       </p>
       <table className="w-full text-sm">
         <thead>
@@ -572,6 +708,7 @@ function DoctorTable({ invoice }: { invoice: OtDoctorApprovalsInvoice }) {
             <th className="px-4 py-3">Medications</th>
             <th className="px-4 py-3">Mode</th>
             <th className="px-4 py-3 text-right">Fee</th>
+            <th className="px-4 py-3">Note</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-50">
@@ -595,6 +732,9 @@ function DoctorTable({ invoice }: { invoice: OtDoctorApprovalsInvoice }) {
                 </span>
               </td>
               <td className="px-4 py-2 text-right font-semibold">{centsToDisplay(li.feeCents)}</td>
+              <td className="max-w-xs px-4 py-2 text-xs text-gray-500" title={li.doctorFeeWaivedReason ?? ''}>
+                {li.doctorFeeWaivedReason ?? '—'}
+              </td>
             </tr>
           ))}
         </tbody>
@@ -654,6 +794,149 @@ function FulfillmentTable({ invoice }: { invoice: OtFulfillmentInvoice }) {
         <span>Fulfillment total</span>
         <span>{centsToDisplay(invoice.totalCents)}</span>
       </div>
+    </div>
+  );
+}
+
+function PerSaleReconciliationTable({ rows }: { rows: OtPerSaleReconciliationLine[] }) {
+  const sum = (pick: (r: OtPerSaleReconciliationLine) => number) =>
+    rows.reduce((s, r) => s + pick(r), 0);
+  const repCents = (r: OtPerSaleReconciliationLine) => r.salesRepCommissionCents ?? 0;
+  const mgrCents = (r: OtPerSaleReconciliationLine) => r.managerOverrideTotalCents ?? 0;
+
+  if (rows.length === 0) {
+    return (
+      <div className="rounded-2xl border border-gray-100 bg-white p-8 text-center text-sm text-gray-500 shadow-sm">
+        No paid sales in this period.
+      </div>
+    );
+  }
+
+  return (
+    <div className="overflow-x-auto rounded-2xl border border-gray-100 bg-white shadow-sm">
+      <p className="border-b border-gray-100 px-4 py-3 text-sm text-gray-600">
+        Each row is one order / sale. Doctor / Rx: $30 nominal (async/sync); charged amount is $0 when the patient had
+        another paid prescription invoice at this clinic within the last 90 days. Rep commission and manager oversight
+        come from the commission ledger (Stripe invoice id match).
+      </p>
+      <table className="w-full min-w-[1780px] text-sm">
+        <thead>
+          <tr className="border-b border-gray-100 bg-gray-50 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+            <th className="whitespace-nowrap px-3 py-3">Paid (ET)</th>
+            <th className="px-3 py-3">Order</th>
+            <th className="px-3 py-3">Inv</th>
+            <th className="px-3 py-3">Patient</th>
+            <th className="px-3 py-3 text-right">Gross</th>
+            <th className="px-3 py-3 text-right">Meds</th>
+            <th className="px-3 py-3 text-right">Ship</th>
+            <th className="px-3 py-3 text-right">TRT</th>
+            <th className="px-3 py-3 text-right">Pharmacy</th>
+            <th className="px-3 py-3 text-right">Dr/Rx charged</th>
+            <th className="px-3 py-3 text-right">Dr/Rx nominal</th>
+            <th className="px-3 py-3 text-right">Dr/Rx waived</th>
+            <th className="px-3 py-3 text-right">Days</th>
+            <th className="px-3 py-3">Dr/Rx note</th>
+            <th className="px-3 py-3 text-right">Fulfill</th>
+            <th className="px-3 py-3 text-right">4%</th>
+            <th className="px-3 py-3 text-right">10%</th>
+            <th className="px-3 py-3">Rep</th>
+            <th className="px-3 py-3 text-right">Rep $</th>
+            <th className="px-3 py-3 text-right">Mgr OS</th>
+            <th className="px-3 py-3">Mgr detail</th>
+            <th className="px-3 py-3 text-right">Deduct</th>
+            <th className="px-3 py-3 text-right">Net OT</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-gray-50">
+          {rows.map((r) => (
+            <tr key={r.orderId} className="hover:bg-gray-50">
+              <td className="whitespace-nowrap px-3 py-2 text-xs text-emerald-700">
+                {r.paidAt ? formatDateTime(r.paidAt) : '—'}
+              </td>
+              <td className="px-3 py-2 font-mono text-xs">{r.orderId}</td>
+              <td className="px-3 py-2 font-mono text-xs text-gray-500">{r.invoiceDbId ?? '—'}</td>
+              <td className="max-w-[140px] truncate px-3 py-2 font-medium" title={r.patientName}>
+                {r.patientName}
+              </td>
+              <td className="whitespace-nowrap px-3 py-2 text-right">{centsToDisplay(r.patientGrossCents)}</td>
+              <td className="whitespace-nowrap px-3 py-2 text-right text-gray-700">
+                {centsToDisplay(r.medicationsCostCents)}
+              </td>
+              <td className="whitespace-nowrap px-3 py-2 text-right">{centsToDisplay(r.shippingCents)}</td>
+              <td className="whitespace-nowrap px-3 py-2 text-right">{centsToDisplay(r.trtTelehealthCents)}</td>
+              <td className="whitespace-nowrap px-3 py-2 text-right font-medium">{centsToDisplay(r.pharmacyTotalCents)}</td>
+              <td className="whitespace-nowrap px-3 py-2 text-right">{centsToDisplay(r.doctorApprovalCents)}</td>
+              <td className="whitespace-nowrap px-3 py-2 text-right text-gray-600">
+                {centsToDisplay(r.doctorRxFeeNominalCents ?? r.doctorApprovalCents)}
+              </td>
+              <td className="whitespace-nowrap px-3 py-2 text-right text-amber-800">
+                {centsToDisplay(r.doctorRxFeeWaivedCents ?? 0)}
+              </td>
+              <td className="whitespace-nowrap px-3 py-2 text-right text-gray-600">
+                {r.doctorRxFeeDaysSincePrior != null ? r.doctorRxFeeDaysSincePrior : '—'}
+              </td>
+              <td className="max-w-[200px] truncate px-3 py-2 text-xs text-gray-600" title={r.doctorRxFeeNote ?? ''}>
+                {r.doctorRxFeeNote ?? '—'}
+              </td>
+              <td className="whitespace-nowrap px-3 py-2 text-right">{centsToDisplay(r.fulfillmentFeesCents)}</td>
+              <td className="whitespace-nowrap px-3 py-2 text-right text-slate-600">
+                {centsToDisplay(r.merchantProcessingCents)}
+              </td>
+              <td className="whitespace-nowrap px-3 py-2 text-right text-rose-700">
+                {centsToDisplay(r.platformCompensationCents)}
+              </td>
+              <td className="max-w-[120px] truncate px-3 py-2 text-xs text-gray-700" title={r.salesRepName ?? ''}>
+                {r.salesRepName ?? '—'}
+              </td>
+              <td className="whitespace-nowrap px-3 py-2 text-right text-cyan-800">{centsToDisplay(repCents(r))}</td>
+              <td className="whitespace-nowrap px-3 py-2 text-right text-orange-800">{centsToDisplay(mgrCents(r))}</td>
+              <td className="max-w-[180px] truncate px-3 py-2 text-xs text-gray-600" title={r.managerOverrideSummary ?? ''}>
+                {r.managerOverrideSummary ?? '—'}
+              </td>
+              <td className="whitespace-nowrap px-3 py-2 text-right text-gray-800">
+                {centsToDisplay(r.totalDeductionsCents)}
+              </td>
+              <td className="whitespace-nowrap px-3 py-2 text-right font-semibold text-[#2d6b4f]">
+                {centsToDisplay(r.clinicNetPayoutCents)}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+        <tfoot>
+          <tr className="border-t-2 border-gray-200 bg-gray-50 font-semibold">
+            <td className="px-3 py-3" colSpan={4}>
+              Column totals ({rows.length} sales)
+            </td>
+            <td className="whitespace-nowrap px-3 py-3 text-right">{centsToDisplay(sum((x) => x.patientGrossCents))}</td>
+            <td className="whitespace-nowrap px-3 py-3 text-right">{centsToDisplay(sum((x) => x.medicationsCostCents))}</td>
+            <td className="whitespace-nowrap px-3 py-3 text-right">{centsToDisplay(sum((x) => x.shippingCents))}</td>
+            <td className="whitespace-nowrap px-3 py-3 text-right">{centsToDisplay(sum((x) => x.trtTelehealthCents))}</td>
+            <td className="whitespace-nowrap px-3 py-3 text-right">{centsToDisplay(sum((x) => x.pharmacyTotalCents))}</td>
+            <td className="whitespace-nowrap px-3 py-3 text-right">{centsToDisplay(sum((x) => x.doctorApprovalCents))}</td>
+            <td className="whitespace-nowrap px-3 py-3 text-right text-gray-600">
+              {centsToDisplay(
+                sum((x) => x.doctorRxFeeNominalCents ?? x.doctorApprovalCents),
+              )}
+            </td>
+            <td className="whitespace-nowrap px-3 py-3 text-right text-amber-800">
+              {centsToDisplay(sum((x) => x.doctorRxFeeWaivedCents ?? 0))}
+            </td>
+            <td className="px-3 py-3 text-gray-400">—</td>
+            <td className="px-3 py-3 text-gray-400">—</td>
+            <td className="whitespace-nowrap px-3 py-3 text-right">{centsToDisplay(sum((x) => x.fulfillmentFeesCents))}</td>
+            <td className="whitespace-nowrap px-3 py-3 text-right">{centsToDisplay(sum((x) => x.merchantProcessingCents))}</td>
+            <td className="whitespace-nowrap px-3 py-3 text-right">{centsToDisplay(sum((x) => x.platformCompensationCents))}</td>
+            <td className="px-3 py-3 text-gray-400">—</td>
+            <td className="whitespace-nowrap px-3 py-3 text-right">{centsToDisplay(sum(repCents))}</td>
+            <td className="whitespace-nowrap px-3 py-3 text-right">{centsToDisplay(sum(mgrCents))}</td>
+            <td className="px-3 py-3 text-gray-400">—</td>
+            <td className="whitespace-nowrap px-3 py-3 text-right">{centsToDisplay(sum((x) => x.totalDeductionsCents))}</td>
+            <td className="whitespace-nowrap px-3 py-3 text-right text-[#2d6b4f]">
+              {centsToDisplay(sum((x) => x.clinicNetPayoutCents))}
+            </td>
+          </tr>
+        </tfoot>
+      </table>
     </div>
   );
 }

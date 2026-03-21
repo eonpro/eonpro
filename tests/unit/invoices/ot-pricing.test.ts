@@ -1,25 +1,168 @@
 import { describe, it, expect } from 'vitest';
 import {
   OT_PLATFORM_COMPENSATION_BPS,
-  getOtShippingMethodSurchargeCents,
-  getOtProductPrice,
+  OT_MERCHANT_PROCESSING_BPS,
+  OT_RX_ASYNC_APPROVAL_FEE_CENTS,
+  OT_RX_SYNC_APPROVAL_FEE_CENTS,
+  OT_DOCTOR_RX_FEE_REFILL_EXEMPT_DAYS,
+  findPriorPaidOtPrescriptionInvoice,
+  getOtDoctorRxFeeCentsForSale,
+  isOtPremiumShippingMedication,
+  getOtPrescriptionShippingCentsForOrder,
+  isOtTestosteroneReplacementTherapyOrder,
 } from '@/lib/invoices/ot-pricing';
 
 describe('ot-pricing', () => {
-  it('computes 10% platform fee in cents', () => {
-    const gross = 100_000; // $1000
+  it('computes 10% EONPro fee on gross', () => {
+    const gross = 100_000;
     const fee = Math.round((gross * OT_PLATFORM_COMPENSATION_BPS) / 10_000);
     expect(fee).toBe(10_000);
   });
 
-  it('returns configured shipping surcharge for known method ids', () => {
-    expect(getOtShippingMethodSurchargeCents(8233)).toBe(2000);
-    expect(getOtShippingMethodSurchargeCents(999999)).toBe(0);
+  it('computes 4% merchant processing on gross', () => {
+    const gross = 100_000;
+    const fee = Math.round((gross * OT_MERCHANT_PROCESSING_BPS) / 10_000);
+    expect(fee).toBe(4000);
   });
 
-  it('resolves product by medication key string', () => {
-    const p = getOtProductPrice('203448972');
-    expect(p?.name).toContain('TIRZEPATIDE');
-    expect(getOtProductPrice('nonexistent')).toBeUndefined();
+  it('detects premium shipping medications from names and Lifefile-priced SKUs', () => {
+    expect(
+      isOtPremiumShippingMedication({
+        medName: 'Custom',
+        medicationKey: '203448971',
+        form: '',
+      }),
+    ).toBe(true);
+    expect(
+      isOtPremiumShippingMedication({
+        medName: 'NAD+ 1000mg',
+        medicationKey: 'x',
+      }),
+    ).toBe(true);
+    expect(
+      isOtPremiumShippingMedication({
+        medName: 'Sermorelin 10mg',
+        medicationKey: 'x',
+      }),
+    ).toBe(true);
+    expect(
+      isOtPremiumShippingMedication({
+        medName: 'Enclomiphene 25mg',
+        medicationKey: 'unknown',
+      }),
+    ).toBe(false);
+  });
+
+  it('uses $30 shipping for whole order if any line is premium', () => {
+    const mixed = getOtPrescriptionShippingCentsForOrder([
+      { medName: 'Enclomiphene 25mg', medicationKey: 'x' },
+      { medName: 'Semaglutide', medicationKey: '203448971' },
+    ]);
+    expect(mixed.feeCents).toBe(3000);
+    expect(mixed.tier).toBe('premium');
+
+    const std = getOtPrescriptionShippingCentsForOrder([
+      { medName: 'Testosterone Cypionate', medicationKey: 'x' },
+    ]);
+    expect(std.feeCents).toBe(2000);
+    expect(std.tier).toBe('standard');
+  });
+
+  it('uses $30 combined doctor/Rx fee for async and sync paths', () => {
+    expect(OT_RX_ASYNC_APPROVAL_FEE_CENTS).toBe(3000);
+    expect(OT_RX_SYNC_APPROVAL_FEE_CENTS).toBe(3000);
+  });
+
+  it('findPriorPaidOtPrescriptionInvoice picks latest prior by paidAt, tie-break by id', () => {
+    const d0 = new Date('2025-01-01T12:00:00Z');
+    const d1 = new Date('2025-02-01T12:00:00Z');
+    const d2 = new Date('2025-03-01T12:00:00Z');
+    const list = [
+      { id: 1, paidAt: d0 },
+      { id: 2, paidAt: d1 },
+      { id: 3, paidAt: d2 },
+    ];
+    expect(findPriorPaidOtPrescriptionInvoice(list, 99, new Date('2025-04-01T12:00:00Z'))).toEqual({
+      id: 3,
+      paidAt: d2,
+    });
+    expect(findPriorPaidOtPrescriptionInvoice(list, 3, d2)).toEqual({ id: 2, paidAt: d1 });
+    const same = new Date('2025-05-01T12:00:00Z');
+    const tie = [
+      { id: 10, paidAt: same },
+      { id: 20, paidAt: same },
+    ];
+    expect(findPriorPaidOtPrescriptionInvoice(tie, 15, same)).toEqual({ id: 10, paidAt: same });
+  });
+
+  it('getOtDoctorRxFeeCentsForSale: new sale, refill <90d waived, ≥90d full fee; missing paidAt charges', () => {
+    const prior = new Date('2025-01-01T12:00:00Z');
+    expect(
+      getOtDoctorRxFeeCentsForSale({
+        priorPaidPrescriptionInvoice: null,
+        currentPaidAt: new Date('2025-06-01T12:00:00Z'),
+        approvalMode: 'async',
+      }),
+    ).toMatchObject({
+      feeCents: 3000,
+      waivedReason: null,
+      nominalFeeCents: 3000,
+      waivedAmountCents: 0,
+      daysSincePriorPaidRx: null,
+    });
+
+    const day = OT_DOCTOR_RX_FEE_REFILL_EXEMPT_DAYS * 86_400_000;
+    const waived = getOtDoctorRxFeeCentsForSale({
+      priorPaidPrescriptionInvoice: { paidAt: prior },
+      currentPaidAt: new Date(prior.getTime() + day - 1),
+      approvalMode: 'sync',
+    });
+    expect(waived.feeCents).toBe(0);
+    expect(waived.waivedAmountCents).toBe(3000);
+    expect(waived.daysSincePriorPaidRx).toBe(OT_DOCTOR_RX_FEE_REFILL_EXEMPT_DAYS - 1);
+
+    expect(
+      getOtDoctorRxFeeCentsForSale({
+        priorPaidPrescriptionInvoice: { paidAt: prior },
+        currentPaidAt: new Date(prior.getTime() + day),
+        approvalMode: 'sync',
+      }),
+    ).toMatchObject({
+      feeCents: 3000,
+      waivedReason: null,
+      nominalFeeCents: 3000,
+      waivedAmountCents: 0,
+      daysSincePriorPaidRx: OT_DOCTOR_RX_FEE_REFILL_EXEMPT_DAYS,
+    });
+
+    expect(
+      getOtDoctorRxFeeCentsForSale({
+        priorPaidPrescriptionInvoice: { paidAt: prior },
+        currentPaidAt: null,
+        approvalMode: 'async',
+      }),
+    ).toMatchObject({
+      feeCents: 3000,
+      waivedReason: null,
+      nominalFeeCents: 3000,
+      waivedAmountCents: 0,
+      daysSincePriorPaidRx: null,
+    });
+  });
+
+  it('detects TRT orders for telehealth fee', () => {
+    expect(
+      isOtTestosteroneReplacementTherapyOrder([
+        { medName: 'Testosterone Cypionate 200mg', medicationKey: 'x' },
+      ]),
+    ).toBe(true);
+    expect(
+      isOtTestosteroneReplacementTherapyOrder([{ medName: 'TRT Plus bundle', medicationKey: 'x' }]),
+    ).toBe(true);
+    expect(
+      isOtTestosteroneReplacementTherapyOrder([
+        { medName: 'Semaglutide', medicationKey: '203448971' },
+      ]),
+    ).toBe(false);
   });
 });

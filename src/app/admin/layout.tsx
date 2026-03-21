@@ -34,6 +34,7 @@ import {
   Shield,
   Video,
   BarChart3,
+  Calculator,
 } from 'lucide-react';
 import InternalChat from '@/components/InternalChat';
 import {
@@ -285,11 +286,33 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
   // Build navigation items from shared config (same as patients layout for consistency)
   const navItems = useMemo(() => {
     const config = getAdminNavConfig(userRole);
-    return config.map((item) => ({
+    const items = config.map((item) => ({
       ...item,
       icon: adminNavIconMap[item.iconKey as keyof typeof adminNavIconMap] ?? Settings,
     }));
-  }, [userRole]);
+    const showOtMedicationPricing =
+      (userRole === 'super_admin' ||
+        userRole === 'admin' ||
+        userRole === 'sales_rep' ||
+        (userRole === 'staff' && branding?.subdomain?.toLowerCase() === 'ot') ||
+        (userRole === 'provider' && branding?.subdomain?.toLowerCase() === 'ot')) &&
+      (userRole === 'super_admin' || branding?.subdomain?.toLowerCase() === 'ot');
+    if (showOtMedicationPricing) {
+      const idx = items.findIndex((i) => i.path === '/admin/products');
+      const insertAt = idx >= 0 ? idx + 1 : Math.min(14, items.length);
+      items.splice(insertAt, 0, {
+        path: '/admin/ot-medication-pricing',
+        label: 'OT Medication Pricing',
+        icon: Pill,
+      });
+      items.splice(insertAt + 1, 0, {
+        path: '/admin/resources/retail-pricing',
+        label: 'OT Pricing Calculator',
+        icon: Calculator,
+      });
+    }
+    return items;
+  }, [userRole, branding?.subdomain]);
 
   // Pharmacy nav fix: Next.js App Router intercepts <a> clicks for client-side
   // navigation which silently fails for pharmacy_rep. Attach native DOM listeners
