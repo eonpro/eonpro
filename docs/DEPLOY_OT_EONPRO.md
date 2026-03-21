@@ -10,20 +10,13 @@
 
 ## Why nothing changed after pushing
 
-The GitHub **Deploy Pipeline** runs three jobs in order:
+**Update (2026):** `.github/workflows/deploy.yml` is **manual only** (`workflow_dispatch`). Pushes to
+`main` do **not** run that pipeline automatically. Production updates normally come from **Vercel’s
+Git integration** (push to `main` → Vercel builds).
 
-1. **Deploy to Staging** → 2. **Database Migration** → 3. **Deploy to Production**
-
-**If step 2 (migrate-database) fails**, step 3 never runs, so **production is never updated**.
-Common causes:
-
-- Missing or wrong **DATABASE_URL** / **DIRECT_DATABASE_URL** in GitHub repo **Settings → Secrets
-  and variables → Actions**
-- Migration fails (e.g. permission, wrong DB)
-- **Deploy to Production** only runs when `main` is pushed and migration succeeds
-
-So: **check the latest Actions run**. If "Database Migration" or "Deploy to Production" is red, fix
-that (or use Option B below to deploy from Vercel and skip the pipeline).
+If pushes no longer update production, see **`docs/VERCEL_PRODUCTION_DEPLOY.md`** — especially when
+new deployments show **Blocked** and **Created by “EONMeds Deploy”** instead of **`eonpro1`**
+(duplicate GitHub App / environment protection).
 
 ---
 
@@ -42,15 +35,14 @@ Latest commits on `main` (with Labs + fixes): `b099ef7`, `5f132b0`, `2337879`, `
 
 ## How to get them live
 
-### Option A: GitHub Actions (automatic on push to main)
+### Option A: GitHub Actions (manual “Deploy Pipeline”)
 
-1. Open **GitHub** → repo **eonpro/eonpro** → **Actions**.
-2. Find the **"Deploy Pipeline"** workflow.
-3. Check the **latest run** for branch `main`:
-   - If it **succeeded**: production should be updated. Wait 1–2 minutes, then hard-refresh
-     ot.eonpro.io (Ctrl+Shift+R / Cmd+Shift+R) or try incognito.
-   - If it **failed**: open the run, fix the failing job (e.g. migration, build, or Vercel deploy
-     step), then push again or re-run the workflow.
+1. Open **GitHub** → repo **eonpro/eonpro** → **Actions** → **Deploy Pipeline**.
+2. **Run workflow** (it does not run automatically on push).
+3. Ensure **production** environment secrets (**VERCEL_TOKEN**, DB URLs, etc.) are set if you use this path.
+
+For day-to-day production updates from `main`, prefer **Vercel Git** or **Option B** unless you
+intentionally use this workflow.
 
 ### Option B: Deploy from Vercel (recommended if pipeline never updates production)
 
