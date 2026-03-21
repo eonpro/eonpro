@@ -351,6 +351,12 @@ export default function OtInvoicesPage() {
             Generate
           </button>
         </div>
+        <p className="mt-3 text-sm text-gray-500">
+          Includes paid prescription invoices for OT patients when the invoice <strong>payment</strong> time (
+          <strong>paid at</strong>, US/Eastern) falls on the selected day(s). A single day with $0 means no completed
+          payments that day — use <strong>Date range</strong> to match your Stripe payout window. Gross on the cards
+          is patient payments, not pharmacy COGS.
+        </p>
       </div>
 
       {error && (

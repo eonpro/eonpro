@@ -39,6 +39,17 @@ import {
 
 const CLINIC_TZ = 'America/New_York';
 
+/**
+ * `Invoice.clinicId` / `Order.clinicId` are nullable; many rows only have `patient.clinicId`.
+ * Strict `where: { clinicId: otId }` drops paid invoices and orders → empty reports / “no payments”.
+ */
+function otInvoicePatientClinicScope(clinicId: number) {
+  return {
+    patient: { clinicId },
+    OR: [{ clinicId }, { clinicId: null }],
+  };
+}
+
 /** Merges duplicate `Rx` rows (same key/name/strength/form) from Lifefile into one invoice line. */
 function consolidateOtOrderRxs(
   rxs: { medicationKey: string; medName: string; strength: string; form: string; quantity: string }[],
@@ -296,8 +307,8 @@ async function loadOtPaidPrescriptionInvoicesByPatient(
   if (patientIds.length === 0) return map;
   const rows = await basePrisma.invoice.findMany({
     where: {
-      clinicId,
       patientId: { in: patientIds },
+      ...otInvoicePatientClinicScope(clinicId),
       prescriptionProcessed: true,
       paidAt: { not: null },
       status: { notIn: ['VOID', 'REFUNDED'] },
@@ -510,7 +521,7 @@ export async function generateOtDailyInvoices(date: string, endDate?: string): P
 
   const paidInvoices = await basePrisma.invoice.findMany({
     where: {
-      clinicId,
+      ...otInvoicePatientClinicScope(clinicId),
       paidAt: { gte: periodStart, lte: periodEnd },
       prescriptionProcessed: true,
       orderId: { not: null },
@@ -555,7 +566,7 @@ export async function generateOtDailyInvoices(date: string, endDate?: string): P
 
   const unlinkedInvoices = await basePrisma.invoice.findMany({
     where: {
-      clinicId,
+      ...otInvoicePatientClinicScope(clinicId),
       paidAt: { gte: periodStart, lte: periodEnd },
       prescriptionProcessed: true,
       orderId: null,
@@ -583,7 +594,7 @@ export async function generateOtDailyInvoices(date: string, endDate?: string): P
 
   const allOrders = await basePrisma.order.findMany({
     where: {
-      clinicId,
+      patient: { clinicId },
       OR: orderOrClause,
       cancelledAt: null,
       fulfillmentChannel: 'lifefile',
