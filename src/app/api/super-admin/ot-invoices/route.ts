@@ -66,6 +66,8 @@ export const GET = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) =
         endDate,
         clinicId: data.pharmacy.clinicId,
         orderCount: data.pharmacy.orderCount,
+        paymentRowCount: data.paymentCollections.length,
+        paymentsCollectedNetCents: data.paymentsCollectedNetCents,
         grossSalesCents: data.platformCompensation.grossSalesCents,
         grandTotalCents: data.grandTotalCents,
         clinicNetPayoutCents: data.clinicNetPayoutCents,
@@ -73,6 +75,7 @@ export const GET = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) =
         managerOverrideTotalCents: data.managerOverrideTotalCents,
         merchantFeeCents: data.merchantProcessing.feeCents,
         platformFeeCents: data.platformCompensation.feeCents,
+        feesUseCashCollectedBasis: data.feesUseCashCollectedBasis,
       },
     });
   } catch (auditError) {

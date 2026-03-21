@@ -7,6 +7,7 @@ import {
   generateOtDoctorApprovalsCSV,
   generateOtFulfillmentCSV,
   generateOtCombinedCSV,
+  generateOtPaymentCollectionsCSV,
   generateOtPerSaleReconciliationCSV,
   generateOtSummaryPDF,
 } from '@/services/invoices/otInvoiceGenerationService';
@@ -21,7 +22,15 @@ const exportSchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   format: z.enum(['csv', 'pdf']),
-  invoiceType: z.enum(['pharmacy', 'doctor_approvals', 'fulfillment', 'per_sale', 'combined', 'summary']),
+  invoiceType: z.enum([
+    'pharmacy',
+    'doctor_approvals',
+    'fulfillment',
+    'per_sale',
+    'all_payments',
+    'combined',
+    'summary',
+  ]),
 });
 
 /**
@@ -88,6 +97,10 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) 
       case 'per_sale':
         csv = generateOtPerSaleReconciliationCSV(data);
         filename = `ot-per-sale-reconciliation-${dateSlug}.csv`;
+        break;
+      case 'all_payments':
+        csv = generateOtPaymentCollectionsCSV(data);
+        filename = `ot-all-payments-${dateSlug}.csv`;
         break;
       case 'combined':
         csv = generateOtCombinedCSV(data);

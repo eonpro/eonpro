@@ -9,7 +9,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { withAuth, type AuthOptions } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
 import { getProviderWeeklySchedule } from '@/lib/scheduling/scheduling.service';
-import { parseDateET, todayET } from '@/lib/utils/timezone';
+import { parseDateET, todayET, getDatePartsInTz, EASTERN_TZ } from '@/lib/utils/timezone';
 
 const weeklyRoles: AuthOptions = {
   roles: ['super_admin', 'admin', 'provider', 'staff', 'sales_rep'],
@@ -42,17 +42,14 @@ export const GET = withAuth(async (req: NextRequest, user) => {
       return NextResponse.json({ error: 'providerId must be a number' }, { status: 400 });
     }
 
-    // Default to start of current week (Sunday) in Eastern Time
     let startDate: Date;
     if (startDateParam) {
       startDate = parseDateET(startDateParam);
     } else {
-      const todayStr = todayET();
-      const today = parseDateET(todayStr);
-      const dayOfWeek = today.getDay();
-      const sundayStr = todayStr.split('-').map(Number);
+      const { year, month, day, dayOfWeek } = getDatePartsInTz(EASTERN_TZ);
+      const sunday = new Date(Date.UTC(year, month, day - dayOfWeek));
       startDate = parseDateET(
-        `${sundayStr[0]}-${String(sundayStr[1]).padStart(2, '0')}-${String(sundayStr[2] - dayOfWeek).padStart(2, '0')}`
+        `${sunday.getUTCFullYear()}-${String(sunday.getUTCMonth() + 1).padStart(2, '0')}-${String(sunday.getUTCDate()).padStart(2, '0')}`
       );
     }
 

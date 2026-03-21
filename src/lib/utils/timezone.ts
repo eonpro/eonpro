@@ -77,7 +77,28 @@ export function midnightInTz(
     const h = Number(hourPart.value) % 24;
     const m = Number(minutePart.value);
     const offsetMs = (h * 60 + m - 12 * 60) * 60 * 1000;
-    return new Date(Date.UTC(year, month, day) - offsetMs);
+    const result = new Date(Date.UTC(year, month, day) - offsetMs);
+
+    // On DST transition days the offset at midnight differs from noon.
+    // Verify the result lands on the correct calendar date; if not, adjust ±1h.
+    const normalized = new Date(Date.UTC(year, month, day));
+    const expectedDay = normalized.getUTCDate();
+    const expectedMonth = normalized.getUTCMonth() + 1;
+
+    const vParts = formatter.formatToParts(result);
+    const vDay = Number(vParts.find((p) => p.type === 'day')!.value);
+    const vMonth = Number(vParts.find((p) => p.type === 'month')!.value);
+    if (vDay === expectedDay && vMonth === expectedMonth) return result;
+
+    for (const delta of [3_600_000, -3_600_000]) {
+      const adj = new Date(result.getTime() + delta);
+      const aParts = formatter.formatToParts(adj);
+      const aDay = Number(aParts.find((p) => p.type === 'day')!.value);
+      const aMonth = Number(aParts.find((p) => p.type === 'month')!.value);
+      if (aDay === expectedDay && aMonth === expectedMonth) return adj;
+    }
+
+    return result;
   } catch {
     return new Date(Date.UTC(year, month, day));
   }

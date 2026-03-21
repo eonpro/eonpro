@@ -20,6 +20,7 @@ import {
   LayoutList,
   UserCircle,
   Users,
+  Banknote,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api/fetch';
 import { OtMedicationPricingCatalog } from '@/components/invoices/OtMedicationPricingCatalog';
@@ -170,6 +171,20 @@ interface OtPerSaleReconciliationLine {
   clinicNetPayoutCents: number;
 }
 
+interface OtPaymentCollectionRow {
+  paymentId: number;
+  paidAt: string | null;
+  recordedAt: string;
+  amountCents: number;
+  netCollectedCents: number;
+  patientId: number;
+  patientName: string;
+  description: string | null;
+  invoiceId: number | null;
+  stripePaymentIntentId: string | null;
+  stripeChargeId: string | null;
+}
+
 interface OtInvoiceData {
   pharmacy: OtPharmacyInvoice;
   doctorApprovals: OtDoctorApprovalsInvoice;
@@ -182,9 +197,20 @@ interface OtInvoiceData {
   managerOverrideTotalCents?: number;
   /** Present after API deploy; empty array when missing. */
   perSaleReconciliation?: OtPerSaleReconciliationLine[];
+  /** Every succeeded / partial / full-refund Payment for OT patients in the date window (cash ledger). */
+  paymentCollections?: OtPaymentCollectionRow[];
+  paymentsCollectedNetCents?: number;
+  matchedPrescriptionInvoiceGrossCents?: number;
+  feesUseCashCollectedBasis?: boolean;
 }
 
-type ActiveTab = 'pharmacy' | 'doctor_approvals' | 'fulfillment' | 'per_sale' | 'pricing_catalog';
+type ActiveTab =
+  | 'pharmacy'
+  | 'all_payments'
+  | 'doctor_approvals'
+  | 'fulfillment'
+  | 'per_sale'
+  | 'pricing_catalog';
 
 function centsToDisplay(cents: number): string {
   return `$${(cents / 100).toFixed(2)}`;
@@ -238,7 +264,14 @@ export default function OtInvoicesPage() {
   }, [startDate, endDate, useRange]);
 
   const handleExport = async (
-    invoiceType: 'pharmacy' | 'doctor_approvals' | 'fulfillment' | 'per_sale' | 'combined' | 'summary',
+    invoiceType:
+      | 'pharmacy'
+      | 'doctor_approvals'
+      | 'fulfillment'
+      | 'per_sale'
+      | 'all_payments'
+      | 'combined'
+      | 'summary',
     format: 'csv' | 'pdf',
   ) => {
     const key = `${invoiceType}_${format}`;
@@ -352,10 +385,11 @@ export default function OtInvoicesPage() {
           </button>
         </div>
         <p className="mt-3 text-sm text-gray-500">
-          Includes paid prescription invoices for OT patients when the invoice <strong>payment</strong> time (
-          <strong>paid at</strong>, US/Eastern) falls on the selected day(s). A single day with $0 means no completed
-          payments that day — use <strong>Date range</strong> to match your Stripe payout window. Gross on the cards
-          is patient payments, not pharmacy COGS.
+          The <strong>All payments</strong> tab lists every <code className="rounded bg-gray-100 px-1 text-xs">Payment</code>{' '}
+          row for OT patients with <strong>paidAt</strong> (or <strong>createdAt</strong> if paidAt is empty) in the
+          Eastern window — that is the cash ledger to compare to Stripe. Pharmacy / per-sale tabs still use matched
+          prescription invoices and orders. A single day with no rows in All payments means nothing hit the DB for that
+          calendar day in that window; use <strong>Date range</strong> to match your payout batch.
         </p>
       </div>
 
@@ -373,6 +407,13 @@ export default function OtInvoicesPage() {
           icon={<Pill className="h-4 w-4" />}
           label="Pharmacy"
           badge={data ? centsToDisplay(data.pharmacy.totalCents) : '—'}
+        />
+        <TabButton
+          active={activeTab === 'all_payments'}
+          onClick={() => setActiveTab('all_payments')}
+          icon={<Banknote className="h-4 w-4" />}
+          label="All payments"
+          badge={data ? String(data.paymentCollections?.length ?? 0) : '—'}
         />
         <TabButton
           active={activeTab === 'doctor_approvals'}
@@ -424,6 +465,13 @@ export default function OtInvoicesPage() {
               bg="bg-blue-50"
             />
             <SummaryCard
+              icon={<Banknote className="h-5 w-5 text-teal-700" />}
+              label="Cash collected (net)"
+              value={centsToDisplay(data.paymentsCollectedNetCents ?? 0)}
+              subvalue={`${data.paymentCollections?.length ?? 0} Payment rows · All payments tab`}
+              bg="bg-teal-50"
+            />
+            <SummaryCard
               icon={<Pill className="h-5 w-5 text-purple-600" />}
               label="Pharm. COGS qty"
               value={String(data.pharmacy.vialCount)}
@@ -461,14 +509,22 @@ export default function OtInvoicesPage() {
               icon={<CreditCard className="h-5 w-5 text-slate-600" />}
               label="Merchant processing (4%)"
               value={centsToDisplay(data.merchantProcessing.feeCents)}
-              subvalue={`on ${centsToDisplay(data.merchantProcessing.grossSalesCents)} gross`}
+              subvalue={
+                data.feesUseCashCollectedBasis
+                  ? `on ${centsToDisplay(data.merchantProcessing.grossSalesCents)} cash (net)`
+                  : `on ${centsToDisplay(data.merchantProcessing.grossSalesCents)} gross`
+              }
               bg="bg-slate-50"
             />
             <SummaryCard
               icon={<Percent className="h-5 w-5 text-rose-600" />}
               label="EONPro platform (10%)"
               value={centsToDisplay(data.platformCompensation.feeCents)}
-              subvalue={`on ${centsToDisplay(data.platformCompensation.grossSalesCents)} gross`}
+              subvalue={
+                data.feesUseCashCollectedBasis
+                  ? `on ${centsToDisplay(data.platformCompensation.grossSalesCents)} cash (net)`
+                  : `on ${centsToDisplay(data.platformCompensation.grossSalesCents)} gross`
+              }
               bg="bg-rose-50"
             />
             <SummaryCard
@@ -489,7 +545,7 @@ export default function OtInvoicesPage() {
               icon={<DollarSign className="h-5 w-5 text-red-600" />}
               label="Total deductions"
               value={centsToDisplay(data.grandTotalCents)}
-              subvalue="from patient gross"
+              subvalue={data.feesUseCashCollectedBasis ? 'from cash collected (net)' : 'from matched invoice gross'}
               bg="bg-red-50"
             />
             <SummaryCard
@@ -545,6 +601,13 @@ export default function OtInvoicesPage() {
           </div>
 
             {activeTab === 'pharmacy' && <PharmacyTable invoice={data.pharmacy} />}
+            {activeTab === 'all_payments' && (
+              <PaymentCollectionsTable
+                rows={data.paymentCollections ?? []}
+                matchedRxGrossCents={data.matchedPrescriptionInvoiceGrossCents ?? 0}
+                feesUseCashCollectedBasis={data.feesUseCashCollectedBasis ?? false}
+              />
+            )}
             {activeTab === 'doctor_approvals' && <DoctorTable invoice={data.doctorApprovals} />}
             {activeTab === 'fulfillment' && <FulfillmentTable invoice={data.fulfillment} />}
             {activeTab === 'per_sale' && (
@@ -626,6 +689,83 @@ function TabButton({
         {badge}
       </span>
     </button>
+  );
+}
+
+function PaymentCollectionsTable({
+  rows,
+  matchedRxGrossCents,
+  feesUseCashCollectedBasis,
+}: {
+  rows: OtPaymentCollectionRow[];
+  matchedRxGrossCents: number;
+  feesUseCashCollectedBasis: boolean;
+}) {
+  const totalNet = rows.reduce((s, r) => s + r.netCollectedCents, 0);
+  return (
+    <div className="overflow-x-auto rounded-2xl border border-gray-100 bg-white shadow-sm">
+      <p className="border-b border-gray-100 px-4 py-3 text-sm text-gray-600">
+        Every <strong>Payment</strong> record for OT clinic patients in this Eastern window (not limited to prescription
+        invoices). <strong>Net</strong> is amount minus refunds. Summary <strong>4% / 10%</strong> fees use this net total
+        when it is greater than zero{feesUseCashCollectedBasis ? ' (active for this period)' : ''}. Matched Rx-invoice
+        gross for the same period is{' '}
+        <span className="font-semibold text-gray-800">{centsToDisplay(matchedRxGrossCents)}</span> (subset used for
+        pharmacy / per-sale breakdowns).
+      </p>
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b border-gray-100 bg-gray-50 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+            <th className="px-4 py-3">Paid (ET)</th>
+            <th className="px-4 py-3">Recorded (ET)</th>
+            <th className="px-4 py-3 font-mono">Pay #</th>
+            <th className="px-4 py-3">Patient</th>
+            <th className="px-4 py-3 text-right">Amount</th>
+            <th className="px-4 py-3 text-right">Net</th>
+            <th className="px-4 py-3 font-mono">Invoice</th>
+            <th className="px-4 py-3 font-mono">Stripe PI</th>
+            <th className="px-4 py-3">Description</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-gray-50">
+          {rows.length === 0 ? (
+            <tr>
+              <td colSpan={9} className="px-4 py-10 text-center text-gray-500">
+                No Payment rows in this window. If Stripe shows charges, check another day or use <strong>Date range</strong>
+                ; confirm patients are on the OT clinic and that webhooks recorded <code className="rounded bg-gray-100 px-1 text-xs">paidAt</code>.
+              </td>
+            </tr>
+          ) : (
+            rows.map((r) => (
+              <tr key={r.paymentId} className="hover:bg-gray-50">
+                <td className="whitespace-nowrap px-4 py-2 text-xs text-emerald-700">
+                  {r.paidAt ? formatDateTime(r.paidAt) : '—'}
+                </td>
+                <td className="whitespace-nowrap px-4 py-2 text-xs text-gray-600">{formatDateTime(r.recordedAt)}</td>
+                <td className="px-4 py-2 font-mono text-xs">{r.paymentId}</td>
+                <td className="max-w-[160px] truncate px-4 py-2 font-medium" title={r.patientName}>
+                  {r.patientName}
+                </td>
+                <td className="whitespace-nowrap px-4 py-2 text-right">{centsToDisplay(r.amountCents)}</td>
+                <td className="whitespace-nowrap px-4 py-2 text-right font-semibold">{centsToDisplay(r.netCollectedCents)}</td>
+                <td className="px-4 py-2 font-mono text-xs text-gray-500">{r.invoiceId ?? '—'}</td>
+                <td className="max-w-[140px] truncate px-4 py-2 font-mono text-xs text-violet-800" title={r.stripePaymentIntentId ?? ''}>
+                  {r.stripePaymentIntentId ?? '—'}
+                </td>
+                <td className="max-w-md truncate px-4 py-2 text-gray-700" title={r.description ?? ''}>
+                  {r.description ?? '—'}
+                </td>
+              </tr>
+            ))
+          )}
+        </tbody>
+      </table>
+      {rows.length > 0 && (
+        <div className="flex justify-between border-t border-gray-200 bg-gray-50 px-4 py-3 font-semibold">
+          <span>Net collected ({rows.length} payments)</span>
+          <span>{centsToDisplay(totalNet)}</span>
+        </div>
+      )}
+    </div>
   );
 }
 
