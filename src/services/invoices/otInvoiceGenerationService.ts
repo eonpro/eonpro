@@ -424,23 +424,20 @@ async function loadOtSalesRepCommissionLookup(
   return { stripeByInvoiceDbId, commissionByStripeObjectId, overrideBySourceEventId, repLabelById };
 }
 
-/** Net cents per invoice from Stripe-processed local payments (Succeeded / partially refunded). */
+/** Net cents per invoice from Stripe-processed local Payment rows (SUCCEEDED only — widest DB compatibility). */
 async function loadOtPaymentNetCentsByInvoiceId(invoiceDbIds: number[]): Promise<Map<number, number>> {
   const map = new Map<number, number>();
   if (invoiceDbIds.length === 0) return map;
   const payments = await basePrisma.payment.findMany({
     where: {
       invoiceId: { in: invoiceDbIds },
-      status: { in: ['SUCCEEDED', 'PARTIALLY_REFUNDED'] },
+      status: 'SUCCEEDED',
     },
-    select: { invoiceId: true, amount: true, refundedAmount: true },
+    select: { invoiceId: true, amount: true },
   });
   for (const p of payments) {
-    if (p.invoiceId == null) continue;
-    const refunded = p.refundedAmount ?? 0;
-    const net = p.amount - refunded;
-    if (net <= 0) continue;
-    map.set(p.invoiceId, (map.get(p.invoiceId) ?? 0) + net);
+    if (p.invoiceId == null || p.amount <= 0) continue;
+    map.set(p.invoiceId, (map.get(p.invoiceId) ?? 0) + p.amount);
   }
   return map;
 }
@@ -654,10 +651,21 @@ export async function generateOtDailyInvoices(date: string, endDate?: string): P
   ];
   const salesRepLookup = await loadOtSalesRepCommissionLookup(clinicId, invoiceDbIdsForCommissions);
 
-  const [paymentNetByInvoiceId, stripeCustomerNameByInvoiceId] = await Promise.all([
-    loadOtPaymentNetCentsByInvoiceId(invoiceDbIdsForCommissions),
-    loadOtStripeCustomerNameByInvoiceId(invoiceDbIdsForCommissions),
-  ]);
+  let paymentNetByInvoiceId = new Map<number, number>();
+  let stripeCustomerNameByInvoiceId = new Map<number, string>();
+  try {
+    const [payments, stripeNames] = await Promise.all([
+      loadOtPaymentNetCentsByInvoiceId(invoiceDbIdsForCommissions),
+      loadOtStripeCustomerNameByInvoiceId(invoiceDbIdsForCommissions),
+    ]);
+    paymentNetByInvoiceId = payments;
+    stripeCustomerNameByInvoiceId = stripeNames;
+  } catch (preloadErr) {
+    const msg = preloadErr instanceof Error ? preloadErr.message : String(preloadErr);
+    logger.error('OT invoice: payment / PaymentReconciliation preload failed; using invoice gross only', {
+      message: msg,
+    });
+  }
 
   const patientIdsForDoctorFee = [...new Set(filteredOrders.map((o) => o.patientId))];
   const paidRxHistoryByPatient = await loadOtPaidPrescriptionInvoicesByPatient(

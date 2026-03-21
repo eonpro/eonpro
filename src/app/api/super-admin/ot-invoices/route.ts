@@ -23,23 +23,36 @@ const querySchema = z.object({
  * OT (ot.eonpro.io) internal invoices for EONPro reconciliation.
  */
 export const GET = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) => {
+  const { searchParams } = new URL(req.url);
+  const parsed = querySchema.safeParse({
+    date: searchParams.get('date'),
+    endDate: searchParams.get('endDate') || undefined,
+  });
+
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: 'Invalid query parameters', details: parsed.error.flatten() },
+      { status: 400 },
+    );
+  }
+
+  const { date, endDate } = parsed.data;
+
+  let data: Awaited<ReturnType<typeof generateOtDailyInvoices>>;
   try {
-    const { searchParams } = new URL(req.url);
-    const parsed = querySchema.safeParse({
-      date: searchParams.get('date'),
-      endDate: searchParams.get('endDate') || undefined,
+    data = await generateOtDailyInvoices(date, endDate);
+  } catch (error) {
+    const err = error instanceof Error ? error : new Error(String(error));
+    logger.error('[SuperAdmin] OT invoice generation failed', {
+      message: err.message,
+      stack: err.stack,
+      userId: user.id,
     });
+    return NextResponse.json({ error: 'Failed to generate OT invoices' }, { status: 500 });
+  }
 
-    if (!parsed.success) {
-      return NextResponse.json(
-        { error: 'Invalid query parameters', details: parsed.error.flatten() },
-        { status: 400 },
-      );
-    }
-
-    const { date, endDate } = parsed.data;
-    const data = await generateOtDailyInvoices(date, endDate);
-
+  // Audit must not block the report: hipaa-audit can throw if all channels fail.
+  try {
     await auditLog(req, {
       userId: user.id,
       userEmail: user.email,
@@ -62,13 +75,12 @@ export const GET = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) =
         platformFeeCents: data.platformCompensation.feeCents,
       },
     });
-
-    return NextResponse.json(data);
-  } catch (error) {
-    logger.error('[SuperAdmin] OT invoice generation failed', {
-      error: error instanceof Error ? error.message : 'Unknown error',
+  } catch (auditError) {
+    logger.error('[SuperAdmin] OT invoice audit log failed; returning report anyway', {
+      error: auditError instanceof Error ? auditError.message : String(auditError),
       userId: user.id,
     });
-    return NextResponse.json({ error: 'Failed to generate OT invoices' }, { status: 500 });
   }
+
+  return NextResponse.json(data);
 });
