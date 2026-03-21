@@ -419,7 +419,7 @@ export default function OtInvoicesPage() {
             />
             <SummaryCard
               icon={<Pill className="h-5 w-5 text-purple-600" />}
-              label="Vials"
+              label="Pharm. COGS qty"
               value={String(data.pharmacy.vialCount)}
               bg="bg-purple-50"
             />
@@ -626,6 +626,10 @@ function TabButton({
 function PharmacyTable({ invoice }: { invoice: OtPharmacyInvoice }) {
   return (
     <div className="overflow-x-auto rounded-2xl border border-gray-100 bg-white shadow-sm">
+      <p className="border-b border-gray-100 px-4 py-3 text-sm text-gray-600">
+        Pharmacy <strong>Qty</strong> is internal COGS units (one dispensed package for typical oral lines), not Lifefile
+        tablet/day counts. Patient totals in Stripe stay on the <strong>Per-sale</strong> tab as gross.
+      </p>
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-gray-100 bg-gray-50 text-left text-xs font-medium uppercase tracking-wider text-gray-500">

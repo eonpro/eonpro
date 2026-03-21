@@ -226,6 +226,48 @@ export function resolveOtProductPriceForPharmacyLine(rx: {
 }
 
 /**
+ * Lifefile `Rx.quantity` is often **tablet count or days supply**, not “billable pharmacy units”.
+ * Internal COGS lines must not multiply unit cost by 30/90 for a single dispensed package.
+ *
+ * - **catalog** (known GLP‑1 vial SKUs): quantity = vial count (cap only for sanity).
+ * - **fallback / unpriced**: oral maintenance meds → **1** package per consolidated line; injectables → use qty
+ *   only when ≤ 12 (typical vial counts); otherwise treat as **1** (mis-encoded days supply).
+ */
+export function effectiveOtPharmacyBillQuantity(params: {
+  medName: string;
+  form: string;
+  consolidatedRawQty: number;
+  pricingSource: 'catalog' | 'fallback' | null;
+}): number {
+  const raw = Math.max(1, Math.floor(params.consolidatedRawQty) || 1);
+
+  if (params.pricingSource === 'catalog') {
+    return Math.min(raw, 48);
+  }
+
+  const blob = `${params.medName} ${params.form}`.toLowerCase();
+  const oralLike =
+    /\b(tab|tabs|tablet|tablets|capsule|capsules|cap|oral)\b/.test(blob) ||
+    blob.includes('enclomiphene') ||
+    blob.includes('clomiphene') ||
+    blob.includes('anastrozole') ||
+    blob.includes('tadalafil');
+
+  if (oralLike) {
+    return 1;
+  }
+
+  if (params.pricingSource === 'fallback' || params.pricingSource === null) {
+    if (raw > 12) {
+      return 1;
+    }
+    return raw;
+  }
+
+  return Math.min(raw, 48);
+}
+
+/**
  * True if this Rx belongs to the $30 shipping tier (NAD+, glutathione, sermorelin, semaglutide, tirzepatide).
  * If any line on the order matches, the whole prescription ships at the premium rate.
  */

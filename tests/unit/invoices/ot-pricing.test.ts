@@ -12,6 +12,7 @@ import {
   isOtTestosteroneReplacementTherapyOrder,
   inferOtPharmacyUnitPriceFromRx,
   resolveOtProductPriceForPharmacyLine,
+  effectiveOtPharmacyBillQuantity,
 } from '@/lib/invoices/ot-pricing';
 
 describe('ot-pricing', () => {
@@ -186,6 +187,57 @@ describe('ot-pricing', () => {
         form: '',
       }),
     ).toMatchObject({ source: 'fallback' });
+  });
+
+  it('effectiveOtPharmacyBillQuantity: oral / enclomiphene uses 1 package, not tab count', () => {
+    expect(
+      effectiveOtPharmacyBillQuantity({
+        medName: 'Enclomiphene Citrate 25 mg',
+        form: '',
+        consolidatedRawQty: 90,
+        pricingSource: 'fallback',
+      }),
+    ).toBe(1);
+
+    expect(
+      effectiveOtPharmacyBillQuantity({
+        medName: 'Drug',
+        form: 'tablet',
+        consolidatedRawQty: 30,
+        pricingSource: 'fallback',
+      }),
+    ).toBe(1);
+  });
+
+  it('effectiveOtPharmacyBillQuantity: catalog GLP-1 keeps vial count', () => {
+    expect(
+      effectiveOtPharmacyBillQuantity({
+        medName: 'Semaglutide',
+        form: '',
+        consolidatedRawQty: 3,
+        pricingSource: 'catalog',
+      }),
+    ).toBe(3);
+  });
+
+  it('effectiveOtPharmacyBillQuantity: injectable fallback allows small multipliers only', () => {
+    expect(
+      effectiveOtPharmacyBillQuantity({
+        medName: 'SERMORELIN ACETATE 2MG/ML (5ML) STERILE SOLUTION',
+        form: 'solution',
+        consolidatedRawQty: 3,
+        pricingSource: 'fallback',
+      }),
+    ).toBe(3);
+
+    expect(
+      effectiveOtPharmacyBillQuantity({
+        medName: 'Some Injectable',
+        form: 'injection',
+        consolidatedRawQty: 30,
+        pricingSource: 'fallback',
+      }),
+    ).toBe(1);
   });
 
   it('detects TRT orders for telehealth fee', () => {

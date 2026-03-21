@@ -22,6 +22,7 @@ import {
   OT_MERCHANT_PROCESSING_BPS,
   OT_PLATFORM_COMPENSATION_BPS,
   resolveOtProductPriceForPharmacyLine,
+  effectiveOtPharmacyBillQuantity,
   getOtPrescriptionShippingCentsForOrder,
   getOtDoctorRxFeeCentsForSale,
   findPriorPaidOtPrescriptionInvoice,
@@ -725,13 +726,19 @@ export async function generateOtDailyInvoices(date: string, endDate?: string): P
     let orderVialCount = 0;
     let orderMedTotalCents = 0;
 
-    for (const { rx, qty } of consolidateOtOrderRxs(order.rxs)) {
+    for (const { rx, qty: rawConsolidatedQty } of consolidateOtOrderRxs(order.rxs)) {
       const resolved = resolveOtProductPriceForPharmacyLine(rx);
-      orderVialCount += qty;
+      const billQty = effectiveOtPharmacyBillQuantity({
+        medName: rx.medName,
+        form: rx.form,
+        consolidatedRawQty: rawConsolidatedQty,
+        pricingSource: resolved?.source ?? null,
+      });
+      orderVialCount += billQty;
       const unitCents = resolved?.row.priceCents ?? 0;
-      if (!resolved) missingPriceCount += qty;
-      else if (resolved.source === 'fallback') estimatedPriceCount += qty;
-      orderMedTotalCents += unitCents * qty;
+      if (!resolved) missingPriceCount += billQty;
+      else if (resolved.source === 'fallback') estimatedPriceCount += billQty;
+      orderMedTotalCents += unitCents * billQty;
 
       const pricingStatus: OtPharmacyLineItem['pricingStatus'] = resolved
         ? resolved.source === 'catalog'
@@ -755,9 +762,9 @@ export async function generateOtDailyInvoices(date: string, endDate?: string): P
         strength: displayStrength,
         vialSize: displayVial,
         medicationKey: rx.medicationKey,
-        quantity: qty,
+        quantity: billQty,
         unitPriceCents: unitCents,
-        lineTotalCents: unitCents * qty,
+        lineTotalCents: unitCents * billQty,
         pricingStatus,
       });
     }
