@@ -40,7 +40,7 @@ interface OtPharmacyLineItem {
   quantity: number;
   unitPriceCents: number;
   lineTotalCents: number;
-  pricingStatus: 'priced' | 'missing';
+  pricingStatus: 'priced' | 'estimated' | 'missing';
 }
 
 interface OtShippingLineItem {
@@ -71,6 +71,7 @@ interface OtPharmacyInvoice {
   orderCount: number;
   vialCount: number;
   missingPriceCount: number;
+  estimatedPriceCount: number;
 }
 
 interface OtDoctorApprovalLineItem {
@@ -145,6 +146,9 @@ interface OtPerSaleReconciliationLine {
   paidAt: string | null;
   patientName: string;
   patientGrossCents: number;
+  patientGrossSource?: 'stripe_payments' | 'invoice_sync';
+  stripeBillingNameMatch?: 'match' | 'mismatch' | 'unknown';
+  invoicePatientMatchesOrder?: boolean;
   medicationsCostCents: number;
   shippingCents: number;
   trtTelehealthCents: number;
@@ -424,9 +428,13 @@ export default function OtInvoicesPage() {
               label="Pharmacy"
               value={centsToDisplay(data.pharmacy.totalCents)}
               subvalue={
-                data.pharmacy.missingPriceCount > 0
-                  ? `${data.pharmacy.missingPriceCount} unpriced qty`
-                  : undefined
+                [
+                  data.pharmacy.missingPriceCount > 0 && `${data.pharmacy.missingPriceCount} unpriced qty`,
+                  data.pharmacy.estimatedPriceCount > 0 &&
+                    `${data.pharmacy.estimatedPriceCount} est. (name match)`,
+                ]
+                  .filter(Boolean)
+                  .join(' · ') || undefined
               }
               bg="bg-emerald-50"
             />
@@ -650,6 +658,10 @@ function PharmacyTable({ invoice }: { invoice: OtPharmacyInvoice }) {
               <td className="px-4 py-2">
                 {li.pricingStatus === 'missing' ? (
                   <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-800">missing</span>
+                ) : li.pricingStatus === 'estimated' ? (
+                  <span className="rounded-full bg-sky-100 px-2 py-0.5 text-xs text-sky-900" title="COGS from medication name — add Lifefile id to catalog when known">
+                    est.
+                  </span>
                 ) : (
                   <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs text-emerald-800">priced</span>
                 )}
@@ -815,11 +827,13 @@ function PerSaleReconciliationTable({ rows }: { rows: OtPerSaleReconciliationLin
   return (
     <div className="overflow-x-auto rounded-2xl border border-gray-100 bg-white shadow-sm">
       <p className="border-b border-gray-100 px-4 py-3 text-sm text-gray-600">
-        Each row is one order / sale. Doctor / Rx: $30 nominal (async/sync); charged amount is $0 when the patient had
-        another paid prescription invoice at this clinic within the last 90 days. Rep commission and manager oversight
-        come from the commission ledger (Stripe invoice id match).
+        Each row is one order / sale. Patient gross uses net succeeded <strong>Payment</strong> rows when present
+        (Stripe-settled); otherwise the prescription <strong>Invoice</strong> amounts synced from Stripe. Pharmacy
+        breakdown comes from the Lifefile order / Rx on that sale. Doctor / Rx: $30 nominal (async/sync); charged
+        amount is $0 when the patient had another paid prescription invoice at this clinic within the last 90 days. Rep
+        commission and manager oversight come from the commission ledger (Stripe invoice id match).
       </p>
-      <table className="w-full min-w-[1780px] text-sm">
+      <table className="w-full min-w-[1960px] text-sm">
         <thead>
           <tr className="border-b border-gray-100 bg-gray-50 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
             <th className="whitespace-nowrap px-3 py-3">Paid (ET)</th>
@@ -845,11 +859,14 @@ function PerSaleReconciliationTable({ rows }: { rows: OtPerSaleReconciliationLin
             <th className="px-3 py-3">Mgr detail</th>
             <th className="px-3 py-3 text-right">Deduct</th>
             <th className="px-3 py-3 text-right">Net OT</th>
+            <th className="px-3 py-3 text-center text-xs normal-case">Gross src</th>
+            <th className="px-3 py-3 text-center text-xs normal-case">Stripe name</th>
+            <th className="px-3 py-3 text-center text-xs normal-case">Inv=Pt</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-50">
           {rows.map((r) => (
-            <tr key={r.orderId} className="hover:bg-gray-50">
+            <tr key={`${r.orderId}-${r.invoiceDbId ?? 'x'}`} className="hover:bg-gray-50">
               <td className="whitespace-nowrap px-3 py-2 text-xs text-emerald-700">
                 {r.paidAt ? formatDateTime(r.paidAt) : '—'}
               </td>
@@ -899,6 +916,45 @@ function PerSaleReconciliationTable({ rows }: { rows: OtPerSaleReconciliationLin
               <td className="whitespace-nowrap px-3 py-2 text-right font-semibold text-[#2d6b4f]">
                 {centsToDisplay(r.clinicNetPayoutCents)}
               </td>
+              <td className="px-2 py-2 text-center text-xs">
+                {r.patientGrossSource === 'stripe_payments' ? (
+                  <span className="rounded-full bg-violet-100 px-2 py-0.5 font-medium text-violet-900" title="Gross from Payment rows">
+                    txn
+                  </span>
+                ) : r.patientGrossSource === 'invoice_sync' ? (
+                  <span className="rounded-full bg-gray-100 px-2 py-0.5 text-gray-700" title="Gross from Invoice (Stripe sync)">
+                    inv
+                  </span>
+                ) : (
+                  <span className="text-gray-400">—</span>
+                )}
+              </td>
+              <td className="px-2 py-2 text-center text-xs">
+                {r.stripeBillingNameMatch === 'match' ? (
+                  <span className="text-emerald-700" title="Stripe billing name matches profile">
+                    ✓
+                  </span>
+                ) : r.stripeBillingNameMatch === 'mismatch' ? (
+                  <span className="font-medium text-amber-800" title="Stripe billing name differs from profile">
+                    ⚠
+                  </span>
+                ) : (
+                  <span className="text-gray-400" title="No Stripe billing name on file">
+                    —
+                  </span>
+                )}
+              </td>
+              <td className="px-2 py-2 text-center text-xs">
+                {r.invoicePatientMatchesOrder === false ? (
+                  <span className="font-medium text-red-700" title="Invoice patient ≠ order patient">
+                    ✗
+                  </span>
+                ) : (
+                  <span className="text-emerald-700" title="Invoice patient matches order (or not checked)">
+                    ✓
+                  </span>
+                )}
+              </td>
             </tr>
           ))}
         </tbody>
@@ -934,6 +990,9 @@ function PerSaleReconciliationTable({ rows }: { rows: OtPerSaleReconciliationLin
             <td className="whitespace-nowrap px-3 py-3 text-right text-[#2d6b4f]">
               {centsToDisplay(sum((x) => x.clinicNetPayoutCents))}
             </td>
+            <td className="px-3 py-3 text-center text-gray-400">—</td>
+            <td className="px-3 py-3 text-center text-gray-400">—</td>
+            <td className="px-3 py-3 text-center text-gray-400">—</td>
           </tr>
         </tfoot>
       </table>

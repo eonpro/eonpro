@@ -2,7 +2,8 @@
  * OT (Overtime / ot.eonpro.io) — internal invoice pricing for EONPro → OT reconciliation.
  *
  * Pharmacy SKU costs should mirror Lifefile medication keys on orders; extend `OT_PRODUCT_PRICES`
- * as the catalog grows. Unlisted keys still appear on invoices with $0 until priced.
+ * as the catalog grows. Unlisted keys use {@link inferOtPharmacyUnitPriceFromRx} when the med name
+ * matches a known OT SKU; otherwise lines stay $0 with status `missing`.
  *
  * All amounts are cents unless noted.
  */
@@ -147,6 +148,81 @@ export const OT_PRICED_MEDICATION_KEYS = new Set(OT_PRODUCT_PRICES.map((p) => St
 
 export function getOtProductPrice(medicationKey: string): OtProductPrice | undefined {
   return OT_PRICE_MAP.get(medicationKey);
+}
+
+/**
+ * Sentinel `productId` for rows priced by {@link inferOtPharmacyUnitPriceFromRx} (not a Lifefile catalog id).
+ * Add real Lifefile keys to {@link OT_PRODUCT_PRICES} when known so invoices use authoritative COGS.
+ */
+export const OT_PHARMACY_FALLBACK_PRODUCT_ID = 0;
+
+/**
+ * Internal COGS estimate (cents per dispensed line) when the Lifefile `medicationKey` is missing from
+ * {@link OT_PRODUCT_PRICES}. Matched on normalized `medName` / strength / form — extend as OT SKUs grow.
+ */
+export function inferOtPharmacyUnitPriceFromRx(rx: {
+  medicationKey: string;
+  medName: string;
+  strength: string;
+  form: string;
+}): OtProductPrice | undefined {
+  const blob = [rx.medName, rx.strength, rx.form, rx.medicationKey].filter(Boolean).join(' ').toLowerCase();
+
+  const row = (
+    priceCents: number,
+    name: string,
+    strength: string,
+    vialSize: string,
+  ): OtProductPrice => ({
+    productId: OT_PHARMACY_FALLBACK_PRODUCT_ID,
+    name,
+    strength,
+    vialSize,
+    priceCents,
+  });
+
+  if (blob.includes('tirzepatide')) {
+    if (blob.includes('4ml') || blob.includes('4 ml')) return row(8000, rx.medName, rx.strength, rx.form || '');
+    if (blob.includes('3ml') || blob.includes('3 ml')) return row(7000, rx.medName, rx.strength, rx.form || '');
+    if (blob.includes('2ml') || blob.includes('2 ml')) return row(6200, rx.medName, rx.strength, rx.form || '');
+    return row(5200, rx.medName, rx.strength, rx.form || '');
+  }
+  if (blob.includes('semaglutide')) {
+    if (blob.includes('5/20') || blob.includes('5mg')) return row(5000, rx.medName, rx.strength, rx.form || '');
+    if (blob.includes('3ml') || blob.includes('3 ml')) return row(4500, rx.medName, rx.strength, rx.form || '');
+    if (blob.includes('2ml') || blob.includes('2 ml')) return row(4000, rx.medName, rx.strength, rx.form || '');
+    return row(3500, rx.medName, rx.strength, rx.form || '');
+  }
+  if (blob.includes('sermorelin')) return row(12000, rx.medName, rx.strength, rx.form || '');
+  if (blob.includes('enclomiphene')) {
+    if (blob.includes('12.5')) return row(3500, rx.medName, rx.strength, rx.form || '');
+    return row(4500, rx.medName, rx.strength, rx.form || '');
+  }
+  if (blob.includes('glutathione')) return row(5000, rx.medName, rx.strength, rx.form || '');
+  if (blob.includes('nad+') || blob.includes('nad +') || /\bnad\b/.test(blob)) {
+    return row(8000, rx.medName, rx.strength, rx.form || '');
+  }
+  if (blob.includes('testosterone') || blob.includes('cypionate') || blob.includes('undecanoate')) {
+    return row(3500, rx.medName, rx.strength, rx.form || '');
+  }
+  if (blob.includes('tadalafil')) return row(2000, rx.medName, rx.strength, rx.form || '');
+  if (blob.includes('anastrozole')) return row(1500, rx.medName, rx.strength, rx.form || '');
+  if (blob.includes('hcg') || blob.includes('gonadotropin')) return row(2500, rx.medName, rx.strength, rx.form || '');
+
+  return undefined;
+}
+
+export function resolveOtProductPriceForPharmacyLine(rx: {
+  medicationKey: string;
+  medName: string;
+  strength: string;
+  form: string;
+}): { row: OtProductPrice; source: 'catalog' | 'fallback' } | null {
+  const catalog = getOtProductPrice(rx.medicationKey);
+  if (catalog) return { row: catalog, source: 'catalog' };
+  const inferred = inferOtPharmacyUnitPriceFromRx(rx);
+  if (inferred) return { row: inferred, source: 'fallback' };
+  return null;
 }
 
 /**

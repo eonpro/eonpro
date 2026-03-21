@@ -10,6 +10,8 @@ import {
   isOtPremiumShippingMedication,
   getOtPrescriptionShippingCentsForOrder,
   isOtTestosteroneReplacementTherapyOrder,
+  inferOtPharmacyUnitPriceFromRx,
+  resolveOtProductPriceForPharmacyLine,
 } from '@/lib/invoices/ot-pricing';
 
 describe('ot-pricing', () => {
@@ -148,6 +150,42 @@ describe('ot-pricing', () => {
       waivedAmountCents: 0,
       daysSincePriorPaidRx: null,
     });
+  });
+
+  it('infers pharmacy COGS from med names when Lifefile key is unknown', () => {
+    const enclo = inferOtPharmacyUnitPriceFromRx({
+      medicationKey: 'unknown-lf-id',
+      medName: 'Enclomiphene Citrate 25 mg',
+      strength: '25 mg',
+      form: 'tabs',
+    });
+    expect(enclo?.priceCents).toBe(4500);
+
+    const serm = inferOtPharmacyUnitPriceFromRx({
+      medicationKey: 'x',
+      medName: 'SERMORELIN ACETATE 2MG/ML (5ML) STERILE SOLUTION',
+      strength: '2MG/ML',
+      form: 'solution',
+    });
+    expect(serm?.priceCents).toBe(12000);
+
+    expect(
+      resolveOtProductPriceForPharmacyLine({
+        medicationKey: '203448971',
+        medName: 'Semaglutide',
+        strength: 'x',
+        form: '',
+      }),
+    ).toMatchObject({ source: 'catalog' });
+
+    expect(
+      resolveOtProductPriceForPharmacyLine({
+        medicationKey: 'not-in-catalog',
+        medName: 'Enclomiphene Citrate 25 mg',
+        strength: '25 mg',
+        form: '',
+      }),
+    ).toMatchObject({ source: 'fallback' });
   });
 
   it('detects TRT orders for telehealth fee', () => {

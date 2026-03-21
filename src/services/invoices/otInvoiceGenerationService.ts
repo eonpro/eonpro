@@ -4,6 +4,10 @@
  * a combined doctor/Rx fee ($30 async or sync; waived if refill <90d after prior paid Rx), fulfillment lines,
  * merchant processing, EONPro platform share, and sales-comp ledger lines when present.
  * `clinicNetPayoutCents` is gross minus those allocations (what remains for the OT clinic).
+ *
+ * Patient gross prefers net cents from succeeded local Payment rows (Stripe-settled); otherwise
+ * `Invoice.amountPaid` / `amountDue` from Stripe webhook sync. Per-sale rows flag Stripe billing name vs
+ * profile and whether `Invoice.patientId` matches `Order.patientId`.
  */
 
 import path from 'path';
@@ -17,7 +21,7 @@ import {
   OT_FULFILLMENT_FEE_PER_OTHER_LINE_CENTS,
   OT_MERCHANT_PROCESSING_BPS,
   OT_PLATFORM_COMPENSATION_BPS,
-  getOtProductPrice,
+  resolveOtProductPriceForPharmacyLine,
   getOtPrescriptionShippingCentsForOrder,
   getOtDoctorRxFeeCentsForSale,
   findPriorPaidOtPrescriptionInvoice,
@@ -27,8 +31,30 @@ import {
   OT_TRT_TELEHEALTH_FEE_CENTS,
 } from '@/lib/invoices/ot-pricing';
 import { BRAND } from '@/lib/constants/brand-assets';
+import {
+  compareStripeBillingNameToPatient,
+  resolveOtPatientGrossCents,
+} from '@/lib/invoices/ot-stripe-sale-alignment';
 
 const CLINIC_TZ = 'America/New_York';
+
+/** Merges duplicate `Rx` rows (same key/name/strength/form) from Lifefile into one invoice line. */
+function consolidateOtOrderRxs(
+  rxs: { medicationKey: string; medName: string; strength: string; form: string; quantity: string }[],
+): { rx: (typeof rxs)[number]; qty: number }[] {
+  const keyToTemplate = new Map<string, (typeof rxs)[number]>();
+  const keyToQty = new Map<string, number>();
+  for (const rx of rxs) {
+    const k = `${rx.medicationKey}\t${rx.medName}\t${rx.strength}\t${rx.form}`;
+    const q = parseInt(rx.quantity, 10) || 1;
+    if (!keyToTemplate.has(k)) keyToTemplate.set(k, rx);
+    keyToQty.set(k, (keyToQty.get(k) ?? 0) + q);
+  }
+  return [...keyToTemplate.keys()].map((k) => ({
+    rx: keyToTemplate.get(k)!,
+    qty: keyToQty.get(k)!,
+  }));
+}
 
 export interface OtPharmacyLineItem {
   orderId: number;
@@ -46,7 +72,7 @@ export interface OtPharmacyLineItem {
   quantity: number;
   unitPriceCents: number;
   lineTotalCents: number;
-  pricingStatus: 'priced' | 'missing';
+  pricingStatus: 'priced' | 'estimated' | 'missing';
 }
 
 export interface OtShippingLineItem {
@@ -80,6 +106,8 @@ export interface OtPharmacyInvoice {
   orderCount: number;
   vialCount: number;
   missingPriceCount: number;
+  /** Qty covered by name/form fallback COGS (not yet mapped to Lifefile product id). */
+  estimatedPriceCount: number;
 }
 
 export interface OtDoctorApprovalLineItem {
@@ -159,6 +187,12 @@ export interface OtPerSaleReconciliationLine {
   patientName: string;
   /** Stripe invoice gross (amount paid, or amount due fallback). */
   patientGrossCents: number;
+  /** `stripe_payments` = sum of net succeeded `Payment` rows; `invoice_sync` = invoice record only. */
+  patientGrossSource: 'stripe_payments' | 'invoice_sync';
+  /** Stripe `customer_name` (from payment reconciliation) vs patient profile when available. */
+  stripeBillingNameMatch: 'match' | 'mismatch' | 'unknown';
+  /** False when the prescription invoice is tied to a different patient than the Lifefile order. */
+  invoicePatientMatchesOrder: boolean;
   medicationsCostCents: number;
   shippingCents: number;
   trtTelehealthCents: number;
@@ -390,6 +424,48 @@ async function loadOtSalesRepCommissionLookup(
   return { stripeByInvoiceDbId, commissionByStripeObjectId, overrideBySourceEventId, repLabelById };
 }
 
+/** Net cents per invoice from Stripe-processed local payments (Succeeded / partially refunded). */
+async function loadOtPaymentNetCentsByInvoiceId(invoiceDbIds: number[]): Promise<Map<number, number>> {
+  const map = new Map<number, number>();
+  if (invoiceDbIds.length === 0) return map;
+  const payments = await basePrisma.payment.findMany({
+    where: {
+      invoiceId: { in: invoiceDbIds },
+      status: { in: ['SUCCEEDED', 'PARTIALLY_REFUNDED'] },
+    },
+    select: { invoiceId: true, amount: true, refundedAmount: true },
+  });
+  for (const p of payments) {
+    if (p.invoiceId == null) continue;
+    const refunded = p.refundedAmount ?? 0;
+    const net = p.amount - refunded;
+    if (net <= 0) continue;
+    map.set(p.invoiceId, (map.get(p.invoiceId) ?? 0) + net);
+  }
+  return map;
+}
+
+/** Latest Stripe billing name captured during reconciliation (for profile name sanity check). */
+async function loadOtStripeCustomerNameByInvoiceId(invoiceDbIds: number[]): Promise<Map<number, string>> {
+  const map = new Map<number, string>();
+  if (invoiceDbIds.length === 0) return map;
+  const rows = await basePrisma.paymentReconciliation.findMany({
+    where: {
+      invoiceId: { in: invoiceDbIds },
+      customerName: { not: null },
+    },
+    orderBy: { createdAt: 'desc' },
+    select: { invoiceId: true, customerName: true },
+  });
+  for (const r of rows) {
+    if (r.invoiceId == null) continue;
+    const n = r.customerName?.trim();
+    if (!n || map.has(r.invoiceId)) continue;
+    map.set(r.invoiceId, n);
+  }
+  return map;
+}
+
 async function resolveOtClinic(): Promise<{ clinicId: number; clinicName: string }> {
   const clinic = await basePrisma.clinic.findFirst({
     where: { subdomain: OT_CLINIC_SUBDOMAIN, status: 'ACTIVE' },
@@ -458,6 +534,7 @@ export async function generateOtDailyInvoices(date: string, endDate?: string): P
     {
       paidAt: Date | null;
       invoiceDbId: number;
+      patientId: number;
       amountPaid: number;
       amountDue: number | null;
       lineItems: unknown;
@@ -469,6 +546,7 @@ export async function generateOtDailyInvoices(date: string, endDate?: string): P
       invoiceByOrderId.set(inv.orderId, {
         paidAt: inv.paidAt,
         invoiceDbId: inv.id,
+        patientId: inv.patientId,
         amountPaid: inv.amountPaid,
         amountDue: inv.amountDue,
         lineItems: inv.lineItems,
@@ -542,6 +620,7 @@ export async function generateOtDailyInvoices(date: string, endDate?: string): P
       invoiceByOrderId.set(bestOrder.id, {
         paidAt: inv.paidAt,
         invoiceDbId: inv.id,
+        patientId: inv.patientId,
         amountPaid: inv.amountPaid,
         amountDue: inv.amountDue,
         lineItems: inv.lineItems,
@@ -568,6 +647,11 @@ export async function generateOtDailyInvoices(date: string, endDate?: string): P
   ];
   const salesRepLookup = await loadOtSalesRepCommissionLookup(clinicId, invoiceDbIdsForCommissions);
 
+  const [paymentNetByInvoiceId, stripeCustomerNameByInvoiceId] = await Promise.all([
+    loadOtPaymentNetCentsByInvoiceId(invoiceDbIdsForCommissions),
+    loadOtStripeCustomerNameByInvoiceId(invoiceDbIdsForCommissions),
+  ]);
+
   const patientIdsForDoctorFee = [...new Set(filteredOrders.map((o) => o.patientId))];
   const paidRxHistoryByPatient = await loadOtPaidPrescriptionInvoicesByPatient(
     clinicId,
@@ -586,6 +670,7 @@ export async function generateOtDailyInvoices(date: string, endDate?: string): P
   let subtotalTrtTelehealthCents = 0;
   let totalVials = 0;
   let missingPriceCount = 0;
+  let estimatedPriceCount = 0;
   let grossSalesCents = 0;
   const grossInvoicesCounted = new Set<number>();
 
@@ -603,48 +688,63 @@ export async function generateOtDailyInvoices(date: string, endDate?: string): P
 
     if (invMeta && !grossInvoicesCounted.has(invMeta.invoiceDbId)) {
       grossInvoicesCounted.add(invMeta.invoiceDbId);
-      grossSalesCents += normalizeGrossCents({
-        amountPaid: invMeta.amountPaid,
-        amountDue: invMeta.amountDue,
+      const g = resolveOtPatientGrossCents({
+        invoiceDbId: invMeta.invoiceDbId,
+        invoiceAmountPaid: invMeta.amountPaid,
+        invoiceAmountDue: invMeta.amountDue,
+        paymentNetCentsByInvoiceId: paymentNetByInvoiceId,
+        invoiceGrossFallback: normalizeGrossCents,
+      });
+      grossSalesCents += g.cents;
+    }
+
+    if (invMeta && invMeta.patientId !== order.patientId) {
+      logger.warn('OT invoice: prescription invoice patientId does not match order patientId', {
+        orderId: order.id,
+        invoiceDbId: invMeta.invoiceDbId,
+        invoicePatientId: invMeta.patientId,
+        orderPatientId: order.patientId,
       });
     }
 
     let orderVialCount = 0;
     let orderMedTotalCents = 0;
 
-    for (const rx of order.rxs) {
-      const priced = getOtProductPrice(rx.medicationKey);
-      const qty = parseInt(rx.quantity, 10) || 1;
+    for (const { rx, qty } of consolidateOtOrderRxs(order.rxs)) {
+      const resolved = resolveOtProductPriceForPharmacyLine(rx);
       orderVialCount += qty;
-      const unitCents = priced?.priceCents ?? 0;
-      if (!priced) missingPriceCount += qty;
+      const unitCents = resolved?.row.priceCents ?? 0;
+      if (!resolved) missingPriceCount += qty;
+      else if (resolved.source === 'fallback') estimatedPriceCount += qty;
       orderMedTotalCents += unitCents * qty;
 
-      const pricingStatus = priced ? 'priced' : 'missing';
-      const displayName = priced?.name ?? rx.medName;
-      const displayStrength = priced?.strength ?? rx.strength;
-      const displayVial = priced?.vialSize ?? (rx.form || '');
+      const pricingStatus: OtPharmacyLineItem['pricingStatus'] = resolved
+        ? resolved.source === 'catalog'
+          ? 'priced'
+          : 'estimated'
+        : 'missing';
+      const displayName = resolved?.row.name ?? rx.medName;
+      const displayStrength = resolved?.row.strength ?? rx.strength;
+      const displayVial = resolved?.row.vialSize ?? (rx.form || '');
 
-      for (let v = 0; v < qty; v++) {
-        pharmacyLineItems.push({
-          orderId: order.id,
-          lifefileOrderId: order.lifefileOrderId,
-          orderDate,
-          paidAt,
-          patientName,
-          patientId: order.patientId,
-          providerName,
-          providerId: order.providerId,
-          medicationName: displayName,
-          strength: displayStrength,
-          vialSize: displayVial,
-          medicationKey: rx.medicationKey,
-          quantity: 1,
-          unitPriceCents: unitCents,
-          lineTotalCents: unitCents,
-          pricingStatus,
-        });
-      }
+      pharmacyLineItems.push({
+        orderId: order.id,
+        lifefileOrderId: order.lifefileOrderId,
+        orderDate,
+        paidAt,
+        patientName,
+        patientId: order.patientId,
+        providerName,
+        providerId: order.providerId,
+        medicationName: displayName,
+        strength: displayStrength,
+        vialSize: displayVial,
+        medicationKey: rx.medicationKey,
+        quantity: qty,
+        unitPriceCents: unitCents,
+        lineTotalCents: unitCents * qty,
+        pricingStatus,
+      });
     }
 
     subtotalMedicationsCents += orderMedTotalCents;
@@ -754,9 +854,26 @@ export async function generateOtDailyInvoices(date: string, endDate?: string): P
       }
     }
 
-    const patientGrossCents = invMeta
-      ? normalizeGrossCents({ amountPaid: invMeta.amountPaid, amountDue: invMeta.amountDue })
-      : 0;
+    const grossResolved = invMeta
+      ? resolveOtPatientGrossCents({
+          invoiceDbId: invMeta.invoiceDbId,
+          invoiceAmountPaid: invMeta.amountPaid,
+          invoiceAmountDue: invMeta.amountDue,
+          paymentNetCentsByInvoiceId: paymentNetByInvoiceId,
+          invoiceGrossFallback: normalizeGrossCents,
+        })
+      : { cents: 0 as number, source: 'invoice_sync' as const };
+    const patientGrossCents = grossResolved.cents;
+
+    const stripeBillingNameMatch =
+      invMeta && order.patient
+        ? compareStripeBillingNameToPatient({
+            stripeBillingName: stripeCustomerNameByInvoiceId.get(invMeta.invoiceDbId) ?? null,
+            patientFirstName: safeDecryptName(order.patient.firstName),
+            patientLastName: safeDecryptName(order.patient.lastName),
+          })
+        : 'unknown';
+    const invoicePatientMatchesOrder = invMeta == null || invMeta.patientId === order.patientId;
     const saleMerchantCents = Math.round((patientGrossCents * OT_MERCHANT_PROCESSING_BPS) / 10_000);
     const salePlatformCents = Math.round((patientGrossCents * OT_PLATFORM_COMPENSATION_BPS) / 10_000);
     const pharmacyTotalForOrder =
@@ -794,6 +911,9 @@ export async function generateOtDailyInvoices(date: string, endDate?: string): P
       paidAt,
       patientName,
       patientGrossCents,
+      patientGrossSource: grossResolved.source,
+      stripeBillingNameMatch,
+      invoicePatientMatchesOrder,
       medicationsCostCents: orderMedTotalCents,
       shippingCents: orderShippingCents,
       trtTelehealthCents: orderTrtTelehealthCents,
@@ -871,6 +991,7 @@ export async function generateOtDailyInvoices(date: string, endDate?: string): P
       orderCount: filteredOrders.length,
       vialCount: totalVials,
       missingPriceCount,
+      estimatedPriceCount,
     },
     doctorApprovals: {
       invoiceType: 'doctor_approvals',
@@ -945,6 +1066,7 @@ export function generateOtPharmacyCSV(invoice: OtPharmacyInvoice): string {
   );
   lines.push(`Generated,${new Date(invoice.invoiceDate).toLocaleString('en-US')}`);
   lines.push(`Missing internal prices (line items),${invoice.missingPriceCount}`);
+  lines.push(`Estimated internal prices — name match (qty),${invoice.estimatedPriceCount}`);
   lines.push('');
 
   lines.push('=== MEDICATION LINE ITEMS ===');
@@ -1152,6 +1274,9 @@ export function generateOtPerSaleReconciliationCSV(data: OtDailyInvoices): strin
     'Manager oversight detail',
     'Total deductions',
     'Net to OT clinic',
+    'Gross source',
+    'Stripe billing name vs profile',
+    'Invoice patient = order patient',
   ];
   lines.push(header.map(escapeCSV).join(','));
   for (const r of data.perSaleReconciliation) {
@@ -1192,6 +1317,9 @@ export function generateOtPerSaleReconciliationCSV(data: OtDailyInvoices): strin
         r.managerOverrideSummary ?? '',
         `$${centsToDisplay(r.totalDeductionsCents)}`,
         `$${centsToDisplay(r.clinicNetPayoutCents)}`,
+        r.patientGrossSource,
+        r.stripeBillingNameMatch,
+        r.invoicePatientMatchesOrder ? 'yes' : 'no',
       ]
         .map(escapeCSV)
         .join(','),
@@ -1226,6 +1354,9 @@ export function generateOtPerSaleReconciliationCSV(data: OtDailyInvoices): strin
       '',
       `$${centsToDisplay(sum((x) => x.totalDeductionsCents))}`,
       `$${centsToDisplay(sum((x) => x.clinicNetPayoutCents))}`,
+      '',
+      '',
+      '',
     ]
       .map(escapeCSV)
       .join(','),
@@ -1256,6 +1387,9 @@ export function generateOtPerSaleReconciliationCSV(data: OtDailyInvoices): strin
       '',
       `$${centsToDisplay(data.grandTotalCents)}`,
       `$${centsToDisplay(data.clinicNetPayoutCents)}`,
+      '',
+      '',
+      '',
     ]
       .map(escapeCSV)
       .join(','),
@@ -1434,7 +1568,13 @@ export async function generateOtSummaryPDF(data: OtDailyInvoices): Promise<Uint8
     mid,
   );
   y -= 14;
-  draw(`Unpriced medication lines (qty): ${data.pharmacy.missingPriceCount}`, M, 8, font, mid);
+  draw(
+    `Unpriced medication qty: ${data.pharmacy.missingPriceCount} · Name-estimated qty: ${data.pharmacy.estimatedPriceCount}`,
+    M,
+    8,
+    font,
+    mid,
+  );
   y -= 16;
   draw(
     `Per-sale breakdown: export Combined CSV or Per-sale CSV (${data.perSaleReconciliation.length} sales).`,
