@@ -387,9 +387,11 @@ export default function OtInvoicesPage() {
           row for OT patients with <strong>paidAt</strong> (or <strong>createdAt</strong> if paidAt is empty) in the
           Eastern window — that is the cash ledger to compare to Stripe.           Pharmacy / per-sale rows match invoices with an <code className="rounded bg-gray-100 px-1 text-xs">orderId</code>{' '}
           linked from each payment (<code className="rounded bg-gray-100 px-1 text-xs">Payment.invoiceId</code> or Stripe
-          reconciliation). Invoices are included even when <strong>Invoice.paidAt</strong> lags the payment or{' '}
-          <strong>prescription processed</strong> is still pending. Lifefile and DoseSpot orders are included; queue orders
-          still count for COGS. A day with no All payments rows means nothing settled in the DB
+          reconciliation), or by <strong>patient + paid invoice on Order</strong> when the payment row does not point at
+          the Rx invoice. Invoices are included even when <strong>Invoice.paidAt</strong> lags the payment or{' '}
+          <strong>prescription processed</strong> is still pending. Matched orders load even if{' '}
+          <code className="rounded bg-gray-100 px-1 text-xs">fulfillmentChannel</code> is unusual. A day with no All
+          payments rows means nothing settled in the DB
           for that window; use <strong>Date range</strong> to match your payout batch.
         </p>
       </div>

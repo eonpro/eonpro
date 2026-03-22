@@ -816,9 +816,101 @@ export async function generateOtDailyInvoices(date: string, endDate?: string): P
     }
   }
 
+  const wideStart = new Date(periodStart.getTime() - 7 * 24 * 60 * 60 * 1000);
+  const wideEnd = new Date(periodEnd.getTime() + 7 * 24 * 60 * 60 * 1000);
+  /** Wider window for payment→patient→order fallback (multi-week date ranges, Rx fulfilled before cash posts). */
+  const patientFallbackStart = new Date(periodStart.getTime() - 45 * 24 * 60 * 60 * 1000);
+  const patientFallbackEnd = new Date(periodEnd.getTime() + 14 * 24 * 60 * 60 * 1000);
+
+  /**
+   * Last-resort COGS link: patients with cash in the period → their Rx orders in the wide window →
+   * latest paid invoice per `orderId`. Handles payments that never set `Payment.invoiceId` or point at a
+   * non-Rx Stripe invoice while the Rx row exists with `orderId`.
+   */
+  if (paymentPatientIds.length > 0) {
+    const extraOrderRows = await basePrisma.order.findMany({
+      where: {
+        patientId: { in: paymentPatientIds },
+        patient: { clinicId },
+        cancelledAt: null,
+        /** Do not filter channel here — mis-set `fulfillmentChannel` should not block COGS once we have a paid invoice on `orderId`. */
+        status: { notIn: ['error', 'cancelled', 'declined'] },
+        OR: [
+          { createdAt: { gte: patientFallbackStart, lte: patientFallbackEnd } },
+          { approvedAt: { gte: patientFallbackStart, lte: patientFallbackEnd } },
+        ],
+      },
+      select: { id: true },
+    });
+    const extraOrderIds = extraOrderRows.map((o) => o.id).filter((id) => !orderIdsFromInvoices.has(id));
+    if (extraOrderIds.length > 0) {
+      const invForExtraOrders = await basePrisma.invoice.findMany({
+        where: {
+          orderId: { in: extraOrderIds },
+          ...otInvoicePatientClinicScope(clinicId),
+          paidAt: { not: null },
+          status: { notIn: ['VOID', 'REFUNDED'] },
+        },
+        select: {
+          id: true,
+          orderId: true,
+          paidAt: true,
+          patientId: true,
+          prescriptionProcessedAt: true,
+          amountPaid: true,
+          amountDue: true,
+          lineItems: true,
+        },
+      });
+      const bestInvByOrder = new Map<
+        number,
+        {
+          id: number;
+          orderId: number | null;
+          paidAt: Date | null;
+          patientId: number;
+          prescriptionProcessedAt: Date | null;
+          amountPaid: number;
+          amountDue: number | null;
+          lineItems: unknown;
+        }
+      >();
+      for (const inv of invForExtraOrders) {
+        if (inv.orderId == null) continue;
+        const prev = bestInvByOrder.get(inv.orderId);
+        const invPaid = inv.paidAt?.getTime() ?? 0;
+        const prevPaid = prev?.paidAt?.getTime() ?? 0;
+        if (!prev || invPaid >= prevPaid) {
+          bestInvByOrder.set(inv.orderId, inv);
+        }
+      }
+      let fallbackAttached = 0;
+      for (const [orderId, inv] of bestInvByOrder) {
+        if (invoiceByOrderId.has(orderId)) continue;
+        invoiceByOrderId.set(orderId, {
+          paidAt: inv.paidAt,
+          invoiceDbId: inv.id,
+          patientId: inv.patientId,
+          amountPaid: inv.amountPaid,
+          amountDue: inv.amountDue,
+          lineItems: inv.lineItems,
+        });
+        orderIdsFromInvoices.add(orderId);
+        fallbackAttached += 1;
+      }
+      if (fallbackAttached > 0) {
+        logger.info('OT invoice: patient→order→invoice fallback attached pharmacy rows', {
+          clinicId,
+          fallbackAttached,
+          extraOrdersConsidered: extraOrderIds.length,
+        });
+      }
+    }
+  }
+
   if (rawPeriodPayments.length > 0 && orderIdsFromInvoices.size === 0) {
     const withDirectInvoice = rawPeriodPayments.filter((p) => p.invoiceId != null).length;
-    logger.warn('OT invoice: period has payments but no orders for pharmacy — check Invoice.orderId, patient clinic, order status/channel', {
+    logger.warn('OT invoice: period has payments but no orders for pharmacy — check Invoice.orderId, patient clinic, order status/channel, invoice paidAt/status', {
       clinicId,
       paymentRowCount: rawPeriodPayments.length,
       paymentsWithInvoiceId: withDirectInvoice,
@@ -844,9 +936,6 @@ export async function generateOtDailyInvoices(date: string, endDate?: string): P
     },
   });
 
-  const wideStart = new Date(periodStart.getTime() - 7 * 24 * 60 * 60 * 1000);
-  const wideEnd = new Date(periodEnd.getTime() + 7 * 24 * 60 * 60 * 1000);
-
   // Prisma rejects `in: []`; when all period invoices are unlinked (no orderId yet), only query by date window.
   const orderIdsMatchedToInvoice = [...orderIdsFromInvoices];
   const orderOrClause =
@@ -854,15 +943,27 @@ export async function generateOtDailyInvoices(date: string, endDate?: string): P
       ? [{ id: { in: orderIdsMatchedToInvoice } }, { createdAt: { gte: wideStart, lte: wideEnd } }]
       : [{ createdAt: { gte: wideStart, lte: wideEnd } }];
 
+  const fulfillmentOr: Array<
+    { fulfillmentChannel: { in: string[] } } | { id: { in: number[] } }
+  > = [{ fulfillmentChannel: { in: ['lifefile', 'dosespot'] } }];
+  if (orderIdsMatchedToInvoice.length > 0) {
+    fulfillmentOr.push({ id: { in: orderIdsMatchedToInvoice } });
+  }
+
   const allOrders = await basePrisma.order.findMany({
     where: {
-      patient: { clinicId },
-      OR: orderOrClause,
-      cancelledAt: null,
-      /** OT uses Lifefile and/or DoseSpot; restricting to lifefile-only hid all Rx COGS when channel flipped. */
-      fulfillmentChannel: { in: ['lifefile', 'dosespot'] },
-      /** Paid orders still in admin queue must allocate COGS; only terminal bad states are excluded. */
-      status: { notIn: ['error', 'cancelled', 'declined'] },
+      AND: [
+        { patient: { clinicId } },
+        { OR: orderOrClause },
+        { cancelledAt: null },
+        /** Paid orders still in admin queue must allocate COGS; only terminal bad states are excluded. */
+        { status: { notIn: ['error', 'cancelled', 'declined'] } },
+        /**
+         * Prefer Lifefile/DoseSpot; always include orders we already matched to a paid invoice so an odd
+         * `fulfillmentChannel` value cannot drop pharmacy lines entirely.
+         */
+        { OR: fulfillmentOr },
+      ],
     },
     select: {
       id: true,
