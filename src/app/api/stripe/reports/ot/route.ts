@@ -1,3 +1,4 @@
+import { instantToCalendarDate } from '@/lib/utils/platform-calendar';
 /**
  * OT (Overtime) Comprehensive Financial Reports API
  *
@@ -209,7 +210,7 @@ async function getOTReportsHandler(request: NextRequest, user: AuthUser) {
       return new NextResponse(csv, {
         headers: {
           'Content-Type': 'text/csv',
-          'Content-Disposition': `attachment; filename="ot-${reportType}-report-${filters.startDate.toISOString().split('T')[0]}.csv"`,
+          'Content-Disposition': `attachment; filename="ot-${reportType}-report-${instantToCalendarDate(filters.startDate)}.csv"`,
         },
       });
     }
@@ -1157,7 +1158,7 @@ function calculateDailyRevenue(charges: Stripe.Charge[], filters: ReportFilters)
   const dailyData: Record<string, { revenue: number; transactions: number }> = {};
 
   for (const charge of charges) {
-    const date = new Date(charge.created * 1000).toISOString().split('T')[0];
+    const date = instantToCalendarDate(new Date(charge.created * 1000));
 
     if (!dailyData[date]) {
       dailyData[date] = { revenue: 0, transactions: 0 };
@@ -1187,13 +1188,13 @@ function groupRevenueByPeriod(charges: Stripe.Charge[], groupBy: 'day' | 'week' 
       case 'week':
         const weekStart = new Date(date);
         weekStart.setDate(date.getDate() - date.getDay());
-        key = weekStart.toISOString().split('T')[0];
+        key = instantToCalendarDate(weekStart);
         break;
       case 'month':
         key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
         break;
       default:
-        key = date.toISOString().split('T')[0];
+        key = instantToCalendarDate(date);
     }
 
     if (!grouped[key]) {

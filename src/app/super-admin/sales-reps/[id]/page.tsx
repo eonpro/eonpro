@@ -1,5 +1,6 @@
 'use client';
 
+import { calendarTodayServer } from '@/lib/utils/platform-calendar';
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 // Link removed — patient detail pages use plain <a> tags to avoid RSC fetch hangs
@@ -124,7 +125,7 @@ export default function SalesRepDetailPage() {
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url; a.download = `sales-rep-${r.name.replace(/\s+/g,'-')}-report-${new Date().toISOString().split('T')[0]}.csv`;
+    a.href = url; a.download = `sales-rep-${r.name.replace(/\s+/g,'-')}-report-${calendarTodayServer()}.csv`;
     document.body.appendChild(a); a.click(); document.body.removeChild(a); window.URL.revokeObjectURL(url);
   };
 

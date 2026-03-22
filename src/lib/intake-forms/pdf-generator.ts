@@ -1,3 +1,4 @@
+import { calendarTodayServer } from '@/lib/utils/platform-calendar';
 import puppeteer from 'puppeteer';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
@@ -104,7 +105,7 @@ export async function generateIntakeFormPDF(options: PDFGenerationOptions): Prom
     }
 
     // Save PDF to patient documents
-    const fileName = `intake_form_${submission.template.name.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
+    const fileName = `intake_form_${submission.template.name.replace(/\s+/g, '_')}_${calendarTodayServer()}.pdf`;
 
     // Build intake data structure for display in Intake tab (same format as webhook intakes)
     const patientData = submission.patient;

@@ -1,3 +1,4 @@
+import { instantToCalendarDate } from '@/lib/utils/platform-calendar';
 /**
  * INTELLIGENT DATA PRELOADER
  * ==========================
@@ -343,7 +344,7 @@ class DataPreloader {
     endDate: Date,
     clinicId: number
   ): Promise<unknown[]> {
-    const cacheKey = `provider:schedule:${providerId}:${startDate.toISOString().split('T')[0]}`;
+    const cacheKey = `provider:schedule:${providerId}:${instantToCalendarDate(startDate)}`;
 
     return queryOptimizer.query(
       async () => {

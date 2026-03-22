@@ -1,5 +1,6 @@
 'use client';
 
+import { calendarTodayServer } from '@/lib/utils/platform-calendar';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Upload,
@@ -178,7 +179,7 @@ export default function PharmacyInvoicesPage() {
   // Patient Discrepancy tab
   const [discrepancyInvoiceIds, setDiscrepancyInvoiceIds] = useState<Set<number>>(new Set());
   const [discrepancyStartDate, setDiscrepancyStartDate] = useState('2026-03-09');
-  const [discrepancyEndDate, setDiscrepancyEndDate] = useState(new Date().toISOString().split('T')[0]);
+  const [discrepancyEndDate, setDiscrepancyEndDate] = useState(calendarTodayServer());
   const [discrepancyData, setDiscrepancyData] = useState<DiscrepancyData | null>(null);
   const [discrepancyLoading, setDiscrepancyLoading] = useState(false);
   const [discrepancyError, setDiscrepancyError] = useState<string | null>(null);
@@ -1230,7 +1231,7 @@ function MarkPaidModal({ invoice, onClose, onSaved }: {
   const [amount, setAmount] = useState(String((invoice.paidAmountCents || invoice.invoiceTotalCents) / 100));
   const [reference, setReference] = useState(invoice.paymentReference ?? '');
   const [notes, setNotes] = useState('');
-  const [paidAt, setPaidAt] = useState(new Date().toISOString().split('T')[0]);
+  const [paidAt, setPaidAt] = useState(calendarTodayServer());
   const [saving, setSaving] = useState(false);
 
   const handleSave = async () => {

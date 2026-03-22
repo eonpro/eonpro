@@ -1,3 +1,4 @@
+import { instantToCalendarDate } from '@/lib/utils/platform-calendar';
 /**
  * Affiliate Dashboard Data API
  *
@@ -294,7 +295,7 @@ async function handleGet(request: NextRequest, user: AuthUser) {
 
     // Format daily trend
     const dailyTrendFormatted = (dailyClickTrend || []).map((d: any) => ({
-      date: d.date instanceof Date ? d.date.toISOString().split('T')[0] : String(d.date),
+      date: d.date instanceof Date ? instantToCalendarDate(d.date) : String(d.date),
       clicks: d.clicks,
     }));
 

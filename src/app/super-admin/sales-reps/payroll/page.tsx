@@ -1,5 +1,6 @@
 'use client';
 
+import { instantToCalendarDate } from '@/lib/utils/platform-calendar';
 import { useEffect, useState, useCallback, useMemo, Fragment } from 'react';
 import {
   DollarSign, TrendingUp, BadgeDollarSign, Clock, CheckCircle2,
@@ -98,7 +99,7 @@ function presetToDates(preset: string): { startDate?: string; endDate?: string }
   const m = now.getMonth();
   const d = now.getDate();
   const dow = now.getDay();
-  const fmt = (dt: Date) => dt.toISOString().split('T')[0];
+  const fmt = (dt: Date) => instantToCalendarDate(dt);
 
   switch (preset) {
     case 'this-week': { const s = new Date(y, m, d - dow); return { startDate: fmt(s), endDate: fmt(now) }; }

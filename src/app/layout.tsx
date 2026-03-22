@@ -17,6 +17,7 @@ import { SpeedInsights } from '@vercel/speed-insights/next';
 import { Analytics } from '@vercel/analytics/next';
 // DevAuth removed for production
 import { ClientProviders } from '@/components/providers/ClientProviders';
+import { ClientTimeZoneBootstrap } from '@/components/ClientTimeZoneBootstrap';
 // Using Outfit as fallback until Sofia Pro files are added
 // To use Sofia Pro: 1) Add font files to public/fonts/ 2) Switch import to './fonts'
 import { outfitFont as sofiaPro } from './fonts-fallback';
@@ -58,6 +59,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
                 <AffiliateTracker />
               </Suspense>
               <AuthHydrator />
+              <ClientTimeZoneBootstrap />
               <GlobalFetchInterceptor />
               <SessionExpirationHandler />
               <ConditionalHeader />

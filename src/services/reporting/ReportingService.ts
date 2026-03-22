@@ -1,3 +1,4 @@
+import { instantToCalendarDate } from '@/lib/utils/platform-calendar';
 /**
  * COMPREHENSIVE REPORTING SERVICE
  * ================================
@@ -909,7 +910,7 @@ export class ReportingService {
     const dayMap = new Map<string, number>();
 
     payments.forEach((p: PaymentSelect) => {
-      const dateKey = p.createdAt.toISOString().split('T')[0];
+      const dateKey = instantToCalendarDate(p.createdAt);
       dayMap.set(dateKey, (dayMap.get(dateKey) || 0) + p.amount);
     });
 

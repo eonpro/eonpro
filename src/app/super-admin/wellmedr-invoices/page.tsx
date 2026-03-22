@@ -1,5 +1,6 @@
 'use client';
 
+import { instantToCalendarDate } from '@/lib/utils/platform-calendar';
 import React, { useState, useCallback, useMemo } from 'react';
 import {
   FileText,
@@ -140,7 +141,7 @@ function formatDateTime(iso: string): string {
 
 function getTodayISO(): string {
   const now = new Date();
-  return now.toISOString().split('T')[0];
+  return instantToCalendarDate(now);
 }
 
 // ============================================================================

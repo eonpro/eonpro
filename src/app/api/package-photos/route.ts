@@ -1,3 +1,4 @@
+import { instantToCalendarDate } from '@/lib/utils/platform-calendar';
 import { NextRequest, NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
 import { withPharmacyAccessAuth, type AuthUser } from '@/lib/auth/middleware';
@@ -7,7 +8,13 @@ import { uploadToS3, generateSignedUrl } from '@/lib/integrations/aws/s3Service'
 import { FileCategory, isS3Enabled } from '@/lib/integrations/aws/s3Config';
 import { logger } from '@/lib/logger';
 import { decryptPHI } from '@/lib/security/phi-encryption';
-import { getTimezoneAwareBoundaries, midnightInTz, getDatePartsInTz } from '@/lib/utils/timezone';
+import {
+  getTimezoneAwareBoundaries,
+  midnightInTz,
+  getDatePartsInTz,
+  dbDateToString,
+  toCalendarDateStringInTz,
+} from '@/lib/utils/timezone';
 import { z } from 'zod';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
@@ -161,8 +168,8 @@ function buildPerformanceResponse(
       },
       reps,
       range: {
-        from: rangeStart.toISOString().split('T')[0],
-        to: new Date(rangeEnd.getTime() - 86400000).toISOString().split('T')[0],
+        from: instantToCalendarDate(rangeStart),
+        to: instantToCalendarDate(new Date(rangeEnd.getTime() - 86400000)),
       },
       granularity,
     },
@@ -448,14 +455,14 @@ async function getHandler(req: NextRequest, user: AuthUser) {
       // Fill in missing days with zeros for the daily chart
       const dailyVolume: Array<{ date: string; total: number; matched: number; unmatched: number }> = [];
       const dayMap = new Map(dailyVolumeRaw.map((r) => [
-        new Date(r.day).toISOString().split('T')[0],
+        dbDateToString(new Date(r.day)),
         { total: Number(r.total), matched: Number(r.matched) },
       ]));
 
       for (let i = 0; i < 14; i++) {
         const offsetDays = day - 13 + i;
         const dayMidnight = midnightInTz(year, month, offsetDays, tz);
-        const key = new Date(dayMidnight.getTime() + 12 * 60 * 60 * 1000).toISOString().split('T')[0];
+        const key = toCalendarDateStringInTz(new Date(dayMidnight.getTime() + 12 * 60 * 60 * 1000), tz);
         const data = dayMap.get(key) ?? { total: 0, matched: 0 };
         dailyVolume.push({
           date: key,
@@ -579,7 +586,7 @@ async function getHandler(req: NextRequest, user: AuthUser) {
 
         const repsByKey = new Map<string, Array<{ userId: number; name: string; total: number; matched: number }>>();
         for (const r of repRows) {
-          const key = `${new Date(r.day).toISOString().split('T')[0]}-${r.hour}`;
+          const key = `${dbDateToString(new Date(r.day))}-${r.hour}`;
           if (!repsByKey.has(key)) repsByKey.set(key, []);
           repsByKey.get(key)!.push({
             userId: r.captured_by_id,
@@ -590,7 +597,7 @@ async function getHandler(req: NextRequest, user: AuthUser) {
         }
 
         const intervals = intervalRows.map((row) => {
-          const dayKey = new Date(row.day).toISOString().split('T')[0];
+          const dayKey = dbDateToString(new Date(row.day));
           const t = Number(row.total);
           const m = Number(row.matched);
           const h = row.hour;
@@ -645,7 +652,7 @@ async function getHandler(req: NextRequest, user: AuthUser) {
 
         const repsByWeek = new Map<string, Array<{ userId: number; name: string; total: number; matched: number }>>();
         for (const r of repRows) {
-          const key = new Date(r.week_start).toISOString().split('T')[0];
+          const key = dbDateToString(new Date(r.week_start));
           if (!repsByWeek.has(key)) repsByWeek.set(key, []);
           repsByWeek.get(key)!.push({
             userId: r.captured_by_id,
@@ -661,7 +668,7 @@ async function getHandler(req: NextRequest, user: AuthUser) {
           const t = Number(row.total);
           const m = Number(row.matched);
           const fmt = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-          const weekKey = ws.toISOString().split('T')[0];
+          const weekKey = dbDateToString(ws);
           return {
             label: `${fmt(ws)} – ${fmt(we)}`,
             date: weekKey,
@@ -710,7 +717,7 @@ async function getHandler(req: NextRequest, user: AuthUser) {
 
       const repsByDay = new Map<string, Array<{ userId: number; name: string; total: number; matched: number }>>();
       for (const r of repRows) {
-        const key = new Date(r.day).toISOString().split('T')[0];
+        const key = dbDateToString(new Date(r.day));
         if (!repsByDay.has(key)) repsByDay.set(key, []);
         repsByDay.get(key)!.push({
           userId: r.captured_by_id,
@@ -721,7 +728,7 @@ async function getHandler(req: NextRequest, user: AuthUser) {
       }
 
       const intervals = intervalRows.map((row) => {
-        const dayKey = new Date(row.day).toISOString().split('T')[0];
+        const dayKey = dbDateToString(new Date(row.day));
         const t = Number(row.total);
         const m = Number(row.matched);
         return {
@@ -809,7 +816,7 @@ async function getHandler(req: NextRequest, user: AuthUser) {
 
       const repsByDay = new Map<string, Array<{ name: string; total: number; matched: number }>>();
       for (const row of repDailyRows) {
-        const dayKey = new Date(row.day).toISOString().split('T')[0];
+        const dayKey = dbDateToString(new Date(row.day));
         if (!repsByDay.has(dayKey)) repsByDay.set(dayKey, []);
         repsByDay.get(dayKey)!.push({
           name: `${row.first_name} ${row.last_name}`,
@@ -823,7 +830,7 @@ async function getHandler(req: NextRequest, user: AuthUser) {
       const daysWithData = dailyRows.length;
 
       const days = dailyRows.map((row) => {
-        const dayKey = new Date(row.day).toISOString().split('T')[0];
+        const dayKey = dbDateToString(new Date(row.day));
         const t = Number(row.total);
         const m = Number(row.matched);
         return {
@@ -849,8 +856,8 @@ async function getHandler(req: NextRequest, user: AuthUser) {
             avgPerDay: daysWithData > 0 ? Math.round(grandTotal / daysWithData) : 0,
           },
           range: {
-            from: fromParam ?? rangeStart.toISOString().split('T')[0],
-            to: toParam ?? new Date(rangeEnd.getTime() - 86400000).toISOString().split('T')[0],
+            from: fromParam ?? instantToCalendarDate(rangeStart),
+            to: toParam ?? instantToCalendarDate(new Date(rangeEnd.getTime() - 86400000)),
           },
         },
       });

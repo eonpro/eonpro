@@ -1,5 +1,6 @@
 'use client';
 
+import { instantToCalendarDate } from '@/lib/utils/platform-calendar';
 /**
  * Affiliate Analytics Page
  *
@@ -249,8 +250,8 @@ export default function AffiliateAnalyticsPage() {
     }
 
     return {
-      from: from.toISOString().split('T')[0],
-      to: to.toISOString().split('T')[0],
+      from: instantToCalendarDate(from),
+      to: instantToCalendarDate(to),
     };
   }, [selectedPreset]);
 

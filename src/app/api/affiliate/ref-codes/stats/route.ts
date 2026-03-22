@@ -1,3 +1,4 @@
+import { instantToCalendarDate } from '@/lib/utils/platform-calendar';
 /**
  * Affiliate Ref Codes Stats API
  *
@@ -221,7 +222,7 @@ async function handler(req: NextRequest, user: AuthUser): Promise<Response> {
     // Group daily breakdown by refCode
     const dailyMap = new Map<string, Array<{ date: string; clicks: number }>>();
     for (const row of dailyBreakdown || []) {
-      const dateStr = row.date instanceof Date ? row.date.toISOString().split('T')[0] : String(row.date);
+      const dateStr = row.date instanceof Date ? instantToCalendarDate(row.date) : String(row.date);
       if (!dailyMap.has(row.refCode)) {
         dailyMap.set(row.refCode, []);
       }

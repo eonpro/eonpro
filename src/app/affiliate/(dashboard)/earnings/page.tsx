@@ -1,5 +1,6 @@
 'use client';
 
+import { calendarTodayServer } from '@/lib/utils/platform-calendar';
 /**
  * Affiliate Earnings Page
  *
@@ -160,7 +161,7 @@ export default function EarningsPage() {
       c.refCode,
       c.holdUntil ? formatDate(c.holdUntil) : '',
     ]);
-    downloadCsv(`commissions-${new Date().toISOString().split('T')[0]}.csv`, headers, rows);
+    downloadCsv(`commissions-${calendarTodayServer()}.csv`, headers, rows);
   };
 
   const exportPayouts = () => {
@@ -173,7 +174,7 @@ export default function EarningsPage() {
       p.status,
       p.method,
     ]);
-    downloadCsv(`payouts-${new Date().toISOString().split('T')[0]}.csv`, headers, rows);
+    downloadCsv(`payouts-${calendarTodayServer()}.csv`, headers, rows);
   };
 
   if (isLoading) {

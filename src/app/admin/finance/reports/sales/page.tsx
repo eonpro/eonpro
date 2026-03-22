@@ -1,5 +1,6 @@
 'use client';
 
+import { calendarTodayServer, instantToCalendarDate } from '@/lib/utils/platform-calendar';
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import {
@@ -203,13 +204,13 @@ function formatTime(iso: string): string {
 }
 
 function todayISO(): string {
-  return new Date().toISOString().split('T')[0];
+  return calendarTodayServer();
 }
 
 function daysAgoISO(n: number): string {
   const d = new Date();
   d.setDate(d.getDate() - n);
-  return d.toISOString().split('T')[0];
+  return instantToCalendarDate(d);
 }
 
 /* ================================================================== */

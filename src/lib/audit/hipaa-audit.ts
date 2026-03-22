@@ -1,3 +1,4 @@
+import { instantToCalendarDate } from '@/lib/utils/platform-calendar';
 /**
  * HIPAA-Compliant Audit Logging Service
  * Tracks all PHI access and modifications with tamper-proof logging
@@ -366,7 +367,7 @@ async function fallbackAuditLog(context: AuditContext): Promise<void> {
       : path.join(process.cwd(), 'audit-logs');
     await fs.mkdir(logDir, { recursive: true });
 
-    const filename = `audit-${date.toISOString().split('T')[0]}.jsonl`;
+    const filename = `audit-${instantToCalendarDate(date)}.jsonl`;
     const filepath = path.join(logDir, filename);
     await fs.appendFile(filepath, JSON.stringify(logEntry) + '\n');
   } catch {

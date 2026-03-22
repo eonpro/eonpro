@@ -1,3 +1,4 @@
+import { instantToCalendarDate } from '@/lib/utils/platform-calendar';
 /**
  * Admin Affiliate Reports API
  *
@@ -203,13 +204,13 @@ async function handler(req: NextRequest, user: any): Promise<Response> {
     // Build trends array with all days filled in
     const conversionMap = new Map<string, number>();
     for (const row of conversionTrends || []) {
-      const key = row.date instanceof Date ? row.date.toISOString().split('T')[0] : String(row.date);
+      const key = row.date instanceof Date ? instantToCalendarDate(row.date) : String(row.date);
       conversionMap.set(key, row.conversions);
     }
 
     const commissionMap = new Map<string, { revenueCents: number; commissionCents: number }>();
     for (const row of commissionTrends || []) {
-      const key = row.date instanceof Date ? row.date.toISOString().split('T')[0] : String(row.date);
+      const key = row.date instanceof Date ? instantToCalendarDate(row.date) : String(row.date);
       commissionMap.set(key, { revenueCents: row.revenueCents, commissionCents: row.commissionCents });
     }
 
@@ -218,7 +219,7 @@ async function handler(req: NextRequest, user: any): Promise<Response> {
       const day = new Date(dateTo);
       day.setDate(day.getDate() - i);
       day.setHours(0, 0, 0, 0);
-      const key = day.toISOString().split('T')[0];
+      const key = instantToCalendarDate(day);
 
       trends.push({
         date: day.toISOString(),

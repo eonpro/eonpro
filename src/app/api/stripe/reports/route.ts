@@ -1,3 +1,4 @@
+import { instantToCalendarDate } from '@/lib/utils/platform-calendar';
 /**
  * STRIPE COMPREHENSIVE REPORTS API
  *
@@ -332,13 +333,13 @@ async function generateRevenueReport(
       case 'week':
         const weekStart = new Date(date);
         weekStart.setDate(date.getDate() - date.getDay());
-        key = weekStart.toISOString().split('T')[0];
+        key = instantToCalendarDate(weekStart);
         break;
       case 'month':
         key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
         break;
       default: // day
-        key = date.toISOString().split('T')[0];
+        key = instantToCalendarDate(date);
     }
 
     if (!grouped[key]) {

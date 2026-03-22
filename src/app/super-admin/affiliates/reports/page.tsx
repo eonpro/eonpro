@@ -1,5 +1,6 @@
 'use client';
 
+import { calendarTodayServer } from '@/lib/utils/platform-calendar';
 /**
  * Super Admin Affiliate Reports Page
  *
@@ -177,14 +178,14 @@ export default function SuperAdminAffiliateReportsPage() {
       data.topAffiliates.forEach((affiliate, index) => {
         csvContent += `${index + 1},"${affiliate.name}",${affiliate.conversions},${(affiliate.revenueCents / 100).toFixed(2)},${(affiliate.commissionCents / 100).toFixed(2)}\n`;
       });
-      filename = `super-admin-affiliate-report-${period}-${new Date().toISOString().split('T')[0]}.csv`;
+      filename = `super-admin-affiliate-report-${period}-${calendarTodayServer()}.csv`;
     } else if (type === 'commissions') {
       // Export trends/commission data
       csvContent = 'Date,Conversions,Revenue,Commission\n';
       data.trends.forEach((trend) => {
         csvContent += `${trend.date},${trend.conversions},${(trend.revenueCents / 100).toFixed(2)},${(trend.commissionCents / 100).toFixed(2)}\n`;
       });
-      filename = `super-admin-commission-trends-${period}-${new Date().toISOString().split('T')[0]}.csv`;
+      filename = `super-admin-commission-trends-${period}-${calendarTodayServer()}.csv`;
     } else if (type === '1099') {
       // Export summary for 1099 purposes
       csvContent = 'Affiliate Name,Total Conversions,Total Revenue,Total Commission\n';
@@ -198,7 +199,7 @@ export default function SuperAdminAffiliateReportsPage() {
       csvContent += `Total Revenue,$${(data.overview.totalRevenueCents / 100).toFixed(2)}\n`;
       csvContent += `Total Commission,$${(data.overview.totalCommissionCents / 100).toFixed(2)}\n`;
       csvContent += `Pending Payout,$${(data.overview.pendingPayoutCents / 100).toFixed(2)}\n`;
-      filename = `super-admin-1099-summary-${new Date().toISOString().split('T')[0]}.csv`;
+      filename = `super-admin-1099-summary-${calendarTodayServer()}.csv`;
     }
 
     // Create and trigger download

@@ -1,5 +1,6 @@
 'use client';
 
+import { calendarTodayServer, instantToCalendarDate } from '@/lib/utils/platform-calendar';
 import { useState, useEffect, useCallback } from 'react';
 import {
   FileText,
@@ -40,9 +41,9 @@ export default function BillingReportsPage() {
   const [startDate, setStartDate] = useState(() => {
     const d = new Date();
     d.setMonth(d.getMonth() - 3);
-    return d.toISOString().split('T')[0];
+    return instantToCalendarDate(d);
   });
-  const [endDate, setEndDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [endDate, setEndDate] = useState(() => calendarTodayServer());
 
   // Fee Activity state
   const [feeData, setFeeData] = useState<{ summary: Record<string, number>; events: Record<string, unknown>[] } | null>(null);
@@ -150,9 +151,9 @@ export default function BillingReportsPage() {
         </div>
         <div className="flex gap-1">
           {[
-            { label: 'This Month', fn: () => { const n = new Date(); setStartDate(new Date(n.getFullYear(), n.getMonth(), 1).toISOString().split('T')[0]); setEndDate(n.toISOString().split('T')[0]); } },
-            { label: 'Last 3M', fn: () => { const n = new Date(); const s = new Date(n); s.setMonth(s.getMonth() - 3); setStartDate(s.toISOString().split('T')[0]); setEndDate(n.toISOString().split('T')[0]); } },
-            { label: 'This Year', fn: () => { const n = new Date(); setStartDate(new Date(n.getFullYear(), 0, 1).toISOString().split('T')[0]); setEndDate(n.toISOString().split('T')[0]); } },
+            { label: 'This Month', fn: () => { const n = new Date(); setStartDate(instantToCalendarDate(new Date(n.getFullYear(), n.getMonth(), 1))); setEndDate(instantToCalendarDate(n)); } },
+            { label: 'Last 3M', fn: () => { const n = new Date(); const s = new Date(n); s.setMonth(s.getMonth() - 3); setStartDate(instantToCalendarDate(s)); setEndDate(instantToCalendarDate(n)); } },
+            { label: 'This Year', fn: () => { const n = new Date(); setStartDate(instantToCalendarDate(new Date(n.getFullYear(), 0, 1))); setEndDate(instantToCalendarDate(n)); } },
           ].map((p) => (
             <button key={p.label} onClick={p.fn} className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50">
               {p.label}

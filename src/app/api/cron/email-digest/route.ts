@@ -1,3 +1,4 @@
+import { calendarTodayServer } from '@/lib/utils/platform-calendar';
 /**
  * Email Digest Cron Job
  * ======================
@@ -215,7 +216,7 @@ async function processDigestsForClinic(
         userId: user.id,
         clinicId: user.clinicId || undefined,
         sourceType: 'digest',
-        sourceId: `weekly-${new Date().toISOString().split('T')[0]}`,
+        sourceId: `weekly-${calendarTodayServer()}`,
       });
 
       if (emailResult.success) {

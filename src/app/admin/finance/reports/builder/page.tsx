@@ -1,5 +1,6 @@
 'use client';
 
+import { instantToCalendarDate } from '@/lib/utils/platform-calendar';
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
@@ -58,7 +59,7 @@ function fmtVal(val: any, type: string): string {
 function presetToDateRange(preset: string): { startDate: string; endDate: string } | undefined {
   if (!preset) return undefined;
   const now = new Date();
-  const fmt = (d: Date) => d.toISOString().split('T')[0];
+  const fmt = (d: Date) => instantToCalendarDate(d);
   const end = fmt(now);
   if (preset === '7d') return { startDate: fmt(new Date(Date.now() - 7 * 86400000)), endDate: end };
   if (preset === '30d') return { startDate: fmt(new Date(Date.now() - 30 * 86400000)), endDate: end };

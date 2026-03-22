@@ -1,3 +1,4 @@
+import { instantToCalendarDate } from '@/lib/utils/platform-calendar';
 /**
  * Email Log Service
  *
@@ -330,7 +331,7 @@ class EmailLogService {
     const dayMap = new Map<string, EmailStatsByDay>();
 
     for (const log of logs) {
-      const dateKey = log.createdAt.toISOString().split('T')[0];
+      const dateKey = instantToCalendarDate(log.createdAt);
 
       const existing = dayMap.get(dateKey) || {
         date: dateKey,
@@ -359,7 +360,7 @@ class EmailLogService {
     for (let i = 0; i < days; i++) {
       const date = new Date();
       date.setDate(date.getDate() - i);
-      const dateKey = date.toISOString().split('T')[0];
+      const dateKey = instantToCalendarDate(date);
 
       result.push(
         dayMap.get(dateKey) || {

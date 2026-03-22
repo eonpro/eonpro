@@ -1,5 +1,6 @@
 'use client';
 
+import { calendarTodayServer } from '@/lib/utils/platform-calendar';
 import { useState, useEffect } from 'react';
 import {
   Key,
@@ -574,7 +575,7 @@ export default function RegistrationCodesPage() {
                       type="date"
                       value={formData.expiresAt}
                       onChange={(e) => setFormData({ ...formData, expiresAt: e.target.value })}
-                      min={new Date().toISOString().split('T')[0]}
+                      min={calendarTodayServer()}
                       className="w-full rounded-xl border border-gray-300 px-4 py-3 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
                     />
                   </div>

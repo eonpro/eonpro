@@ -1,3 +1,4 @@
+import { instantToCalendarDate } from '@/lib/utils/platform-calendar';
 /**
  * Provider Compensation Service
  * =============================
@@ -571,7 +572,7 @@ export const providerCompensationService = {
       }
 
       // Add to daily breakdown
-      const dayKey = event.createdAt.toISOString().split('T')[0];
+      const dayKey = instantToCalendarDate(event.createdAt);
       const existing = breakdownMap.get(dayKey) || { prescriptions: 0, earningsCents: 0 };
       existing.prescriptions += event.prescriptionCount;
       existing.earningsCents += event.amountCents;
@@ -781,11 +782,11 @@ export const providerCompensationService = {
     const getPeriodKey = (date: Date): string => {
       switch (groupBy) {
         case 'day':
-          return date.toISOString().split('T')[0];
+          return instantToCalendarDate(date);
         case 'week': {
           const d = new Date(date);
           d.setDate(d.getDate() - d.getDay());
-          return d.toISOString().split('T')[0];
+          return instantToCalendarDate(d);
         }
         case 'month':
           return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;

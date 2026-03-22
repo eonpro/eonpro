@@ -1,5 +1,6 @@
 'use client';
 
+import { calendarTodayServer } from '@/lib/utils/platform-calendar';
 import { useState, useEffect, useCallback } from 'react';
 import {
   CreditCard,
@@ -211,7 +212,7 @@ export default function TransactionsPage() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `transactions-${new Date().toISOString().split('T')[0]}.csv`;
+    a.download = `transactions-${calendarTodayServer()}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };

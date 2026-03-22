@@ -1,3 +1,4 @@
+import { instantToCalendarDate } from '@/lib/utils/platform-calendar';
 /**
  * Ticket Repository
  * =================
@@ -1111,18 +1112,18 @@ export const ticketRepository = {
     const dateMap = new Map<string, { created: number; resolved: number }>();
     for (let i = 0; i < days; i++) {
       const d = new Date(Date.now() - (days - 1 - i) * 24 * 60 * 60 * 1000);
-      const key = d.toISOString().split('T')[0];
+      const key = instantToCalendarDate(d);
       dateMap.set(key, { created: 0, resolved: 0 });
     }
 
     for (const t of created) {
-      const key = t.createdAt.toISOString().split('T')[0];
+      const key = instantToCalendarDate(t.createdAt);
       const entry = dateMap.get(key);
       if (entry) entry.created++;
     }
     for (const t of resolved) {
       if (!t.resolvedAt) continue;
-      const key = t.resolvedAt.toISOString().split('T')[0];
+      const key = instantToCalendarDate(t.resolvedAt);
       const entry = dateMap.get(key);
       if (entry) entry.resolved++;
     }

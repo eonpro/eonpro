@@ -1,3 +1,4 @@
+import { calendarTodayServer } from '@/lib/utils/platform-calendar';
 /**
  * HIPAA Audit Log API
  * ====================
@@ -95,7 +96,7 @@ export const GET = withAuth(
         return new Response(report as string, {
           headers: {
             'Content-Type': 'text/csv',
-            'Content-Disposition': `attachment; filename="audit-log-${new Date().toISOString().split('T')[0]}.csv"`,
+            'Content-Disposition': `attachment; filename="audit-log-${calendarTodayServer()}.csv"`,
           },
         });
       }

@@ -230,14 +230,10 @@ function formatDateTime(iso: string): string {
   });
 }
 
-/** Invoice days are US/Eastern; never use UTC calendar from `toISOString()` (evening ET can be “tomorrow” in UTC). */
-function getDefaultInvoiceDateET(): string {
-  return todayET();
-}
-
 export default function OtInvoicesPage() {
-  const [startDate, setStartDate] = useState(() => getDefaultInvoiceDateET());
-  const [endDate, setEndDate] = useState(() => getDefaultInvoiceDateET());
+  /** OT reconciliation windows are defined in US/Eastern (not UTC midnight / not the browser calendar). */
+  const [startDate, setStartDate] = useState(() => todayET());
+  const [endDate, setEndDate] = useState(() => todayET());
   const [useRange, setUseRange] = useState(false);
   const [loading, setLoading] = useState(false);
   const [exporting, setExporting] = useState<string | null>(null);

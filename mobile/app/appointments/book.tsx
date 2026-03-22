@@ -5,6 +5,7 @@ import { useState, useCallback } from 'react';
 import { useBrandColors } from '@/lib/branding';
 import { usePortalQuery } from '@/hooks/usePortalQuery';
 import { apiFetch } from '@/lib/api-client';
+import { calendarDateStringInDeviceTimezone } from '@/lib/calendar-date';
 
 interface AppointmentType {
   id: number;
@@ -41,7 +42,7 @@ export default function BookAppointmentScreen() {
   const [selectedDate, setSelectedDate] = useState(() => {
     const d = new Date();
     d.setDate(d.getDate() + 1);
-    return d.toISOString().split('T')[0];
+    return calendarDateStringInDeviceTimezone(d);
   });
   const [submitting, setSubmitting] = useState(false);
 
@@ -90,7 +91,7 @@ export default function BookAppointmentScreen() {
   const dateOptions = Array.from({ length: 14 }).map((_, i) => {
     const d = new Date();
     d.setDate(d.getDate() + i + 1);
-    return d.toISOString().split('T')[0];
+    return calendarDateStringInDeviceTimezone(d);
   });
 
   return (

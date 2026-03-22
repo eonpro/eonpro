@@ -24,6 +24,7 @@ import { prisma } from '@/lib/db';
 import { standardRateLimit } from '@/lib/rateLimit';
 import { logger } from '@/lib/logger';
 import { AGGREGATION_TAKE_UI } from '@/lib/pagination';
+import { instantToCalendarDate } from '@/lib/utils/platform-calendar';
 
 async function getPaymentReportsHandler(req: NextRequest, user: AuthUser): Promise<Response> {
   try {
@@ -90,7 +91,7 @@ async function getPaymentReportsHandler(req: NextRequest, user: AuthUser): Promi
           payments: yesterdayDetails,
           count: yesterdayDetails.length,
           total: formatCurrency(yesterdayTotal),
-          date: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          date: instantToCalendarDate(new Date(Date.now() - 24 * 60 * 60 * 1000)),
         });
 
       case 'recent':

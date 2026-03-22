@@ -1,6 +1,22 @@
 export const EASTERN_TZ = 'America/New_York';
 const DEFAULT_TIMEZONE = EASTERN_TZ;
 
+/** Default IANA zone when the user/browser/clinic zone is unknown (US Eastern). */
+export const PLATFORM_FALLBACK_TIMEZONE = EASTERN_TZ;
+
+/** Returns a valid IANA timezone or `null` if unusable. */
+export function normalizeIANATimeZone(tz: string | null | undefined): string | null {
+  if (tz == null || typeof tz !== 'string') return null;
+  const t = tz.trim();
+  if (!t) return null;
+  try {
+    Intl.DateTimeFormat('en-US', { timeZone: t });
+    return t;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Get the current calendar date parts in a specific IANA timezone.
  * Handles the case where the server runs in UTC but the business
@@ -37,12 +53,7 @@ export function getDatePartsInTz(tz: string = DEFAULT_TIMEZONE): {
       dayOfWeek: dayNames.indexOf(weekdayPart.value),
     };
   } catch {
-    return {
-      year: now.getUTCFullYear(),
-      month: now.getUTCMonth(),
-      day: now.getUTCDate(),
-      dayOfWeek: now.getUTCDay(),
-    };
+    return getCalendarDatePartsInTz(now, EASTERN_TZ);
   }
 }
 
@@ -136,15 +147,65 @@ export function getTimezoneAwareBoundaries(tz: string = DEFAULT_TIMEZONE): {
 }
 
 /**
- * Convert a Date to "YYYY-MM-DD" in Eastern Time (not UTC).
- * Use this instead of `d.toISOString().split('T')[0]`.
+ * Calendar date parts for an instant in a specific IANA timezone (not UTC calendar).
  */
-export function toDateStringET(d: Date): string {
-  const parts = getDatePartsForDate(d);
+export function getCalendarDatePartsInTz(
+  d: Date,
+  tz: string,
+): { year: number; month: number; day: number; dayOfWeek: number } {
+  try {
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: tz,
+      year: 'numeric',
+      month: 'numeric',
+      day: 'numeric',
+      weekday: 'short',
+    });
+    const parts = formatter.formatToParts(d);
+    const yearPart = parts.find((p) => p.type === 'year');
+    const monthPart = parts.find((p) => p.type === 'month');
+    const dayPart = parts.find((p) => p.type === 'day');
+    const weekdayPart = parts.find((p) => p.type === 'weekday');
+    if (!yearPart || !monthPart || !dayPart || !weekdayPart) {
+      throw new Error('Missing date parts');
+    }
+    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    return {
+      year: Number(yearPart.value),
+      month: Number(monthPart.value) - 1,
+      day: Number(dayPart.value),
+      dayOfWeek: dayNames.indexOf(weekdayPart.value),
+    };
+  } catch {
+    return {
+      year: d.getFullYear(),
+      month: d.getMonth(),
+      day: d.getDate(),
+      dayOfWeek: d.getDay(),
+    };
+  }
+}
+
+/** `YYYY-MM-DD` for an instant in the given IANA zone (never use `toISOString().split('T')[0]` for this). */
+export function toCalendarDateStringInTz(d: Date, tz: string = PLATFORM_FALLBACK_TIMEZONE): string {
+  const parts = getCalendarDatePartsInTz(d, tz);
   const y = parts.year;
   const m = String(parts.month + 1).padStart(2, '0');
   const day = String(parts.day).padStart(2, '0');
   return `${y}-${m}-${day}`;
+}
+
+/** Today's calendar date `YYYY-MM-DD` in the given IANA zone. */
+export function todayInTimeZone(tz: string = PLATFORM_FALLBACK_TIMEZONE): string {
+  return toCalendarDateStringInTz(new Date(), tz);
+}
+
+/**
+ * Convert a Date to "YYYY-MM-DD" in Eastern Time (not UTC).
+ * Prefer `toCalendarDateStringInTz(d, EASTERN_TZ)` for clarity.
+ */
+export function toDateStringET(d: Date): string {
+  return toCalendarDateStringInTz(d, EASTERN_TZ);
 }
 
 /**
@@ -234,37 +295,10 @@ export function formatDateTimeET(d: Date, opts: Intl.DateTimeFormatOptions = {})
  * "Today" as "YYYY-MM-DD" in Eastern Time.
  */
 export function todayET(): string {
-  return toDateStringET(new Date());
+  return todayInTimeZone(EASTERN_TZ);
 }
 
-/**
- * Get date parts for a specific Date object in Eastern Time.
- */
+/** @internal Eastern calendar parts for a Date (scheduling / legacy ET helpers). */
 function getDatePartsForDate(d: Date): { year: number; month: number; day: number; dayOfWeek: number } {
-  try {
-    const formatter = new Intl.DateTimeFormat('en-US', {
-      timeZone: EASTERN_TZ,
-      year: 'numeric',
-      month: 'numeric',
-      day: 'numeric',
-      weekday: 'short',
-    });
-    const parts = formatter.formatToParts(d);
-    const yearPart = parts.find((p) => p.type === 'year');
-    const monthPart = parts.find((p) => p.type === 'month');
-    const dayPart = parts.find((p) => p.type === 'day');
-    const weekdayPart = parts.find((p) => p.type === 'weekday');
-    if (!yearPart || !monthPart || !dayPart || !weekdayPart) {
-      throw new Error('Missing date parts');
-    }
-    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    return {
-      year: Number(yearPart.value),
-      month: Number(monthPart.value) - 1,
-      day: Number(dayPart.value),
-      dayOfWeek: dayNames.indexOf(weekdayPart.value),
-    };
-  } catch {
-    return { year: d.getFullYear(), month: d.getMonth(), day: d.getDate(), dayOfWeek: d.getDay() };
-  }
+  return getCalendarDatePartsInTz(d, EASTERN_TZ);
 }

@@ -1,5 +1,6 @@
 'use client';
 
+import { instantToCalendarDate } from '@/lib/utils/platform-calendar';
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import {
@@ -275,8 +276,8 @@ export default function InvoicesPage() {
       default:
         return;
     }
-    const s = start.toISOString().split('T')[0];
-    const e = end.toISOString().split('T')[0];
+    const s = instantToCalendarDate(start);
+    const e = instantToCalendarDate(end);
     if (target === 'create') {
       setCreateForm((f) => ({ ...f, periodType, periodStart: s, periodEnd: e }));
     } else {

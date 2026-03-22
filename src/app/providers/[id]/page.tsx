@@ -1,3 +1,4 @@
+import { dbDateToString } from '@/lib/utils/timezone';
 import { redirect } from 'next/navigation';
 import EditProviderForm from '@/components/EditProviderForm';
 import { prisma, runWithClinicContext } from '@/lib/db';
@@ -118,7 +119,7 @@ export default async function ProviderDetailPage({ params }: Params) {
       <section className="grid gap-6 md:grid-cols-2">
         <div className="rounded-xl border bg-white p-6 shadow">
           <h2 className="mb-3 text-lg font-semibold">Edit Provider</h2>
-          <EditProviderForm provider={{ ...provider, dateOfBirth: provider.dateOfBirth ? (provider.dateOfBirth instanceof Date ? provider.dateOfBirth.toISOString().split('T')[0] : String(provider.dateOfBirth).split('T')[0]) : null }} />
+          <EditProviderForm provider={{ ...provider, dateOfBirth: provider.dateOfBirth ? (provider.dateOfBirth instanceof Date ? dbDateToString(provider.dateOfBirth) : String(provider.dateOfBirth).split('T')[0]) : null }} />
         </div>
         <div className="rounded-xl border bg-white p-6 shadow">
           <h2 className="mb-3 text-lg font-semibold">Snapshot</h2>

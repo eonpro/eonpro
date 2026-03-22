@@ -1,3 +1,4 @@
+import { instantToCalendarDate } from '@/lib/utils/platform-calendar';
 /**
  * Affiliate Portal Trends API
  *
@@ -119,14 +120,14 @@ export const GET = withAffiliateAuth(
 
       // Index results by date string for efficient merging
       const clickMap = new Map(
-        rawClickTrends.map((r) => [r.period.toISOString().split('T')[0], Number(r.count)])
+        rawClickTrends.map((r) => [instantToCalendarDate(r.period), Number(r.count)])
       );
       const intakeMap = new Map(
-        rawIntakeTrends.map((r) => [r.period.toISOString().split('T')[0], Number(r.count)])
+        rawIntakeTrends.map((r) => [instantToCalendarDate(r.period), Number(r.count)])
       );
       const commissionMap = new Map(
         rawCommissionTrends.map((r) => [
-          r.period.toISOString().split('T')[0],
+          instantToCalendarDate(r.period),
           {
             conversions: Number(r.conversions),
             revenueCents: Number(r.revenue_cents) || 0,
@@ -163,7 +164,7 @@ export const GET = withAffiliateAuth(
         const currentDate = new Date(fromDate);
 
         while (currentDate <= toDate) {
-          const dateStr = currentDate.toISOString().split('T')[0];
+          const dateStr = instantToCalendarDate(currentDate);
           filledTrends.push(
             trendMap.get(dateStr) || {
               date: dateStr,

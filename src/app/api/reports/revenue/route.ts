@@ -1,3 +1,4 @@
+import { instantToCalendarDate } from '@/lib/utils/platform-calendar';
 /**
  * REVENUE REPORTS API
  * ===================
@@ -80,7 +81,7 @@ async function getRevenueReportsHandler(req: NextRequest, user: AuthUser): Promi
 
         payments.forEach(
           (p: { createdAt: Date; amount: number; subscriptionId: number | null }) => {
-            const dateKey = p.createdAt.toISOString().split('T')[0];
+            const dateKey = instantToCalendarDate(p.createdAt);
             if (!dailyRevenue[dateKey]) {
               dailyRevenue[dateKey] = { total: 0, recurring: 0, oneTime: 0, count: 0 };
             }

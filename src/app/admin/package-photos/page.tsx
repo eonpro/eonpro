@@ -1,5 +1,12 @@
 'use client';
 
+import {
+  calendarTodayServer,
+  calendarTodayClient,
+  getBrowserIANATimeZone,
+  instantToCalendarDate,
+} from '@/lib/utils/platform-calendar';
+import { toCalendarDateStringInTz } from '@/lib/utils/timezone';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Camera,
@@ -897,9 +904,9 @@ function AuditLog() {
   const [dailyReportLoading, setDailyReportLoading] = useState(false);
   const [reportFrom, setReportFrom] = useState(() => {
     const d = new Date(); d.setDate(d.getDate() - 6);
-    return d.toISOString().split('T')[0];
+    return instantToCalendarDate(d);
   });
-  const [reportTo, setReportTo] = useState(() => new Date().toISOString().split('T')[0]);
+  const [reportTo, setReportTo] = useState(() => calendarTodayServer());
   const [expandedDay, setExpandedDay] = useState<string | null>(null);
   const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -1069,7 +1076,7 @@ function AuditLog() {
                   const unmatchedH = (d.unmatched / maxVal) * 100;
                   const dayLabel = new Date(d.date + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'short' });
                   const dateLabel = new Date(d.date + 'T12:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-                  const isToday = d.date === new Date().toISOString().split('T')[0];
+                  const isToday = d.date === calendarTodayClient();
                   return (
                     <div key={d.date} className="group relative flex flex-1 flex-col items-center">
                       <div className="absolute -top-10 z-10 hidden rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-center shadow-lg group-hover:block">
@@ -1328,8 +1335,11 @@ function AuditLog() {
                 <button
                   key={preset.label}
                   onClick={() => {
-                    const to = new Date().toISOString().split('T')[0];
-                    const from = new Date(Date.now() - preset.days * 86400000).toISOString().split('T')[0];
+                    const to = calendarTodayClient();
+                    const from = toCalendarDateStringInTz(
+                      new Date(Date.now() - preset.days * 86400000),
+                      getBrowserIANATimeZone(),
+                    );
                     setReportFrom(from);
                     setReportTo(to);
                     fetchDailyReport(from, to);
@@ -1422,7 +1432,7 @@ function AuditLog() {
                 {dailyReport.days.map((day) => {
                   const isExpanded = expandedDay === day.date;
                   const dayName = new Date(day.date + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
-                  const isToday = day.date === new Date().toISOString().split('T')[0];
+                  const isToday = day.date === calendarTodayClient();
                   const aboveAvg = day.total > dailyReport.summary.avgPerDay;
                   return (
                     <div key={day.date}>
@@ -1762,10 +1772,11 @@ function PerformanceReports() {
   const [availableReps, setAvailableReps] = useState<PerformanceRepSummary[]>([]);
   const [expandedInterval, setExpandedInterval] = useState<string | null>(null);
   const [perfFrom, setPerfFrom] = useState(() => {
-    const d = new Date(); d.setDate(d.getDate() - 6);
-    return d.toISOString().split('T')[0];
+    const d = new Date();
+    d.setDate(d.getDate() - 6);
+    return toCalendarDateStringInTz(d, getBrowserIANATimeZone());
   });
-  const [perfTo, setPerfTo] = useState(() => new Date().toISOString().split('T')[0]);
+  const [perfTo, setPerfTo] = useState(() => calendarTodayClient());
 
   const fetchReport = useCallback(async (g: Granularity, from: string, to: string, repId: number | null) => {
     setLoading(true);
@@ -1791,13 +1802,14 @@ function PerformanceReports() {
   }, []);
 
   const handlePreset = useCallback((preset: typeof PERF_PRESETS[number]) => {
-    const to = new Date().toISOString().split('T')[0];
+    const to = calendarTodayClient();
     let from: string;
+    const tz = getBrowserIANATimeZone();
     if (preset.days === -1) {
       const now = new Date();
-      from = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+      from = toCalendarDateStringInTz(new Date(now.getFullYear(), now.getMonth(), 1), tz);
     } else {
-      from = new Date(Date.now() - preset.days * 86400000).toISOString().split('T')[0];
+      from = toCalendarDateStringInTz(new Date(Date.now() - preset.days * 86400000), tz);
     }
     setGranularity(preset.granularity);
     setPerfFrom(from);

@@ -1,5 +1,6 @@
 'use client';
 
+import { calendarTodayServer } from '@/lib/utils/platform-calendar';
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   BadgeDollarSign,
@@ -169,7 +170,7 @@ export default function SalesRepsPage() {
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `sales-reps-payroll-${preset}-${new Date().toISOString().split('T')[0]}.csv`;
+    link.download = `sales-reps-payroll-${preset}-${calendarTodayServer()}.csv`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

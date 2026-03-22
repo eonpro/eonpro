@@ -1,3 +1,4 @@
+import { instantToCalendarDate } from '@/lib/utils/platform-calendar';
 import { NextRequest, NextResponse } from 'next/server';
 import { basePrisma as prisma } from '@/lib/db';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
@@ -256,7 +257,7 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) 
       return new NextResponse(csv, {
         headers: {
           'Content-Type': 'text/csv',
-          'Content-Disposition': `attachment; filename="fee-report-${startDate.toISOString().split('T')[0]}-${endDate.toISOString().split('T')[0]}.csv"`,
+          'Content-Disposition': `attachment; filename="fee-report-${instantToCalendarDate(startDate)}-${instantToCalendarDate(endDate)}.csv"`,
         },
       });
     }

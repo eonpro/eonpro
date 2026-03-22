@@ -7,6 +7,8 @@
  */
 
 import { useState, useEffect } from 'react';
+import { toCalendarDateStringInTz } from '@/lib/utils/timezone';
+import { getBrowserIANATimeZone } from '@/lib/utils/platform-calendar';
 import Link from 'next/link';
 import {
   Trophy,
@@ -93,7 +95,7 @@ const formatDate = (dateStr: string) => {
 };
 
 const formatDateForInput = (dateStr: string) => {
-  return new Date(dateStr).toISOString().split('T')[0];
+  return toCalendarDateStringInTz(new Date(dateStr), getBrowserIANATimeZone());
 };
 
 const getMetricIcon = (metric: string) => {

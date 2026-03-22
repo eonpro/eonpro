@@ -1,3 +1,4 @@
+import { calendarTodayServer, instantToCalendarDate } from '@/lib/utils/platform-calendar';
 import { NextRequest, NextResponse } from 'next/server';
 import { withAuth, type AuthUser } from '@/lib/auth/middleware';
 import { basePrisma } from '@/lib/db';
@@ -37,7 +38,7 @@ function parseDateRange(range: string | undefined): Date | undefined {
 function formatCsvDate(d: Date | string | null): string {
   if (!d) return '';
   const date = typeof d === 'string' ? new Date(d) : d;
-  return isNaN(date.getTime()) ? '' : date.toISOString().split('T')[0];
+  return isNaN(date.getTime()) ? '' : instantToCalendarDate(date);
 }
 
 function escapeCsv(val: string | null | undefined): string {
@@ -107,7 +108,7 @@ async function handleExport(req: NextRequest, user: AuthUser) {
     });
 
     const csv = [header, ...rows].join('\n');
-    const filename = `shipment-monitor-${new Date().toISOString().split('T')[0]}.csv`;
+    const filename = `shipment-monitor-${calendarTodayServer()}.csv`;
     return new NextResponse(csv, {
       status: 200,
       headers: { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': `attachment; filename="${filename}"` },

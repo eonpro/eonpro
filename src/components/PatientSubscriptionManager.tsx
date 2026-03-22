@@ -1,5 +1,7 @@
 'use client';
 
+import { calendarTodayServer, getBrowserIANATimeZone } from '@/lib/utils/platform-calendar';
+import { toCalendarDateStringInTz } from '@/lib/utils/timezone';
 import { useState, useEffect } from 'react';
 import { formatPlanPrice, getGroupedPlans, getPlanById } from '@/config/billingPlans';
 import { apiFetch } from '@/lib/api/fetch';
@@ -81,7 +83,7 @@ export function PatientSubscriptionManager({
   const [showManualForm, setShowManualForm] = useState(false);
   const [manualPlanId, setManualPlanId] = useState('');
   const [manualStartDate, setManualStartDate] = useState(
-    new Date().toISOString().split('T')[0]
+    calendarTodayServer()
   );
   const [manualNotes, setManualNotes] = useState('');
   const [manualQueueRefill, setManualQueueRefill] = useState(true);
@@ -347,7 +349,7 @@ export function PatientSubscriptionManager({
 
   const openEditShipment = (s: ShipmentEntry) => {
     setEditingShipmentId(s.id);
-    setEditDate(new Date(s.nextRefillDate).toISOString().split('T')[0]);
+    setEditDate(toCalendarDateStringInTz(new Date(s.nextRefillDate), getBrowserIANATimeZone()));
     setEditPlanName(s.planName || '');
     setEditMedicationName(s.medicationName || '');
   };

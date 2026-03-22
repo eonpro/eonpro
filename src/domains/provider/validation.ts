@@ -10,6 +10,7 @@
 
 import { z, ZodIssueCode } from 'zod';
 import { US_STATE_CODE_LIST, US_STATE_OPTIONS, type USStateCode } from '@/lib/usStates';
+import { dbDateToString } from '@/lib/utils/timezone';
 
 // State lookup helpers
 const STATE_CODE_SET = new Set<USStateCode>(US_STATE_CODE_LIST);
@@ -89,7 +90,7 @@ export const createProviderSchema = z.object({
     .transform((val) => {
       if (!val || !val.trim()) return null;
       const d = new Date(val.trim());
-      return isNaN(d.getTime()) ? null : d.toISOString().split('T')[0];
+      return isNaN(d.getTime()) ? null : dbDateToString(d);
     }),
   titleLine: z
     .string()

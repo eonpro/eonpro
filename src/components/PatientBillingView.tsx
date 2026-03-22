@@ -1,5 +1,6 @@
 'use client';
 
+import { calendarTodayServer } from '@/lib/utils/platform-calendar';
 import { useState, useEffect } from 'react';
 import { formatCurrency } from '@/lib/stripe';
 import {
@@ -1203,7 +1204,7 @@ function MarkPaidModal({
   const [paymentAmount, setPaymentAmount] = useState(amount / 100); // Convert from cents
   const [paymentMethod, setPaymentMethod] = useState('cash');
   const [paymentNotes, setPaymentNotes] = useState('');
-  const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split('T')[0]);
+  const [paymentDate, setPaymentDate] = useState(calendarTodayServer());
   const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -1341,7 +1342,7 @@ function CreateInvoiceForm({
   const [externalPaymentMethod, setExternalPaymentMethod] = useState('external_stripe');
   const [externalPaymentNotes, setExternalPaymentNotes] = useState('');
   const [externalPaymentDate, setExternalPaymentDate] = useState(
-    new Date().toISOString().split('T')[0]
+    calendarTodayServer()
   );
 
   const handlePlanSelect = (planId: string) => {

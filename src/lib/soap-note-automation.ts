@@ -1,3 +1,4 @@
+import { instantToCalendarDate } from '@/lib/utils/platform-calendar';
 /**
  * SOAP Note Automation Service
  *
@@ -143,7 +144,7 @@ export async function ensureSoapNoteExists(
               strength: rx.strength,
               sig: rx.sig,
               dose: doseMatch ? parseFloat(doseMatch[1]) : null,
-              prescribedAt: o.createdAt.toISOString().split('T')[0],
+              prescribedAt: instantToCalendarDate(o.createdAt),
               providerName: o.provider ? `${o.provider.firstName} ${o.provider.lastName}` : undefined,
             };
           });

@@ -1,5 +1,6 @@
 'use client';
 
+import { calendarTodayServer, instantToCalendarDate } from '@/lib/utils/platform-calendar';
 import { useState, useEffect } from 'react';
 import { FileText, Download, Building2 } from 'lucide-react';
 import { apiFetch } from '@/lib/api/fetch';
@@ -56,9 +57,9 @@ export default function StatementsPage() {
   const [selectedClinic, setSelectedClinic] = useState('');
   const [startDate, setStartDate] = useState(() => {
     const d = new Date(); d.setMonth(d.getMonth() - 3);
-    return d.toISOString().split('T')[0];
+    return instantToCalendarDate(d);
   });
-  const [endDate, setEndDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [endDate, setEndDate] = useState(() => calendarTodayServer());
   const [statement, setStatement] = useState<StatementData | null>(null);
   const [loading, setLoading] = useState(false);
 

@@ -1,3 +1,4 @@
+import { calendarTodayServer } from '@/lib/utils/platform-calendar';
 /**
  * Daily Queue Summary Cron Job
  * =============================
@@ -123,7 +124,7 @@ async function processClinic(clinicId: number): Promise<PerClinicResult> {
       message: parts.join(' · '),
       actionUrl: '/admin/refill-queue',
       sourceType: 'daily_summary',
-      sourceId: `daily_admin_${new Date().toISOString().split('T')[0]}`,
+      sourceId: `daily_admin_${calendarTodayServer()}`,
       metadata: { pendingAdmin, pendingPayment, scheduledToday },
     });
 
@@ -139,7 +140,7 @@ async function processClinic(clinicId: number): Promise<PerClinicResult> {
       message: `${approvedForProvider} refill${approvedForProvider > 1 ? 's' : ''} approved and waiting for prescription.`,
       actionUrl: '/provider/prescription-queue',
       sourceType: 'daily_summary',
-      sourceId: `daily_provider_${new Date().toISOString().split('T')[0]}`,
+      sourceId: `daily_provider_${calendarTodayServer()}`,
       metadata: { approvedForProvider },
     });
 

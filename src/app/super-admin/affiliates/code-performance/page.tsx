@@ -1,5 +1,6 @@
 'use client';
 
+import { calendarTodayServer } from '@/lib/utils/platform-calendar';
 /**
  * Super Admin Affiliate Code Performance Page
  *
@@ -180,7 +181,7 @@ export default function SuperAdminCodePerformancePage() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `affiliate-code-performance-all-clinics-${period}-${new Date().toISOString().split('T')[0]}.csv`;
+    a.download = `affiliate-code-performance-all-clinics-${period}-${calendarTodayServer()}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };

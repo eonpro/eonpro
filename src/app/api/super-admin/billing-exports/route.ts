@@ -1,3 +1,4 @@
+import { instantToCalendarDate } from '@/lib/utils/platform-calendar';
 import { NextRequest, NextResponse } from 'next/server';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { z } from 'zod';
@@ -56,7 +57,7 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) 
         return new NextResponse(new Uint8Array(buffer), {
           headers: {
             'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            'Content-Disposition': `attachment; filename="billing-report-${defaultStart.toISOString().split('T')[0]}-to-${defaultEnd.toISOString().split('T')[0]}.xlsx"`,
+            'Content-Disposition': `attachment; filename="billing-report-${instantToCalendarDate(defaultStart)}-to-${instantToCalendarDate(defaultEnd)}.xlsx"`,
           },
         });
       }
@@ -66,7 +67,7 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) 
         return new NextResponse(csv, {
           headers: {
             'Content-Type': 'text/csv',
-            'Content-Disposition': `attachment; filename="billing-report-${defaultStart.toISOString().split('T')[0]}-to-${defaultEnd.toISOString().split('T')[0]}.csv"`,
+            'Content-Disposition': `attachment; filename="billing-report-${instantToCalendarDate(defaultStart)}-to-${instantToCalendarDate(defaultEnd)}.csv"`,
           },
         });
       }
@@ -76,7 +77,7 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) 
         return new NextResponse(iif, {
           headers: {
             'Content-Type': 'text/plain',
-            'Content-Disposition': `attachment; filename="eonpro-invoices-${defaultStart.toISOString().split('T')[0]}-to-${defaultEnd.toISOString().split('T')[0]}.iif"`,
+            'Content-Disposition': `attachment; filename="eonpro-invoices-${instantToCalendarDate(defaultStart)}-to-${instantToCalendarDate(defaultEnd)}.iif"`,
           },
         });
       }
@@ -86,7 +87,7 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) 
         return new NextResponse(csv, {
           headers: {
             'Content-Type': 'text/csv',
-            'Content-Disposition': `attachment; filename="eonpro-xero-import-${defaultStart.toISOString().split('T')[0]}-to-${defaultEnd.toISOString().split('T')[0]}.csv"`,
+            'Content-Disposition': `attachment; filename="eonpro-xero-import-${instantToCalendarDate(defaultStart)}-to-${instantToCalendarDate(defaultEnd)}.csv"`,
           },
         });
       }
