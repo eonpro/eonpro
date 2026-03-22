@@ -727,19 +727,54 @@ export async function generateOtDailyInvoices(date: string, endDate?: string): P
   }
 
   /**
-   * Cash ledger (`Payment` in the Eastern window) often leads `Invoice.paidAt` (webhook / sync lag) or uses a
-   * different clock than the invoice row. Without this bridge, "All payments" shows revenue while Pharmacy /
-   * per-sale stay empty. Pull prescription invoices referenced by period payments and merge by `orderId`.
+   * Tie cash (`Payment` in the Eastern window) to pharmacy COGS:
+   * 1. `Payment.invoiceId` when set
+   * 2. `PaymentReconciliation` rows matched by Stripe charge / payment-intent id when `invoiceId` on Payment is null
+   *
+   * We do **not** require `prescriptionProcessed` on the invoice here — OT often marks paid before that flag flips;
+   * COGS still come from `Order.rxs`. (Doctor-fee / prior-Rx history still use processed invoices elsewhere.)
    */
-  const paymentLinkedInvoiceIds = [
-    ...new Set(rawPeriodPayments.map((p) => p.invoiceId).filter((id): id is number => id != null)),
+  const stripeChargeIds = [
+    ...new Set(
+      rawPeriodPayments.map((p) => p.stripeChargeId).filter((id): id is string => typeof id === 'string' && id.length > 0),
+    ),
   ];
+  const stripePiIds = [
+    ...new Set(
+      rawPeriodPayments
+        .map((p) => p.stripePaymentIntentId)
+        .filter((id): id is string => typeof id === 'string' && id.length > 0),
+    ),
+  ];
+  let reconciliationInvoiceIds: number[] = [];
+  if (stripeChargeIds.length > 0 || stripePiIds.length > 0) {
+    const reconOr: { stripeChargeId?: { in: string[] }; stripePaymentIntentId?: { in: string[] } }[] = [];
+    if (stripeChargeIds.length > 0) reconOr.push({ stripeChargeId: { in: stripeChargeIds } });
+    if (stripePiIds.length > 0) reconOr.push({ stripePaymentIntentId: { in: stripePiIds } });
+    const recRows = await basePrisma.paymentReconciliation.findMany({
+      where: {
+        OR: reconOr,
+        invoiceId: { not: null },
+      },
+      select: { invoiceId: true },
+    });
+    reconciliationInvoiceIds = [
+      ...new Set(recRows.map((r) => r.invoiceId).filter((id): id is number => id != null)),
+    ];
+  }
+
+  const paymentLinkedInvoiceIds = [
+    ...new Set([
+      ...rawPeriodPayments.map((p) => p.invoiceId).filter((id): id is number => id != null),
+      ...reconciliationInvoiceIds,
+    ]),
+  ];
+
   if (paymentLinkedInvoiceIds.length > 0) {
     const paymentBridgedInvoices = await basePrisma.invoice.findMany({
       where: {
         id: { in: paymentLinkedInvoiceIds },
         ...otInvoicePatientClinicScope(clinicId),
-        prescriptionProcessed: true,
         orderId: { not: null },
       },
       select: {
@@ -768,13 +803,27 @@ export async function generateOtDailyInvoices(date: string, endDate?: string): P
       orderIdsFromInvoices.add(inv.orderId);
       bridgedOrderCount += 1;
     }
-    if (bridgedOrderCount > 0) {
-      logger.info('OT invoice generation: payment→invoice bridge added orders', {
+    const invoiceIdsMissingFromDb = paymentLinkedInvoiceIds.length - paymentBridgedInvoices.length;
+    if (bridgedOrderCount > 0 || reconciliationInvoiceIds.length > 0 || invoiceIdsMissingFromDb > 0) {
+      logger.info('OT invoice generation: payment→invoice bridge', {
         clinicId,
         bridgedOrderCount,
-        paymentLinkedInvoiceCount: paymentLinkedInvoiceIds.length,
+        invoiceIdsRequested: paymentLinkedInvoiceIds.length,
+        invoicesReturned: paymentBridgedInvoices.length,
+        reconciliationInvoiceIdCount: reconciliationInvoiceIds.length,
+        invoiceIdsMissingFromDb,
       });
     }
+  }
+
+  if (rawPeriodPayments.length > 0 && orderIdsFromInvoices.size === 0) {
+    const withDirectInvoice = rawPeriodPayments.filter((p) => p.invoiceId != null).length;
+    logger.warn('OT invoice: period has payments but no orders for pharmacy — check Invoice.orderId, patient clinic, order status/channel', {
+      clinicId,
+      paymentRowCount: rawPeriodPayments.length,
+      paymentsWithInvoiceId: withDirectInvoice,
+      distinctInvoiceIdsFromPaymentsAndRecon: paymentLinkedInvoiceIds.length,
+    });
   }
 
   const unlinkedInvoices = await basePrisma.invoice.findMany({
@@ -812,7 +861,8 @@ export async function generateOtDailyInvoices(date: string, endDate?: string): P
       cancelledAt: null,
       /** OT uses Lifefile and/or DoseSpot; restricting to lifefile-only hid all Rx COGS when channel flipped. */
       fulfillmentChannel: { in: ['lifefile', 'dosespot'] },
-      status: { notIn: ['error', 'cancelled', 'declined', 'queued_for_provider'] },
+      /** Paid orders still in admin queue must allocate COGS; only terminal bad states are excluded. */
+      status: { notIn: ['error', 'cancelled', 'declined'] },
     },
     select: {
       id: true,

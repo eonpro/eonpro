@@ -270,6 +270,87 @@ describe('generateOtDailyInvoices (mocked DB)', () => {
     expect(data.perSaleReconciliation[0].orderId).toBe(777);
   });
 
+  it('Stripe reconciliation resolves invoice when Payment.invoiceId is null', async () => {
+    const invoicePaidEarly = new Date(Date.UTC(2026, 2, 10, 12, 0, 0));
+    const bridgedInvoice = {
+      id: 888,
+      orderId: 778,
+      paidAt: invoicePaidEarly,
+      patientId: 100,
+      prescriptionProcessedAt: PAID_AT,
+      amountPaid: 55_000,
+      amountDue: null,
+      lineItems: [] as unknown[],
+    };
+    const orderRow = {
+      id: 778,
+      createdAt: PAID_AT,
+      approvedAt: PAID_AT,
+      queuedForProviderAt: null,
+      lifefileOrderId: 'LF-REC',
+      shippingMethod: 1,
+      patientId: 100,
+      providerId: 1,
+      patient: { id: 100, firstName: 'A', lastName: 'B' },
+      provider: { id: 1, firstName: 'D', lastName: 'E' },
+      rxs: [
+        {
+          medicationKey: '203448971',
+          medName: 'Semaglutide',
+          strength: 'x',
+          form: '',
+          quantity: '1',
+        },
+      ],
+    };
+    mockBasePrisma.paymentReconciliation.findMany.mockImplementation(
+      (args: { where?: { invoiceId?: { in?: number[] }; OR?: unknown[] } }) => {
+        if (args.where?.invoiceId?.in) return Promise.resolve([]);
+        if (Array.isArray(args.where?.OR)) return Promise.resolve([{ invoiceId: 888 }]);
+        return Promise.resolve([]);
+      },
+    );
+    wireInvoiceSequence(
+      [],
+      [],
+      [{ id: 888, stripeInvoiceId: null }],
+      [
+        {
+          id: 888,
+          patientId: 100,
+          paidAt: invoicePaidEarly,
+          amountPaid: 55_000,
+          amountDue: null,
+        },
+      ],
+      { paymentBridgeRows: [bridgedInvoice] },
+    );
+    wirePayments(
+      [
+        {
+          id: 99,
+          amount: 55_000,
+          refundedAmount: null,
+          paidAt: PAID_AT,
+          createdAt: PAID_AT,
+          patientId: 100,
+          invoiceId: null,
+          description: 'Stripe',
+          stripePaymentIntentId: 'pi_rec',
+          stripeChargeId: 'ch_rec',
+        },
+      ],
+      [{ invoiceId: 888, amount: 55_000 }],
+    );
+    mockBasePrisma.patient.findMany.mockResolvedValue([{ id: 100, firstName: 'A', lastName: 'B' }]);
+    mockBasePrisma.order.findMany.mockResolvedValue([orderRow]);
+
+    const data = await generateOtDailyInvoices('2026-03-20');
+    expect(data.pharmacy.orderCount).toBe(1);
+    expect(data.paymentCollections[0].invoiceId).toBeNull();
+    expect(data.perSaleReconciliation).toHaveLength(1);
+  });
+
   it('flexibility: date range uses end-day +1 for periodEnd (midnightInTz called with end calendar day + 1)', async () => {
     wireInvoiceSequence([], [], [], []);
     wirePayments([], []);
