@@ -24,7 +24,7 @@ const nextConfig = {
   // TypeScript: CI MUST run "npm run type-check" and fail on type errors (see .github/workflows/ci.yml).
   // ignoreBuildErrors kept for Vercel OOM; production deploy is gated by CI type-check.
   typescript: {
-    ignoreBuildErrors: true,
+    ignoreBuildErrors: false,
   },
   
   // Image optimization

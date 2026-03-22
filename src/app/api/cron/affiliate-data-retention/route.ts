@@ -24,6 +24,9 @@ import { prisma } from '@/lib/db';
 import { verifyCronAuth } from '@/lib/cron/tenant-isolation';
 import { logger } from '@/lib/logger';
 
+export const dynamic = 'force-dynamic';
+export const maxDuration = 30;
+
 // Stable lock key for data retention cron (arbitrary unique integer, different from payouts)
 const DATA_RETENTION_LOCK_KEY = 8675310;
 

@@ -11,7 +11,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { jwtVerify, JWTPayload } from 'jose';
 import { Prisma } from '@prisma/client';
 import { JWT_SECRET, AUTH_CONFIG } from './config';
-import { setClinicContext, runWithClinicContext, prisma, basePrisma } from '@/lib/db';
+import { runWithClinicContext, prisma, basePrisma } from '@/lib/db';
 import { validateSession } from './session-manager';
 import { auditLog, AuditEventType } from '@/lib/audit/hipaa-audit';
 import { logger } from '@/lib/logger';
@@ -1144,13 +1144,10 @@ export async function verifyAuth(req: NextRequest): Promise<{
       exp: payload.exp,
     };
 
-    // Set clinic context for multi-tenant queries
-    // Super admins should NOT have clinic context so they can access all data
-    if (user.clinicId && user.role !== 'super_admin') {
-      setClinicContext(user.clinicId);
-    } else {
-      setClinicContext(undefined);
-    }
+    // Clinic context is set via runWithClinicContext (AsyncLocalStorage) in withAuth,
+    // which wraps the handler after verifyToken returns. The deprecated global
+    // setClinicContext() was removed to eliminate the race condition vector where
+    // concurrent requests on warm containers could overwrite each other's global state.
 
     return { success: true, user };
   } catch (error) {

@@ -23,6 +23,12 @@ function getWebhookSecret(): string {
     || '';
 }
 
+/** Stripe SDK v20 types omit `subscription` on Invoice; runtime webhook payloads still include it. */
+function getInvoiceSubscriptionId(invoice: Stripe.Invoice): string | undefined {
+  const sub = (invoice as unknown as { subscription?: string | Stripe.Subscription | null }).subscription;
+  return typeof sub === 'string' ? sub : sub?.id;
+}
+
 export async function POST(req: NextRequest) {
   const body = await req.text();
   const sig = req.headers.get('stripe-signature');
@@ -46,7 +52,7 @@ export async function POST(req: NextRequest) {
     switch (event.type) {
       case 'invoice.payment_succeeded': {
         const invoice = event.data.object as Stripe.Invoice;
-        const subscriptionId = typeof invoice.subscription === 'string' ? invoice.subscription : invoice.subscription?.id;
+        const subscriptionId = getInvoiceSubscriptionId(invoice);
         if (subscriptionId) {
           const order = await findOrderBySubscriptionId(subscriptionId);
           if (order) await updateOrderPaymentStatus(order.id, 'succeeded');
@@ -55,7 +61,7 @@ export async function POST(req: NextRequest) {
       }
       case 'invoice.payment_failed': {
         const invoice = event.data.object as Stripe.Invoice;
-        const subscriptionId = typeof invoice.subscription === 'string' ? invoice.subscription : invoice.subscription?.id;
+        const subscriptionId = getInvoiceSubscriptionId(invoice);
         if (subscriptionId) {
           const order = await findOrderBySubscriptionId(subscriptionId);
           if (order) await updateOrderPaymentStatus(order.id, 'failed');

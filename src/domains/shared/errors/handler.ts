@@ -580,7 +580,12 @@ export function withApiHandler<
             const response = await handler(...args);
             const durationMs = Date.now() - startTime;
 
-            // Emit request metrics for Sentry dashboards
+            // Add Server-Timing header for observability (visible in browser DevTools Network tab)
+            if (response instanceof Response) {
+              const timing = `total;dur=${durationMs};desc="Total"`;
+              response.headers.set('Server-Timing', timing);
+            }
+
             try {
               const { emitRequestMetrics } = await import('@/lib/observability/metrics');
               const statusCode = response instanceof Response ? response.status : 200;

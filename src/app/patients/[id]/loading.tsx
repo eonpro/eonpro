@@ -5,31 +5,19 @@ import { useEffect, useState } from 'react';
 /**
  * Patient detail loading skeleton.
  *
- * On subdomain clinics, React hydration error #418 can trigger Suspense
- * recovery which shows this fallback while the RSC payload refetches.
- * The server component runs 8-20s of DB queries, so we must NOT reload
- * before that completes — a premature reload restarts the query from
- * scratch and creates an infinite reload loop.
- *
- * Safety net: after 8s, attempt one auto-reload. If still stuck, offer a manual retry
- * button. The reload is gated to fire at most once per page via
- * sessionStorage to prevent infinite loops.
+ * Shows a skeleton UI while the server component fetches patient data.
+ * After 12s, shows a "taking longer than expected" banner with a manual
+ * retry button. NO automatic reload — the previous auto-reload after 8s
+ * caused infinite reload loops because the RSC queries take 8-20s,
+ * restarting them from scratch on each reload.
  */
 export default function PatientDetailLoading() {
   const [showRetry, setShowRetry] = useState(false);
 
   useEffect(() => {
-    const key = `patient-loading-reload-${window.location.pathname}`;
-    const alreadyReloaded = sessionStorage.getItem(key);
-
     const timer = setTimeout(() => {
-      if (!alreadyReloaded) {
-        sessionStorage.setItem(key, '1');
-        window.location.reload();
-      } else {
-        setShowRetry(true);
-      }
-    }, 8000);
+      setShowRetry(true);
+    }, 12000);
     return () => clearTimeout(timer);
   }, []);
 
@@ -39,11 +27,7 @@ export default function PatientDetailLoading() {
         <div className="mb-4 flex items-center justify-between rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
           <span>This page is taking longer than expected to load.</span>
           <button
-            onClick={() => {
-              const key = `patient-loading-reload-${window.location.pathname}`;
-              sessionStorage.removeItem(key);
-              window.location.reload();
-            }}
+            onClick={() => window.location.reload()}
             className="ml-3 rounded-md bg-amber-600 px-3 py-1 text-xs font-medium text-white hover:bg-amber-700"
           >
             Retry

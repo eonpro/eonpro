@@ -34,24 +34,9 @@ export const GET = withAuth(
         const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
         // Get counts in parallel (prisma applies clinic filter in this context)
-        const [
-          clinic,
-          totalPatients,
-          activePatients,
-          newPatientsThisMonth,
-          totalUsers,
-          activeUsers,
-          totalProviders,
-          totalOrders,
-          ordersThisMonth,
-          pendingOrders,
-          completedOrders,
-          totalTickets,
-          openTickets,
-          recentAuditLogs,
-          userActivity,
-        ] = await Promise.all([
-          // Clinic info
+        // Batched in groups of 3 to stay within the 3-connection serverless pool limit.
+        // Previously 15 parallel queries caused P2024 pool exhaustion under load.
+        const [clinic, totalPatients, activePatients] = await Promise.all([
           prisma.clinic.findUnique({
             where: { id: clinicId },
             select: {
@@ -64,42 +49,33 @@ export const GET = withAuth(
               createdAt: true,
             },
           }),
-
-          // Total patients
           prisma.patient.count({ where: { clinicId } }),
-
-          // Active patients (has recent order in last 30 days)
           prisma.patient.count({
             where: {
               clinicId,
               orders: { some: { createdAt: { gte: thirtyDaysAgo } } },
             },
           }),
+        ]);
 
-          // New patients this month
+        const [newPatientsThisMonth, totalUsers, activeUsers] = await Promise.all([
           prisma.patient.count({
-            where: {
-              clinicId,
-              createdAt: { gte: thirtyDaysAgo },
-            },
+            where: { clinicId, createdAt: { gte: thirtyDaysAgo } },
           }),
-
-          // Total users
           prisma.user.count({
             where: {
               OR: [{ clinicId }, { userClinics: { some: { clinicId, isActive: true } } }],
             },
           }),
-
-          // Active users (logged in last 7 days)
           prisma.user.count({
             where: {
               OR: [{ clinicId }, { userClinics: { some: { clinicId, isActive: true } } }],
               lastLogin: { gte: sevenDaysAgo },
             },
           }),
+        ]);
 
-          // Total providers
+        const [totalProviders, totalOrders, ordersThisMonth] = await Promise.all([
           prisma.user.count({
             where: {
               OR: [
@@ -108,54 +84,33 @@ export const GET = withAuth(
               ],
             },
           }),
-
-          // Total orders
           prisma.order.count({ where: { clinicId } }),
-
-          // Orders this month
           prisma.order.count({
-            where: {
-              clinicId,
-              createdAt: { gte: thirtyDaysAgo },
-            },
+            where: { clinicId, createdAt: { gte: thirtyDaysAgo } },
           }),
+        ]);
 
-          // Pending orders
+        const [pendingOrders, completedOrders, totalTickets] = await Promise.all([
           prisma.order.count({
             where: {
               clinicId,
               status: { in: ['pending', 'processing', 'awaiting_prescription'] },
             },
           }),
-
-          // Completed orders
-          prisma.order.count({
-            where: {
-              clinicId,
-              status: 'completed',
-            },
-          }),
-
-          // Total tickets
+          prisma.order.count({ where: { clinicId, status: 'completed' } }),
           prisma.ticket.count({ where: { clinicId } }),
+        ]);
 
-          // Open tickets (TicketStatus enum: OPEN, IN_PROGRESS, PENDING)
+        const [openTickets, recentAuditLogs, userActivity] = await Promise.all([
           prisma.ticket.count({
             where: {
               clinicId,
               status: { in: ['OPEN', 'IN_PROGRESS', 'PENDING'] },
             },
           }),
-
-          // Recent audit logs count
           prisma.clinicAuditLog.count({
-            where: {
-              clinicId,
-              createdAt: { gte: sevenDaysAgo },
-            },
+            where: { clinicId, createdAt: { gte: sevenDaysAgo } },
           }),
-
-          // User activity summary
           prisma.user.findMany({
             where: {
               OR: [{ clinicId }, { userClinics: { some: { clinicId, isActive: true } } }],

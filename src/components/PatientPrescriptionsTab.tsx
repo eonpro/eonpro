@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import PrescriptionModal from './PrescriptionModal';
@@ -64,8 +64,9 @@ type PatientPrescriptionsTabProps = {
     state: string | null;
     zip: string | null;
   };
-  orders: Order[];
-  shippingLabelMap: Map<string | number, string>;
+  /** When provided, used directly. When omitted, orders are fetched client-side. */
+  orders?: Order[];
+  shippingLabelMap?: Map<string | number, string>;
   doseSpotEnabled?: boolean;
   providerId?: number;
   showTrackingManager?: boolean;
@@ -73,12 +74,49 @@ type PatientPrescriptionsTabProps = {
 
 export default function PatientPrescriptionsTab({
   patient,
-  orders,
-  shippingLabelMap,
+  orders: ordersProp,
+  shippingLabelMap = new Map(),
   doseSpotEnabled = false,
   providerId,
   showTrackingManager = false,
 }: PatientPrescriptionsTabProps) {
+  const [fetchedOrders, setFetchedOrders] = useState<Order[] | null>(null);
+  const [ordersLoading, setOrdersLoading] = useState(!ordersProp);
+
+  const fetchOrders = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/patients/${patient.id}/orders?take=50`);
+      if (res.ok) {
+        const data = await res.json();
+        setFetchedOrders(data.orders ?? data.data ?? data ?? []);
+      }
+    } catch {
+      setFetchedOrders([]);
+    } finally {
+      setOrdersLoading(false);
+    }
+  }, [patient.id]);
+
+  useEffect(() => {
+    if (!ordersProp) {
+      fetchOrders();
+    }
+  }, [ordersProp, fetchOrders]);
+
+  const orders = ordersProp ?? fetchedOrders ?? [];
+
+  if (ordersLoading) {
+    return (
+      <div className="animate-pulse space-y-4 p-6">
+        <div className="h-8 w-48 rounded bg-gray-200" />
+        <div className="space-y-3">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="h-20 rounded-xl bg-gray-100" />
+          ))}
+        </div>
+      </div>
+    );
+  }
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [isManageModalOpen, setIsManageModalOpen] = useState(false);

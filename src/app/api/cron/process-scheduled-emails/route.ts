@@ -15,6 +15,9 @@ import { prisma, basePrisma, runWithClinicContext } from '@/lib/db';
 import { sendTemplatedEmail, EmailTemplate } from '@/lib/email';
 import { verifyCronAuth, runCronPerTenant } from '@/lib/cron/tenant-isolation';
 
+export const dynamic = 'force-dynamic';
+export const maxDuration = 30;
+
 const CRON_SECRET = process.env.CRON_SECRET;
 const BATCH_SIZE = 50;
 const MAX_RETRIES = 3;

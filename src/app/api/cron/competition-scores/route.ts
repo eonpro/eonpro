@@ -14,6 +14,9 @@ import { runWithClinicContext } from '@/lib/db';
 import { updateActiveCompetitionScoresForClinic } from '@/services/affiliate/leaderboardService';
 import { verifyCronAuth, runCronPerTenant } from '@/lib/cron/tenant-isolation';
 
+export const dynamic = 'force-dynamic';
+export const maxDuration = 30;
+
 type PerClinicResult = { updated: number; errors: number };
 
 export async function POST(request: NextRequest) {

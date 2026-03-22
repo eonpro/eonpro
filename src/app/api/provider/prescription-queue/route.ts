@@ -147,67 +147,78 @@ async function handleGet(req: NextRequest, user: AuthUser) {
     // Load data and counts in parallel (no circuit breaker — this is a critical provider view
     // and must stay consistent with the /count endpoint which also uses raw Prisma)
 
-    const [invoices, refills, queuedOrders, invoiceCount, refillCount, queuedOrderCount] =
-      await Promise.all([
-        prisma.invoice.findMany({
-          where: {
-            clinicId: { in: clinicIds },
-            status: 'PAID',
-            prescriptionProcessed: false,
-            patient: {
-              profileStatus: { not: 'PENDING_COMPLETION' },
+    // Batched into 3 rounds of 2 to stay within the serverless connection pool.
+    // Previously 6 parallel queries risked P2024 pool exhaustion.
+    const invoiceWhere = {
+      clinicId: { in: clinicIds },
+      status: 'PAID' as const,
+      prescriptionProcessed: false,
+      patient: { profileStatus: { not: 'PENDING_COMPLETION' as const } },
+    };
+    const refillWhere = {
+      clinicId: { in: clinicIds },
+      status: { in: ['APPROVED', 'PENDING_PROVIDER', 'ON_HOLD'] as const },
+    };
+    const queuedOrderWhere = {
+      clinicId: { in: clinicIds },
+      status: { in: ['queued_for_provider', 'needs_info'] as const },
+    };
+
+    const [invoices, invoiceCount] = await Promise.all([
+      prisma.invoice.findMany({
+        where: invoiceWhere,
+        include: {
+          clinic: {
+            select: {
+              id: true,
+              name: true,
+              subdomain: true,
+              lifefileEnabled: true,
+              lifefilePracticeName: true,
             },
           },
-          include: {
-            clinic: {
-              select: {
-                id: true,
-                name: true,
-                subdomain: true,
-                lifefileEnabled: true,
-                lifefilePracticeName: true,
-              },
-            },
-            patient: {
-              select: {
-                id: true,
-                patientId: true,
-                firstName: true,
-                lastName: true,
-                email: true,
-                phone: true,
-                dob: true,
-                clinicId: true,
-                intakeSubmissions: {
-                  where: { status: 'completed' },
-                  orderBy: { completedAt: 'desc' },
-                  take: 1,
-                  select: {
-                    id: true,
-                    completedAt: true,
-                  },
-                },
-                soapNotes: {
-                  orderBy: { createdAt: 'desc' },
-                  take: 1,
-                  select: {
-                    id: true,
-                    status: true,
-                    createdAt: true,
-                    approvedAt: true,
-                    approvedBy: true,
-                  },
+          patient: {
+            select: {
+              id: true,
+              patientId: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+              phone: true,
+              dob: true,
+              clinicId: true,
+              intakeSubmissions: {
+                where: { status: 'completed' },
+                orderBy: { completedAt: 'desc' },
+                take: 1,
+                select: {
+                  id: true,
+                  completedAt: true,
                 },
               },
+              soapNotes: {
+                orderBy: { createdAt: 'desc' },
+                take: 1,
+                select: {
+                  id: true,
+                  status: true,
+                  createdAt: true,
+                  approvedAt: true,
+                  approvedBy: true,
+                },
+              },
             },
           },
-          orderBy: {
-            paidAt: 'asc',
-          },
-          take: limit,
-          skip: offset,
-        }),
-        prisma.refillQueue.findMany({
+        },
+        orderBy: { paidAt: 'asc' },
+        take: limit,
+        skip: offset,
+      }),
+      prisma.invoice.count({ where: invoiceWhere }),
+    ]);
+
+    const [refills, refillCount] = await Promise.all([
+      prisma.refillQueue.findMany({
           where: {
             clinicId: { in: clinicIds },
             status: { in: ['APPROVED', 'PENDING_PROVIDER', 'ON_HOLD'] },
@@ -268,11 +279,12 @@ async function handleGet(req: NextRequest, user: AuthUser) {
           take: limit,
           skip: offset,
         }),
-        prisma.order.findMany({
-          where: {
-            clinicId: { in: clinicIds },
-            status: { in: ['queued_for_provider', 'needs_info'] },
-          },
+        prisma.refillQueue.count({ where: refillWhere }),
+    ]);
+
+    const [queuedOrders, queuedOrderCount] = await Promise.all([
+      prisma.order.findMany({
+        where: queuedOrderWhere,
           include: {
             clinic: {
               select: {
@@ -313,29 +325,8 @@ async function handleGet(req: NextRequest, user: AuthUser) {
           take: limit,
           skip: offset,
         }),
-        prisma.invoice.count({
-          where: {
-            clinicId: { in: clinicIds },
-            status: 'PAID',
-            prescriptionProcessed: false,
-            patient: {
-              profileStatus: { not: 'PENDING_COMPLETION' },
-            },
-          },
-        }),
-        prisma.refillQueue.count({
-          where: {
-            clinicId: { in: clinicIds },
-            status: { in: ['APPROVED', 'PENDING_PROVIDER', 'ON_HOLD'] },
-          },
-        }),
-        prisma.order.count({
-          where: {
-            clinicId: { in: clinicIds },
-            status: { in: ['queued_for_provider', 'needs_info'] },
-          },
-        }),
-      ]);
+        prisma.order.count({ where: queuedOrderWhere }),
+    ]);
 
     // Fetch hold status via raw SQL (columns may not exist if migration not applied)
     const invoiceIds = (invoices as any[]).map((i: any) => i.id);

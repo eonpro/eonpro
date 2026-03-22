@@ -160,7 +160,7 @@ describe('ot-pricing', () => {
       strength: '25 mg',
       form: 'tabs',
     });
-    expect(enclo?.priceCents).toBe(4500);
+    expect(enclo?.priceCents).toBe(13500);
 
     const serm = inferOtPharmacyUnitPriceFromRx({
       medicationKey: 'x',
@@ -187,6 +187,24 @@ describe('ot-pricing', () => {
         form: '',
       }),
     ).toMatchObject({ source: 'fallback' });
+
+    expect(
+      resolveOtProductPriceForPharmacyLine({
+        medicationKey: '203418766',
+        medName: 'GLUTATHIONE 200MG/ML (10ML VIAL) SOLUTION',
+        strength: '200MG/ML',
+        form: 'Injectable',
+      }),
+    ).toMatchObject({ source: 'catalog', row: { priceCents: 4000 } });
+
+    expect(
+      inferOtPharmacyUnitPriceFromRx({
+        medicationKey: 'x',
+        medName: 'Glutathione 200mg/ml',
+        strength: '200MG/ML',
+        form: 'solution',
+      })?.priceCents,
+    ).toBe(4000);
   });
 
   it('effectiveOtPharmacyBillQuantity: oral / enclomiphene uses 1 package, not tab count', () => {
@@ -196,6 +214,15 @@ describe('ot-pricing', () => {
         form: '',
         consolidatedRawQty: 90,
         pricingSource: 'fallback',
+      }),
+    ).toBe(1);
+
+    expect(
+      effectiveOtPharmacyBillQuantity({
+        medName: 'Enclomiphene Citrate 25 mg',
+        form: 'CAP',
+        consolidatedRawQty: 90,
+        pricingSource: 'catalog',
       }),
     ).toBe(1);
 

@@ -20,6 +20,9 @@ import { handleApiError } from '@/domains/shared/errors';
 import { notificationEvents } from '@/services/notification/notificationEvents';
 import type { RefillQueue, Patient } from '@prisma/client';
 
+export const dynamic = 'force-dynamic';
+export const maxDuration = 30;
+
 const PENDING_ADMIN_WARN_HOURS = 4;
 const PENDING_ADMIN_URGENT_HOURS = 24;
 const APPROVED_WARN_HOURS = 8;

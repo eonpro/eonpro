@@ -20,6 +20,9 @@ import {
 import { notificationEvents } from '@/services/notification/notificationEvents';
 import type { Patient } from '@prisma/client';
 
+export const dynamic = 'force-dynamic';
+export const maxDuration = 30;
+
 export async function GET(req: NextRequest) {
   return runShipmentReminders(req);
 }

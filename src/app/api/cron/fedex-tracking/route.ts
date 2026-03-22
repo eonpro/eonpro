@@ -15,6 +15,9 @@ import { verifyCronAuth } from '@/lib/cron/tenant-isolation';
 import { handleApiError } from '@/domains/shared/errors';
 import { pollActiveFedExShipments } from '@/lib/shipping/fedex-tracking-poller';
 
+export const dynamic = 'force-dynamic';
+export const maxDuration = 30;
+
 export async function GET(req: NextRequest) {
   return runFedExTrackingPoll(req);
 }

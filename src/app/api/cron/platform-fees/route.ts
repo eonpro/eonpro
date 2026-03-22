@@ -14,6 +14,9 @@ import { prisma, runWithClinicContext } from '@/lib/db';
 import { platformFeeService, clinicInvoiceService } from '@/services/billing';
 import { verifyCronAuth, runCronPerTenant } from '@/lib/cron/tenant-isolation';
 
+export const dynamic = 'force-dynamic';
+export const maxDuration = 30;
+
 type PerClinicResult = {
   clinicId: number;
   clinicName: string;

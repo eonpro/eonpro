@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
     }
 
     const promoCodeObj = promotionCodes.data[0];
-    const coupon = promoCodeObj.coupon;
+    const coupon = (promoCodeObj as unknown as { coupon: Stripe.Coupon }).coupon;
 
     if (!coupon.valid) {
       return NextResponse.json({ success: false, data: { message: 'This promo code has expired' } });

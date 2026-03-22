@@ -26,6 +26,9 @@ import { processPayout, checkPayoutEligibility } from '@/services/affiliate/payo
 import { verifyCronAuth, runCronPerTenant } from '@/lib/cron/tenant-isolation';
 import { circuitBreaker, DbTier } from '@/lib/database/circuit-breaker';
 
+export const dynamic = 'force-dynamic';
+export const maxDuration = 30;
+
 // Stable lock key for the affiliate-payouts cron job (arbitrary unique integer)
 const AFFILIATE_PAYOUT_LOCK_KEY = 8675309;
 

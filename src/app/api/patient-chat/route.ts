@@ -12,7 +12,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma, runWithClinicContext, setClinicContext } from '@/lib/db';
+import { prisma, runWithClinicContext } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { standardRateLimit } from '@/lib/rateLimit';

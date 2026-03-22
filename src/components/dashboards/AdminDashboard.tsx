@@ -349,12 +349,12 @@ export default function AdminDashboard({ userName }: AdminDashboardProps) {
 
         {filteredIntakes.length > 0 && (
           <div className="border-t border-gray-100 px-6 py-3 text-center">
-            <Link
+            <a
               href="/admin/patients"
               className="text-sm font-medium text-gray-500 hover:text-[#4fa77e]"
             >
               Load More
-            </Link>
+            </a>
           </div>
         )}
       </div>
@@ -366,12 +366,12 @@ export default function AdminDashboard({ userName }: AdminDashboardProps) {
             <h2 className="text-lg font-semibold text-gray-900">Recent Payments</h2>
             <p className="text-sm text-gray-500">Latest transactions from Stripe</p>
           </div>
-          <Link
+          <a
             href="/admin/finance"
             className="flex items-center gap-1 text-sm font-medium text-[#4fa77e] hover:text-[#3d8a66]"
           >
             View all <ChevronRight className="h-4 w-4" />
-          </Link>
+          </a>
         </div>
 
         <div className="divide-y divide-gray-100">

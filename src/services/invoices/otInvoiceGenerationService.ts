@@ -48,14 +48,12 @@ export class OtInvoiceConfigurationError extends Error {
 }
 
 /**
- * `Invoice.clinicId` / `Order.clinicId` are nullable; many rows only have `patient.clinicId`.
- * Strict `where: { clinicId: otId }` drops paid invoices and orders → empty reports / “no payments”.
+ * OT reconciliation is patient-centric: include any invoice for OT patients. Requiring
+ * `Invoice.clinicId ∈ { ot, null }` dropped rows where the invoice row still pointed at a platform / legacy
+ * clinic id while the patient already belonged to OT — cash (Payment) matched but pharmacy stayed empty.
  */
 function otInvoicePatientClinicScope(clinicId: number) {
-  return {
-    patient: { clinicId },
-    OR: [{ clinicId }, { clinicId: null }],
-  };
+  return { patient: { clinicId } };
 }
 
 /**
@@ -365,6 +363,11 @@ export interface OtDailyInvoices {
   matchedPrescriptionInvoiceGrossCents: number;
   /** When true, 4%/10% fees use `paymentsCollectedNetCents`; when false, per matched-sale rounding (legacy). */
   feesUseCashCollectedBasis: boolean;
+  /**
+   * Payments in the period that did not map to a loaded Rx order’s invoice for COGS (investigation / admin).
+   * When no pharmacy rows loaded, this equals `paymentCollections`.
+   */
+  paymentsWithoutPharmacyCogs: OtPaymentCollectionRow[];
 }
 
 interface RawInvoiceLine {
@@ -633,6 +636,14 @@ export async function generateOtDailyInvoices(date: string, endDate?: string): P
   const nextDay = midnightInTz(eY, eM - 1, eD + 1, CLINIC_TZ);
   const periodEnd = new Date(nextDay.getTime() - 1);
 
+  const wideStart = new Date(periodStart.getTime() - 7 * 24 * 60 * 60 * 1000);
+  const wideEnd = new Date(periodEnd.getTime() + 7 * 24 * 60 * 60 * 1000);
+  /** Aligns with payment→patient→order fallback — reused for consult/cash invoices with no `orderId`. */
+  const patientFallbackStart = new Date(periodStart.getTime() - 45 * 24 * 60 * 60 * 1000);
+  const patientFallbackEnd = new Date(periodEnd.getTime() + 14 * 24 * 60 * 60 * 1000);
+  /** Max |invoice.paidAt − (order.approvedAt ?? order.createdAt)| when linking cash invoice → Rx order. */
+  const OT_ORPHAN_PAYMENT_INVOICE_ORDER_MAX_MS = 45 * 86_400_000;
+
   const [paidInvoices, rawPeriodPayments] = await Promise.all([
     basePrisma.invoice.findMany({
       where: {
@@ -775,7 +786,8 @@ export async function generateOtDailyInvoices(date: string, endDate?: string): P
       where: {
         id: { in: paymentLinkedInvoiceIds },
         ...otInvoicePatientClinicScope(clinicId),
-        orderId: { not: null },
+        paidAt: { not: null },
+        status: { notIn: ['VOID', 'REFUNDED'] },
       },
       select: {
         id: true,
@@ -789,20 +801,91 @@ export async function generateOtDailyInvoices(date: string, endDate?: string): P
       },
     });
     let bridgedOrderCount = 0;
+    const bridgedInvoicesWithoutOrderId: (typeof paymentBridgedInvoices)[number][] = [];
     for (const inv of paymentBridgedInvoices) {
-      if (!inv.orderId) continue;
-      if (invoiceByOrderId.has(inv.orderId)) continue;
-      invoiceByOrderId.set(inv.orderId, {
-        paidAt: inv.paidAt,
-        invoiceDbId: inv.id,
-        patientId: inv.patientId,
-        amountPaid: inv.amountPaid,
-        amountDue: inv.amountDue,
-        lineItems: inv.lineItems,
-      });
-      orderIdsFromInvoices.add(inv.orderId);
-      bridgedOrderCount += 1;
+      if (inv.orderId != null) {
+        if (invoiceByOrderId.has(inv.orderId)) continue;
+        invoiceByOrderId.set(inv.orderId, {
+          paidAt: inv.paidAt,
+          invoiceDbId: inv.id,
+          patientId: inv.patientId,
+          amountPaid: inv.amountPaid,
+          amountDue: inv.amountDue,
+          lineItems: inv.lineItems,
+        });
+        orderIdsFromInvoices.add(inv.orderId);
+        bridgedOrderCount += 1;
+      } else {
+        bridgedInvoicesWithoutOrderId.push(inv);
+      }
     }
+
+    if (bridgedInvoicesWithoutOrderId.length > 0) {
+      const orphanPatientIds = [...new Set(bridgedInvoicesWithoutOrderId.map((i) => i.patientId))];
+      const orphanCandidateOrders = await basePrisma.order.findMany({
+        where: {
+          patientId: { in: orphanPatientIds },
+          patient: { clinicId },
+          cancelledAt: null,
+          status: { notIn: ['error', 'cancelled', 'declined'] },
+          rxs: { some: {} },
+          OR: [
+            { createdAt: { gte: patientFallbackStart, lte: patientFallbackEnd } },
+            { approvedAt: { gte: patientFallbackStart, lte: patientFallbackEnd } },
+          ],
+        },
+        select: {
+          id: true,
+          patientId: true,
+          createdAt: true,
+          approvedAt: true,
+        },
+        orderBy: { id: 'desc' },
+      });
+      const ordersByPatient = new Map<number, typeof orphanCandidateOrders>();
+      for (const o of orphanCandidateOrders) {
+        const list = ordersByPatient.get(o.patientId) ?? [];
+        list.push(o);
+        ordersByPatient.set(o.patientId, list);
+      }
+      let orphanAttached = 0;
+      for (const inv of bridgedInvoicesWithoutOrderId) {
+        if (!inv.paidAt) continue;
+        const paidMs = inv.paidAt.getTime();
+        const candidates = ordersByPatient.get(inv.patientId) ?? [];
+        let best: (typeof orphanCandidateOrders)[number] | null = null;
+        let bestDiff = Infinity;
+        for (const o of candidates) {
+          const anchorMs = (o.approvedAt ?? o.createdAt).getTime();
+          const diff = Math.abs(anchorMs - paidMs);
+          if (diff <= OT_ORPHAN_PAYMENT_INVOICE_ORDER_MAX_MS && diff < bestDiff) {
+            bestDiff = diff;
+            best = o;
+          }
+        }
+        if (!best) continue;
+        if (invoiceByOrderId.has(best.id)) continue;
+        invoiceByOrderId.set(best.id, {
+          paidAt: inv.paidAt,
+          invoiceDbId: inv.id,
+          patientId: inv.patientId,
+          amountPaid: inv.amountPaid,
+          amountDue: inv.amountDue,
+          lineItems: inv.lineItems,
+        });
+        orderIdsFromInvoices.add(best.id);
+        orphanAttached += 1;
+      }
+      if (orphanAttached > 0 || bridgedInvoicesWithoutOrderId.length > 0) {
+        logger.info('OT invoice: cash invoice without orderId → Rx order (patient + date proximity)', {
+          clinicId,
+          orphanInvoices: bridgedInvoicesWithoutOrderId.length,
+          orphanCandidateOrders: orphanCandidateOrders.length,
+          orphanAttached,
+        });
+      }
+    }
+
     const invoiceIdsMissingFromDb = paymentLinkedInvoiceIds.length - paymentBridgedInvoices.length;
     if (bridgedOrderCount > 0 || reconciliationInvoiceIds.length > 0 || invoiceIdsMissingFromDb > 0) {
       logger.info('OT invoice generation: payment→invoice bridge', {
@@ -815,12 +898,6 @@ export async function generateOtDailyInvoices(date: string, endDate?: string): P
       });
     }
   }
-
-  const wideStart = new Date(periodStart.getTime() - 7 * 24 * 60 * 60 * 1000);
-  const wideEnd = new Date(periodEnd.getTime() + 7 * 24 * 60 * 60 * 1000);
-  /** Wider window for payment→patient→order fallback (multi-week date ranges, Rx fulfilled before cash posts). */
-  const patientFallbackStart = new Date(periodStart.getTime() - 45 * 24 * 60 * 60 * 1000);
-  const patientFallbackEnd = new Date(periodEnd.getTime() + 14 * 24 * 60 * 60 * 1000);
 
   /**
    * Last-resort COGS link: patients with cash in the period → their Rx orders in the wide window →
@@ -1388,6 +1465,16 @@ export async function generateOtDailyInvoices(date: string, endDate?: string): P
     managerOverrideTotalCents;
   const clinicNetPayoutCents = grossForFeeDisplay - grandTotal;
 
+  const invoiceDbIdsUsedForCogs = new Set(
+    filteredOrders
+      .map((o) => invoiceByOrderId.get(o.id)?.invoiceDbId)
+      .filter((x): x is number => x != null),
+  );
+  const paymentsWithoutPharmacyCogs =
+    filteredOrders.length === 0
+      ? paymentCollections.slice()
+      : paymentCollections.filter((p) => p.invoiceId == null || !invoiceDbIdsUsedForCogs.has(p.invoiceId));
+
   const nowIso = new Date().toISOString();
 
   return {
@@ -1456,6 +1543,7 @@ export async function generateOtDailyInvoices(date: string, endDate?: string): P
     paymentsCollectedNetCents,
     matchedPrescriptionInvoiceGrossCents,
     feesUseCashCollectedBasis,
+    paymentsWithoutPharmacyCogs,
   };
 }
 
@@ -2012,11 +2100,13 @@ export async function generateOtSummaryPDF(data: OtDailyInvoices): Promise<Uint8
   const grossLabel = data.feesUseCashCollectedBasis
     ? `Cash collected (${payN} payments, net)`
     : `Patient gross (${invN} matched paid invoices)`;
+  const referenceGrossRow: [string, string] = [
+    'Reference — matched Rx invoice gross',
+    `$${centsToDisplay(data.matchedPrescriptionInvoiceGrossCents)}`,
+  ];
   const rows: [string, string][] = [
     [grossLabel, `$${centsToDisplay(data.platformCompensation.grossSalesCents)}`],
-    ...(data.feesUseCashCollectedBasis
-      ? [[`Reference — matched Rx invoice gross`, `$${centsToDisplay(data.matchedPrescriptionInvoiceGrossCents)}`]]
-      : []),
+    ...(data.feesUseCashCollectedBasis ? [referenceGrossRow] : []),
     [
       'Less — Pharmacy (medications + shipping + TRT telehealth if applicable)',
       `$${centsToDisplay(data.pharmacy.totalCents)}`,

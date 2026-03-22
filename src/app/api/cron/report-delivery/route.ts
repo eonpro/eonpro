@@ -16,6 +16,9 @@ import { exportToPdf } from '@/services/reporting/exporters/pdf';
 import { exportToXlsx } from '@/services/reporting/exporters/xlsx';
 import type { ReportConfig } from '@/services/reporting/types';
 
+export const dynamic = 'force-dynamic';
+export const maxDuration = 30;
+
 function computeNextRun(schedule: { frequency: string; dayOfWeek: number | null; dayOfMonth: number | null; timeUtc: string }): Date {
   const now = new Date();
   const [h, m] = schedule.timeUtc.split(':').map(Number);

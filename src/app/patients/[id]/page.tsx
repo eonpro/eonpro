@@ -118,7 +118,9 @@ export default async function PatientDetailPage({
     const resolvedSearchParams = searchParams ? await searchParams : undefined;
     let requestedTab = resolvedSearchParams?.tab || 'profile';
     if (requestedTab === 'labs') requestedTab = 'lab';
-    const needsDetailedOrders = requestedTab === 'prescriptions';
+    // Prescriptions tab now self-loads orders client-side via /api/patients/[id]/orders.
+    // Server always fetches lightweight sidebar orders only (10, no relations).
+    const needsDetailedOrders = false;
 
     // Validate the ID
     if (isNaN(id) || id <= 0) {
@@ -199,7 +201,9 @@ export default async function PatientDetailPage({
       );
     }
 
-    const needsIntakeData = requestedTab === 'intake' || requestedTab === 'profile';
+    const needsDocuments = requestedTab === 'intake' || requestedTab === 'profile' || requestedTab === 'documents';
+    const needsIntakeSubmissions = requestedTab === 'intake';
+    const needsIntakeData = needsDocuments; // kept for backwards compat in Phase 2 doc fetch
     const needsAuditEntries = resolvedSearchParams?.admin === 'true';
 
     // ─── PHASE 1: Lightweight core patient query ───────────────────────
@@ -347,10 +351,10 @@ export default async function PatientDetailPage({
             );
           }
 
-          // Intake submissions — uses withoutClinicFilter because IntakeFormSubmission
-          // is listed as clinic-isolated but has no clinicId column. The clinic filter
-          // proxy would inject a failing clinicId WHERE clause without bypass.
-          if (needsIntakeData) {
+          // Intake submissions — heavy query (nested responses + questions).
+          // Only fetched when the intake tab is active, not on profile.
+          // Uses withoutClinicFilter because IntakeFormSubmission has no clinicId column.
+          if (needsIntakeSubmissions) {
             parallelQueries.push(
               withoutClinicFilter(() =>
                 prisma.intakeFormSubmission.findMany({
@@ -404,8 +408,9 @@ export default async function PatientDetailPage({
 
         await withTimeout(phase2, 12000, 'Phase 2 parallel queries');
 
-        // For intake tab: fetch document binary data for MEDICAL_INTAKE_FORM docs
-        if (needsIntakeData && documents.length > 0) {
+        // For intake tab: fetch document binary data for MEDICAL_INTAKE_FORM docs.
+        // Only on intake tab — profile only needs document metadata for vitals extraction.
+        if (needsIntakeSubmissions && documents.length > 0) {
           const intakeDocIds = documents
             .filter((d: any) => d.category === 'MEDICAL_INTAKE_FORM')
             .map((d: any) => d.id);
@@ -1277,8 +1282,6 @@ export default async function PatientDetailPage({
             ) : currentTab === 'prescriptions' ? (
               <PatientPrescriptionsTab
                 patient={patientCore}
-                orders={patientWithDecryptedPHI.orders ?? []}
-                shippingLabelMap={shippingLabelMap}
                 doseSpotEnabled={doseSpotEnabled}
                 providerId={doseSpotPrescriberId}
                 showTrackingManager={user.role === 'pharmacy_rep'}

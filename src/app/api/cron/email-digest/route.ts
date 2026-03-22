@@ -16,6 +16,9 @@ import { sendTemplatedEmail, EmailTemplate, EmailPriority } from '@/lib/email';
 import type { NotificationCategory } from '@prisma/client';
 import { verifyCronAuth, runCronPerTenant } from '@/lib/cron/tenant-isolation';
 
+export const dynamic = 'force-dynamic';
+export const maxDuration = 30;
+
 const CRON_SECRET = process.env.CRON_SECRET;
 const BATCH_SIZE = 100;
 

@@ -20,6 +20,9 @@ import { handleApiError } from '@/domains/shared/errors';
 import { notificationService } from '@/services/notification/notificationService';
 import type { NotificationCategory, NotificationPriority } from '@prisma/client';
 
+export const dynamic = 'force-dynamic';
+export const maxDuration = 30;
+
 export async function GET(req: NextRequest) {
   return runDailySummary(req);
 }

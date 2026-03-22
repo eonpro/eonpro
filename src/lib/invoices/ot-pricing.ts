@@ -140,6 +140,17 @@ export const OT_PRODUCT_PRICES: OtProductPrice[] = [
   { productId: 203448947, name: 'SEMAGLUTIDE/GLYCINE', strength: '2.5/20MG/ML', vialSize: '2ML', priceCents: 4000 },
   { productId: 203449363, name: 'SEMAGLUTIDE/GLYCINE', strength: '2.5/20MG/ML', vialSize: '3ML', priceCents: 4500 },
   { productId: 202851329, name: 'SEMAGLUTIDE/GLYCINE', strength: '5/20MG/ML', vialSize: '2ML', priceCents: 5000 },
+  /** Enclomiphene capsules — internal COGS per dispensed package (e.g. 90-count fill), not per tablet. */
+  { productId: 203449328, name: 'ENCLOMIPHENE CITRATE', strength: '12.5mg', vialSize: 'CAP', priceCents: 3500 },
+  { productId: 203449329, name: 'ENCLOMIPHENE CITRATE', strength: '25 mg', vialSize: 'CAP', priceCents: 13500 },
+  { productId: 203449330, name: 'ENCLOMIPHENE CITRATE', strength: '50 mg', vialSize: 'CAP', priceCents: 4500 },
+  {
+    productId: 203418766,
+    name: 'GLUTATHIONE 200MG/ML (10ML VIAL) SOLUTION',
+    strength: '200MG/ML',
+    vialSize: '10ML',
+    priceCents: 4000,
+  },
 ];
 
 export const OT_PRICE_MAP = new Map(OT_PRODUCT_PRICES.map((p) => [String(p.productId), p]));
@@ -196,9 +207,16 @@ export function inferOtPharmacyUnitPriceFromRx(rx: {
   if (blob.includes('sermorelin')) return row(12000, rx.medName, rx.strength, rx.form || '');
   if (blob.includes('enclomiphene')) {
     if (blob.includes('12.5')) return row(3500, rx.medName, rx.strength, rx.form || '');
+    if (/\b50\s*mg\b/.test(blob) || blob.includes('50mg')) {
+      return row(4500, rx.medName, rx.strength, rx.form || '');
+    }
+    // 25 mg (typical 90-capsule maintenance) — package COGS, billed as qty 1 in {@link effectiveOtPharmacyBillQuantity}.
+    if (/\b25\s*mg\b/.test(blob) || blob.includes('25mg')) {
+      return row(13500, rx.medName, rx.strength, rx.form || '');
+    }
     return row(4500, rx.medName, rx.strength, rx.form || '');
   }
-  if (blob.includes('glutathione')) return row(5000, rx.medName, rx.strength, rx.form || '');
+  if (blob.includes('glutathione')) return row(4000, rx.medName, rx.strength, rx.form || '');
   if (blob.includes('nad+') || blob.includes('nad +') || /\bnad\b/.test(blob)) {
     return row(8000, rx.medName, rx.strength, rx.form || '');
   }
@@ -241,10 +259,6 @@ export function effectiveOtPharmacyBillQuantity(params: {
 }): number {
   const raw = Math.max(1, Math.floor(params.consolidatedRawQty) || 1);
 
-  if (params.pricingSource === 'catalog') {
-    return Math.min(raw, 48);
-  }
-
   const blob = `${params.medName} ${params.form}`.toLowerCase();
   const oralLike =
     /\b(tab|tabs|tablet|tablets|capsule|capsules|cap|oral)\b/.test(blob) ||
@@ -253,8 +267,13 @@ export function effectiveOtPharmacyBillQuantity(params: {
     blob.includes('anastrozole') ||
     blob.includes('tadalafil');
 
+  // Oral / capsule SKUs in {@link OT_PRODUCT_PRICES} must still bill **one package**, not tablet count (e.g. 90).
   if (oralLike) {
     return 1;
+  }
+
+  if (params.pricingSource === 'catalog') {
+    return Math.min(raw, 48);
   }
 
   if (params.pricingSource === 'fallback' || params.pricingSource === null) {

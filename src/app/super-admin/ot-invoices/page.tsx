@@ -203,6 +203,8 @@ interface OtInvoiceData {
   paymentsCollectedNetCents?: number;
   matchedPrescriptionInvoiceGrossCents?: number;
   feesUseCashCollectedBasis?: boolean;
+  /** Payments whose invoice did not map to a loaded pharmacy line (subset for debugging). */
+  paymentsWithoutPharmacyCogs?: OtPaymentCollectionRow[];
 }
 
 type ActiveTab =
@@ -603,7 +605,33 @@ export default function OtInvoicesPage() {
             </button>
           </div>
 
-            {activeTab === 'pharmacy' && <PharmacyTable invoice={data.pharmacy} />}
+            {activeTab === 'pharmacy' && (
+              <div className="flex flex-col gap-8">
+                <PharmacyTable invoice={data.pharmacy} />
+                <div>
+                  <h3 className="mb-1 text-sm font-semibold text-gray-900">Cash collected — every payment</h3>
+                  <p className="mb-3 text-xs text-gray-500">
+                    Same ledger as the <strong>All payments</strong> tab; shown here so you can match Stripe amounts to
+                    patients and open profiles when pharmacy lines are empty or unclear.
+                    {(data.paymentsWithoutPharmacyCogs?.length ?? 0) > 0 && (
+                      <>
+                        {' '}
+                        <span className="font-medium text-amber-800">
+                          {data.paymentsWithoutPharmacyCogs!.length} payment(s) did not map to a pharmacy COGS row for
+                          this period.
+                        </span>
+                      </>
+                    )}
+                  </p>
+                  <PaymentCollectionsTable
+                    rows={data.paymentCollections ?? []}
+                    matchedRxGrossCents={data.matchedPrescriptionInvoiceGrossCents ?? 0}
+                    feesUseCashCollectedBasis={data.feesUseCashCollectedBasis ?? false}
+                    patientAdminLinks
+                  />
+                </div>
+              </div>
+            )}
             {activeTab === 'all_payments' && (
               <PaymentCollectionsTable
                 rows={data.paymentCollections ?? []}
@@ -699,10 +727,13 @@ function PaymentCollectionsTable({
   rows,
   matchedRxGrossCents,
   feesUseCashCollectedBasis,
+  patientAdminLinks = false,
 }: {
   rows: OtPaymentCollectionRow[];
   matchedRxGrossCents: number;
   feesUseCashCollectedBasis: boolean;
+  /** Plain admin hrefs (full navigation) for super-admin investigation. */
+  patientAdminLinks?: boolean;
 }) {
   const totalNet = rows.reduce((s, r) => s + r.netCollectedCents, 0);
   return (
@@ -746,7 +777,16 @@ function PaymentCollectionsTable({
                 <td className="whitespace-nowrap px-4 py-2 text-xs text-gray-600">{formatDateTime(r.recordedAt)}</td>
                 <td className="px-4 py-2 font-mono text-xs">{r.paymentId}</td>
                 <td className="max-w-[160px] truncate px-4 py-2 font-medium" title={r.patientName}>
-                  {r.patientName}
+                  {patientAdminLinks ? (
+                    <a
+                      href={`/admin/patients/${r.patientId}`}
+                      className="text-[#4fa77e] hover:underline"
+                    >
+                      {r.patientName}
+                    </a>
+                  ) : (
+                    r.patientName
+                  )}
                 </td>
                 <td className="whitespace-nowrap px-4 py-2 text-right">{centsToDisplay(r.amountCents)}</td>
                 <td className="whitespace-nowrap px-4 py-2 text-right font-semibold">{centsToDisplay(r.netCollectedCents)}</td>
@@ -801,7 +841,11 @@ function PharmacyTable({ invoice }: { invoice: OtPharmacyInvoice }) {
                 {li.paidAt ? formatDateTime(li.paidAt) : '—'}
               </td>
               <td className="px-4 py-2 font-mono text-xs">{li.orderId}</td>
-              <td className="px-4 py-2 font-medium">{li.patientName}</td>
+              <td className="px-4 py-2 font-medium">
+                <a href={`/admin/patients/${li.patientId}`} className="text-[#4fa77e] hover:underline">
+                  {li.patientName}
+                </a>
+              </td>
               <td className="px-4 py-2 font-mono text-xs text-gray-400">{li.lifefileOrderId ?? '—'}</td>
               <td className="px-4 py-2">{li.medicationName}</td>
               <td className="px-4 py-2 text-gray-600">{li.strength}</td>

@@ -170,6 +170,7 @@ describe('generateOtDailyInvoices (mocked DB)', () => {
     expect(data.paymentsCollectedNetCents).toBe(100_000);
     expect(data.paymentCollections).toHaveLength(1);
     expect(data.paymentCollections[0].netCollectedCents).toBe(100_000);
+    expect(data.paymentsWithoutPharmacyCogs).toHaveLength(0);
 
     // Catalog semaglutide 1ML = 3500; premium shipping 3000; sync doctor 3000
     expect(data.pharmacy.subtotalMedicationsCents).toBe(3500);
@@ -349,6 +350,73 @@ describe('generateOtDailyInvoices (mocked DB)', () => {
     expect(data.pharmacy.orderCount).toBe(1);
     expect(data.paymentCollections[0].invoiceId).toBeNull();
     expect(data.perSaleReconciliation).toHaveLength(1);
+  });
+
+  it('payment→invoice: cash invoice with orderId null still maps pharmacy via patient Rx order near paidAt', async () => {
+    const consultInvoiceNoOrder = {
+      id: 8023,
+      orderId: null,
+      paidAt: PAID_AT,
+      patientId: 100,
+      prescriptionProcessedAt: null,
+      amountPaid: 26_900,
+      amountDue: null,
+      lineItems: [] as unknown[],
+    };
+    const rxOrder = {
+      id: 101248021,
+      createdAt: PAID_AT,
+      approvedAt: PAID_AT,
+      queuedForProviderAt: null,
+      lifefileOrderId: 'LF-GLUT',
+      shippingMethod: 1,
+      patientId: 100,
+      providerId: 1,
+      patient: { id: 100, firstName: 'Amanda', lastName: 'Valle' },
+      provider: { id: 1, firstName: 'D', lastName: 'E' },
+      rxs: [
+        {
+          medicationKey: '203418766',
+          medName: 'GLUTATHIONE 200MG/ML (10ML VIAL) SOLUTION',
+          strength: '200MG/ML',
+          form: 'Injectable',
+          quantity: '1',
+        },
+      ],
+    };
+    wireInvoiceSequence(
+      [],
+      [],
+      [{ id: 8023, stripeInvoiceId: null }],
+      [],
+      { paymentBridgeRows: [consultInvoiceNoOrder] },
+    );
+    wirePayments(
+      [
+        {
+          id: 2369,
+          amount: 26_900,
+          refundedAmount: null,
+          paidAt: PAID_AT,
+          createdAt: PAID_AT,
+          patientId: 100,
+          invoiceId: 8023,
+          description: null,
+          stripePaymentIntentId: 'pi_consult',
+          stripeChargeId: 'ch_consult',
+        },
+      ],
+      [{ invoiceId: 8023, amount: 26_900 }],
+    );
+    mockBasePrisma.patient.findMany.mockResolvedValue([{ id: 100, firstName: 'Amanda', lastName: 'Valle' }]);
+    mockBasePrisma.order.findMany.mockResolvedValue([rxOrder]);
+
+    const data = await generateOtDailyInvoices('2026-03-20');
+
+    expect(data.pharmacy.orderCount).toBe(1);
+    expect(data.pharmacy.lineItems.some((li) => li.medicationKey === '203418766')).toBe(true);
+    expect(data.paymentsWithoutPharmacyCogs).toHaveLength(0);
+    expect(data.perSaleReconciliation[0].invoiceDbId).toBe(8023);
   });
 
   it('flexibility: date range uses end-day +1 for periodEnd (midnightInTz called with end calendar day + 1)', async () => {
@@ -795,6 +863,7 @@ describe('OT invoice CSV reporting accuracy', () => {
       paymentsCollectedNetCents: 100_000,
       matchedPrescriptionInvoiceGrossCents: 95_000,
       feesUseCashCollectedBasis: true,
+      paymentsWithoutPharmacyCogs: [],
     } satisfies OtDailyInvoices;
 
     const csv = generateOtCombinedCSV(data);

@@ -18,6 +18,9 @@ import { prisma, runWithClinicContext } from '@/lib/db';
 import { verifyCronAuth, runCronPerTenant } from '@/lib/cron/tenant-isolation';
 import { circuitBreaker, DbTier } from '@/lib/database/circuit-breaker';
 
+export const dynamic = 'force-dynamic';
+export const maxDuration = 30;
+
 type PerClinicResult = {
   newlyProcessed: number;
   failed: number;

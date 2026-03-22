@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, type ComponentProps } from 'react';
 import type {
   FormStep as FormStepType,
   FormBranding,
@@ -405,13 +405,29 @@ export default function FormStep({
       case 'WmDobStep':
         return <WmDobStep {...customProps} />;
       case 'WmImageCardStep':
-        return <WmImageCardStep {...customProps} {...(config.props as Record<string, unknown>)} />;
+        return (
+          <WmImageCardStep
+            {...({ ...customProps, ...config.props } as ComponentProps<typeof WmImageCardStep>)}
+          />
+        );
       case 'WmYesNoDetailStep':
-        return <WmYesNoDetailStep {...customProps} {...(config.props as Record<string, unknown>)} />;
+        return (
+          <WmYesNoDetailStep
+            {...({ ...customProps, ...config.props } as ComponentProps<typeof WmYesNoDetailStep>)}
+          />
+        );
       case 'WmCheckboxListStep':
-        return <WmCheckboxListStep {...customProps} {...(config.props as Record<string, unknown>)} />;
+        return (
+          <WmCheckboxListStep
+            {...({ ...customProps, ...config.props } as ComponentProps<typeof WmCheckboxListStep>)}
+          />
+        );
       case 'WmMotivationRadioStep':
-        return <WmMotivationRadioStep {...customProps} {...(config.props as Record<string, unknown>)} />;
+        return (
+          <WmMotivationRadioStep
+            {...({ ...customProps, ...config.props } as ComponentProps<typeof WmMotivationRadioStep>)}
+          />
+        );
       case 'WmAnimatedWeightChartStep':
         return <WmAnimatedWeightChartStep {...customProps} />;
       case 'WmMetabolicChartStep':
@@ -419,7 +435,11 @@ export default function FormStep({
       case 'WmPatternInfoStep':
         return <WmPatternInfoStep {...customProps} />;
       case 'WmTestimonialStep':
-        return <WmTestimonialStep {...customProps} {...(config.props as Record<string, unknown>)} />;
+        return (
+          <WmTestimonialStep
+            {...({ ...customProps, ...config.props } as ComponentProps<typeof WmTestimonialStep>)}
+          />
+        );
       case 'WmCongratsStep':
         return <WmCongratsStep {...customProps} />;
       case 'WmMedicalReviewStep':
@@ -439,8 +459,10 @@ export default function FormStep({
         <div className="w-full h-1 bg-gray-100">
           <div
             className="h-full transition-all duration-300"
-            style={{ backgroundColor: 'var(--intake-accent, #f0feab)' }}
-            style={{ width: `${config.progressPercent}%` }}
+            style={{
+              backgroundColor: 'var(--intake-accent, #f0feab)',
+              width: `${config.progressPercent}%`,
+            }}
           />
         </div>
         {logoElement}

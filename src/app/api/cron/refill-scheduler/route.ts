@@ -22,6 +22,9 @@ import {
 import { prisma } from '@/lib/db';
 import { handleApiError } from '@/domains/shared/errors';
 
+export const dynamic = 'force-dynamic';
+export const maxDuration = 30;
+
 export async function GET(req: NextRequest) {
   return runRefillScheduler(req);
 }

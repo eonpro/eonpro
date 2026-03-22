@@ -304,11 +304,13 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
         path: '/admin/ot-medication-pricing',
         label: 'OT Medication Pricing',
         icon: Pill,
+        iconKey: 'pill',
       });
       items.splice(insertAt + 1, 0, {
         path: '/admin/resources/retail-pricing',
         label: 'OT Pricing Calculator',
         icon: Calculator,
+        iconKey: 'calculator',
       });
     }
     return items;

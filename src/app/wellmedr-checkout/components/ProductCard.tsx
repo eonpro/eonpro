@@ -7,7 +7,7 @@ import {
   ProductNameType,
   ProductType,
   SelectedProductType,
-} from '../types';
+} from '../types/checkout';
 
 const getPriceDifferenceText = (diff: number) => {
   if (diff === 0) {
@@ -140,7 +140,7 @@ const ProductCard = ({
 
       <div className="flex flex-col gap-3">
         {additionalFeatures &&
-          additionalFeatures.map((feature, idx) => (
+          additionalFeatures.map((feature: string, idx: number) => (
             <Fragment key={`pf_${idx}`}>
               <CheckboxWithText>{feature}</CheckboxWithText>
             </Fragment>
