@@ -110,19 +110,6 @@ export default function PatientPrescriptionsTab({
 
   const orders = ordersProp ?? fetchedOrders ?? [];
 
-  if (ordersLoading) {
-    return (
-      <div className="animate-pulse space-y-4 p-6">
-        <div className="h-8 w-48 rounded bg-gray-200" />
-        <div className="space-y-3">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="h-20 rounded-xl bg-gray-100" />
-          ))}
-        </div>
-      </div>
-    );
-  }
-
   const DUPLICATE_WINDOW_DAYS = 3;
 
   const recentOrders = useMemo(() => {
@@ -135,6 +122,19 @@ export default function PatientPrescriptionsTab({
       return created >= cutoff && !isCancelled && !isErrorOrDeclined;
     });
   }, [orders]);
+
+  if (ordersLoading) {
+    return (
+      <div className="animate-pulse space-y-4 p-6">
+        <div className="h-8 w-48 rounded bg-gray-200" />
+        <div className="space-y-3">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="h-20 rounded-xl bg-gray-100" />
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   const handleNewPrescriptionClick = () => {
     if (recentOrders.length > 0) {
