@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api/fetch';
 import { OtMedicationPricingCatalog } from '@/components/invoices/OtMedicationPricingCatalog';
+import { todayET } from '@/lib/utils/timezone';
 
 interface OtPharmacyLineItem {
   orderId: number;
@@ -229,13 +230,14 @@ function formatDateTime(iso: string): string {
   });
 }
 
-function getTodayISO(): string {
-  return new Date().toISOString().split('T')[0];
+/** Invoice days are US/Eastern; never use UTC calendar from `toISOString()` (evening ET can be “tomorrow” in UTC). */
+function getDefaultInvoiceDateET(): string {
+  return todayET();
 }
 
 export default function OtInvoicesPage() {
-  const [startDate, setStartDate] = useState(getTodayISO());
-  const [endDate, setEndDate] = useState(getTodayISO());
+  const [startDate, setStartDate] = useState(() => getDefaultInvoiceDateET());
+  const [endDate, setEndDate] = useState(() => getDefaultInvoiceDateET());
   const [useRange, setUseRange] = useState(false);
   const [loading, setLoading] = useState(false);
   const [exporting, setExporting] = useState<string | null>(null);

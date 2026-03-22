@@ -85,17 +85,21 @@ export function midnightInTz(
     const expectedDay = normalized.getUTCDate();
     const expectedMonth = normalized.getUTCMonth() + 1;
 
-    const vParts = formatter.formatToParts(result);
-    const vDay = Number(vParts.find((p) => p.type === 'day')!.value);
-    const vMonth = Number(vParts.find((p) => p.type === 'month')!.value);
-    if (vDay === expectedDay && vMonth === expectedMonth) return result;
+    const readEtDayMonth = (d: Date): { day: number; month: number } | null => {
+      const parts = formatter.formatToParts(d);
+      const dp = parts.find((p) => p.type === 'day');
+      const mp = parts.find((p) => p.type === 'month');
+      if (!dp?.value || !mp?.value) return null;
+      return { day: Number(dp.value), month: Number(mp.value) };
+    };
+
+    const vm = readEtDayMonth(result);
+    if (vm && vm.day === expectedDay && vm.month === expectedMonth) return result;
 
     for (const delta of [3_600_000, -3_600_000]) {
       const adj = new Date(result.getTime() + delta);
-      const aParts = formatter.formatToParts(adj);
-      const aDay = Number(aParts.find((p) => p.type === 'day')!.value);
-      const aMonth = Number(aParts.find((p) => p.type === 'month')!.value);
-      if (aDay === expectedDay && aMonth === expectedMonth) return adj;
+      const am = readEtDayMonth(adj);
+      if (am && am.day === expectedDay && am.month === expectedMonth) return adj;
     }
 
     return result;
