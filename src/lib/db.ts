@@ -221,6 +221,9 @@ const BASE_PRISMA_ALLOWLIST: readonly string[] = [
   'clinicplatforminvoice', // super-admin clinic billing (guarded by withSuperAdminAuth)
   'clinicplatformfeeconfig', // super-admin clinic billing (guarded by withSuperAdminAuth)
   'invoice', // super-admin WellMedR invoice generation: join orders to payment records (guarded by withSuperAdminAuth)
+  'payment', // super-admin OT invoices: ledger + net cash (guarded by withSuperAdminAuth)
+  'paymentreconciliation', // super-admin OT invoices: Stripe billing name vs profile (guarded by withSuperAdminAuth)
+  'salesrepcommissionevent', // super-admin OT invoices: per-sale rep commission ledger (guarded by withSuperAdminAuth)
   'scheduledemail', // cron needs to query system-level emails (clinicId = null)
   'internalmessage', // user-scoped (senderId/recipientId), not clinic-scoped; clinicId is optional context only
   'salesreprefcode', // public track endpoint: lookup by refCode to resolve clinicId/salesRepId
