@@ -726,6 +726,57 @@ export async function generateOtDailyInvoices(date: string, endDate?: string): P
     }
   }
 
+  /**
+   * Cash ledger (`Payment` in the Eastern window) often leads `Invoice.paidAt` (webhook / sync lag) or uses a
+   * different clock than the invoice row. Without this bridge, "All payments" shows revenue while Pharmacy /
+   * per-sale stay empty. Pull prescription invoices referenced by period payments and merge by `orderId`.
+   */
+  const paymentLinkedInvoiceIds = [
+    ...new Set(rawPeriodPayments.map((p) => p.invoiceId).filter((id): id is number => id != null)),
+  ];
+  if (paymentLinkedInvoiceIds.length > 0) {
+    const paymentBridgedInvoices = await basePrisma.invoice.findMany({
+      where: {
+        id: { in: paymentLinkedInvoiceIds },
+        ...otInvoicePatientClinicScope(clinicId),
+        prescriptionProcessed: true,
+        orderId: { not: null },
+      },
+      select: {
+        id: true,
+        orderId: true,
+        paidAt: true,
+        patientId: true,
+        prescriptionProcessedAt: true,
+        amountPaid: true,
+        amountDue: true,
+        lineItems: true,
+      },
+    });
+    let bridgedOrderCount = 0;
+    for (const inv of paymentBridgedInvoices) {
+      if (!inv.orderId) continue;
+      if (invoiceByOrderId.has(inv.orderId)) continue;
+      invoiceByOrderId.set(inv.orderId, {
+        paidAt: inv.paidAt,
+        invoiceDbId: inv.id,
+        patientId: inv.patientId,
+        amountPaid: inv.amountPaid,
+        amountDue: inv.amountDue,
+        lineItems: inv.lineItems,
+      });
+      orderIdsFromInvoices.add(inv.orderId);
+      bridgedOrderCount += 1;
+    }
+    if (bridgedOrderCount > 0) {
+      logger.info('OT invoice generation: payment→invoice bridge added orders', {
+        clinicId,
+        bridgedOrderCount,
+        paymentLinkedInvoiceCount: paymentLinkedInvoiceIds.length,
+      });
+    }
+  }
+
   const unlinkedInvoices = await basePrisma.invoice.findMany({
     where: {
       ...otInvoicePatientClinicScope(clinicId),
@@ -759,7 +810,8 @@ export async function generateOtDailyInvoices(date: string, endDate?: string): P
       patient: { clinicId },
       OR: orderOrClause,
       cancelledAt: null,
-      fulfillmentChannel: 'lifefile',
+      /** OT uses Lifefile and/or DoseSpot; restricting to lifefile-only hid all Rx COGS when channel flipped. */
+      fulfillmentChannel: { in: ['lifefile', 'dosespot'] },
       status: { notIn: ['error', 'cancelled', 'declined', 'queued_for_provider'] },
     },
     select: {

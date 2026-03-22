@@ -385,9 +385,11 @@ export default function OtInvoicesPage() {
         <p className="mt-3 text-sm text-gray-500">
           The <strong>All payments</strong> tab lists every <code className="rounded bg-gray-100 px-1 text-xs">Payment</code>{' '}
           row for OT patients with <strong>paidAt</strong> (or <strong>createdAt</strong> if paidAt is empty) in the
-          Eastern window — that is the cash ledger to compare to Stripe. Pharmacy / per-sale tabs still use matched
-          prescription invoices and orders. A single day with no rows in All payments means nothing hit the DB for that
-          calendar day in that window; use <strong>Date range</strong> to match your payout batch.
+          Eastern window — that is the cash ledger to compare to Stripe. Pharmacy / per-sale rows match prescription
+          invoices that have an <code className="rounded bg-gray-100 px-1 text-xs">orderId</code> and are processed as Rx;
+          invoices linked from those payments are included even when <strong>Invoice.paidAt</strong> lags the payment.
+          Lifefile and DoseSpot orders are both included. A day with no All payments rows means nothing settled in the DB
+          for that window; use <strong>Date range</strong> to match your payout batch.
         </p>
       </div>
 

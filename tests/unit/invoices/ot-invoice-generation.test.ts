@@ -63,9 +63,13 @@ function wireInvoiceSequence(
   unlinked: unknown[],
   commissionStripe: unknown[],
   rxHistory: unknown[],
+  opts?: { paymentBridgeRows: unknown[] },
 ) {
-  mockBasePrisma.invoice.findMany
-    .mockResolvedValueOnce(mainPaid)
+  const chain = mockBasePrisma.invoice.findMany.mockResolvedValueOnce(mainPaid);
+  if (opts) {
+    chain.mockResolvedValueOnce(opts.paymentBridgeRows);
+  }
+  chain
     .mockResolvedValueOnce(unlinked)
     .mockResolvedValueOnce(commissionStripe)
     .mockResolvedValueOnce(rxHistory);
@@ -138,6 +142,7 @@ describe('generateOtDailyInvoices (mocked DB)', () => {
           amountDue: null,
         },
       ],
+      { paymentBridgeRows: [] },
     );
     wirePayments(
       [
@@ -188,6 +193,81 @@ describe('generateOtDailyInvoices (mocked DB)', () => {
     expect(sale!.patientGrossSource).toBe('stripe_payments');
     expect(sale!.merchantProcessingCents).toBe(m);
     expect(sale!.platformCompensationCents).toBe(p);
+  });
+
+  it('payment→invoice bridge: cash in period but Invoice.paidAt outside window still loads Rx COGS / per-sale', async () => {
+    const invoicePaidEarly = new Date(Date.UTC(2026, 2, 10, 12, 0, 0));
+    const bridgedInvoice = {
+      id: 888,
+      orderId: 777,
+      paidAt: invoicePaidEarly,
+      patientId: 100,
+      prescriptionProcessedAt: PAID_AT,
+      amountPaid: 50_000,
+      amountDue: null,
+      lineItems: [] as unknown[],
+    };
+    const orderRow = {
+      id: 777,
+      createdAt: PAID_AT,
+      approvedAt: PAID_AT,
+      queuedForProviderAt: null,
+      lifefileOrderId: 'LF-BR',
+      shippingMethod: 1,
+      patientId: 100,
+      providerId: 1,
+      patient: { id: 100, firstName: 'A', lastName: 'B' },
+      provider: { id: 1, firstName: 'D', lastName: 'E' },
+      rxs: [
+        {
+          medicationKey: '203448971',
+          medName: 'Semaglutide',
+          strength: 'x',
+          form: '',
+          quantity: '1',
+        },
+      ],
+    };
+    wireInvoiceSequence(
+      [],
+      [],
+      [{ id: 888, stripeInvoiceId: null }],
+      [
+        {
+          id: 888,
+          patientId: 100,
+          paidAt: invoicePaidEarly,
+          amountPaid: 50_000,
+          amountDue: null,
+        },
+      ],
+      { paymentBridgeRows: [bridgedInvoice] },
+    );
+    wirePayments(
+      [
+        {
+          id: 1,
+          amount: 50_000,
+          refundedAmount: null,
+          paidAt: PAID_AT,
+          createdAt: PAID_AT,
+          patientId: 100,
+          invoiceId: 888,
+          description: 'Stripe',
+          stripePaymentIntentId: 'pi_bridge',
+          stripeChargeId: 'ch_bridge',
+        },
+      ],
+      [{ invoiceId: 888, amount: 50_000 }],
+    );
+    mockBasePrisma.patient.findMany.mockResolvedValue([{ id: 100, firstName: 'A', lastName: 'B' }]);
+    mockBasePrisma.order.findMany.mockResolvedValue([orderRow]);
+
+    const data = await generateOtDailyInvoices('2026-03-20');
+    expect(data.pharmacy.orderCount).toBe(1);
+    expect(data.pharmacy.lineItems.length).toBeGreaterThanOrEqual(1);
+    expect(data.perSaleReconciliation).toHaveLength(1);
+    expect(data.perSaleReconciliation[0].orderId).toBe(777);
   });
 
   it('flexibility: date range uses end-day +1 for periodEnd (midnightInTz called with end calendar day + 1)', async () => {
@@ -316,6 +396,7 @@ describe('generateOtDailyInvoices (mocked DB)', () => {
       [],
       [{ id: 700, stripeInvoiceId: null }],
       [{ id: 700, patientId: 100, paidAt: PAID_AT, amountPaid: 40_000, amountDue: null }],
+      { paymentBridgeRows: [] },
     );
     wirePayments(
       [
@@ -381,6 +462,7 @@ describe('generateOtDailyInvoices (mocked DB)', () => {
       [],
       [{ id: 800, stripeInvoiceId: null }],
       [{ id: 800, patientId: 100, paidAt: PAID_AT, amountPaid: 60_000, amountDue: null }],
+      { paymentBridgeRows: [] },
     );
     wirePayments(
       [
@@ -447,6 +529,7 @@ describe('generateOtDailyInvoices (mocked DB)', () => {
       [],
       [{ id: 600, stripeInvoiceId: 'in_ledger_1' }],
       [{ id: 600, patientId: 100, paidAt: PAID_AT, amountPaid: 80_000, amountDue: null }],
+      { paymentBridgeRows: [] },
     );
     wirePayments(
       [
