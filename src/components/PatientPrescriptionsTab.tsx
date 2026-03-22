@@ -82,6 +82,11 @@ export default function PatientPrescriptionsTab({
 }: PatientPrescriptionsTabProps) {
   const [fetchedOrders, setFetchedOrders] = useState<Order[] | null>(null);
   const [ordersLoading, setOrdersLoading] = useState(!ordersProp);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [isManageModalOpen, setIsManageModalOpen] = useState(false);
+  const [showDuplicateConfirm, setShowDuplicateConfirm] = useState(false);
+  const router = useRouter();
 
   const fetchOrders = useCallback(async () => {
     try {
@@ -117,11 +122,6 @@ export default function PatientPrescriptionsTab({
       </div>
     );
   }
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
-  const [isManageModalOpen, setIsManageModalOpen] = useState(false);
-  const [showDuplicateConfirm, setShowDuplicateConfirm] = useState(false);
-  const router = useRouter();
 
   const DUPLICATE_WINDOW_DAYS = 3;
 
