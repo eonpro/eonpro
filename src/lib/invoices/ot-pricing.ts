@@ -28,10 +28,10 @@ export const OT_TRT_TELEHEALTH_FEE_CENTS = 5000;
 
 /**
  * Single combined doctor / Rx fee per order (replaces a separate “prescription fee” line).
- * Async: order went through the provider queue (`queuedForProviderAt` set). Sync: otherwise.
+ * **Async** (non–testosterone-cypionate Rx): $30. **Sync** (testosterone cypionate on order): $50.
  */
 export const OT_RX_ASYNC_APPROVAL_FEE_CENTS = 3000;
-export const OT_RX_SYNC_APPROVAL_FEE_CENTS = 3000;
+export const OT_RX_SYNC_APPROVAL_FEE_CENTS = 5000;
 
 /**
  * If the patient had another **paid** prescription invoice at this clinic within this many days,
@@ -73,7 +73,7 @@ export function getOtDoctorRxFeeCentsForSale(params: {
 }): {
   feeCents: number;
   waivedReason: string | null;
-  /** Standard doctor/Rx fee for this approval mode ($30 async/sync) before refill rule. */
+  /** Standard doctor/Rx fee for this approval mode ($30 async · $50 sync) before refill rule. */
   nominalFeeCents: number;
   /** Portion of `nominalFeeCents` not charged (full nominal when refill &lt;90d). */
   waivedAmountCents: number;
@@ -313,6 +313,30 @@ export function isOtPremiumShippingMedication(rx: {
  * True when the order is treated as testosterone replacement therapy (TRT) for telehealth billing.
  * Uses medication display names, strengths, keys, and priced catalog names.
  */
+/**
+ * Doctor/Rx approval **sync vs async** for OT reporting (tab counts, CSV labels).
+ * - **sync**: order includes **testosterone cypionate** (any Rx line matches name/strength/form/key).
+ * - **async**: all other prescriptions (GLP-1, peptides, enclomiphene, etc.).
+ * Fee *amounts* use {@link OT_RX_ASYNC_APPROVAL_FEE_CENTS} ($30) vs {@link OT_RX_SYNC_APPROVAL_FEE_CENTS} ($50).
+ */
+export function getOtDoctorApprovalModeFromRxs(rxs: {
+  medName: string;
+  medicationKey: string;
+  form?: string;
+  strength?: string;
+}[]): 'async' | 'sync' {
+  for (const rx of rxs) {
+    const blob = [rx.medName, rx.medicationKey, rx.form ?? '', rx.strength ?? '']
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
+    if (blob.includes('testosterone') && blob.includes('cypionate')) {
+      return 'sync';
+    }
+  }
+  return 'async';
+}
+
 export function isOtTestosteroneReplacementTherapyOrder(rxs: {
   medName: string;
   medicationKey: string;

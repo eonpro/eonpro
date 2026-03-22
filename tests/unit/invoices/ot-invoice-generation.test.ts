@@ -508,7 +508,7 @@ describe('generateOtDailyInvoices (mocked DB)', () => {
     expect(data.merchantProcessing.feeCents).toBe(Math.round((7500 * OT_MERCHANT_PROCESSING_BPS) / 10_000));
   });
 
-  it('async queue path: doctor line uses async mode when queuedForProviderAt is set', async () => {
+  it('doctor approval mode: non–testosterone-cypionate orders are async (queue flag does not drive label)', async () => {
     const paidInvoice = {
       id: 700,
       orderId: 400,
@@ -572,6 +572,72 @@ describe('generateOtDailyInvoices (mocked DB)', () => {
     expect(doc?.approvalMode).toBe('async');
     expect(data.doctorApprovals.asyncCount).toBe(1);
     expect(data.doctorApprovals.syncCount).toBe(0);
+  });
+
+  it('doctor approval mode: testosterone cypionate is sync even when order was queued for provider', async () => {
+    const paidInvoice = {
+      id: 701,
+      orderId: 401,
+      paidAt: PAID_AT,
+      patientId: 100,
+      prescriptionProcessedAt: PAID_AT,
+      amountPaid: 45_000,
+      amountDue: null,
+      lineItems: [],
+    };
+    const orderRow = {
+      id: 401,
+      createdAt: PAID_AT,
+      approvedAt: PAID_AT,
+      queuedForProviderAt: new Date(PAID_AT.getTime() - 120_000),
+      lifefileOrderId: 'LF-CYP',
+      shippingMethod: 1,
+      patientId: 100,
+      providerId: 1,
+      patient: { id: 100, firstName: 'A', lastName: 'B' },
+      provider: { id: 1, firstName: 'D', lastName: 'E' },
+      rxs: [
+        {
+          medicationKey: 'x',
+          medName: 'Testosterone Cypionate',
+          strength: '200mg/ml',
+          form: 'injection',
+          quantity: '1',
+        },
+      ],
+    };
+    wireInvoiceSequence(
+      [paidInvoice],
+      [],
+      [{ id: 701, stripeInvoiceId: null }],
+      [{ id: 701, patientId: 100, paidAt: PAID_AT, amountPaid: 45_000, amountDue: null }],
+      { paymentBridgeRows: [] },
+    );
+    wirePayments(
+      [
+        {
+          id: 31,
+          amount: 45_000,
+          refundedAmount: null,
+          paidAt: PAID_AT,
+          createdAt: PAID_AT,
+          patientId: 100,
+          invoiceId: 701,
+          description: 'Rx',
+          stripePaymentIntentId: null,
+          stripeChargeId: null,
+        },
+      ],
+      [{ invoiceId: 701, amount: 45_000 }],
+    );
+    mockBasePrisma.patient.findMany.mockResolvedValue([{ id: 100, firstName: 'A', lastName: 'B' }]);
+    mockBasePrisma.order.findMany.mockResolvedValue([orderRow]);
+
+    const data = await generateOtDailyInvoices('2026-03-20');
+    const doc = data.doctorApprovals.lineItems.find((l) => l.orderId === 401);
+    expect(doc?.approvalMode).toBe('sync');
+    expect(data.doctorApprovals.syncCount).toBe(1);
+    expect(data.doctorApprovals.asyncCount).toBe(0);
   });
 
   it('TRT order adds telehealth fee line and subtotalTrtTelehealthCents', async () => {
@@ -639,6 +705,10 @@ describe('generateOtDailyInvoices (mocked DB)', () => {
     expect(data.pharmacy.trtTelehealthLineItems[0].feeCents).toBe(OT_TRT_TELEHEALTH_FEE_CENTS);
     // Standard shipping (non-GLP) + TRT injectable fallback COGS
     expect(data.pharmacy.subtotalShippingCents).toBe(2000);
+    const doc = data.doctorApprovals.lineItems.find((l) => l.orderId === 500);
+    expect(doc?.approvalMode).toBe('sync');
+    expect(data.doctorApprovals.syncCount).toBe(1);
+    expect(data.doctorApprovals.asyncCount).toBe(0);
   });
 
   it('sales rep ledger: Stripe invoice id maps commission into per-sale and totals', async () => {

@@ -21,6 +21,8 @@ import {
   UserCircle,
   Users,
   Banknote,
+  ChevronDown,
+  ChevronRight,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api/fetch';
 import { OtMedicationPricingCatalog } from '@/components/invoices/OtMedicationPricingCatalog';
@@ -88,6 +90,8 @@ interface OtDoctorApprovalLineItem {
   medications: string;
   feeCents: number;
   approvalMode: 'async' | 'sync';
+  /** Schedule rate before refill waiver ($30 async · $50 sync). */
+  nominalFeeCents?: number;
   doctorFeeWaivedReason?: string | null;
 }
 
@@ -320,15 +324,19 @@ export default function OtInvoicesPage() {
           pharmacy costs,{' '}
           <strong className="font-medium text-gray-700">$20 shipping per prescription</strong> ($30 if the
           order includes NAD+, glutathione, sermorelin, semaglutide, or tirzepatide),{' '}
-          <strong className="font-medium text-gray-700">$30 doctor / Rx fee</strong> on new sales or if the last paid
-          Rx was ≥90 days ago; <strong className="font-medium text-gray-700">$0</strong> for refills within 90 days,{' '}
+          <strong className="font-medium text-gray-700">$30 async</strong> /{' '}
+          <strong className="font-medium text-gray-700">$50 sync</strong> (testosterone cypionate) doctor / Rx fee on new
+          sales or if the last paid Rx was ≥90 days ago;{' '}
+          <strong className="font-medium text-gray-700">$0</strong> for refills within 90 days,{' '}
           <strong className="font-medium text-gray-700">$50 TRT telehealth</strong> for testosterone replacement
           therapy orders only, other Stripe lines, plus{' '}
           <strong className="font-medium text-gray-700">4% merchant processing</strong> and{' '}
           <strong className="font-medium text-gray-700">10% EONPro</strong> on gross patient payments, plus{' '}
           <strong className="font-medium text-gray-700">sales rep commission</strong> and{' '}
           <strong className="font-medium text-gray-700">manager oversight</strong> from the commission ledger when
-          present.
+          present. On the Doctor approvals card, <strong className="font-medium text-gray-700">sync</strong> counts
+          orders with <strong className="font-medium text-gray-700">testosterone cypionate</strong>;{' '}
+          <strong className="font-medium text-gray-700">async</strong> counts all other prescription types.
         </p>
       </div>
 
@@ -462,7 +470,7 @@ export default function OtInvoicesPage() {
 
       {data && activeTab !== 'pricing_catalog' && (
         <>
-          <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6">
+          <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-3">
             <SummaryCard
               icon={<Package className="h-5 w-5 text-blue-600" />}
               label="Orders"
@@ -607,7 +615,10 @@ export default function OtInvoicesPage() {
 
             {activeTab === 'pharmacy' && (
               <div className="flex flex-col gap-8">
-                <PharmacyTable invoice={data.pharmacy} />
+                <PharmacyTable
+                  invoice={data.pharmacy}
+                  doctorLineItems={data.doctorApprovals?.lineItems ?? []}
+                />
                 <div>
                   <h3 className="mb-1 text-sm font-semibold text-gray-900">Cash collected — every payment</h3>
                   <p className="mb-3 text-xs text-gray-500">
@@ -652,9 +663,9 @@ export default function OtInvoicesPage() {
           <FileText className="mb-4 h-12 w-12 text-gray-300" />
           <p className="text-lg font-medium text-gray-500">Select a date and generate</p>
           <p className="mt-1 max-w-md text-sm text-gray-400">
-            Async approvals use orders that went through the provider queue (
-            <code className="rounded bg-gray-200 px-1 text-xs">queuedForProviderAt</code>
-            ). Expand shipping SKUs and medication keys in <code className="rounded bg-gray-200 px-1 text-xs">ot-pricing.ts</code>.
+            Doctor <strong>async</strong> / <strong>sync</strong> counts follow medication: testosterone cypionate →
+            sync; all other Rx types → async. Expand shipping SKUs and medication keys in{' '}
+            <code className="rounded bg-gray-200 px-1 text-xs">ot-pricing.ts</code>.
           </p>
         </div>
       )}
@@ -676,13 +687,13 @@ function SummaryCard({
   bg: string;
 }) {
   return (
-    <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
-      <div className="flex items-center gap-3">
+    <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm sm:p-5">
+      <div className="flex items-start gap-3">
         <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${bg}`}>{icon}</div>
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-1 overflow-visible">
           <p className="text-xs font-medium text-gray-500">{label}</p>
-          <p className="truncate text-lg font-bold text-gray-900">{value}</p>
-          {subvalue ? <p className="text-xs leading-snug text-gray-500">{subvalue}</p> : null}
+          <p className="break-words text-lg font-bold tabular-nums leading-snug text-gray-900">{value}</p>
+          {subvalue ? <p className="mt-0.5 text-xs leading-snug text-gray-500">{subvalue}</p> : null}
         </div>
       </div>
     </div>
@@ -812,21 +823,174 @@ function PaymentCollectionsTable({
   );
 }
 
-function PharmacyTable({ invoice }: { invoice: OtPharmacyInvoice }) {
+function groupPharmacyMedsByOrderId(items: OtPharmacyLineItem[]): OtPharmacyLineItem[][] {
+  const byId = new Map<number, OtPharmacyLineItem[]>();
+  const order: number[] = [];
+  for (const li of items) {
+    let g = byId.get(li.orderId);
+    if (!g) {
+      g = [];
+      byId.set(li.orderId, g);
+      order.push(li.orderId);
+    }
+    g.push(li);
+  }
+  return order.map((id) => byId.get(id)!);
+}
+
+const PHARMACY_FALLBACK_ASYNC_DOCTOR_CENTS = 3000;
+const PHARMACY_FALLBACK_SYNC_DOCTOR_CENTS = 5000;
+
+function doctorNominalFeeCents(doc: OtDoctorApprovalLineItem): number {
+  if (typeof doc.nominalFeeCents === 'number') return doc.nominalFeeCents;
+  return doc.approvalMode === 'sync'
+    ? PHARMACY_FALLBACK_SYNC_DOCTOR_CENTS
+    : PHARMACY_FALLBACK_ASYNC_DOCTOR_CENTS;
+}
+
+function PharmacyTable({
+  invoice,
+  doctorLineItems = [],
+}: {
+  invoice: OtPharmacyInvoice;
+  doctorLineItems?: OtDoctorApprovalLineItem[];
+}) {
+  const [expandedOrderIds, setExpandedOrderIds] = useState<Set<number>>(new Set());
+
+  const toggleOrderExpanded = useCallback((orderId: number) => {
+    setExpandedOrderIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(orderId)) next.delete(orderId);
+      else next.add(orderId);
+      return next;
+    });
+  }, []);
+
+  const shippingByOrder = new Map(invoice.shippingLineItems.map((s) => [s.orderId, s]));
+  const trtByOrder = new Map(invoice.trtTelehealthLineItems.map((s) => [s.orderId, s]));
+  const prescFeeByOrder = new Map(invoice.prescriptionFeeLineItems.map((s) => [s.orderId, s]));
+  const doctorByOrder = new Map(doctorLineItems.map((d) => [d.orderId, d]));
+
+  const medGroups = groupPharmacyMedsByOrderId(invoice.lineItems);
+  const medOrderIds = new Set(invoice.lineItems.map((li) => li.orderId));
+  const feeOnlyOrderIds = [
+    ...new Set([
+      ...invoice.shippingLineItems.map((s) => s.orderId),
+      ...invoice.trtTelehealthLineItems.map((s) => s.orderId),
+      ...invoice.prescriptionFeeLineItems.map((s) => s.orderId),
+      ...doctorLineItems.map((d) => d.orderId),
+    ]),
+  ].filter((id) => !medOrderIds.has(id));
+
+  const medOrderIdList = medGroups.map((lines) => lines[0].orderId);
+  const allOrderIds = [...new Set([...medOrderIdList, ...feeOnlyOrderIds])];
+
+  function feeContext(orderId: number): {
+    paidAt: string | null;
+    patientId: number | null;
+    patientName: string;
+    lifefileOrderId: string | null;
+  } {
+    const firstMed = invoice.lineItems.find((li) => li.orderId === orderId);
+    if (firstMed) {
+      return {
+        paidAt: firstMed.paidAt,
+        patientId: firstMed.patientId,
+        patientName: firstMed.patientName,
+        lifefileOrderId: firstMed.lifefileOrderId,
+      };
+    }
+    const doc = doctorByOrder.get(orderId);
+    if (doc) {
+      return {
+        paidAt: doc.paidAt,
+        patientId: doc.patientId,
+        patientName: doc.patientName,
+        lifefileOrderId: doc.lifefileOrderId,
+      };
+    }
+    const ship = shippingByOrder.get(orderId) ?? trtByOrder.get(orderId) ?? prescFeeByOrder.get(orderId);
+    if (ship) {
+      return {
+        paidAt: ship.paidAt,
+        patientId: null,
+        patientName: ship.patientName,
+        lifefileOrderId: ship.lifefileOrderId,
+      };
+    }
+    return { paidAt: null, patientId: null, patientName: '—', lifefileOrderId: null };
+  }
+
+  function bundleTotalForOrder(orderId: number): number {
+    const meds = invoice.lineItems.filter((li) => li.orderId === orderId);
+    const ship = shippingByOrder.get(orderId);
+    const presc = prescFeeByOrder.get(orderId);
+    const doc = doctorByOrder.get(orderId);
+    const trt = trtByOrder.get(orderId);
+    let sum = meds.reduce((s, li) => s + li.lineTotalCents, 0);
+    if (ship) sum += ship.feeCents;
+    if (presc) sum += presc.feeCents;
+    if (doc) sum += doc.feeCents;
+    if (trt) sum += trt.feeCents;
+    return sum;
+  }
+
+  function summaryBreakdownLabel(orderId: number): string {
+    const meds = invoice.lineItems.filter((li) => li.orderId === orderId);
+    const parts: string[] = [];
+    if (meds.length) parts.push(`${meds.length} Rx ${meds.length === 1 ? 'line' : 'lines'}`);
+    if (shippingByOrder.has(orderId)) parts.push('shipping');
+    if (prescFeeByOrder.has(orderId)) parts.push('dispensing fee');
+    if (doctorByOrder.has(orderId)) parts.push('doctor / Rx');
+    if (trtByOrder.has(orderId)) parts.push('TRT');
+    return parts.length ? parts.join(' · ') : 'Fees only';
+  }
+
+  function renderDoctorPricedCell(doc: OtDoctorApprovalLineItem) {
+    const nominal = doctorNominalFeeCents(doc);
+    const showScheduleWaived = doc.feeCents === 0 && nominal > 0;
+    return (
+      <td className="max-w-[min(280px,40vw)] px-4 py-2 text-xs text-sky-900">
+        <span
+          className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
+            doc.approvalMode === 'async' ? 'bg-sky-200/80 text-sky-900' : 'bg-violet-200/80 text-violet-900'
+          }`}
+        >
+          {doc.approvalMode}
+        </span>
+        {showScheduleWaived ? (
+          <span className="mt-1 block break-words leading-snug text-[11px] text-sky-800/90">
+            Schedule {centsToDisplay(nominal)} · waived
+            {doc.doctorFeeWaivedReason ? (
+              <>
+                {' '}
+                — {doc.doctorFeeWaivedReason}
+              </>
+            ) : null}
+          </span>
+        ) : doc.doctorFeeWaivedReason ? (
+          <span className="mt-1 block break-words leading-snug text-[11px] text-sky-800/90">{doc.doctorFeeWaivedReason}</span>
+        ) : null}
+      </td>
+    );
+  }
+
   return (
     <div className="overflow-x-auto rounded-2xl border border-gray-100 bg-white shadow-sm">
       <p className="border-b border-gray-100 px-4 py-3 text-sm text-gray-600">
         Pharmacy <strong>Qty</strong> is internal COGS units (one dispensed package for typical oral lines), not Lifefile
-        tablet/day counts. Patient totals in Stripe stay on the <strong>Per-sale</strong> tab as gross.
+        tablet/day counts. Each <strong>order</strong> is one row; expand for medication lines plus shipping, doctor / Rx,
+        and TRT. Patient totals in Stripe stay on the <strong>Per-sale</strong> tab as gross.
       </p>
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-gray-100 bg-gray-50 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+            <th className="w-10 px-2 py-3" aria-label="Expand row" />
             <th className="px-4 py-3">Paid (ET)</th>
             <th className="px-4 py-3">Order</th>
             <th className="px-4 py-3">Patient</th>
             <th className="px-4 py-3">LF Order</th>
-            <th className="px-4 py-3">Medication</th>
+            <th className="px-4 py-3">Medication / fee</th>
             <th className="px-4 py-3">Strength</th>
             <th className="px-4 py-3 text-right">Qty</th>
             <th className="px-4 py-3 text-right">Unit</th>
@@ -835,64 +999,173 @@ function PharmacyTable({ invoice }: { invoice: OtPharmacyInvoice }) {
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-50">
-          {invoice.lineItems.map((li, idx) => (
-            <tr key={`${li.orderId}-${idx}`} className="hover:bg-gray-50">
-              <td className="whitespace-nowrap px-4 py-2 text-xs text-emerald-700">
-                {li.paidAt ? formatDateTime(li.paidAt) : '—'}
-              </td>
-              <td className="px-4 py-2 font-mono text-xs">{li.orderId}</td>
-              <td className="px-4 py-2 font-medium">
-                <a href={`/admin/patients/${li.patientId}`} className="text-[#4fa77e] hover:underline">
-                  {li.patientName}
-                </a>
-              </td>
-              <td className="px-4 py-2 font-mono text-xs text-gray-400">{li.lifefileOrderId ?? '—'}</td>
-              <td className="px-4 py-2">{li.medicationName}</td>
-              <td className="px-4 py-2 text-gray-600">{li.strength}</td>
-              <td className="px-4 py-2 text-right">{li.quantity}</td>
-              <td className="px-4 py-2 text-right">{centsToDisplay(li.unitPriceCents)}</td>
-              <td className="px-4 py-2 text-right font-semibold">{centsToDisplay(li.lineTotalCents)}</td>
-              <td className="px-4 py-2">
-                {li.pricingStatus === 'missing' ? (
-                  <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-800">missing</span>
-                ) : li.pricingStatus === 'estimated' ? (
-                  <span className="rounded-full bg-sky-100 px-2 py-0.5 text-xs text-sky-900" title="COGS from medication name — add Lifefile id to catalog when known">
-                    est.
-                  </span>
-                ) : (
-                  <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs text-emerald-800">priced</span>
-                )}
-              </td>
-            </tr>
-          ))}
+          {allOrderIds.map((orderId) => {
+            const ctx = feeContext(orderId);
+            const expanded = expandedOrderIds.has(orderId);
+            const medLines = invoice.lineItems.filter((li) => li.orderId === orderId);
+            const ship = shippingByOrder.get(orderId);
+            const presc = prescFeeByOrder.get(orderId);
+            const doc = doctorByOrder.get(orderId);
+            const trt = trtByOrder.get(orderId);
+            const bundleTotal = bundleTotalForOrder(orderId);
+
+            return (
+              <React.Fragment key={`order-${orderId}`}>
+                <tr className="bg-slate-50/90 hover:bg-slate-100/90">
+                  <td className="px-2 py-2 align-middle">
+                    <button
+                      type="button"
+                      onClick={() => toggleOrderExpanded(orderId)}
+                      className="rounded-lg p-1 text-gray-600 hover:bg-white hover:text-[#4fa77e]"
+                      aria-expanded={expanded}
+                      title={expanded ? 'Collapse breakdown' : 'Expand breakdown'}
+                    >
+                      {expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                    </button>
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-2 text-xs font-medium text-emerald-700">
+                    {ctx.paidAt ? formatDateTime(ctx.paidAt) : '—'}
+                  </td>
+                  <td className="px-4 py-2 font-mono text-xs font-medium">{orderId}</td>
+                  <td className="px-4 py-2 font-medium">
+                    {ctx.patientId != null ? (
+                      <a href={`/admin/patients/${ctx.patientId}`} className="text-[#4fa77e] hover:underline">
+                        {ctx.patientName}
+                      </a>
+                    ) : (
+                      ctx.patientName
+                    )}
+                  </td>
+                  <td className="px-4 py-2 font-mono text-xs text-gray-500">{ctx.lifefileOrderId ?? '—'}</td>
+                  <td className="px-4 py-2 text-gray-800">
+                    <span className="font-medium">Order total</span>
+                    <span className="mt-0.5 block text-xs font-normal text-gray-500">{summaryBreakdownLabel(orderId)}</span>
+                  </td>
+                  <td className="px-4 py-2 text-gray-400">—</td>
+                  <td className="px-4 py-2 text-right text-gray-400">—</td>
+                  <td className="px-4 py-2 text-right text-gray-400">—</td>
+                  <td className="px-4 py-2 text-right font-semibold text-gray-900">{centsToDisplay(bundleTotal)}</td>
+                  <td className="px-4 py-2 text-gray-400">—</td>
+                </tr>
+                {expanded ? (
+                  <>
+                    {medLines.map((li, idx) => (
+                      <tr key={`${orderId}-med-${idx}`} className="bg-white hover:bg-gray-50/80">
+                        <td className="bg-gray-50/50" />
+                        <td className="whitespace-nowrap px-4 py-2 text-xs text-emerald-700">
+                          {li.paidAt ? formatDateTime(li.paidAt) : '—'}
+                        </td>
+                        <td className="px-4 py-2 font-mono text-xs text-gray-400">{li.orderId}</td>
+                        <td className="px-4 py-2 font-medium">
+                          <a href={`/admin/patients/${li.patientId}`} className="text-[#4fa77e] hover:underline">
+                            {li.patientName}
+                          </a>
+                        </td>
+                        <td className="px-4 py-2 font-mono text-xs text-gray-400">{li.lifefileOrderId ?? '—'}</td>
+                        <td className="border-l-2 border-[#4fa77e]/25 pl-3 pr-4 py-2">{li.medicationName}</td>
+                        <td className="px-4 py-2 text-gray-600">{li.strength}</td>
+                        <td className="px-4 py-2 text-right">{li.quantity}</td>
+                        <td className="px-4 py-2 text-right">{centsToDisplay(li.unitPriceCents)}</td>
+                        <td className="px-4 py-2 text-right font-semibold">{centsToDisplay(li.lineTotalCents)}</td>
+                        <td className="px-4 py-2">
+                          {li.pricingStatus === 'missing' ? (
+                            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-800">missing</span>
+                          ) : li.pricingStatus === 'estimated' ? (
+                            <span
+                              className="rounded-full bg-sky-100 px-2 py-0.5 text-xs text-sky-900"
+                              title="COGS from medication name — add Lifefile id to catalog when known"
+                            >
+                              est.
+                            </span>
+                          ) : (
+                            <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs text-emerald-800">priced</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                    {ship ? (
+                      <tr key={`${orderId}-ship`} className="bg-amber-50/50 hover:bg-amber-50/80">
+                        <td className="bg-gray-50/50" />
+                        <td className="whitespace-nowrap px-4 py-2 text-xs text-emerald-700">
+                          {ctx.paidAt ? formatDateTime(ctx.paidAt) : '—'}
+                        </td>
+                        <td className="px-4 py-2 font-mono text-xs text-gray-400">{orderId}</td>
+                        <td className="px-4 py-2 text-gray-500">—</td>
+                        <td className="px-4 py-2 font-mono text-xs text-gray-300">—</td>
+                        <td className="border-l-2 border-amber-300/80 pl-3 pr-4 py-2 text-amber-950">{ship.description}</td>
+                        <td className="px-4 py-2 text-gray-400">—</td>
+                        <td className="px-4 py-2 text-right text-gray-400">—</td>
+                        <td className="px-4 py-2 text-right text-gray-400">—</td>
+                        <td className="px-4 py-2 text-right font-semibold text-amber-950">{centsToDisplay(ship.feeCents)}</td>
+                        <td className="px-4 py-2">
+                          <span className="rounded-full bg-amber-200/80 px-2 py-0.5 text-xs text-amber-950">shipping</span>
+                        </td>
+                      </tr>
+                    ) : null}
+                    {presc ? (
+                      <tr key={`${orderId}-presc`} className="bg-slate-50/80 hover:bg-slate-50">
+                        <td className="bg-gray-50/50" />
+                        <td className="whitespace-nowrap px-4 py-2 text-xs text-emerald-700">
+                          {ctx.paidAt ? formatDateTime(ctx.paidAt) : '—'}
+                        </td>
+                        <td className="px-4 py-2 font-mono text-xs text-gray-400">{orderId}</td>
+                        <td className="px-4 py-2 text-gray-500">—</td>
+                        <td className="px-4 py-2 font-mono text-xs text-gray-300">—</td>
+                        <td className="border-l-2 border-slate-300 pl-3 pr-4 py-2 text-slate-800">{presc.description}</td>
+                        <td className="px-4 py-2 text-gray-400">—</td>
+                        <td className="px-4 py-2 text-right text-gray-400">—</td>
+                        <td className="px-4 py-2 text-right text-gray-400">—</td>
+                        <td className="px-4 py-2 text-right font-semibold text-slate-900">{centsToDisplay(presc.feeCents)}</td>
+                        <td className="px-4 py-2">
+                          <span className="rounded-full bg-slate-200 px-2 py-0.5 text-xs text-slate-800">rx fee</span>
+                        </td>
+                      </tr>
+                    ) : null}
+                    {doc ? (
+                      <tr key={`${orderId}-doc`} className="bg-sky-50/40 hover:bg-sky-50/70">
+                        <td className="bg-gray-50/50" />
+                        <td className="whitespace-nowrap px-4 py-2 text-xs text-emerald-700">
+                          {doc.paidAt ? formatDateTime(doc.paidAt) : '—'}
+                        </td>
+                        <td className="px-4 py-2 font-mono text-xs text-gray-400">{orderId}</td>
+                        <td className="px-4 py-2 text-gray-500">—</td>
+                        <td className="px-4 py-2 font-mono text-xs text-gray-300">—</td>
+                        <td className="max-w-xs border-l-2 border-sky-300/70 pl-3 pr-4 py-2 text-sky-950">
+                          Doctor / Rx fee ({doc.approvalMode}) — {doc.medications}
+                        </td>
+                        <td className="px-4 py-2 text-gray-400">—</td>
+                        <td className="px-4 py-2 text-right text-gray-400">—</td>
+                        <td className="px-4 py-2 text-right text-gray-400">—</td>
+                        <td className="px-4 py-2 text-right font-semibold text-sky-950">{centsToDisplay(doc.feeCents)}</td>
+                        {renderDoctorPricedCell(doc)}
+                      </tr>
+                    ) : null}
+                    {trt ? (
+                      <tr key={`${orderId}-trt`} className="bg-violet-50/40 hover:bg-violet-50/70">
+                        <td className="bg-gray-50/50" />
+                        <td className="whitespace-nowrap px-4 py-2 text-xs text-emerald-700">
+                          {ctx.paidAt ? formatDateTime(ctx.paidAt) : '—'}
+                        </td>
+                        <td className="px-4 py-2 font-mono text-xs text-gray-400">{orderId}</td>
+                        <td className="px-4 py-2 text-gray-500">—</td>
+                        <td className="px-4 py-2 font-mono text-xs text-gray-300">—</td>
+                        <td className="border-l-2 border-violet-300/70 pl-3 pr-4 py-2 text-violet-950">{trt.description}</td>
+                        <td className="px-4 py-2 text-gray-400">—</td>
+                        <td className="px-4 py-2 text-right text-gray-400">—</td>
+                        <td className="px-4 py-2 text-right text-gray-400">—</td>
+                        <td className="px-4 py-2 text-right font-semibold text-violet-950">{centsToDisplay(trt.feeCents)}</td>
+                        <td className="px-4 py-2">
+                          <span className="rounded-full bg-violet-200/80 px-2 py-0.5 text-xs text-violet-950">TRT visit</span>
+                        </td>
+                      </tr>
+                    ) : null}
+                  </>
+                ) : null}
+              </React.Fragment>
+            );
+          })}
         </tbody>
       </table>
-      {invoice.shippingLineItems.length > 0 && (
-        <div className="border-t border-gray-100 px-4 py-3 text-xs font-semibold uppercase text-gray-500">
-          Prescription shipping (per order)
-        </div>
-      )}
-      {invoice.shippingLineItems.map((s, i) => (
-        <div key={i} className="flex justify-between border-t border-amber-50 bg-amber-50/40 px-4 py-2 text-sm">
-          <span className="text-amber-900">
-            Order {s.orderId} · {s.description}
-          </span>
-          <span className="font-medium text-amber-900">{centsToDisplay(s.feeCents)}</span>
-        </div>
-      ))}
-      {invoice.trtTelehealthLineItems.length > 0 && (
-        <div className="border-t border-gray-100 px-4 py-3 text-xs font-semibold uppercase text-gray-500">
-          TRT telehealth ($50)
-        </div>
-      )}
-      {invoice.trtTelehealthLineItems.map((s, i) => (
-        <div key={`trt-${i}`} className="flex justify-between border-t border-violet-50 bg-violet-50/50 px-4 py-2 text-sm">
-          <span className="text-violet-900">
-            Order {s.orderId} · {s.description}
-          </span>
-          <span className="font-medium text-violet-900">{centsToDisplay(s.feeCents)}</span>
-        </div>
-      ))}
       <div className="flex justify-between border-t border-gray-200 bg-gray-50 px-4 py-3 font-semibold">
         <span>Pharmacy total</span>
         <span>{centsToDisplay(invoice.totalCents)}</span>
@@ -905,8 +1178,9 @@ function DoctorTable({ invoice }: { invoice: OtDoctorApprovalsInvoice }) {
   return (
     <div className="overflow-x-auto rounded-2xl border border-gray-100 bg-white shadow-sm">
       <p className="border-b border-gray-100 px-4 py-3 text-sm text-gray-600">
-        Doctor / Rx rate {centsToDisplay(invoice.asyncFeeCents)} (async) · {centsToDisplay(invoice.syncFeeCents)} (sync).
-        No fee when the patient had another paid prescription invoice at this clinic within the last 90 days.
+        Doctor / Rx schedule {centsToDisplay(invoice.asyncFeeCents)} (async) · {centsToDisplay(invoice.syncFeeCents)} (sync).
+        Charged amount is <strong>$0</strong> when the 90‑day refill rule waives the fee; expand the pharmacy tab to see
+        schedule vs waived per order.
       </p>
       <table className="w-full text-sm">
         <thead>
@@ -940,8 +1214,15 @@ function DoctorTable({ invoice }: { invoice: OtDoctorApprovalsInvoice }) {
                   {li.approvalMode}
                 </span>
               </td>
-              <td className="px-4 py-2 text-right font-semibold">{centsToDisplay(li.feeCents)}</td>
-              <td className="max-w-xs px-4 py-2 text-xs text-gray-500" title={li.doctorFeeWaivedReason ?? ''}>
+              <td className="px-4 py-2 text-right align-top">
+                <span className="font-semibold">{centsToDisplay(li.feeCents)}</span>
+                {li.feeCents === 0 && doctorNominalFeeCents(li) > 0 ? (
+                  <span className="mt-1 block text-left text-[11px] font-normal leading-snug text-gray-600">
+                    Schedule {centsToDisplay(doctorNominalFeeCents(li))} · waived
+                  </span>
+                ) : null}
+              </td>
+              <td className="max-w-[min(320px,45vw)] px-4 py-2 text-xs leading-snug text-gray-600 break-words">
                 {li.doctorFeeWaivedReason ?? '—'}
               </td>
             </tr>

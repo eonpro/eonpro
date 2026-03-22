@@ -13,9 +13,30 @@ import {
   inferOtPharmacyUnitPriceFromRx,
   resolveOtProductPriceForPharmacyLine,
   effectiveOtPharmacyBillQuantity,
+  getOtDoctorApprovalModeFromRxs,
 } from '@/lib/invoices/ot-pricing';
 
 describe('ot-pricing', () => {
+  it('getOtDoctorApprovalModeFromRxs: testosterone cypionate → sync; other meds → async', () => {
+    expect(
+      getOtDoctorApprovalModeFromRxs([
+        { medName: 'Semaglutide', medicationKey: '203448971', strength: 'x', form: '' },
+      ]),
+    ).toBe('async');
+    expect(
+      getOtDoctorApprovalModeFromRxs([
+        { medName: 'Testosterone Cypionate 200mg/mL', medicationKey: 'x', strength: '200', form: 'injection' },
+      ]),
+    ).toBe('sync');
+    expect(
+      getOtDoctorApprovalModeFromRxs([
+        { medName: 'Semaglutide', medicationKey: '203448971', strength: 'x', form: '' },
+        { medName: 'Testosterone Cypionate', medicationKey: 'y', strength: '', form: '' },
+      ]),
+    ).toBe('sync');
+    expect(getOtDoctorApprovalModeFromRxs([])).toBe('async');
+  });
+
   it('computes 10% EONPro fee on gross', () => {
     const gross = 100_000;
     const fee = Math.round((gross * OT_PLATFORM_COMPENSATION_BPS) / 10_000);
@@ -71,9 +92,9 @@ describe('ot-pricing', () => {
     expect(std.tier).toBe('standard');
   });
 
-  it('uses $30 combined doctor/Rx fee for async and sync paths', () => {
+  it('uses $30 async and $50 sync doctor/Rx fee', () => {
     expect(OT_RX_ASYNC_APPROVAL_FEE_CENTS).toBe(3000);
-    expect(OT_RX_SYNC_APPROVAL_FEE_CENTS).toBe(3000);
+    expect(OT_RX_SYNC_APPROVAL_FEE_CENTS).toBe(5000);
   });
 
   it('findPriorPaidOtPrescriptionInvoice picks latest prior by paidAt, tie-break by id', () => {
@@ -121,7 +142,7 @@ describe('ot-pricing', () => {
       approvalMode: 'sync',
     });
     expect(waived.feeCents).toBe(0);
-    expect(waived.waivedAmountCents).toBe(3000);
+    expect(waived.waivedAmountCents).toBe(5000);
     expect(waived.daysSincePriorPaidRx).toBe(OT_DOCTOR_RX_FEE_REFILL_EXEMPT_DAYS - 1);
 
     expect(
@@ -131,9 +152,9 @@ describe('ot-pricing', () => {
         approvalMode: 'sync',
       }),
     ).toMatchObject({
-      feeCents: 3000,
+      feeCents: 5000,
       waivedReason: null,
-      nominalFeeCents: 3000,
+      nominalFeeCents: 5000,
       waivedAmountCents: 0,
       daysSincePriorPaidRx: OT_DOCTOR_RX_FEE_REFILL_EXEMPT_DAYS,
     });

@@ -1,7 +1,7 @@
 /**
  * OT (Overtime / ot.eonpro.io) — reconciliation statement: EONPro collects patient payments
  * (Stripe gross), then this breakdown allocates pharmacy cost, shipping, TRT telehealth ($50 when applicable),
- * a combined doctor/Rx fee ($30 async or sync; waived if refill <90d after prior paid Rx), fulfillment lines,
+ * a combined doctor/Rx fee ($30 async · $50 sync testosterone cypionate; waived if refill <90d after prior paid Rx), fulfillment lines,
  * merchant processing, EONPro platform share, and sales-comp ledger lines when present.
  * `clinicNetPayoutCents` is gross minus those allocations (what remains for the OT clinic).
  *
@@ -30,6 +30,7 @@ import {
   OT_RX_ASYNC_APPROVAL_FEE_CENTS,
   OT_RX_SYNC_APPROVAL_FEE_CENTS,
   OT_TRT_TELEHEALTH_FEE_CENTS,
+  getOtDoctorApprovalModeFromRxs,
 } from '@/lib/invoices/ot-pricing';
 import { BRAND } from '@/lib/constants/brand-assets';
 import {
@@ -218,6 +219,8 @@ export interface OtDoctorApprovalLineItem {
   medications: string;
   feeCents: number;
   approvalMode: 'async' | 'sync';
+  /** Schedule rate before refill waiver ($30 async · $50 sync). */
+  nominalFeeCents: number;
   /** Set when fee is $0 due to refill within 90 days of prior paid Rx. */
   doctorFeeWaivedReason: string | null;
 }
@@ -1263,7 +1266,7 @@ export async function generateOtDailyInvoices(date: string, endDate?: string): P
       }
     }
 
-    const approvalMode: 'async' | 'sync' = order.queuedForProviderAt ? 'async' : 'sync';
+    const approvalMode = getOtDoctorApprovalModeFromRxs(order.rxs);
     const currentPaidAtDate = invMeta?.paidAt ?? null;
     const patientRxList = paidRxHistoryByPatient.get(order.patientId) ?? [];
     const priorPaidRx =
@@ -1301,6 +1304,7 @@ export async function generateOtDailyInvoices(date: string, endDate?: string): P
       medications: medicationsList,
       feeCents: approvalFee,
       approvalMode,
+      nominalFeeCents: doctorRxFee.nominalFeeCents,
       doctorFeeWaivedReason: doctorRxFee.waivedReason,
     });
 
