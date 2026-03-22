@@ -9,6 +9,18 @@ describe('ot-stripe-sale-alignment', () => {
   it('normalizes names for comparison', () => {
     expect(normalizeComparablePersonName("  D'Aleo ")).toBe('daleo');
     expect(normalizeComparablePersonName('José García')).toBe('jose garcia');
+    expect(normalizeComparablePersonName(undefined)).toBe('');
+    expect(normalizeComparablePersonName(null)).toBe('');
+  });
+
+  it('compareStripeBillingNameToPatient: unknown when profile name parts missing (no throw)', () => {
+    expect(
+      compareStripeBillingNameToPatient({
+        stripeBillingName: 'John Smith',
+        patientFirstName: undefined as unknown as string,
+        patientLastName: 'Smith',
+      }),
+    ).toBe('unknown');
   });
 
   it('compareStripeBillingNameToPatient: match common orderings', () => {

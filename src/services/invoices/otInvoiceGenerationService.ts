@@ -39,6 +39,14 @@ import {
 
 const CLINIC_TZ = 'America/New_York';
 
+/** Thrown when OT subdomain clinic is missing — maps to a clear API response (not a generic 500). */
+export class OtInvoiceConfigurationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'OtInvoiceConfigurationError';
+  }
+}
+
 /**
  * `Invoice.clinicId` / `Order.clinicId` are nullable; many rows only have `patient.clinicId`.
  * Strict `where: { clinicId: otId }` drops paid invoices and orders → empty reports / “no payments”.
@@ -101,7 +109,12 @@ async function loadOtSucceededPaymentsForPeriod(
       },
       orderBy: [{ id: 'asc' }],
     });
-  } catch {
+  } catch (primaryErr) {
+    const msg = primaryErr instanceof Error ? primaryErr.message : String(primaryErr);
+    logger.warn('OT invoice: primary payment query failed; falling back to SUCCEEDED-only', {
+      clinicId,
+      message: msg,
+    });
     const rows = await basePrisma.payment.findMany({
       where: {
         AND: [{ status: 'SUCCEEDED' }, otInvoicePatientClinicScope(clinicId), inPeriod],
@@ -373,7 +386,8 @@ function parseInvoiceLineItemsJson(raw: unknown): RawInvoiceLine[] {
   });
 }
 
-function safeDecryptName(encrypted: string): string {
+function safeDecryptName(encrypted: string | null | undefined): string {
+  if (encrypted == null) return '';
   try {
     return decryptPHI(encrypted) ?? encrypted;
   } catch {
@@ -381,10 +395,11 @@ function safeDecryptName(encrypted: string): string {
   }
 }
 
-function formatPatientName(patient: { firstName: string; lastName: string }): string {
-  const first = safeDecryptName(patient.firstName);
-  const last = safeDecryptName(patient.lastName);
-  return `${last}, ${first}`;
+function formatPatientName(patient: { firstName: string | null | undefined; lastName: string | null | undefined }): string {
+  const first = safeDecryptName(patient.firstName).trim();
+  const last = safeDecryptName(patient.lastName).trim();
+  const parts = [last, first].filter((p) => p.length > 0);
+  return parts.length > 0 ? parts.join(', ') : 'Patient';
 }
 
 function normalizeGrossCents(inv: { amountPaid: number; amountDue: number | null }): number {
@@ -580,7 +595,7 @@ async function resolveOtClinic(): Promise<{ clinicId: number; clinicName: string
     select: { id: true, name: true },
   });
   if (!clinic) {
-    throw new Error(`OT clinic not found (subdomain: ${OT_CLINIC_SUBDOMAIN})`);
+    throw new OtInvoiceConfigurationError(`OT clinic not found (subdomain: ${OT_CLINIC_SUBDOMAIN})`);
   }
   return { clinicId: clinic.id, clinicName: clinic.name };
 }

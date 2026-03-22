@@ -7,7 +7,8 @@ export type OtPatientGrossSource = 'stripe_payments' | 'invoice_sync';
 
 export type OtStripeBillingNameVsProfile = 'match' | 'mismatch' | 'unknown';
 
-export function normalizeComparablePersonName(raw: string): string {
+export function normalizeComparablePersonName(raw: string | null | undefined): string {
+  if (raw == null || typeof raw !== 'string') return '';
   return raw
     .toLowerCase()
     .normalize('NFKD')
