@@ -644,11 +644,6 @@ END:VCALENDAR`;
         } else {
           const weeksFromDaysSupply = med.daysSupply > 0 ? Math.round(med.daysSupply / 7) : 0;
 
-          const weeksFromSig = (() => {
-            const wm = med.directions.match(/for\s+(\d+)\s+weeks?/i);
-            return wm ? parseInt(wm[1]) : 0;
-          })();
-
           let weeksFromVial = 0;
           const vialMl = extractMlValue(med.quantity, med.name, med.form);
           const parsedDose = parseDoseFromDirections(med.directions);
@@ -659,13 +654,7 @@ END:VCALENDAR`;
             }
           }
 
-          const weeksInSupply = weeksFromDaysSupply > 0
-            ? weeksFromDaysSupply
-            : weeksFromSig > 0
-              ? weeksFromSig
-              : weeksFromVial > 0
-                ? weeksFromVial
-                : 4;
+          const weeksInSupply = Math.max(weeksFromDaysSupply, weeksFromVial) || 4;
 
           const monthsCovered = Math.max(1, Math.ceil(weeksInSupply / WEEKS_PER_MONTH));
 

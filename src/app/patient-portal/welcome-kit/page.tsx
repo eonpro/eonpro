@@ -296,7 +296,19 @@ export default function WelcomeKitPage() {
             weekCursor += segment.weeks;
           }
         } else {
-          const weeks = med.daysSupply > 0 ? Math.round(med.daysSupply / 7) : 4;
+          const weeksFromDaysSupply = med.daysSupply > 0 ? Math.round(med.daysSupply / 7) : 0;
+
+          let weeksFromVial = 0;
+          const vialMl = extractMlValue(med.quantity, med.name, med.form);
+          const parsedDose = parseDoseFromDirections(med.directions);
+          if (vialMl && parsedDose?.units) {
+            const mlPerInjection = parseFloat(parsedDose.units) / 100;
+            if (mlPerInjection > 0) {
+              weeksFromVial = Math.floor(parseFloat(vialMl) / mlPerInjection);
+            }
+          }
+
+          const weeks = Math.max(weeksFromDaysSupply, weeksFromVial) || 4;
           const monthsCovered = Math.max(1, Math.ceil(weeks / WEEKS_PER_MONTH));
 
           const dose = parseDoseFromDirections(med.directions);
