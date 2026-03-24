@@ -18,8 +18,8 @@ export default function WmBmiCalcStep({ basePath, nextStep, progressPercent }: W
   const [mounted, setMounted] = useState(false);
   useEffect(() => { requestAnimationFrame(() => setMounted(true)); }, []);
 
-  const [feet, setFeet] = useState(String(responses.height_feet || responses.heightFeet || ''));
-  const [inches, setInches] = useState(String(responses.height_inches ?? responses.heightInches ?? ''));
+  const [feet, setFeet] = useState(String(responses.height_feet || responses.heightFeet || '5'));
+  const [inches, setInches] = useState(String(responses.height_inches ?? responses.heightInches ?? '0'));
   const [weight, setWeight] = useState(String(responses.current_weight || responses.currentWeight || ''));
 
   const handleContinue = () => {
@@ -78,9 +78,8 @@ export default function WmBmiCalcStep({ basePath, nextStep, progressPercent }: W
               <label className="block text-[14px] sm:text-[15px] font-semibold mb-2" style={{ color: '#222' }}>Feet</label>
               <div className="relative">
                 <select value={feet} onChange={(e) => setFeet(e.target.value)}
-                  className={inputCls} style={{ border: '1px solid rgba(0,0,0,0.08)', appearance: 'none', paddingRight: '2.5rem', cursor: 'pointer', color: feet ? '#101010' : '#aaa' }}
+                  className={inputCls} style={{ border: '1px solid rgba(0,0,0,0.08)', appearance: 'none', paddingRight: '2.5rem', cursor: 'pointer', color: '#101010' }}
                   onFocus={onFocus} onBlur={onBlur}>
-                  <option value="">5</option>
                   <option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option>
                 </select>
                 <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
@@ -92,9 +91,8 @@ export default function WmBmiCalcStep({ basePath, nextStep, progressPercent }: W
               <label className="block text-[14px] sm:text-[15px] font-semibold mb-2" style={{ color: '#222' }}>Inches</label>
               <div className="relative">
                 <select value={inches} onChange={(e) => setInches(e.target.value)}
-                  className={inputCls} style={{ border: '1px solid rgba(0,0,0,0.08)', appearance: 'none', paddingRight: '2.5rem', cursor: 'pointer', color: inches ? '#101010' : '#aaa' }}
+                  className={inputCls} style={{ border: '1px solid rgba(0,0,0,0.08)', appearance: 'none', paddingRight: '2.5rem', cursor: 'pointer', color: '#101010' }}
                   onFocus={onFocus} onBlur={onBlur}>
-                  <option value="">4</option>
                   {Array.from({ length: 12 }, (_, i) => <option key={i} value={String(i)}>{i}</option>)}
                 </select>
                 <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
