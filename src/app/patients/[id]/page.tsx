@@ -202,8 +202,8 @@ export default async function PatientDetailPage({
     }
 
     const needsDocuments = requestedTab === 'intake' || requestedTab === 'profile' || requestedTab === 'documents';
-    const needsIntakeSubmissions = requestedTab === 'intake';
-    const needsIntakeData = needsDocuments; // kept for backwards compat in Phase 2 doc fetch
+    const needsIntakeSubmissions = requestedTab === 'intake' || requestedTab === 'profile';
+    const needsIntakeData = needsDocuments;
     const needsAuditEntries = resolvedSearchParams?.admin === 'true';
 
     // ─── PHASE 1: Lightweight core patient query ───────────────────────
@@ -352,7 +352,7 @@ export default async function PatientDetailPage({
           }
 
           // Intake submissions — heavy query (nested responses + questions).
-          // Only fetched when the intake tab is active, not on profile.
+          // Fetched on both intake and profile tabs (profile needs them for vitals extraction).
           // Uses withoutClinicFilter because IntakeFormSubmission has no clinicId column.
           if (needsIntakeSubmissions) {
             parallelQueries.push(
@@ -408,8 +408,8 @@ export default async function PatientDetailPage({
 
         await withTimeout(phase2, 12000, 'Phase 2 parallel queries');
 
-        // For intake tab: fetch document binary data for MEDICAL_INTAKE_FORM docs.
-        // Only on intake tab — profile only needs document metadata for vitals extraction.
+        // Fetch document binary data for MEDICAL_INTAKE_FORM docs.
+        // Needed on both intake and profile tabs — vitals extraction requires parsed document data.
         if (needsIntakeSubmissions && documents.length > 0) {
           const intakeDocIds = documents
             .filter((d: any) => d.category === 'MEDICAL_INTAKE_FORM')
