@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { usePathname } from 'next/navigation';
 import { apiFetch } from '@/lib/api/fetch';
 
 type TrackingEntry = {
@@ -83,6 +84,7 @@ const STATUS_CONFIG: Record<string, { color: string; bgColor: string; label: str
 };
 
 export default function PatientPrescriptionSummary({ patientId }: PatientPrescriptionSummaryProps) {
+  const pathname = usePathname() ?? '';
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastPrescriptionDate, setLastPrescriptionDate] = useState<string | null>(null);
@@ -447,6 +449,17 @@ export default function PatientPrescriptionSummary({ patientId }: PatientPrescri
             )}
           </div>
         </div>
+        <p className="mt-3 text-xs leading-relaxed text-gray-500">
+          Shipment and medications above are separate from <strong>Stripe invoice lines</strong>. Charges such as{' '}
+          <strong>bloodwork</strong> (commonly <strong>$180</strong>) and consults appear on their own invoices — open{' '}
+          <a
+            href={pathname.includes('?') ? `${pathname}&tab=billing` : `${pathname}?tab=billing`}
+            className="font-medium text-[#4fa77e] underline decoration-[#4fa77e]/40 underline-offset-2 hover:no-underline"
+          >
+            Billing &amp; Payments
+          </a>{' '}
+          and expand an invoice to see every line item.
+        </p>
       </div>
 
       {/* Add Tracking Form */}

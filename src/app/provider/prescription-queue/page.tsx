@@ -465,6 +465,19 @@ export default function PrescriptionQueuePage() {
   // Hold for info state
   const [resuming, setResuming] = useState<number | null>(null);
 
+  // Hold for info modal state
+  const [holdModal, setHoldModal] = useState<{ item: QueueItem } | null>(null);
+  const [holdReason, setHoldReason] = useState('');
+
+  // Vial safeguard confirmation modal
+  const [vialSafeguardModal, setVialSafeguardModal] = useState<{
+    message: string;
+    onConfirm: () => void;
+  } | null>(null);
+
+  // Stats visibility on mobile
+  const [showMobileStats, setShowMobileStats] = useState(false);
+
   // Queue tab state
   const [activeTab, setActiveTab] = useState<'ready' | 'needs_info'>('ready');
 
@@ -1011,6 +1024,65 @@ export default function PrescriptionQueuePage() {
     return prescriptionForm.medications.some((m) => m.medicationKey && m.sig);
   };
 
+  const processSubmissionResponse = async (response: Response, item: QueueItem) => {
+    if (response.ok) {
+      const successData = await response.json();
+      const lifefileId = successData?.order?.lifefileOrderId ?? null;
+
+      if (item.queueType === 'refill' && item.refillId) {
+        setQueueItems((prev) => prev.filter((qi) => !(qi.queueType === 'refill' && qi.refillId === item.refillId)));
+      } else if (item.invoiceId) {
+        setQueueItems((prev) => prev.filter((qi) => qi.invoiceId !== item.invoiceId));
+      }
+      setTotal((prev) => Math.max(0, prev - 1));
+
+      setPrescriptionPanel(null);
+      setShowConfirmation(false);
+      setSuccessMessage(`Prescription for ${item.patientName} sent to pharmacy successfully!`);
+      setSuccessLifefileId(lifefileId ? String(lifefileId) : null);
+      void fetchStats();
+    } else if (response.status === 409) {
+      if (item.queueType === 'refill' && item.refillId) {
+        setQueueItems((prev) => prev.filter((qi) => !(qi.queueType === 'refill' && qi.refillId === item.refillId)));
+      } else if (item.invoiceId) {
+        setQueueItems((prev) => prev.filter((qi) => qi.invoiceId !== item.invoiceId));
+      }
+      setTotal((prev) => Math.max(0, prev - 1));
+      setPrescriptionPanel(null);
+      setShowConfirmation(false);
+      setError('This prescription was already sent by another provider.');
+      fetchQueue();
+    } else {
+      const errorData = await response.json();
+      let errorMessage = errorData.error || 'Failed to submit prescription';
+
+      if (errorData.code === 'INVALID_PHARMACY_GENDER') {
+        errorMessage = 'Pharmacy requires biological sex (Male or Female). Please select one in the prescription form.';
+        if (errorData.detail) errorMessage += ` ${errorData.detail}`;
+      } else if (errorData.code === 'MISSING_PATIENT_INFO') {
+        errorMessage = errorData.error || 'Patient profile is missing information required by the pharmacy.';
+        if (errorData.detail) errorMessage += ` ${errorData.detail}`;
+        errorMessage += ' Update the patient profile (date of birth, full address), then try again.';
+      } else if (errorData.code === 'LIFEFILE_SUBMISSION_FAILED') {
+        errorMessage = errorData.error || 'The pharmacy could not accept this order.';
+        if (errorData.detail) errorMessage += ` Reason: ${errorData.detail}`;
+        errorMessage += ' Check the patient profile (date of birth, address) and try again.';
+      } else if (response.status === 503) {
+        errorMessage = errorData.error || 'Service temporarily busy. Please try again in a moment.';
+      } else {
+        if (errorData.details) {
+          const detailMessages = Object.entries(errorData.details)
+            .map(([field, errors]) => `${field}: ${(errors as string[]).join(', ')}`)
+            .join('; ');
+          if (detailMessages) errorMessage += ` (${detailMessages})`;
+        }
+        if (errorData.detail) errorMessage += ` Reason: ${errorData.detail}`;
+      }
+      process.env.NODE_ENV === 'development' && console.error('[Prescription Queue] Submission error:', errorData);
+      setError(errorMessage);
+    }
+  };
+
   const handleSubmitPrescription = async () => {
     if (!prescriptionPanel || !hasValidMedication()) return;
 
@@ -1075,109 +1147,66 @@ export default function PrescriptionQueuePage() {
         body: JSON.stringify(payload),
       });
 
-      // Handle vial safeguards: prompt user to confirm override
+      // Handle vial safeguards: show styled modal for override confirmation
       if (!response.ok) {
         const peek = await response.clone().json().catch(() => null);
 
         if (peek?.code === 'VIAL_QUANTITY_SAFEGUARD') {
-          const confirmed = window.confirm(
-            `⚠️ 1-Month Treatment Safeguard\n\n` +
-            `This is a 1-month plan but ${peek.totalGlp1Vials} GLP-1 vials are being sent.\n` +
-            `Typically only 1 vial is needed for a 1-month supply.\n\n` +
-            `Do you want to proceed anyway?`
-          );
-          if (!confirmed) {
-            setSubmittingPrescription(false);
-            return;
-          }
-          response = await apiFetch('/api/prescriptions', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${getAuthToken()}`,
+          setSubmittingPrescription(false);
+          setVialSafeguardModal({
+            message: `This is a 1-month plan but ${peek.totalGlp1Vials} GLP-1 vials are being sent. Typically only 1 vial is needed for a 1-month supply.`,
+            onConfirm: async () => {
+              setVialSafeguardModal(null);
+              setSubmittingPrescription(true);
+              try {
+                response = await apiFetch('/api/prescriptions', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${getAuthToken()}`,
+                  },
+                  body: JSON.stringify(buildPayload(true)),
+                });
+                await processSubmissionResponse(response, item);
+              } catch (err) {
+                process.env.NODE_ENV === 'development' && console.error('Error submitting prescription:', err);
+                setError('Failed to submit prescription');
+              } finally {
+                setSubmittingPrescription(false);
+              }
             },
-            body: JSON.stringify(buildPayload(true)),
           });
+          return;
         } else if (peek?.code === 'MULTI_MONTH_VIAL_MINIMUM') {
-          const confirmed = window.confirm(
-            `⚠️ Multi-Month Treatment Safeguard\n\n` +
-            `This is a ${peek.planMonths}-month plan but only ${peek.totalGlp1Vials} GLP-1 vial is being sent.\n` +
-            `Multi-month plans typically require more than 1 vial.\n\n` +
-            `Do you want to proceed anyway?`
-          );
-          if (!confirmed) {
-            setSubmittingPrescription(false);
-            return;
-          }
-          response = await apiFetch('/api/prescriptions', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${getAuthToken()}`,
+          setSubmittingPrescription(false);
+          setVialSafeguardModal({
+            message: `This is a ${peek.planMonths}-month plan but only ${peek.totalGlp1Vials} GLP-1 vial is being sent. Multi-month plans typically require more than 1 vial.`,
+            onConfirm: async () => {
+              setVialSafeguardModal(null);
+              setSubmittingPrescription(true);
+              try {
+                response = await apiFetch('/api/prescriptions', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${getAuthToken()}`,
+                  },
+                  body: JSON.stringify(buildPayload(true)),
+                });
+                await processSubmissionResponse(response, item);
+              } catch (err) {
+                process.env.NODE_ENV === 'development' && console.error('Error submitting prescription:', err);
+                setError('Failed to submit prescription');
+              } finally {
+                setSubmittingPrescription(false);
+              }
             },
-            body: JSON.stringify(buildPayload(true)),
           });
+          return;
         }
       }
 
-      if (response.ok) {
-        const successData = await response.json();
-        const lifefileId = successData?.order?.lifefileOrderId ?? null;
-
-        // Remove item from queue immediately (backend atomically claimed invoice/refill)
-        if (item.queueType === 'refill' && item.refillId) {
-          setQueueItems((prev) => prev.filter((qi) => !(qi.queueType === 'refill' && qi.refillId === item.refillId)));
-        } else if (item.invoiceId) {
-          setQueueItems((prev) => prev.filter((qi) => qi.invoiceId !== item.invoiceId));
-        }
-        setTotal((prev) => Math.max(0, prev - 1));
-
-        setPrescriptionPanel(null);
-        setShowConfirmation(false);
-        setSuccessMessage(`Prescription for ${item.patientName} sent to pharmacy successfully!`);
-        setSuccessLifefileId(lifefileId ? String(lifefileId) : null);
-        void fetchStats();
-      } else if (response.status === 409) {
-        // Another provider already sent this prescription — remove from local queue and refresh
-        if (item.queueType === 'refill' && item.refillId) {
-          setQueueItems((prev) => prev.filter((qi) => !(qi.queueType === 'refill' && qi.refillId === item.refillId)));
-        } else if (item.invoiceId) {
-          setQueueItems((prev) => prev.filter((qi) => qi.invoiceId !== item.invoiceId));
-        }
-        setTotal((prev) => Math.max(0, prev - 1));
-        setPrescriptionPanel(null);
-        setShowConfirmation(false);
-        setError('This prescription was already sent by another provider.');
-        fetchQueue();
-      } else {
-        const errorData = await response.json();
-        let errorMessage = errorData.error || 'Failed to submit prescription';
-
-        if (errorData.code === 'INVALID_PHARMACY_GENDER') {
-          errorMessage = 'Pharmacy requires biological sex (Male or Female). Please select one in the prescription form.';
-          if (errorData.detail) errorMessage += ` ${errorData.detail}`;
-        } else if (errorData.code === 'MISSING_PATIENT_INFO') {
-          errorMessage = errorData.error || 'Patient profile is missing information required by the pharmacy.';
-          if (errorData.detail) errorMessage += ` ${errorData.detail}`;
-          errorMessage += ' Update the patient profile (date of birth, full address), then try again.';
-        } else if (errorData.code === 'LIFEFILE_SUBMISSION_FAILED') {
-          errorMessage = errorData.error || 'The pharmacy could not accept this order.';
-          if (errorData.detail) errorMessage += ` Reason: ${errorData.detail}`;
-          errorMessage += ' Check the patient profile (date of birth, address) and try again.';
-        } else if (response.status === 503) {
-          errorMessage = errorData.error || 'Service temporarily busy. Please try again in a moment.';
-        } else {
-          if (errorData.details) {
-            const detailMessages = Object.entries(errorData.details)
-              .map(([field, errors]) => `${field}: ${(errors as string[]).join(', ')}`)
-              .join('; ');
-            if (detailMessages) errorMessage += ` (${detailMessages})`;
-          }
-          if (errorData.detail) errorMessage += ` Reason: ${errorData.detail}`;
-        }
-        process.env.NODE_ENV === 'development' && console.error('[Prescription Queue] Submission error:', errorData);
-        setError(errorMessage);
-      }
+      await processSubmissionResponse(response, item);
     } catch (err) {
       process.env.NODE_ENV === 'development' && console.error('Error submitting prescription:', err);
       setError('Failed to submit prescription');
@@ -1285,16 +1314,15 @@ export default function PrescriptionQueuePage() {
     }
   };
 
-  const handleHoldForInfo = async (item: QueueItem) => {
-    const reason = window.prompt(
-      `Hold ${item.patientName} for more information?\n\nDescribe what additional info is needed (min 10 characters):`
-    );
-    if (!reason || reason.trim().length < 10) {
-      if (reason !== null) {
-        setError('Hold reason must be at least 10 characters.');
-      }
-      return;
-    }
+  const handleHoldForInfo = (item: QueueItem) => {
+    setHoldModal({ item });
+    setHoldReason('');
+  };
+
+  const handleSubmitHold = async () => {
+    if (!holdModal || holdReason.trim().length < 10) return;
+    const item = holdModal.item;
+    const reason = holdReason.trim();
 
     const trackingId = item.refillId || item.invoiceId || item.orderId;
     setProcessing(trackingId ?? null);
@@ -1303,7 +1331,7 @@ export default function PrescriptionQueuePage() {
     try {
       const body: Record<string, unknown> = {
         action: 'hold_for_info',
-        reason: reason.trim(),
+        reason,
       };
       if (item.queueType === 'refill' && item.refillId) body.refillId = item.refillId;
       else if (item.queueType === 'queued_order' && item.orderId) body.orderId = item.orderId;
@@ -1326,7 +1354,7 @@ export default function PrescriptionQueuePage() {
               (item.orderId && qi.orderId === item.orderId) ||
               (item.invoiceId && qi.invoiceId === item.invoiceId);
             return match
-              ? { ...qi, holdReason: reason.trim(), heldAt: new Date().toISOString() }
+              ? { ...qi, holdReason: reason, heldAt: new Date().toISOString() }
               : qi;
           })
         );
@@ -1334,6 +1362,8 @@ export default function PrescriptionQueuePage() {
         setSuccessLifefileId(null);
         setTimeout(() => setSuccessMessage(''), 4000);
         setActiveTab('needs_info');
+        setHoldModal(null);
+        setHoldReason('');
       } else {
         const errorData = await response.json();
         setError(errorData.error || 'Failed to hold prescription');
@@ -1426,9 +1456,9 @@ export default function PrescriptionQueuePage() {
 
   return (
     <div className="min-h-[100dvh]" style={{ backgroundColor: '#efece7' }}>
-      {/* Header - mobile-optimized: compact on small screens */}
+      {/* Header — not sticky on mobile (layout header already sticks); sticky on md+ */}
       <div
-        className="sticky top-0 z-10 border-b border-gray-200"
+        className="z-10 border-b border-gray-200 md:sticky md:top-0"
         style={{ backgroundColor: '#efece7' }}
       >
         <div className="mx-auto max-w-7xl px-4 py-3 sm:px-6 sm:py-4 lg:px-8">
@@ -1497,7 +1527,7 @@ export default function PrescriptionQueuePage() {
         </div>
       </div>
 
-      <div className="mx-auto max-w-7xl space-y-4 px-4 py-6 pb-28 sm:px-6 sm:pb-6 lg:px-8">
+      <div className="mx-auto max-w-7xl space-y-4 px-4 py-6 pb-20 sm:px-6 sm:pb-6 lg:px-8">
         {/* Success/Error Messages */}
         {successMessage && (
           <div className="animate-in slide-in-from-top flex items-center justify-between gap-3 rounded-xl border border-green-200 bg-green-50 p-4 duration-300">
@@ -1537,8 +1567,24 @@ export default function PrescriptionQueuePage() {
           </div>
         )}
 
-        {/* Provider Rx volume — successful pharmacy submissions (this clinic, you as prescriber) */}
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
+        {/* Provider Rx volume — collapsible on mobile, always visible on sm+ */}
+        <button
+          type="button"
+          onClick={() => setShowMobileStats(!showMobileStats)}
+          className="flex w-full items-center justify-between rounded-xl border border-gray-200 bg-white px-4 py-3 text-left text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50 sm:hidden"
+        >
+          <span className="flex items-center gap-2">
+            <BarChart3 className="h-4 w-4 text-gray-400" />
+            Rx Stats
+            {stats && !statsLoading && (
+              <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-500">
+                Today: {stats.daily}
+              </span>
+            )}
+          </span>
+          <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${showMobileStats ? 'rotate-180' : ''}`} />
+        </button>
+        <div className={`grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4 ${showMobileStats ? '' : 'hidden sm:grid'}`}>
           {(
             [
               { key: 'daily', label: 'Daily Rx', value: stats?.daily },
@@ -1605,7 +1651,7 @@ export default function PrescriptionQueuePage() {
           </div>
         </div>
         {!statsLoading && stats?.timezone && (
-          <p className="text-center text-[11px] text-gray-500">
+          <p className={`text-center text-[11px] text-gray-500 ${showMobileStats ? '' : 'hidden sm:block'}`}>
             Period boundaries: <span className="font-medium text-gray-700">{stats.timezone}</span>{' '}
             (handles EST / EDT)
           </p>
@@ -1623,7 +1669,7 @@ export default function PrescriptionQueuePage() {
               const pasted = e.clipboardData.getData('text');
               setSearchTerm(pasted.replace(/\s+/g, ' ').trim());
             }}
-            className="min-h-[48px] w-full touch-manipulation rounded-xl border border-gray-200 bg-white py-3 pl-4 pr-10 text-base shadow-sm focus:border-transparent focus:ring-2 focus:ring-rose-400"
+            className="min-h-[48px] w-full touch-manipulation rounded-xl border border-gray-200 bg-white py-3 pl-4 pr-14 text-base shadow-sm focus:border-transparent focus:ring-2 focus:ring-rose-400"
           />
           {searchTerm && (
             <button
@@ -1764,7 +1810,7 @@ export default function PrescriptionQueuePage() {
                   style={{ opacity: 0.85 }}
                 >
                   <div className="p-3 sm:p-4">
-                    <div className="grid grid-cols-[200px_180px_100px_100px_100px_auto] items-center gap-2">
+                    <div className="flex flex-col gap-2">
                       <div className="flex items-center gap-2">
                         <div className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full ${
                           isQueuedOrder
@@ -1773,25 +1819,26 @@ export default function PrescriptionQueuePage() {
                         }`}>
                           <User className={`h-4 w-4 ${isQueuedOrder ? 'text-amber-600' : 'text-rose-600'}`} />
                         </div>
-                        <div className="min-w-0 overflow-hidden">
-                          <h3 className="truncate text-xs font-semibold text-gray-900">
+                        <div className="min-w-0 flex-1 overflow-hidden">
+                          <h3 className="truncate text-sm font-semibold text-gray-900 sm:text-xs">
                             {item.patientName}
                           </h3>
-                          <p className="truncate text-[10px] text-gray-500">{item.patientDisplayId}</p>
+                          <p className="mt-0.5 text-sm text-gray-600 sm:text-xs">
+                            {item.treatment}
+                            <span className="mx-1.5 text-gray-400">&bull;</span>
+                            <span className="font-medium text-gray-700">{item.plan}</span>
+                            <span className="mx-1.5 text-gray-400">&bull;</span>
+                            <span className="text-green-600">{item.amountFormatted}</span>
+                          </p>
                         </div>
                       </div>
-                      <div className="truncate text-xs text-gray-600">{item.treatment}</div>
-                      <div className="text-xs text-gray-600">{item.plan}</div>
-                      <div className="text-xs font-medium text-gray-900">{item.amountFormatted}</div>
-                      <div className="text-xs text-gray-500">
-                        {new Date(item.paidAt).toLocaleDateString()}
-                      </div>
-                      <div className="flex justify-end">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-gray-400">{item.patientDisplayId}</span>
                         <button
                           onClick={() => {
                             setSearchTerm(item.patientName);
                           }}
-                          className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs text-gray-600 transition-colors hover:bg-gray-50"
+                          className="min-h-[44px] touch-manipulation rounded-lg border border-gray-200 px-3 py-1.5 text-xs text-gray-600 transition-colors hover:bg-gray-50"
                         >
                           Search this patient
                         </button>
@@ -2245,7 +2292,7 @@ export default function PrescriptionQueuePage() {
                           <Loader2 className="h-6 w-6 animate-spin text-rose-500" />
                         </div>
                       ) : patientDetails ? (
-                        <div className="grid grid-cols-1 gap-6 lg:grid-cols-4">
+                        <div className="grid grid-cols-1 gap-4 lg:grid-cols-4 lg:gap-6">
                           {/* Patient Contact Info */}
                           <div className="space-y-4">
                             <h4 className="flex items-center gap-2 font-semibold text-gray-900">
@@ -2568,12 +2615,19 @@ export default function PrescriptionQueuePage() {
                             )}
                           </div>
 
-                          {/* Intake Data */}
-                          <div className="space-y-4">
-                            <h4 className="flex items-center gap-2 font-semibold text-gray-900">
+                          {/* Intake Data — collapsed by default on mobile to reduce scroll */}
+                          <details className="group" open>
+                            <summary className="flex cursor-pointer list-none items-center gap-2 font-semibold text-gray-900 [&::-webkit-details-marker]:hidden">
                               <FileText className="h-4 w-4 text-rose-500" />
                               Intake Information
-                            </h4>
+                              {patientDetails.intake.sections.length > 0 && (
+                                <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-normal text-gray-500">
+                                  {patientDetails.intake.sections.length} sections
+                                </span>
+                              )}
+                              <ChevronDown className="ml-auto h-4 w-4 text-gray-400 transition-transform group-open:rotate-180" />
+                            </summary>
+                            <div className="mt-4">
                             {patientDetails.intake.sections.length > 0 ? (
                               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                                 {patientDetails.intake.sections.map((section, idx) => (
@@ -2615,7 +2669,8 @@ export default function PrescriptionQueuePage() {
                                 </p>
                               </div>
                             )}
-                          </div>
+                            </div>
+                          </details>
                         </div>
                       ) : (
                         <p className="py-4 text-center text-gray-500">
@@ -3020,6 +3075,171 @@ export default function PrescriptionQueuePage() {
         </div>
       )}
 
+      {/* Hold for Info Modal */}
+      {holdModal && (
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-4"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) {
+              setHoldModal(null);
+              setHoldReason('');
+            }
+          }}
+        >
+          <div className="relative w-full max-w-md rounded-2xl bg-white shadow-xl">
+            <button
+              type="button"
+              onClick={() => {
+                setHoldModal(null);
+                setHoldReason('');
+              }}
+              className="absolute right-4 top-4 z-10 rounded p-1 text-gray-400 hover:text-gray-600"
+            >
+              <X className="h-5 w-5" />
+            </button>
+
+            <div className="rounded-t-2xl border-b border-amber-100 bg-amber-50 px-6 py-4">
+              <div className="flex items-center gap-3">
+                <div className="rounded-lg bg-amber-100 p-2">
+                  <FileWarning className="h-5 w-5 text-amber-600" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold text-gray-900">Hold for More Information</h2>
+                  <p className="text-sm text-gray-600">{holdModal.item.patientName}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-4 p-6">
+              <p className="text-sm text-gray-600">
+                This patient will be moved to the &ldquo;Needs Info&rdquo; tab until the information is provided.
+              </p>
+              <div>
+                <label className="mb-2 block text-sm font-medium text-gray-700">
+                  What information is needed? *
+                </label>
+                <textarea
+                  value={holdReason}
+                  onChange={(e) => setHoldReason(e.target.value)}
+                  rows={4}
+                  className="w-full resize-none rounded-xl border border-gray-300 px-4 py-3 text-base focus:border-transparent focus:ring-2 focus:ring-amber-400"
+                  placeholder="Describe what additional info is needed (e.g., lab results pending, need updated weight, clarification on medical history...)"
+                  autoFocus
+                />
+                <p className="mt-1 text-xs text-gray-500">
+                  {holdReason.trim().length}/10 characters minimum
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-3 rounded-b-2xl border-t border-gray-100 bg-gray-50 px-4 py-4 sm:flex-row sm:px-6">
+              <button
+                type="button"
+                onMouseDown={(e) => {
+                  e.stopPropagation();
+                  setHoldModal(null);
+                  setHoldReason('');
+                }}
+                className="min-h-[48px] flex-1 touch-manipulation rounded-xl border border-gray-300 px-4 py-2.5 text-base font-medium text-gray-700 transition-colors hover:bg-gray-100 active:bg-gray-200"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onMouseDown={(e) => {
+                  e.stopPropagation();
+                  if (holdReason.trim().length >= 10) {
+                    handleSubmitHold();
+                  }
+                }}
+                disabled={holdReason.trim().length < 10 || processing !== null}
+                className="flex min-h-[48px] flex-1 touch-manipulation items-center justify-center gap-2 rounded-xl bg-amber-500 px-4 py-2.5 text-base font-medium text-white transition-all hover:bg-amber-600 active:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {processing !== null ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Holding...
+                  </>
+                ) : (
+                  <>
+                    <FileWarning className="h-4 w-4" />
+                    Hold for Info
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Vial Safeguard Confirmation Modal */}
+      {vialSafeguardModal && (
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-4"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) {
+              setVialSafeguardModal(null);
+            }
+          }}
+        >
+          <div className="relative w-full max-w-md rounded-2xl bg-white shadow-xl">
+            <button
+              type="button"
+              onClick={() => setVialSafeguardModal(null)}
+              className="absolute right-4 top-4 z-10 rounded p-1 text-gray-400 hover:text-gray-600"
+            >
+              <X className="h-5 w-5" />
+            </button>
+
+            <div className="rounded-t-2xl border-b border-amber-100 bg-amber-50 px-6 py-4">
+              <div className="flex items-center gap-3">
+                <div className="rounded-lg bg-amber-100 p-2">
+                  <AlertTriangle className="h-5 w-5 text-amber-600" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold text-gray-900">Treatment Safeguard</h2>
+                  <p className="text-sm text-gray-600">Vial quantity check</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-4 p-6">
+              <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
+                <AlertTriangle className="mt-0.5 h-5 w-5 flex-shrink-0 text-amber-600" />
+                <p className="text-sm text-amber-800">{vialSafeguardModal.message}</p>
+              </div>
+              <p className="text-sm text-gray-600">
+                Do you want to proceed anyway?
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-3 rounded-b-2xl border-t border-gray-100 bg-gray-50 px-4 py-4 sm:flex-row sm:px-6">
+              <button
+                type="button"
+                onMouseDown={(e) => {
+                  e.stopPropagation();
+                  setVialSafeguardModal(null);
+                }}
+                className="min-h-[48px] flex-1 touch-manipulation rounded-xl border border-gray-300 px-4 py-2.5 text-base font-medium text-gray-700 transition-colors hover:bg-gray-100 active:bg-gray-200"
+              >
+                Go Back
+              </button>
+              <button
+                type="button"
+                onMouseDown={(e) => {
+                  e.stopPropagation();
+                  vialSafeguardModal.onConfirm();
+                }}
+                className="flex min-h-[48px] flex-1 touch-manipulation items-center justify-center gap-2 rounded-xl bg-amber-500 px-4 py-2.5 text-base font-medium text-white transition-all hover:bg-amber-600 active:bg-amber-700"
+              >
+                <AlertTriangle className="h-4 w-4" />
+                Proceed Anyway
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Prescription Slide-Over Panel */}
       {prescriptionPanel && (
         <div className="fixed inset-0 z-50 overflow-hidden">
@@ -3035,12 +3255,12 @@ export default function PrescriptionQueuePage() {
           />
           {/* Panel container - stops ALL event propagation to prevent backdrop interference */}
           <div
-            className="absolute inset-y-0 right-0 z-10 flex max-w-full pl-4 sm:pl-10"
+            className="absolute inset-0 z-10 flex max-w-full sm:inset-y-0 sm:left-auto sm:right-0 sm:pl-10"
             onClick={(e) => e.stopPropagation()}
             onMouseDown={(e) => e.stopPropagation()}
             onMouseUp={(e) => e.stopPropagation()}
           >
-            <div className="w-full max-w-lg transform transition-transform duration-300 ease-in-out sm:w-screen">
+            <div className="w-full transform transition-transform duration-300 ease-in-out sm:max-w-lg">
               <div className="flex h-full flex-col bg-white shadow-xl">
                 {/* Panel Header - touch-friendly close on mobile */}
                 <div
@@ -3580,6 +3800,7 @@ export default function PrescriptionQueuePage() {
                                   setPrescriptionForm((prev) => ({ ...prev, city: e.target.value }))
                                 }
                                 placeholder="Miami"
+                                autoComplete="address-level2"
                                 className={`w-full rounded-lg border px-3 py-2 text-sm focus:border-transparent focus:ring-2 focus:ring-rose-400 ${
                                   !prescriptionForm.city
                                     ? 'border-red-300 bg-red-50'
@@ -3602,6 +3823,8 @@ export default function PrescriptionQueuePage() {
                                 }
                                 placeholder="FL"
                                 maxLength={2}
+                                autoComplete="address-level1"
+                                autoCapitalize="characters"
                                 className={`w-full rounded-lg border px-3 py-2 text-sm focus:border-transparent focus:ring-2 focus:ring-rose-400 ${
                                   !prescriptionForm.state
                                     ? 'border-red-300 bg-red-50'
@@ -3615,11 +3838,13 @@ export default function PrescriptionQueuePage() {
                               </label>
                               <input
                                 type="text"
+                                inputMode="numeric"
                                 value={prescriptionForm.zip}
                                 onChange={(e) =>
                                   setPrescriptionForm((prev) => ({ ...prev, zip: e.target.value }))
                                 }
                                 placeholder="33101"
+                                autoComplete="postal-code"
                                 className={`w-full rounded-lg border px-3 py-2 text-sm focus:border-transparent focus:ring-2 focus:ring-rose-400 ${
                                   !prescriptionForm.zip
                                     ? 'border-red-300 bg-red-50'
@@ -4015,52 +4240,55 @@ export default function PrescriptionQueuePage() {
                         </div>
                       </div>
 
-                      {/* Panel Footer - still inside space-y-6 (else branch) */}
-                      <div className="border-t border-gray-200 bg-gray-50 px-6 py-4">
-                        <div className="flex gap-3">
-                          <button
-                            onClick={() => setPrescriptionPanel(null)}
-                            className="flex-1 rounded-xl border border-gray-300 px-4 py-3 font-medium text-gray-700 transition-colors hover:bg-gray-100"
-                          >
-                            Cancel
-                          </button>
-                          <button
-                            onClick={() => setShowConfirmation(true)}
-                            disabled={
-                              submittingPrescription ||
-                              !hasValidMedication() ||
-                              !isAddressComplete(prescriptionForm) ||
-                              !prescriptionForm.pharmacyGender
-                            }
-                            className="flex flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-gradient-to-r from-rose-500 to-rose-600 px-4 py-3 font-medium text-white transition-all hover:from-rose-600 hover:to-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
-                          >
-                            {!prescriptionForm.pharmacyGender ? (
-                              <>
-                                <AlertCircle className="h-4 w-4" />
-                                Select Biological Sex
-                              </>
-                            ) : !isAddressComplete(prescriptionForm) ? (
-                              <>
-                                <AlertCircle className="h-4 w-4" />
-                                Address Required
-                              </>
-                            ) : !hasValidMedication() ? (
-                              <>
-                                <AlertCircle className="h-4 w-4" />
-                                Add Medication
-                              </>
-                            ) : (
-                              <>
-                                <Send className="h-4 w-4" />
-                                Review &amp; Send Rx
-                              </>
-                            )}
-                          </button>
-                        </div>
-                      </div>
                     </div>
                   )}
                 </div>
+
+                {/* Panel Footer — sticky at bottom, outside scroll area */}
+                {prescriptionPanel.item.queueType !== 'queued_order' && (
+                  <div className="sticky bottom-0 border-t border-gray-200 bg-gray-50/95 px-4 py-4 backdrop-blur-sm sm:px-6" style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
+                    <div className="flex gap-3">
+                      <button
+                        onClick={() => setPrescriptionPanel(null)}
+                        className="min-h-[48px] flex-1 touch-manipulation rounded-xl border border-gray-300 px-4 py-3 font-medium text-gray-700 transition-colors hover:bg-gray-100 active:bg-gray-200"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={() => setShowConfirmation(true)}
+                        disabled={
+                          submittingPrescription ||
+                          !hasValidMedication() ||
+                          !isAddressComplete(prescriptionForm) ||
+                          !prescriptionForm.pharmacyGender
+                        }
+                        className="flex min-h-[48px] flex-1 touch-manipulation items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-gradient-to-r from-rose-500 to-rose-600 px-4 py-3 font-medium text-white transition-all hover:from-rose-600 hover:to-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {!prescriptionForm.pharmacyGender ? (
+                          <>
+                            <AlertCircle className="h-4 w-4" />
+                            Select Biological Sex
+                          </>
+                        ) : !isAddressComplete(prescriptionForm) ? (
+                          <>
+                            <AlertCircle className="h-4 w-4" />
+                            Address Required
+                          </>
+                        ) : !hasValidMedication() ? (
+                          <>
+                            <AlertCircle className="h-4 w-4" />
+                            Add Medication
+                          </>
+                        ) : (
+                          <>
+                            <Send className="h-4 w-4" />
+                            Review &amp; Send Rx
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* ── Confirmation Safeguard Overlay ── */}

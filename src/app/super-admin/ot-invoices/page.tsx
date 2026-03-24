@@ -190,6 +190,18 @@ interface OtPaymentCollectionRow {
   stripeChargeId: string | null;
 }
 
+type OtNonPharmacyChargeKind = 'bloodwork' | 'consult' | 'other';
+
+interface OtNonRxChargeLineItem {
+  invoiceDbId: number;
+  patientId: number;
+  patientName: string;
+  paidAt: string | null;
+  description: string;
+  lineAmountCents: number;
+  chargeKind: OtNonPharmacyChargeKind;
+}
+
 interface OtInvoiceData {
   pharmacy: OtPharmacyInvoice;
   doctorApprovals: OtDoctorApprovalsInvoice;
@@ -209,6 +221,9 @@ interface OtInvoiceData {
   feesUseCashCollectedBasis?: boolean;
   /** Payments whose invoice did not map to a loaded pharmacy line (subset for debugging). */
   paymentsWithoutPharmacyCogs?: OtPaymentCollectionRow[];
+  /** Non-prescription Stripe invoice lines tied to those unmapped payments (e.g. bloodwork $180). */
+  nonRxChargeLineItems?: OtNonRxChargeLineItem[];
+  nonRxExplainedPaymentCount?: number;
 }
 
 type ActiveTab =
@@ -619,6 +634,9 @@ export default function OtInvoicesPage() {
                   invoice={data.pharmacy}
                   doctorLineItems={data.doctorApprovals?.lineItems ?? []}
                 />
+                {(data.nonRxChargeLineItems?.length ?? 0) > 0 && (
+                  <NonRxChargesTable rows={data.nonRxChargeLineItems ?? []} />
+                )}
                 <div>
                   <h3 className="mb-1 text-sm font-semibold text-gray-900">Cash collected — every payment</h3>
                   <p className="mb-3 text-xs text-gray-500">
@@ -629,7 +647,17 @@ export default function OtInvoicesPage() {
                         {' '}
                         <span className="font-medium text-amber-800">
                           {data.paymentsWithoutPharmacyCogs!.length} payment(s) did not map to a pharmacy COGS row for
-                          this period.
+                          this period
+                          {(data.nonRxExplainedPaymentCount ?? 0) > 0 ? (
+                            <>
+                              {' '}
+                              (
+                              <strong>{data.nonRxExplainedPaymentCount}</strong> of those are tied to{' '}
+                              <strong>non-Rx</strong> invoices such as bloodwork — see table above when present).
+                            </>
+                          ) : (
+                            '.'
+                          )}
                         </span>
                       </>
                     )}
@@ -731,6 +759,68 @@ function TabButton({
         {badge}
       </span>
     </button>
+  );
+}
+
+function nonRxKindLabel(kind: OtNonPharmacyChargeKind): string {
+  if (kind === 'bloodwork') return 'Bloodwork / labs';
+  if (kind === 'consult') return 'Consult / visit';
+  return 'Other';
+}
+
+function NonRxChargesTable({ rows }: { rows: OtNonRxChargeLineItem[] }) {
+  return (
+    <div className="overflow-x-auto rounded-2xl border border-indigo-100 bg-white shadow-sm">
+      <p className="border-b border-indigo-100 bg-indigo-50/60 px-4 py-3 text-sm text-gray-700">
+        <strong>Non-Rx charges</strong> (separate Stripe invoices — not counted in pharmacy COGS). Typical{' '}
+        <strong>bloodwork</strong> is <strong>$180</strong>. Open the patient&apos;s{' '}
+        <strong>Billing &amp; Payments</strong> tab for full line detail when sync is sparse.
+      </p>
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b border-gray-100 bg-gray-50 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+            <th className="px-4 py-3">Paid (ET)</th>
+            <th className="px-4 py-3 font-mono">Invoice</th>
+            <th className="px-4 py-3">Patient</th>
+            <th className="px-4 py-3">Kind</th>
+            <th className="px-4 py-3">Description</th>
+            <th className="px-4 py-3 text-right">Line</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-gray-50">
+          {rows.map((r, idx) => (
+            <tr key={`${r.invoiceDbId}-${idx}`} className="hover:bg-gray-50/80">
+              <td className="whitespace-nowrap px-4 py-2 text-xs text-indigo-900">
+                {r.paidAt ? formatDateTime(r.paidAt) : '—'}
+              </td>
+              <td className="px-4 py-2 font-mono text-xs">{r.invoiceDbId}</td>
+              <td className="px-4 py-2 font-medium">
+                <a href={`/admin/patients/${r.patientId}`} className="text-[#4fa77e] hover:underline">
+                  {r.patientName}
+                </a>
+              </td>
+              <td className="px-4 py-2">
+                <span
+                  className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                    r.chargeKind === 'bloodwork'
+                      ? 'bg-rose-100 text-rose-900'
+                      : r.chargeKind === 'consult'
+                        ? 'bg-amber-100 text-amber-900'
+                        : 'bg-gray-100 text-gray-800'
+                  }`}
+                >
+                  {nonRxKindLabel(r.chargeKind)}
+                </span>
+              </td>
+              <td className="max-w-md px-4 py-2 break-words text-gray-800">{r.description}</td>
+              <td className="whitespace-nowrap px-4 py-2 text-right font-semibold text-gray-900">
+                {centsToDisplay(r.lineAmountCents)}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 

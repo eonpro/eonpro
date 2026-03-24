@@ -374,3 +374,31 @@ export function getOtPrescriptionShippingCentsForOrder(
  * Set >0 when contract defines flat fulfillment for labs, bundles, etc. (default 0 = show structure only).
  */
 export const OT_FULFILLMENT_FEE_PER_OTHER_LINE_CENTS = 0;
+
+/** Typical standalone bloodwork / lab panel charge at OT (Stripe cents). Used to label non-Rx invoice lines. */
+export const OT_BLOODWORK_STANDARD_FEE_CENTS = 18_000;
+
+export type OtNonPharmacyChargeKind = 'bloodwork' | 'consult' | 'other';
+
+/**
+ * Classify Stripe invoice lines that are not pharmacy SKU rows (bloodwork, consults, bundles).
+ * Amount-only match helps when descriptions are empty in webhook sync.
+ */
+export function classifyOtNonPharmacyChargeLine(
+  description: string,
+  amountCents: number,
+): OtNonPharmacyChargeKind {
+  const d = description.toLowerCase();
+  if (
+    amountCents === OT_BLOODWORK_STANDARD_FEE_CENTS ||
+    /\b(blood\s*work|bloodwork|lab\s*panel|quest|labcorp|phlebotom|cmp\b|cbc\b|baseline\s*lab)\b/i.test(
+      description,
+    )
+  ) {
+    return 'bloodwork';
+  }
+  if (/\b(consult|telehealth|new\s*patient\s*visit|follow[-\s]?up\s*visit|membership)\b/i.test(d)) {
+    return 'consult';
+  }
+  return 'other';
+}

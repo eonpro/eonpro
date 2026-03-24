@@ -934,6 +934,8 @@ describe('OT invoice CSV reporting accuracy', () => {
       matchedPrescriptionInvoiceGrossCents: 95_000,
       feesUseCashCollectedBasis: true,
       paymentsWithoutPharmacyCogs: [],
+      nonRxChargeLineItems: [],
+      nonRxExplainedPaymentCount: 0,
     } satisfies OtDailyInvoices;
 
     const csv = generateOtCombinedCSV(data);

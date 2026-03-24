@@ -14,6 +14,8 @@ import {
   resolveOtProductPriceForPharmacyLine,
   effectiveOtPharmacyBillQuantity,
   getOtDoctorApprovalModeFromRxs,
+  classifyOtNonPharmacyChargeLine,
+  OT_BLOODWORK_STANDARD_FEE_CENTS,
 } from '@/lib/invoices/ot-pricing';
 
 describe('ot-pricing', () => {
@@ -95,6 +97,14 @@ describe('ot-pricing', () => {
   it('uses $30 async and $50 sync doctor/Rx fee', () => {
     expect(OT_RX_ASYNC_APPROVAL_FEE_CENTS).toBe(3000);
     expect(OT_RX_SYNC_APPROVAL_FEE_CENTS).toBe(5000);
+  });
+
+  it('classifyOtNonPharmacyChargeLine: bloodwork by amount or keywords', () => {
+    expect(classifyOtNonPharmacyChargeLine('', OT_BLOODWORK_STANDARD_FEE_CENTS)).toBe('bloodwork');
+    expect(classifyOtNonPharmacyChargeLine('Baseline lab panel', 0)).toBe('bloodwork');
+    expect(classifyOtNonPharmacyChargeLine('Quest CMP', 5000)).toBe('bloodwork');
+    expect(classifyOtNonPharmacyChargeLine('Telehealth visit', 10_000)).toBe('consult');
+    expect(classifyOtNonPharmacyChargeLine('Custom bundle', 99_00)).toBe('other');
   });
 
   it('findPriorPaidOtPrescriptionInvoice picks latest prior by paidAt, tie-break by id', () => {

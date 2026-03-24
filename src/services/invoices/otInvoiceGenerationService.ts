@@ -31,6 +31,8 @@ import {
   OT_RX_SYNC_APPROVAL_FEE_CENTS,
   OT_TRT_TELEHEALTH_FEE_CENTS,
   getOtDoctorApprovalModeFromRxs,
+  classifyOtNonPharmacyChargeLine,
+  type OtNonPharmacyChargeKind,
 } from '@/lib/invoices/ot-pricing';
 import { BRAND } from '@/lib/constants/brand-assets';
 import {
@@ -371,6 +373,23 @@ export interface OtDailyInvoices {
    * When no pharmacy rows loaded, this equals `paymentCollections`.
    */
   paymentsWithoutPharmacyCogs: OtPaymentCollectionRow[];
+  /**
+   * Stripe invoice lines for payments tied to invoices that are **not** the Rx-order invoice used for pharmacy COGS
+   * (e.g. standalone bloodwork $180, consults). Explains many “unmapped” cash rows.
+   */
+  nonRxChargeLineItems: OtNonRxChargeLineItem[];
+  /** Count of period `Payment` rows whose `invoiceId` is one of those non-Rx invoices we loaded. */
+  nonRxExplainedPaymentCount: number;
+}
+
+export interface OtNonRxChargeLineItem {
+  invoiceDbId: number;
+  patientId: number;
+  patientName: string;
+  paidAt: string | null;
+  description: string;
+  lineAmountCents: number;
+  chargeKind: OtNonPharmacyChargeKind;
 }
 
 interface RawInvoiceLine {
@@ -1479,6 +1498,95 @@ export async function generateOtDailyInvoices(date: string, endDate?: string): P
       ? paymentCollections.slice()
       : paymentCollections.filter((p) => p.invoiceId == null || !invoiceDbIdsUsedForCogs.has(p.invoiceId));
 
+  const unmappedPaymentInvoiceIds = [
+    ...new Set(
+      paymentCollections
+        .map((p) => p.invoiceId)
+        .filter((id): id is number => id != null && !invoiceDbIdsUsedForCogs.has(id)),
+    ),
+  ];
+
+  let nonRxChargeLineItems: OtNonRxChargeLineItem[] = [];
+  let nonRxExplainedPaymentCount = 0;
+
+  if (unmappedPaymentInvoiceIds.length > 0) {
+    const nonRxInvoices = await basePrisma.invoice.findMany({
+      where: {
+        id: { in: unmappedPaymentInvoiceIds },
+        ...otInvoicePatientClinicScope(clinicId),
+        status: { notIn: ['VOID', 'REFUNDED'] },
+      },
+      select: {
+        id: true,
+        patientId: true,
+        paidAt: true,
+        lineItems: true,
+        amountPaid: true,
+        amountDue: true,
+      },
+    });
+    const loadedNonRxInvoiceIds = new Set(nonRxInvoices.map((i) => i.id));
+    nonRxExplainedPaymentCount = paymentCollections.filter(
+      (p) => p.invoiceId != null && loadedNonRxInvoiceIds.has(p.invoiceId),
+    ).length;
+
+    const nonRxPatientIds = [...new Set(nonRxInvoices.map((i) => i.patientId))];
+    const nonRxPatients =
+      nonRxPatientIds.length > 0
+        ? await basePrisma.patient.findMany({
+            where: { id: { in: nonRxPatientIds } },
+            select: { id: true, firstName: true, lastName: true },
+          })
+        : [];
+    const nonRxPatientNameById = new Map<number, string>();
+    for (const p of nonRxPatients) {
+      nonRxPatientNameById.set(p.id, formatPatientName(p));
+    }
+
+    const built: OtNonRxChargeLineItem[] = [];
+    for (const inv of nonRxInvoices) {
+      const paidAtStr = inv.paidAt?.toISOString() ?? null;
+      const patientName = nonRxPatientNameById.get(inv.patientId) ?? `Patient #${inv.patientId}`;
+      const lines = parseInvoiceLineItemsJson(inv.lineItems);
+      if (lines.length > 0) {
+        for (const li of lines) {
+          const desc = li.description?.trim() ?? '';
+          if (!desc) continue;
+          const patientAmt = typeof li.amount === 'number' ? li.amount : 0;
+          built.push({
+            invoiceDbId: inv.id,
+            patientId: inv.patientId,
+            patientName,
+            paidAt: paidAtStr,
+            description: desc,
+            lineAmountCents: patientAmt,
+            chargeKind: classifyOtNonPharmacyChargeLine(desc, patientAmt),
+          });
+        }
+      } else {
+        const gross = normalizeGrossCents({ amountPaid: inv.amountPaid, amountDue: inv.amountDue });
+        if (gross > 0) {
+          built.push({
+            invoiceDbId: inv.id,
+            patientId: inv.patientId,
+            patientName,
+            paidAt: paidAtStr,
+            description: 'Invoice total (line items not synced — open patient Billing for detail)',
+            lineAmountCents: gross,
+            chargeKind: classifyOtNonPharmacyChargeLine('', gross),
+          });
+        }
+      }
+    }
+    nonRxChargeLineItems = built.sort((a, b) => {
+      const ta = a.paidAt ? new Date(a.paidAt).getTime() : 0;
+      const tb = b.paidAt ? new Date(b.paidAt).getTime() : 0;
+      if (ta !== tb) return ta - tb;
+      if (a.invoiceDbId !== b.invoiceDbId) return a.invoiceDbId - b.invoiceDbId;
+      return a.description.localeCompare(b.description);
+    });
+  }
+
   const nowIso = new Date().toISOString();
 
   return {
@@ -1548,6 +1656,8 @@ export async function generateOtDailyInvoices(date: string, endDate?: string): P
     matchedPrescriptionInvoiceGrossCents,
     feesUseCashCollectedBasis,
     paymentsWithoutPharmacyCogs,
+    nonRxChargeLineItems,
+    nonRxExplainedPaymentCount,
   };
 }
 

@@ -1,0 +1,38 @@
+{
+  "standards": [
+    "OWASP",
+    "HIPAA",
+    "SOC2",
+    "PCI-DSS",
+    "GDPR",
+    "ISO27001",
+    "CCPA"
+  ],
+  "severity": "medium",
+  "excludePatterns": [
+    "**/node_modules/**",
+    "**/dist/**",
+    "**/build/**",
+    "**/.git/**",
+    "**/.next/**",
+    "**/coverage/**",
+    "**/public/assets/**",
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "**/*.spec.ts",
+    "**/tests/**",
+    "**/__tests__/**",
+    "**/prisma/migrations/**",
+    "**/docs/**",
+    "**/*.md",
+    "**/*.json",
+    "**/*.css",
+    "**/mobile/**"
+  ],
+  "includePatterns": [
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "src/**/*.js",
+    "src/**/*.jsx"
+  ]
+}

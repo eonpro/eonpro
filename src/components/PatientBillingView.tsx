@@ -1,7 +1,8 @@
 'use client';
 
 import { calendarTodayServer } from '@/lib/utils/platform-calendar';
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { ChevronDown, ChevronRight } from 'lucide-react';
 import { formatCurrency } from '@/lib/stripe';
 import {
   getGroupedPlans,
@@ -70,6 +71,30 @@ interface PatientBillingViewProps {
   clinicSubdomain?: string | null;
 }
 
+function getInvoiceBreakdownLines(invoice: Invoice): { description: string; amount: number }[] {
+  if (invoice.items && invoice.items.length > 0) {
+    return invoice.items.map((item) => ({
+      description: (item.product?.name || item.description || 'Line item').trim(),
+      amount: item.amount,
+    }));
+  }
+  if (invoice.lineItems && invoice.lineItems.length > 0) {
+    return invoice.lineItems.map((li) => {
+      const desc = (li.description || 'Line item').trim();
+      let amt = typeof li.amount === 'number' ? li.amount : 0;
+      if (
+        !amt &&
+        typeof li.unitPrice === 'number' &&
+        typeof li.quantity === 'number'
+      ) {
+        amt = Math.round(li.unitPrice * li.quantity);
+      }
+      return { description: desc, amount: amt };
+    });
+  }
+  return [];
+}
+
 function handleGenerateHsaLetter(patientId: number, invoiceId: number) {
   window.open(`/api/patients/${patientId}/hsa-letter?invoiceId=${invoiceId}`, '_blank');
 }
@@ -96,6 +121,16 @@ export function PatientBillingView({ patientId, patientName, clinicSubdomain }: 
     invoiceId: number;
     amount: number;
   } | null>(null);
+  const [expandedInvoiceIds, setExpandedInvoiceIds] = useState<Set<number>>(new Set());
+
+  const toggleInvoiceLines = useCallback((invoiceId: number) => {
+    setExpandedInvoiceIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(invoiceId)) next.delete(invoiceId);
+      else next.add(invoiceId);
+      return next;
+    });
+  }, []);
 
   // Track client mount for hydration-safe rendering
   useEffect(() => {
@@ -534,10 +569,33 @@ export function PatientBillingView({ patientId, patientName, clinicSubdomain }: 
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
-                      {invoices.map((invoice: any) => (
-                        <tr key={invoice.id} className="transition-colors hover:bg-gray-50">
+                      {invoices.map((invoice: any) => {
+                        const breakdown = getInvoiceBreakdownLines(invoice);
+                        const expanded = expandedInvoiceIds.has(invoice.id);
+                        return (
+                          <React.Fragment key={invoice.id}>
+                        <tr className="transition-colors hover:bg-gray-50">
                           <td className="whitespace-nowrap px-4 py-4 text-sm font-medium text-gray-900">
-                            {invoice.stripeInvoiceNumber || `INV-${invoice.id}`}
+                            <div className="flex items-center gap-1">
+                              {breakdown.length > 0 ? (
+                                <button
+                                  type="button"
+                                  onClick={() => toggleInvoiceLines(invoice.id)}
+                                  className="rounded p-0.5 text-gray-500 hover:bg-gray-100 hover:text-[#4fa77e]"
+                                  title={expanded ? 'Hide line items' : 'Show line items'}
+                                  aria-expanded={expanded}
+                                >
+                                  {expanded ? (
+                                    <ChevronDown className="h-4 w-4 shrink-0" />
+                                  ) : (
+                                    <ChevronRight className="h-4 w-4 shrink-0" />
+                                  )}
+                                </button>
+                              ) : (
+                                <span className="inline-block w-5 shrink-0" aria-hidden />
+                              )}
+                              <span>{invoice.stripeInvoiceNumber || `INV-${invoice.id}`}</span>
+                            </div>
                           </td>
                           <td className="whitespace-nowrap px-4 py-4 text-sm text-gray-600">
                             <div>{formatDate(invoice.createdAt)}</div>
@@ -673,7 +731,31 @@ export function PatientBillingView({ patientId, patientName, clinicSubdomain }: 
                             </div>
                           </td>
                         </tr>
-                      ))}
+                        {expanded && breakdown.length > 0 ? (
+                          <tr className="bg-slate-50/90">
+                            <td colSpan={6} className="px-4 py-3">
+                              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                Invoice line items
+                              </p>
+                              <ul className="space-y-1.5">
+                                {breakdown.map((line, i) => (
+                                  <li
+                                    key={i}
+                                    className="flex justify-between gap-4 text-sm text-gray-800"
+                                  >
+                                    <span className="min-w-0 break-words">{line.description}</span>
+                                    <span className="shrink-0 font-mono tabular-nums text-gray-900">
+                                      {formatCurrency(line.amount)}
+                                    </span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </td>
+                          </tr>
+                        ) : null}
+                          </React.Fragment>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -681,7 +763,10 @@ export function PatientBillingView({ patientId, patientName, clinicSubdomain }: 
 
               {/* Mobile Card View */}
               <div className="space-y-3 md:hidden">
-                {invoices.map((invoice: any) => (
+                {invoices.map((invoice: any) => {
+                  const mobileBreakdown = getInvoiceBreakdownLines(invoice);
+                  const mobileExpanded = expandedInvoiceIds.has(invoice.id);
+                  return (
                   <div key={invoice.id} className="rounded-xl border border-gray-200 bg-white p-4">
                     <div className="mb-2 flex items-start justify-between">
                       <div>
@@ -714,6 +799,38 @@ export function PatientBillingView({ patientId, patientName, clinicSubdomain }: 
                         <p className="text-gray-900">{formatDate(invoice.dueDate)}</p>
                       </div>
                     </div>
+
+                    {mobileBreakdown.length > 0 ? (
+                      <div className="mb-3 rounded-lg border border-slate-100 bg-slate-50/80 p-3">
+                        <button
+                          type="button"
+                          onClick={() => toggleInvoiceLines(invoice.id)}
+                          className="flex w-full items-center justify-between text-left text-sm font-medium text-gray-800"
+                        >
+                          <span>Line items ({mobileBreakdown.length})</span>
+                          {mobileExpanded ? (
+                            <ChevronDown className="h-4 w-4 shrink-0 text-gray-500" />
+                          ) : (
+                            <ChevronRight className="h-4 w-4 shrink-0 text-gray-500" />
+                          )}
+                        </button>
+                        {mobileExpanded ? (
+                          <ul className="mt-2 space-y-2 border-t border-slate-200/80 pt-2">
+                            {mobileBreakdown.map((line, i) => (
+                              <li
+                                key={i}
+                                className="flex justify-between gap-2 text-xs text-gray-800"
+                              >
+                                <span className="min-w-0 break-words">{line.description}</span>
+                                <span className="shrink-0 font-mono tabular-nums">
+                                  {formatCurrency(line.amount)}
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+                        ) : null}
+                      </div>
+                    ) : null}
 
                     <div className="flex flex-wrap gap-2 border-t border-gray-100 pt-3">
                       <button
@@ -820,7 +937,8 @@ export function PatientBillingView({ patientId, patientName, clinicSubdomain }: 
                       )}
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             </>
           )}
