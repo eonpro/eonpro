@@ -870,3 +870,22 @@ html {
 .animate-badge-bounce {
   animation: badge-bounce 0.3s ease-out;
 }
+
+/* Login page animated gradient background */
+@keyframes login-gradient-shift {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.login-gradient-bg {
+  background: linear-gradient(-45deg, #dbe4ff, #93b4ff, #c5d5fc, #7ea6f4, #b8ccff, #a1bafc) !important;
+  background-size: 400% 400% !important;
+  animation: login-gradient-shift 12s ease infinite !important;
+}

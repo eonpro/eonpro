@@ -108,8 +108,7 @@ function getLoginRoleFromRedirect(
 function LoginFallback() {
   return (
     <div
-      className="flex min-h-[100dvh] flex-col items-center justify-center p-6"
-      style={{ backgroundColor: '#e8eeff' }}
+      className="login-gradient-bg flex min-h-[100dvh] flex-col items-center justify-center p-6"
     >
       <img src={EONPRO_LOGO} alt="EONPRO" className="mb-8 h-10 w-auto opacity-90" width={160} height={40} />
       <div className="h-8 w-8 animate-spin rounded-full border-2 border-gray-300 border-t-gray-600" />
@@ -1123,7 +1122,7 @@ function LoginContent() {
     !!redirectParam && redirectParam.toLowerCase().split('?')[0].startsWith('/provider');
 
   const bgColor = isProviderLogin
-    ? '#e8eeff'
+    ? undefined
     : isLogosRxExperience
       ? LOGOSRX_BG
       : branding
@@ -1132,9 +1131,9 @@ function LoginContent() {
 
   return (
     <div
-      className="min-h-[100dvh]"
+      className={`min-h-[100dvh] ${isProviderLogin ? 'login-gradient-bg' : ''}`}
       style={{
-        backgroundColor: bgColor,
+        ...(bgColor ? { backgroundColor: bgColor } : {}),
         paddingLeft: 'env(safe-area-inset-left)',
         paddingRight: 'env(safe-area-inset-right)',
         paddingBottom: 'env(safe-area-inset-bottom)',
@@ -2031,8 +2030,8 @@ function LoginContent() {
                 {/* Clinic Selection Instructions */}
                 <div className="text-center">
                   <Building2 className="mx-auto mb-4 h-12 w-12" style={{ color: primaryColor }} />
-                  <h2 className="mb-2 text-xl font-semibold text-white">Select a Clinic</h2>
-                  <p className="text-white">
+                  <h2 className="mb-2 text-xl font-semibold text-gray-800">Select a Clinic</h2>
+                  <p className="text-gray-600">
                     You have access to multiple clinics. Choose which one to access now.
                   </p>
                 </div>
