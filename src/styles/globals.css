@@ -873,19 +873,32 @@ html {
 
 /* Login page animated gradient background */
 @keyframes login-gradient-shift {
-  0% {
+  0%, 100% {
     background-position: 0% 50%;
+  }
+  25% {
+    background-position: 50% 0%;
   }
   50% {
     background-position: 100% 50%;
   }
-  100% {
-    background-position: 0% 50%;
+  75% {
+    background-position: 50% 100%;
   }
 }
 
 .login-gradient-bg {
-  background: linear-gradient(-45deg, #dbe4ff, #93b4ff, #c5d5fc, #7ea6f4, #b8ccff, #a1bafc) !important;
-  background-size: 400% 400% !important;
-  animation: login-gradient-shift 12s ease infinite !important;
+  background: linear-gradient(
+    -45deg,
+    #e0e7ff,
+    #a5b4fc,
+    #c4b5fd,
+    #93c5fd,
+    #bae6fd,
+    #a5b4fc,
+    #ddd6fe,
+    #e0e7ff
+  ) !important;
+  background-size: 300% 300% !important;
+  animation: login-gradient-shift 16s ease infinite !important;
 }
