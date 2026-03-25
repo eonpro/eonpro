@@ -1,7 +1,11 @@
 'use client';
 
-import { useState, useCallback, useMemo, useEffect } from 'react';
+import { useState, useCallback, useMemo, useEffect, lazy, Suspense } from 'react';
 import { useRouter } from 'next/navigation';
+
+const MedicationAutocomplete = lazy(() => import('@/components/clinical/MedicationAutocomplete'));
+const AllergyAutocomplete = lazy(() => import('@/components/clinical/AllergyAutocomplete'));
+const DrugInteractionBanner = lazy(() => import('@/components/clinical/DrugInteractionBanner'));
 import { logger } from '@/lib/logger';
 import SendIntakeFormModal from './SendIntakeFormModal';
 import {
@@ -1423,6 +1427,17 @@ export default function PatientIntakeView({
   const hasIntakeData = intakeDoc || intakeFormSubmissions.length > 0;
 
   // Render field input based on type
+  // Field IDs that should use the smart medication autocomplete
+  const MEDICATION_FIELD_IDS = new Set([
+    'currentMedications', 'medications', 'medicationsSupplements', 'listOfMedications',
+    'currentmedications', 'current-meds',
+  ]);
+
+  // Field IDs that should use the smart allergy autocomplete
+  const ALLERGY_FIELD_IDS = new Set([
+    'allergies', 'allergy', 'whichAllergies', 'allergy-details',
+  ]);
+
   const renderFieldInput = (field: any, value: string) => {
     const inputType = field.inputType || 'text';
 
@@ -1440,6 +1455,32 @@ export default function PatientIntakeView({
             </option>
           ))}
         </select>
+      );
+    }
+
+    // Smart medication autocomplete (RxNorm + OpenFDA typeahead)
+    if (MEDICATION_FIELD_IDS.has(field.id)) {
+      return (
+        <Suspense fallback={<textarea value={value} onChange={(e) => handleFieldChange(field.id, e.target.value)} placeholder={field.placeholder} rows={2} className="w-full resize-none rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-transparent focus:ring-2 focus:ring-[#4fa77e]" />}>
+          <MedicationAutocomplete
+            value={value}
+            onChange={(v: string) => handleFieldChange(field.id, v)}
+            placeholder={field.placeholder ?? 'Type to search medications...'}
+          />
+        </Suspense>
+      );
+    }
+
+    // Smart allergy autocomplete (common allergens + drug allergies)
+    if (ALLERGY_FIELD_IDS.has(field.id)) {
+      return (
+        <Suspense fallback={<textarea value={value} onChange={(e) => handleFieldChange(field.id, e.target.value)} placeholder={field.placeholder} rows={2} className="w-full resize-none rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-transparent focus:ring-2 focus:ring-[#4fa77e]" />}>
+          <AllergyAutocomplete
+            value={value}
+            onChange={(v: string) => handleFieldChange(field.id, v)}
+            placeholder={field.placeholder ?? 'Type to search allergies...'}
+          />
+        </Suspense>
       );
     }
 
@@ -1541,6 +1582,20 @@ export default function PatientIntakeView({
           <strong>Error:</strong> {saveError}
         </div>
       )}
+
+      {/* Drug Interaction & Allergy Cross-Check Banner */}
+      {(() => {
+        const medsRaw = answerMap.get('currentmedications') ?? answerMap.get('medications') ?? '';
+        const allergyRaw = answerMap.get('allergies') ?? answerMap.get('allergy') ?? '';
+        const medsList = medsRaw.split(',').map((m: string) => m.trim()).filter((m: string) => m && m !== '—' && m !== 'None');
+        const allergyList = allergyRaw.split(',').map((a: string) => a.trim()).filter((a: string) => a && a !== '—' && a !== 'None');
+        if (medsList.length === 0) return null;
+        return (
+          <Suspense fallback={null}>
+            <DrugInteractionBanner medications={medsList} allergies={allergyList} />
+          </Suspense>
+        );
+      })()}
 
       {/* Submission Info */}
       {intakeData.submissionId && !isEditing && (

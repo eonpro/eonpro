@@ -1205,3 +1205,31 @@ export async function getUsageStats(): Promise<{
     estimatedCostToday: 0, // Implement actual tracking
   };
 }
+
+/**
+ * Generate a brief clinical summary for drug interaction / allergy cross-check results.
+ * Uses gpt-4o-mini for speed and cost. No PHI is included — only drug/allergy names.
+ */
+export async function generateClinicalSummary(prompt: string): Promise<string> {
+  const client = getOpenAIClient();
+  const env = envSchema.parse({
+    OPENAI_API_KEY: process.env.OPENAI_API_KEY,
+    OPENAI_ORG_ID: process.env.OPENAI_ORG_ID,
+    OPENAI_MODEL: process.env.OPENAI_MODEL,
+    OPENAI_TEMPERATURE: process.env.OPENAI_TEMPERATURE,
+    OPENAI_MAX_TOKENS: process.env.OPENAI_MAX_TOKENS,
+  });
+
+  const model = 'gpt-4o-mini';
+  const response = await client.chat.completions.create({
+    model,
+    messages: [
+      { role: 'system', content: 'You are a clinical pharmacist assistant. Provide brief, accurate drug interaction and allergy safety summaries for healthcare providers. Be concise (2-3 sentences). Do not include disclaimers.' },
+      { role: 'user', content: prompt },
+    ],
+    temperature: 0.3,
+    ...getTokenLimitParam(model, 300),
+  });
+
+  return response.choices[0]?.message?.content?.trim() ?? '';
+}
