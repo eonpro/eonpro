@@ -109,9 +109,15 @@ function useGooglePlacesReady() {
   return ready;
 }
 
+function extractZipFromFormatted(formatted: string): string {
+  const match = formatted.match(/\b(\d{5})(?:-\d{4})?\b/);
+  return match ? match[1] : '';
+}
+
 function parseAddressComponents(
   components: any[],
   preserveAddress2?: string,
+  formattedAddress?: string,
 ): AddressData {
   let streetNumber = '';
   let streetName = '';
@@ -129,6 +135,10 @@ function parseAddressComponents(
     if (types.includes('administrative_area_level_1')) state = c.short_name ?? '';
     if (types.includes('postal_code')) zip = c.long_name ?? '';
     if (types.includes('country')) country = c.short_name ?? '';
+  }
+
+  if (!zip && formattedAddress) {
+    zip = extractZipFromFormatted(formattedAddress);
   }
 
   return {
@@ -160,9 +170,10 @@ function attachAutocomplete(
     const place = autocomplete.getPlace();
     if (!place?.address_components) return;
 
-    const parsed = parseAddressComponents(place.address_components);
-    parsed.formattedAddress = place.formatted_address ?? '';
-    onPlaceChanged(parsed, place.formatted_address ?? '');
+    const formatted = place.formatted_address ?? '';
+    const parsed = parseAddressComponents(place.address_components, undefined, formatted);
+    parsed.formattedAddress = formatted;
+    onPlaceChanged(parsed, formatted);
   });
 
   return () => {

@@ -91,6 +91,10 @@ export default function AddressStep({
               if (types.includes('administrative_area_level_1')) components.state = component.short_name;
               if (types.includes('postal_code')) components.zipCode = component.long_name;
             });
+            if (!components.zipCode && place.formatted_address) {
+              const zipMatch = place.formatted_address.match(/\b(\d{5})(?:-\d{4})?\b/);
+              if (zipMatch) components.zipCode = zipMatch[1];
+            }
             setAddressComponents(components);
           }
 
