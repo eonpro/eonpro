@@ -386,6 +386,8 @@ const PRESCRIPTION_PEPTIDES: BillingPlan[] = [
     slug: 'ot_glutathione_3mo',
     months: 3,
     isRecurring: true,
+    stripeProductId: 'prod_UDL3n8S4tUzezx',
+    stripePriceId: 'price_1TEuOpDQIH4O9FhraZ12MDE3',
   },
   {
     id: 'ot_glutathione_6mo',
@@ -396,6 +398,20 @@ const PRESCRIPTION_PEPTIDES: BillingPlan[] = [
     slug: 'ot_glutathione_6mo',
     months: 6,
     isRecurring: true,
+    stripeProductId: 'prod_UDL3n8S4tUzezx',
+    stripePriceId: 'price_1TEuNuDQIH4O9FhrdG9ciPaF',
+  },
+  {
+    id: 'ot_glutathione_12mo',
+    name: 'Glutathione 200mg – 12 Month',
+    category: 'ot_prescription_peptides',
+    price: 81900,
+    description: 'Glutathione 50mg MWF (28 units) – 12 Month',
+    slug: 'ot_glutathione_12mo',
+    months: 12,
+    isRecurring: true,
+    stripeProductId: 'prod_UDL3n8S4tUzezx',
+    stripePriceId: 'price_1TEuOpDQIH4O9FhraZ12MDE3',
   },
 
   // --- Sermorelin ---
@@ -407,6 +423,8 @@ const PRESCRIPTION_PEPTIDES: BillingPlan[] = [
     description: 'Sermorelin 500mcg M–F, subcutaneous – 1 Month',
     slug: 'ot_sermorelin_1mo',
     months: 1,
+    stripeProductId: 'prod_UDO8iz6pwPraIg',
+    stripePriceId: 'price_1TExMeDQIH4O9FhrctoOO9Vy',
   },
   {
     id: 'ot_sermorelin_3mo',
@@ -417,6 +435,8 @@ const PRESCRIPTION_PEPTIDES: BillingPlan[] = [
     slug: 'ot_sermorelin_3mo',
     months: 3,
     isRecurring: true,
+    stripeProductId: 'prod_UDO8iz6pwPraIg',
+    stripePriceId: 'price_1TExNPDQIH4O9FhrYDxGPJ0O',
   },
   {
     id: 'ot_sermorelin_6mo',
@@ -427,6 +447,20 @@ const PRESCRIPTION_PEPTIDES: BillingPlan[] = [
     slug: 'ot_sermorelin_6mo',
     months: 6,
     isRecurring: true,
+    stripeProductId: 'prod_UDO8iz6pwPraIg',
+    stripePriceId: 'price_1TExOFDQIH4O9FhrCbcFanE6',
+  },
+  {
+    id: 'ot_sermorelin_12mo',
+    name: 'Sermorelin 10mg – 12 Month',
+    category: 'ot_prescription_peptides',
+    price: 240000,
+    description: 'Sermorelin 500mcg M–F, subcutaneous – 12 Month',
+    slug: 'ot_sermorelin_12mo',
+    months: 12,
+    isRecurring: true,
+    stripeProductId: 'prod_UDO8iz6pwPraIg',
+    stripePriceId: 'price_1TExOZDQIH4O9FhrYKdEuN61',
   },
 ];
 
