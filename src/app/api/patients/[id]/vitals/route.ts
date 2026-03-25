@@ -28,12 +28,16 @@ const getVitalsHandler = withAuthParams(
       const vitals = await queryOptimizer.query(
         async () => {
           const [documents, submissions] = await Promise.all([
-            prisma.patientDocument.findMany({
-              where: { patientId, category: 'MEDICAL_INTAKE_FORM' },
-              orderBy: { createdAt: 'desc' },
-              take: 10,
-              select: { id: true, category: true, data: true },
-            }),
+            // withoutClinicFilter: documents with clinicId=null (legacy) must
+            // still be found; we scope by patientId which is already verified.
+            withoutClinicFilter(() =>
+              prisma.patientDocument.findMany({
+                where: { patientId, category: 'MEDICAL_INTAKE_FORM' },
+                orderBy: { createdAt: 'desc' },
+                take: 10,
+                select: { id: true, category: true, data: true },
+              })
+            ),
             withoutClinicFilter(() =>
               prisma.intakeFormSubmission.findMany({
                 where: { patientId },

@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 
 import { handleApiError, BadRequestError } from '@/domains/shared/errors';
 import { withAuthParams } from '@/lib/auth/middleware-with-params';
-import { prisma, runWithClinicContext, withoutClinicFilter } from '@/lib/db';
+import { prisma, withoutClinicFilter } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { requirePermission, toPermissionContext } from '@/lib/rbac/permissions';
 import { parseDocumentData } from '@/lib/utils/vitals-extraction';
@@ -25,7 +25,9 @@ const getIntakeDataHandler = withAuthParams(
       const clinicId = user.role === 'super_admin' ? undefined : user.clinicId;
 
       const [documents, intakeFormSubmissions] = await Promise.all([
-        runWithClinicContext(clinicId, () =>
+        // withoutClinicFilter: documents with clinicId=null (legacy) must
+        // still be found; we scope by patientId which is already verified.
+        withoutClinicFilter(() =>
           prisma.patientDocument.findMany({
             where: { patientId },
             orderBy: { createdAt: 'desc' },
@@ -64,7 +66,11 @@ const getIntakeDataHandler = withAuthParams(
       let documentsWithData = documents as any[];
 
       if (intakeDocIds.length > 0) {
-        const rawDocs = await runWithClinicContext(clinicId, () =>
+        // Use withoutClinicFilter because the IDs were already verified via
+        // the patientId-scoped first query. The data column fetch by primary
+        // key doesn't need a second clinic filter (and documents with
+        // clinicId=null would be incorrectly excluded by it).
+        const rawDocs = await withoutClinicFilter(() =>
           prisma.patientDocument.findMany({
             where: { id: { in: intakeDocIds } },
             select: { id: true, data: true },
