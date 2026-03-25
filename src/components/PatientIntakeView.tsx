@@ -876,36 +876,8 @@ export default function PatientIntakeView({
   const [editedValues, setEditedValues] = useState<Record<string, string>>({});
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  if (fetchLoading) {
-    return (
-      <div className="animate-pulse space-y-4">
-        <div className="h-8 w-48 rounded bg-gray-200" />
-        <div className="rounded-2xl border border-gray-200 bg-white p-6">
-          <div className="space-y-3">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="h-4 rounded bg-gray-100" style={{ width: `${60 + (i % 3) * 15}%` }} />
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (fetchError) {
-    return (
-      <div className="rounded-2xl border border-red-200 bg-red-50 p-6">
-        <p className="mb-3 text-sm text-red-700">Unable to load intake data. This may be a temporary issue.</p>
-        <button
-          onClick={doFetch}
-          className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
-        >
-          Retry
-        </button>
-      </div>
-    );
-  }
-
   // Find and parse the latest intake document
+  // NOTE: All hooks must be called before any early returns to satisfy React's rules of hooks.
   const intakeDoc = documents.find(
     (doc: any) => doc.category === 'MEDICAL_INTAKE_FORM' && (doc.intakeData || doc.data)
   );
@@ -1128,6 +1100,36 @@ export default function PatientIntakeView({
   }, [intakeData, intakeFormSubmissions]);
 
   const answerMap = buildAnswerMap();
+
+  // Early returns for loading/error states — placed AFTER all hooks
+  if (fetchLoading) {
+    return (
+      <div className="animate-pulse space-y-4">
+        <div className="h-8 w-48 rounded bg-gray-200" />
+        <div className="rounded-2xl border border-gray-200 bg-white p-6">
+          <div className="space-y-3">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="h-4 rounded bg-gray-100" style={{ width: `${60 + (i % 3) * 15}%` }} />
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (fetchError) {
+    return (
+      <div className="rounded-2xl border border-red-200 bg-red-50 p-6">
+        <p className="mb-3 text-sm text-red-700">Unable to load intake data. This may be a temporary issue.</p>
+        <button
+          onClick={doFetch}
+          className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
 
   // Fields that should default to "No" when not present in the intake
   // (because a previous question filtered them out or they weren't asked)
