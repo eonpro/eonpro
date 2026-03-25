@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { basePrisma as prisma } from '@/lib/db';
+import { basePrisma, prisma as scopedPrisma, runWithClinicContext } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { OT_BILLING_PLANS } from '@/config/ot-billing-plans';
 import type { BillingPlan } from '@/config/billingPlans';
@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const ot = await prisma.clinic.findFirst({
+    const ot = await basePrisma.clinic.findFirst({
       where: {
         OR: [
           { subdomain: 'ot' },
@@ -78,69 +78,71 @@ export async function POST(request: NextRequest) {
 
     logger.info(`[SEED OT PRODUCTS] Seeding products for OT clinic ID: ${ot.id}`);
 
-    await prisma.product.deleteMany({ where: { clinicId: ot.id } });
-    logger.info(`[SEED OT PRODUCTS] Deleted existing products for clinic ${ot.id}`);
+    return await runWithClinicContext(ot.id, async () => {
+      await scopedPrisma.product.deleteMany({ where: { clinicId: ot.id } });
+      logger.info(`[SEED OT PRODUCTS] Deleted existing products for clinic ${ot.id}`);
 
-    const createdProducts: Array<{
-      name: string;
-      price: number;
-      slug: string;
-      stripePriceId: string | null;
-      category: string;
-    }> = [];
+      const createdProducts: Array<{
+        name: string;
+        price: number;
+        slug: string;
+        stripePriceId: string | null;
+        category: string;
+      }> = [];
 
-    for (const plan of OT_BILLING_PLANS) {
-      const slug = plan.slug || plan.id;
-      const productCategory = mapProductCategory(plan.category);
-      const billingType =
-        plan.isRecurring || (plan.months && plan.months > 1) ? 'RECURRING' : 'ONE_TIME';
-      const billingInterval = mapBillingInterval(plan.months);
-      const billingIntervalCount = plan.months || 1;
-      const stripePriceId = isValidStripePriceId(plan.stripePriceId)
-        ? plan.stripePriceId!
-        : null;
-      const stripeProductId = isValidStripeProductId(plan.stripeProductId)
-        ? plan.stripeProductId!
-        : null;
+      for (const plan of OT_BILLING_PLANS) {
+        const slug = plan.slug || plan.id;
+        const productCategory = mapProductCategory(plan.category);
+        const billingType =
+          plan.isRecurring || (plan.months && plan.months > 1) ? 'RECURRING' : 'ONE_TIME';
+        const billingInterval = mapBillingInterval(plan.months);
+        const billingIntervalCount = plan.months || 1;
+        const stripePriceId = isValidStripePriceId(plan.stripePriceId)
+          ? plan.stripePriceId!
+          : null;
+        const stripeProductId = isValidStripeProductId(plan.stripeProductId)
+          ? plan.stripeProductId!
+          : null;
 
-      await prisma.product.create({
-        data: {
-          clinicId: ot.id,
+        await scopedPrisma.product.create({
+          data: {
+            clinicId: ot.id,
+            name: plan.name,
+            shortDescription: plan.description,
+            category: productCategory as any,
+            price: plan.price,
+            currency: 'usd',
+            billingType: billingType as any,
+            billingInterval: billingInterval as any,
+            billingIntervalCount,
+            stripeProductId,
+            stripePriceId,
+            isActive: true,
+            isVisible: true,
+            metadata: { slug, billingPlanCategory: plan.category },
+          },
+        });
+
+        createdProducts.push({
           name: plan.name,
-          shortDescription: plan.description,
-          category: productCategory as any,
-          price: plan.price,
-          currency: 'usd',
-          billingType: billingType as any,
-          billingInterval: billingInterval as any,
-          billingIntervalCount,
-          stripeProductId,
+          price: plan.price / 100,
+          slug,
           stripePriceId,
-          isActive: true,
-          isVisible: true,
-          metadata: { slug, billingPlanCategory: plan.category },
+          category: productCategory,
+        });
+      }
+
+      logger.info(`[SEED OT PRODUCTS] Created ${createdProducts.length} products for OT`);
+
+      return NextResponse.json({
+        success: true,
+        clinic: { id: ot.id, name: ot.name },
+        products: {
+          created: createdProducts.length,
+          withStripePriceId: createdProducts.filter((p) => p.stripePriceId).length,
+          items: createdProducts,
         },
       });
-
-      createdProducts.push({
-        name: plan.name,
-        price: plan.price / 100,
-        slug,
-        stripePriceId,
-        category: productCategory,
-      });
-    }
-
-    logger.info(`[SEED OT PRODUCTS] Created ${createdProducts.length} products for OT`);
-
-    return NextResponse.json({
-      success: true,
-      clinic: { id: ot.id, name: ot.name },
-      products: {
-        created: createdProducts.length,
-        withStripePriceId: createdProducts.filter((p) => p.stripePriceId).length,
-        items: createdProducts,
-      },
     });
   } catch (error: unknown) {
     logger.error('[SEED OT PRODUCTS] Error:', error);
