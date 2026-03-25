@@ -222,36 +222,40 @@ export function calculateBMI(heightStr: string, weightStr: string): number | nul
 export function parseDocumentData(data: unknown): DocumentData | null {
   if (!data) return null;
 
-  if (Buffer.isBuffer(data)) {
-    try {
-      return JSON.parse(data.toString('utf-8'));
-    } catch {
-      return null;
-    }
-  }
+  let raw: string | object | null = null;
 
-  if (
+  // Prisma 6.x returns Uint8Array for Bytes columns
+  if (data instanceof Uint8Array) {
+    raw = new TextDecoder().decode(data);
+  } else if (Buffer.isBuffer(data)) {
+    raw = data.toString('utf-8');
+  } else if (
     typeof data === 'object' &&
     (data as Record<string, unknown>).type === 'Buffer' &&
     Array.isArray((data as Record<string, unknown>).data)
   ) {
-    try {
-      return JSON.parse(Buffer.from((data as { data: number[] }).data).toString('utf-8'));
-    } catch {
-      return null;
-    }
-  }
-
-  if (typeof data === 'string') {
-    try {
-      return JSON.parse(data);
-    } catch {
-      return null;
-    }
-  }
-
-  if (typeof data === 'object') {
+    raw = Buffer.from((data as { data: number[] }).data).toString('utf-8');
+  } else if (typeof data === 'string') {
+    raw = data;
+  } else if (typeof data === 'object') {
     return data as DocumentData;
+  }
+
+  if (raw === null) return null;
+
+  if (typeof raw === 'string') {
+    const trimmed = raw.trim();
+    if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) return null;
+    try {
+      let parsed = JSON.parse(trimmed);
+      // Handle double-serialized JSON (string inside a JSON string)
+      if (typeof parsed === 'string') {
+        try { parsed = JSON.parse(parsed); } catch { /* use first parse result */ }
+      }
+      return typeof parsed === 'object' ? parsed : null;
+    } catch {
+      return null;
+    }
   }
 
   return null;

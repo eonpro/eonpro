@@ -23,7 +23,7 @@ const getVitalsHandler = withAuthParams(
       }
 
       const clinicId = user.role === 'super_admin' ? undefined : user.clinicId;
-      const cacheKey = `vitals:v2:c${clinicId ?? 'all'}:p${patientId}`;
+      const cacheKey = `vitals:v3:c${clinicId ?? 'all'}:p${patientId}`;
 
       const vitals = await queryOptimizer.query(
         async () => {

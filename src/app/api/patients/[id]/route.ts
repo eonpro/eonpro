@@ -156,7 +156,7 @@ const updatePatientHandler = withAuthParams(
       // Bust L1/L2 cache for this specific patient (not all patients).
       const clinicScope = user.clinicId ?? 'all';
       const detailKey = `patient:detail:c${clinicScope}:p${id}`;
-      const vitalsKey = `vitals:v2:c${clinicScope}:p${id}`;
+      const vitalsKey = `vitals:v3:c${clinicScope}:p${id}`;
       queryOptimizer['l1Cache']?.delete?.(detailKey);
       queryOptimizer['l1Cache']?.delete?.(vitalsKey);
       await Promise.all([
@@ -214,7 +214,7 @@ const deletePatientHandler = withAuthParams(
 
       const clinicScope = user.clinicId ?? 'all';
       const detailKey = `patient:detail:c${clinicScope}:p${id}`;
-      const vitalsKey = `vitals:v2:c${clinicScope}:p${id}`;
+      const vitalsKey = `vitals:v3:c${clinicScope}:p${id}`;
       queryOptimizer['l1Cache']?.delete?.(detailKey);
       queryOptimizer['l1Cache']?.delete?.(vitalsKey);
       await Promise.all([
