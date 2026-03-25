@@ -90,6 +90,8 @@ export async function POST(request: NextRequest) {
         category: string;
       }> = [];
 
+      const usedStripeProductIds = new Set<string>();
+
       for (const plan of OT_BILLING_PLANS) {
         const slug = plan.slug || plan.id;
         const productCategory = mapProductCategory(plan.category);
@@ -100,9 +102,14 @@ export async function POST(request: NextRequest) {
         const stripePriceId = isValidStripePriceId(plan.stripePriceId)
           ? plan.stripePriceId!
           : null;
-        const stripeProductId = isValidStripeProductId(plan.stripeProductId)
+        const rawStripeProductId = isValidStripeProductId(plan.stripeProductId)
           ? plan.stripeProductId!
           : null;
+        const stripeProductId =
+          rawStripeProductId && !usedStripeProductIds.has(rawStripeProductId)
+            ? rawStripeProductId
+            : null;
+        if (rawStripeProductId) usedStripeProductIds.add(rawStripeProductId);
 
         await scopedPrisma.product.create({
           data: {
