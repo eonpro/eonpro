@@ -6,7 +6,7 @@ import { withAuthParams } from '@/lib/auth/middleware-with-params';
 import { prisma, withoutClinicFilter } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { requirePermission, toPermissionContext } from '@/lib/rbac/permissions';
-import { parseDocumentData } from '@/lib/utils/vitals-extraction';
+import { readIntakeData } from '@/lib/storage/document-data-store';
 
 interface Params {
   params: Promise<{ id: string }>;
@@ -58,7 +58,7 @@ const getIntakeDataHandler = withAuthParams(
         ),
       ]);
 
-      // Fetch binary data for intake form documents and parse to JSON
+      // Fetch binary data + S3 key for intake form documents and parse to JSON
       const intakeDocIds = documents
         .filter((d) => d.category === 'MEDICAL_INTAKE_FORM')
         .map((d) => d.id);
@@ -66,21 +66,21 @@ const getIntakeDataHandler = withAuthParams(
       let documentsWithData = documents as any[];
 
       if (intakeDocIds.length > 0) {
-        // Use withoutClinicFilter because the IDs were already verified via
-        // the patientId-scoped first query. The data column fetch by primary
-        // key doesn't need a second clinic filter (and documents with
-        // clinicId=null would be incorrectly excluded by it).
         const rawDocs = await withoutClinicFilter(() =>
           prisma.patientDocument.findMany({
             where: { id: { in: intakeDocIds } },
-            select: { id: true, data: true },
+            select: { id: true, patientId: true, clinicId: true, data: true, s3DataKey: true },
           })
         ).catch(() => [] as any[]);
 
         if (rawDocs.length > 0) {
-          const dataMap = new Map(
-            rawDocs.map((d: any) => [d.id, parseDocumentData(d.data)])
+          const dataEntries = await Promise.all(
+            rawDocs.map(async (d: any) => {
+              const parsed = await readIntakeData(d);
+              return [d.id, parsed] as const;
+            })
           );
+          const dataMap = new Map(dataEntries);
           documentsWithData = documents.map((doc) => ({
             ...doc,
             data: dataMap.get(doc.id) ?? null,
