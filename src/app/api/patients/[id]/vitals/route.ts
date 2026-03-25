@@ -23,13 +23,11 @@ const getVitalsHandler = withAuthParams(
       }
 
       const clinicId = user.role === 'super_admin' ? undefined : user.clinicId;
-      const cacheKey = `vitals:c${clinicId ?? 'all'}:p${patientId}`;
+      const cacheKey = `vitals:v2:c${clinicId ?? 'all'}:p${patientId}`;
 
       const vitals = await queryOptimizer.query(
         async () => {
           const [documents, submissions] = await Promise.all([
-            // withoutClinicFilter: documents with clinicId=null (legacy) must
-            // still be found; we scope by patientId which is already verified.
             withoutClinicFilter(() =>
               prisma.patientDocument.findMany({
                 where: { patientId, category: 'MEDICAL_INTAKE_FORM' },
