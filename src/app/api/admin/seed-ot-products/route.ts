@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
 
     logger.info(`[SEED OT PRODUCTS] Seeding products for OT clinic ID: ${ot.id}`);
 
-    await prisma.$executeRaw`DELETE FROM "Product" WHERE "clinicId" = ${ot.id}`;
+    await prisma.product.deleteMany({ where: { clinicId: ot.id } });
     logger.info(`[SEED OT PRODUCTS] Deleted existing products for clinic ${ot.id}`);
 
     const createdProducts: Array<{
@@ -103,22 +103,24 @@ export async function POST(request: NextRequest) {
         ? plan.stripeProductId!
         : null;
 
-      await prisma.$executeRaw`
-        INSERT INTO "Product" (
-          "clinicId", "name", "shortDescription", "category", "price", "currency",
-          "billingType", "billingInterval", "billingIntervalCount",
-          "stripeProductId", "stripePriceId",
-          "isActive", "isVisible", "metadata", "createdAt", "updatedAt"
-        ) VALUES (
-          ${ot.id}, ${plan.name}, ${plan.description}, ${productCategory},
-          ${plan.price}, 'usd',
-          ${billingType}, ${billingInterval}, ${billingIntervalCount},
-          ${stripeProductId}, ${stripePriceId},
-          true, true,
-          ${JSON.stringify({ slug, billingPlanCategory: plan.category })}::jsonb,
-          NOW(), NOW()
-        )
-      `;
+      await prisma.product.create({
+        data: {
+          clinicId: ot.id,
+          name: plan.name,
+          shortDescription: plan.description,
+          category: productCategory as any,
+          price: plan.price,
+          currency: 'usd',
+          billingType: billingType as any,
+          billingInterval: billingInterval as any,
+          billingIntervalCount,
+          stripeProductId,
+          stripePriceId,
+          isActive: true,
+          isVisible: true,
+          metadata: { slug, billingPlanCategory: plan.category },
+        },
+      });
 
       createdProducts.push({
         name: plan.name,
