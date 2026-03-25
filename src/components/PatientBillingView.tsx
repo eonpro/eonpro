@@ -1449,7 +1449,7 @@ function CreateInvoiceForm({
   onSuccess: () => void;
   onCancel: () => void;
 }) {
-  const [lineItems, setLineItems] = useState([{ description: '', amount: 0 }]);
+  const [lineItems, setLineItems] = useState<Array<{ description: string; amount: number; productSlug?: string }>>([{ description: '', amount: 0 }]);
   const [autoSend, setAutoSend] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<string>('');
@@ -1470,11 +1470,11 @@ function CreateInvoiceForm({
         {
           description: plan.description,
           amount: plan.price,
+          productSlug: plan.slug,
         },
       ]);
       setSelectedPlan(planId);
     } else {
-      // Clear selection for custom entry
       setSelectedPlan('');
       setLineItems([{ description: '', amount: 0 }]);
     }

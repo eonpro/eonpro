@@ -103,11 +103,12 @@ async function getHandler(request: NextRequest, user: AuthUser) {
     const dateRange = { start: startDate, end: endDate };
 
     // Fetch all analytics data in parallel
-    const [overview, trends, mrr, byProduct, byPaymentMethod, forecast] = await Promise.all([
+    const [overview, trends, mrr, byProduct, byCategory, byPaymentMethod, forecast] = await Promise.all([
       RevenueAnalyticsService.getRevenueOverview(clinicId, dateRange),
       RevenueAnalyticsService.getRevenueTrends(clinicId, dateRange, granularity),
       RevenueAnalyticsService.getMrrBreakdown(clinicId),
       RevenueAnalyticsService.getRevenueByProduct(clinicId, dateRange),
+      RevenueAnalyticsService.getRevenueByCategory(clinicId, dateRange),
       RevenueAnalyticsService.getRevenueByPaymentMethod(clinicId, dateRange),
       RevenueAnalyticsService.getForecast(clinicId, 6),
     ]);
@@ -117,6 +118,7 @@ async function getHandler(request: NextRequest, user: AuthUser) {
       trends,
       mrr,
       byProduct,
+      byCategory,
       byPaymentMethod,
       forecast,
     });

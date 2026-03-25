@@ -1,6 +1,8 @@
 // Billing Plans Configuration
 // This file contains clinic-specific pricing data for all clinics
 
+import { OT_BILLING_PLANS, OT_CATEGORY_LABELS } from './ot-billing-plans';
+
 export interface BillingPlan {
   id: string;
   name: string;
@@ -18,13 +20,27 @@ export interface BillingPlan {
     | 'bloodwork'
     | 'additional_treatments'
     | 'upsales'
-    | 'shipping';
+    | 'shipping'
+    // OT (ot.eonpro.io) categories
+    | 'ot_bloodwork'
+    | 'ot_hormonal'
+    | 'ot_prescription_peptides'
+    | 'ot_research'
+    | 'ot_weight_loss'
+    | 'ot_other'
+    | 'ot_bundles';
   price: number; // in cents
   description: string;
   subcategory?: string;
   dose?: string;
   months?: number;
   isRecurring?: boolean;
+  /** Stable identifier for matching billing plan to a Product DB row. */
+  slug?: string;
+  /** Stripe Price ID when the plan is already created in Stripe. */
+  stripePriceId?: string;
+  /** Stripe Product ID when the plan is already created in Stripe. */
+  stripeProductId?: string;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -633,7 +649,7 @@ export const BILLING_PLANS = EONMEDS_BILLING_PLANS;
 // ═══════════════════════════════════════════════════════════════════════════
 const CLINIC_PLANS_MAP: Record<string, BillingPlan[]> = {
   wellmedr: WELLMEDR_BILLING_PLANS,
-  // Add other clinic-specific plans here as needed
+  ot: OT_BILLING_PLANS,
   // eonmeds uses the default EONMEDS_BILLING_PLANS
 };
 
@@ -666,94 +682,54 @@ export function formatPlanPrice(priceInCents: number): string {
   return `$${(priceInCents / 100).toFixed(2)}`;
 }
 
-// Group plans by category for display
+/** Label map for EONMEDS / WellMedR legacy categories. */
+const LEGACY_CATEGORY_LABELS: Record<string, string> = {
+  semaglutide_monthly: 'Semaglutide Monthly Plans',
+  semaglutide_single: 'Semaglutide Single Month Purchase',
+  semaglutide_3month: 'Semaglutide 3 Month Packages',
+  semaglutide_6month: 'Semaglutide 6 Month Packages',
+  semaglutide_12month: 'Semaglutide 12 Month Packages',
+  tirzepatide_monthly: 'Tirzepatide Monthly Plans',
+  tirzepatide_single: 'Tirzepatide Single Month Purchase',
+  tirzepatide_3month: 'Tirzepatide 3 Month Packages',
+  tirzepatide_6month: 'Tirzepatide 6 Month Packages',
+  tirzepatide_12month: 'Tirzepatide 12 Month Packages',
+  upsales: 'Upsales',
+  bloodwork: 'Bloodwork',
+  additional_treatments: 'Additional Monthly Treatments',
+  shipping: 'Shipping',
+};
+
+const ALL_CATEGORY_LABELS: Record<string, string> = {
+  ...LEGACY_CATEGORY_LABELS,
+  ...OT_CATEGORY_LABELS,
+};
+
+/**
+ * Group plans by category for display in the invoice dropdown.
+ * Works generically for any clinic — groups are derived from whatever
+ * categories exist in the clinic's plan list.
+ */
 export function getGroupedPlans(clinicSubdomain?: string | null) {
+  const plans = getPlansForClinic(clinicSubdomain);
   const groups: Record<string, { label: string; plans: BillingPlan[] }> = {};
 
-  const semaMonthly = getPlansByCategory('semaglutide_monthly', clinicSubdomain);
-  const semaSingle = getPlansByCategory('semaglutide_single', clinicSubdomain);
-  const sema3Month = getPlansByCategory('semaglutide_3month', clinicSubdomain);
-  const sema6Month = getPlansByCategory('semaglutide_6month', clinicSubdomain);
-  const sema12Month = getPlansByCategory('semaglutide_12month', clinicSubdomain);
-  const tirzMonthly = getPlansByCategory('tirzepatide_monthly', clinicSubdomain);
-  const tirzSingle = getPlansByCategory('tirzepatide_single', clinicSubdomain);
-  const tirz3Month = getPlansByCategory('tirzepatide_3month', clinicSubdomain);
-  const tirz6Month = getPlansByCategory('tirzepatide_6month', clinicSubdomain);
-  const tirz12Month = getPlansByCategory('tirzepatide_12month', clinicSubdomain);
-  const upsales = getPlansByCategory('upsales', clinicSubdomain);
-  const bloodwork = getPlansByCategory('bloodwork', clinicSubdomain);
-  const additionalTreatments = getPlansByCategory('additional_treatments', clinicSubdomain);
-  const shipping = getPlansByCategory('shipping', clinicSubdomain);
+  const seen = new Set<string>();
+  const orderedCategories: string[] = [];
 
-  // Only add groups that have plans (clinic-specific filtering)
-  if (semaMonthly.length > 0) {
-    groups['Semaglutide Monthly'] = { label: 'Semaglutide Monthly Plans', plans: semaMonthly };
+  for (const plan of plans) {
+    if (!seen.has(plan.category)) {
+      seen.add(plan.category);
+      orderedCategories.push(plan.category);
+    }
   }
-  if (semaSingle.length > 0) {
-    groups['Semaglutide Single'] = {
-      label: 'Semaglutide Single Month Purchase',
-      plans: semaSingle,
-    };
-  }
-  if (sema3Month.length > 0) {
-    groups['Semaglutide 3 Month'] = {
-      label: 'Semaglutide 3 Month Packages',
-      plans: sema3Month,
-    };
-  }
-  if (sema6Month.length > 0) {
-    groups['Semaglutide 6 Month'] = {
-      label: 'Semaglutide 6 Month Packages',
-      plans: sema6Month,
-    };
-  }
-  if (sema12Month.length > 0) {
-    groups['Semaglutide 12 Month'] = {
-      label: 'Semaglutide 12 Month Packages',
-      plans: sema12Month,
-    };
-  }
-  if (tirzMonthly.length > 0) {
-    groups['Tirzepatide Monthly'] = { label: 'Tirzepatide Monthly Plans', plans: tirzMonthly };
-  }
-  if (tirzSingle.length > 0) {
-    groups['Tirzepatide Single'] = {
-      label: 'Tirzepatide Single Month Purchase',
-      plans: tirzSingle,
-    };
-  }
-  if (tirz3Month.length > 0) {
-    groups['Tirzepatide 3 Month'] = {
-      label: 'Tirzepatide 3 Month Packages',
-      plans: tirz3Month,
-    };
-  }
-  if (tirz6Month.length > 0) {
-    groups['Tirzepatide 6 Month'] = {
-      label: 'Tirzepatide 6 Month Packages',
-      plans: tirz6Month,
-    };
-  }
-  if (tirz12Month.length > 0) {
-    groups['Tirzepatide 12 Month'] = {
-      label: 'Tirzepatide 12 Month Packages',
-      plans: tirz12Month,
-    };
-  }
-  if (upsales.length > 0) {
-    groups['Upsales'] = { label: 'Upsales', plans: upsales };
-  }
-  if (bloodwork.length > 0) {
-    groups['Bloodwork'] = { label: 'Bloodwork', plans: bloodwork };
-  }
-  if (additionalTreatments.length > 0) {
-    groups['Additional Treatments'] = {
-      label: 'Additional Monthly Treatments',
-      plans: additionalTreatments,
-    };
-  }
-  if (shipping.length > 0) {
-    groups['Shipping'] = { label: 'Shipping', plans: shipping };
+
+  for (const cat of orderedCategories) {
+    const matching = plans.filter((p) => p.category === cat);
+    if (matching.length > 0) {
+      const label = ALL_CATEGORY_LABELS[cat] || cat;
+      groups[label] = { label, plans: matching };
+    }
   }
 
   return groups;

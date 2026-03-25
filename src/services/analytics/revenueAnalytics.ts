@@ -69,9 +69,18 @@ export interface MRRBreakdown {
 export interface RevenueByProduct {
   productId: number;
   productName: string;
+  productCategory?: string;
   revenue: number;
   quantity: number;
   percentageOfTotal: number;
+}
+
+export interface RevenueByCategory {
+  category: string;
+  revenue: number;
+  quantity: number;
+  percentageOfTotal: number;
+  productCount: number;
 }
 
 export interface RevenueByPaymentMethod {
@@ -396,7 +405,7 @@ export class RevenueAnalyticsService {
   }
 
   /**
-   * Get revenue breakdown by product
+   * Get revenue breakdown by product (includes product category for grouping).
    */
   static async getRevenueByProduct(
     clinicId: number,
@@ -405,7 +414,6 @@ export class RevenueAnalyticsService {
     return withClinicContext(clinicId, async () => {
       const { start, end } = dateRange;
 
-      // Get invoice items with product info
       const invoiceItems = await prisma.invoiceItem.findMany({
         where: {
           invoice: {
@@ -422,8 +430,7 @@ export class RevenueAnalyticsService {
         },
       });
 
-      // Group by product
-      const productMap = new Map<number, { name: string; revenue: number; quantity: number }>();
+      const productMap = new Map<number, { name: string; category: string; revenue: number; quantity: number }>();
       let totalRevenue = 0;
 
       invoiceItems.forEach((item: (typeof invoiceItems)[number]) => {
@@ -439,17 +446,18 @@ export class RevenueAnalyticsService {
         } else {
           productMap.set(item.productId, {
             name: item.product?.name || `Product ${item.productId}`,
+            category: (item.product as { category?: string } | null)?.category || 'OTHER',
             revenue: itemTotal,
             quantity: item.quantity,
           });
         }
       });
 
-      // Convert to array and sort by revenue
       const result: RevenueByProduct[] = Array.from(productMap.entries())
         .map(([productId, data]) => ({
           productId,
           productName: data.name,
+          productCategory: data.category,
           revenue: data.revenue,
           quantity: data.quantity,
           percentageOfTotal:
@@ -459,6 +467,46 @@ export class RevenueAnalyticsService {
 
       return result;
     });
+  }
+
+  /**
+   * Get revenue breakdown by product category (MEDICATION, LAB_TEST, PACKAGE, etc.).
+   */
+  static async getRevenueByCategory(
+    clinicId: number,
+    dateRange: DateRange
+  ): Promise<RevenueByCategory[]> {
+    const byProduct = await this.getRevenueByProduct(clinicId, dateRange);
+    const categoryMap = new Map<string, { revenue: number; quantity: number; productIds: Set<number> }>();
+    let totalRevenue = 0;
+
+    for (const p of byProduct) {
+      const cat = p.productCategory || 'OTHER';
+      totalRevenue += p.revenue;
+      const existing = categoryMap.get(cat);
+      if (existing) {
+        existing.revenue += p.revenue;
+        existing.quantity += p.quantity;
+        existing.productIds.add(p.productId);
+      } else {
+        categoryMap.set(cat, {
+          revenue: p.revenue,
+          quantity: p.quantity,
+          productIds: new Set([p.productId]),
+        });
+      }
+    }
+
+    return Array.from(categoryMap.entries())
+      .map(([category, data]) => ({
+        category,
+        revenue: data.revenue,
+        quantity: data.quantity,
+        percentageOfTotal:
+          totalRevenue > 0 ? Math.round((data.revenue / totalRevenue) * 10000) / 100 : 0,
+        productCount: data.productIds.size,
+      }))
+      .sort((a, b) => b.revenue - a.revenue);
   }
 
   /**

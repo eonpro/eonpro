@@ -16,6 +16,7 @@ const createInvoiceSchema = z.object({
       quantity: z.number().min(1).optional(),
       metadata: z.record(z.string()).optional(),
       productId: z.number().optional(), // Link to product catalog
+      productSlug: z.string().optional(), // Resolve to productId via Product.metadata.slug
     })
   ),
   dueInDays: z.number().min(0).optional(),
@@ -128,6 +129,36 @@ async function createInvoiceHandler(request: NextRequest, user: AuthUser) {
 
           hasRecurringProducts = productRecords.some((p) => p.billingType === 'RECURRING');
         } else {
+          // Resolve productSlug -> productId for line items from billing plan selection
+          const slugsToResolve = [...new Set(
+            lineItems.map((i) => i.productSlug).filter((s): s is string => !!s && !lineItems.find((li) => li.productSlug === s && li.productId))
+          )];
+
+          if (slugsToResolve.length > 0) {
+            const slugProducts = await prisma.product.findMany({
+              where: {
+                isActive: true,
+                metadata: { path: ['slug'], string_contains: '' },
+              },
+              select: { id: true, metadata: true, billingType: true },
+            });
+
+            const slugToId = new Map<string, number>();
+            for (const sp of slugProducts) {
+              const meta = sp.metadata as Record<string, unknown> | null;
+              if (meta && typeof meta.slug === 'string' && slugsToResolve.includes(meta.slug)) {
+                slugToId.set(meta.slug, sp.id);
+              }
+            }
+
+            lineItems = lineItems.map((item) => {
+              if (item.productSlug && !item.productId && slugToId.has(item.productSlug)) {
+                return { ...item, productId: slugToId.get(item.productSlug)! };
+              }
+              return item;
+            });
+          }
+
           const productIds = [...new Set(lineItems.map((i) => i.productId).filter(Boolean))] as number[];
           if (productIds.length > 0) {
             const products = await prisma.product.findMany({
