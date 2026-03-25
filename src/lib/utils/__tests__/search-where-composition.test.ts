@@ -2,9 +2,94 @@
  * Targeted test for search WHERE clause composition in admin patient routes.
  * Validates that the AND-based composition preserves the base OR constraint
  * (invoice/order requirement) when combined with search filters.
+ *
+ * Also tests fuzzy search variant generation and the buildFuzzySearchOr utility.
  */
 import { describe, it, expect } from 'vitest';
-import { buildPatientSearchWhere, splitSearchTerms, isSearchIndexIncomplete, buildPatientSearchIndex } from '../search';
+import {
+  buildPatientSearchWhere,
+  splitSearchTerms,
+  isSearchIndexIncomplete,
+  buildPatientSearchIndex,
+  generateSearchVariants,
+  fuzzyTermMatch,
+  scoreMatch,
+  buildFuzzySearchOr,
+} from '../search';
+
+describe('generateSearchVariants', () => {
+  it('returns empty for very short terms', () => {
+    expect(generateSearchVariants('ab')).toEqual([]);
+    expect(generateSearchVariants('a')).toEqual([]);
+  });
+
+  it('returns empty for very long terms', () => {
+    expect(generateSearchVariants('abcdefghijklmnop')).toEqual([]);
+  });
+
+  it('generates transpositions for "jhon"', () => {
+    const variants = generateSearchVariants('jhon');
+    expect(variants).toContain('john');
+  });
+
+  it('generates deletions', () => {
+    const variants = generateSearchVariants('joohn');
+    expect(variants).toContain('john');
+  });
+
+  it('generates double-letter reduction', () => {
+    const variants = generateSearchVariants('johnn');
+    expect(variants).toContain('john');
+  });
+
+  it('generates phonetic substitution ph→f', () => {
+    const variants = generateSearchVariants('phred');
+    expect(variants).toContain('fred');
+  });
+
+  it('does not include the original term', () => {
+    const variants = generateSearchVariants('john');
+    expect(variants).not.toContain('john');
+  });
+
+  it('generates reasonable number of variants', () => {
+    const variants = generateSearchVariants('smith');
+    expect(variants.length).toBeGreaterThan(3);
+    expect(variants.length).toBeLessThan(50);
+  });
+});
+
+describe('fuzzyTermMatch (increased threshold)', () => {
+  it('matches exact substring', () => {
+    expect(fuzzyTermMatch('john', 'john smith')).toBe(true);
+  });
+
+  it('matches with 1 edit on short terms', () => {
+    expect(fuzzyTermMatch('jhon', 'john smith')).toBe(true);
+  });
+
+  it('matches with 2 edits on 6+ char terms', () => {
+    expect(fuzzyTermMatch('jontan', 'jonathan smith')).toBe(true);
+  });
+
+  it('rejects distant mismatches', () => {
+    expect(fuzzyTermMatch('xyz', 'john smith')).toBe(false);
+  });
+});
+
+describe('scoreMatch (increased threshold)', () => {
+  it('scores 100 for exact match', () => {
+    expect(scoreMatch('john', ['john smith'])).toBe(100);
+  });
+
+  it('scores >= 60 for fuzzy match on all terms', () => {
+    expect(scoreMatch('jhon', ['john smith'])).toBeGreaterThanOrEqual(60);
+  });
+
+  it('scores 0 for completely unrelated', () => {
+    expect(scoreMatch('xyz123', ['john smith'])).toBe(0);
+  });
+});
 
 describe('buildPatientSearchWhere', () => {
   it('returns empty object for empty search', () => {
@@ -20,13 +105,37 @@ describe('buildPatientSearchWhere', () => {
     expect(result).not.toHaveProperty('AND');
   });
 
-  it('returns AND with nested OR for single term', () => {
+  it('returns AND with nested OR for single term (includes variants)', () => {
     const result = buildPatientSearchWhere('john');
     expect(result).toHaveProperty('AND');
     expect(Array.isArray(result.AND)).toBe(true);
     const andArray = result.AND as any[];
     expect(andArray).toHaveLength(1);
     expect(andArray[0]).toHaveProperty('OR');
+    // Should have more than 2 OR conditions (exact + patientId + variants)
+    expect(andArray[0].OR.length).toBeGreaterThan(2);
+  });
+
+  it('includes exact searchIndex and patientId in OR conditions', () => {
+    const result = buildPatientSearchWhere('chad');
+    const orConditions = (result.AND as any[])[0].OR;
+    const searchIndexContains = orConditions.filter(
+      (c: any) => c.searchIndex?.contains === 'chad'
+    );
+    const patientIdContains = orConditions.filter(
+      (c: any) => c.patientId?.contains === 'chad'
+    );
+    expect(searchIndexContains.length).toBe(1);
+    expect(patientIdContains.length).toBe(1);
+  });
+
+  it('includes transposition variants in OR conditions', () => {
+    const result = buildPatientSearchWhere('jhon');
+    const orConditions = (result.AND as any[])[0].OR;
+    const hasJohnVariant = orConditions.some(
+      (c: any) => c.searchIndex?.contains === 'john'
+    );
+    expect(hasJohnVariant).toBe(true);
   });
 
   it('returns AND with nested OR for multi-term search', () => {
@@ -180,5 +289,50 @@ describe('buildPatientSearchIndex', () => {
     });
     expect(idx).toBe('eon-7914');
     expect(isSearchIndexIncomplete(idx)).toBe(true);
+  });
+});
+
+describe('buildFuzzySearchOr', () => {
+  it('returns empty array for blank search', () => {
+    expect(buildFuzzySearchOr('', ['email'], ['firstName'])).toEqual([]);
+    expect(buildFuzzySearchOr('   ', ['email'], ['firstName'])).toEqual([]);
+  });
+
+  it('includes exact contains for both exact and fuzzy fields', () => {
+    const result = buildFuzzySearchOr('john', ['email'], ['firstName']);
+    const emailExact = result.filter((c: any) => c.email?.contains === 'john');
+    const nameExact = result.filter((c: any) => c.firstName?.contains === 'john');
+    expect(emailExact.length).toBe(1);
+    expect(nameExact.length).toBe(1);
+  });
+
+  it('includes variants only for fuzzy fields', () => {
+    const result = buildFuzzySearchOr('jhon', ['email'], ['firstName']);
+    // Email should NOT have "john" variant (it's an exact field)
+    const emailJohn = result.filter((c: any) => c.email?.contains === 'john');
+    expect(emailJohn.length).toBe(0);
+    // firstName SHOULD have "john" variant (it's a fuzzy field)
+    const nameJohn = result.filter((c: any) => c.firstName?.contains === 'john');
+    expect(nameJohn.length).toBe(1);
+  });
+
+  it('handles multi-term search', () => {
+    const result = buildFuzzySearchOr('john doe', ['email'], ['firstName', 'lastName']);
+    // Should have conditions for both terms
+    const johnConditions = result.filter((c: any) =>
+      Object.values(c).some((v: any) => v?.contains === 'john')
+    );
+    const doeConditions = result.filter((c: any) =>
+      Object.values(c).some((v: any) => v?.contains === 'doe')
+    );
+    expect(johnConditions.length).toBeGreaterThan(0);
+    expect(doeConditions.length).toBeGreaterThan(0);
+  });
+
+  it('generates reasonable condition count', () => {
+    const result = buildFuzzySearchOr('john', ['email'], ['firstName', 'lastName']);
+    // Should have: 3 exact (email, firstName, lastName) + variants for each fuzzy field
+    expect(result.length).toBeGreaterThan(3);
+    expect(result.length).toBeLessThan(100);
   });
 });

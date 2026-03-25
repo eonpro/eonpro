@@ -1,4 +1,5 @@
 import { instantToCalendarDate } from '@/lib/utils/platform-calendar';
+import { buildFuzzySearchOr } from '@/lib/utils/search';
 /**
  * Ticket Repository
  * =================
@@ -154,14 +155,14 @@ function buildWhereClause(
     where.parentTicketId = filters.parentTicketId;
   }
 
-  // Search (trim whitespace for intuitive matching)
+  // Search with fuzzy matching (catches typos in title/description)
   const searchTrimmed = filters.search?.trim();
   if (searchTrimmed) {
-    where.OR = [
-      { title: { contains: searchTrimmed, mode: 'insensitive' } },
-      { description: { contains: searchTrimmed, mode: 'insensitive' } },
-      { ticketNumber: { contains: searchTrimmed, mode: 'insensitive' } },
-    ];
+    where.OR = buildFuzzySearchOr(
+      searchTrimmed,
+      ['ticketNumber'],
+      ['title', 'description'],
+    );
   }
 
   // Tags filter

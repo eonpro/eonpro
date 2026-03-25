@@ -9,6 +9,7 @@ import { prisma } from '@/lib/db';
 import { withAuth } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
 import { hasPermission, PERMISSIONS } from '@/lib/auth/permissions';
+import { buildFuzzySearchOr } from '@/lib/utils/search';
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 
@@ -52,11 +53,7 @@ export const GET = withAuth(
       }
 
       if (search) {
-        where.OR = [
-          { email: { contains: search, mode: 'insensitive' } },
-          { firstName: { contains: search, mode: 'insensitive' } },
-          { lastName: { contains: search, mode: 'insensitive' } },
-        ];
+        where.OR = buildFuzzySearchOr(search, ['email'], ['firstName', 'lastName']);
       }
 
       // Clinic scope: only super_admin may query a different clinic's users

@@ -3,6 +3,7 @@ import { basePrisma as prisma, runWithClinicContext } from '@/lib/db';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { providerService } from '@/domains/provider';
 import { logger } from '@/lib/logger';
+import { buildFuzzySearchOr } from '@/lib/utils/search';
 
 /**
  * Middleware to check for Super Admin role
@@ -49,15 +50,10 @@ export const GET = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) =
       whereConditions.push({ status: 'ACTIVE' });
     }
 
-    // Search filter
+    // Search filter with fuzzy matching for name typos
     if (search) {
       whereConditions.push({
-        OR: [
-          { firstName: { contains: search, mode: 'insensitive' } },
-          { lastName: { contains: search, mode: 'insensitive' } },
-          { npi: { contains: search } },
-          { email: { contains: search, mode: 'insensitive' } },
-        ],
+        OR: buildFuzzySearchOr(search, ['npi', 'email'], ['firstName', 'lastName']),
       });
     }
 

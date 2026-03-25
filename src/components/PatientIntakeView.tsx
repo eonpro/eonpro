@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { logger } from '@/lib/logger';
 import SendIntakeFormModal from './SendIntakeFormModal';
@@ -714,7 +714,8 @@ type Props = {
     state: string;
     zip: string;
   };
-  documents: Array<{
+  /** When omitted, documents are fetched client-side from /api/patients/[id]/intake-data */
+  documents?: Array<{
     id: number;
     createdAt: Date;
     filename: string;
@@ -827,12 +828,43 @@ const formatConsentValue = (value: boolean | string, timestamp?: string): string
 
 export default function PatientIntakeView({
   patient,
-  documents,
-  intakeFormSubmissions = [],
+  documents: documentsProp,
+  intakeFormSubmissions: submissionsProp = [],
   clinicSubdomain,
   fallbackSubdomainForSections,
 }: Props) {
   const router = useRouter();
+
+  // Self-fetch when documents are not passed from server
+  const [fetchedDocs, setFetchedDocs] = useState<any[] | null>(null);
+  const [fetchedSubmissions, setFetchedSubmissions] = useState<any[] | null>(null);
+  const [fetchLoading, setFetchLoading] = useState(!documentsProp);
+  const [fetchError, setFetchError] = useState(false);
+
+  const doFetch = useCallback(async () => {
+    setFetchLoading(true);
+    setFetchError(false);
+    try {
+      const { apiFetch } = await import('@/lib/api/fetch');
+      const res = await apiFetch(`/api/patients/${patient.id}/intake-data`);
+      if (!res.ok) throw new Error('Failed to load intake data');
+      const data = await res.json();
+      setFetchedDocs(data.documents || []);
+      setFetchedSubmissions(data.intakeFormSubmissions || []);
+    } catch {
+      setFetchError(true);
+    } finally {
+      setFetchLoading(false);
+    }
+  }, [patient.id]);
+
+  useEffect(() => {
+    if (documentsProp) return;
+    doFetch();
+  }, [documentsProp, doFetch]);
+
+  const documents = documentsProp ?? fetchedDocs ?? [];
+  const intakeFormSubmissions = documentsProp ? submissionsProp : (fetchedSubmissions ?? submissionsProp);
 
   const [expandedSections, setExpandedSections] = useState<Set<string>>(
     new Set(DEFAULT_INTAKE_SECTIONS.map((s) => s.title))
@@ -843,6 +875,35 @@ export default function PatientIntakeView({
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [editedValues, setEditedValues] = useState<Record<string, string>>({});
   const [saveError, setSaveError] = useState<string | null>(null);
+
+  if (fetchLoading) {
+    return (
+      <div className="animate-pulse space-y-4">
+        <div className="h-8 w-48 rounded bg-gray-200" />
+        <div className="rounded-2xl border border-gray-200 bg-white p-6">
+          <div className="space-y-3">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="h-4 rounded bg-gray-100" style={{ width: `${60 + (i % 3) * 15}%` }} />
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (fetchError) {
+    return (
+      <div className="rounded-2xl border border-red-200 bg-red-50 p-6">
+        <p className="mb-3 text-sm text-red-700">Unable to load intake data. This may be a temporary issue.</p>
+        <button
+          onClick={doFetch}
+          className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
 
   // Find and parse the latest intake document
   const intakeDoc = documents.find(

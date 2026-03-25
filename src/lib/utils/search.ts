@@ -66,6 +66,96 @@ export function normalizedIncludes(text: string, search: string): boolean {
 }
 
 // ============================================================================
+// Search Variant Generation (for DB-level fuzzy matching)
+// ============================================================================
+
+/**
+ * Generate common misspelling variants of a search term.
+ * Used to broaden DB `contains` queries so that typos still find results.
+ *
+ * Generates:
+ * - Adjacent character transpositions ("jhon" → "john")
+ * - Single character deletions ("joohn" → "john")
+ * - Common phonetic substitutions ("ph"↔"f", doubled/singled letters)
+ *
+ * The pg_trgm GIN index on searchIndex handles these efficiently.
+ *
+ * @param term - Normalized lowercase search term
+ * @returns Array of variant strings (excludes the original term)
+ */
+export function generateSearchVariants(term: string): string[] {
+  const t = term.toLowerCase();
+
+  if (t.length < 3 || t.length > 15) return [];
+
+  const variants = new Set<string>();
+
+  // Adjacent character transpositions: "jhon" → "john"
+  for (let i = 0; i < t.length - 1; i++) {
+    const chars = t.split('');
+    [chars[i], chars[i + 1]] = [chars[i + 1], chars[i]];
+    variants.add(chars.join(''));
+  }
+
+  // Single character deletions: "joohn" → "john", "johnn" → "john"
+  for (let i = 0; i < t.length; i++) {
+    const deleted = t.slice(0, i) + t.slice(i + 1);
+    if (deleted.length >= 2) {
+      variants.add(deleted);
+    }
+  }
+
+  // Double letter → single: "johhnn" → "johnn" → "john"
+  for (let i = 0; i < t.length - 1; i++) {
+    if (t[i] === t[i + 1]) {
+      variants.add(t.slice(0, i) + t.slice(i + 1));
+    }
+  }
+
+  // Common phonetic substitutions
+  const substitutions: [string, string][] = [
+    ['ph', 'f'],
+    ['f', 'ph'],
+    ['ck', 'k'],
+    ['k', 'ck'],
+    ['ie', 'y'],
+    ['y', 'ie'],
+    ['ee', 'ea'],
+    ['ea', 'ee'],
+    ['oo', 'u'],
+    ['ss', 's'],
+    ['s', 'ss'],
+    ['ll', 'l'],
+    ['l', 'll'],
+    ['tt', 't'],
+    ['t', 'tt'],
+    ['nn', 'n'],
+    ['n', 'nn'],
+    ['ey', 'y'],
+    ['y', 'ey'],
+    ['ai', 'ay'],
+    ['ay', 'ai'],
+    ['ei', 'ey'],
+    ['ey', 'ei'],
+    ['tion', 'sion'],
+    ['sion', 'tion'],
+    ['sc', 'sk'],
+    ['sk', 'sc'],
+    ['ce', 'se'],
+    ['se', 'ce'],
+  ];
+  for (const [from, to] of substitutions) {
+    const idx = t.indexOf(from);
+    if (idx !== -1) {
+      variants.add(t.slice(0, idx) + to + t.slice(idx + from.length));
+    }
+  }
+
+  variants.delete(t);
+  return Array.from(variants);
+}
+
+// ============================================================================
 // Fuzzy Matching
 // ============================================================================
 
@@ -133,9 +223,27 @@ export function fuzzyTermMatch(term: string, target: string): boolean {
   const words = tgt.split(/\s+/);
   if (words.some((w) => w.startsWith(t) || t.startsWith(w))) return true;
 
+  // Adjacent transposition check (Levenshtein counts these as 2 edits,
+  // but they're the most common single-finger typo)
+  for (const word of words) {
+    if (Math.abs(t.length - word.length) <= 1) {
+      const shorter = t.length <= word.length ? t : word;
+      const longer = t.length <= word.length ? word : t;
+      let diffs = 0;
+      let j = 0;
+      for (let i = 0; i < shorter.length && diffs < 2; i++, j++) {
+        if (shorter[i] !== longer[j]) {
+          diffs++;
+          if (longer.length > shorter.length) i--;
+        }
+      }
+      if (diffs + (longer.length - j) <= 1) return true;
+    }
+  }
+
   // Fuzzy: compare against each word in target
-  // Adaptive threshold: allow 1 error per 4 chars, minimum 1
-  const maxDistance = Math.max(1, Math.floor(t.length / 4));
+  // Adaptive threshold: allow ~1 error per 3 chars, minimum 1
+  const maxDistance = Math.max(1, Math.ceil(t.length / 3));
 
   for (const word of words) {
     if (levenshteinDistance(t, word) <= maxDistance) return true;
@@ -193,7 +301,7 @@ export function scoreMatch(query: string, fields: string[]): number {
     }
 
     // Fuzzy match on any word
-    const maxDist = Math.max(1, Math.floor(term.length / 4));
+    const maxDist = Math.max(1, Math.ceil(term.length / 3));
     const hasFuzzy = words.some((w) => {
       if (levenshteinDistance(term, w) <= maxDist) return true;
       if (w.length > term.length) {
@@ -446,13 +554,69 @@ export function buildPatientSearchWhere(rawSearch: string): PatientSearchFilter 
   if (terms.length === 0) return {};
 
   return {
-    AND: terms.map((term) => ({
-      OR: [
+    AND: terms.map((term) => {
+      const orConditions: Array<Record<string, unknown>> = [
         { searchIndex: { contains: term, mode: 'insensitive' } },
         { patientId: { contains: term, mode: 'insensitive' } },
-      ],
-    })),
+      ];
+
+      // Add variant-based conditions for fuzzy DB matching.
+      // Only the most impactful variants (transpositions, deletions, phonetics)
+      // are included — the pg_trgm GIN index handles them efficiently.
+      const variants = generateSearchVariants(term);
+      for (const v of variants) {
+        orConditions.push({ searchIndex: { contains: v, mode: 'insensitive' } });
+      }
+
+      return { OR: orConditions };
+    }),
   };
+}
+
+// ============================================================================
+// Fuzzy Search Utilities for Non-Patient Entities
+// ============================================================================
+
+/**
+ * Build Prisma OR conditions with fuzzy variant matching for text fields.
+ * Returns an array of conditions suitable for `where: { OR: [...] }`.
+ *
+ * `exactFields` receive only the original search term (IDs, emails, codes).
+ * `fuzzyFields` also receive spelling variants (names, descriptions).
+ *
+ * @example
+ * // In a users API route:
+ * const search = 'jhon';
+ * where.OR = buildFuzzySearchOr(search, ['email'], ['firstName', 'lastName']);
+ * // Generates: email contains "jhon" | firstName contains "jhon" |
+ * //   firstName contains "john" (transposition) | lastName contains "jhon" | ...
+ */
+export function buildFuzzySearchOr(
+  search: string,
+  exactFields: string[],
+  fuzzyFields: string[],
+): Array<Record<string, unknown>> {
+  const terms = splitSearchTerms(search);
+  if (terms.length === 0) return [];
+
+  const conditions: Array<Record<string, unknown>> = [];
+
+  for (const term of terms) {
+    // Exact contains for all fields
+    for (const field of [...exactFields, ...fuzzyFields]) {
+      conditions.push({ [field]: { contains: term, mode: 'insensitive' } });
+    }
+
+    // Variant-based matching for fuzzy fields only
+    const variants = generateSearchVariants(term);
+    for (const field of fuzzyFields) {
+      for (const v of variants) {
+        conditions.push({ [field]: { contains: v, mode: 'insensitive' } });
+      }
+    }
+  }
+
+  return conditions;
 }
 
 // ============================================================================

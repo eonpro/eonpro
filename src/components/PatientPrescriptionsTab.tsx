@@ -189,7 +189,7 @@ export default function PatientPrescriptionsTab({
                 </svg>
                 Create First Prescription
               </button>
-              {doseSpotEnabled && providerId && (
+              {doseSpotEnabled && (
                 <DoseSpotPrescriber
                   patientId={patient.id}
                   prescriberId={providerId}
@@ -486,7 +486,7 @@ export default function PatientPrescriptionsTab({
                 </svg>
                 New Prescription
               </button>
-              {doseSpotEnabled && providerId && (
+              {doseSpotEnabled && (
                 <DoseSpotPrescriber
                   patientId={patient.id}
                   prescriberId={providerId}

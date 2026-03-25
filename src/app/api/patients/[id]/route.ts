@@ -13,7 +13,9 @@ import { handleApiError, BadRequestError, NotFoundError, ForbiddenError } from '
 import { auditPhiAccess, buildAuditPhiOptions } from '@/lib/audit/hipaa-audit';
 import { PERMISSIONS, hasPermission as hasRolePermission } from '@/lib/auth/permissions';
 import { withAuthParams } from '@/lib/auth/middleware-with-params';
+import cache from '@/lib/cache/redis';
 import { prisma } from '@/lib/db';
+import { queryOptimizer } from '@/lib/database';
 import { logger } from '@/lib/logger';
 import { requirePermission, toPermissionContext } from '@/lib/rbac/permissions';
 import { tenantNotFoundResponse } from '@/lib/tenant-response';
@@ -151,6 +153,17 @@ const updatePatientHandler = withAuthParams(
       // Use patient service - handles validation, authorization, PHI, audit
       const patient = await patientService.updatePatient(id, body, userContext);
 
+      // Bust L1/L2 cache for this specific patient (not all patients).
+      const clinicScope = user.clinicId ?? 'all';
+      const detailKey = `patient:detail:c${clinicScope}:p${id}`;
+      const vitalsKey = `vitals:c${clinicScope}:p${id}`;
+      queryOptimizer['l1Cache']?.delete?.(detailKey);
+      queryOptimizer['l1Cache']?.delete?.(vitalsKey);
+      await Promise.all([
+        cache.delete(detailKey, { namespace: 'patient' }),
+        cache.delete(vitalsKey, { namespace: 'patient' }),
+      ]).catch(() => {});
+
       await auditPhiAccess(request, buildAuditPhiOptions(request, user, 'patient:edit', { patientId: id, route: 'PATCH /api/patients/[id]' }));
 
       return Response.json({ patient });
@@ -198,6 +211,16 @@ const deletePatientHandler = withAuthParams(
 
       // Use patient service - handles authorization, cascade delete, audit
       await patientService.deletePatient(id, userContext);
+
+      const clinicScope = user.clinicId ?? 'all';
+      const detailKey = `patient:detail:c${clinicScope}:p${id}`;
+      const vitalsKey = `vitals:c${clinicScope}:p${id}`;
+      queryOptimizer['l1Cache']?.delete?.(detailKey);
+      queryOptimizer['l1Cache']?.delete?.(vitalsKey);
+      await Promise.all([
+        cache.delete(detailKey, { namespace: 'patient' }),
+        cache.delete(vitalsKey, { namespace: 'patient' }),
+      ]).catch(() => {});
 
       return Response.json({ success: true, message: 'Patient deleted successfully' });
     } catch (error) {

@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { UserRole, UserStatus } from '@prisma/client';
+import { buildFuzzySearchOr } from '@/lib/utils/search';
 
 /**
  * GET /api/internal/users - Fetch team members for internal chat
@@ -89,11 +90,7 @@ async function getHandler(request: NextRequest, user: AuthUser) {
 
     // Search filter - combine with existing OR if present
     if (search) {
-      const searchConditions = [
-        { firstName: { contains: search, mode: 'insensitive' as const } },
-        { lastName: { contains: search, mode: 'insensitive' as const } },
-        { email: { contains: search, mode: 'insensitive' as const } },
-      ];
+      const searchConditions = buildFuzzySearchOr(search, ['email'], ['firstName', 'lastName']);
 
       // If we already have OR conditions for clinic filtering, we need to AND them
       if (whereClause.OR) {

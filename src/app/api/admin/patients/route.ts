@@ -22,6 +22,7 @@ import { logger } from '@/lib/logger';
 import { decryptPHI } from '@/lib/security/phi-encryption';
 import { parseTakeFromParams } from '@/lib/pagination';
 import { splitSearchTerms, buildPatientSearchWhere, buildPatientSearchIndex, buildIncompleteSearchIndexWhere } from '@/lib/utils/search';
+import { searchPatientsByTrigram } from '@/lib/utils/trigram-search';
 import { Prisma, PrismaClient } from '@prisma/client';
 import { PERMISSIONS, hasPermission as hasRolePermission } from '@/lib/auth/permissions';
 
@@ -340,11 +341,47 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       }
     }
 
-    // Combine indexed + fallback results, deduplicating by patient ID
+    // Phase 3: Trigram similarity fallback (catches typos that even variant matching misses)
+    // Only runs when both primary and fallback searches returned nothing.
+    let trigramPatients: typeof indexedPatients = [];
+    if (search && indexedPatients.length === 0 && fallbackPatients.length === 0) {
+      try {
+        const trigramMatches = await searchPatientsByTrigram({
+          search,
+          clinicId: clinicId ?? undefined,
+          limit,
+          threshold: 0.2,
+        });
+        if (trigramMatches.length > 0) {
+          const trigramIds = trigramMatches.map((m) => m.id);
+          trigramPatients = await db.patient.findMany({
+            where: {
+              ...baseWhere,
+              id: { in: trigramIds },
+            },
+            select: patientSelect,
+            orderBy: { createdAt: 'desc' },
+            take: limit,
+          });
+          logger.info('[ADMIN-PATIENTS] Trigram fallback found matches', {
+            searchQuery: search,
+            matchCount: trigramPatients.length,
+          });
+        }
+      } catch (err) {
+        logger.warn('[ADMIN-PATIENTS] Trigram fallback error', {
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
+
+    // Combine indexed + fallback + trigram results, deduplicating by patient ID
     const seenIds = new Set(indexedPatients.map((p) => p.id));
     const uniqueFallback = fallbackPatients.filter((p) => !seenIds.has(p.id));
-    const patients = [...indexedPatients, ...uniqueFallback];
-    const total = indexedTotal + uniqueFallback.length;
+    uniqueFallback.forEach((p) => seenIds.add(p.id));
+    const uniqueTrigram = trigramPatients.filter((p) => !seenIds.has(p.id));
+    const patients = [...indexedPatients, ...uniqueFallback, ...uniqueTrigram];
+    const total = indexedTotal + uniqueFallback.length + uniqueTrigram.length;
 
     // Transform response
     const patientsData = patients.map((patient) => {

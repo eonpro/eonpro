@@ -6,7 +6,8 @@ import { apiFetch } from '@/lib/api/fetch';
 
 type DoseSpotPrescriberProps = {
   patientId: number;
-  prescriberId: number;
+  /** When omitted, the SSO API auto-resolves the prescriber from the session user. */
+  prescriberId?: number;
   patientName?: string;
   onClose?: () => void;
   onComplete?: () => void;
@@ -29,9 +30,9 @@ export default function DoseSpotPrescriber({
     setError(null);
 
     try {
-      const res = await apiFetch(
-        `/api/dosespot/sso-url?patientId=${patientId}&prescriberId=${prescriberId}`
-      );
+      const params = new URLSearchParams({ patientId: String(patientId) });
+      if (prescriberId) params.set('prescriberId', String(prescriberId));
+      const res = await apiFetch(`/api/dosespot/sso-url?${params.toString()}`);
       const data = await res.json();
 
       if (!res.ok || !data.success) {

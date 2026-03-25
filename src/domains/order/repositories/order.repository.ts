@@ -12,6 +12,7 @@ import { type Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { decryptPatientPHI } from '@/lib/security/phi-encryption';
+import { generateSearchVariants, splitSearchTerms } from '@/lib/utils/search';
 import type {
   Order,
   Rx,
@@ -330,34 +331,34 @@ export const orderRepository = {
     }
 
     // Server-side search: match patient name (via searchIndex) OR medication name
+    // Includes spelling variants for fuzzy matching on names and med names.
     if (filters.search && filters.search.trim().length > 0) {
       const searchTerm = filters.search.trim().toLowerCase();
-      where.OR = [
-        {
-          patient: {
-            searchIndex: {
-              contains: searchTerm,
-              mode: 'insensitive',
-            },
-          },
-        },
-        {
-          primaryMedName: {
-            contains: searchTerm,
-            mode: 'insensitive',
-          },
-        },
-        {
-          rxs: {
-            some: {
-              medName: {
-                contains: searchTerm,
-                mode: 'insensitive',
-              },
-            },
-          },
-        },
+      const terms = splitSearchTerms(searchTerm);
+      const allVariants = terms.flatMap((t) => generateSearchVariants(t));
+
+      const orConditions: Prisma.OrderWhereInput[] = [
+        { patient: { searchIndex: { contains: searchTerm, mode: 'insensitive' } } },
+        { primaryMedName: { contains: searchTerm, mode: 'insensitive' } },
+        { rxs: { some: { medName: { contains: searchTerm, mode: 'insensitive' } } } },
       ];
+
+      for (const term of terms) {
+        if (term !== searchTerm) {
+          orConditions.push(
+            { patient: { searchIndex: { contains: term, mode: 'insensitive' } } },
+            { primaryMedName: { contains: term, mode: 'insensitive' } },
+          );
+        }
+      }
+      for (const v of allVariants) {
+        orConditions.push(
+          { patient: { searchIndex: { contains: v, mode: 'insensitive' } } },
+          { primaryMedName: { contains: v, mode: 'insensitive' } },
+        );
+      }
+
+      where.OR = orConditions;
     }
 
     const limit = filters.limit ?? 100;

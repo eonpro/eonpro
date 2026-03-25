@@ -1,83 +1,30 @@
+import { headers } from 'next/headers';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { headers } from 'next/headers';
-import PatientIntakeView from '@/components/PatientIntakeView';
-import { PatientBillingView } from '@/components/PatientBillingView';
-import PatientPaymentMethods from '@/components/PatientPaymentMethods';
-import PatientSOAPNotesView from '@/components/PatientSOAPNotesView';
-import PatientChatView from '@/components/PatientChatView';
-import PatientAppointmentsView from '@/components/PatientAppointmentsView';
-import PatientProgressView from '@/components/PatientProgressView';
+
+import PatientDetailShell from '@/components/PatientDetailShell';
+import PatientProfileClient from '@/components/PatientProfileClient';
+import PatientQuickSearch from '@/components/PatientQuickSearch';
 import PatientSidebar from '@/components/PatientSidebar';
-import PatientTags from '@/components/PatientTags';
-import PatientPortalAccessBlock from '@/components/PatientPortalAccessBlock';
-import { prisma, basePrisma, runWithClinicContext, withoutClinicFilter } from '@/lib/db';
+import { auditLog, AuditEventType } from '@/lib/audit/hipaa-audit';
+import { resolveSubdomainClinicId, hasClinicAccess } from '@/lib/auth/middleware-cache';
+import { getUserFromCookies } from '@/lib/auth/session';
 import { getClinicFeatureBoolean } from '@/lib/clinic/utils';
-import { SHIPPING_METHODS } from '@/lib/shipping';
+import { queryOptimizer } from '@/lib/database';
+import { basePrisma } from '@/lib/db';
+import { isS3Enabled } from '@/lib/integrations/aws/s3Config';
+import { generateSignedUrl } from '@/lib/integrations/aws/s3Service';
 import { logger } from '@/lib/logger';
 import { decryptPatientPHI, DEFAULT_PHI_FIELDS } from '@/lib/security/phi-encryption';
-import { getUserFromCookies } from '@/lib/auth/session';
-import { auditLog, AuditEventType } from '@/lib/audit/hipaa-audit';
-import { generateSignedUrl } from '@/lib/integrations/aws/s3Service';
-import { isS3Enabled } from '@/lib/integrations/aws/s3Config';
-import { resolveSubdomainClinicId, hasClinicAccess } from '@/lib/auth/middleware-cache';
 
-// Force dynamic rendering to ensure fresh data after intake edits
 export const dynamic = 'force-dynamic';
-
-// Allow up to 30s for heavy patient data queries on Vercel
 export const maxDuration = 30;
 
-/**
- * Race a promise against a timeout. If the promise doesn't resolve within `ms`,
- * the returned promise rejects with a descriptive error so the page can render
- * an actionable error state instead of hanging indefinitely.
- */
-function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
-  return Promise.race([
-    promise,
-    new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error(`[PATIENT-DETAIL] ${label} timed out after ${ms}ms`)), ms)
-    ),
-  ]);
-}
-
-type Params = {
-  params: { id: string };
-};
-
-import PatientPrescriptionsTab from '@/components/PatientPrescriptionsTab';
-import PatientDocumentsView from '@/components/PatientDocumentsView';
-import PatientLabView from '@/components/PatientLabView';
-import PatientNotesView from '@/components/PatientNotesView';
-import PatientPhotosView from '@/components/PatientPhotosView';
-import PatientPrescriptionSummary from '@/components/PatientPrescriptionSummary';
-import PatientQuickSearch from '@/components/PatientQuickSearch';
-import WeightProgressSummary from '@/components/WeightProgressSummary';
-import PatientProgressSummary from '@/components/PatientProgressSummary';
-import { Patient, Provider, Order } from '@/types/models';
-import { extractVitalsFromIntake } from '@/lib/utils/vitals-extraction';
-
-type PageProps = {
-  params: Promise<{ id: string }>;
-  searchParams?: Promise<{ tab?: string; submitted?: string; admin?: string }>;
-  /** When rendered from /provider/patients/[id], pass '/provider/patients' for back links */
-  patientsListPath?: string;
-};
-
-/**
- * When clinicSubdomain is null (e.g. patient.clinic not loaded) but clinicId matches
- * known clinic env vars, return subdomain for intake section selection.
- * Prevents tenant drift where OT/Wellmedr patients show default sections.
- *
- * OVERTIME_CLINIC_ID: ot.eonpro.io → 8 (verified 2026-02-10)
- * OVERTIME_EONMEDS_CLINIC_ID: optional second OT instance on different domain
- */
 function resolveFallbackSubdomain(
   clinicSubdomain: string | null | undefined,
   clinicId: number | null | undefined
 ): string | null {
-  if (clinicSubdomain) return null; // Already have subdomain
+  if (clinicSubdomain) return null;
   if (!clinicId) return null;
   const otId = process.env.OVERTIME_CLINIC_ID ? parseInt(process.env.OVERTIME_CLINIC_ID, 10) : NaN;
   const otEonmedsId = process.env.OVERTIME_EONMEDS_CLINIC_ID
@@ -92,6 +39,12 @@ function resolveFallbackSubdomain(
   return null;
 }
 
+type PageProps = {
+  params: Promise<{ id: string }>;
+  searchParams?: Promise<{ tab?: string; submitted?: string; admin?: string }>;
+  patientsListPath?: string;
+};
+
 const DEFAULT_PATIENTS_LIST_PATH = '/patients';
 
 export default async function PatientDetailPage({
@@ -102,57 +55,37 @@ export default async function PatientDetailPage({
   const PATIENTS_LIST_PATH = patientsListPath;
   let patientIdForLog: number | undefined;
   try {
-    // Verify user is authenticated via cookies
     const user = await getUserFromCookies();
     if (!user) {
-      // Not authenticated - redirect to login
       redirect('/login?redirect=' + encodeURIComponent('/patients'));
     }
 
-    // Get request headers for audit logging (server components don't have NextRequest)
     const headersList = await headers();
-
     const resolvedParams = await params;
     const id = Number(resolvedParams.id);
     patientIdForLog = id;
     const resolvedSearchParams = searchParams ? await searchParams : undefined;
     let requestedTab = resolvedSearchParams?.tab || 'profile';
     if (requestedTab === 'labs') requestedTab = 'lab';
-    // Prescriptions tab now self-loads orders client-side via /api/patients/[id]/orders.
-    // Server always fetches lightweight sidebar orders only (10, no relations).
-    const needsDetailedOrders = false;
 
-    // Validate the ID
     if (isNaN(id) || id <= 0) {
       return (
         <div className="p-10">
           <p className="text-red-600">Invalid patient ID.</p>
-          <Link
-            href={PATIENTS_LIST_PATH}
-            className="mt-4 block underline"
-            style={{ color: 'var(--brand-primary, #4fa77e)' }}
-          >
+          <Link href={PATIENTS_LIST_PATH} className="mt-4 block underline" style={{ color: 'var(--brand-primary, #4fa77e)' }}>
             ← Back to patients
           </Link>
         </div>
       );
     }
 
-    // Fetch patient with clinic context for proper isolation
-    // Super admins can access any clinic (use basePrisma to bypass filter); others restricted to their clinic
     const isSuperAdmin = user.role === 'super_admin';
     let clinicId = isSuperAdmin ? undefined : user.clinicId ?? undefined;
 
-    // Subdomain-based clinic override: when on a clinic subdomain (e.g. wellmedr.eonpro.io),
-    // resolve the clinic from the host header. This is needed because:
-    // 1. The edge clinic middleware may be disabled (NEXT_PUBLIC_ENABLE_MULTI_CLINIC not set)
-    // 2. getUserFromCookies() may have returned a JWT clinicId that doesn't match the subdomain
+    // Subdomain-based clinic override
     if (!isSuperAdmin) {
       try {
-        const host =
-          headersList.get('x-forwarded-host')?.split(',')[0]?.trim() ??
-          headersList.get('host') ??
-          '';
+        const host = headersList.get('x-forwarded-host')?.split(',')[0]?.trim() ?? headersList.get('host') ?? '';
         const hostname = host ? host.split(':')[0] ?? '' : '';
         if (hostname.includes('.')) {
           const parts = hostname.split('.');
@@ -167,1201 +100,273 @@ export default async function PatientDetailPage({
                 (await hasClinicAccess(user.id, subdomainClinic, user.providerId));
               if (userHasAccess) {
                 clinicId = subdomainClinic;
-                logger.info('[PATIENT-DETAIL] Clinic override from subdomain', {
-                  subdomain: sub,
-                  jwtClinicId: user.clinicId,
-                  effectiveClinicId: subdomainClinic,
-                  userId: user.id,
-                });
               }
             }
           }
         }
-      } catch (subErr) {
-        logger.warn('[PATIENT-DETAIL] Subdomain clinic resolution failed', {
-          error: subErr instanceof Error ? (subErr instanceof Error ? subErr.message : String(subErr)) : String(subErr),
-          userId: user.id,
-        });
+      } catch {
+        // Subdomain resolution failure is non-critical
       }
     }
 
-    // Non-super-admin must have clinic assignment
     if (!isSuperAdmin && clinicId == null) {
       return (
         <div className="p-10">
           <p className="text-red-600">You must be assigned to a clinic to view patients.</p>
-          <Link
-            href={PATIENTS_LIST_PATH}
-            className="mt-4 block underline"
-            style={{ color: 'var(--brand-primary, #4fa77e)' }}
-          >
+          <Link href={PATIENTS_LIST_PATH} className="mt-4 block underline" style={{ color: 'var(--brand-primary, #4fa77e)' }}>
             ← Back to patients
           </Link>
         </div>
       );
     }
 
-    const needsDocuments = requestedTab === 'intake' || requestedTab === 'profile' || requestedTab === 'documents';
-    const needsIntakeSubmissions = requestedTab === 'intake' || requestedTab === 'profile';
-    const needsIntakeData = needsDocuments;
-    const needsAuditEntries = resolvedSearchParams?.admin === 'true';
+    // ─── Phase 1: Core patient query with L1/L2 caching ───────────────
+    const coreWhere: any = { id };
+    if (!isSuperAdmin && clinicId) {
+      coreWhere.clinicId = clinicId;
+    }
 
-    // ─── PHASE 1: Lightweight core patient query ───────────────────────
-    // Uses basePrisma directly (bypasses PrismaWithClinicFilter proxy overhead).
-    // We enforce clinic isolation manually below.
-    // NO heavy includes here — just scalar relations. Phase 2 loads the rest in parallel.
+    const cacheKey = `patient:detail:c${clinicId ?? 'all'}:p${id}`;
     const t0 = Date.now();
     let patient: any;
+
     try {
-      const coreWhere: any = { id };
-      if (!isSuperAdmin && clinicId) {
-        coreWhere.clinicId = clinicId;
-      }
-      patient = await withTimeout(
-        basePrisma.patient.findFirst({
-          where: coreWhere,
-          include: {
-            user: { select: { id: true, avatarUrl: true } },
-            clinic: {
-              select: { id: true, subdomain: true, name: true, features: true, address: true, phone: true },
+      patient = await queryOptimizer.query(
+        () =>
+          basePrisma.patient.findFirst({
+            where: coreWhere,
+            include: {
+              user: { select: { id: true, avatarUrl: true } },
+              clinic: {
+                select: { id: true, subdomain: true, name: true, features: true, address: true, phone: true },
+              },
+              attributionAffiliate: {
+                select: { id: true, displayName: true, status: true },
+              },
+              portalInvites: {
+                orderBy: { createdAt: 'desc' } as const,
+                take: 1,
+                select: { id: true, createdAt: true, trigger: true, usedAt: true, expiresAt: true },
+              },
+              subscriptions: {
+                where: { status: 'ACTIVE' },
+                take: 1,
+                select: { id: true, planName: true },
+              },
             },
-            attributionAffiliate: {
-              select: { id: true, displayName: true, status: true },
-            },
-            portalInvites: {
-              orderBy: { createdAt: 'desc' } as const,
-              take: 1,
-              select: { id: true, createdAt: true, trigger: true, usedAt: true, expiresAt: true },
-            },
-            subscriptions: {
-              where: { status: 'ACTIVE' },
-              take: 1,
-              select: { id: true, planName: true },
-            },
-          },
-        }),
-        8000,
-        'Phase 1 core patient query',
+          }),
+        {
+          cacheKey,
+          cache: { ttl: 300, prefix: 'patient', useL1Cache: true, l1Ttl: 30 },
+          timeout: 8000,
+        }
       );
-      logger.info('[PATIENT-DETAIL] Phase 1 (core):', { patientId: id, durationMs: Date.now() - t0 });
+      logger.info('[PATIENT-DETAIL] Phase 1 (cached):', { patientId: id, durationMs: Date.now() - t0 });
     } catch (dbError) {
       logger.error('Database error fetching patient core:', {
-        patientId: id,
-        clinicId,
-        userId: user.id,
-        durationMs: Date.now() - t0,
-        error: dbError instanceof Error ? (dbError instanceof Error ? dbError.message : String(dbError)) : String(dbError),
+        patientId: id, clinicId, userId: user.id, durationMs: Date.now() - t0,
+        error: dbError instanceof Error ? dbError.message : String(dbError),
       });
       return (
         <div className="p-10">
           <p className="text-red-600">Error loading patient data. Please try again.</p>
-          <Link
-            href={PATIENTS_LIST_PATH}
-            className="mt-4 block underline"
-            style={{ color: 'var(--brand-primary, #4fa77e)' }}
-          >
+          <Link href={PATIENTS_LIST_PATH} className="mt-4 block underline" style={{ color: 'var(--brand-primary, #4fa77e)' }}>
             ← Back to patients
           </Link>
         </div>
       );
     }
 
-    // Clinic isolation: non-super-admin can only see patients in their clinic
+    // Clinic isolation enforcement
     if (patient && !isSuperAdmin && clinicId && patient.clinicId !== clinicId) {
       patient = null;
     }
 
-    // ─── PHASE 2: Parallel tab-specific data ───────────────────────────
-    // Each query is independent and lightweight. Runs in parallel to minimize
-    // total wait time and reduce connection pool pressure.
-    let orders: any[] = [];
-    let documents: any[] = [];
-    let intakeSubmissions: any[] = [];
-    let auditEntries: any[] = [];
-    let salesRepAssignments: any[] = [];
-
-    if (patient) {
-      const effectiveClinicId = isSuperAdmin ? (patient.clinicId ?? undefined) : clinicId;
-
-      const t1 = Date.now();
-      try {
-        // All Phase 2 queries run inside clinic context so the PrismaWithClinicFilter
-        // proxy automatically enforces tenant isolation (required in production).
-        const phase2 = runWithClinicContext(effectiveClinicId, async () => {
-          const parallelQueries: Promise<void>[] = [];
-
-          // Orders — sidebar needs recent 10 with minimal fields;
-          // prescriptions tab needs 50 with full relations.
-          parallelQueries.push(
-            prisma.order.findMany({
-              where: { patientId: id },
-              orderBy: { createdAt: 'desc' },
-              take: needsDetailedOrders ? 50 : 10,
-              select: needsDetailedOrders
-                ? {
-                    id: true,
-                    createdAt: true,
-                    primaryMedName: true,
-                    primaryMedStrength: true,
-                    trackingNumber: true,
-                    trackingUrl: true,
-                    status: true,
-                    lifefileOrderId: true,
-                    shippingMethod: true,
-                    shippingStatus: true,
-                    lastWebhookAt: true,
-                    cancelledAt: true,
-                    fulfillmentChannel: true,
-                    externalPharmacyName: true,
-                    rxs: {
-                      select: {
-                        id: true, orderId: true, medicationKey: true, medName: true,
-                        strength: true, form: true, quantity: true, refills: true,
-                        sig: true, daysSupply: true,
-                      },
-                    },
-                    provider: {
-                      select: { id: true, firstName: true, lastName: true, email: true },
-                    },
-                    events: { orderBy: { createdAt: 'desc' } as const, take: 20 },
-                  }
-                : {
-                    id: true,
-                    createdAt: true,
-                    primaryMedName: true,
-                    primaryMedStrength: true,
-                    trackingNumber: true,
-                    status: true,
-                  },
-            }).then((r) => { orders = r; })
-          );
-
-          // Documents — needed for profile (vitals extraction) and intake tab
-          if (needsIntakeData || requestedTab === 'documents') {
-            parallelQueries.push(
-              prisma.patientDocument.findMany({
-                where: { patientId: id },
-                orderBy: { createdAt: 'desc' },
-                take: 100,
-                select: {
-                  id: true, filename: true, mimeType: true, createdAt: true,
-                  externalUrl: true, category: true, sourceSubmissionId: true,
-                },
-              }).then((r) => { documents = r; })
-            );
-          }
-
-          // Intake submissions — heavy query (nested responses + questions).
-          // Fetched on both intake and profile tabs (profile needs them for vitals extraction).
-          // Uses withoutClinicFilter because IntakeFormSubmission has no clinicId column.
-          if (needsIntakeSubmissions) {
-            parallelQueries.push(
-              withoutClinicFilter(() =>
-                prisma.intakeFormSubmission.findMany({
-                  where: { patientId: id },
-                  orderBy: { createdAt: 'desc' },
-                  take: 10,
-                  include: {
-                    template: {
-                      select: { id: true, name: true, treatmentType: true, version: true },
-                    },
-                    responses: { include: { question: true } },
-                  },
-                })
-              ).then((r) => { intakeSubmissions = r; })
-            );
-          }
-
-          // Audit entries — only when admin view is requested
-          if (needsAuditEntries) {
-            parallelQueries.push(
-              basePrisma.patientAudit.findMany({
-                where: { patientId: id },
-                orderBy: { createdAt: 'desc' },
-                take: 10,
-              }).then((r) => { auditEntries = r; })
-            );
-          }
-
-          // Sales rep assignments
-          if (effectiveClinicId != null) {
-            parallelQueries.push(
-              prisma.patientSalesRepAssignment.findMany({
-                where: { patientId: id, isActive: true },
-                orderBy: { assignedAt: 'desc' },
-                take: 1,
-                include: {
-                  salesRep: { select: { id: true, firstName: true, lastName: true } },
-                },
-              }).then((r) => { salesRepAssignments = r; })
-                .catch((err: unknown) => {
-                  logger.warn('[PATIENT-DETAIL] Could not fetch sales rep assignments:', {
-                    patientId: id,
-                    error: err instanceof Error ? err.message : String(err),
-                  });
-                })
-            );
-          }
-
-          await Promise.all(parallelQueries);
-        });
-
-        await withTimeout(phase2, 12000, 'Phase 2 parallel queries');
-
-        // Fetch document binary data for MEDICAL_INTAKE_FORM docs.
-        // Needed on both intake and profile tabs — vitals extraction requires parsed document data.
-        if (needsIntakeSubmissions && documents.length > 0) {
-          const intakeDocIds = documents
-            .filter((d: any) => d.category === 'MEDICAL_INTAKE_FORM')
-            .map((d: any) => d.id);
-
-          if (intakeDocIds.length > 0) {
-            const intakeDocsWithData = await runWithClinicContext(effectiveClinicId, () =>
-              prisma.patientDocument.findMany({
-                where: { id: { in: intakeDocIds } },
-                select: { id: true, data: true },
-              })
-            ).catch((err: unknown) => {
-              logger.warn('[PATIENT-DETAIL] Could not fetch intake document data:', {
-                patientId: id,
-                error: err instanceof Error ? err.message : String(err),
-              });
-              return [] as any[];
-            });
-
-            if (intakeDocsWithData.length > 0) {
-              const dataMap = new Map(intakeDocsWithData.map((d: any) => [d.id, d.data]));
-              documents = documents.map((doc: any) => ({
-                ...doc,
-                data: dataMap.get(doc.id) ?? null,
-              }));
-            }
-          }
-        }
-      } catch (dbError) {
-        logger.error('Database error fetching patient related data:', {
-          patientId: id,
-          clinicId,
-          userId: user.id,
-          error: dbError instanceof Error ? (dbError instanceof Error ? dbError.message : String(dbError)) : String(dbError),
-        });
-        // Continue with whatever data we have — partial render is better than error
-      }
-
-      logger.info('[PATIENT-DETAIL] Phase 2 (parallel):', { patientId: id, durationMs: Date.now() - t1 });
-
-      // Attach fetched data to the patient object for downstream components
-      (patient as any).orders = orders;
-      (patient as any).documents = documents;
-      (patient as any).intakeSubmissions = intakeSubmissions;
-      (patient as any).auditEntries = auditEntries;
-    }
-
     if (!patient) {
-      // Patient not found or not in user's clinic - log access attempt (non-blocking)
       const host = headersList.get('x-forwarded-host')?.split(',')[0]?.trim() ?? headersList.get('host') ?? '';
       logger.warn('[PATIENT-DETAIL] Patient not found / access denied', {
-        patientId: id,
-        userId: user.id,
-        userRole: user.role,
-        jwtClinicId: user.clinicId ?? null,
-        effectiveClinicId: clinicId ?? null,
-        host,
+        patientId: id, userId: user.id, userRole: user.role,
+        jwtClinicId: user.clinicId ?? null, effectiveClinicId: clinicId ?? null, host,
       });
       auditLog(headersList, {
-        userId: user.id,
-        userEmail: user.email,
-        userRole: user.role,
-        clinicId: user.clinicId,
-        eventType: AuditEventType.PHI_VIEW,
-        resourceType: 'Patient',
-        resourceId: id,
-        patientId: id,
-        action: 'VIEW_PATIENT_DENIED',
-        outcome: 'FAILURE',
+        userId: user.id, userEmail: user.email, userRole: user.role, clinicId: user.clinicId,
+        eventType: AuditEventType.PHI_VIEW, resourceType: 'Patient', resourceId: id, patientId: id,
+        action: 'VIEW_PATIENT_DENIED', outcome: 'FAILURE',
         reason: `Patient not found or access denied (effectiveClinicId=${clinicId}, jwtClinicId=${user.clinicId})`,
       }).catch(() => {});
 
       return (
         <div className="p-10">
-          <p className="text-red-600">
-            Patient not found or you don&apos;t have access to this patient.
-          </p>
-          <p className="mt-2 text-sm text-gray-600">
-            If you are a clinic admin, this patient may belong to a different clinic.
-          </p>
-          {/* Diagnostic: helps identify clinic mismatch without exposing PHI */}
-          <p className="mt-1 text-xs text-gray-400">
-            Clinic context: {clinicId ?? 'none'} | Role: {user.role}
-          </p>
-          <Link
-            href={PATIENTS_LIST_PATH}
-            className="mt-4 block underline"
-            style={{ color: 'var(--brand-primary, #4fa77e)' }}
-          >
+          <p className="text-red-600">Patient not found or you don&apos;t have access to this patient.</p>
+          <p className="mt-2 text-sm text-gray-600">If you are a clinic admin, this patient may belong to a different clinic.</p>
+          <p className="mt-1 text-xs text-gray-400">Clinic context: {clinicId ?? 'none'} | Role: {user.role}</p>
+          <Link href={PATIENTS_LIST_PATH} className="mt-4 block underline" style={{ color: 'var(--brand-primary, #4fa77e)' }}>
             ← Back to patients
           </Link>
         </div>
       );
     }
 
-    // HIPAA Audit: Log successful PHI access (non-blocking to avoid delaying page render)
+    // HIPAA Audit (non-blocking)
     auditLog(headersList, {
-      userId: user.id,
-      userEmail: user.email,
-      userRole: user.role,
-      clinicId: user.clinicId,
-      eventType: AuditEventType.PHI_VIEW,
-      resourceType: 'Patient',
-      resourceId: id,
-      patientId: id,
-      action: 'VIEW_PATIENT_RECORD',
-      outcome: 'SUCCESS',
-    }).catch((auditErr: unknown) => {
-      logger.error('[PATIENT-DETAIL] HIPAA audit log failed (non-blocking):', {
-        patientId: id,
-        error: auditErr instanceof Error ? auditErr.message : String(auditErr),
-      });
-    });
+      userId: user.id, userEmail: user.email, userRole: user.role, clinicId: user.clinicId,
+      eventType: AuditEventType.PHI_VIEW, resourceType: 'Patient', resourceId: id, patientId: id,
+      action: 'VIEW_PATIENT_RECORD', outcome: 'SUCCESS',
+    }).catch(() => {});
 
-    // Decrypt PHI fields for display (with error handling)
-    let patientWithDecryptedPHI: any;
+    // Decrypt PHI fields
+    let patientDecrypted: any;
     try {
-      const decryptedPatient = decryptPatientPHI(patient, [...DEFAULT_PHI_FIELDS]);
-      patientWithDecryptedPHI = {
-        ...patient,
-        ...decryptedPatient,
-        // Include salesRepAssignments that were fetched separately
-        salesRepAssignments: salesRepAssignments || [],
-      };
-    } catch (decryptError) {
-      // Log the error but continue with original data
-      logger.error('Failed to decrypt patient PHI, showing encrypted values:', {
-        patientId: patient.id,
-        error: decryptError instanceof Error ? (decryptError instanceof Error ? decryptError.message : String(decryptError)) : String(decryptError),
-      });
-      // Use original patient data as fallback
-      patientWithDecryptedPHI = {
-        ...patient,
-        // Include salesRepAssignments that were fetched separately
-        salesRepAssignments: salesRepAssignments || [],
-      };
+      const decrypted = decryptPatientPHI(patient, [...DEFAULT_PHI_FIELDS]);
+      patientDecrypted = { ...patient, ...decrypted };
+    } catch {
+      patientDecrypted = { ...patient };
     }
 
-    // Parse intake document data from Buffer/Uint8Array to JSON (defensive: Prisma includes are arrays)
-    const documentsWithParsedData = (patientWithDecryptedPHI.documents ?? []).map((doc: any) => {
-      if (doc.data && doc.category === 'MEDICAL_INTAKE_FORM') {
-        try {
-          let dataStr: string;
-
-          // Handle Uint8Array (Prisma 6.x returns Bytes as Uint8Array)
-          if (doc.data instanceof Uint8Array) {
-            dataStr = Buffer.from(doc.data).toString('utf8');
-          }
-          // Handle Buffer object serialized as {type: 'Buffer', data: number[]}
-          else if (
-            typeof doc.data === 'object' &&
-            doc.data.type === 'Buffer' &&
-            Array.isArray(doc.data.data)
-          ) {
-            dataStr = Buffer.from(doc.data.data).toString('utf8');
-          }
-          // Handle actual Buffer
-          else if (Buffer.isBuffer(doc.data)) {
-            dataStr = doc.data.toString('utf8');
-          }
-          // Handle string
-          else if (typeof doc.data === 'string') {
-            dataStr = doc.data;
-          }
-          // If it's already a parsed object with answers, use it directly
-          else if (typeof doc.data === 'object' && (doc.data.answers || doc.data.sections)) {
-            return doc; // Already parsed
-          } else {
-            // Unknown format — drop data to prevent non-serializable values reaching RSC
-            logger.warn('Unknown data format for document:', {
-              docId: doc.id,
-              dataType: typeof doc.data,
-            });
-            return { ...doc, data: null };
-          }
-
-          // Parse the JSON string (skip if it's PDF binary data)
-          const trimmed = dataStr.trim();
-          if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
-            let parsedData = JSON.parse(trimmed);
-            // Handle double-serialized JSON (string inside a JSON string)
-            if (typeof parsedData === 'string') {
-              try { parsedData = JSON.parse(parsedData); } catch { /* use as-is */ }
-            }
-            return {
-              ...doc,
-              data: parsedData,
-            };
-          } else {
-            // Not JSON (likely PDF bytes) — drop raw binary to prevent RSC serialization issues
-            return { ...doc, data: null };
-          }
-        } catch (err: unknown) {
-          logger.error('Failed to parse document data:', (err as any).message);
-          return { ...doc, data: null };
-        }
-      }
-      return doc;
-    });
-
-    // Format gender - handles "m", "f", "male", "female", "man", "woman"
-    const formatGenderValue = (gender: string | null | undefined): string => {
-      if (!gender) return 'Not set';
-      const g = gender.toLowerCase().trim();
-      if (g === 'm' || g === 'male' || g === 'man') return 'Male';
-      if (g === 'f' || g === 'female' || g === 'woman') return 'Female';
-      return gender;
-    };
-    const genderLabel = formatGenderValue(patientWithDecryptedPHI.gender);
-    const patientTags = Array.isArray(patientWithDecryptedPHI.tags)
-      ? (patientWithDecryptedPHI.tags as string[]).map((tag: any) => tag.replace(/^#/, ''))
-      : [];
-
-    // Generate consistent colors for hashtags
-    const getTagColor = (tag: string) => {
-      const colors = [
-        { bg: 'bg-blue-50', border: 'border-blue-200', text: 'text-blue-700' },
-        { bg: 'bg-[var(--brand-primary-light)]', border: 'border-[var(--brand-primary-medium)]', text: 'text-[var(--brand-primary)]' },
-        { bg: 'bg-pink-50', border: 'border-pink-200', text: 'text-pink-700' },
-        { bg: 'bg-[var(--brand-secondary-light)]', border: 'border-[var(--brand-secondary)]', text: 'text-[var(--brand-secondary)]' },
-        { bg: 'bg-green-50', border: 'border-green-200', text: 'text-green-700' },
-        { bg: 'bg-yellow-50', border: 'border-yellow-200', text: 'text-yellow-700' },
-        { bg: 'bg-red-50', border: 'border-red-200', text: 'text-red-700' },
-        { bg: 'bg-teal-50', border: 'border-teal-200', text: 'text-teal-700' },
-        { bg: 'bg-orange-50', border: 'border-orange-200', text: 'text-orange-700' },
-      ];
-
-      // Generate a consistent hash from the tag string
-      let hash = 0;
-      for (let i = 0; i < tag.length; i++) {
-        hash = (hash << 5) - hash + tag.charCodeAt(i);
-        hash = hash & hash; // Convert to 32bit integer
-      }
-
-      return colors[Math.abs(hash) % colors.length];
-    };
-    const shippingLabelMap = new Map(
-      SHIPPING_METHODS.map((method: any) => [method.id, method.label])
-    );
-
-    // Labs tab visibility: driven by clinic feature BLOODWORK_LABS (default true).
-    const showLabsTab = getClinicFeatureBoolean(
-      patientWithDecryptedPHI.clinic?.features,
-      'BLOODWORK_LABS',
-      true
-    );
-
-    // DoseSpot e-prescribing: driven by clinic feature DOSESPOT (default false).
-    const doseSpotEnabled = getClinicFeatureBoolean(
-      patientWithDecryptedPHI.clinic?.features,
-      'DOSESPOT',
-      false
-    );
-
-    const clinicProviderWhere =
-      patientWithDecryptedPHI.clinicId != null
-        ? {
-            status: 'ACTIVE' as const,
-            OR: [
-              { clinicId: patientWithDecryptedPHI.clinicId },
-              {
-                providerClinics: {
-                  some: {
-                    clinicId: patientWithDecryptedPHI.clinicId,
-                    isActive: true,
-                  },
-                },
-              },
-              {
-                user: {
-                  OR: [
-                    { clinicId: patientWithDecryptedPHI.clinicId },
-                    {
-                      userClinics: {
-                        some: {
-                          clinicId: patientWithDecryptedPHI.clinicId,
-                          isActive: true,
-                        },
-                      },
-                    },
-                  ],
-                },
-              },
-            ],
-          }
-        : null;
-
-    const shouldResolveDoseSpotPrescriber = requestedTab === 'prescriptions' && doseSpotEnabled;
-    let doseSpotPrescriberId: number | undefined = undefined;
-    if (clinicProviderWhere && shouldResolveDoseSpotPrescriber) {
-      const [validUserProvider, defaultClinicProvider] = await Promise.all([
-        user.providerId
-          ? basePrisma.provider.findFirst({
-              where: { id: user.providerId, ...clinicProviderWhere },
-              select: { id: true },
-            })
-          : null,
-        basePrisma.provider.findFirst({
-          where: clinicProviderWhere,
-          select: { id: true },
-          orderBy: { id: 'asc' },
-        }),
-      ]);
-
-      const recentOrderProviderId = (patientWithDecryptedPHI.orders ?? []).find(
-        (order: any) => typeof order?.provider?.id === 'number'
-      )?.provider?.id as number | undefined;
-
-      doseSpotPrescriberId =
-        validUserProvider?.id ?? recentOrderProviderId ?? defaultClinicProvider?.id ?? undefined;
-    }
-
-    let activeTab = resolvedSearchParams?.tab || 'profile';
-    // Support both ?tab=lab and ?tab=labs (normalize to 'lab')
-    if (activeTab === 'labs') activeTab = 'lab';
-    const validTabs = [
-      'profile',
-      'notes',
-      'intake',
-      'prescriptions',
-      'soap-notes',
-      'appointments',
-      'progress',
-      ...(showLabsTab ? ['lab'] : []),
-      'photos',
-      'billing',
-      'chat',
-      'documents',
-    ];
-    const effectiveTabs =
-      user.role === 'pharmacy_rep' ? ['profile', 'prescriptions'] : validTabs;
-    const currentTab = effectiveTabs.includes(activeTab) ? activeTab : 'profile';
-    const submittedFlag = resolvedSearchParams?.submitted === '1';
-
-    const vitals = extractVitalsFromIntake(
-      documentsWithParsedData,
-      patientWithDecryptedPHI.intakeSubmissions ?? []
-    );
-
-    // ═══════════════════════════════════════════════════════════════════
-    // AFFILIATE CODE EXTRACTION
-    // ═══════════════════════════════════════════════════════════════════
-
-    /**
-     * Extract affiliate/promo code from intake data
-     * Checks multiple field names: "Who Recommended Us?", "Promo Code", "Influencer Code", "Affiliate Code"
-     */
-    const extractAffiliateCode = (): string | null => {
-      const affiliateLabels = [
-        'who recommended us',
-        'who recommended',
-        'who reccomended', // Common typo
-        'promo code',
-        'promocode',
-        'influencer code',
-        'influencercode',
-        'affiliate code',
-        'affiliatecode',
-        'referral code',
-        'referralcode',
-        'partner code',
-        'referred by',
-      ];
-
-      // Generic sources to skip (not actual affiliate codes)
-      const genericSources = [
-        'instagram',
-        'facebook',
-        'google',
-        'tiktok',
-        'youtube',
-        'twitter',
-        'friend',
-        'family',
-        'other',
-        'n/a',
-        'none',
-        '-',
-        'word of mouth',
-        'social media',
-        'online',
-        'web search',
-        'advertisement',
-        'ad',
-      ];
-
-      // Source 1: Document data with sections array
-      const intakeDoc = documentsWithParsedData.find(
-        (d: any) =>
-          d.category === 'MEDICAL_INTAKE_FORM' &&
-          d.data &&
-          typeof d.data === 'object' &&
-          !Buffer.isBuffer(d.data) &&
-          !(d.data.type === 'Buffer')
-      );
-
-      if (intakeDoc?.data) {
-        // Check sections array
-        if (intakeDoc.data.sections && Array.isArray(intakeDoc.data.sections)) {
-          for (const section of intakeDoc.data.sections) {
-            if (section.entries && Array.isArray(section.entries)) {
-              for (const entry of section.entries) {
-                const entryLabel = (entry.label || '').toLowerCase();
-                for (const label of affiliateLabels) {
-                  if (entryLabel.includes(label) && entry.value && entry.value !== '') {
-                    const value = String(entry.value).trim();
-                    if (!genericSources.includes(value.toLowerCase()) && value.length > 1) {
-                      return value.toUpperCase();
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-
-        // Check answers array directly
-        if (intakeDoc.data.answers && Array.isArray(intakeDoc.data.answers)) {
-          for (const answer of intakeDoc.data.answers) {
-            const answerLabel = (answer.label || '').toLowerCase();
-            for (const label of affiliateLabels) {
-              if (answerLabel.includes(label) && answer.value && answer.value !== '') {
-                const value = String(answer.value).trim();
-                if (!genericSources.includes(value.toLowerCase()) && value.length > 1) {
-                  return value.toUpperCase();
-                }
-              }
-            }
-          }
-        }
-
-        // Check flat key-value pairs
-        for (const label of affiliateLabels) {
-          const searchKey = label.replace(/[^a-z0-9]/g, '');
-          for (const [key, value] of Object.entries(intakeDoc.data)) {
-            const normalizedKey = key.toLowerCase().replace(/[^a-z0-9]/g, '');
-            if (normalizedKey.includes(searchKey) && value && value !== '') {
-              const strValue = String(value).trim();
-              if (!genericSources.includes(strValue.toLowerCase()) && strValue.length > 1) {
-                return strValue.toUpperCase();
-              }
-            }
-          }
-        }
-      }
-
-      // Source 2: IntakeSubmissions responses
-      if (patientWithDecryptedPHI.intakeSubmissions?.length > 0) {
-        for (const submission of patientWithDecryptedPHI.intakeSubmissions) {
-          if (submission.responses && Array.isArray(submission.responses)) {
-            for (const response of submission.responses) {
-              const resp = response as any;
-              const questionText = (
-                resp.question?.text ||
-                resp.question?.label ||
-                resp.question?.questionText ||
-                ''
-              ).toLowerCase();
-              for (const label of affiliateLabels) {
-                if (questionText.includes(label) && resp.value && resp.value !== '') {
-                  const value = String(resp.value).trim();
-                  if (!genericSources.includes(value.toLowerCase()) && value.length > 1) {
-                    return value.toUpperCase();
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-
-      return null;
-    };
-
-    const affiliateCode = extractAffiliateCode();
-
-    // ═══════════════════════════════════════════════════════════════════
-    // HEALTH RISK COLOR HELPERS
-    // ═══════════════════════════════════════════════════════════════════
-
-    // BMI Risk Levels:
-    // - Underweight: < 18.5 (yellow)
-    // - Normal: 18.5 - 24.9 (green)
-    // - Overweight: 25 - 29.9 (yellow)
-    // - Obese: 30+ (red)
-    const getBmiColor = (
-      bmi: string | null | undefined
-    ): { bar: string; text: string; width: string } => {
-      if (!bmi) return { bar: 'bg-gray-400', text: 'text-gray-600', width: '0%' };
-      const bmiNum = parseFloat(bmi);
-      if (isNaN(bmiNum)) return { bar: 'bg-gray-400', text: 'text-gray-600', width: '0%' };
-
-      // Calculate width based on BMI (scale: 15-50 range mapped to 0-100%)
-      const width = Math.min(100, Math.max(0, ((bmiNum - 15) / 35) * 100));
-
-      if (bmiNum < 18.5)
-        return { bar: 'bg-yellow-500', text: 'text-yellow-600', width: `${width}%` };
-      if (bmiNum < 25)
-        return { bar: 'bg-emerald-500', text: 'text-emerald-600', width: `${width}%` };
-      if (bmiNum < 30) return { bar: 'bg-yellow-500', text: 'text-yellow-600', width: `${width}%` };
-      return { bar: 'bg-red-500', text: 'text-red-600', width: `${width}%` };
-    };
-
-    // Blood Pressure Risk Levels:
-    // - Normal: < 120/80 (green)
-    // - Elevated: 120-129 / < 80 (yellow)
-    // - High Stage 1: 130-139 / 80-89 (yellow)
-    // - High Stage 2: 140+ / 90+ (red)
-    const getBloodPressureColor = (
-      bp: string | null | undefined
-    ): { bar: string; text: string; width: string } => {
-      if (!bp || bp.toLowerCase() === 'unknown')
-        return { bar: 'bg-gray-400', text: 'text-gray-600', width: '0%' };
-
-      // Parse blood pressure (format: "120/80" or "120 / 80")
-      const parts = bp.replace(/\s/g, '').split('/');
-      if (parts.length !== 2) return { bar: 'bg-gray-400', text: 'text-gray-600', width: '50%' };
-
-      const systolic = parseInt(parts[0]);
-      const diastolic = parseInt(parts[1]);
-      if (isNaN(systolic) || isNaN(diastolic))
-        return { bar: 'bg-gray-400', text: 'text-gray-600', width: '50%' };
-
-      // Calculate width based on systolic (scale: 90-180 range mapped to 0-100%)
-      const width = Math.min(100, Math.max(0, ((systolic - 90) / 90) * 100));
-
-      if (systolic < 120 && diastolic < 80)
-        return { bar: 'bg-emerald-500', text: 'text-emerald-600', width: `${width}%` };
-      if (systolic < 130 && diastolic < 80)
-        return { bar: 'bg-yellow-500', text: 'text-yellow-600', width: `${width}%` };
-      if (systolic < 140 || diastolic < 90)
-        return { bar: 'bg-yellow-500', text: 'text-yellow-600', width: `${width}%` };
-      return { bar: 'bg-red-500', text: 'text-red-600', width: `${width}%` };
-    };
-
-    // Weight Risk (based on BMI since weight alone is not meaningful)
-    // Uses BMI color if available, otherwise gray
-    const getWeightColor = (
-      weight: string | null | undefined,
-      bmi: string | null | undefined
-    ): { bar: string; text: string; width: string } => {
-      if (!weight) return { bar: 'bg-gray-400', text: 'text-gray-600', width: '0%' };
-
-      const weightNum = parseFloat(weight.replace(/[^\d.]/g, ''));
-      if (isNaN(weightNum)) return { bar: 'bg-gray-400', text: 'text-gray-600', width: '0%' };
-
-      // Calculate width based on weight (scale: 100-400 lbs range mapped to 0-100%)
-      const width = Math.min(100, Math.max(0, ((weightNum - 100) / 300) * 100));
-
-      // Use BMI color if available
-      if (bmi) {
-        const bmiColor = getBmiColor(bmi);
-        return { ...bmiColor, width: `${width}%` };
-      }
-
-      return { bar: 'bg-gray-500', text: 'text-gray-600', width: `${width}%` };
-    };
-
-    const bmiColor = getBmiColor(vitals.bmi);
-    const bpColor = getBloodPressureColor(vitals.bloodPressure);
-    const weightColor = getWeightColor(vitals.weight, vitals.bmi);
-
-    // ═══════════════════════════════════════════════════════════════════
-    // RSC SERIALIZATION SAFETY
-    // ═══════════════════════════════════════════════════════════════════
-    // Strip heavy nested includes (orders, documents, intakeSubmissions,
-    // auditEntries) from the patient object before passing to client
-    // components. RSC recursively serializes all props; the full object
-    // with hundreds of orders+rxs+events causes "Maximum call stack
-    // size exceeded" during the pipe phase.
+    // Strip heavy nested includes for RSC serialization safety
     const {
-      orders: _orders,
-      documents: _documents,
-      intakeSubmissions: _intakeSubmissions,
-      auditEntries: _auditEntries,
+      orders: _o, documents: _d, intakeSubmissions: _i, auditEntries: _a,
       ...patientCore
-    } = patientWithDecryptedPHI;
+    } = patientDecrypted;
 
-    // Resolve patient avatar URL from their linked User record (local HMAC, no network)
+    // Resolve avatar URL
     let patientAvatarUrl: string | null = null;
-    const rawAvatarKey = patientWithDecryptedPHI.user?.avatarUrl;
+    const rawAvatarKey = patientDecrypted.user?.avatarUrl;
     if (rawAvatarKey) {
       try {
         if (rawAvatarKey.startsWith('http')) {
           patientAvatarUrl = rawAvatarKey;
         } else if (isS3Enabled()) {
-          patientAvatarUrl = await withTimeout(
+          patientAvatarUrl = await Promise.race([
             generateSignedUrl(rawAvatarKey, 'GET', 3600),
-            2000,
-            'S3 avatar signed URL',
-          );
+            new Promise<string>((_, rej) => setTimeout(() => rej(new Error('timeout')), 2000)),
+          ]);
         }
       } catch {
         patientAvatarUrl = null;
       }
     }
 
+    // Feature flags
+    const showLabsTab = getClinicFeatureBoolean(patientDecrypted.clinic?.features, 'BLOODWORK_LABS', true);
+    const doseSpotEnabled = getClinicFeatureBoolean(patientDecrypted.clinic?.features, 'DOSESPOT', false);
+
+    // Tab validation
+    const validTabs = [
+      'profile', 'notes', 'intake', 'prescriptions', 'soap-notes', 'appointments', 'progress',
+      ...(showLabsTab ? ['lab'] : []),
+      'photos', 'billing', 'chat', 'documents',
+    ];
+    const effectiveTabs = user.role === 'pharmacy_rep' ? ['profile', 'prescriptions'] : validTabs;
+    const currentTab = effectiveTabs.includes(requestedTab) ? requestedTab : 'profile';
+
+    // Prepare client component props
+    const patientTags = Array.isArray(patientDecrypted.tags)
+      ? (patientDecrypted.tags as string[]).map((tag: any) => tag.replace(/^#/, ''))
+      : [];
+
+    const portalInvite = (patientDecrypted as any).portalInvites?.[0]
+      ? {
+          sentAt: (patientDecrypted as any).portalInvites[0].createdAt.toISOString(),
+          trigger: (patientDecrypted as any).portalInvites[0].trigger as string,
+          used: !!(patientDecrypted as any).portalInvites[0].usedAt,
+          expired: new Date((patientDecrypted as any).portalInvites[0].expiresAt) < new Date(),
+        }
+      : null;
+
+    const clinicSubdomain = patientDecrypted.clinic?.subdomain;
+    const fallbackSubdomain = resolveFallbackSubdomain(clinicSubdomain, patientDecrypted.clinicId);
+
+    // ─── Render: Thin shell — sidebar + client tab router ──────────────
     return (
+      <PatientDetailShell initialTab={currentTab} patientId={id} basePath={PATIENTS_LIST_PATH}>
       <div className="min-h-screen bg-[#efece7] p-3 md:p-6">
         <div className="flex flex-col gap-3 md:flex-row md:gap-6">
-          {/* Left Sidebar - Patient Info & Navigation */}
           <PatientSidebar
             patient={patientCore}
             avatarUrl={patientAvatarUrl}
             currentTab={currentTab}
-            affiliateCode={affiliateCode}
+            affiliateCode={null}
             affiliateAttribution={
-              patientWithDecryptedPHI.attributionAffiliateId
+              patientDecrypted.attributionAffiliateId
                 ? {
-                    affiliateId: patientWithDecryptedPHI.attributionAffiliateId,
-                    refCode: patientWithDecryptedPHI.attributionRefCode || undefined,
-                    affiliateName: patientWithDecryptedPHI.attributionAffiliate?.displayName || undefined,
+                    affiliateId: patientDecrypted.attributionAffiliateId,
+                    refCode: patientDecrypted.attributionRefCode || undefined,
+                    affiliateName: patientDecrypted.attributionAffiliate?.displayName || undefined,
                   }
                 : undefined
             }
-            currentSalesRep={patientWithDecryptedPHI.salesRepAssignments?.[0]?.salesRep || null}
+            currentSalesRep={null}
             userRole={user.role}
             currentUserId={user.id}
             clinicInfo={
-              patientWithDecryptedPHI.clinic
+              patientDecrypted.clinic
                 ? {
-                    name: patientWithDecryptedPHI.clinic.name,
-                    phone: (patientWithDecryptedPHI.clinic as any).phone ?? undefined,
-                    address: (patientWithDecryptedPHI.clinic as any).address ?? null,
+                    name: patientDecrypted.clinic.name,
+                    phone: (patientDecrypted.clinic as any).phone ?? undefined,
+                    address: (patientDecrypted.clinic as any).address ?? null,
                   }
                 : undefined
             }
             showLabsTab={showLabsTab}
             patientDetailBasePath={PATIENTS_LIST_PATH}
             activeMembership={
-              (patientWithDecryptedPHI.subscriptions as { id: number; planName: string }[])?.[0]
-                ? { planName: (patientWithDecryptedPHI.subscriptions as { id: number; planName: string }[])[0].planName }
+              (patientDecrypted.subscriptions as { id: number; planName: string }[])?.[0]
+                ? { planName: (patientDecrypted.subscriptions as { id: number; planName: string }[])[0].planName }
                 : null
             }
-            orders={(patientWithDecryptedPHI.orders ?? []).map((o: any) => ({
-              id: o.id,
-              createdAt: o.createdAt,
-              primaryMedName: o.primaryMedName,
-              primaryMedStrength: o.primaryMedStrength,
-              trackingNumber: o.trackingNumber,
-              status: o.status,
-              rxs: o.rxs?.map((rx: any) => ({ medName: rx.medName, strength: rx.strength })),
-            }))}
+            orders={[]}
           />
 
-          {/* Main Content Area */}
           <div className="min-w-0 flex-1">
-            {/* Quick Search Bar - full width to match content boxes */}
             <div className="mb-4 w-full">
               <PatientQuickSearch
-                currentPatientId={patientWithDecryptedPHI.id}
+                currentPatientId={patientDecrypted.id}
                 placeholder="Search for another patient..."
                 className="w-full"
                 patientDetailBasePath={PATIENTS_LIST_PATH}
               />
             </div>
 
-            {submittedFlag && (currentTab === 'profile' || currentTab === 'prescriptions') && (
-              <div className="mb-4 flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">
-                <svg
-                  className="h-5 w-5 flex-shrink-0 text-emerald-600"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M5 13l4 4L19 7"
-                  />
-                </svg>
-                Prescription submitted successfully.
-              </div>
-            )}
-
-            {currentTab === 'profile' ? (
-              <div className="space-y-4 md:space-y-6">
-                {/* Title */}
-                <h1 className="text-xl font-bold text-gray-900 md:text-2xl">Patient Overview</h1>
-
-                {/* Portal access + Send invite */}
-                <PatientPortalAccessBlock
-                  patientId={patientWithDecryptedPHI.id}
-                  hasPortalAccess={!!patientWithDecryptedPHI.user}
-                  hasEmail={
-                    !!(
-                      patientWithDecryptedPHI.email && String(patientWithDecryptedPHI.email).trim()
-                    )
-                  }
-                  hasPhone={
-                    !!(
-                      patientWithDecryptedPHI.phone && String(patientWithDecryptedPHI.phone).trim()
-                    )
-                  }
-                  lastInvite={
-                    (patientWithDecryptedPHI as any).portalInvites?.[0]
-                      ? {
-                          sentAt: (patientWithDecryptedPHI as any).portalInvites[0].createdAt.toISOString(),
-                          trigger: (patientWithDecryptedPHI as any).portalInvites[0].trigger as string,
-                          used: !!(patientWithDecryptedPHI as any).portalInvites[0].usedAt,
-                          expired: new Date((patientWithDecryptedPHI as any).portalInvites[0].expiresAt) < new Date(),
-                        }
-                      : null
-                  }
-                />
-
-                {/* Vitals Section */}
-                <div className="rounded-2xl border border-gray-200 bg-white p-4 md:p-6">
-                  <div className="mb-4 flex items-center gap-2">
-                    <svg
-                      className="h-5 w-5 text-gray-600"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M13 10V3L4 14h7v7l9-11h-7z"
-                      />
-                    </svg>
-                    <h2 className="text-lg font-semibold text-gray-900">Vitals</h2>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2.5 md:gap-4 lg:grid-cols-4">
-                    {/* Height */}
-                    <div className="rounded-xl bg-[#efece7] p-3 md:p-4">
-                      <p className="mb-0.5 text-xs text-gray-500 md:mb-1 md:text-sm">Height</p>
-                      <p className="text-lg font-bold text-gray-900 md:text-2xl">{vitals.height || '—'}</p>
-                      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-gray-300 md:mt-3 md:h-2">
-                        <div
-                          className="h-full rounded-full bg-gray-500"
-                          style={{ width: vitals.height ? '100%' : '0%' }}
-                        />
-                      </div>
-                    </div>
-
-                    {/* Weight */}
-                    <div className="rounded-xl bg-[#efece7] p-3 md:p-4">
-                      <p className="mb-0.5 text-xs text-gray-500 md:mb-1 md:text-sm">Weight</p>
-                      <p
-                        className={`text-lg font-bold md:text-2xl ${vitals.weight ? weightColor.text : 'text-gray-900'}`}
-                      >
-                        {vitals.weight ? (vitals.weight.toLowerCase().includes('lb') ? vitals.weight : `${vitals.weight} lbs`) : '—'}
-                      </p>
-                      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-gray-300 md:mt-3 md:h-2">
-                        <div
-                          className={`h-full ${weightColor.bar} rounded-full transition-all duration-500`}
-                          style={{ width: weightColor.width }}
-                        />
-                      </div>
-                    </div>
-
-                    {/* BMI */}
-                    <div className="rounded-xl bg-[#efece7] p-3 md:p-4">
-                      <p className="mb-0.5 text-xs text-gray-500 md:mb-1 md:text-sm">BMI</p>
-                      <p
-                        className={`text-lg font-bold md:text-2xl ${vitals.bmi ? bmiColor.text : 'text-gray-900'}`}
-                      >
-                        {vitals.bmi || '—'}
-                      </p>
-                      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-gray-300 md:mt-3 md:h-2">
-                        <div
-                          className={`h-full ${bmiColor.bar} rounded-full transition-all duration-500`}
-                          style={{ width: bmiColor.width }}
-                        />
-                      </div>
-                    </div>
-
-                    {/* Blood Pressure */}
-                    <div className="rounded-xl bg-[#efece7] p-3 md:p-4">
-                      <p className="mb-0.5 text-xs text-gray-500 md:mb-1 md:text-sm">BP</p>
-                      <p
-                        className={`text-lg font-bold md:text-2xl ${vitals.bloodPressure && vitals.bloodPressure !== 'unknown' ? bpColor.text : 'text-gray-900'}`}
-                      >
-                        {vitals.bloodPressure && vitals.bloodPressure.toLowerCase() !== 'unknown'
-                          ? vitals.bloodPressure
-                          : '—'}
-                      </p>
-                      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-gray-300 md:mt-3 md:h-2">
-                        <div
-                          className={`h-full ${bpColor.bar} rounded-full transition-all duration-500`}
-                          style={{ width: bpColor.width }}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Prescription & Tracking Summary */}
-                <PatientPrescriptionSummary patientId={patientWithDecryptedPHI.id} />
-
-                {/* Tags and Overview */}
-                <div className="rounded-2xl border border-gray-200 bg-white p-4 md:p-6">
-                  {/* Editable Tags Component */}
-                  <PatientTags patientId={patientWithDecryptedPHI.id} initialTags={patientTags} />
-
-                  <div>
-                    <h3 className="mb-2 text-lg font-semibold text-gray-900">Overview</h3>
-                    <p className="text-sm text-gray-600">
-                      Total prescriptions: {(patientWithDecryptedPHI.orders ?? []).length}
-                    </p>
-                    <p className="mt-1 text-sm text-gray-500" suppressHydrationWarning>
-                      Last updated: {new Date(patientWithDecryptedPHI.createdAt).toLocaleString()}
-                    </p>
-                  </div>
-
-                  {/* Weight Progress Summary - Shows patient's journey entries */}
-                  <WeightProgressSummary patientId={patientWithDecryptedPHI.id} basePath={PATIENTS_LIST_PATH} />
-
-                  {/* Activity Summary - Water, Exercise, Sleep, Nutrition */}
-                  <PatientProgressSummary patientId={patientWithDecryptedPHI.id} basePath={PATIENTS_LIST_PATH} />
-                </div>
-
-                {/* Audit Log for admins */}
-                {resolvedSearchParams?.admin === 'true' && (
-                  <div className="rounded-2xl border border-gray-200 bg-white p-4 md:p-6">
-                    <div className="mb-4 flex items-center justify-between">
-                      <h2 className="text-lg font-semibold">Patient Audit Log</h2>
-                      <span className="rounded bg-red-100 px-2 py-1 text-xs text-red-700">
-                        Admin Only
-                      </span>
-                    </div>
-                    {(patientWithDecryptedPHI.auditEntries ?? []).length === 0 ? (
-                      <p className="text-sm text-gray-500">No edits recorded yet.</p>
-                    ) : (
-                      <div className="space-y-3 text-sm">
-                        {(patientWithDecryptedPHI.auditEntries ?? []).map((entry: any) => (
-                          <div key={entry.id} className="rounded-lg border bg-[#efece7] p-3">
-                            <div className="mb-2 flex justify-between text-xs text-gray-500">
-                              <span>{entry.actorEmail ?? 'Unknown actor'}</span>
-                              <span suppressHydrationWarning>
-                                {new Date(entry.createdAt).toLocaleString()}
-                              </span>
-                            </div>
-                            <pre className="whitespace-pre-wrap rounded border bg-white p-2 text-xs">
-                              {JSON.stringify(entry.diff, null, 2)}
-                            </pre>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            ) : currentTab === 'notes' ? (
-              <PatientNotesView patientId={patientWithDecryptedPHI.id} />
-            ) : currentTab === 'intake' ? (
-              <PatientIntakeView
-                patient={patientCore}
-                documents={documentsWithParsedData}
-                intakeFormSubmissions={patientWithDecryptedPHI.intakeSubmissions ?? []}
-                clinicSubdomain={patientWithDecryptedPHI.clinic?.subdomain}
-                fallbackSubdomainForSections={resolveFallbackSubdomain(
-                  patientWithDecryptedPHI.clinic?.subdomain,
-                  patientWithDecryptedPHI.clinicId
-                )}
-              />
-            ) : currentTab === 'soap-notes' ? (
-              <PatientSOAPNotesView patientId={patientWithDecryptedPHI.id} />
-            ) : currentTab === 'appointments' ? (
-              <PatientAppointmentsView
-                patient={patientCore}
-                clinicId={patientWithDecryptedPHI.clinicId || undefined}
-              />
-            ) : currentTab === 'progress' ? (
-              <PatientProgressView patient={patientCore} />
-            ) : currentTab === 'prescriptions' ? (
-              <PatientPrescriptionsTab
-                patient={patientCore}
-                doseSpotEnabled={doseSpotEnabled}
-                providerId={doseSpotPrescriberId}
-                showTrackingManager={user.role === 'pharmacy_rep'}
-              />
-            ) : currentTab === 'billing' ? (
-              <div className="space-y-6">
-                <PatientBillingView
-                  patientId={patientWithDecryptedPHI.id}
-                  patientName={`${patientWithDecryptedPHI.firstName} ${patientWithDecryptedPHI.lastName}`}
-                  clinicSubdomain={patientWithDecryptedPHI.clinic?.subdomain ?? resolveFallbackSubdomain(patientWithDecryptedPHI.clinic?.subdomain, patientWithDecryptedPHI.clinicId)}
-                />
-                <div className="rounded-2xl border border-gray-200 bg-white p-4 md:p-6">
-                  <h3 className="mb-4 border-b border-gray-200 pb-3 text-lg font-semibold">
-                    Payment Methods
-                  </h3>
-                  <PatientPaymentMethods
-                    patientId={patientWithDecryptedPHI.id}
-                    patientName={`${patientWithDecryptedPHI.firstName} ${patientWithDecryptedPHI.lastName}`}
-                  />
-                </div>
-              </div>
-            ) : currentTab === 'lab' ? (
-              <PatientLabView
-                patientId={patientWithDecryptedPHI.id}
-                patientName={`${patientWithDecryptedPHI.firstName} ${patientWithDecryptedPHI.lastName}`}
-              />
-            ) : currentTab === 'documents' ? (
-              <PatientDocumentsView
-                patientId={patientWithDecryptedPHI.id}
-                patientName={`${patientWithDecryptedPHI.firstName} ${patientWithDecryptedPHI.lastName}`}
-                patientBasePath={PATIENTS_LIST_PATH}
-              />
-            ) : currentTab === 'chat' ? (
-              <PatientChatView patient={patientCore} />
-            ) : currentTab === 'photos' ? (
-              <PatientPhotosView
-                patientId={patientWithDecryptedPHI.id}
-                patientName={`${patientWithDecryptedPHI.firstName} ${patientWithDecryptedPHI.lastName}`}
-              />
-            ) : null}
+            <PatientProfileClient
+              patientId={id}
+              patientCore={patientCore}
+              currentTab={currentTab}
+              userRole={user.role}
+              patientsListPath={PATIENTS_LIST_PATH}
+              showLabsTab={showLabsTab}
+              doseSpotEnabled={doseSpotEnabled}
+              clinicSubdomain={clinicSubdomain}
+              providerId={user.providerId}
+              hasPortalAccess={!!patientDecrypted.user}
+              hasEmail={!!(patientDecrypted.email && String(patientDecrypted.email).trim())}
+              hasPhone={!!(patientDecrypted.phone && String(patientDecrypted.phone).trim())}
+              portalInvite={portalInvite}
+              patientTags={patientTags}
+              patientCreatedAt={patientDecrypted.createdAt?.toISOString?.() ?? new Date().toISOString()}
+              submittedFlag={resolvedSearchParams?.submitted === '1'}
+              isAdminView={resolvedSearchParams?.admin === 'true'}
+              fallbackSubdomain={fallbackSubdomain}
+            />
           </div>
         </div>
       </div>
+      </PatientDetailShell>
     );
   } catch (error) {
-    // Global error handler - catch any unexpected errors
     logger.error('Unexpected error in PatientDetailPage:', {
       patientId: patientIdForLog,
-      error: error instanceof Error ? (error instanceof Error ? error.message : String(error)) : String(error),
-      stack: error instanceof Error ? (error instanceof Error ? error.stack : undefined) : undefined,
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
     });
     return (
       <div className="p-10">
         <p className="text-red-600">An error occurred while loading this page.</p>
-        <p className="mt-2 text-sm text-gray-500">
-          Please try refreshing the page or contact support if the problem persists.
-        </p>
-        <Link
-          href={PATIENTS_LIST_PATH}
-          className="mt-4 block underline"
-          style={{ color: 'var(--brand-primary, #4fa77e)' }}
-        >
+        <p className="mt-2 text-sm text-gray-500">Please try refreshing the page or contact support if the problem persists.</p>
+        <Link href={patientsListPath ?? '/patients'} className="mt-4 block underline" style={{ color: 'var(--brand-primary, #4fa77e)' }}>
           ← Back to patients
         </Link>
       </div>
     );
   }
-}
-
-function formatDob(dob: string | null) {
-  if (!dob) return '—';
-  const clean = dob.trim();
-  if (!clean) return '—';
-  if (clean.includes('/')) return clean;
-  const parts = clean.split('-');
-  if (parts.length === 3) {
-    const [yyyy, mm, dd] = parts;
-    if (yyyy && mm && dd) {
-      return `${mm.padStart(2, '0')}/${dd.padStart(2, '0')}/${yyyy}`;
-    }
-  }
-  return clean;
 }

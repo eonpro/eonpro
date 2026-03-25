@@ -108,7 +108,9 @@ export const GET = withAuthParams(
         });
       }
 
-      return NextResponse.json(formattedDocuments);
+      return NextResponse.json(formattedDocuments, {
+        headers: { 'Cache-Control': 'private, max-age=30, stale-while-revalidate=60' },
+      });
     } catch (error: unknown) {
       // Ensure we always return JSON so the client gets a structured error (see docs/FIX_DOCUMENTS_500.md)
       try {

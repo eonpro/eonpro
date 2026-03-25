@@ -118,7 +118,9 @@ export const GET = withAuthParams(
         });
       }
 
-      return NextResponse.json({ reports: list });
+      return NextResponse.json({ reports: list }, {
+        headers: { 'Cache-Control': 'private, max-age=60, stale-while-revalidate=120' },
+      });
     } catch (err) {
       logger.error('Bloodwork list failed', {
         route: 'GET /api/patients/[id]/bloodwork',

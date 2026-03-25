@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect, useRef, useTransition } from 'react';
+import { useState, useCallback, useEffect, useRef, useTransition, useContext } from 'react';
 import { useRouter } from 'next/navigation';
 import { Trash2, GitMerge, Link2, X, Check, Loader2, Unlink, Truck, Download, MoreVertical } from 'lucide-react';
 import EditPatientModal from './EditPatientModal';
@@ -12,6 +12,7 @@ import DispositionModal from './DispositionModal';
 import VerifiedBadge from './VerifiedBadge';
 import { apiFetch } from '@/lib/api/fetch';
 import { formatPatientDisplayId } from '@/lib/utils/formatPatientDisplayId';
+import { usePatientTabSafe } from '@/components/PatientTabContext';
 
 interface AffiliateAttribution {
   affiliateId: number;
@@ -61,6 +62,8 @@ interface PatientSidebarProps {
   patientDetailBasePath?: string;
   /** When set, show an "Active membership" badge (e.g. from active subscription). */
   activeMembership?: { planName?: string } | null;
+  /** Client-side tab switch handler. When provided, tab clicks call this instead of navigating. */
+  onTabChange?: (tab: string) => void;
   /** Patient orders for FedEx label linking */
   orders?: Array<{
     id: number;
@@ -465,7 +468,7 @@ function AffiliateTag({ name, code }: { name?: string; code?: string | null }) {
 export default function PatientSidebar({
   patient,
   avatarUrl,
-  currentTab,
+  currentTab: currentTabProp,
   affiliateCode,
   affiliateAttribution,
   currentSalesRep,
@@ -475,9 +478,13 @@ export default function PatientSidebar({
   showLabsTab = true,
   patientDetailBasePath = '/patients',
   activeMembership = null,
+  onTabChange: onTabChangeProp,
   orders = [],
 }: PatientSidebarProps) {
   const router = useRouter();
+  const tabCtx = usePatientTabSafe();
+  const currentTab = tabCtx?.currentTab ?? currentTabProp;
+  const onTabChange = tabCtx ? tabCtx.setTab : onTabChangeProp;
   const [, startTransition] = useTransition();
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -519,6 +526,18 @@ export default function PatientSidebar({
   const [salesRequestError, setSalesRequestError] = useState<string | null>(null);
   const [salesRequestSuccess, setSalesRequestSuccess] = useState<string | null>(null);
   const [showDispositionModal, setShowDispositionModal] = useState(false);
+
+  // Lazy-fetch orders for FedEx modal (only when modal opens and prop orders are empty)
+  const [fedExOrders, setFedExOrders] = useState(orders);
+  useEffect(() => {
+    if (!showFedExModal || orders.length > 0) return;
+    apiFetch(`/api/patients/${patient.id}/orders?take=10`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.orders) setFedExOrders(data.orders);
+      })
+      .catch(() => {});
+  }, [showFedExModal, orders, patient.id]);
 
   const fetchLabels = useCallback(() => {
     if (!canManageShipping) return;
@@ -908,6 +927,7 @@ export default function PatientSidebar({
                     key={item.id}
                     href={href}
                     data-active={isActive}
+                    onClick={onTabChange ? (e) => { e.preventDefault(); onTabChange(item.id); } : undefined}
                     className={`flex-shrink-0 whitespace-nowrap rounded-full px-3.5 py-2 text-[13px] font-semibold transition-colors ${
                       isActive
                         ? 'text-white shadow-sm'
@@ -1101,6 +1121,7 @@ export default function PatientSidebar({
               <a
                 key={item.id}
                 href={href}
+                onClick={onTabChange ? (e) => { e.preventDefault(); onTabChange(item.id); } : undefined}
                 className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 transition-colors ${
                   isActive ? 'bg-gray-100' : 'hover:bg-gray-50'
                 }`}
@@ -1281,7 +1302,7 @@ export default function PatientSidebar({
             state: patient.state,
             zip: patient.zip,
           }}
-          orders={orders.map((o) => ({
+          orders={fedExOrders.map((o) => ({
             ...o,
             createdAt: typeof o.createdAt === 'string' ? o.createdAt : o.createdAt.toISOString(),
           }))}

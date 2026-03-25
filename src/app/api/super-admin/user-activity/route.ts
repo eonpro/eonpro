@@ -15,6 +15,7 @@ import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { getRecentlyActiveUserIds } from '@/lib/auth/middleware-cache';
+import { buildFuzzySearchOr } from '@/lib/utils/search';
 
 interface UserActivityStats {
   totalUsers: number;
@@ -66,11 +67,7 @@ export const GET = withAuth(
       }
 
       if (search) {
-        whereClause.OR = [
-          { email: { contains: search, mode: 'insensitive' } },
-          { firstName: { contains: search, mode: 'insensitive' } },
-          { lastName: { contains: search, mode: 'insensitive' } },
-        ];
+        whereClause.OR = buildFuzzySearchOr(search, ['email'], ['firstName', 'lastName']);
       }
 
       if (filter === 'recent') {
