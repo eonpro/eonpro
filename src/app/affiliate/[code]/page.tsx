@@ -333,6 +333,11 @@ function PressMarquee() {
 // Main Component
 // ============================================================================
 
+function scrollToTreatments(e: React.MouseEvent) {
+  e.preventDefault();
+  document.getElementById('treatments')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
 function AffiliateLandingContent() {
   const params = useParams();
   const code = params.code as string;
@@ -420,7 +425,8 @@ function AffiliateLandingContent() {
           <span>
             Referred by <span className="font-normal">{affiliateName}</span> &mdash; Start your personalized intake today.{' '}
             <a
-              href={buildCtaUrl('/trt', refCode)}
+              href="#treatments"
+              onClick={scrollToTreatments}
               className="underline underline-offset-2 transition-opacity hover:opacity-80"
               style={{ color: PALETTE.accent }}
             >
@@ -431,7 +437,8 @@ function AffiliateLandingContent() {
           <span>
             Personalized treatments from board-certified providers.{' '}
             <a
-              href={`${BASE_INTAKE_URL}/trt`}
+              href="#treatments"
+              onClick={scrollToTreatments}
               className="underline underline-offset-2 transition-opacity hover:opacity-80"
               style={{ color: PALETTE.accent }}
             >
@@ -449,7 +456,8 @@ function AffiliateLandingContent() {
           <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
             <OTLogo logoUrl={logoUrl} clinicName={clinicName} />
             <a
-              href={isValid ? buildCtaUrl('/trt', refCode) : `${BASE_INTAKE_URL}/trt`}
+              href="#treatments"
+              onClick={scrollToTreatments}
               className="hidden rounded-full px-6 py-2.5 text-sm font-semibold transition-all hover:opacity-90 sm:inline-block"
               style={{ backgroundColor: PALETTE.text, color: PALETTE.white }}
             >
@@ -693,7 +701,8 @@ function AffiliateLandingContent() {
               : 'Start your free consultation today.'}
           </p>
           <a
-            href={isValid ? buildCtaUrl('/trt', refCode) : `${BASE_INTAKE_URL}/trt`}
+            href="#treatments"
+            onClick={scrollToTreatments}
             className="inline-block rounded-full px-10 py-4 font-semibold transition-all hover:opacity-90"
             style={{ backgroundColor: PALETTE.text, color: PALETTE.white }}
           >

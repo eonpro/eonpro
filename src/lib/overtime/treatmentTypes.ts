@@ -158,8 +158,16 @@ export function detectTreatmentType(payload: Record<string, unknown>): OvertimeT
     return 'weight_loss';
   }
 
-  // Peptides indicators
-  if (payload['peptide-experience'] || payload['peptide-goals'] || payload['preferred-peptide']) {
+  // Peptides indicators (including Airtable exact field names from OT Mens - Peptide Therapy)
+  if (
+    payload['peptide-experience'] ||
+    payload['peptide-goals'] ||
+    payload['preferred-peptide'] ||
+    payload['Peptide choice'] ||
+    payload['What are you looking to Optimize?'] ||
+    payload['B12 Deficiency'] ||
+    payload['Chronic Kidney Disease']
+  ) {
     return 'peptides';
   }
 
@@ -174,7 +182,6 @@ export function detectTreatmentType(payload: Record<string, unknown>): OvertimeT
     payload['ed-severity'] ||
     payload['libido-level'] ||
     payload['performance-anxiety'] ||
-    // Airtable exact field names for OT Mens - Better Sex
     payload['How often do these sexual issues occur?'] ||
     payload['How long have you notice'] ||
     payload['meds with nitrates or nitroglycerin'] ||
@@ -186,12 +193,17 @@ export function detectTreatmentType(payload: Record<string, unknown>): OvertimeT
     return 'better_sex';
   }
 
-  // Testosterone indicators
+  // Testosterone indicators (including Airtable exact field names from OT Mens - TRT)
   if (
     payload['trt-symptoms'] ||
     payload['previous-trt'] ||
     payload['testosterone-level'] ||
-    payload['free-testosterone']
+    payload['free-testosterone'] ||
+    payload['Main Results to acchive'] ||
+    payload['Main Results to achieve'] ||
+    payload['Previous Therapies (Hormone, Pept, GLP1)'] ||
+    payload['Self Administration'] ||
+    payload['Lab Results']
   ) {
     return 'testosterone';
   }

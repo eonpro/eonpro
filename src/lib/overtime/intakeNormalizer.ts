@@ -1457,12 +1457,69 @@ function buildOvertimePatient(payload: OvertimePayload): NormalizedPatient {
     }
   }
 
+  // ========================================
+  // GAP-FILL: Supplement missing components from individual Airtable fields
+  // Even if a combined address was parsed, individual fields may have
+  // better data (e.g., Address only has street, but City/ZIP are separate).
+  // ========================================
+  const gapCity =
+    payload['City'] ||
+    payload['city'] ||
+    payload['Address [City]'] ||
+    payload['Address [city]'];
+  if (!patient.city && gapCity) {
+    patient.city = String(gapCity).trim();
+  }
+
+  const gapZip =
+    payload['ZIP'] ||
+    payload['Zip'] ||
+    payload['zip'] ||
+    payload['Address [Zip]'] ||
+    payload['Address [zip]'] ||
+    payload['zipCode'] ||
+    payload['zip_code'] ||
+    payload['Postal Code'] ||
+    payload['PostalCode'] ||
+    payload['postalCode'] ||
+    payload['postal_code'];
+  if (!patient.zip && gapZip) {
+    patient.zip = normalizeZip(String(gapZip));
+  }
+
+  const gapApt =
+    payload['apartment#'] ||
+    payload['Apartment'] ||
+    payload['apartment'] ||
+    payload['Unit'] ||
+    payload['unit'] ||
+    payload['address2'] ||
+    payload['apt'];
+  if (!patient.address2 && gapApt) {
+    patient.address2 = String(gapApt).trim();
+  }
+
+  const gapStreet =
+    payload['Address [Street]'] ||
+    payload['Address [street]'] ||
+    payload['address1'] ||
+    payload['street_address'] ||
+    payload['street'];
+  const gapHouse =
+    payload['Address [house]'] ||
+    payload['Address [House]'];
+  if (!patient.address1 && (gapStreet || gapHouse)) {
+    patient.address1 = [gapHouse, gapStreet].filter(Boolean).join(' ').trim();
+  }
+
   // State - handle separately with Heyflow variations
   // Heyflow field: "Select the state you live in" -> select-the-state-you-live-in
   const stateField =
     payload['state'] ||
     payload['State'] ||
     payload['STATE'] ||
+    payload['Address [State]'] ||
+    payload['Address [state]'] ||
     payload['select-the-state-you-live-in'] ||
     payload['select_the_state_you_live_in'] ||
     payload['Select the state you live in'] ||

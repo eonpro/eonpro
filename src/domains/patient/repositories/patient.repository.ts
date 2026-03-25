@@ -329,8 +329,8 @@ export function createPatientRepository(db: PrismaClient = prisma): PatientRepos
         };
       }
 
-      // No search: use normal DB pagination
-      const [patients, total, nullIndexCount] = await Promise.all([
+      // No search: use normal DB pagination (skip nullIndex count — healing is search-triggered)
+      const [patients, total] = await Promise.all([
         db.patient.findMany({
           where,
           select: PATIENT_SUMMARY_SELECT,
@@ -339,18 +339,7 @@ export function createPatientRepository(db: PrismaClient = prisma): PatientRepos
           skip: offset,
         }),
         db.patient.count({ where }),
-        db.patient.count({
-          where: { ...where, ...buildIncompleteSearchIndexWhere() },
-        }),
       ]);
-
-      if (nullIndexCount > 0) {
-        healMissingSearchIndexes(db, where).catch((err) => {
-          logger.warn('Background searchIndex backfill failed (browse)', {
-            error: err instanceof Error ? err.message : 'Unknown',
-          });
-        });
-      }
 
       const decryptedPatients = patients.map((p) => decryptPatientSummary(p));
 
@@ -468,8 +457,8 @@ export function createPatientRepository(db: PrismaClient = prisma): PatientRepos
         };
       }
 
-      // No search: use normal DB pagination
-      const [patients, total, nullIndexCount] = await Promise.all([
+      // No search: use normal DB pagination (skip nullIndex count — healing is search-triggered)
+      const [patients, total] = await Promise.all([
         db.patient.findMany({
           where,
           select: clinicSelect,
@@ -478,18 +467,7 @@ export function createPatientRepository(db: PrismaClient = prisma): PatientRepos
           skip: offset,
         }),
         db.patient.count({ where }),
-        db.patient.count({
-          where: { ...where, ...buildIncompleteSearchIndexWhere() },
-        }),
       ]);
-
-      if (nullIndexCount > 0) {
-        healMissingSearchIndexes(db, where).catch((err) => {
-          logger.warn('Background searchIndex backfill failed (browse)', {
-            error: err instanceof Error ? err.message : 'Unknown',
-          });
-        });
-      }
 
       const decryptedPatients = patients.map((p) => ({
         ...decryptPatientSummary(p),

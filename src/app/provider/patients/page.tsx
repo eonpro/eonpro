@@ -96,6 +96,7 @@ export default function ProviderPatientsPage() {
   const fetchPatients = useCallback(
     async (currentOffset: number, isNewSearch: boolean, q: string) => {
       if (abortRef.current) abortRef.current.abort();
+      abortRef.current = new AbortController();
 
       try {
         if (isNewSearch && isInitialLoadRef.current) setLoading(true);
@@ -112,29 +113,11 @@ export default function ProviderPatientsPage() {
 
         const url = `/api/patients?${params.toString()}`;
 
-        // Try up to 2 attempts (initial + 1 retry to warm cold serverless functions)
-        let response: Response | null = null;
-        for (let attempt = 0; attempt < 2; attempt++) {
-          abortRef.current = new AbortController();
-          const { signal } = abortRef.current;
-          const timeoutId = setTimeout(() => abortRef.current?.abort(), 15_000);
+        const response = await apiFetch(url, { signal: abortRef.current.signal });
 
-          try {
-            response = await apiFetch(url, { signal });
-            clearTimeout(timeoutId);
-            if (response.ok) break;
-          } catch (err) {
-            clearTimeout(timeoutId);
-            if ((err as Error).name !== 'AbortError') throw err;
-            if (attempt === 1) {
-              setError('Request timed out. Please try again.');
-              return;
-            }
-          }
-        }
-
-        if (!response || !response.ok) {
-          setError('Failed to load patients. Please try again.');
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => null);
+          setError(errorData?.error || 'Failed to load patients. Please try again.');
           return;
         }
 
@@ -170,6 +153,7 @@ export default function ProviderPatientsPage() {
         setOffset(currentOffset + mapped.length);
       } catch (err) {
         if ((err as Error).name === 'AbortError') return;
+        setError('Failed to load patients. Please try again.');
       } finally {
         setLoading(false);
         setSearching(false);
@@ -253,7 +237,9 @@ export default function ProviderPatientsPage() {
       setPatients((prev) => [...prev, ...allNewPatients]);
       setOffset(currentOffset);
     } catch (err) {
-      process.env.NODE_ENV === 'development' && console.error('Error loading all patients:', err);
+      if ((err as Error).name !== 'AbortError') {
+        setError('Failed to load all patients. Please try again.');
+      }
     } finally {
       setLoadingMore(false);
     }

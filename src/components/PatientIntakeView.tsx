@@ -34,6 +34,7 @@ import {
   hasOvertimeIntakeSections,
 } from '@/lib/overtime/intakeSections';
 import type { OvertimeTreatmentType } from '@/lib/overtime/treatmentTypes';
+import { TREATMENT_TYPE_LABELS } from '@/lib/overtime/treatmentTypes';
 
 /** Parse weight string (e.g. "218", "218 lbs") to pounds. */
 function parseWeightToLbs(str: string): number | null {
@@ -1594,7 +1595,14 @@ export default function PatientIntakeView({
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">Medical Intake</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-bold text-gray-900">Medical Intake</h1>
+          {treatmentType && hasOvertimeIntakeSections(effectiveSubdomain) && (
+            <span className="rounded-full bg-purple-100 px-3 py-1 text-xs font-semibold text-purple-700">
+              {TREATMENT_TYPE_LABELS[treatmentType] || treatmentType}
+            </span>
+          )}
+        </div>
         <div className="flex gap-2">
           {isEditing ? (
             <>
@@ -1690,6 +1698,11 @@ export default function PatientIntakeView({
             {intakeData.source && (
               <span>
                 <strong>Source:</strong> {intakeData.source}
+              </span>
+            )}
+            {treatmentType && (
+              <span>
+                <strong>Treatment:</strong> {TREATMENT_TYPE_LABELS[treatmentType] || treatmentType}
               </span>
             )}
             {intakeData.receivedAt && (
