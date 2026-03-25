@@ -33,6 +33,15 @@ const BLOODWORK: BillingPlan[] = [
     slug: 'ot_bloodwork_full',
     stripeProductId: 'prod_UDHDmjRVdZJdqe',
   },
+  {
+    id: 'ot_bloodwork_womens',
+    name: 'Bloodwork Womens Panel',
+    category: 'ot_bloodwork',
+    price: 20000,
+    description: 'Womens comprehensive blood panel',
+    slug: 'ot_bloodwork_womens',
+    stripeProductId: 'prod_UDQkW9dQAtPYL6',
+  },
 ];
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -387,7 +396,7 @@ const PRESCRIPTION_PEPTIDES: BillingPlan[] = [
     months: 3,
     isRecurring: true,
     stripeProductId: 'prod_UDL3n8S4tUzezx',
-    stripePriceId: 'price_1TEuOpDQIH4O9FhraZ12MDE3',
+    stripePriceId: 'price_1TEuN3DQIH4O9Fhrin80nXB5',
   },
   {
     id: 'ot_glutathione_6mo',
@@ -469,287 +478,57 @@ const PRESCRIPTION_PEPTIDES: BillingPlan[] = [
 // ═══════════════════════════════════════════════════════════════════════════
 
 const RESEARCH: BillingPlan[] = [
-  // --- Tesamorelin ---
-  {
-    id: 'ot_tesamorelin_1mo',
-    name: 'Tesamorelin 10mg – 1 Month',
-    category: 'ot_research',
-    price: 29900,
-    description: 'Tesamorelin 1mg M–F (2x 10mg/mo) – 1 Month',
-    slug: 'ot_tesamorelin_1mo',
-    months: 1,
-  },
-  {
-    id: 'ot_tesamorelin_3mo',
-    name: 'Tesamorelin 10mg – 3 Month',
-    category: 'ot_research',
-    price: 80900,
-    description: 'Tesamorelin 1mg M–F (2x 10mg/mo) – 3 Month',
-    slug: 'ot_tesamorelin_3mo',
-    months: 3,
-  },
+  // --- Visceral Fat Loss (Tesamorelin) ---
+  { id: 'ot_visceral_fat_3mo', name: 'Visceral Fat Loss (TSM) – 3 Month', category: 'ot_research', price: 80900, description: 'Tesamorelin – visceral fat loss – 3 Month one-time', slug: 'ot_visceral_fat_3mo', months: 3, stripeProductId: 'prod_UDP0ECQ8EHfq2e', stripePriceId: 'price_1TEyEGDQIH4O9FhrDldjqvKK' },
 
-  // --- GHK-Cu Injectable ---
-  {
-    id: 'ot_ghkcu_inject_3mo',
-    name: 'GHK-Cu 50mg Injectable – 3 Month',
-    category: 'ot_research',
-    price: 29900,
-    description: 'GHK-Cu 1mg M–F (2x 50mg vials) – 3 Month',
-    slug: 'ot_ghkcu_inject_3mo',
-    months: 3,
-  },
+  // --- Skin (GHK-Cu) ---
+  { id: 'ot_skin_cu_3mo', name: 'Skin (CU) – 3 Month', category: 'ot_research', price: 29900, description: 'GHK-Cu – skin regeneration – 3 Month', slug: 'ot_skin_cu_3mo', months: 3, stripeProductId: 'prod_UDPI2OmimpjQzN', stripePriceId: 'price_1TEyU2DQIH4O9Fhr9a2miSKV' },
+  { id: 'ot_skin_cu_6mo', name: 'Skin (CU) – 6 Month', category: 'ot_research', price: 57500, description: 'GHK-Cu – skin regeneration – 6 Month', slug: 'ot_skin_cu_6mo', months: 6, isRecurring: true, stripeProductId: 'prod_UDPI2OmimpjQzN', stripePriceId: 'price_1TEywGDQIH4O9FhrjfrPfowr' },
+  { id: 'ot_skin_cu_12mo', name: 'Skin (CU) – 12 Month', category: 'ot_research', price: 109900, description: 'GHK-Cu – skin regeneration – 12 Month', slug: 'ot_skin_cu_12mo', months: 12, isRecurring: true, stripeProductId: 'prod_UDPI2OmimpjQzN', stripePriceId: 'price_1TEyxkDQIH4O9FhrJiRznm1D' },
 
-  // --- BPC/TB-500 Blend ---
-  {
-    id: 'ot_bpctb_1mo',
-    name: 'BPC/TB-500 Blend – 1 Month',
-    category: 'ot_research',
-    price: 29900,
-    description: 'BPC/TB-500 Blend 500mcg M–F (10mg/10mg) – 1 Month',
-    slug: 'ot_bpctb_1mo',
-    months: 1,
-  },
-  {
-    id: 'ot_bpctb_3mo',
-    name: 'BPC/TB-500 Blend – 3 Month',
-    category: 'ot_research',
-    price: 80900,
-    description: 'BPC/TB-500 Blend 500mcg M–F (2x5mg/5mg) – 3 Month',
-    slug: 'ot_bpctb_3mo',
-    months: 3,
-  },
+  // --- Sun Kissed (Melanotan II) ---
+  { id: 'ot_sun_kissed_3mo', name: 'Sun Kissed (MT2) – 3 Month', category: 'ot_research', price: 19900, description: 'Melanotan II – tan + appetite + libido – 3 Month', slug: 'ot_sun_kissed_3mo', months: 3, stripeProductId: 'prod_UDPqbr10c25myS', stripePriceId: 'price_1TEz0UDQIH4O9FhrfJ7vgWSW' },
 
-  // --- Melanotan II ---
-  {
-    id: 'ot_melanotan_3mo',
-    name: 'Melanotan II 10mg – 3 Month',
-    category: 'ot_research',
-    price: 19900,
-    description: 'Melanotan II 250mcg daily until desired tan, then maintenance – 3 Month supply',
-    slug: 'ot_melanotan_3mo',
-    months: 3,
-  },
+  // --- Platinum Recomp (Tesa/IPA blend) ---
+  { id: 'ot_platinum_recomp_3mo', name: 'Platinum Recomp (TSM/IPA) – 3 Month', category: 'ot_research', price: 99900, description: 'Tesamorelin + Ipamorelin blend – recomposition – 3 Month', slug: 'ot_platinum_recomp_3mo', months: 3, stripeProductId: 'prod_UDPsQ4rq2C2azl', stripePriceId: 'price_1TEz2qDQIH4O9FhrNXBc5Kom' },
 
-  // --- Tesa + Ipamorelin ---
-  {
-    id: 'ot_tesaipa_1mo',
-    name: 'Tesa + Ipamorelin Blend – 1 Month',
-    category: 'ot_research',
-    price: 35000,
-    description: 'Tesamorelin 500mcg / Ipamorelin 250mcg M–F (10mg/5mg) – 1 Month',
-    slug: 'ot_tesaipa_1mo',
-    months: 1,
-  },
-  {
-    id: 'ot_tesaipa_3mo',
-    name: 'Tesa + Ipamorelin Blend – 3 Month',
-    category: 'ot_research',
-    price: 99900,
-    description: 'Tesamorelin 500mcg / Ipamorelin 250mcg M–F (10mg/5mg) – 3 Month',
-    slug: 'ot_tesaipa_3mo',
-    months: 3,
-  },
+  // --- Healing Protocol (BPC-157 Solo) ---
+  { id: 'ot_healing_bpc_1mo', name: 'Healing Protocol (BPC Solo) – 1 Month', category: 'ot_research', price: 20000, description: 'BPC-157 – tissue repair – 1 Month', slug: 'ot_healing_bpc_1mo', months: 1, stripeProductId: 'prod_UDPv4e15QMvqOT', stripePriceId: 'price_1TEz5oDQIH4O9FhrRJOvFJmQ' },
+  { id: 'ot_healing_bpc_3mo', name: 'Healing Protocol (BPC Solo) – 3 Month', category: 'ot_research', price: 52500, description: 'BPC-157 – tissue repair – 3 Month', slug: 'ot_healing_bpc_3mo', months: 3, stripeProductId: 'prod_UDPv4e15QMvqOT', stripePriceId: 'price_1TEz71DQIH4O9FhrmVjsijy7' },
 
-  // --- BPC-157 ---
-  {
-    id: 'ot_bpc157_1mo',
-    name: 'BPC-157 10mg – 1 Month',
-    category: 'ot_research',
-    price: 20000,
-    description: 'BPC-157 500mcg M–F (1x 10mg/mo) – 1 Month',
-    slug: 'ot_bpc157_1mo',
-    months: 1,
-  },
-  {
-    id: 'ot_bpc157_3mo',
-    name: 'BPC-157 10mg – 3 Month',
-    category: 'ot_research',
-    price: 52500,
-    description: 'BPC-157 500mcg M–F (1x 10mg/mo) – 3 Month',
-    slug: 'ot_bpc157_3mo',
-    months: 3,
-  },
+  // --- Healing Protocol Plus (BPC/TB) ---
+  { id: 'ot_healing_plus_1mo', name: 'Healing Protocol Plus (BPC/TB) – 1 Month', category: 'ot_research', price: 29900, description: 'BPC-157 + TB-500 – systemic healing – 1 Month', slug: 'ot_healing_plus_1mo', months: 1, stripeProductId: 'prod_UDQUBbkcTe5Cal', stripePriceId: 'price_1TEzdLDQIH4O9Fhr7WDxZe9G' },
+  { id: 'ot_healing_plus_3mo', name: 'Healing Protocol Plus (BPC/TB) – 3 Month', category: 'ot_research', price: 80900, description: 'BPC-157 + TB-500 – systemic healing – 3 Month', slug: 'ot_healing_plus_3mo', months: 3, stripeProductId: 'prod_UDQUBbkcTe5Cal', stripePriceId: 'price_1TEzdkDQIH4O9Fhr1VnTy47y' },
 
-  // --- Epithalon ---
-  {
-    id: 'ot_epithalon',
-    name: 'Epithalon 50mg – 14 Day Cycle',
-    category: 'ot_research',
-    price: 52500,
-    description: 'Epithalon 10mg daily for 14 days (3x 50mg vials) – once/year cycle',
-    slug: 'ot_epithalon',
-    months: 1,
-  },
+  // --- Longevity Protocol (Epithalon) ---
+  { id: 'ot_longevity_epithalon', name: 'Longevity Protocol (Epithalon) – 2 Week Cycle', category: 'ot_research', price: 52500, description: 'Epithalon 10mg daily for 14 days – once/year cycle', slug: 'ot_longevity_epithalon', months: 1, stripeProductId: 'prod_UDPyPhxzhd9zJl', stripePriceId: 'price_1TEz8WDQIH4O9FhrBTKnQg6C' },
 
-  // --- KPV ---
-  {
-    id: 'ot_kpv_1mo',
-    name: 'KPV 10mg – 1 Month',
-    category: 'ot_research',
-    price: 20000,
-    description: 'KPV 500mcg M–F (1x 10mg/mo) – 1 Month',
-    slug: 'ot_kpv_1mo',
-    months: 1,
-  },
-  {
-    id: 'ot_kpv_3mo',
-    name: 'KPV 10mg – 3 Month',
-    category: 'ot_research',
-    price: 52500,
-    description: 'KPV 500mcg M–F (1x 10mg/mo) – 3 Month',
-    slug: 'ot_kpv_3mo',
-    months: 3,
-  },
+  // --- Anti-Inflammation (KPV) ---
+  { id: 'ot_anti_inflam_1mo', name: 'Anti-Inflammation (KPV) – 1 Month', category: 'ot_research', price: 20000, description: 'KPV – anti-inflammatory + gut health – 1 Month', slug: 'ot_anti_inflam_1mo', months: 1, stripeProductId: 'prod_UDQ02QiiATMBos', stripePriceId: 'price_1TEzAlDQIH4O9FhrA3B57d5L' },
+  { id: 'ot_anti_inflam_3mo', name: 'Anti-Inflammation (KPV) – 3 Month', category: 'ot_research', price: 52500, description: 'KPV – anti-inflammatory + gut health – 3 Month', slug: 'ot_anti_inflam_3mo', months: 3, stripeProductId: 'prod_UDQ02QiiATMBos', stripePriceId: 'price_1TEzEKDQIH4O9FhrWJWTDWUG' },
 
-  // --- Semax ---
-  {
-    id: 'ot_semax_1mo',
-    name: 'Semax 11mg – 1 Month',
-    category: 'ot_research',
-    price: 19900,
-    description: 'Semax 500mcg M–F (1x 10mg vial/mo) – 1 Month',
-    slug: 'ot_semax_1mo',
-    months: 1,
-  },
-  {
-    id: 'ot_semax_3mo',
-    name: 'Semax 11mg – 3 Month',
-    category: 'ot_research',
-    price: 39900,
-    description: 'Semax 500mcg M–F (1x 10mg vial/mo) – 3 Month',
-    slug: 'ot_semax_3mo',
-    months: 3,
-  },
+  // --- Cognition Optimization (Semax) ---
+  { id: 'ot_cognition_semax_1mo', name: 'Cognition Optimization (Semax) – 1 Month', category: 'ot_research', price: 19900, description: 'Semax – BDNF + cognitive edge – 1 Month', slug: 'ot_cognition_semax_1mo', months: 1, stripeProductId: 'prod_UDQ8CW5fUSHczB', stripePriceId: 'price_1TEzIIDQIH4O9FhrCK2pRIoQ' },
+  { id: 'ot_cognition_semax_3mo', name: 'Cognition Optimization (Semax) – 3 Month', category: 'ot_research', price: 39900, description: 'Semax – BDNF + cognitive edge – 3 Month', slug: 'ot_cognition_semax_3mo', months: 3, stripeProductId: 'prod_UDQ8CW5fUSHczB', stripePriceId: 'price_1TEzIXDQIH4O9Fhr0RYznAtz' },
 
-  // --- Selank ---
-  {
-    id: 'ot_selank_1mo',
-    name: 'Selank 11mg – 1 Month',
-    category: 'ot_research',
-    price: 19900,
-    description: 'Selank 500mcg M–F (1x 10mg vial/mo) – 1 Month',
-    slug: 'ot_selank_1mo',
-    months: 1,
-  },
-  {
-    id: 'ot_selank_3mo',
-    name: 'Selank 11mg – 3 Month',
-    category: 'ot_research',
-    price: 39900,
-    description: 'Selank 500mcg M–F (1x 10mg vial/mo) – 3 Month',
-    slug: 'ot_selank_3mo',
-    months: 3,
-  },
+  // --- Calm Protocol (Selank) ---
+  { id: 'ot_calm_selank_1mo', name: 'Calm Protocol (Selank) – 1 Month', category: 'ot_research', price: 19900, description: 'Selank – calm + focus + cortisol modulation – 1 Month', slug: 'ot_calm_selank_1mo', months: 1, stripeProductId: 'prod_UDQB7TCKoSIGeh', stripePriceId: 'price_1TEzLQDQIH4O9Fhr8ZG69pyu' },
+  { id: 'ot_calm_selank_3mo', name: 'Calm Protocol (Selank) – 3 Month', category: 'ot_research', price: 39900, description: 'Selank – calm + focus + cortisol modulation – 3 Month', slug: 'ot_calm_selank_3mo', months: 3, stripeProductId: 'prod_UDQB7TCKoSIGeh', stripePriceId: 'price_1TEzLxDQIH4O9FhrcXC36vKy' },
 
-  // --- Retatrutide ---
-  {
-    id: 'ot_reta_20mg_3mo',
-    name: 'Retatrutide 20mg – 12 Week Supply',
-    category: 'ot_research',
-    price: 74900,
-    description: 'Retatrutide 20mg – start 1mg, titrate 1mg q2-8wk – 12 week supply',
-    slug: 'ot_reta_20mg_3mo',
-    months: 3,
-  },
-  {
-    id: 'ot_reta_10mg_3mo',
-    name: 'Retatrutide 10mg – 8 Week Supply',
-    category: 'ot_research',
-    price: 39900,
-    description: 'Retatrutide 10mg – start 1mg, titrate 1mg q2-8wk – 8 week supply',
-    slug: 'ot_reta_10mg_3mo',
-    months: 3,
-  },
-  {
-    id: 'ot_reta_5mg_1mo',
-    name: 'Retatrutide 5mg – 5 Week Supply',
-    category: 'ot_research',
-    price: 29900,
-    description: 'Retatrutide 5mg – start 1mg, titrate 1mg q2-8wk – 5 week supply',
-    slug: 'ot_reta_5mg_1mo',
-    months: 1,
-  },
+  // --- Comprehensive Fat Loss (Retatrutide) ---
+  { id: 'ot_fat_loss_reta_5mg', name: 'Comprehensive Fat Loss – Reta 5mg', category: 'ot_research', price: 29900, description: 'Retatrutide 5mg – triple agonist – 5 week supply', slug: 'ot_fat_loss_reta_5mg', months: 1, stripeProductId: 'prod_UDQEhTtUBoMANC', stripePriceId: 'price_1TEzO5DQIH4O9FhrTK5SGFcv' },
+  { id: 'ot_fat_loss_reta_10mg', name: 'Comprehensive Fat Loss – Reta 10mg', category: 'ot_research', price: 39900, description: 'Retatrutide 10mg – triple agonist – 8 week supply', slug: 'ot_fat_loss_reta_10mg', months: 3, stripeProductId: 'prod_UDQEhTtUBoMANC', stripePriceId: 'price_1TEzR3DQIH4O9FhrgIuGQDeN' },
+  { id: 'ot_fat_loss_reta_20mg', name: 'Comprehensive Fat Loss – Reta 20mg', category: 'ot_research', price: 74900, description: 'Retatrutide 20mg – triple agonist – 12 week supply', slug: 'ot_fat_loss_reta_20mg', months: 3, stripeProductId: 'prod_UDQEhTtUBoMANC', stripePriceId: 'price_1TEzRQDQIH4O9Fhrt8KV4DPO' },
 
-  // --- MOTS-C ---
-  {
-    id: 'ot_motsc_1mo',
-    name: 'MOTS-C 10mg – 1 Month',
-    category: 'ot_research',
-    price: 24900,
-    description: 'MOTS-C 500mcg M–F (1x 10mg) – 1 Month',
-    slug: 'ot_motsc_1mo',
-    months: 1,
-  },
-  {
-    id: 'ot_motsc_3mo',
-    name: 'MOTS-C 10mg – 3 Month',
-    category: 'ot_research',
-    price: 57500,
-    description: 'MOTS-C 500mcg M–F (1x 10mg) – 3 Month',
-    slug: 'ot_motsc_3mo',
-    months: 3,
-  },
+  // --- Mitochondrial Reset (MOTS-C) ---
+  { id: 'ot_mito_reset_1mo', name: 'Mitochondrial Reset (MOTS-C) – 1 Month', category: 'ot_research', price: 24900, description: 'MOTS-C – AMPK + metabolic efficiency – 1 Month', slug: 'ot_mito_reset_1mo', months: 1, stripeProductId: 'prod_UDQLHm5WUsuZHq', stripePriceId: 'price_1TEzVfDQIH4O9Fhr5zmnJfr8' },
+  { id: 'ot_mito_reset_3mo', name: 'Mitochondrial Reset (MOTS-C) – 3 Month', category: 'ot_research', price: 57500, description: 'MOTS-C – AMPK + metabolic efficiency – 3 Month', slug: 'ot_mito_reset_3mo', months: 3, stripeProductId: 'prod_UDQLHm5WUsuZHq', stripePriceId: 'price_1TEzUODQIH4O9FhrpP74TMwP' },
 
-  // --- Ipamorelin ---
-  {
-    id: 'ot_ipamorelin_1mo',
-    name: 'Ipamorelin 10mg – 1 Month',
-    category: 'ot_research',
-    price: 19900,
-    description: 'Ipamorelin 250mcg M–F (1x 10mg) – 1 Month',
-    slug: 'ot_ipamorelin_1mo',
-    months: 1,
-  },
-  {
-    id: 'ot_ipamorelin_3mo',
-    name: 'Ipamorelin 10mg – 3 Month',
-    category: 'ot_research',
-    price: 49900,
-    description: 'Ipamorelin 250mcg M–F (1x 10mg) – 3 Month',
-    slug: 'ot_ipamorelin_3mo',
-    months: 3,
-  },
+  // --- Recomp Add-On (Ipamorelin Solo) ---
+  { id: 'ot_recomp_ipa_3mo', name: 'Recomp Add-On – Ipa Solo – 3 Month', category: 'ot_research', price: 49900, description: 'Ipamorelin solo – GH peptide add-on – 3 Month', slug: 'ot_recomp_ipa_3mo', months: 3, stripeProductId: 'prod_UDQQZCDtv804nG', stripePriceId: 'price_1TEzZwDQIH4O9FhrIKCc7Fiy' },
 
-  // --- CJC-1295 with DAC ---
-  {
-    id: 'ot_cjc1295dac_1mo',
-    name: 'CJC-1295 with DAC 5mg – 1 Month',
-    category: 'ot_research',
-    price: 29900,
-    description: 'CJC-1295 with DAC 625mcg twice weekly (5mg) – 1 Month',
-    slug: 'ot_cjc1295dac_1mo',
-    months: 1,
-  },
-  {
-    id: 'ot_cjc1295dac_3mo',
-    name: 'CJC-1295 with DAC 5mg – 3 Month',
-    category: 'ot_research',
-    price: 80900,
-    description: 'CJC-1295 with DAC 625mcg twice weekly (5mg) – 3 Month',
-    slug: 'ot_cjc1295dac_3mo',
-    months: 3,
-  },
-
-  // --- CJC-1295 with Ipamorelin ---
-  {
-    id: 'ot_cjc1295ipa_1mo',
-    name: 'CJC-1295 with Ipamorelin 5mg – 1 Month',
-    category: 'ot_research',
-    price: 29900,
-    description: 'CJC-1295/Ipamorelin 250mcg each M–F (5mg) – 1 Month',
-    slug: 'ot_cjc1295ipa_1mo',
-    months: 1,
-  },
-  {
-    id: 'ot_cjc1295ipa_3mo',
-    name: 'CJC-1295 with Ipamorelin 5mg – 3 Month',
-    category: 'ot_research',
-    price: 80900,
-    description: 'CJC-1295/Ipamorelin 250mcg each M–F (5mg) – 3 Month',
-    slug: 'ot_cjc1295ipa_3mo',
-    months: 3,
-  },
+  // --- Silver Recomp (CJC/IPA blend) ---
+  { id: 'ot_silver_recomp_1mo', name: 'Silver Recomp (CJC/IPA) – 1 Month', category: 'ot_research', price: 29900, description: 'CJC-1295 + Ipamorelin blend – recomposition – 1 Month', slug: 'ot_silver_recomp_1mo', months: 1, stripeProductId: 'prod_UDQXJ3iZwJZGKZ', stripePriceId: 'price_1TEzgNDQIH4O9FhrGyqyUWDH' },
 ];
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -784,6 +563,8 @@ const WEIGHT_LOSS: BillingPlan[] = [
     description: 'Tirzepatide 10mg/mL 2mL (1 vial) – 1 Month',
     slug: 'ot_tirzepatide_1mo',
     months: 1,
+    stripeProductId: 'prod_UDQabS7aWj2iS4',
+    stripePriceId: 'price_1TEzirDQIH4O9FhrPbq6slAl',
   },
   {
     id: 'ot_tirzepatide_3mo',
@@ -794,6 +575,8 @@ const WEIGHT_LOSS: BillingPlan[] = [
     slug: 'ot_tirzepatide_3mo',
     months: 3,
     isRecurring: true,
+    stripeProductId: 'prod_UDQabS7aWj2iS4',
+    stripePriceId: 'price_1TEzjVDQIH4O9FhrI3S5aXsC',
   },
   {
     id: 'ot_tirzepatide_6mo',
@@ -804,6 +587,20 @@ const WEIGHT_LOSS: BillingPlan[] = [
     slug: 'ot_tirzepatide_6mo',
     months: 6,
     isRecurring: true,
+    stripeProductId: 'prod_UDQabS7aWj2iS4',
+    stripePriceId: 'price_1TEzk6DQIH4O9Fhri7ZDawI7',
+  },
+  {
+    id: 'ot_tirzepatide_12mo',
+    name: 'Tirzepatide 10mg/mL – 12 Month',
+    category: 'ot_weight_loss',
+    price: 360000,
+    description: 'Tirzepatide 10mg/mL 2mL – 12 Month',
+    slug: 'ot_tirzepatide_12mo',
+    months: 12,
+    isRecurring: true,
+    stripeProductId: 'prod_UDQabS7aWj2iS4',
+    stripePriceId: 'price_1TEzkeDQIH4O9FhrfhWh1UCd',
   },
 ];
 
@@ -858,119 +655,27 @@ const OTHER: BillingPlan[] = [
 
 const BUNDLES: BillingPlan[] = [
   // --- Handsome + Wealthy ---
-  {
-    id: 'ot_hw_1mo',
-    name: 'Handsome + Wealthy – 1 Month',
-    category: 'ot_bundles',
-    price: 59900,
-    description: 'Enclomiphene 25mg + NAD+ 1000mg – 1 Month',
-    slug: 'ot_hw_1mo',
-    months: 1,
-  },
-  {
-    id: 'ot_hw_3mo',
-    name: 'Handsome + Wealthy – 3 Month',
-    category: 'ot_bundles',
-    price: 161700,
-    description: 'Enclomiphene 25mg + NAD+ 1000mg – 3 Month',
-    slug: 'ot_hw_3mo',
-    months: 3,
-    isRecurring: true,
-  },
-  {
-    id: 'ot_hw_6mo',
-    name: 'Handsome + Wealthy – 6 Month',
-    category: 'ot_bundles',
-    price: 305300,
-    description: 'Enclomiphene 25mg + NAD+ 1000mg – 6 Month',
-    slug: 'ot_hw_6mo',
-    months: 6,
-    isRecurring: true,
-  },
+  { id: 'ot_hw_1mo', name: 'Handsome + Wealthy – 1 Month', category: 'ot_bundles', price: 59900, description: 'Enclomiphene 25mg + NAD+ 1000mg – 1 Month', slug: 'ot_hw_1mo', months: 1, stripeProductId: 'prod_UDQmnuSWxnTqPs', stripePriceId: 'price_1TEzvEDQIH4O9FhruEEVaFrh' },
+  { id: 'ot_hw_3mo', name: 'Handsome + Wealthy – 3 Month', category: 'ot_bundles', price: 161700, description: 'Enclomiphene 25mg + NAD+ 1000mg – 3 Month', slug: 'ot_hw_3mo', months: 3, isRecurring: true, stripeProductId: 'prod_UDQmnuSWxnTqPs', stripePriceId: 'price_1TEzwPDQIH4O9FhrdHzABHJl' },
+  { id: 'ot_hw_6mo', name: 'Handsome + Wealthy – 6 Month', category: 'ot_bundles', price: 305300, description: 'Enclomiphene 25mg + NAD+ 1000mg – 6 Month', slug: 'ot_hw_6mo', months: 6, isRecurring: true, stripeProductId: 'prod_UDQmnuSWxnTqPs', stripePriceId: 'price_1TEzx9DQIH4O9FhrfynmC6uV' },
+  { id: 'ot_hw_12mo', name: 'Handsome + Wealthy – 12 Month', category: 'ot_bundles', price: 575000, description: 'Enclomiphene 25mg + NAD+ 1000mg – 12 Month', slug: 'ot_hw_12mo', months: 12, isRecurring: true, stripeProductId: 'prod_UDQmnuSWxnTqPs', stripePriceId: 'price_1TEzxXDQIH4O9Fhr5TqvQqm5' },
 
   // --- Build ---
-  {
-    id: 'ot_build_1mo',
-    name: 'Build – 1 Month',
-    category: 'ot_bundles',
-    price: 46900,
-    description: 'Enclomiphene + Sermorelin – 1 Month',
-    slug: 'ot_build_1mo',
-    months: 1,
-  },
-  {
-    id: 'ot_build_3mo',
-    name: 'Build – 3 Month',
-    category: 'ot_bundles',
-    price: 126800,
-    description: 'Enclomiphene + Sermorelin – 3 Month',
-    slug: 'ot_build_3mo',
-    months: 3,
-    isRecurring: true,
-  },
-  {
-    id: 'ot_build_6mo',
-    name: 'Build – 6 Month',
-    category: 'ot_bundles',
-    price: 239300,
-    description: 'Enclomiphene + Sermorelin – 6 Month',
-    slug: 'ot_build_6mo',
-    months: 6,
-    isRecurring: true,
-  },
+  { id: 'ot_build_1mo', name: 'Build – 1 Month', category: 'ot_bundles', price: 46900, description: 'Enclomiphene + Sermorelin – 1 Month', slug: 'ot_build_1mo', months: 1, stripeProductId: 'prod_UDQqoiKcGO17It', stripePriceId: 'price_1TEzzFDQIH4O9Fhro0VHP4ko' },
+  { id: 'ot_build_3mo', name: 'Build – 3 Month', category: 'ot_bundles', price: 126800, description: 'Enclomiphene + Sermorelin – 3 Month', slug: 'ot_build_3mo', months: 3, isRecurring: true, stripeProductId: 'prod_UDQqoiKcGO17It', stripePriceId: 'price_1TEzzlDQIH4O9Fhrk5npznhz' },
+  { id: 'ot_build_6mo', name: 'Build – 6 Month', category: 'ot_bundles', price: 239300, description: 'Enclomiphene + Sermorelin – 6 Month', slug: 'ot_build_6mo', months: 6, isRecurring: true, stripeProductId: 'prod_UDQqoiKcGO17It', stripePriceId: 'price_1TF003DQIH4O9FhrUOWithxY' },
+  { id: 'ot_build_12mo', name: 'Build – 12 Month', category: 'ot_bundles', price: 450000, description: 'Enclomiphene + Sermorelin – 12 Month', slug: 'ot_build_12mo', months: 12, isRecurring: true, stripeProductId: 'prod_UDQqoiKcGO17It', stripePriceId: 'price_1TF00eDQIH4O9FhrglJNMlP6' },
 
   // --- BuildPlus ---
-  {
-    id: 'ot_buildplus_1mo',
-    name: 'BuildPlus – 1 Month',
-    category: 'ot_bundles',
-    price: 54900,
-    description: 'Enclomiphene + Sermorelin + Tadalafil – 1 Month',
-    slug: 'ot_buildplus_1mo',
-    months: 1,
-  },
-  {
-    id: 'ot_buildplus_3mo',
-    name: 'BuildPlus – 3 Month',
-    category: 'ot_bundles',
-    price: 148200,
-    description: 'Enclomiphene + Sermorelin + Tadalafil – 3 Month',
-    slug: 'ot_buildplus_3mo',
-    months: 3,
-    isRecurring: true,
-  },
-  {
-    id: 'ot_buildplus_6mo',
-    name: 'BuildPlus – 6 Month',
-    category: 'ot_bundles',
-    price: 280000,
-    description: 'Enclomiphene + Sermorelin + Tadalafil – 6 Month',
-    slug: 'ot_buildplus_6mo',
-    months: 6,
-    isRecurring: true,
-  },
+  { id: 'ot_buildplus_1mo', name: 'BuildPlus – 1 Month', category: 'ot_bundles', price: 54900, description: 'Enclomiphene + Sermorelin + Tadalafil – 1 Month', slug: 'ot_buildplus_1mo', months: 1, stripeProductId: 'prod_UDQuhMDeiT6oyH', stripePriceId: 'price_1TF02CDQIH4O9Fhr2SL5f0Ur' },
+  { id: 'ot_buildplus_3mo', name: 'BuildPlus – 3 Month', category: 'ot_bundles', price: 148200, description: 'Enclomiphene + Sermorelin + Tadalafil – 3 Month', slug: 'ot_buildplus_3mo', months: 3, isRecurring: true, stripeProductId: 'prod_UDQuhMDeiT6oyH', stripePriceId: 'price_1TF036DQIH4O9FhrcPW9FiIX' },
+  { id: 'ot_buildplus_6mo', name: 'BuildPlus – 6 Month', category: 'ot_bundles', price: 280000, description: 'Enclomiphene + Sermorelin + Tadalafil – 6 Month', slug: 'ot_buildplus_6mo', months: 6, isRecurring: true, stripeProductId: 'prod_UDQuhMDeiT6oyH', stripePriceId: 'price_1TF03bDQIH4O9Fhr5TYRw0TD' },
+  { id: 'ot_buildplus_12mo', name: 'BuildPlus – 12 Month', category: 'ot_bundles', price: 530000, description: 'Enclomiphene + Sermorelin + Tadalafil – 12 Month', slug: 'ot_buildplus_12mo', months: 12, isRecurring: true, stripeProductId: 'prod_UDQuhMDeiT6oyH', stripePriceId: 'price_1TF041DQIH4O9FhrsFuKQHtb' },
 
   // --- Regen+ ---
-  {
-    id: 'ot_regen_3mo',
-    name: 'Regen+ – 3 Month',
-    category: 'ot_bundles',
-    price: 122500,
-    description: 'NAD+ (3 vials 1000mg) + Glutathione – 3 Month',
-    slug: 'ot_regen_3mo',
-    months: 3,
-    isRecurring: true,
-  },
-  {
-    id: 'ot_regen_6mo',
-    name: 'Regen+ – 6 Month',
-    category: 'ot_bundles',
-    price: 208200,
-    description: 'NAD+ (3 vials 1000mg) + Glutathione – 6 Month',
-    slug: 'ot_regen_6mo',
-    months: 6,
-    isRecurring: true,
-  },
+  { id: 'ot_regen_3mo', name: 'Regen+ – 3 Month', category: 'ot_bundles', price: 122500, description: 'NAD+ + Glutathione – 3 Month', slug: 'ot_regen_3mo', months: 3, isRecurring: true, stripeProductId: 'prod_UDQym7ewYVXKab', stripePriceId: 'price_1TF069DQIH4O9FhruEmD4TFS' },
+  { id: 'ot_regen_6mo', name: 'Regen+ – 6 Month', category: 'ot_bundles', price: 208200, description: 'NAD+ + Glutathione – 6 Month', slug: 'ot_regen_6mo', months: 6, isRecurring: true, stripeProductId: 'prod_UDQym7ewYVXKab', stripePriceId: 'price_1TF06uDQIH4O9FhrFQkbro4k' },
+  { id: 'ot_regen_12mo', name: 'Regen+ – 12 Month', category: 'ot_bundles', price: 390000, description: 'NAD+ + Glutathione – 12 Month', slug: 'ot_regen_12mo', months: 12, isRecurring: true, stripeProductId: 'prod_UDQym7ewYVXKab', stripePriceId: 'price_1TF07yDQIH4O9Fhreck02d6r' },
 ];
 
 // ═══════════════════════════════════════════════════════════════════════════
