@@ -86,12 +86,13 @@ export function getServerlessConfig(): ServerlessPoolConfig {
     // Previous value of 5 hit ceiling at ~360 instances.
     connectionLimit = isVercel ? 3 : 10;
   } else if (isVercel) {
-    // Without external pooler: allow 3 connections per instance so Promise.all
-    // queries can actually run concurrently instead of serializing through a
-    // single slot. At typical Vercel concurrency (~50-100 instances) this uses
-    // 150-300 connections, well within most PostgreSQL limits (100-400).
-    // Tune down via DATABASE_CONNECTION_LIMIT=1 if P2024 errors appear.
-    connectionLimit = 3;
+    // Without external pooler: 1 connection per instance to prevent
+    // exhausting PostgreSQL max_connections when Vercel auto-scales.
+    // At 100 instances × 1 = 100 connections (the typical PG default).
+    // Queries within a request serialize through this single slot, but
+    // Vercel compensates by scaling out more instances.
+    // Override via DATABASE_CONNECTION_LIMIT if you add a pooler.
+    connectionLimit = 1;
   } else {
     // Local development or non-serverless
     connectionLimit = 5;
@@ -147,6 +148,11 @@ export function buildServerlessConnectionUrl(baseUrl?: string): string {
 
     // Set connect timeout
     parsedUrl.searchParams.set('connect_timeout', config.connectTimeout.toString());
+
+    // Statement timeout prevents long-running queries from holding connections
+    if (config.statementTimeout && !parsedUrl.searchParams.has('statement_timeout')) {
+      parsedUrl.searchParams.set('statement_timeout', config.statementTimeout.toString());
+    }
 
     // For PgBouncer compatibility
     if (config.usePgBouncer && !parsedUrl.searchParams.has('pgbouncer')) {
@@ -359,6 +365,7 @@ export function logPoolConfiguration(): void {
     platform: isVercel ? 'Vercel' : 'Other',
     connectionLimit: config.connectionLimit,
     poolTimeout: config.poolTimeout,
+    statementTimeout: config.statementTimeout,
     useRdsProxy: config.useRdsProxy,
     usePgBouncer: config.usePgBouncer,
   });

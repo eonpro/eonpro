@@ -10,7 +10,7 @@ interface CacheEntry<T> {
   expiresAt: number;
 }
 
-const TTL_MS = 60_000; // 60 seconds
+const TTL_MS = 120_000; // 120 seconds — reduces redundant Redis fetches within the same Node process
 const MAX_ENTRIES = 10_000;
 
 // Session storage cache: sessionId -> SessionState (avoids Redis get)

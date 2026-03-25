@@ -235,13 +235,27 @@ const DEFAULT_SAFE_QUERY_OPTIONS: Required<SafeQueryOptions> = {
   timeoutMs: 15000,
 };
 
-function isTransientDbError(err: unknown): boolean {
+/**
+ * Detect errors caused by connection pool exhaustion.
+ * These must NEVER be retried — retrying requests more connections
+ * from an already-exhausted pool, amplifying the outage.
+ */
+function isPoolExhaustionError(err: unknown): boolean {
   const e = err as { code?: string; message?: string };
   const msg = (e.message || '').toLowerCase();
   return (
     e.code === 'P2024' ||
-    msg.includes('connection pool') ||
-    msg.includes('timed out fetching') ||
+    msg.includes('timed out fetching a new connection from the connection pool') ||
+    msg.includes('too many connections') ||
+    msg.includes('too many clients')
+  );
+}
+
+function isTransientDbError(err: unknown): boolean {
+  if (isPoolExhaustionError(err)) return true;
+  const e = err as { code?: string; message?: string };
+  const msg = (e.message || '').toLowerCase();
+  return (
     msg.includes('econnreset') ||
     msg.includes('connection reset')
   );
@@ -274,8 +288,16 @@ export async function safeQuery<T>(
       return { success: true, data: result };
     } catch (err: unknown) {
       lastError = err;
-      const isTransient = isTransientDbError(err);
 
+      if (isPoolExhaustionError(err)) {
+        logger.warn(`[SafeQuery] Pool exhaustion on "${description}" — retries suppressed`, {
+          error: (err as Error).message,
+          attempt,
+        });
+        break;
+      }
+
+      const isTransient = isTransientDbError(err);
       if (isTransient && attempt < opts.maxRetries) {
         const backoff = Math.min(
           opts.initialDelayMs * Math.pow(2, attempt),

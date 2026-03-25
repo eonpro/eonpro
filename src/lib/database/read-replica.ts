@@ -21,6 +21,7 @@
 
 import { PrismaClient } from '@prisma/client';
 import { logger } from '@/lib/logger';
+import { buildServerlessConnectionUrl } from '@/lib/database/serverless-pool';
 
 // =============================================================================
 // CONFIGURATION
@@ -47,11 +48,19 @@ function createReadReplicaClient(): PrismaClient | null {
 
   logger.info('[ReadReplica] Initializing read replica Prisma client');
 
+  let replicaConnectionUrl: string;
+  try {
+    replicaConnectionUrl = buildServerlessConnectionUrl(REPLICA_URL);
+  } catch {
+    logger.warn('[ReadReplica] Could not apply pool config to replica URL, using as-is');
+    replicaConnectionUrl = REPLICA_URL;
+  }
+
   const client = new PrismaClient({
     log: process.env.NODE_ENV === 'production' ? ['error'] : ['warn', 'error'],
     datasources: {
       db: {
-        url: REPLICA_URL,
+        url: replicaConnectionUrl,
       },
     },
   });

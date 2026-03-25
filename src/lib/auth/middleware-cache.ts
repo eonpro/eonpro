@@ -23,7 +23,7 @@ import { logger } from '@/lib/logger';
 // (revoked clinic access propagates within 60s instead of 5 min)
 const SUBDOMAIN_CACHE_TTL = 300; // 5 minutes (subdomain→clinic mapping is stable)
 const CLINIC_ACCESS_CACHE_TTL = 60; // 60 seconds (reduced for faster revocation propagation)
-const SESSION_ACTIVITY_THROTTLE_TTL = 60; // 1 minute
+const SESSION_ACTIVITY_THROTTLE_TTL = 300; // 5 minutes — session idle timeout (30 min) still works at this granularity
 
 const CACHE_NAMESPACE = 'mw'; // short namespace for middleware caches
 

@@ -124,12 +124,20 @@ export async function isAuthBlocked(ip: string): Promise<boolean> {
 
 /**
  * Clear auth failure records for an IP (e.g., after successful auth).
+ *
+ * Optimized: checks if a failure record exists before issuing 3 deletes.
+ * Most successful auths come from IPs with zero failures, so the common
+ * case is 1 Redis op (exists) instead of 3 (delete × 3).
  */
 export async function clearAuthFailures(ip: string): Promise<void> {
   if (!cache.isReady()) return;
 
   try {
     const failKey = `${ip}:failures`;
+
+    const hasFailures = await cache.exists(failKey, { namespace: NAMESPACE });
+    if (!hasFailures) return;
+
     const blockKey = `${ip}:blocked`;
     const blockCountKey = `${ip}:block-count`;
 
