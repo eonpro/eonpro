@@ -54,7 +54,9 @@ export async function POST(request: NextRequest) {
   try {
     const setupSecret = request.headers.get('x-setup-secret');
     const expectedSecret =
-      process.env.ADMIN_SETUP_SECRET || process.env.WEIGHTLOSSINTAKE_WEBHOOK_SECRET;
+      process.env.ADMIN_SETUP_SECRET ||
+      process.env.WEIGHTLOSSINTAKE_WEBHOOK_SECRET ||
+      process.env.OVERTIME_INTAKE_WEBHOOK_SECRET;
 
     if (!setupSecret || setupSecret !== expectedSecret) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
