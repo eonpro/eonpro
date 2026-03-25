@@ -265,12 +265,13 @@ export default async function PatientDetailPage({
       ? (patientDecrypted.tags as string[]).map((tag: any) => tag.replace(/^#/, ''))
       : [];
 
-    const portalInvite = (patientDecrypted as any).portalInvites?.[0]
+    const rawInvite = (patientDecrypted as any).portalInvites?.[0];
+    const portalInvite = rawInvite
       ? {
-          sentAt: (patientDecrypted as any).portalInvites[0].createdAt.toISOString(),
-          trigger: (patientDecrypted as any).portalInvites[0].trigger as string,
-          used: !!(patientDecrypted as any).portalInvites[0].usedAt,
-          expired: new Date((patientDecrypted as any).portalInvites[0].expiresAt) < new Date(),
+          sentAt: typeof rawInvite.createdAt === 'string' ? rawInvite.createdAt : rawInvite.createdAt?.toISOString?.() ?? new Date().toISOString(),
+          trigger: rawInvite.trigger as string,
+          used: !!rawInvite.usedAt,
+          expired: new Date(rawInvite.expiresAt) < new Date(),
         }
       : null;
 
@@ -343,7 +344,7 @@ export default async function PatientDetailPage({
               hasPhone={!!(patientDecrypted.phone && String(patientDecrypted.phone).trim())}
               portalInvite={portalInvite}
               patientTags={patientTags}
-              patientCreatedAt={patientDecrypted.createdAt?.toISOString?.() ?? new Date().toISOString()}
+              patientCreatedAt={typeof patientDecrypted.createdAt === 'string' ? patientDecrypted.createdAt : patientDecrypted.createdAt?.toISOString?.() ?? new Date().toISOString()}
               submittedFlag={resolvedSearchParams?.submitted === '1'}
               isAdminView={resolvedSearchParams?.admin === 'true'}
               fallbackSubdomain={fallbackSubdomain}
