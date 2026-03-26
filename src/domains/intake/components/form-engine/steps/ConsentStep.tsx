@@ -86,22 +86,21 @@ export default function ConsentStep({
             </p>
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-2 max-w-[65%]">
             {/* Health Priority Card */}
-            <div className={`${isOt ? 'bg-[#f5ecd8]' : 'bg-[#f0feab]'} rounded-xl overflow-hidden flex h-[77px] relative`}>
-              <div className="absolute left-0 top-0 bottom-0 w-[42px]">
+            <div className={`${isOt ? 'bg-[#f5ecd8]' : 'bg-[#f0feab]'} rounded-2xl overflow-hidden flex items-center h-[90px]`}>
+              <div className="flex-shrink-0 w-[72px] h-full flex items-end">
                 <Image
                   src={isOt
                     ? 'https://static.wixstatic.com/media/c49a9b_281a5dda355a45dd8278f9a350b85a9e~mv2.png'
                     : 'https://static.wixstatic.com/media/c49a9b_427c597844f246fa8df26446b6f5d59a~mv2.png'}
                   alt="Healthcare professional"
-                  fill
-                  sizes="42px"
-                  className="object-cover"
-                  style={{ objectPosition: 'center top' }}
+                  width={72}
+                  height={90}
+                  className="object-contain object-bottom"
                 />
               </div>
-              <div className="flex-1 flex flex-col justify-center pl-14 pr-4 py-1.5">
+              <div className="flex-1 flex flex-col justify-center pr-4 py-2">
                 <h3 className="font-bold text-[13px] leading-tight mb-0.5">
                   {isSpanish ? 'Tu salud es nuestra prioridad' : 'Your health is our priority'}
                 </h3>
@@ -114,20 +113,19 @@ export default function ConsentStep({
             </div>
 
             {/* Doctor Review Card */}
-            <div className={`${isOt ? 'bg-[#e8dcc4]' : 'bg-[#e4fb74]'} rounded-xl overflow-hidden flex h-[77px] relative`}>
-              <div className="absolute left-0 top-0 bottom-0 w-[42px]">
+            <div className={`${isOt ? 'bg-[#e8dcc4]' : 'bg-[#e4fb74]'} rounded-2xl overflow-hidden flex items-center h-[90px]`}>
+              <div className="flex-shrink-0 w-[72px] h-full flex items-end">
                 <Image
                   src={isOt
                     ? 'https://static.wixstatic.com/media/c49a9b_0b980de32c824bbe9b55082cc8c90476~mv2.webp'
                     : 'https://static.wixstatic.com/media/c49a9b_5e690e4cf43e4e769ef7d4e9f5691a5b~mv2.webp'}
                   alt="Licensed medical provider"
-                  fill
-                  sizes="42px"
-                  className="object-cover"
-                  style={{ objectPosition: 'center 30%' }}
+                  width={72}
+                  height={90}
+                  className="object-contain object-bottom"
                 />
               </div>
-              <div className="flex-1 flex flex-col justify-center pl-14 pr-4 py-1.5">
+              <div className="flex-1 flex flex-col justify-center pr-4 py-2">
                 <h3 className="font-bold text-[13px] leading-tight mb-0.5">
                   {isSpanish ? 'Revisión médica confidencial' : 'Confidential medical review'}
                 </h3>
