@@ -4,6 +4,7 @@ import { prisma } from '@/lib/db';
 import { weightLossIntakeConfig } from '@/domains/intake/templates/weight-loss-intake';
 import { otMensIntakeConfig } from '@/domains/intake/templates/ot-mens-intake';
 import { wellmedrIntakeConfig } from '@/domains/intake/templates/wellmedr-intake';
+import { otMensPeptideIntakeConfig } from '@/domains/intake/templates/ot-mens-peptide-intake';
 import type { FormConfig } from '@/domains/intake/types/form-engine';
 
 interface Props {
@@ -57,6 +58,9 @@ export default async function IntakeLandingPage({ params }: Props) {
           : isOt ? otMensIntakeConfig.startStep
           : weightLossIntakeConfig.startStep;
       }
+      if (templateSlug === 'peptides' && isOt) {
+        return otMensPeptideIntakeConfig.startStep;
+      }
       return null;
     }
 
@@ -73,6 +77,12 @@ export default async function IntakeLandingPage({ params }: Props) {
       return isWellmedr ? wellmedrIntakeConfig.startStep
         : isOt ? otMensIntakeConfig.startStep
         : weightLossIntakeConfig.startStep;
+    }
+
+    if (
+      (templateSlug === 'peptides' || template.treatmentType === 'peptides') && isOt
+    ) {
+      return otMensPeptideIntakeConfig.startStep;
     }
 
     const metadata = template.metadata as Record<string, unknown> | null;
