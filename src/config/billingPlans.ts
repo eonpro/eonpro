@@ -19,6 +19,7 @@ export interface BillingPlan {
     | 'tirzepatide_12month'
     | 'bloodwork'
     | 'additional_treatments'
+    | 'addons'
     | 'upsales'
     | 'shipping'
     // OT (ot.eonpro.io) categories
@@ -637,6 +638,52 @@ export const WELLMEDR_BILLING_PLANS: BillingPlan[] = [
     months: 12,
     isRecurring: true,
   },
+
+  // Add-on Products
+  {
+    id: 'wm_addon_nad',
+    name: 'NAD+',
+    category: 'addons',
+    price: 9900,
+    description: 'NAD+ Injection - cellular energy, metabolism & anti-aging',
+    months: 1,
+    isRecurring: false,
+    stripePriceId: 'price_1TEFJTDfH4PWyxxdJY3Ngi7T',
+    stripeProductId: 'prod_UCeccHHqYiyHkx',
+  },
+  {
+    id: 'wm_addon_sermorelin',
+    name: 'Sermorelin Injection',
+    category: 'addons',
+    price: 9900,
+    description: 'Sermorelin - growth hormone peptide for recovery & body composition',
+    months: 1,
+    isRecurring: false,
+    stripePriceId: 'price_1TEFKJDfH4PWyxxdDZkq3vD5',
+    stripeProductId: 'prod_UCedooudkXU3wv',
+  },
+  {
+    id: 'wm_addon_b12',
+    name: 'Cyanocobalamin (B12)',
+    category: 'addons',
+    price: 6900,
+    description: 'B12 Injection - energy, nerve function & metabolism',
+    months: 1,
+    isRecurring: false,
+    stripePriceId: 'price_1TEFJ8DfH4PWyxxdgUpek4Yt',
+    stripeProductId: 'prod_UCecRG8V4M0clF',
+  },
+  {
+    id: 'wm_addon_elite_bundle',
+    name: 'Elite Bundle (NAD+, Sermorelin, B12)',
+    category: 'addons',
+    price: 17900,
+    description: 'All 3 add-ons at a discounted rate — save $88',
+    months: 1,
+    isRecurring: false,
+    stripePriceId: 'price_1TEFKjDfH4PWyxxd4roD32Ae',
+    stripeProductId: 'prod_UCeexMS9tJNMoL',
+  },
 ];
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -697,6 +744,7 @@ const LEGACY_CATEGORY_LABELS: Record<string, string> = {
   upsales: 'Upsales',
   bloodwork: 'Bloodwork',
   additional_treatments: 'Additional Monthly Treatments',
+  addons: 'Add-on Products',
   shipping: 'Shipping',
 };
 
