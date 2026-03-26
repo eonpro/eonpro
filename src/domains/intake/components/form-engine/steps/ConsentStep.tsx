@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { useLanguage } from '../../../contexts/LanguageContext';
-import { useIntakeActions } from '../../../store/intakeStore';
+import { useIntakeActions, useIntakeStore } from '../../../store/intakeStore';
 
 interface ConsentStepProps {
   basePath: string;
@@ -22,6 +22,8 @@ export default function ConsentStep({
   const router = useRouter();
   const { language } = useLanguage();
   const isSpanish = language === 'es';
+  const clinicSlug = useIntakeStore((s) => s.clinicSlug);
+  const isOt = clinicSlug === 'ot' || clinicSlug === 'otmens';
   const [agreed, setAgreed] = useState(false);
   const { setResponse, markStepCompleted, setCurrentStep } = useIntakeActions();
 
@@ -86,7 +88,7 @@ export default function ConsentStep({
 
           <div className="space-y-2">
             {/* Health Priority Card */}
-            <div className="bg-[#f0feab] rounded-2xl overflow-hidden flex h-24 relative">
+            <div className={`${isOt ? 'bg-[#f5ecd8]' : 'bg-[#f0feab]'} rounded-2xl overflow-hidden flex h-24 relative`}>
               <div className="absolute left-0 top-0 bottom-0 w-24">
                 <Image
                   src="https://static.wixstatic.com/media/c49a9b_427c597844f246fa8df26446b6f5d59a~mv2.png"
@@ -110,7 +112,7 @@ export default function ConsentStep({
             </div>
 
             {/* Doctor Review Card */}
-            <div className="bg-[#e4fb74] rounded-2xl overflow-hidden flex h-24 relative">
+            <div className={`${isOt ? 'bg-[#e8dcc4]' : 'bg-[#e4fb74]'} rounded-2xl overflow-hidden flex h-24 relative`}>
               <div className="absolute left-0 top-0 bottom-0 w-24">
                 <Image
                   src="https://static.wixstatic.com/media/c49a9b_5e690e4cf43e4e769ef7d4e9f5691a5b~mv2.webp"

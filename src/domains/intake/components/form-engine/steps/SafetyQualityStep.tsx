@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLanguage } from '../../../contexts/LanguageContext';
-import { useIntakeActions } from '../../../store/intakeStore';
+import { useIntakeActions, useIntakeStore } from '../../../store/intakeStore';
 
 interface SafetyQualityStepProps {
   basePath: string;
@@ -21,6 +21,8 @@ export default function SafetyQualityStep({
   const router = useRouter();
   const { language } = useLanguage();
   const isSpanish = language === 'es';
+  const clinicSlug = useIntakeStore((s) => s.clinicSlug);
+  const isOt = clinicSlug === 'ot' || clinicSlug === 'otmens';
   const { markStepCompleted, setCurrentStep } = useIntakeActions();
   const hasNavigated = useRef(false);
   const [animate, setAnimate] = useState(false);
@@ -82,7 +84,7 @@ export default function SafetyQualityStep({
 
       <div className="flex-1 flex flex-col px-6 lg:px-8 py-8 pb-40 max-w-md lg:max-w-2xl mx-auto w-full">
         <div 
-          className={`bg-[#e5fbab] rounded-3xl p-6 md:p-8 transition-all duration-700 ease-out
+          className={`${isOt ? 'bg-[#f5ecd8]' : 'bg-[#e5fbab]'} rounded-3xl p-6 md:p-8 transition-all duration-700 ease-out
             hover:shadow-xl cursor-pointer
             ${animate ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}`}
         >
@@ -106,8 +108,8 @@ export default function SafetyQualityStep({
                 style={{ transitionDelay: '350ms' }}
               >
                 {isSpanish
-                  ? 'EONMeds colabora con algunas de las mejores farmacias 503A licenciadas del país para elaborar tratamientos personalizados y seguros para ti.'
-                  : 'EONMeds collaborates with some of the best 503A licensed pharmacies in the country to develop personalized and safe treatments for you.'}
+                  ? (isOt ? 'Optimize by OT Men\'s Health colabora con algunas de las mejores farmacias 503A licenciadas del país para elaborar tratamientos personalizados y seguros para ti.' : 'EONMeds colabora con algunas de las mejores farmacias 503A licenciadas del país para elaborar tratamientos personalizados y seguros para ti.')
+                  : (isOt ? 'Optimize by OT Men\'s Health collaborates with some of the best 503A licensed pharmacies in the country to develop personalized and safe treatments for you.' : 'EONMeds collaborates with some of the best 503A licensed pharmacies in the country to develop personalized and safe treatments for you.')}
               </p>
             </div>
 

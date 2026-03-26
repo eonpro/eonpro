@@ -23,6 +23,8 @@ export default function ReviewStep({
   const isSpanish = language === 'es';
   
   const responses = useIntakeStore((state) => state.responses);
+  const clinicSlug = useIntakeStore((s) => s.clinicSlug);
+  const isOt = clinicSlug === 'ot' || clinicSlug === 'otmens';
   const { markStepCompleted, setCurrentStep } = useIntakeActions();
   
   const [confirmed, setConfirmed] = useState(false);
@@ -105,7 +107,7 @@ export default function ReviewStep({
               type="button"
               onClick={() => setConfirmed(!confirmed)}
               className={`mt-0.5 flex-shrink-0 w-5 h-5 rounded flex items-center justify-center ${
-                confirmed ? 'bg-[#f0feab]' : 'bg-white'
+                confirmed ? (isOt ? 'bg-[#f5ecd8]' : 'bg-[#f0feab]') : 'bg-white'
               }`}
               style={{ border: '1.5px solid #413d3d' }}
             >

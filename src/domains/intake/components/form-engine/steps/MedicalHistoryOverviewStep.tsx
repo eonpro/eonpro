@@ -21,6 +21,8 @@ export function MedicalHistoryOverviewStep({
   const router = useRouter();
   const { language } = useLanguage();
   const responses = useIntakeStore((state) => state.responses);
+  const clinicSlug = useIntakeStore((s) => s.clinicSlug);
+  const isOt = clinicSlug === 'ot' || clinicSlug === 'otmens';
   const isSpanish = language === 'es';
   const [mounted, setMounted] = useState(false);
   const hasNavigated = useRef(false);
@@ -134,7 +136,7 @@ export function MedicalHistoryOverviewStep({
 
           <div className="relative">
             <div 
-              className={`absolute left-[11px] top-3 w-[2px] bg-gradient-to-b from-gray-300 via-[#4fa87f] to-gray-200 transition-all duration-1000 ease-out ${
+              className={`absolute left-[11px] top-3 w-[2px] bg-gradient-to-b from-gray-300 ${isOt ? 'via-[#cab172]' : 'via-[#4fa87f]'} to-gray-200 transition-all duration-1000 ease-out ${
                 showStep3 ? 'bottom-3' : 'bottom-full'
               }`}
             ></div>
@@ -164,11 +166,11 @@ export function MedicalHistoryOverviewStep({
               }`}
             >
               <div className="relative z-10 mt-5">
-                <div className="absolute inset-0 w-6 h-6 bg-[#4fa87f] rounded-full opacity-40 animate-ping"></div>
-                <div className="absolute inset-[-4px] w-[34px] h-[34px] bg-[#4fa87f]/20 rounded-full animate-pulse"></div>
-                <div className="relative w-6 h-6 bg-[#4fa87f] rounded-full shadow-lg shadow-[#4fa87f]/30"></div>
+                <div className={`absolute inset-0 w-6 h-6 ${isOt ? 'bg-[#cab172]' : 'bg-[#4fa87f]'} rounded-full opacity-40 animate-ping`}></div>
+                <div className={`absolute inset-[-4px] w-[34px] h-[34px] ${isOt ? 'bg-[#cab172]/20' : 'bg-[#4fa87f]/20'} rounded-full animate-pulse`}></div>
+                <div className={`relative w-6 h-6 ${isOt ? 'bg-[#cab172]' : 'bg-[#4fa87f]'} rounded-full shadow-lg ${isOt ? 'shadow-[#cab172]/30' : 'shadow-[#4fa87f]/30'}`}></div>
               </div>
-              <div className="flex-1 bg-[#f0feab] rounded-2xl p-5 shadow-lg shadow-[#f0feab]/30 transform hover:scale-[1.02] transition-transform">
+              <div className={`flex-1 ${isOt ? 'bg-[#f5ecd8]' : 'bg-[#f0feab]'} rounded-2xl p-5 shadow-lg ${isOt ? 'shadow-[#f5ecd8]/30' : 'shadow-[#f0feab]/30'} transform hover:scale-[1.02] transition-transform`}>
                 <h2 className="text-lg font-semibold text-[#413d3d] mb-2">
                   {isSpanish ? 'Historial Médico' : 'Medical History'}
                 </h2>

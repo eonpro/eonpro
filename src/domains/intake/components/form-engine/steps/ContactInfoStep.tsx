@@ -23,6 +23,8 @@ export default function ContactInfoStep({
   const isSpanish = language === 'es';
   
   const responses = useIntakeStore((state) => state.responses);
+  const clinicSlug = useIntakeStore((s) => s.clinicSlug);
+  const isOt = clinicSlug === 'ot' || clinicSlug === 'otmens';
   const { setResponse, markStepCompleted, setCurrentStep } = useIntakeActions();
   
   const [email, setEmail] = useState(String(responses.email || ''));
@@ -179,8 +181,8 @@ export default function ContactInfoStep({
           <div className="info-container">
             <p className="text-xs leading-relaxed">
               {isSpanish
-                ? 'Al proporcionar tu número y continuar, consientes recibir mensajes de texto de EONPro. Pueden aplicarse tarifas de mensajes y datos.'
-                : 'By providing your number and continuing, you consent to receive text messages from EONPro. Message and data rates may apply.'}
+                ? (isOt ? 'Al proporcionar tu número y continuar, consientes recibir mensajes de texto de OT Mens / EONPro. Pueden aplicarse tarifas de mensajes y datos.' : 'Al proporcionar tu número y continuar, consientes recibir mensajes de texto de EONPro. Pueden aplicarse tarifas de mensajes y datos.')
+                : (isOt ? 'By providing your number and continuing, you consent to receive text messages from OT Mens / EONPro. Message and data rates may apply.' : 'By providing your number and continuing, you consent to receive text messages from EONPro. Message and data rates may apply.')}
             </p>
           </div>
         </div>

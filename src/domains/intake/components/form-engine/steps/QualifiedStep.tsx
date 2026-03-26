@@ -76,6 +76,8 @@ export default function QualifiedStep({ basePath, prevStep }: QualifiedStepProps
   const confettiRef = useRef(false);
   const submittedRef = useRef(false);
   const isSpanish = language === 'es';
+  const clinicSlug = useIntakeStore((s) => s.clinicSlug);
+  const isOt = clinicSlug === 'ot' || clinicSlug === 'otmens';
   const t = (key: keyof typeof T) => T[key][language];
 
   const glp1Type = (responses.glp1_type as string) || '';
@@ -134,7 +136,7 @@ export default function QualifiedStep({ basePath, prevStep }: QualifiedStepProps
       if (!confetti) return;
       const end = Date.now() + 3000;
       const frame = () => {
-        confetti({ particleCount: 10, angle: 270, spread: 180, origin: { x: 0.5, y: 0 }, gravity: 1.5, startVelocity: 30, colors: ['#7cb342', '#aed581', '#e8f5d9', '#4fa87f', '#66bb6a', '#81c784'] });
+        confetti({ particleCount: 10, angle: 270, spread: 180, origin: { x: 0.5, y: 0 }, gravity: 1.5, startVelocity: 30, colors: isOt ? ['#cab172', '#f5ecd8', '#413d3d', '#d4a843', '#e8d5a0'] : ['#7cb342', '#aed581', '#e8f5d9', '#4fa87f', '#66bb6a', '#81c784'] });
         if (Date.now() < end) requestAnimationFrame(frame);
       };
       frame();
@@ -200,9 +202,9 @@ export default function QualifiedStep({ basePath, prevStep }: QualifiedStepProps
 
         {/* Phase 2: Smart medication recommendation */}
         <div className={`transition-all duration-700 ease-out ${showPhase2 ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
-          {segment === 'sema-user' && <SemaUpgradeCard isSpanish={isSpanish} t={t} onUpgrade={() => goCheckout('tirzepatide')} onStay={() => goCheckout('semaglutide')} />}
-          {segment === 'tirz-user' && <TirzContinueCard isSpanish={isSpanish} t={t} onContinue={() => goCheckout('tirzepatide')} />}
-          {segment === 'new-user' && <MedCompareCard isSpanish={isSpanish} t={t} onSelectSema={() => goCheckout('semaglutide')} onSelectTirz={() => goCheckout('tirzepatide')} />}
+          {segment === 'sema-user' && <SemaUpgradeCard isSpanish={isSpanish} t={t} onUpgrade={() => goCheckout('tirzepatide')} onStay={() => goCheckout('semaglutide')} isOt={isOt} />}
+          {segment === 'tirz-user' && <TirzContinueCard isSpanish={isSpanish} t={t} onContinue={() => goCheckout('tirzepatide')} isOt={isOt} />}
+          {segment === 'new-user' && <MedCompareCard isSpanish={isSpanish} t={t} onSelectSema={() => goCheckout('semaglutide')} onSelectTirz={() => goCheckout('tirzepatide')} isOt={isOt} />}
         </div>
       </div>
 
@@ -217,25 +219,25 @@ export default function QualifiedStep({ basePath, prevStep }: QualifiedStepProps
    Sub-components
    ============================================================ */
 
-function MedCard({ name, tag, loss, price, cta, badge, highlighted, onClick, btnLabel }: {
+function MedCard({ name, tag, loss, price, cta, badge, highlighted, onClick, btnLabel, isOt }: {
   name: string; tag: string; loss: string; price: string; cta: string;
-  badge?: string; highlighted?: boolean; onClick: () => void; btnLabel: string;
+  badge?: string; highlighted?: boolean; onClick: () => void; btnLabel: string; isOt?: boolean;
 }) {
   return (
-    <div className={`rounded-2xl p-5 space-y-3 border-2 transition-all ${highlighted ? 'border-[#4fa87f] bg-[#f0feab]/30' : 'border-gray-200 bg-white'}`}>
+    <div className={`rounded-2xl p-5 space-y-3 border-2 transition-all ${highlighted ? (isOt ? 'border-[#cab172] bg-[#f5ecd8]/30' : 'border-[#4fa87f] bg-[#f0feab]/30') : 'border-gray-200 bg-white'}`}>
       {badge && (
-        <span className="inline-block text-xs font-semibold px-3 py-1 rounded-full bg-[#4fa87f] text-white">{badge}</span>
+        <span className={`inline-block text-xs font-semibold px-3 py-1 rounded-full ${isOt ? 'bg-[#cab172]' : 'bg-[#4fa87f]'} text-white`}>{badge}</span>
       )}
       <h3 className="text-lg font-bold text-[#413d3d]">{name}</h3>
       <p className="text-sm text-gray-500">{tag}</p>
       <div className="space-y-1.5">
         <div className="flex items-center gap-2">
-          <svg className="w-4 h-4 text-[#4fa87f] flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
+          <svg className={`w-4 h-4 ${isOt ? 'text-[#cab172]' : 'text-[#4fa87f]'} flex-shrink-0`} fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
           <span className="text-sm text-[#413d3d] font-medium">{loss}</span>
         </div>
         {price && (
           <div className="flex items-center gap-2">
-            <svg className="w-4 h-4 text-[#4fa87f] flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
+            <svg className={`w-4 h-4 ${isOt ? 'text-[#cab172]' : 'text-[#4fa87f]'} flex-shrink-0`} fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
             <span className="text-sm text-[#413d3d] font-medium">{price}</span>
           </div>
         )}
@@ -255,8 +257,8 @@ function MedCard({ name, tag, loss, price, cta, badge, highlighted, onClick, btn
   );
 }
 
-function SemaUpgradeCard({ isSpanish, t, onUpgrade, onStay }: {
-  isSpanish: boolean; t: (k: keyof typeof T) => string; onUpgrade: () => void; onStay: () => void;
+function SemaUpgradeCard({ isSpanish, t, onUpgrade, onStay, isOt }: {
+  isSpanish: boolean; t: (k: keyof typeof T) => string; onUpgrade: () => void; onStay: () => void; isOt?: boolean;
 }) {
   return (
     <div className="space-y-4">
@@ -275,6 +277,7 @@ function SemaUpgradeCard({ isSpanish, t, onUpgrade, onStay }: {
           highlighted
           onClick={onUpgrade}
           btnLabel={t('btnUpgrade')}
+          isOt={isOt}
         />
         <MedCard
           name={t('semaName')}
@@ -284,6 +287,7 @@ function SemaUpgradeCard({ isSpanish, t, onUpgrade, onStay }: {
           cta={t('semaCta')}
           onClick={onStay}
           btnLabel={t('btnStaySema')}
+          isOt={isOt}
         />
       </div>
       <p className="text-xs text-gray-400 text-center">{t('discounts')}</p>
@@ -291,8 +295,8 @@ function SemaUpgradeCard({ isSpanish, t, onUpgrade, onStay }: {
   );
 }
 
-function TirzContinueCard({ isSpanish, t, onContinue }: {
-  isSpanish: boolean; t: (k: keyof typeof T) => string; onContinue: () => void;
+function TirzContinueCard({ isSpanish, t, onContinue, isOt }: {
+  isSpanish: boolean; t: (k: keyof typeof T) => string; onContinue: () => void; isOt?: boolean;
 }) {
   return (
     <div className="space-y-4">
@@ -309,14 +313,15 @@ function TirzContinueCard({ isSpanish, t, onContinue }: {
         highlighted
         onClick={onContinue}
         btnLabel={t('btnContinueTirz')}
+        isOt={isOt}
       />
       <p className="text-xs text-gray-400 text-center">{t('discounts')}</p>
     </div>
   );
 }
 
-function MedCompareCard({ isSpanish, t, onSelectSema, onSelectTirz }: {
-  isSpanish: boolean; t: (k: keyof typeof T) => string; onSelectSema: () => void; onSelectTirz: () => void;
+function MedCompareCard({ isSpanish, t, onSelectSema, onSelectTirz, isOt }: {
+  isSpanish: boolean; t: (k: keyof typeof T) => string; onSelectSema: () => void; onSelectTirz: () => void; isOt?: boolean;
 }) {
   return (
     <div className="space-y-4">
@@ -333,6 +338,7 @@ function MedCompareCard({ isSpanish, t, onSelectSema, onSelectTirz }: {
           cta={t('semaCta')}
           onClick={onSelectSema}
           btnLabel={t('btnSelectSema')}
+          isOt={isOt}
         />
         <MedCard
           name={t('tirzName')}
@@ -343,6 +349,7 @@ function MedCompareCard({ isSpanish, t, onSelectSema, onSelectTirz }: {
           highlighted
           onClick={onSelectTirz}
           btnLabel={t('btnSelectTirz')}
+          isOt={isOt}
         />
       </div>
       <p className="text-xs text-gray-400 text-center">{t('discounts')}</p>
