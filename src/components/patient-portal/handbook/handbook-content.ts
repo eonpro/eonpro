@@ -1,12 +1,14 @@
 export interface HandbookSubsection {
   heading: string;
   body: string;
+  callout?: string;
 }
 
 export interface HandbookSection {
   id: string;
   number: number;
   title: string;
+  subtitle?: string;
   subsections: HandbookSubsection[];
 }
 
@@ -19,6 +21,7 @@ export const handbookSections: HandbookSection[] = [
     id: 'understanding-your-program',
     number: 1,
     title: 'Understanding Your Program',
+    subtitle: 'What makes medically guided weight loss different from dieting',
     subsections: [
       {
         heading: 'What Makes This Program Different',
@@ -33,6 +36,8 @@ Your treatment includes:
 - Long-term metabolic support
 
 Unlike traditional weight loss methods, this program targets the biological drivers of weight gain — not just willpower.`,
+        callout:
+          'This program targets the biology of weight gain. It works with your body, not against it.',
       },
       {
         heading: 'The Science Behind GLP-1 & GIP',
@@ -55,9 +60,9 @@ Unlike traditional weight loss methods, this program targets the biological driv
         heading: 'Why Most Diets Fail — And Why This Works',
         body: `Most diets fail because they ignore biology:
 
-- Hunger hormones increase
-- Metabolism slows
-- Cravings intensify
+- Hunger hormones increase after calorie restriction
+- Metabolism slows to conserve energy
+- Cravings intensify as the body fights back
 
 GLP-1 therapy corrects these imbalances, making weight loss more predictable, more sustainable, and less mentally exhausting.`,
       },
@@ -66,7 +71,8 @@ GLP-1 therapy corrects these imbalances, making weight loss more predictable, mo
   {
     id: 'realistic-timeline',
     number: 2,
-    title: 'What to Expect — Realistic Timeline',
+    title: 'What to Expect',
+    subtitle: 'A realistic timeline from your first dose to long-term results',
     subsections: [
       {
         heading: 'Phase 1: Adjustment (Weeks 1–4)',
@@ -89,9 +95,9 @@ This phase is about adjustment. Your body is learning to work with the medicatio
 
 - Consistent weight loss begins
 - Cravings significantly decrease
-- Portion sizes naturally shrink
-
-**Key shift:** You stop thinking about food constantly. The mental burden of dieting begins to lift, and healthier choices become the default.`,
+- Portion sizes naturally shrink`,
+        callout:
+          'Key shift: You stop thinking about food constantly. The mental burden of dieting begins to lift.',
       },
       {
         heading: 'Phase 3: Optimization (3+ Months)',
@@ -108,7 +114,8 @@ Your body has adapted to the medication, and the focus shifts to sustaining and 
   {
     id: 'dosing',
     number: 3,
-    title: 'Dosing — What You Need to Know',
+    title: 'Dosing',
+    subtitle: 'Why your dose increases gradually and what to expect at each step',
     subsections: [
       {
         heading: 'Why Dosing Is Gradual',
@@ -129,6 +136,8 @@ Your provider will personalize your schedule based on how you respond.`,
         body: `- **Never double dose** — if you miss a dose, follow the missed-dose protocol
 - **Never increase without provider guidance** — more medication does not mean faster results
 - **Consistency is more important than speed** — steady progress leads to lasting results`,
+        callout:
+          'More medication does not mean faster results. Trust the protocol.',
       },
     ],
   },
@@ -136,6 +145,7 @@ Your provider will personalize your schedule based on how you respond.`,
     id: 'injection-mastery',
     number: 4,
     title: 'Injection Mastery',
+    subtitle: 'Everything you need to know about self-injection technique',
     subsections: [
       {
         heading: 'Subcutaneous Injection Explained',
@@ -181,13 +191,16 @@ The injection is simple and most patients become comfortable with it within the 
   {
     id: 'side-effects',
     number: 5,
-    title: 'Side Effects — Deep Understanding',
+    title: 'Side Effects',
+    subtitle: 'What to expect, why it happens, and how to manage it',
     subsections: [
       {
         heading: 'Why Side Effects Happen',
         body: `Your digestive system is slowing down. This is intentional — it's how the medication reduces appetite and helps you eat less naturally.
 
 Most side effects are a sign the medication is working, not that something is wrong.`,
+        callout:
+          'Side effects are a sign the medication is active, not that something is wrong.',
       },
       {
         heading: 'Nausea',
@@ -237,9 +250,103 @@ Most side effects are a sign the medication is working, not that something is wr
     ],
   },
   {
-    id: 'nutrition',
+    id: 'food-and-digestion',
     number: 6,
-    title: 'Nutrition — This Determines Your Results',
+    title: 'Side Effects & What You Eat',
+    subtitle:
+      'How GLP-1 medications change your digestion — and why food choices directly affect how you feel',
+    subsections: [
+      {
+        heading: 'Your Digestion Is Different Now',
+        body: `GLP-1 medications work by significantly slowing gastric emptying — the rate at which food leaves your stomach and moves through your digestive tract. This is the primary mechanism that reduces hunger and helps you eat less.
+
+But it also means food stays in your stomach much longer than it used to. A meal that previously would have been digested in 2–3 hours may now take 4–6 hours or more. This fundamental change means the types of food you eat have a much bigger impact on how you feel.`,
+        callout:
+          'Food stays in your stomach 2–3x longer on GLP-1 medication. What you eat now directly determines how you feel.',
+      },
+      {
+        heading: 'Why Certain Foods Cause Problems',
+        body: `When digestion is slowed, foods that are hard to break down stay in your system even longer. This is why the same meal that was fine before you started medication may now cause nausea, bloating, cramping, or discomfort.
+
+**High-fat foods** are the biggest trigger. Fat is already the slowest macronutrient to digest. Combine slow-digesting fat with medication-slowed gastric emptying, and food can sit in your stomach for many hours — leading to nausea, acid reflux, and a heavy uncomfortable feeling.
+
+**Fried and greasy foods** are especially problematic. The combination of fat, oil, and heavy breading creates a dense mass that your slowed digestive system struggles to process. This is the single most common trigger for severe nausea on GLP-1 medications.
+
+**Very large meals** overwhelm a digestive system that is now working at a slower pace. Eating until you feel "full" on this medication usually means you've already eaten too much — the delayed stomach emptying means your brain doesn't receive the "stop" signal as quickly as it used to.`,
+      },
+      {
+        heading: 'The Food-Symptom Connection',
+        body: `Understanding which foods commonly trigger which symptoms can help you make better choices:
+
+**Nausea is most triggered by:**
+- Fried foods (french fries, fried chicken, doughnuts)
+- Very fatty meals (cheeseburgers, pizza, creamy pasta)
+- Eating too much in one sitting
+- Eating too quickly
+- Rich desserts (ice cream, cake, pastries)
+
+**Bloating and cramping are most triggered by:**
+- Carbonated beverages (soda, sparkling water, beer)
+- High-fiber foods eaten in large amounts without enough water
+- Beans and legumes in large portions (especially early in treatment)
+- Raw cruciferous vegetables in excess (broccoli, cauliflower, cabbage)
+- Sugar alcohols in "sugar-free" products (sorbitol, xylitol, erythritol)
+
+**Constipation is worsened by:**
+- Low water intake (the most common cause)
+- Low fiber intake
+- Too much dairy or cheese
+- Processed carbohydrates (white bread, crackers, rice)
+- Sedentary behavior
+
+**Acid reflux and heartburn are triggered by:**
+- Spicy foods
+- Citrus and tomato-based foods on an empty stomach
+- Chocolate and coffee in excess
+- Eating close to bedtime
+- Large meals that keep the stomach full longer`,
+      },
+      {
+        heading: 'Foods That Work With Your Medication',
+        body: `Just as some foods make side effects worse, others actually help your digestion work smoothly with the medication:
+
+**Best-tolerated foods on GLP-1:**
+- Lean proteins (chicken, turkey, fish, eggs) — easy to digest, high satiety
+- Cooked vegetables — gentler on the stomach than raw
+- Complex carbs in moderate portions (sweet potato, quinoa, oatmeal)
+- Soups and broth-based meals — hydrating and easy to digest
+- Smooth textures (yogurt, hummus, pureed soups)
+
+**Eating patterns that minimize side effects:**
+- Eat slowly — take 20–30 minutes per meal minimum
+- Stop at the first sign of satisfaction, not fullness
+- Eat 4–5 smaller meals instead of 2–3 large ones
+- Protein first, then vegetables, then carbs
+- Wait at least 3–4 hours between substantial meals to allow your stomach to empty`,
+        callout:
+          'Eat protein first, then vegetables, then carbs. Stop at satisfaction, not fullness. These two rules prevent most side effects.',
+      },
+      {
+        heading: 'The First 48 Hours After a Dose Increase',
+        body: `Side effects tend to peak in the 24–48 hours after each dose increase. During this window, be especially careful with your food choices.
+
+**Recommended approach after a dose increase:**
+- Stick to bland, easy-to-digest foods for the first 2–3 days
+- Eat smaller portions than usual
+- Avoid fried, greasy, or heavy foods completely
+- Stay well hydrated
+- Ginger tea or ginger chews can help settle your stomach
+- Don't test your limits with food — this is not the time to eat out at a restaurant
+
+After your body adjusts (usually within a week), you can gradually return to your normal food choices while still following the general guidelines above.`,
+      },
+    ],
+  },
+  {
+    id: 'nutrition',
+    number: 7,
+    title: 'Nutrition',
+    subtitle: 'Eat less, but eat smarter — every bite matters more now',
     subsections: [
       {
         heading: 'The Golden Rule: Eat Less, But Eat Smarter',
@@ -263,6 +370,8 @@ Focus on nutrient density — getting the most nutrition from the fewest calorie
 - Greek yogurt and cottage cheese
 - Legumes, tofu, tempeh
 - Protein shakes or bars as needed`,
+        callout:
+          'Aim for 0.7–1g of protein per pound of goal body weight. Eat it first at every meal.',
       },
       {
         heading: 'Ideal Meal Structure',
@@ -290,8 +399,9 @@ These foods can trigger nausea, slow your progress, and provide empty calories t
   },
   {
     id: 'hydration',
-    number: 7,
+    number: 8,
     title: 'Hydration & Electrolytes',
+    subtitle: 'Why water is even more important on GLP-1 medication',
     subsections: [
       {
         heading: 'Why Hydration Is Critical',
@@ -319,8 +429,9 @@ Many patients don't realize they're under-hydrated because they simply don't fee
   },
   {
     id: 'exercise',
-    number: 8,
-    title: 'Exercise (Smart Approach)',
+    number: 9,
+    title: 'Exercise',
+    subtitle: 'A smart, sustainable approach — not extreme workouts',
     subsections: [
       {
         heading: 'You Don\'t Need Extreme Workouts',
@@ -348,16 +459,19 @@ Consistency beats intensity. A daily walk does more than one intense workout per
   },
   {
     id: 'plateaus',
-    number: 9,
+    number: 10,
     title: 'Plateaus',
+    subtitle: 'Why weight loss stalls happen and what to do about them',
     subsections: [
       {
         heading: 'Weight Loss Is Not Linear',
         body: `Every patient experiences plateaus. The normal pattern is:
 
-**Lose → Stall → Lose again**
+**Lose, stall, lose again.**
 
 This is not a sign the medication stopped working. It's a sign your body is adjusting.`,
+        callout:
+          'Plateaus are a normal part of the process. The patients who get the best results are the ones who stay steady.',
       },
       {
         heading: 'Why Plateaus Happen',
@@ -372,16 +486,15 @@ This is not a sign the medication stopped working. It's a sign your body is adju
 - **Do NOT increase your dose without provider guidance** — plateaus are rarely about dose
 - **Review your nutrition** — are you eating enough protein? Drinking enough water?
 - **Increase activity slightly** — add an extra walk or an additional strength session
-- **Trust the process** — plateaus typically resolve within 1–3 weeks
-
-The patients who get the best long-term results are the ones who stay steady during plateaus.`,
+- **Trust the process** — plateaus typically resolve within 1–3 weeks`,
       },
     ],
   },
   {
     id: 'long-term-success',
-    number: 10,
-    title: 'Long-Term Success Strategy',
+    number: 11,
+    title: 'Long-Term Success',
+    subtitle: 'Medication helps you lose weight — habits keep it off',
     subsections: [
       {
         heading: 'This Is the Most Important Section',
@@ -413,8 +526,9 @@ Your provider will work with you to create a personalized long-term plan. The go
   },
   {
     id: 'red-flags',
-    number: 11,
-    title: 'Red Flags — When to Act Fast',
+    number: 12,
+    title: 'Red Flags',
+    subtitle: 'When to contact your provider immediately',
     subsections: [
       {
         heading: 'Contact Your Provider Immediately',
@@ -433,11 +547,12 @@ Don't wait or try to push through these symptoms. Early intervention prevents co
   },
   {
     id: 'support-system',
-    number: 12,
+    number: 13,
     title: 'Your Support System',
+    subtitle: 'You are not doing this alone',
     subsections: [
       {
-        heading: 'You Are Not Doing This Alone',
+        heading: 'Your Care Team',
         body: `Your program includes a complete support team:
 
 - **Medical providers** — overseeing your treatment and adjusting your plan
@@ -451,8 +566,9 @@ Reach out to your team whenever you have questions, concerns, or need encouragem
   },
   {
     id: 'faq',
-    number: 13,
+    number: 14,
     title: 'Frequently Asked Questions',
+    subtitle: 'Quick answers to the most common questions',
     subsections: [
       {
         heading: 'Can I drink alcohol?',
@@ -488,7 +604,7 @@ Your provider will work with you to determine the optimal duration and develop a
   },
   {
     id: 'final-message',
-    number: 14,
+    number: 15,
     title: 'Final Message',
     subsections: [
       {

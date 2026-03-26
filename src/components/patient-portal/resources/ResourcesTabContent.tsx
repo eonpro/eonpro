@@ -87,7 +87,7 @@ const defaultResources: Resource[] = [
   {
     id: 'a-handbook',
     title: 'GLP-1 Patient Handbook',
-    description: 'Complete medical & lifestyle guide to your weight loss journey — 14 sections',
+    description: 'Complete medical & lifestyle guide to your weight loss journey — 15 sections',
     type: 'article',
     category: 'Guides',
     url: '/patient-portal/handbook',
