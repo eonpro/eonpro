@@ -137,6 +137,11 @@ interface DailyReportData {
     avgPerDay: number;
   };
   range: { from: string; to: string };
+  rep?: { id: number; name: string };
+  hourlyDistribution?: Array<{ hour: number; total: number }>;
+  peakHour?: { hour: number; count: number };
+  bestDay?: { date: string; total: number };
+  worstDay?: { date: string; total: number };
 }
 
 interface PerformanceInterval {
@@ -908,6 +913,17 @@ function AuditLog() {
   });
   const [reportTo, setReportTo] = useState(() => calendarTodayServer());
   const [expandedDay, setExpandedDay] = useState<string | null>(null);
+  const [showIndividualReport, setShowIndividualReport] = useState(false);
+  const individualReportRef = useRef<HTMLDivElement>(null);
+  const [individualRepId, setIndividualRepId] = useState<number | null>(null);
+  const [individualRepName, setIndividualRepName] = useState<string | null>(null);
+  const [individualReport, setIndividualReport] = useState<DailyReportData | null>(null);
+  const [individualReportLoading, setIndividualReportLoading] = useState(false);
+  const [individualFrom, setIndividualFrom] = useState(() => {
+    const d = new Date(); d.setDate(d.getDate() - 29);
+    return instantToCalendarDate(d);
+  });
+  const [individualTo, setIndividualTo] = useState(() => calendarTodayServer());
   const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const fetchStats = useCallback(async () => {
@@ -938,6 +954,29 @@ function AuditLog() {
     } catch { /* non-critical */ }
     finally { setDailyReportLoading(false); }
   }, []);
+
+  const fetchIndividualReport = useCallback(async (repId: number, from: string, to: string) => {
+    setIndividualReportLoading(true);
+    try {
+      const res = await apiFetch(`/api/package-photos?daily-report=true&repId=${repId}&from=${from}&to=${to}`);
+      if (res.ok) {
+        const json = await res.json();
+        setIndividualReport(json.data);
+      }
+    } catch { /* non-critical */ }
+    finally { setIndividualReportLoading(false); }
+  }, []);
+
+  const handleSelectRepForReport = useCallback((repId: number, repName: string) => {
+    setIndividualRepId(repId);
+    setIndividualRepName(repName);
+    setShowIndividualReport(true);
+    setIndividualReport(null);
+    fetchIndividualReport(repId, individualFrom, individualTo);
+    setTimeout(() => {
+      individualReportRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
+  }, [fetchIndividualReport, individualFrom, individualTo]);
 
   const fetchPhotos = useCallback(
     async (searchVal: string, matchVal: string, periodVal: string, sortByVal: string, sortOrderVal: string, pageVal: number, fromVal?: string, toVal?: string) => {
@@ -1188,15 +1227,21 @@ function AuditLog() {
                   {demographics.repBreakdown.map((rep, idx) => {
                     const maxTotal = demographics.repBreakdown[0]?.total || 1;
                     return (
-                      <div key={rep.userId} className="flex items-center gap-3">
+                      <button
+                        key={rep.userId}
+                        onClick={() => handleSelectRepForReport(rep.userId, rep.name)}
+                        className="flex w-full items-center gap-3 rounded-lg px-1 py-1 text-left transition-colors hover:bg-violet-50"
+                        title={`Pull daily performance report for ${rep.name}`}
+                      >
                         <span className="w-5 text-right text-xs font-bold text-gray-300">
                           {idx + 1}
                         </span>
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center justify-between">
-                            <span className="truncate text-sm font-medium text-gray-700">{rep.name}</span>
-                            <span className="ml-2 flex-shrink-0 text-xs text-gray-400">
+                            <span className="truncate text-sm font-medium text-violet-700 underline decoration-violet-300 decoration-dotted underline-offset-2">{rep.name}</span>
+                            <span className="ml-2 flex items-center gap-1.5 flex-shrink-0 text-xs text-gray-400">
                               {rep.total} pkgs &middot; {rep.matchRate}% match
+                              <BarChart3 className="h-3 w-3 text-violet-400 opacity-0 transition-opacity group-hover:opacity-100" />
                             </span>
                           </div>
                           <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-gray-100">
@@ -1212,9 +1257,10 @@ function AuditLog() {
                             </div>
                           </div>
                         </div>
-                      </div>
+                      </button>
                     );
                   })}
+                  <p className="pt-1 text-center text-[10px] text-gray-400">Click a rep to pull their daily report</p>
                 </div>
               )}
             </div>
@@ -1277,6 +1323,386 @@ function AuditLog() {
       </button>
 
       {showPerfReport && <PerformanceReports />}
+
+      {/* ─── Individual Daily Performance Report ─── */}
+      <div ref={individualReportRef} />
+      <button
+        onClick={() => setShowIndividualReport((v) => !v)}
+        className="mb-4 flex w-full items-center justify-between rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-left transition-colors hover:bg-emerald-100"
+      >
+        <span className="flex items-center gap-2 text-sm font-semibold text-emerald-700">
+          <User className="h-4 w-4 text-emerald-600" />
+          Individual Daily Performance Report
+          <span className="rounded-full bg-emerald-200 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
+            Per Rep
+          </span>
+        </span>
+        {showIndividualReport ? <ChevronUp className="h-4 w-4 text-emerald-400" /> : <ChevronDown className="h-4 w-4 text-emerald-400" />}
+      </button>
+
+      {showIndividualReport && (
+        <div className="mb-6 rounded-xl border border-gray-200 bg-white p-4">
+          {/* Controls row */}
+          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end sm:gap-3">
+            {/* Rep selector */}
+            <div>
+              <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-gray-400">Select Rep</label>
+              <select
+                value={individualRepId ?? ''}
+                onChange={(e) => {
+                  const val = e.target.value ? parseInt(e.target.value, 10) : null;
+                  setIndividualRepId(val);
+                  const repObj = demographics?.repBreakdown.find((r) => r.userId === val);
+                  setIndividualRepName(repObj?.name ?? null);
+                  setIndividualReport(null);
+                }}
+                className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+              >
+                <option value="">— Choose a rep —</option>
+                {(demographics?.repBreakdown ?? []).map((rep) => (
+                  <option key={rep.userId} value={rep.userId}>{rep.name} ({rep.total} pkgs)</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Date range */}
+            <div>
+              <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-gray-400">From</label>
+              <input
+                type="date"
+                value={individualFrom}
+                onChange={(e) => setIndividualFrom(e.target.value)}
+                className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-gray-400">To</label>
+              <input
+                type="date"
+                value={individualTo}
+                onChange={(e) => setIndividualTo(e.target.value)}
+                className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+              />
+            </div>
+
+            {/* Pull button */}
+            <button
+              onClick={() => {
+                if (individualRepId) fetchIndividualReport(individualRepId, individualFrom, individualTo);
+              }}
+              disabled={individualReportLoading || !individualRepId}
+              className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
+            >
+              {individualReportLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <BarChart3 className="h-4 w-4" />}
+              Pull Report
+            </button>
+
+            {/* Quick presets */}
+            <div className="flex flex-wrap gap-1.5">
+              {[
+                { label: 'Today', days: 0 },
+                { label: '7 Days', days: 6 },
+                { label: '14 Days', days: 13 },
+                { label: '30 Days', days: 29 },
+              ].map((preset) => (
+                <button
+                  key={preset.label}
+                  onClick={() => {
+                    const to = calendarTodayClient();
+                    const from = preset.days === 0
+                      ? to
+                      : toCalendarDateStringInTz(new Date(Date.now() - preset.days * 86400000), getBrowserIANATimeZone());
+                    setIndividualFrom(from);
+                    setIndividualTo(to);
+                    if (individualRepId) fetchIndividualReport(individualRepId, from, to);
+                  }}
+                  className="rounded-md border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700"
+                >
+                  {preset.label}
+                </button>
+              ))}
+            </div>
+
+            {/* CSV export */}
+            {individualReport && individualReport.days.length > 0 && individualRepName && (
+              <button
+                onClick={() => {
+                  if (!individualReport || !individualRepName) return;
+                  const header = `Individual Daily Report: ${individualRepName}\nDate Range: ${individualReport.range.from} to ${individualReport.range.to}\n\nDate,Day,Total,Matched,Unmatched,Match Rate\n`;
+                  const rows = individualReport.days.map((d) => {
+                    const dayName = new Date(d.date + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'long' });
+                    return `${d.date},${dayName},${d.total},${d.matched},${d.unmatched},${d.matchRate}%`;
+                  }).join('\n');
+                  const summary = `\n\nSummary\nTotal Days,${individualReport.summary.totalDays}\nTotal Packages,${individualReport.summary.totalPackages}\nMatched,${individualReport.summary.totalMatched}\nUnmatched,${individualReport.summary.totalUnmatched}\nMatch Rate,${individualReport.summary.matchRate}%\nAvg/Day,${individualReport.summary.avgPerDay}`;
+                  const hourlySection = individualReport.hourlyDistribution
+                    ? `\n\nHourly Distribution\nHour,Packages\n` + individualReport.hourlyDistribution.map((h) => {
+                      const ampm = h.hour < 12 ? 'AM' : 'PM';
+                      const h12 = h.hour % 12 || 12;
+                      return `${h12}${ampm},${h.total}`;
+                    }).join('\n')
+                    : '';
+                  const blob = new Blob([header + rows + summary + hourlySection], { type: 'text/csv' });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = `${individualRepName.replace(/\s+/g, '-').toLowerCase()}-daily-report-${individualFrom}-to-${individualTo}.csv`;
+                  a.click();
+                  URL.revokeObjectURL(url);
+                }}
+                className="inline-flex items-center gap-1.5 rounded-md border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:border-green-300 hover:bg-green-50 hover:text-green-700"
+              >
+                <FileDown className="h-3.5 w-3.5" />
+                Export CSV
+              </button>
+            )}
+          </div>
+
+          {/* No rep selected */}
+          {!individualRepId && !individualReport && (
+            <div className="py-16 text-center">
+              <User className="mx-auto mb-3 h-10 w-10 text-gray-300" />
+              <p className="text-sm font-medium text-gray-500">Select a rep and click &ldquo;Pull Report&rdquo;</p>
+              <p className="mt-1 text-xs text-gray-400">Or click a rep name in the Rep Activity section above</p>
+            </div>
+          )}
+
+          {/* Loading */}
+          {individualReportLoading && (
+            <div className="flex items-center justify-center py-16">
+              <Loader2 className="h-6 w-6 animate-spin text-emerald-400" />
+            </div>
+          )}
+
+          {/* Report content */}
+          {!individualReportLoading && individualReport && individualRepName && (
+            <div className="space-y-5">
+              {/* Rep name banner */}
+              <div className="flex items-center gap-3 rounded-lg bg-emerald-50 px-4 py-3">
+                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-200">
+                  <User className="h-4 w-4 text-emerald-700" />
+                </div>
+                <div>
+                  <p className="text-base font-bold text-emerald-900">{individualRepName}</p>
+                  <p className="text-xs text-emerald-600">{individualReport.range.from} to {individualReport.range.to}</p>
+                </div>
+              </div>
+
+              {/* Summary cards */}
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+                <div className="rounded-lg bg-gray-50 px-3 py-2.5">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Days Active</p>
+                  <p className="text-xl font-bold text-gray-900">{individualReport.summary.totalDays}</p>
+                </div>
+                <div className="rounded-lg bg-gray-50 px-3 py-2.5">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Total Pkgs</p>
+                  <p className="text-xl font-bold text-gray-900">{individualReport.summary.totalPackages.toLocaleString()}</p>
+                </div>
+                <div className="rounded-lg bg-gray-50 px-3 py-2.5">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Matched</p>
+                  <p className="text-xl font-bold text-emerald-600">{individualReport.summary.totalMatched.toLocaleString()}</p>
+                </div>
+                <div className="rounded-lg bg-gray-50 px-3 py-2.5">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Unmatched</p>
+                  <p className="text-xl font-bold text-amber-600">{individualReport.summary.totalUnmatched.toLocaleString()}</p>
+                </div>
+                <div className="rounded-lg bg-gray-50 px-3 py-2.5">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Match Rate</p>
+                  <p className={`text-xl font-bold ${individualReport.summary.matchRate >= 60 ? 'text-emerald-600' : individualReport.summary.matchRate >= 40 ? 'text-amber-600' : 'text-red-500'}`}>
+                    {individualReport.summary.matchRate}%
+                  </p>
+                </div>
+                <div className="rounded-lg bg-gray-50 px-3 py-2.5">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Avg/Day</p>
+                  <p className="text-xl font-bold text-violet-600">{individualReport.summary.avgPerDay}</p>
+                </div>
+              </div>
+
+              {/* Best/Worst day + Peak hour */}
+              {(individualReport.bestDay || individualReport.peakHour) && (
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                  {individualReport.bestDay && (
+                    <div className="flex items-center gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5">
+                      <TrendingUp className="h-4 w-4 text-emerald-600" />
+                      <div>
+                        <p className="text-[10px] font-semibold uppercase tracking-wider text-emerald-600">Best Day</p>
+                        <p className="text-sm font-bold text-emerald-800">
+                          {new Date(individualReport.bestDay.date + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
+                          <span className="ml-1 text-emerald-600">({individualReport.bestDay.total} pkgs)</span>
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                  {individualReport.worstDay && individualReport.days.length > 1 && (
+                    <div className="flex items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5">
+                      <Activity className="h-4 w-4 text-amber-600" />
+                      <div>
+                        <p className="text-[10px] font-semibold uppercase tracking-wider text-amber-600">Lowest Day</p>
+                        <p className="text-sm font-bold text-amber-800">
+                          {new Date(individualReport.worstDay.date + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
+                          <span className="ml-1 text-amber-600">({individualReport.worstDay.total} pkgs)</span>
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                  {individualReport.peakHour && (
+                    <div className="flex items-center gap-3 rounded-lg border border-violet-200 bg-violet-50 px-3 py-2.5">
+                      <Clock className="h-4 w-4 text-violet-600" />
+                      <div>
+                        <p className="text-[10px] font-semibold uppercase tracking-wider text-violet-600">Peak Hour</p>
+                        <p className="text-sm font-bold text-violet-800">
+                          {individualReport.peakHour.hour % 12 || 12}{individualReport.peakHour.hour < 12 ? 'AM' : 'PM'}
+                          <span className="ml-1 text-violet-600">({individualReport.peakHour.count} pkgs)</span>
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Daily volume bar chart */}
+              {individualReport.days.length > 0 && (
+                <div className="rounded-xl border border-gray-100 bg-white p-4">
+                  <h4 className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-700">
+                    <BarChart3 className="h-4 w-4 text-emerald-500" />
+                    Daily Volume
+                  </h4>
+                  <div className="flex items-end gap-[3px]" style={{ height: 140 }}>
+                    {[...individualReport.days].reverse().map((day) => {
+                      const maxVal = Math.max(...individualReport.days.map((d) => d.total), 1);
+                      const matchedH = (day.matched / maxVal) * 100;
+                      const unmatchedH = (day.unmatched / maxVal) * 100;
+                      const isToday = day.date === calendarTodayClient();
+                      const dayLabel = new Date(day.date + 'T12:00:00').toLocaleDateString(undefined, { month: 'numeric', day: 'numeric' });
+                      return (
+                        <div key={day.date} className="group relative flex flex-1 flex-col items-center">
+                          <div className="absolute -top-12 z-10 hidden min-w-[100px] rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-center shadow-lg group-hover:block">
+                            <p className="text-[10px] font-medium text-gray-500">{new Date(day.date + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}</p>
+                            <p className="text-xs font-bold text-gray-900">{day.total} pkgs</p>
+                            <p className="text-[10px] text-emerald-600">{day.matched}m / {day.unmatched}u</p>
+                          </div>
+                          <div className="flex w-full flex-col items-stretch" style={{ height: 120 }}>
+                            <div className="flex-1" />
+                            {day.unmatched > 0 && (
+                              <div className="w-full rounded-t bg-amber-300 transition-all" style={{ height: `${unmatchedH}%`, minHeight: 2 }} />
+                            )}
+                            {day.matched > 0 && (
+                              <div className={`w-full ${day.unmatched > 0 ? '' : 'rounded-t'} rounded-b bg-emerald-500 transition-all`} style={{ height: `${matchedH}%`, minHeight: 2 }} />
+                            )}
+                          </div>
+                          <span className={`mt-1 max-w-full truncate text-[8px] ${isToday ? 'font-bold text-emerald-600' : 'text-gray-400'}`}>
+                            {dayLabel}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div className="mt-2 flex items-center justify-center gap-4 text-[10px] text-gray-400">
+                    <span className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-sm bg-emerald-500" /> Matched</span>
+                    <span className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-sm bg-amber-300" /> Unmatched</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Hourly distribution */}
+              {individualReport.hourlyDistribution && individualReport.hourlyDistribution.some((h) => h.total > 0) && (
+                <div className="rounded-xl border border-gray-100 bg-white p-4">
+                  <h4 className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-700">
+                    <Clock className="h-4 w-4 text-emerald-500" />
+                    Hourly Activity Pattern
+                  </h4>
+                  <div className="flex items-end gap-[2px]" style={{ height: 100 }}>
+                    {individualReport.hourlyDistribution.map((h) => {
+                      const maxH = Math.max(...individualReport.hourlyDistribution!.map((x) => x.total), 1);
+                      const barH = (h.total / maxH) * 100;
+                      const ampm = h.hour < 12 ? 'AM' : 'PM';
+                      const h12 = h.hour % 12 || 12;
+                      const isPeak = individualReport.peakHour?.hour === h.hour;
+                      return (
+                        <div key={h.hour} className="group relative flex flex-1 flex-col items-center">
+                          <div className="absolute -top-8 z-10 hidden min-w-[60px] rounded-md border border-gray-200 bg-white px-2 py-1 text-center shadow-md group-hover:block">
+                            <p className="text-[10px] font-medium text-gray-500">{h12}{ampm}</p>
+                            <p className="text-xs font-bold text-gray-900">{h.total}</p>
+                          </div>
+                          <div className="flex w-full flex-col items-stretch" style={{ height: 80 }}>
+                            <div className="flex-1" />
+                            {h.total > 0 && (
+                              <div
+                                className={`w-full rounded-t transition-all ${isPeak ? 'bg-emerald-600' : 'bg-emerald-300'}`}
+                                style={{ height: `${barH}%`, minHeight: 2 }}
+                              />
+                            )}
+                          </div>
+                          <span className="mt-0.5 text-[7px] text-gray-400">
+                            {h.hour % 3 === 0 ? `${h12}${ampm.charAt(0).toLowerCase()}` : ''}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Daily detail table */}
+              {individualReport.days.length > 0 ? (
+                <div className="overflow-hidden rounded-lg border border-gray-200">
+                  <div className="hidden border-b border-gray-100 bg-gray-50 px-4 py-2 text-[11px] font-semibold uppercase tracking-wider text-gray-400 sm:grid sm:grid-cols-12 sm:gap-2">
+                    <div className="col-span-3">Date</div>
+                    <div className="col-span-2 text-right">Total</div>
+                    <div className="col-span-2 text-right">Matched</div>
+                    <div className="col-span-2 text-right">Unmatched</div>
+                    <div className="col-span-3 text-right">Match Rate</div>
+                  </div>
+                  <div className="divide-y divide-gray-100">
+                    {individualReport.days.map((day) => {
+                      const dayName = new Date(day.date + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+                      const isToday = day.date === calendarTodayClient();
+                      const aboveAvg = day.total > individualReport.summary.avgPerDay;
+                      return (
+                        <div key={day.date} className={`px-4 py-3 ${isToday ? 'bg-emerald-50/40' : ''}`}>
+                          <div className="sm:hidden">
+                            <div className="flex items-center justify-between">
+                              <span className={`text-sm font-semibold ${isToday ? 'text-emerald-700' : 'text-gray-900'}`}>
+                                {dayName} {isToday && <span className="ml-1 text-[10px] font-bold text-emerald-500">(Today)</span>}
+                              </span>
+                              <span className="text-lg font-bold text-gray-900">{day.total}</span>
+                            </div>
+                            <div className="mt-1 flex items-center gap-3 text-[11px]">
+                              <span className="text-emerald-600">{day.matched} matched</span>
+                              <span className="text-amber-600">{day.unmatched} unmatched</span>
+                              <span className="text-gray-400">{day.matchRate}%</span>
+                            </div>
+                          </div>
+                          <div className="hidden sm:grid sm:grid-cols-12 sm:items-center sm:gap-2">
+                            <div className="col-span-3">
+                              <span className={`text-sm font-semibold ${isToday ? 'text-emerald-700' : 'text-gray-900'}`}>{dayName}</span>
+                              {isToday && <span className="ml-1.5 rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-bold text-emerald-600">Today</span>}
+                            </div>
+                            <div className="col-span-2 text-right">
+                              <span className={`text-sm font-bold ${aboveAvg ? 'text-gray-900' : 'text-gray-500'}`}>{day.total}</span>
+                              {aboveAvg && <span className="ml-1 text-[10px] text-emerald-500">&#9650;</span>}
+                            </div>
+                            <div className="col-span-2 text-right text-sm font-medium text-emerald-600">{day.matched}</div>
+                            <div className="col-span-2 text-right text-sm font-medium text-amber-600">{day.unmatched}</div>
+                            <div className="col-span-3 text-right">
+                              <span className={`text-sm font-bold ${day.matchRate >= 60 ? 'text-emerald-600' : day.matchRate >= 40 ? 'text-amber-600' : 'text-red-500'}`}>
+                                {day.matchRate}%
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : (
+                <div className="py-12 text-center text-sm text-gray-400">
+                  No packages found for {individualRepName} in this date range
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Daily Report section */}
       <button
@@ -1742,6 +2168,7 @@ function AuditLog() {
       {selectedPhoto && (
         <AuditDetailModal photo={selectedPhoto} onClose={() => setSelectedPhoto(null)} />
       )}
+
     </div>
   );
 }

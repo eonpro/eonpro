@@ -394,15 +394,15 @@ async function getHandler(req: NextRequest, user: AuthUser) {
         unmatchedThisMonth,
         hourlyRaw,
       ] = await Promise.all([
-        // Daily volume for last 14 days
+        // Daily volume for last 14 days (clinic-tz aware)
         prisma.$queryRaw<Array<{ day: Date; total: bigint; matched: bigint }>>`
           SELECT
-            DATE("createdAt") as day,
+            DATE("createdAt" AT TIME ZONE ${tz}) as day,
             COUNT(*)::bigint as total,
             COUNT(*) FILTER (WHERE matched = true)::bigint as matched
           FROM "PackagePhoto"
           WHERE "createdAt" >= ${fourteenDaysAgo}
-          GROUP BY DATE("createdAt")
+          GROUP BY DATE("createdAt" AT TIME ZONE ${tz})
           ORDER BY day ASC
         `,
 
@@ -440,14 +440,14 @@ async function getHandler(req: NextRequest, user: AuthUser) {
         // Unmatched this month
         prisma.packagePhoto.count({ where: { createdAt: { gte: monthStart }, matched: false } }),
 
-        // Hourly distribution (today)
+        // Hourly distribution (today, clinic-tz aware)
         prisma.$queryRaw<Array<{ hour: number; total: bigint }>>`
           SELECT
-            EXTRACT(HOUR FROM "createdAt")::int as hour,
+            EXTRACT(HOUR FROM "createdAt" AT TIME ZONE ${tz})::int as hour,
             COUNT(*)::bigint as total
           FROM "PackagePhoto"
           WHERE "createdAt" >= ${todayStart}
-          GROUP BY EXTRACT(HOUR FROM "createdAt")
+          GROUP BY EXTRACT(HOUR FROM "createdAt" AT TIME ZONE ${tz})
           ORDER BY hour ASC
         `,
       ]);
@@ -557,19 +557,19 @@ async function getHandler(req: NextRequest, user: AuthUser) {
         const [intervalRows, repRows] = await Promise.all([
           prisma.$queryRaw<Array<{ hour: number; day: Date; total: bigint; matched: bigint }>>`
             SELECT
-              DATE("createdAt") as day,
-              EXTRACT(HOUR FROM "createdAt")::int as hour,
+              DATE("createdAt" AT TIME ZONE ${tz}) as day,
+              EXTRACT(HOUR FROM "createdAt" AT TIME ZONE ${tz})::int as hour,
               COUNT(*)::bigint as total,
               COUNT(*) FILTER (WHERE matched = true)::bigint as matched
             FROM "PackagePhoto"
             WHERE "createdAt" >= ${rangeStart} AND "createdAt" < ${rangeEnd} ${repFilterSimple}
-            GROUP BY DATE("createdAt"), EXTRACT(HOUR FROM "createdAt")
+            GROUP BY DATE("createdAt" AT TIME ZONE ${tz}), EXTRACT(HOUR FROM "createdAt" AT TIME ZONE ${tz})
             ORDER BY day ASC, hour ASC
           `,
           prisma.$queryRaw<Array<{ hour: number; day: Date; captured_by_id: number; first_name: string; last_name: string; total: bigint; matched: bigint }>>`
             SELECT
-              DATE(pp."createdAt") as day,
-              EXTRACT(HOUR FROM pp."createdAt")::int as hour,
+              DATE(pp."createdAt" AT TIME ZONE ${tz}) as day,
+              EXTRACT(HOUR FROM pp."createdAt" AT TIME ZONE ${tz})::int as hour,
               pp."capturedById" as captured_by_id,
               u."firstName" as first_name,
               u."lastName" as last_name,
@@ -579,7 +579,7 @@ async function getHandler(req: NextRequest, user: AuthUser) {
             JOIN "User" u ON u.id = pp."capturedById"
             WHERE pp."createdAt" >= ${rangeStart} AND pp."createdAt" < ${rangeEnd}
               ${PHARMACY_ACCESS_ROLES_FILTER} ${repFilter}
-            GROUP BY DATE(pp."createdAt"), EXTRACT(HOUR FROM pp."createdAt"), pp."capturedById", u."firstName", u."lastName"
+            GROUP BY DATE(pp."createdAt" AT TIME ZONE ${tz}), EXTRACT(HOUR FROM pp."createdAt" AT TIME ZONE ${tz}), pp."capturedById", u."firstName", u."lastName"
             ORDER BY day ASC, hour ASC, total DESC
           `,
         ]);
@@ -625,17 +625,17 @@ async function getHandler(req: NextRequest, user: AuthUser) {
         const [intervalRows, repRows] = await Promise.all([
           prisma.$queryRaw<Array<{ week_start: Date; total: bigint; matched: bigint }>>`
             SELECT
-              DATE_TRUNC('week', "createdAt")::date as week_start,
+              DATE_TRUNC('week', "createdAt" AT TIME ZONE ${tz})::date as week_start,
               COUNT(*)::bigint as total,
               COUNT(*) FILTER (WHERE matched = true)::bigint as matched
             FROM "PackagePhoto"
             WHERE "createdAt" >= ${rangeStart} AND "createdAt" < ${rangeEnd} ${repFilterSimple}
-            GROUP BY DATE_TRUNC('week', "createdAt")
+            GROUP BY DATE_TRUNC('week', "createdAt" AT TIME ZONE ${tz})
             ORDER BY week_start ASC
           `,
           prisma.$queryRaw<Array<{ week_start: Date; captured_by_id: number; first_name: string; last_name: string; total: bigint; matched: bigint }>>`
             SELECT
-              DATE_TRUNC('week', pp."createdAt")::date as week_start,
+              DATE_TRUNC('week', pp."createdAt" AT TIME ZONE ${tz})::date as week_start,
               pp."capturedById" as captured_by_id,
               u."firstName" as first_name,
               u."lastName" as last_name,
@@ -645,7 +645,7 @@ async function getHandler(req: NextRequest, user: AuthUser) {
             JOIN "User" u ON u.id = pp."capturedById"
             WHERE pp."createdAt" >= ${rangeStart} AND pp."createdAt" < ${rangeEnd}
               ${PHARMACY_ACCESS_ROLES_FILTER} ${repFilter}
-            GROUP BY DATE_TRUNC('week', pp."createdAt"), pp."capturedById", u."firstName", u."lastName"
+            GROUP BY DATE_TRUNC('week', pp."createdAt" AT TIME ZONE ${tz}), pp."capturedById", u."firstName", u."lastName"
             ORDER BY week_start ASC, total DESC
           `,
         ]);
@@ -690,17 +690,17 @@ async function getHandler(req: NextRequest, user: AuthUser) {
       const [intervalRows, repRows] = await Promise.all([
         prisma.$queryRaw<Array<{ day: Date; total: bigint; matched: bigint }>>`
           SELECT
-            DATE("createdAt") as day,
+            DATE("createdAt" AT TIME ZONE ${tz}) as day,
             COUNT(*)::bigint as total,
             COUNT(*) FILTER (WHERE matched = true)::bigint as matched
           FROM "PackagePhoto"
           WHERE "createdAt" >= ${rangeStart} AND "createdAt" < ${rangeEnd} ${repFilterSimple}
-          GROUP BY DATE("createdAt")
+          GROUP BY DATE("createdAt" AT TIME ZONE ${tz})
           ORDER BY day ASC
         `,
         prisma.$queryRaw<Array<{ day: Date; captured_by_id: number; first_name: string; last_name: string; total: bigint; matched: bigint }>>`
           SELECT
-            DATE(pp."createdAt") as day,
+            DATE(pp."createdAt" AT TIME ZONE ${tz}) as day,
             pp."capturedById" as captured_by_id,
             u."firstName" as first_name,
             u."lastName" as last_name,
@@ -710,7 +710,7 @@ async function getHandler(req: NextRequest, user: AuthUser) {
           JOIN "User" u ON u.id = pp."capturedById"
           WHERE pp."createdAt" >= ${rangeStart} AND pp."createdAt" < ${rangeEnd}
             ${PHARMACY_ACCESS_ROLES_FILTER} ${repFilter}
-          GROUP BY DATE(pp."createdAt"), pp."capturedById", u."firstName", u."lastName"
+          GROUP BY DATE(pp."createdAt" AT TIME ZONE ${tz}), pp."capturedById", u."firstName", u."lastName"
           ORDER BY day ASC, total DESC
         `,
       ]);
@@ -755,6 +755,8 @@ async function getHandler(req: NextRequest, user: AuthUser) {
 
       const fromParam = url.searchParams.get('from');
       const toParam = url.searchParams.get('to');
+      const repIdParam = url.searchParams.get('repId');
+      const repId = repIdParam ? parseInt(repIdParam, 10) : null;
 
       let rangeStart: Date;
       let rangeEnd: Date;
@@ -773,33 +775,29 @@ async function getHandler(req: NextRequest, user: AuthUser) {
         rangeEnd = midnightInTz(bounds.year, bounds.month, bounds.day + 1, tz);
       }
 
-      const [dailyRows, repDailyRows] = await Promise.all([
-        prisma.$queryRaw<Array<{
-          day: Date;
-          total: bigint;
-          matched: bigint;
-          unmatched: bigint;
-        }>>`
+      const repFilterSimple = repId ? Prisma.sql`AND "capturedById" = ${repId}` : Prisma.empty;
+      const repFilter = repId ? Prisma.sql`AND pp."capturedById" = ${repId}` : Prisma.empty;
+
+      const queries: [
+        Promise<Array<{ day: Date; total: bigint; matched: bigint; unmatched: bigint }>>,
+        Promise<Array<{ day: Date; captured_by_id: number; first_name: string; last_name: string; total: bigint; matched: bigint }>>,
+        Promise<Array<{ hour: number; total: bigint }>> | null,
+        Promise<{ first_name: string; last_name: string } | null> | null,
+      ] = [
+        prisma.$queryRaw`
           SELECT
-            DATE("createdAt") as day,
+            DATE("createdAt" AT TIME ZONE ${tz}) as day,
             COUNT(*)::bigint as total,
             COUNT(*) FILTER (WHERE matched = true)::bigint as matched,
             COUNT(*) FILTER (WHERE matched = false)::bigint as unmatched
           FROM "PackagePhoto"
-          WHERE "createdAt" >= ${rangeStart} AND "createdAt" < ${rangeEnd}
-          GROUP BY DATE("createdAt")
+          WHERE "createdAt" >= ${rangeStart} AND "createdAt" < ${rangeEnd} ${repFilterSimple}
+          GROUP BY DATE("createdAt" AT TIME ZONE ${tz})
           ORDER BY day DESC
         `,
-        prisma.$queryRaw<Array<{
-          day: Date;
-          captured_by_id: number;
-          first_name: string;
-          last_name: string;
-          total: bigint;
-          matched: bigint;
-        }>>`
+        prisma.$queryRaw`
           SELECT
-            DATE(pp."createdAt") as day,
+            DATE(pp."createdAt" AT TIME ZONE ${tz}) as day,
             pp."capturedById" as captured_by_id,
             u."firstName" as first_name,
             u."lastName" as last_name,
@@ -808,11 +806,35 @@ async function getHandler(req: NextRequest, user: AuthUser) {
           FROM "PackagePhoto" pp
           JOIN "User" u ON u.id = pp."capturedById"
           WHERE pp."createdAt" >= ${rangeStart} AND pp."createdAt" < ${rangeEnd}
-            ${PHARMACY_ACCESS_ROLES_FILTER}
-          GROUP BY DATE(pp."createdAt"), pp."capturedById", u."firstName", u."lastName"
+            ${PHARMACY_ACCESS_ROLES_FILTER} ${repFilter}
+          GROUP BY DATE(pp."createdAt" AT TIME ZONE ${tz}), pp."capturedById", u."firstName", u."lastName"
           ORDER BY day DESC, total DESC
         `,
-      ]);
+        repId
+          ? prisma.$queryRaw<Array<{ hour: number; total: bigint }>>`
+              SELECT
+                EXTRACT(HOUR FROM "createdAt" AT TIME ZONE ${tz})::int as hour,
+                COUNT(*)::bigint as total
+              FROM "PackagePhoto"
+              WHERE "createdAt" >= ${rangeStart} AND "createdAt" < ${rangeEnd}
+                AND "capturedById" = ${repId}
+              GROUP BY EXTRACT(HOUR FROM "createdAt" AT TIME ZONE ${tz})
+              ORDER BY hour ASC
+            `
+          : null,
+        repId
+          ? prisma.user.findUnique({ where: { id: repId }, select: { firstName: true, lastName: true } }).then(u => u ? { first_name: u.firstName, last_name: u.lastName } : null)
+          : null,
+      ];
+
+      const [dailyRows, repDailyRows, hourlyRows, repUser] = await Promise.all(
+        queries.map((q) => q ?? Promise.resolve(null)),
+      ) as [
+        Array<{ day: Date; total: bigint; matched: bigint; unmatched: bigint }>,
+        Array<{ day: Date; captured_by_id: number; first_name: string; last_name: string; total: bigint; matched: bigint }>,
+        Array<{ hour: number; total: bigint }> | null,
+        { first_name: string; last_name: string } | null,
+      ];
 
       const repsByDay = new Map<string, Array<{ name: string; total: number; matched: number }>>();
       for (const row of repDailyRows) {
@@ -843,6 +865,28 @@ async function getHandler(req: NextRequest, user: AuthUser) {
         };
       });
 
+      // Build hourly distribution when filtering by individual rep
+      let hourlyDistribution: Array<{ hour: number; total: number }> | undefined;
+      let peakHour: { hour: number; count: number } | undefined;
+      if (repId && hourlyRows) {
+        const hourMap = new Map((hourlyRows as Array<{ hour: number; total: bigint }>).map((r) => [r.hour, Number(r.total)]));
+        hourlyDistribution = Array.from({ length: 24 }, (_, h) => ({
+          hour: h,
+          total: hourMap.get(h) ?? 0,
+        }));
+        const peak = hourlyDistribution.reduce((max, h) => h.total > max.total ? h : max, hourlyDistribution[0]);
+        peakHour = { hour: peak.hour, count: peak.total };
+      }
+
+      // Best and worst day for individual rep
+      let bestDay: { date: string; total: number } | undefined;
+      let worstDay: { date: string; total: number } | undefined;
+      if (repId && days.length > 0) {
+        const sorted = [...days].sort((a, b) => b.total - a.total);
+        bestDay = { date: sorted[0].date, total: sorted[0].total };
+        worstDay = { date: sorted[sorted.length - 1].date, total: sorted[sorted.length - 1].total };
+      }
+
       return NextResponse.json({
         success: true,
         data: {
@@ -859,6 +903,16 @@ async function getHandler(req: NextRequest, user: AuthUser) {
             from: fromParam ?? instantToCalendarDate(rangeStart),
             to: toParam ?? instantToCalendarDate(new Date(rangeEnd.getTime() - 86400000)),
           },
+          ...(repId ? {
+            rep: {
+              id: repId,
+              name: repUser ? `${repUser.first_name} ${repUser.last_name}` : 'Unknown',
+            },
+            hourlyDistribution,
+            peakHour,
+            bestDay,
+            worstDay,
+          } : {}),
         },
       });
     }
