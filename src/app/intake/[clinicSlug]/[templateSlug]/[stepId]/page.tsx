@@ -245,7 +245,7 @@ function IntakeStepContent() {
         '--intake-text': isWellmedr ? '#0C2631' : '#1f2937',
         '--intake-text-secondary': isWellmedr ? '#7B95A9' : '#6b7280',
         '--intake-border': isWellmedr ? '#e5eaee' : '#e5e7eb',
-        '--intake-selected-bg': isWellmedr ? '#f5f0e8' : '#f0feab',
+        '--intake-selected-bg': isWellmedr ? '#f5f0e8' : (intakeBrand === 'otmens' ? '#f5ecd8' : '#f0feab'),
         '--intake-bg': isWellmedr ? '#F7F7F9' : '#ffffff',
       } as React.CSSProperties}
     >
