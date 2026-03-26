@@ -14,6 +14,7 @@ import {
   Settings,
   LogOut,
   ChevronRight,
+  ChevronDown,
   CreditCard,
   Key,
   X,
@@ -162,6 +163,7 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
   const isHydrated = useAuthStore((s) => s.isHydrated);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
+  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<number | null>(null);
   const [userRole, setUserRole] = useState<string>('admin');
@@ -317,6 +319,60 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
     }
     return items;
   }, [userRole, branding?.subdomain]);
+
+  type NavItem = (typeof navItems)[number];
+  type ProcessedNavEntry =
+    | { type: 'item'; item: NavItem }
+    | { type: 'group'; key: string; label: string; icon: React.ComponentType<{ className?: string }>; children: NavItem[] };
+
+  const processedNav = useMemo<ProcessedNavEntry[]>(() => {
+    const result: ProcessedNavEntry[] = [];
+    const seenGroups = new Map<string, ProcessedNavEntry & { type: 'group' }>();
+    for (const item of navItems) {
+      if (item.groupKey) {
+        const existing = seenGroups.get(item.groupKey);
+        if (existing) {
+          existing.children.push(item);
+        } else {
+          const entry: ProcessedNavEntry & { type: 'group' } = {
+            type: 'group',
+            key: item.groupKey,
+            label: item.groupLabel || item.label,
+            icon: item.groupIconKey
+              ? (adminNavIconMap[item.groupIconKey as keyof typeof adminNavIconMap] ?? Settings)
+              : item.icon,
+            children: [item],
+          };
+          seenGroups.set(item.groupKey, entry);
+          result.push(entry);
+        }
+      } else {
+        result.push({ type: 'item', item });
+      }
+    }
+    return result;
+  }, [navItems]);
+
+  const toggleGroup = (key: string) => {
+    setExpandedGroups(prev => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  useEffect(() => {
+    setExpandedGroups(prev => {
+      const next = { ...prev };
+      let changed = false;
+      for (const entry of processedNav) {
+        if (entry.type === 'group' && entry.children.some(child => isActive(child.path))) {
+          if (!next[entry.key]) {
+            next[entry.key] = true;
+            changed = true;
+          }
+        }
+      }
+      return changed ? next : prev;
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname]);
 
   // Pharmacy nav fix: Next.js App Router intercepts <a> clicks for client-side
   // navigation which silently fails for pharmacy_rep. Attach native DOM listeners
@@ -488,43 +544,105 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
             </button>
 
             <nav className="flex min-h-0 flex-1 flex-col space-y-1 overflow-y-auto px-3">
-              {navItems.map((item) => {
-                const Icon = item.icon;
-                const active = isActive(item.path);
-                const isClinicsTab = item.path === '/admin/clinics';
-                const isClinicSwitch = isClinicsTab && hasMultipleClinics && userRole !== 'super_admin';
+              {processedNav.map((entry) => {
+                if (entry.type === 'item') {
+                  const { item } = entry;
+                  const Icon = item.icon;
+                  const active = isActive(item.path);
+                  const isClinicsTab = item.path === '/admin/clinics';
+                  const isClinicSwitch = isClinicsTab && hasMultipleClinics && userRole !== 'super_admin';
 
-                if (isClinicSwitch) {
+                  if (isClinicSwitch) {
+                    return (
+                      <button
+                        key={item.path}
+                        onClick={() => setShowClinicSwitchModal(true)}
+                        title={!sidebarExpanded ? 'Switch Clinic' : undefined}
+                        className="flex w-full cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                      >
+                        <Icon className="h-5 w-5 flex-shrink-0" />
+                        {sidebarExpanded && (
+                          <span className="whitespace-nowrap text-sm font-medium">Switch Clinic</span>
+                        )}
+                      </button>
+                    );
+                  }
+
                   return (
-                    <button
+                    <a
                       key={item.path}
-                      onClick={() => setShowClinicSwitchModal(true)}
-                      title={!sidebarExpanded ? 'Switch Clinic' : undefined}
-                      className="flex w-full cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                      href={item.path}
+                      title={!sidebarExpanded ? item.label : undefined}
+                      className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left no-underline transition-colors ${
+                        active ? '' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
+                      }`}
+                      style={active ? { backgroundColor: `${primaryColor}15`, color: primaryColor } : {}}
                     >
                       <Icon className="h-5 w-5 flex-shrink-0" />
                       {sidebarExpanded && (
-                        <span className="whitespace-nowrap text-sm font-medium">Switch Clinic</span>
+                        <span className="whitespace-nowrap text-sm font-medium">{item.label}</span>
                       )}
-                    </button>
+                    </a>
+                  );
+                }
+
+                const { key, label, icon: GroupIcon, children } = entry;
+                const groupActive = children.some(child => isActive(child.path));
+                const isGroupExpanded = expandedGroups[key] ?? false;
+
+                if (!sidebarExpanded) {
+                  return (
+                    <a
+                      key={key}
+                      href={children[0].path}
+                      title={label}
+                      className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left no-underline transition-colors ${
+                        groupActive ? '' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
+                      }`}
+                      style={groupActive ? { backgroundColor: `${primaryColor}15`, color: primaryColor } : {}}
+                    >
+                      <GroupIcon className="h-5 w-5 flex-shrink-0" />
+                    </a>
                   );
                 }
 
                 return (
-                  <a
-                    key={item.path}
-                    href={item.path}
-                    title={!sidebarExpanded ? item.label : undefined}
-                    className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left no-underline transition-colors ${
-                      active ? '' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
-                    }`}
-                    style={active ? { backgroundColor: `${primaryColor}15`, color: primaryColor } : {}}
-                  >
-                    <Icon className="h-5 w-5 flex-shrink-0" />
-                    {sidebarExpanded && (
-                      <span className="whitespace-nowrap text-sm font-medium">{item.label}</span>
+                  <div key={key}>
+                    <button
+                      onClick={() => toggleGroup(key)}
+                      className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors ${
+                        groupActive && !isGroupExpanded ? '' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
+                      }`}
+                      style={groupActive && !isGroupExpanded ? { backgroundColor: `${primaryColor}10`, color: primaryColor } : {}}
+                    >
+                      <GroupIcon className="h-5 w-5 flex-shrink-0" />
+                      <span className="flex-1 whitespace-nowrap text-sm font-medium">{label}</span>
+                      <ChevronDown
+                        className={`h-3.5 w-3.5 transition-transform duration-200 ${isGroupExpanded ? '' : '-rotate-90'}`}
+                      />
+                    </button>
+                    {isGroupExpanded && (
+                      <div className="ml-4 mt-0.5 space-y-0.5 border-l border-gray-200 pl-2">
+                        {children.map(child => {
+                          const ChildIcon = child.icon;
+                          const childActive = isActive(child.path);
+                          return (
+                            <a
+                              key={child.path}
+                              href={child.path}
+                              className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left no-underline transition-colors ${
+                                childActive ? '' : 'text-gray-400 hover:bg-gray-50 hover:text-gray-600'
+                              }`}
+                              style={childActive ? { backgroundColor: `${primaryColor}15`, color: primaryColor } : {}}
+                            >
+                              <ChildIcon className="h-4 w-4 flex-shrink-0" />
+                              <span className="whitespace-nowrap text-xs font-medium">{child.label}</span>
+                            </a>
+                          );
+                        })}
+                      </div>
                     )}
-                  </a>
+                  </div>
                 );
               })}
             </nav>

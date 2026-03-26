@@ -7,6 +7,12 @@ export interface AdminNavItemConfig {
   path: string;
   label: string;
   iconKey: string;
+  /** Items sharing the same groupKey are rendered as a collapsible group in the sidebar. */
+  groupKey?: string;
+  /** Display label for the group header (only needed on the first item in the group). */
+  groupLabel?: string;
+  /** Icon key for the group header (only needed on the first item in the group). */
+  groupIconKey?: string;
 }
 
 export const baseAdminNavConfig: AdminNavItemConfig[] = [
@@ -17,12 +23,12 @@ export const baseAdminNavConfig: AdminNavItemConfig[] = [
   { path: '/admin/verification-queue', label: 'ID Verification', iconKey: 'Shield' },
   { path: '/admin/messages', label: 'Messages', iconKey: 'MessageSquare' },
   { path: '/admin/scheduling', label: 'Telehealth', iconKey: 'Video' },
-  { path: '/admin/refill-queue', label: 'Membership / Refills', iconKey: 'RefreshCw' },
-  { path: '/admin/subscription-renewals', label: 'Renewals', iconKey: 'CreditCard' },
-  { path: '/admin/finance/pending-profiles', label: 'Pending Profiles', iconKey: 'ClipboardCheck' },
-  { path: '/admin/orders', label: 'Orders', iconKey: 'ShoppingCart' },
-  { path: '/admin/shipping', label: 'Shipping', iconKey: 'Truck' },
-  { path: '/admin/shipment-monitor', label: 'Shipments', iconKey: 'BarChart3' },
+  { path: '/admin/refill-queue', label: 'Membership / Refills', iconKey: 'RefreshCw', groupKey: 'memberships', groupLabel: 'Memberships', groupIconKey: 'RefreshCw' },
+  { path: '/admin/subscription-renewals', label: 'Renewals', iconKey: 'CreditCard', groupKey: 'memberships' },
+  { path: '/admin/finance/pending-profiles', label: 'Pending Profiles', iconKey: 'ClipboardCheck', groupKey: 'memberships' },
+  { path: '/admin/orders', label: 'Orders', iconKey: 'ShoppingCart', groupKey: 'orders', groupLabel: 'Orders', groupIconKey: 'ShoppingCart' },
+  { path: '/admin/shipping', label: 'Shipping', iconKey: 'Truck', groupKey: 'orders' },
+  { path: '/admin/shipment-monitor', label: 'Shipments', iconKey: 'BarChart3', groupKey: 'orders' },
   { path: '/tickets', label: 'Tickets', iconKey: 'Ticket' },
   { path: '/admin/products', label: 'Products', iconKey: 'Store' },
   { path: '/admin/analytics', label: 'Analytics', iconKey: 'TrendingUp' },
@@ -36,7 +42,7 @@ export const baseAdminNavConfig: AdminNavItemConfig[] = [
   { path: '/admin/settings', label: 'Settings', iconKey: 'Settings' },
 ];
 
-/** Clinics tab: shown for super_admin only, inserted after Pending Profiles (index 8). */
+/** Clinics tab: shown for super_admin only, inserted after the Memberships group (index 10). */
 export const clinicsNavConfig: AdminNavItemConfig = {
   path: '/admin/clinics',
   label: 'Clinics',
@@ -80,11 +86,11 @@ export const salesRepNavConfig: AdminNavItemConfig[] = [
   { path: '/admin/patients', label: 'Patients', iconKey: 'Users' },
   { path: '/admin/messages', label: 'Messages', iconKey: 'MessageSquare' },
   { path: '/admin/scheduling', label: 'Telehealth', iconKey: 'Video' },
-  { path: '/admin/refill-queue', label: 'Membership / Refills', iconKey: 'RefreshCw' },
-  { path: '/admin/subscription-renewals', label: 'Renewals', iconKey: 'CreditCard' },
-  { path: '/admin/orders', label: 'Orders', iconKey: 'ShoppingCart' },
-  { path: '/admin/shipping', label: 'Shipping', iconKey: 'Truck' },
-  { path: '/admin/shipment-monitor', label: 'Shipments', iconKey: 'BarChart3' },
+  { path: '/admin/refill-queue', label: 'Membership / Refills', iconKey: 'RefreshCw', groupKey: 'memberships', groupLabel: 'Memberships', groupIconKey: 'RefreshCw' },
+  { path: '/admin/subscription-renewals', label: 'Renewals', iconKey: 'CreditCard', groupKey: 'memberships' },
+  { path: '/admin/orders', label: 'Orders', iconKey: 'ShoppingCart', groupKey: 'orders', groupLabel: 'Orders', groupIconKey: 'ShoppingCart' },
+  { path: '/admin/shipping', label: 'Shipping', iconKey: 'Truck', groupKey: 'orders' },
+  { path: '/admin/shipment-monitor', label: 'Shipments', iconKey: 'BarChart3', groupKey: 'orders' },
   { path: '/tickets', label: 'Tickets', iconKey: 'Ticket' },
   salesRepLinksNavConfig,
   salesRepDispositionsNavConfig,
@@ -104,9 +110,9 @@ export const staffNavConfig: AdminNavItemConfig[] = [
   { path: '/admin/messages', label: 'Messages', iconKey: 'MessageSquare' },
   { path: '/admin/scheduling', label: 'Telehealth', iconKey: 'Video' },
   { path: '/staff/appointments', label: 'Appointments', iconKey: 'Calendar' },
-  { path: '/admin/orders', label: 'Orders', iconKey: 'ShoppingCart' },
-  { path: '/admin/shipping', label: 'Shipping', iconKey: 'Truck' },
-  { path: '/admin/shipment-monitor', label: 'Shipments', iconKey: 'BarChart3' },
+  { path: '/admin/orders', label: 'Orders', iconKey: 'ShoppingCart', groupKey: 'orders', groupLabel: 'Orders', groupIconKey: 'ShoppingCart' },
+  { path: '/admin/shipping', label: 'Shipping', iconKey: 'Truck', groupKey: 'orders' },
+  { path: '/admin/shipment-monitor', label: 'Shipments', iconKey: 'BarChart3', groupKey: 'orders' },
   { path: '/tickets', label: 'Tickets', iconKey: 'Ticket' },
   { path: '/admin/settings', label: 'Settings', iconKey: 'Settings' },
 ];
@@ -135,7 +141,7 @@ export function getAdminNavConfig(role: string | null): AdminNavItemConfig[] {
   }
   const items = [...baseAdminNavConfig];
   if (role === 'super_admin') {
-    items.splice(8, 0, clinicsNavConfig);
+    items.splice(10, 0, clinicsNavConfig);
     items.push(controlCenterNavConfig);
   }
   return items;
@@ -155,9 +161,9 @@ export function getNonAdminNavConfig(userRole: string | null): AdminNavItemConfi
       { path: '/admin/patients', label: 'Patients', iconKey: 'Users' },
       { path: '/admin/messages', label: 'Messages', iconKey: 'MessageSquare' },
       { path: '/admin/scheduling', label: 'Telehealth', iconKey: 'Video' },
-      { path: '/admin/orders', label: 'Orders', iconKey: 'ShoppingCart' },
-      { path: '/admin/shipping', label: 'Shipping', iconKey: 'Truck' },
-      { path: '/admin/shipment-monitor', label: 'Shipments', iconKey: 'BarChart3' },
+      { path: '/admin/orders', label: 'Orders', iconKey: 'ShoppingCart', groupKey: 'orders', groupLabel: 'Orders', groupIconKey: 'ShoppingCart' },
+      { path: '/admin/shipping', label: 'Shipping', iconKey: 'Truck', groupKey: 'orders' },
+      { path: '/admin/shipment-monitor', label: 'Shipments', iconKey: 'BarChart3', groupKey: 'orders' },
       { path: '/tickets', label: 'Tickets', iconKey: 'Ticket' },
       { path: '/admin/settings', label: 'Settings', iconKey: 'Settings' },
     ];
@@ -167,9 +173,9 @@ export function getNonAdminNavConfig(userRole: string | null): AdminNavItemConfi
   return [
     { path: '/dashboard', label: 'Home', iconKey: 'Home' },
     { path: patientsPath, label: 'Patients', iconKey: 'Users' },
-    { path: '/admin/orders', label: 'Orders', iconKey: 'ShoppingCart' },
-    { path: '/admin/shipping', label: 'Shipping', iconKey: 'Truck' },
-    { path: '/admin/shipment-monitor', label: 'Shipments', iconKey: 'BarChart3' },
+    { path: '/admin/orders', label: 'Orders', iconKey: 'ShoppingCart', groupKey: 'orders', groupLabel: 'Orders', groupIconKey: 'ShoppingCart' },
+    { path: '/admin/shipping', label: 'Shipping', iconKey: 'Truck', groupKey: 'orders' },
+    { path: '/admin/shipment-monitor', label: 'Shipments', iconKey: 'BarChart3', groupKey: 'orders' },
     { path: '/admin/products', label: 'Products', iconKey: 'Store' },
     { path: '/intake-forms', label: 'Intake Forms', iconKey: 'ClipboardList' },
     { path: '/admin/analytics', label: 'Analytics', iconKey: 'TrendingUp' },
