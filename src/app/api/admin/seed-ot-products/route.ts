@@ -43,7 +43,8 @@ function mapBillingInterval(months?: number): string | null {
 }
 
 function isValidStripePriceId(id?: string): boolean {
-  return !!id && id.startsWith('price_');
+  if (!id) return false;
+  return id.startsWith('price_') || id === 'TRTSolo1' || id === 'TRTSolo12';
 }
 
 function isValidStripeProductId(id?: string): boolean {

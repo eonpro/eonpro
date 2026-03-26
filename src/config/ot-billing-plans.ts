@@ -23,6 +23,7 @@ const BLOODWORK: BillingPlan[] = [
     description: 'Bloodwork (Enclomiphene & HCG) – LH, Total and free testosterone',
     slug: 'ot_bloodwork_base',
     stripeProductId: 'prod_UDHB3f22droAPV',
+    stripePriceId: 'price_1TEqdJDQIH4O9FhrKfKjENt1',
   },
   {
     id: 'ot_bloodwork_full',
@@ -32,6 +33,7 @@ const BLOODWORK: BillingPlan[] = [
     description: 'CBC, CMP, Lipid, Free T3, Total/free testosterone, Estradiol, Prolactin, LH, FSH',
     slug: 'ot_bloodwork_full',
     stripeProductId: 'prod_UDHDmjRVdZJdqe',
+    stripePriceId: 'price_1TEqemDQIH4O9Fhr17c0s2h8',
   },
   {
     id: 'ot_bloodwork_womens',
@@ -108,6 +110,7 @@ const HORMONAL: BillingPlan[] = [
     slug: 'ot_trt_solo_1mo',
     months: 1,
     stripeProductId: 'prod_UDHOdh5ZUIHbOn',
+    stripePriceId: 'TRTSolo1',
   },
   {
     id: 'ot_trt_solo_3mo',
@@ -143,6 +146,7 @@ const HORMONAL: BillingPlan[] = [
     months: 12,
     isRecurring: true,
     stripeProductId: 'prod_UDHOdh5ZUIHbOn',
+    stripePriceId: 'TRTSolo12',
   },
 
   // --- Enclomiphene (Daily) ---
@@ -617,6 +621,7 @@ const OTHER: BillingPlan[] = [
     description: 'Tadalafil 5mg daily (28 tabs) – 1 Month',
     slug: 'ot_tadalafil_1mo',
     months: 1,
+    stripePriceId: 'price_1SAG16DQIH4O9Fhrj2A9RBSJ',
   },
   {
     id: 'ot_tadalafil_3mo',
