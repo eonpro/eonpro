@@ -88,25 +88,25 @@ export default function ConsentStep({
 
           <div className="space-y-2">
             {/* Health Priority Card */}
-            <div className={`${isOt ? 'bg-[#f5ecd8]' : 'bg-[#f0feab]'} rounded-2xl overflow-hidden flex h-24 relative`}>
-              <div className="absolute left-0 top-0 bottom-0 w-24">
+            <div className={`${isOt ? 'bg-[#f5ecd8]' : 'bg-[#f0feab]'} rounded-xl overflow-hidden flex h-16 relative`}>
+              <div className="absolute left-0 top-0 bottom-0 w-16">
                 <Image
                   src={isOt
                     ? 'https://static.wixstatic.com/media/c49a9b_281a5dda355a45dd8278f9a350b85a9e~mv2.png'
                     : 'https://static.wixstatic.com/media/c49a9b_427c597844f246fa8df26446b6f5d59a~mv2.png'}
                   alt="Healthcare professional"
                   fill
-                  sizes="96px"
+                  sizes="64px"
                   className="object-cover"
                   style={{ objectPosition: 'center top' }}
                 />
               </div>
-              <div className="flex-1 flex flex-col justify-center pl-28 pr-4 py-2">
-                <h3 className="font-bold text-[15px] leading-tight mb-0.5">
+              <div className="flex-1 flex flex-col justify-center pl-20 pr-4 py-1.5">
+                <h3 className="font-bold text-[13px] leading-tight mb-0.5">
                   {isSpanish ? 'Tu salud es nuestra prioridad' : 'Your health is our priority'}
                 </h3>
-                <p className="text-[12px] leading-snug text-[#413d3d]/80">
-                  {isSpanish 
+                <p className="text-[11px] leading-snug text-[#413d3d]/70">
+                  {isSpanish
                     ? 'Tratamientos seguros personalizados para ti'
                     : 'Safe treatments tailored just for you!'}
                 </p>
@@ -114,24 +114,24 @@ export default function ConsentStep({
             </div>
 
             {/* Doctor Review Card */}
-            <div className={`${isOt ? 'bg-[#e8dcc4]' : 'bg-[#e4fb74]'} rounded-2xl overflow-hidden flex h-24 relative`}>
-              <div className="absolute left-0 top-0 bottom-0 w-24">
+            <div className={`${isOt ? 'bg-[#e8dcc4]' : 'bg-[#e4fb74]'} rounded-xl overflow-hidden flex h-16 relative`}>
+              <div className="absolute left-0 top-0 bottom-0 w-16">
                 <Image
                   src={isOt
                     ? 'https://static.wixstatic.com/media/c49a9b_0b980de32c824bbe9b55082cc8c90476~mv2.webp'
                     : 'https://static.wixstatic.com/media/c49a9b_5e690e4cf43e4e769ef7d4e9f5691a5b~mv2.webp'}
                   alt="Licensed medical provider"
                   fill
-                  sizes="96px"
+                  sizes="64px"
                   className="object-cover"
                   style={{ objectPosition: 'center 30%' }}
                 />
               </div>
-              <div className="flex-1 flex flex-col justify-center pl-28 pr-4 py-2">
-                <h3 className="font-bold text-[15px] leading-tight mb-0.5">
+              <div className="flex-1 flex flex-col justify-center pl-20 pr-4 py-1.5">
+                <h3 className="font-bold text-[13px] leading-tight mb-0.5">
                   {isSpanish ? 'Revisión médica confidencial' : 'Confidential medical review'}
                 </h3>
-                <p className="text-[12px] leading-snug text-[#413d3d]/80">
+                <p className="text-[11px] leading-snug text-[#413d3d]/70">
                   {isSpanish
                     ? 'Un proveedor autorizado revisará tus respuestas'
                     : 'A licensed provider will review your responses'}
