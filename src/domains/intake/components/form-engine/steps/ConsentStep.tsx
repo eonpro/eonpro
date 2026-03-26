@@ -91,7 +91,9 @@ export default function ConsentStep({
             <div className={`${isOt ? 'bg-[#f5ecd8]' : 'bg-[#f0feab]'} rounded-2xl overflow-hidden flex h-24 relative`}>
               <div className="absolute left-0 top-0 bottom-0 w-24">
                 <Image
-                  src="https://static.wixstatic.com/media/c49a9b_427c597844f246fa8df26446b6f5d59a~mv2.png"
+                  src={isOt
+                    ? 'https://static.wixstatic.com/media/c49a9b_281a5dda355a45dd8278f9a350b85a9e~mv2.png'
+                    : 'https://static.wixstatic.com/media/c49a9b_427c597844f246fa8df26446b6f5d59a~mv2.png'}
                   alt="Healthcare professional"
                   fill
                   sizes="96px"
@@ -115,7 +117,9 @@ export default function ConsentStep({
             <div className={`${isOt ? 'bg-[#e8dcc4]' : 'bg-[#e4fb74]'} rounded-2xl overflow-hidden flex h-24 relative`}>
               <div className="absolute left-0 top-0 bottom-0 w-24">
                 <Image
-                  src="https://static.wixstatic.com/media/c49a9b_5e690e4cf43e4e769ef7d4e9f5691a5b~mv2.webp"
+                  src={isOt
+                    ? 'https://static.wixstatic.com/media/c49a9b_0b980de32c824bbe9b55082cc8c90476~mv2.webp'
+                    : 'https://static.wixstatic.com/media/c49a9b_5e690e4cf43e4e769ef7d4e9f5691a5b~mv2.webp'}
                   alt="Licensed medical provider"
                   fill
                   sizes="96px"
