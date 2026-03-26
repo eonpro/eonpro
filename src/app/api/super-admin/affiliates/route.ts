@@ -146,12 +146,12 @@ export const GET = superAdminRateLimit(withSuperAdminAuth(async (req: NextReques
             },
             _sum: { eventAmountCents: true },
           }),
-          // Earned commissions: paid/approved only
+          // Earned commissions: all active statuses (matches revenue query and admin API)
           basePrisma.affiliateCommissionEvent.groupBy({
             by: ['affiliateId'],
             where: {
               affiliateId: { in: affiliateIds },
-              status: { in: ['PAID', 'APPROVED'] },
+              status: { in: ['PENDING', 'APPROVED', 'PAID'] },
             },
             _sum: { commissionAmountCents: true },
           }),

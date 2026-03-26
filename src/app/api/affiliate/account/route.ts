@@ -124,7 +124,7 @@ async function handleGet(request: NextRequest, user: AuthUser) {
       const result = await prisma.affiliateCommissionEvent.aggregate({
         where: {
           affiliateId,
-          status: { in: ['APPROVED', 'PAID'] },
+          status: { in: ['PENDING', 'APPROVED', 'PAID'] },
           createdAt: { gte: startOfYear },
         },
         _sum: { commissionAmountCents: true },
