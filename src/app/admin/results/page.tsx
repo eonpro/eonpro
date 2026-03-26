@@ -49,6 +49,7 @@ interface Summary {
   avgLbsLost: number;
   avgLbsPerMonth: number;
   topLbsLost: number;
+  totalLbsLost: number;
 }
 
 interface ResultsData {
@@ -130,8 +131,8 @@ export default function AdminResultsPage() {
     : [];
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
-      <div className="max-w-7xl mx-auto space-y-6">
+    <div className="mx-auto max-w-[1400px] p-6">
+      <div className="space-y-6">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
@@ -168,7 +169,7 @@ export default function AdminResultsPage() {
 
         {/* Summary Cards */}
         {data && (
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
             <SummaryCard
               icon={<Users className="h-5 w-5 text-blue-600" />}
               label="Patients Tracked"
@@ -177,11 +178,18 @@ export default function AdminResultsPage() {
               bg="bg-blue-50"
             />
             <SummaryCard
-              icon={<TrendingDown className="h-5 w-5 text-emerald-600" />}
+              icon={<Scale className="h-5 w-5 text-emerald-600" />}
+              label="Total lbs Lost"
+              value={`${data.summary.totalLbsLost.toLocaleString()} lbs`}
+              sub={`across ${data.summary.patientsWithLoss} patients`}
+              bg="bg-emerald-50"
+            />
+            <SummaryCard
+              icon={<TrendingDown className="h-5 w-5 text-teal-600" />}
               label="Avg. Weight Lost"
               value={`${data.summary.avgLbsLost} lbs`}
               sub={`${data.summary.avgLbsPerMonth} lbs/mo avg`}
-              bg="bg-emerald-50"
+              bg="bg-teal-50"
             />
             <SummaryCard
               icon={<Zap className="h-5 w-5 text-amber-600" />}

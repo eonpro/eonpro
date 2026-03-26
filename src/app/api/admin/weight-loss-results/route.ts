@@ -162,6 +162,8 @@ export const GET = withAuth(
             computed.length > 0
               ? Math.max(...computed.map((r) => r.totalLost))
               : 0;
+          const totalLbsLost =
+            Math.round(computed.reduce((s, r) => s + r.totalLost, 0) * 10) / 10;
 
           return NextResponse.json({
             results,
@@ -171,6 +173,7 @@ export const GET = withAuth(
               avgLbsLost,
               avgLbsPerMonth,
               topLbsLost,
+              totalLbsLost,
             },
           });
         } catch (innerError) {
