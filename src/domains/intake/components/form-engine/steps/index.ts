@@ -28,3 +28,4 @@ export { default as HealthImprovementsStep } from './HealthImprovementsStep';
 export { default as ReferralSourceStep } from './ReferralSourceStep';
 export { default as ReferralNameStep } from './ReferralNameStep';
 export { default as BookAppointmentStep } from './BookAppointmentStep';
+export { default as PeptideLandingStep } from './PeptideLandingStep';

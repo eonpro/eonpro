@@ -14,6 +14,7 @@ import type { FormConfig, FormBranding } from '@/domains/intake/types/form-engin
 import { weightLossIntakeConfig } from '@/domains/intake/templates/weight-loss-intake';
 import { otMensIntakeConfig } from '@/domains/intake/templates/ot-mens-intake';
 import { wellmedrIntakeConfig } from '@/domains/intake/templates/wellmedr-intake';
+import { otMensPeptideIntakeConfig } from '@/domains/intake/templates/ot-mens-peptide-intake';
 
 interface RouteParams {
   params: Promise<{ clinicSlug: string; templateSlug: string }>;
@@ -86,6 +87,19 @@ export async function GET(_req: NextRequest, { params }: RouteParams) {
             clinicName: clinic.name,
           });
         }
+        if (templateSlug === 'peptides' && isOtNoDb) {
+          const branding: FormBranding = {
+            logo: otMensPeptideIntakeConfig.branding?.logo ?? undefined,
+            primaryColor: '#413d3d',
+            accentColor: '#cab172',
+            secondaryColor: '#f5ecd8',
+          };
+          return NextResponse.json({
+            config: { ...otMensPeptideIntakeConfig, id: `clinic-${clinic.id}-peptides` },
+            branding,
+            clinicName: clinic.name,
+          });
+        }
         return NextResponse.json({ error: 'Template not found' }, { status: 404 });
       }
 
@@ -98,7 +112,7 @@ export async function GET(_req: NextRequest, { params }: RouteParams) {
       const metadata = template.metadata as Record<string, unknown> | null;
       const dbFormConfig = metadata?.formConfig as FormConfig | undefined;
 
-      // For weight-loss templates, always use the canonical TypeScript config
+      // For weight-loss and peptide templates, always use the canonical TypeScript config
       // which includes state options, height options, and all conditional branching.
       // The DB may have a stale snapshot — the TS file is the source of truth.
       const isWeightLoss =
@@ -107,8 +121,13 @@ export async function GET(_req: NextRequest, { params }: RouteParams) {
 
       const isOtMens = isWeightLoss && (clinicSlug === 'ot' || clinicSlug === 'otmens');
       const isWellmedr = isWeightLoss && clinicSlug === 'wellmedr';
+      const isOtPeptides =
+        (templateSlug === 'peptides' || template.treatmentType === 'peptides') &&
+        (clinicSlug === 'ot' || clinicSlug === 'otmens');
 
-      const formConfig = isWellmedr
+      const formConfig = isOtPeptides
+        ? { ...otMensPeptideIntakeConfig, id: `template-${template.id}` }
+        : isWellmedr
         ? { ...wellmedrIntakeConfig, id: `template-${template.id}` }
         : isOtMens
         ? { ...otMensIntakeConfig, id: `template-${template.id}` }
@@ -120,7 +139,14 @@ export async function GET(_req: NextRequest, { params }: RouteParams) {
         const settings = clinic.settings as Record<string, unknown> | null;
         const portalSettings = settings?.patientPortal as Record<string, unknown> | null;
 
-        const branding: FormBranding = isWellmedr
+        const branding: FormBranding = isOtPeptides
+          ? {
+              logo: otMensPeptideIntakeConfig.branding?.logo ?? undefined,
+              primaryColor: '#413d3d',
+              accentColor: '#cab172',
+              secondaryColor: '#f5ecd8',
+            }
+          : isWellmedr
           ? {
               logo: wellmedrIntakeConfig.branding?.logo ?? '/wellmedr-logo.svg',
               primaryColor: '#0C2631',
