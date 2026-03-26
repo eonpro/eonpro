@@ -8,6 +8,9 @@ export const SHIPPING_METHODS: ShippingMethod[] = [
   { id: 8065, label: 'PROVIDER PICK UP' },
   { id: 8086, label: 'PROVIDER DELIVERY' },
   { id: 8097, label: 'UPS - NEXT DAY - FLORIDA' },
+  { id: 8113, label: 'UPS SATURDAY DELIVERY' },
+  { id: 8152, label: 'UPS - NEXT DAY - OUTSIDE FLORIDA' },
+  { id: 8200, label: 'UPS - 2nd Day Air' },
   { id: 8233, label: 'FEDEX-STANDARD OVERNIGHT' },
   { id: 8234, label: 'FEDEX- 2 DAY' },
 ];

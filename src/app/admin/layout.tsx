@@ -35,6 +35,7 @@ import {
   Video,
   BarChart3,
   Calculator,
+  Award,
 } from 'lucide-react';
 import InternalChat from '@/components/InternalChat';
 import {
@@ -149,6 +150,7 @@ const adminNavIconMap = {
   Shield,
   Video,
   BarChart3,
+  Award,
 } as const;
 
 function AdminLayoutInner({ children }: { children: React.ReactNode }) {

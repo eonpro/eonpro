@@ -69,6 +69,14 @@ const defaultResources: Resource[] = [
     url: '/patient-portal/resources/nutrition-guidelines',
   },
   {
+    id: 'a-injection-site',
+    title: 'Why You Might Notice Redness After Your Injection',
+    description: 'Understanding injection site reactions and how to reduce discomfort',
+    type: 'article',
+    category: 'Wellness',
+    url: '/patient-portal/resources/injection-site-reactions',
+  },
+  {
     id: 'a-exercise',
     title: 'Exercise Recommendations',
     description: 'Safe and effective exercise while on weight loss medication',

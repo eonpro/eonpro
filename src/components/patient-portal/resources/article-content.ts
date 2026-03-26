@@ -386,6 +386,87 @@ Always check with your provider before starting new supplements, as some can int
       'This article provides general dietary guidance and does not replace individualized medical nutrition advice. Consult your provider or a registered dietitian for a plan tailored to your specific health needs.',
   },
 
+  'injection-site-reactions': {
+    slug: 'injection-site-reactions',
+    title: 'Why You Might Notice Redness or Irritation After Your GLP-1 Injection',
+    subtitle:
+      'Understanding injection site reactions, why they happen, and simple steps to minimize discomfort',
+    category: 'Wellness',
+    readTime: '5 min read',
+    lastUpdated: 'March 2026',
+    sections: [
+      {
+        heading: 'Injection Site Reactions Are Common and Usually Harmless',
+        body: `If you've recently started your GLP-1 treatment (such as Semaglutide or Tirzepatide), you may notice a small amount of redness, swelling, or itching at the injection site.
+
+First, take a deep breath — this is common, expected for some patients, and usually harmless.`,
+      },
+      {
+        heading: 'What Does a Normal Reaction Look Like?',
+        body: `A typical injection site reaction may include:
+
+- Mild redness
+- Slight swelling or a small bump
+- Light itching or sensitivity
+- Warmth at the injection area
+
+These symptoms usually:
+
+- Appear within a few hours of the injection
+- Improve within 24–48 hours on their own
+- Do not interfere with your treatment or require any change to your medication`,
+      },
+      {
+        heading: 'Why Does This Happen?',
+        body: `Everyone's body responds a little differently to injections. There are several common reasons you might experience a reaction at the injection site.
+
+**Your body is responding normally** — Your immune system recognizes the medication as something new and creates a temporary, localized response. This is not an allergy — just your body adjusting to the medication.
+
+**Skin sensitivity varies from person to person** — Some people naturally have more sensitive skin. If you tend to react to bug bites or get redness from minor irritation, you may notice slightly stronger reactions at the injection site.
+
+**Injection technique matters** — Small differences in how the injection is given can affect your skin's reaction. Injecting too close to the surface of the skin, injecting too quickly, or using the same spot repeatedly can all increase irritation.
+
+**Medication temperature** — Injecting medication that is very cold (right out of the refrigerator) can sometimes cause more irritation than medication that has been brought to room temperature first.
+
+**Dose and volume** — As your dose increases over time during the escalation phase, the volume of medication may increase slightly, which can lead to a more noticeable reaction at the injection site.`,
+      },
+      {
+        heading: 'How to Reduce Injection Site Reactions',
+        body: `Here are simple steps that can make a big difference in your comfort:
+
+- **Rotate injection sites** each week — alternate between your abdomen, thigh, and upper arm
+- **Let the medication sit at room temperature** for 10–15 minutes before injecting
+- **Inject slowly and steadily** — rushing the injection can increase irritation
+- **Avoid injecting into irritated or recently used areas** — give each site time to recover
+- **Keep the area clean and dry** before and after your injection
+- **Do not rub the injection site** afterward — gentle pressure with a clean cotton ball is fine
+
+These adjustments are easy to incorporate into your routine and most patients notice a meaningful improvement in comfort.`,
+      },
+      {
+        heading: 'When Should You Be Concerned?',
+        body: `While most injection site reactions are mild and resolve on their own, contact your provider if you experience any of the following:
+
+- Redness that continues to spread beyond the immediate injection area
+- Significant swelling or pain that worsens over time
+- A hard lump that doesn't improve after a few days
+- Fever or other unusual symptoms following your injection
+- Signs of infection such as warmth, pus, or streaking redness
+
+These are uncommon, but important to evaluate promptly. Your care team would always rather hear from you early than have you wait through something that could have a simple solution.`,
+      },
+    ],
+    keyTakeaways: [
+      'Mild redness, swelling, or itching at the injection site is common and usually resolves within 24–48 hours',
+      'Reactions are typically caused by your body adjusting to the medication, not an allergy',
+      'Rotating injection sites, warming the medication, and injecting slowly can significantly reduce irritation',
+      'Skin sensitivity, injection technique, and dose volume all play a role in how your body reacts',
+      'Contact your provider if redness spreads, swelling worsens, or you notice signs of infection',
+    ],
+    disclaimer:
+      'This article is for educational purposes only and does not replace your provider\'s medical advice. If you are experiencing a severe reaction or signs of an allergic response, contact your healthcare provider or seek emergency care immediately.',
+  },
+
   'exercise-recommendations': {
     slug: 'exercise-recommendations',
     title: 'Exercise Recommendations',

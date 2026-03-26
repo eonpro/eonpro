@@ -91,3 +91,4 @@ audit-logs/
 .env.bak
 *.env.bak
 *.bak
+.env*.local

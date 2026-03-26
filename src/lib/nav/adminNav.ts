@@ -26,6 +26,7 @@ export const baseAdminNavConfig: AdminNavItemConfig[] = [
   { path: '/tickets', label: 'Tickets', iconKey: 'Ticket' },
   { path: '/admin/products', label: 'Products', iconKey: 'Store' },
   { path: '/admin/analytics', label: 'Analytics', iconKey: 'TrendingUp' },
+  { path: '/admin/results', label: 'Results', iconKey: 'Award' },
   { path: '/admin/sales-rep/commission-plans', label: 'Sales Rep Commissions', iconKey: 'DollarSign' },
   { path: '/admin/sales-rep/dispositions', label: 'Dispositions', iconKey: 'ClipboardCheck' },
   { path: '/admin/affiliates', label: 'Affiliates', iconKey: 'UserCheck' },

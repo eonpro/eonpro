@@ -102,11 +102,29 @@ export const AIRTABLE_TABLE_TO_TREATMENT: Record<string, OvertimeTreatmentType> 
 };
 
 /**
- * Detect treatment type from payload
- * Checks multiple fields where the treatment type might be specified
+ * Submission-ID prefixes set by the per-table Airtable automation scripts.
+ * Used as a reliable signal when the payload lacks an explicit treatmentType.
+ */
+const SUBMISSION_PREFIX_TO_TREATMENT: Record<string, OvertimeTreatmentType> = {
+  'ot-wl-': 'weight_loss',
+  'ot-pep-': 'peptides',
+  'ot-nad-': 'nad_plus',
+  'ot-sex-': 'better_sex',
+  'ot-trt-': 'testosterone',
+  'ot-labs-': 'baseline_bloodwork',
+};
+
+/**
+ * Detect treatment type from payload.
+ *
+ * Resolution order:
+ *   1. Explicit treatmentType / formType / source_table field
+ *   2. Submission-ID prefix (set by Airtable automation scripts)
+ *   3. Field-presence heuristics (treatment-specific form fields)
+ *   4. Fallback to weight_loss with a console warning
  */
 export function detectTreatmentType(payload: Record<string, unknown>): OvertimeTreatmentType {
-  // Check explicit treatment type fields
+  // 1. Explicit treatment type field
   const explicitType =
     payload['treatmentType'] ||
     payload['treatment-type'] ||
@@ -123,20 +141,29 @@ export function detectTreatmentType(payload: Record<string, unknown>): OvertimeT
     if (normalized in AIRTABLE_TABLE_TO_TREATMENT) {
       return AIRTABLE_TABLE_TO_TREATMENT[normalized];
     }
-    // Direct match check
     if (Object.values(OVERTIME_TREATMENT_TYPES).includes(normalized as OvertimeTreatmentType)) {
       return normalized as OvertimeTreatmentType;
     }
   }
 
-  // Heuristic detection based on field presence
-  // Weight Loss indicators (including Airtable exact field names)
+  // 2. Submission-ID prefix (reliable when set by per-table automation scripts)
+  const submissionId = String(
+    payload['submission-id'] ?? payload['submissionId'] ?? payload['submission_id'] ?? ''
+  );
+  for (const [prefix, treatment] of Object.entries(SUBMISSION_PREFIX_TO_TREATMENT)) {
+    if (submissionId.startsWith(prefix)) {
+      return treatment;
+    }
+  }
+
+  // 3. Field-presence heuristics
+
+  // Weight Loss indicators (GLP-1 specific — avoid fields shared across all forms)
   if (
     payload['glp1-last-30'] ||
     payload['glp1-experience'] ||
     payload['goal-weight'] ||
     payload['weight-loss-motivation'] ||
-    // Airtable exact field names for OT Mens - Weight Loss
     payload['GLP-1 History'] ||
     payload['Type of GLP-1'] ||
     payload['Semaglutide Dose'] ||
@@ -146,19 +173,12 @@ export function detectTreatmentType(payload: Record<string, unknown>): OvertimeT
     payload['Tirzepatide Side Effects'] ||
     payload['Tirzepatide Success'] ||
     payload['Happy with GLP-1 Dose'] ||
-    payload['ideal weight'] ||
-    payload['starting weight'] ||
-    payload['How would your life change by losing weight'] ||
-    payload['Personalized Treatment'] ||
-    payload['Neoplasia type 2 (MEN 2)'] ||
-    payload['Thyroid Cancer'] ||
-    payload['Pancreatitis'] ||
-    payload['Gastroparesis']
+    payload['How would your life change by losing weight']
   ) {
     return 'weight_loss';
   }
 
-  // Peptides indicators (including Airtable exact field names from OT Mens - Peptide Therapy)
+  // Peptides indicators
   if (
     payload['peptide-experience'] ||
     payload['peptide-goals'] ||
@@ -171,12 +191,31 @@ export function detectTreatmentType(payload: Record<string, unknown>): OvertimeT
     return 'peptides';
   }
 
-  // NAD+ indicators
-  if (payload['nad-experience'] || payload['cognitive-goals'] || payload['iv-experience']) {
+  // NAD+ indicators (expanded to cover Heyflow form + Airtable column names)
+  if (
+    payload['nad-experience'] ||
+    payload['cognitive-goals'] ||
+    payload['iv-experience'] ||
+    payload['NAD Goals'] ||
+    payload['Used NAD Before'] ||
+    payload['NAD+ Experience'] ||
+    payload['Previous NAD+'] ||
+    payload['Previous NAD+ Treatment'] ||
+    payload['IV Experience'] ||
+    payload['IV Therapy Experience'] ||
+    payload['Cognitive Goals'] ||
+    payload['Mental Clarity Goals'] ||
+    payload['energy-level'] ||
+    payload['anti-aging-goals'] ||
+    payload['chronic-fatigue'] ||
+    payload['brain-fog'] ||
+    payload['preferred-protocol'] ||
+    payload['recovery-goals']
+  ) {
     return 'nad_plus';
   }
 
-  // Better Sex indicators (including Airtable exact field names)
+  // Better Sex indicators
   if (
     payload['ed-history'] ||
     payload['ed-severity'] ||
@@ -193,7 +232,7 @@ export function detectTreatmentType(payload: Record<string, unknown>): OvertimeT
     return 'better_sex';
   }
 
-  // Testosterone indicators (including Airtable exact field names from OT Mens - TRT)
+  // Testosterone indicators
   if (
     payload['trt-symptoms'] ||
     payload['previous-trt'] ||
@@ -213,7 +252,11 @@ export function detectTreatmentType(payload: Record<string, unknown>): OvertimeT
     return 'baseline_bloodwork';
   }
 
-  // Default to weight loss (most common)
+  // 4. Fallback — warn so misclassifications are visible in logs
+  console.warn(
+    '[detectTreatmentType] No explicit type, prefix, or heuristic matched — defaulting to weight_loss.',
+    { submissionId: submissionId || '(none)', payloadKeys: Object.keys(payload).slice(0, 20) }
+  );
   return 'weight_loss';
 }
 
