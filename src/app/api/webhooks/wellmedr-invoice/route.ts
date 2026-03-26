@@ -42,6 +42,12 @@ import { isDLQConfigured, queueFailedSubmission } from '@/lib/queue/deadLetterQu
 import { readIntakeData } from '@/lib/storage/document-data-store';
 import { generatePatientId } from '@/lib/patients';
 import { buildPatientSearchIndex } from '@/lib/utils/search';
+import {
+  getWellMedrConnectStripe,
+  getWellMedrConnectOpts,
+} from '@/app/wellmedr-checkout/lib/stripe-connect';
+import { ADDON_PRODUCTS } from '@/app/wellmedr-checkout/data/addons';
+import type { AddonId } from '@/app/wellmedr-checkout/types/checkout';
 
 // Vercel/Next.js serverless function timeout (seconds)
 export const maxDuration = 60;
@@ -956,6 +962,69 @@ export async function POST(req: NextRequest) {
   ].filter(Boolean);
   const fullAddress = addressParts.join(', ') || '';
 
+  // Look up add-on products from Stripe subscription metadata (best-effort).
+  // When a customer selects add-ons at checkout, they're stored in the subscription's
+  // metadata.selectedAddons. We add them as additional invoice line items so the
+  // provider sees them in the Rx queue and can prescribe each one.
+  let addonIds: AddonId[] = [];
+  if (payload.submission_id) {
+    try {
+      const stripe = getWellMedrConnectStripe();
+      const connectOpts = getWellMedrConnectOpts();
+      const subs = await stripe.subscriptions.search({
+        query: `metadata['submissionId']:'${payload.submission_id}'`,
+        limit: 1,
+      }, connectOpts);
+
+      if (subs.data.length > 0 && subs.data[0].metadata?.selectedAddons) {
+        const parsed = JSON.parse(subs.data[0].metadata.selectedAddons);
+        if (Array.isArray(parsed)) {
+          addonIds = parsed.filter(
+            (k: unknown): k is AddonId => typeof k === 'string' && k in ADDON_PRODUCTS,
+          );
+        }
+        if (addonIds.length > 0) {
+          logger.info(`[WELLMEDR-INVOICE ${requestId}] Add-ons found on subscription`, {
+            addons: addonIds,
+            subscriptionId: subs.data[0].id,
+          });
+        }
+      }
+    } catch (addonErr) {
+      logger.warn(`[WELLMEDR-INVOICE ${requestId}] Add-on lookup failed (non-fatal)`, {
+        error: addonErr instanceof Error ? addonErr.message : String(addonErr),
+      });
+    }
+  }
+
+  // Also accept add-ons directly from the webhook payload (future Airtable field)
+  if (addonIds.length === 0 && payload.selected_addons) {
+    try {
+      const fromPayload = typeof payload.selected_addons === 'string'
+        ? JSON.parse(payload.selected_addons)
+        : payload.selected_addons;
+      if (Array.isArray(fromPayload)) {
+        addonIds = fromPayload.filter(
+          (k: unknown): k is AddonId => typeof k === 'string' && k in ADDON_PRODUCTS,
+        );
+      }
+    } catch { /* ignore parse errors */ }
+  }
+
+  // Build addon line items for the invoice
+  const addonInvoiceLineItems = addonIds.map((addonId) => {
+    const addon = ADDON_PRODUCTS[addonId];
+    return {
+      description: `Add-on: ${addon.name}`,
+      quantity: 1,
+      unitPrice: addon.monthlyPrice * 100,
+      product: addon.name,
+      medicationType: 'add-on',
+      plan: '',
+      addonId,
+    };
+  });
+
   try {
     // Generate a unique invoice number (timestamp + random suffix eliminates race conditions)
     const now = new Date();
@@ -1000,6 +1069,7 @@ export async function POST(req: NextRequest) {
               medicationType: medicationType,
               plan: plan,
             },
+            ...addonInvoiceLineItems,
           ],
           metadata: {
             invoiceNumber,
@@ -1023,6 +1093,7 @@ export async function POST(req: NextRequest) {
             paymentDate: parsePaymentDate(payload.payment_date).toISOString(),
             paymentMethod: 'stripe-airtable',
             processedAt: new Date().toISOString(),
+            ...(addonIds.length > 0 ? { selectedAddons: addonIds } : {}),
             summary: {
               subtotal: amountInCents,
               discountAmount: 0,

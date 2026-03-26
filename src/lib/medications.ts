@@ -294,6 +294,16 @@ const ANASTROZOLE_05_TEMPLATES: SigTemplate[] = [
   },
 ];
 
+const B12_TEMPLATES: SigTemplate[] = [
+  {
+    label: '1 mL IM weekly',
+    sig: 'Inject 1 mL (1000 mcg) intramuscularly once weekly.',
+    quantity: '1',
+    refills: '0',
+    daysSupply: 30,
+  },
+];
+
 const SERMORELIN_TEMPLATES: SigTemplate[] = [
   {
     label: 'M-F · 25 units at bedtime',
@@ -427,6 +437,11 @@ const SPECIAL_CONFIGS: Record<number, Partial<MedicationConfig>> = {
       },
     ],
   },
+  203449111: {
+    name: 'Cyanocobalamin (B12) 1000 mcg/mL',
+    strength: '1000 mcg/mL',
+    sigTemplates: B12_TEMPLATES,
+  },
   203194055: {
     name: 'NAD+ 100 mg/mL (10 mL)',
     strength: '100 mg/mL',
@@ -516,3 +531,13 @@ export const GLP1_PRODUCT_IDS = new Set([
   ...SEMAGLUTIDE_PRODUCT_IDS,
   ...TIRZEPATIDE_PRODUCT_IDS,
 ]);
+
+/**
+ * WellMedR checkout add-on products → Lifefile pharmacy medication keys.
+ * Used to pre-populate the Rx form when a paid invoice includes add-ons.
+ */
+export const ADDON_MEDICATION_MAP: Record<string, string> = {
+  nad_plus: '203194055',
+  sermorelin: '203666651',
+  b12: '203449111',
+};

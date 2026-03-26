@@ -36,7 +36,7 @@ import {
   FileWarning,
   BarChart3,
 } from 'lucide-react';
-import { MEDS, GLP1_PRODUCT_IDS } from '@/lib/medications';
+import { MEDS, GLP1_PRODUCT_IDS, ADDON_MEDICATION_MAP } from '@/lib/medications';
 import { SHIPPING_METHODS } from '@/lib/shipping';
 import SigBuilder from '@/components/SigBuilder';
 import MedicationSelector, { getGLP1SubCategory } from '@/components/MedicationSelector';
@@ -904,6 +904,53 @@ export default function PrescriptionQueuePage() {
       } else {
         // Non-GLP-1 medication: fall back to generic treatment matching
         autoSelectNonGlp1Medication(item.treatment, details);
+      }
+
+      // Append add-on medications if the invoice has add-ons (NAD+, Sermorelin, B12)
+      const invoiceMetadata = details.invoice?.metadata as Record<string, unknown> | null;
+      const selectedAddons = invoiceMetadata?.selectedAddons;
+      if (Array.isArray(selectedAddons) && selectedAddons.length > 0) {
+        const addonMeds: MedicationItem[] = [];
+        for (const addonId of selectedAddons) {
+          if (addonId === 'elite_bundle') {
+            // Bundle expands to all 3 individual addons
+            for (const [key, medKey] of Object.entries(ADDON_MEDICATION_MAP)) {
+              if (key === addonId) continue;
+              const med = MEDS[medKey];
+              if (med) {
+                addonMeds.push({
+                  id: crypto.randomUUID(),
+                  medicationKey: medKey,
+                  sig: med.sigTemplates?.[0]?.sig || med.defaultSig || '',
+                  quantity: med.sigTemplates?.[0]?.quantity || med.defaultQuantity || '1',
+                  refills: med.sigTemplates?.[0]?.refills || med.defaultRefills || '0',
+                  daysSupply: String(med.sigTemplates?.[0]?.daysSupply ?? 30),
+                });
+              }
+            }
+          } else {
+            const medKey = ADDON_MEDICATION_MAP[addonId as string];
+            if (medKey) {
+              const med = MEDS[medKey];
+              if (med) {
+                addonMeds.push({
+                  id: crypto.randomUUID(),
+                  medicationKey: medKey,
+                  sig: med.sigTemplates?.[0]?.sig || med.defaultSig || '',
+                  quantity: med.sigTemplates?.[0]?.quantity || med.defaultQuantity || '1',
+                  refills: med.sigTemplates?.[0]?.refills || med.defaultRefills || '0',
+                  daysSupply: String(med.sigTemplates?.[0]?.daysSupply ?? 30),
+                });
+              }
+            }
+          }
+        }
+        if (addonMeds.length > 0) {
+          setPrescriptionForm((prev) => ({
+            ...prev,
+            medications: [...prev.medications, ...addonMeds],
+          }));
+        }
       }
     }
   };

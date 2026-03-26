@@ -1244,6 +1244,21 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         treatmentDisplay = `Semaglutide or Tirzepatide - ${cleanTreatment}`;
       }
 
+      // Append add-on names to treatment display so provider sees them at a glance
+      const addonNames: string[] = [];
+      const invoiceAddons = (metadata as Record<string, unknown> | null)?.selectedAddons;
+      if (Array.isArray(invoiceAddons)) {
+        const ADDON_LABELS: Record<string, string> = {
+          nad_plus: 'NAD+', sermorelin: 'Sermorelin', b12: 'B12', elite_bundle: 'Elite Bundle',
+        };
+        for (const a of invoiceAddons) {
+          if (typeof a === 'string' && ADDON_LABELS[a]) addonNames.push(ADDON_LABELS[a]);
+        }
+      }
+      if (addonNames.length > 0) {
+        treatmentDisplay += ` + ${addonNames.join(', ')}`;
+      }
+
       // Get intake completion date if available
       const intakeCompletedAt = invoice.patient.intakeSubmissions?.[0]?.completedAt || null;
 
