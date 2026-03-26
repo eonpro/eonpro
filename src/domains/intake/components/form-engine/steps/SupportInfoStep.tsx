@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLanguage } from '../../../contexts/LanguageContext';
-import { useIntakeActions } from '../../../store/intakeStore';
+import { useIntakeActions, useIntakeStore } from '../../../store/intakeStore';
 
 interface SupportInfoStepProps {
   basePath: string;
@@ -21,9 +21,11 @@ export default function SupportInfoStep({
   const router = useRouter();
   const { language } = useLanguage();
   const isSpanish = language === 'es';
+  const clinicSlug = useIntakeStore((s) => s.clinicSlug);
   const { markStepCompleted, setCurrentStep } = useIntakeActions();
   const [animate, setAnimate] = useState(false);
   const hasNavigated = useRef(false);
+  const isOt = clinicSlug === 'ot' || clinicSlug === 'otmens';
 
   useEffect(() => {
     const timer = setTimeout(() => setAnimate(true), 100);
@@ -72,8 +74,8 @@ export default function SupportInfoStep({
       )}
       
       <div className="flex-1 flex flex-col px-6 lg:px-8 py-8 pb-40 max-w-md lg:max-w-lg mx-auto w-full">
-        <div 
-          className={`bg-[#f0feab] rounded-3xl p-6 pb-0 space-y-3 overflow-hidden 
+        <div
+          className={`${isOt ? 'bg-[#f5ecd8]' : 'bg-[#f0feab]'} rounded-3xl p-6 pb-0 space-y-3 overflow-hidden 
             transition-all duration-700 ease-out cursor-pointer
             hover:shadow-lg hover:scale-[1.01]
             ${animate ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-8 scale-95'}`}
@@ -84,7 +86,7 @@ export default function SupportInfoStep({
             }`}
             style={{ transitionDelay: '200ms' }}
           >
-            {isSpanish ? '¿Sabías?' : 'Did you know?'}
+            {isSpanish ? '¿Sabías que' : 'Did you know that'}
           </h2>
           
           <div 
@@ -94,8 +96,10 @@ export default function SupportInfoStep({
             style={{ transitionDelay: '300ms' }}
           >
             <img 
-              src="https://static.wixstatic.com/media/c49a9b_60568a55413d471ba85d995d7da0d0f2~mv2.png"
-              alt="EONMeds"
+              src={isOt
+                ? 'https://static.wixstatic.com/shapes/c49a9b_5139736743794db7af38c583595f06fb.svg'
+                : 'https://static.wixstatic.com/media/c49a9b_60568a55413d471ba85d995d7da0d0f2~mv2.png'}
+              alt={isOt ? 'OT Mens Health' : 'EONMeds'}
               className="h-10 w-auto"
             />
           </div>
@@ -107,8 +111,8 @@ export default function SupportInfoStep({
             style={{ transitionDelay: '400ms' }}
           >
             {isSpanish 
-              ? 'Te asigna un representante dedicado'
-              : 'Assigns you a dedicated representative'}
+              ? 'Asigna un representante a tu caso para guiarte y apoyarte en cada paso.'
+              : 'Assigns a representative to your case to guide and support you every step of the way.'}
           </h3>
           
           <p 
@@ -118,8 +122,8 @@ export default function SupportInfoStep({
             style={{ transitionDelay: '500ms' }}
           >
             {isSpanish
-              ? 'Un representante dedicado estará contigo durante todo tu tratamiento para guiarte en cada paso.'
-              : 'A dedicated representative will be with you throughout your treatment to guide you every step of the way.'}
+              ? 'Sabemos que las cosas a veces pueden ser confusas, por eso estamos aquí para guiarte y apoyarte.'
+              : "We know things can sometimes be confusing, which is why we're here to guide and support you."}
           </p>
           
           <div 
@@ -129,7 +133,9 @@ export default function SupportInfoStep({
             style={{ transitionDelay: '600ms' }}
           >
             <img 
-              src="https://static.wixstatic.com/media/c49a9b_2c49b136f5ec49c787b37346cca7f47b~mv2.webp"
+              src={isOt
+                ? 'https://static.wixstatic.com/media/c49a9b_5b9a0976f96044ccbf05c4d90c382f2d~mv2.webp'
+                : 'https://static.wixstatic.com/media/c49a9b_2c49b136f5ec49c787b37346cca7f47b~mv2.webp'}
               alt="Customer Service Representative"
               className="w-80 h-auto object-contain"
             />

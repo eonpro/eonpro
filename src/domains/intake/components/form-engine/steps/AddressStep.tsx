@@ -31,7 +31,9 @@ export default function AddressStep({
   const isSpanish = language === 'es';
   
   const responses = useIntakeStore((state) => state.responses);
+  const clinicSlug = useIntakeStore((state) => state.clinicSlug);
   const { setResponse, markStepCompleted, setCurrentStep } = useIntakeActions();
+  const isOt = clinicSlug === 'ot' || clinicSlug === 'otmens';
   
   const [address, setAddressLocal] = useState(String(responses.street ?? ''));
   const [apartment, setApartment] = useState(String(responses.apartment ?? ''));
@@ -159,37 +161,45 @@ export default function AddressStep({
         </div>
       )}
 
-      {/* Cold Shipping Banner */}
-      <div className="px-6 mt-3 max-w-md lg:max-w-lg mx-auto w-full">
-        <div className="bg-[#f0feab] rounded-3xl overflow-hidden flex items-stretch">
-          <div className="flex-1 px-5 py-3 flex flex-col justify-center">
-            <h3 className="font-semibold text-base text-black">
-              {isSpanish ? 'Envío en frío' : 'Cold shipping'}
-            </h3>
-            <p className="text-xs text-gray-600 font-normal mt-0.5">
-              {isSpanish ? 'Entrega directa a tu puerta' : 'Delivered directly to your door'}
-            </p>
-          </div>
-          <div className="flex-shrink-0 bg-gray-200 rounded-r-3xl">
-            <img 
-              src="https://static.wixstatic.com/media/c49a9b_4d682057194f4e1fa67cf62dd50a1d27~mv2.webp"
-              alt="Cold Shipping"
-              className="h-20 w-20 object-cover rounded-r-3xl"
-            />
+      {/* Cold Shipping Banner - EONMeds only */}
+      {!isOt && (
+        <div className="px-6 mt-3 max-w-md lg:max-w-lg mx-auto w-full">
+          <div className="bg-[#f0feab] rounded-3xl overflow-hidden flex items-stretch">
+            <div className="flex-1 px-5 py-3 flex flex-col justify-center">
+              <h3 className="font-semibold text-base text-black">
+                {isSpanish ? 'Envío en frío' : 'Cold shipping'}
+              </h3>
+              <p className="text-xs text-gray-600 font-normal mt-0.5">
+                {isSpanish ? 'Entrega directa a tu puerta' : 'Delivered directly to your door'}
+              </p>
+            </div>
+            <div className="flex-shrink-0 bg-gray-200 rounded-r-3xl">
+              <img
+                src="https://static.wixstatic.com/media/c49a9b_4d682057194f4e1fa67cf62dd50a1d27~mv2.webp"
+                alt="Cold Shipping"
+                className="h-20 w-20 object-cover rounded-r-3xl"
+              />
+            </div>
           </div>
         </div>
-      </div>
+      )}
       
       <div className="flex-1 px-6 lg:px-8 py-4 pb-48 max-w-md lg:max-w-lg mx-auto w-full">
         <div className="space-y-4">
           <div>
             <h1 className="page-title mb-2">
-              {isSpanish ? '¿A dónde enviamos tu tratamiento?' : 'Where should we ship your treatment?'}
+              {isOt
+                ? (isSpanish ? '¿Cuál es tu dirección?' : 'What is your home address?')
+                : (isSpanish ? '¿A dónde enviamos tu tratamiento?' : 'Where should we ship your treatment?')}
             </h1>
             <p className="page-subtitle text-sm mb-1">
-              {isSpanish 
-                ? 'Enviamos a los 50 estados de EE. UU.'
-                : 'We ship to all 50 US states.'}
+              {isOt
+                ? (isSpanish
+                    ? 'Usamos tu dirección para confirmar que nuestros servicios están disponibles en tu estado y para cumplir con los requisitos médicos locales.'
+                    : 'We use your address to confirm that our services are available in your state and to meet local medical requirements.')
+                : (isSpanish
+                    ? 'Enviamos a los 50 estados de EE. UU.'
+                    : 'We ship to all 50 US states.')}
             </p>
           </div>
 
