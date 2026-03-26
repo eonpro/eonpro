@@ -32,9 +32,13 @@ function PaymentReturnContent() {
       }
 
       try {
-        const publishableKey = process.env.NEXT_PUBLIC_WELLMEDR_STRIPE_PUBLISHABLE_KEY
+        const publishableKey = process.env.NEXT_PUBLIC_STRIPE_CONNECT_PUBLISHABLE_KEY
+          || process.env.NEXT_PUBLIC_WELLMEDR_STRIPE_PUBLISHABLE_KEY
           || process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || '';
-        const stripe = await loadStripe(publishableKey);
+        const connectedAccountId = process.env.NEXT_PUBLIC_WELLMEDR_STRIPE_ACCOUNT_ID;
+        const stripe = await loadStripe(publishableKey, {
+          ...(connectedAccountId ? { stripeAccount: connectedAccountId } : {}),
+        });
         if (!stripe) throw new Error('Stripe failed to load');
 
         const { paymentIntent: pi } = await stripe.retrievePaymentIntent(paymentIntentClientSecret);

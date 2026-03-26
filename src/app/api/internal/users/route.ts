@@ -3,7 +3,7 @@ import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { UserRole, UserStatus } from '@prisma/client';
-import { buildFuzzySearchOr } from '@/lib/utils/search';
+import { buildFuzzySearchOr, sortBySearchRelevance } from '@/lib/utils/search';
 
 /**
  * GET /api/internal/users - Fetch team members for internal chat
@@ -174,13 +174,22 @@ async function getHandler(request: NextRequest, user: AuthUser) {
       };
     });
 
-    // Sort to put Platform Admins at the top for easy access
+    // When searching, sort by relevance so the best match appears first;
+    // otherwise, put Platform Admins at top for easy access.
     type TransformedUser = (typeof transformedUsers)[number];
-    transformedUsers.sort((a: TransformedUser, b: TransformedUser) => {
-      if (a.isPlatformAdmin && !b.isPlatformAdmin) return -1;
-      if (!a.isPlatformAdmin && b.isPlatformAdmin) return 1;
-      return `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`);
-    });
+    if (search) {
+      const ranked = sortBySearchRelevance(transformedUsers, search, (u: TransformedUser) => [
+        u.firstName ?? '', u.lastName ?? '', u.email ?? '',
+      ]);
+      transformedUsers.length = 0;
+      transformedUsers.push(...ranked);
+    } else {
+      transformedUsers.sort((a: TransformedUser, b: TransformedUser) => {
+        if (a.isPlatformAdmin && !b.isPlatformAdmin) return -1;
+        if (!a.isPlatformAdmin && b.isPlatformAdmin) return 1;
+        return `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`);
+      });
+    }
 
     return NextResponse.json({
       ok: true,

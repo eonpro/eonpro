@@ -65,6 +65,9 @@ export const checkoutFormSchema = z
         savings: z.number().optional(),
       })
       .nullable(),
+    selectedAddons: z.array(
+      z.enum(['nad_plus', 'sermorelin', 'b12', 'elite_bundle']),
+    ).default([]),
     shippingAddress: shippingAddressSchema,
     billingAddress: billingAddressSchema,
     cardholderName: z.string(),

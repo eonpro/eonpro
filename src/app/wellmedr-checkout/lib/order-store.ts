@@ -19,6 +19,7 @@ interface OrderRecord {
   amount: number;
   shippingAddress: Record<string, unknown>;
   billingAddress: Record<string, unknown>;
+  selectedAddons: string[];
   paymentStatus: string;
   subscriptionStatus: string;
   orderStatus: string;
@@ -39,10 +40,12 @@ export async function createOrder(params: {
   amount: number;
   shippingAddress: Record<string, unknown>;
   billingAddress: Record<string, unknown>;
+  selectedAddons?: string[];
 }): Promise<OrderRecord> {
   const record: OrderRecord = {
     id: crypto.randomUUID(),
     ...params,
+    selectedAddons: params.selectedAddons || [],
     paymentStatus: 'pending',
     subscriptionStatus: 'incomplete',
     orderStatus: 'created',
@@ -95,6 +98,15 @@ export async function updateOrderPaymentDetails(orderId: string, details: Record
   for (const order of orders.values()) {
     if (order.id === orderId) {
       Object.assign(order, details);
+      return;
+    }
+  }
+}
+
+export async function updateOrderAddonMetadata(orderId: string, addons: string[]): Promise<void> {
+  for (const order of orders.values()) {
+    if (order.id === orderId) {
+      order.selectedAddons = addons;
       return;
     }
   }

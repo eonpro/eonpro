@@ -15,6 +15,7 @@ import {
   fuzzyTermMatch,
   scoreMatch,
   buildFuzzySearchOr,
+  sortBySearchRelevance,
 } from '../search';
 
 describe('generateSearchVariants', () => {
@@ -334,5 +335,45 @@ describe('buildFuzzySearchOr', () => {
     // Should have: 3 exact (email, firstName, lastName) + variants for each fuzzy field
     expect(result.length).toBeGreaterThan(3);
     expect(result.length).toBeLessThan(100);
+  });
+});
+
+describe('sortBySearchRelevance', () => {
+  const items = [
+    { name: 'Alice Johnson', email: 'alice@test.com' },
+    { name: 'John Smith', email: 'john@test.com' },
+    { name: 'Bob Johnston', email: 'bob@test.com' },
+    { name: 'Jonathan Lee', email: 'jonathan@test.com' },
+  ];
+  const getFields = (item: typeof items[number]) => [item.name, item.email];
+
+  it('returns items unchanged when no search', () => {
+    expect(sortBySearchRelevance(items, '', getFields)).toBe(items);
+    expect(sortBySearchRelevance(items, '   ', getFields)).toBe(items);
+  });
+
+  it('puts exact match first', () => {
+    const sorted = sortBySearchRelevance(items, 'john smith', getFields);
+    expect(sorted[0].name).toBe('John Smith');
+  });
+
+  it('ranks exact substring higher than fuzzy match', () => {
+    const sorted = sortBySearchRelevance(items, 'smith', getFields);
+    // "John Smith" has exact "smith" → should rank above others
+    expect(sorted[0].name).toBe('John Smith');
+  });
+
+  it('preserves original order for equal relevance', () => {
+    const sorted = sortBySearchRelevance(items, 'test.com', getFields);
+    // All items have "test.com" in email — same score, preserve original order
+    expect(sorted[0].name).toBe('Alice Johnson');
+    expect(sorted[1].name).toBe('John Smith');
+    expect(sorted[2].name).toBe('Bob Johnston');
+    expect(sorted[3].name).toBe('Jonathan Lee');
+  });
+
+  it('handles single item array', () => {
+    const single = [items[0]];
+    expect(sortBySearchRelevance(single, 'alice', getFields)).toBe(single);
   });
 });

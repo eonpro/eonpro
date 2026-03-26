@@ -9,7 +9,7 @@ import { prisma } from '@/lib/db';
 import { withAuth } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
 import { hasPermission, PERMISSIONS } from '@/lib/auth/permissions';
-import { buildFuzzySearchOr } from '@/lib/utils/search';
+import { buildFuzzySearchOr, sortBySearchRelevance } from '@/lib/utils/search';
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 
@@ -127,8 +127,15 @@ export const GET = withAuth(
         prisma.user.count({ where }),
       ]);
 
+      // When searching, sort by relevance so the best match appears first
+      const sortedUsers = search
+        ? sortBySearchRelevance(users, search, (u) => [
+            u.firstName ?? '', u.lastName ?? '', u.email ?? '',
+          ])
+        : users;
+
       return NextResponse.json({
-        users,
+        users: sortedUsers,
         pagination: {
           page,
           limit,

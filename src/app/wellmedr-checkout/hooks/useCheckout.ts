@@ -10,19 +10,24 @@ import {
   ProductNameType,
   ProductType,
   SelectedProductType,
+  AddonId,
 } from '@/app/wellmedr-checkout/types/checkout';
 import { useProducts } from '@/app/wellmedr-checkout/providers/ProductsProvider';
+import { getAddonTotal } from '@/app/wellmedr-checkout/data/addons';
 
 export interface UseCheckoutReturn {
   selectedProduct: SelectedProductType | null;
   selectedPlan: PlanOptions;
+  selectedAddons: AddonId[];
   plans: Plan[];
   products: Record<ProductNameType, ProductType>;
+  addonTotal: number;
   handleProductSelect: (
     productName: ProductNameType,
     medicationType: MedicationType,
   ) => void;
   handlePlanSelect: (planId: PlanOptions) => void;
+  handleAddonToggle: (addonId: AddonId) => void;
 }
 
 export function useCheckout(): UseCheckoutReturn {
@@ -38,6 +43,10 @@ export function useCheckout(): UseCheckoutReturn {
     control,
     name: 'selectedPlan',
   }) as PlanOptions;
+  const selectedAddons = useWatch({
+    control,
+    name: 'selectedAddons',
+  }) as AddonId[];
 
   // Generate plans based on selected product
   const plans = useMemo(() => {
@@ -157,12 +166,55 @@ export function useCheckout(): UseCheckoutReturn {
     [setValue, plans],
   );
 
+  const handleAddonToggle = useCallback(
+    (addonId: AddonId) => {
+      const current = selectedAddons || [];
+
+      if (addonId === 'elite_bundle') {
+        if (current.includes('elite_bundle')) {
+          setValue('selectedAddons', []);
+        } else {
+          setValue('selectedAddons', ['elite_bundle']);
+        }
+        return;
+      }
+
+      // Toggling an individual addon
+      if (current.includes('elite_bundle')) {
+        // Switching from bundle to individual: remove bundle, add all except toggled
+        const individuals: AddonId[] = ['nad_plus', 'sermorelin', 'b12'];
+        setValue(
+          'selectedAddons',
+          individuals.filter((id) => id !== addonId),
+        );
+        return;
+      }
+
+      let next: AddonId[];
+      if (current.includes(addonId)) {
+        next = current.filter((id) => id !== addonId);
+      } else {
+        next = [...current, addonId];
+      }
+      setValue('selectedAddons', next);
+    },
+    [selectedAddons, setValue],
+  );
+
+  const addonTotal = useMemo(
+    () => getAddonTotal(selectedAddons || []),
+    [selectedAddons],
+  );
+
   return {
     selectedProduct,
     selectedPlan,
+    selectedAddons: selectedAddons || [],
     plans,
     products,
+    addonTotal,
     handleProductSelect,
     handlePlanSelect,
+    handleAddonToggle,
   };
 }

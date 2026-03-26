@@ -574,6 +574,49 @@ export function buildPatientSearchWhere(rawSearch: string): PatientSearchFilter 
 }
 
 // ============================================================================
+// Relevance Sorting
+// ============================================================================
+
+/**
+ * Re-sort an array of items by search relevance so the best match appears first.
+ * Uses `scoreMatch` to rank each item, preserving original order for ties.
+ *
+ * Only call this when a search query is active — without a query, the original
+ * ordering (typically by date) should be preserved.
+ *
+ * @param items   - Array to sort
+ * @param search  - Raw search input
+ * @param getFields - Extractor returning searchable text fields for an item
+ * @returns New array sorted by match quality (best first)
+ *
+ * @example
+ * const sorted = sortBySearchRelevance(patients, 'john', (p) => [
+ *   p.firstName ?? '', p.lastName ?? '', p.patientId ?? '', p.email ?? '',
+ * ]);
+ */
+export function sortBySearchRelevance<T>(
+  items: T[],
+  search: string,
+  getFields: (item: T) => string[],
+): T[] {
+  const normalized = normalizeSearch(search);
+  if (!normalized || items.length <= 1) return items;
+
+  const scored = items.map((item, originalIndex) => ({
+    item,
+    score: scoreMatch(normalized, getFields(item)),
+    originalIndex,
+  }));
+
+  scored.sort((a, b) => {
+    if (b.score !== a.score) return b.score - a.score;
+    return a.originalIndex - b.originalIndex;
+  });
+
+  return scored.map((s) => s.item);
+}
+
+// ============================================================================
 // Fuzzy Search Utilities for Non-Patient Entities
 // ============================================================================
 

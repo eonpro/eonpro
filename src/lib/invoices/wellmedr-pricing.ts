@@ -69,3 +69,64 @@ export function isOvernightShipping(shippingMethodId: number): boolean {
 export function getProductPrice(medicationKey: string): WellmedrProductPrice | undefined {
   return WELLMEDR_PRICE_MAP.get(medicationKey);
 }
+
+// ---------------------------------------------------------------------------
+// Add-on Products — Pharmacy Fees (COGS) & Prescription Upcharge
+// ---------------------------------------------------------------------------
+
+export type AddonKey = 'nad_plus' | 'sermorelin' | 'b12' | 'elite_bundle';
+
+export interface WellmedrAddonFee {
+  key: AddonKey;
+  name: string;
+  pharmacyFeeCents: number;
+  prescriptionUpchargeCents: number;
+}
+
+export const ADDON_PHARMACY_FEES: Record<AddonKey, WellmedrAddonFee> = {
+  nad_plus: {
+    key: 'nad_plus',
+    name: 'NAD+',
+    pharmacyFeeCents: 5000, // $50
+    prescriptionUpchargeCents: 500, // $5
+  },
+  sermorelin: {
+    key: 'sermorelin',
+    name: 'Sermorelin',
+    pharmacyFeeCents: 5000, // $50
+    prescriptionUpchargeCents: 500, // $5
+  },
+  b12: {
+    key: 'b12',
+    name: 'Cyanocobalamin (B12)',
+    pharmacyFeeCents: 2600, // $26
+    prescriptionUpchargeCents: 500, // $5
+  },
+  elite_bundle: {
+    key: 'elite_bundle',
+    name: 'Elite Bundle (NAD+, Sermorelin, B12)',
+    pharmacyFeeCents: 12500, // $125
+    prescriptionUpchargeCents: 500, // $5
+  },
+};
+
+/**
+ * Calculate the total pharmacy fee in cents for the selected addons.
+ */
+export function getAddonPharmacyFeeCents(addonKeys: AddonKey[]): number {
+  return addonKeys.reduce(
+    (sum, key) => sum + (ADDON_PHARMACY_FEES[key]?.pharmacyFeeCents ?? 0),
+    0,
+  );
+}
+
+/**
+ * Calculate the total prescription upcharge in cents for the selected addons.
+ * Each addon adds a $5 upcharge to the prescription invoice for EonPro.
+ */
+export function getAddonPrescriptionUpchargeCents(addonKeys: AddonKey[]): number {
+  return addonKeys.reduce(
+    (sum, key) => sum + (ADDON_PHARMACY_FEES[key]?.prescriptionUpchargeCents ?? 0),
+    0,
+  );
+}

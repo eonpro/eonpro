@@ -5,6 +5,18 @@ import { StaticImageData } from 'next/image';
 export type ProductNameType = 'semaglutide' | 'tirzepatide';
 export type MedicationType = 'injections' | 'tablets';
 
+// Add-on Types
+export type AddonId = 'nad_plus' | 'sermorelin' | 'b12' | 'elite_bundle';
+
+export interface AddonProduct {
+  id: AddonId;
+  name: string;
+  description: string;
+  monthlyPrice: number;
+  isBundle: boolean;
+  bundledAddonIds?: AddonId[];
+}
+
 type PricingTier = {
   monthlyPrice: number;
   quarterlyPrice: number;
@@ -71,6 +83,9 @@ export type CheckoutFormData = {
   selectedProduct: SelectedProductType | null;
   selectedPlan: PlanOptions;
   planDetails: Plan | null;
+
+  // Add-ons
+  selectedAddons: AddonId[];
 
   // Addresses
   shippingAddress: ShippingAddress;

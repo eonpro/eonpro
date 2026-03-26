@@ -12,7 +12,7 @@ import { type Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { decryptPatientPHI } from '@/lib/security/phi-encryption';
-import { generateSearchVariants, splitSearchTerms } from '@/lib/utils/search';
+import { generateSearchVariants, splitSearchTerms, sortBySearchRelevance } from '@/lib/utils/search';
 import type {
   Order,
   Rx,
@@ -389,11 +389,20 @@ export const orderRepository = {
       decryptOrderPatient(order)
     );
 
+    // When searching, sort by relevance so the best match appears first
+    const sortedOrders = filters.search
+      ? sortBySearchRelevance(decryptedOrders as OrderWithPatient[], filters.search, (o) => [
+          (o as any).patient?.firstName ?? '',
+          (o as any).patient?.lastName ?? '',
+          (o as any).primaryMedName ?? '',
+        ])
+      : (decryptedOrders as OrderWithPatient[]);
+
     return {
-      orders: decryptedOrders as OrderWithPatient[],
-      count: decryptedOrders.length,
+      orders: sortedOrders,
+      count: sortedOrders.length,
       total,
-      hasMore: offset + decryptedOrders.length < total,
+      hasMore: offset + sortedOrders.length < total,
     };
   },
 

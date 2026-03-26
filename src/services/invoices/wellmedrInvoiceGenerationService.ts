@@ -22,6 +22,10 @@ import {
   OVERNIGHT_SHIPPING_FEE_CENTS,
   getProductPrice,
   isOvernightShipping,
+  ADDON_PHARMACY_FEES,
+  getAddonPharmacyFeeCents,
+  getAddonPrescriptionUpchargeCents,
+  type AddonKey,
 } from '@/lib/invoices/wellmedr-pricing';
 
 const CLINIC_TZ = 'America/New_York';
@@ -58,6 +62,18 @@ export interface ShippingLineItem {
   feeCents: number;
 }
 
+export interface AddonLineItem {
+  orderId: number;
+  lifefileOrderId: string | null;
+  orderDate: string;
+  paidAt: string | null;
+  patientName: string;
+  patientId: number;
+  addonKey: AddonKey;
+  addonName: string;
+  feeCents: number;
+}
+
 export interface PharmacyInvoice {
   invoiceType: 'pharmacy';
   clinicId: number;
@@ -67,8 +83,10 @@ export interface PharmacyInvoice {
   periodEnd: string;
   lineItems: PharmacyLineItem[];
   shippingLineItems: ShippingLineItem[];
+  addonLineItems: AddonLineItem[];
   subtotalMedicationsCents: number;
   subtotalShippingCents: number;
+  subtotalAddonsCents: number;
   totalCents: number;
   orderCount: number;
   vialCount: number;
@@ -221,6 +239,7 @@ export async function generateDailyInvoices(
       patientId: true,
       providerId: true,
       status: true,
+      sourceMetadata: true,
       patient: { select: { id: true, firstName: true, lastName: true } },
       provider: { select: { id: true, firstName: true, lastName: true } },
       rxs: {
@@ -324,6 +343,7 @@ export async function generateDailyInvoices(
 
   const pharmacyLineItems: PharmacyLineItem[] = [];
   const shippingLineItems: ShippingLineItem[] = [];
+  const addonLineItems: AddonLineItem[] = [];
   const rxServiceLineItems: PrescriptionServiceLineItem[] = [];
 
   let subtotalMedicationsCents = 0;
@@ -410,6 +430,39 @@ export async function generateDailyInvoices(
       }
     }
 
+    // --- Add-on Products (pharmacy fees from subscription metadata) ---
+    let orderAddonKeys: AddonKey[] = [];
+    const meta = order.sourceMetadata as Record<string, unknown> | null;
+    if (meta?.selectedAddons) {
+      try {
+        const parsed = typeof meta.selectedAddons === 'string'
+          ? JSON.parse(meta.selectedAddons as string)
+          : meta.selectedAddons;
+        if (Array.isArray(parsed)) {
+          orderAddonKeys = parsed.filter(
+            (k: unknown): k is AddonKey => typeof k === 'string' && k in ADDON_PHARMACY_FEES,
+          );
+        }
+      } catch { /* ignore parse errors */ }
+    }
+
+    for (const addonKey of orderAddonKeys) {
+      const addonFee = ADDON_PHARMACY_FEES[addonKey];
+      if (addonFee) {
+        addonLineItems.push({
+          orderId: order.id,
+          lifefileOrderId: order.lifefileOrderId,
+          orderDate,
+          paidAt,
+          patientName,
+          patientId: order.patientId,
+          addonKey,
+          addonName: addonFee.name,
+          feeCents: addonFee.pharmacyFeeCents,
+        });
+      }
+    }
+
     // --- Prescription Services (90-day cycle: $20 new / $3 refill) ---
     const anchor = cycleAnchorByPatient.get(order.patientId) ?? null;
     let chargeType: 'new' | 'refill';
@@ -423,6 +476,10 @@ export async function generateDailyInvoices(
       chargeType = 'refill';
       rxFee = PRESCRIPTION_SERVICE_REFILL_FEE_CENTS;
     }
+
+    // Add $5 upcharge per addon to the prescription invoice for EonPro
+    const addonUpcharge = getAddonPrescriptionUpchargeCents(orderAddonKeys);
+    rxFee += addonUpcharge;
 
     const medicationsList = order.rxs
       .filter((rx) => WELLMEDR_PRICED_PRODUCT_IDS.has(rx.medicationKey))
@@ -444,7 +501,8 @@ export async function generateDailyInvoices(
     });
   }
 
-  const pharmacyTotalCents = subtotalMedicationsCents + subtotalShippingCents;
+  const subtotalAddonsCents = addonLineItems.reduce((sum, li) => sum + li.feeCents, 0);
+  const pharmacyTotalCents = subtotalMedicationsCents + subtotalShippingCents + subtotalAddonsCents;
   const rxServicesTotalCents = rxServiceLineItems.reduce((sum, li) => sum + li.feeCents, 0);
   const newCount = rxServiceLineItems.filter((li) => li.chargeType === 'new').length;
   const refillCount = rxServiceLineItems.filter((li) => li.chargeType === 'refill').length;
@@ -459,8 +517,10 @@ export async function generateDailyInvoices(
       periodEnd: periodEnd.toISOString(),
       lineItems: pharmacyLineItems,
       shippingLineItems,
+      addonLineItems,
       subtotalMedicationsCents,
       subtotalShippingCents,
+      subtotalAddonsCents,
       totalCents: pharmacyTotalCents,
       orderCount: filteredOrders.length,
       vialCount: totalVialCount,

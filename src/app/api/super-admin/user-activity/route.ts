@@ -15,7 +15,7 @@ import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { getRecentlyActiveUserIds } from '@/lib/auth/middleware-cache';
-import { buildFuzzySearchOr } from '@/lib/utils/search';
+import { buildFuzzySearchOr, sortBySearchRelevance } from '@/lib/utils/search';
 
 interface UserActivityStats {
   totalUsers: number;
@@ -253,9 +253,16 @@ export const GET = withAuth(
         },
       });
 
+      // When searching, sort by relevance so the best match appears first
+      const sortedUsers = search
+        ? sortBySearchRelevance(enrichedUsers, search, (u) => [
+            u.firstName ?? '', u.lastName ?? '', u.email ?? '',
+          ])
+        : enrichedUsers;
+
       return NextResponse.json({
         ok: true,
-        users: enrichedUsers,
+        users: sortedUsers,
         stats,
         recentActivity,
         pagination: {

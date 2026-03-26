@@ -3,7 +3,7 @@ import { basePrisma as prisma, runWithClinicContext } from '@/lib/db';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { providerService } from '@/domains/provider';
 import { logger } from '@/lib/logger';
-import { buildFuzzySearchOr } from '@/lib/utils/search';
+import { buildFuzzySearchOr, sortBySearchRelevance } from '@/lib/utils/search';
 
 /**
  * Middleware to check for Super Admin role
@@ -155,13 +155,20 @@ export const GET = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) =
       hasLinkedUser: !!provider.user,
     }));
 
+    // When searching, sort by relevance so the best match appears first
+    const sortedProviders = search
+      ? sortBySearchRelevance(providersWithStats, search, (p) => [
+          p.firstName ?? '', p.lastName ?? '', p.npi ?? '', p.email ?? '',
+        ])
+      : providersWithStats;
+
     logger.info('[SUPER-ADMIN/PROVIDERS] Found providers', {
       count: providers.length,
       totalCount,
     });
 
     return NextResponse.json({
-      providers: providersWithStats,
+      providers: sortedProviders,
       pagination: {
         page,
         limit,

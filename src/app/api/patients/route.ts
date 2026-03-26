@@ -15,6 +15,7 @@ import { relaxedRateLimit, standardRateLimit } from '@/lib/rateLimit';
 import { patientService, type UserContext, type ListPatientsOptions } from '@/domains/patient';
 import { handleApiError } from '@/domains/shared/errors';
 import { createServerTiming } from '@/lib/observability/server-timing';
+import { sortBySearchRelevance } from '@/lib/utils/search';
 
 // Zod schema for patient creation
 const createPatientSchema = z.object({
@@ -95,7 +96,7 @@ const getPatientsHandler = withClinicalAuth(async (req: NextRequest, user) => {
 
     const totalInSystem: number | undefined = undefined;
 
-    const patients = result.data.map((patient) => {
+    const patientsRaw = result.data.map((patient) => {
       const baseData: Record<string, any> = {
         id: patient.id,
         patientId: patient.patientId,
@@ -127,6 +128,13 @@ const getPatientsHandler = withClinicalAuth(async (req: NextRequest, user) => {
 
       return baseData;
     });
+
+    // When searching, sort by relevance so the best match appears first
+    const patients = options.search
+      ? sortBySearchRelevance(patientsRaw, options.search, (p) => [
+          p.firstName ?? '', p.lastName ?? '', p.patientId ?? '', p.email ?? '',
+        ])
+      : patientsRaw;
 
     return Response.json({
       patients,

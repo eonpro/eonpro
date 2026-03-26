@@ -5,7 +5,7 @@ import { useCheckout } from '@/app/wellmedr-checkout/hooks/useCheckout';
 import { useCheckoutStep } from '@/app/wellmedr-checkout/providers/CheckoutStepProvider';
 
 export default function CTA({ id }: { id: string }) {
-  const { selectedProduct, selectedPlan, plans } = useCheckout();
+  const { selectedProduct, selectedPlan, plans, addonTotal } = useCheckout();
   const { goToNextStep } = useCheckoutStep();
 
   if (!selectedProduct) return null;
@@ -58,6 +58,8 @@ export default function CTA({ id }: { id: string }) {
     frequency: frequencyLabel,
   } = getPlanDisplayInfo();
 
+  const totalPrice = price + addonTotal;
+
   return (
     <div className="text-center mx-auto flex flex-col gap-6 sm:gap-8" id={id}>
       <div>
@@ -66,9 +68,16 @@ export default function CTA({ id }: { id: string }) {
           <span className="inline sm:hidden">
             <br />
           </span>
-          for just ${price} {frequencyLabel}
+          for just ${totalPrice} {frequencyLabel}
         </h3>
-        <p>{planText} No contracts, cancel anytime. Medication is included.</p>
+        <p>
+          {planText} No contracts, cancel anytime. Medication is included.
+          {addonTotal > 0 && (
+            <span className="block text-sm text-primary mt-1">
+              Includes ${addonTotal} in add-ons
+            </span>
+          )}
+        </p>
       </div>
 
       <Button

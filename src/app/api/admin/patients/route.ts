@@ -21,7 +21,7 @@ import { prisma, basePrisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { decryptPHI } from '@/lib/security/phi-encryption';
 import { parseTakeFromParams } from '@/lib/pagination';
-import { splitSearchTerms, buildPatientSearchWhere, buildPatientSearchIndex, buildIncompleteSearchIndexWhere } from '@/lib/utils/search';
+import { splitSearchTerms, buildPatientSearchWhere, buildPatientSearchIndex, buildIncompleteSearchIndexWhere, sortBySearchRelevance } from '@/lib/utils/search';
 import { searchPatientsByTrigram } from '@/lib/utils/trigram-search';
 import { Prisma, PrismaClient } from '@prisma/client';
 import { PERMISSIONS, hasPermission as hasRolePermission } from '@/lib/auth/permissions';
@@ -484,15 +484,24 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       return baseData;
     });
 
+    // When searching, sort by relevance so the best match appears first
+    const rankedPatientsData = search
+      ? sortBySearchRelevance(patientsData, search, (p) => [
+          String(p.firstName ?? ''),
+          String(p.lastName ?? ''),
+          String(p.patientId ?? ''),
+        ])
+      : patientsData;
+
     const filteredPatientsData = salesRequestOnly
-      ? patientsData.filter(
+      ? rankedPatientsData.filter(
           (patient) =>
             Boolean(
               (patient as { salesRequest?: { status: string } | null }).salesRequest?.status ===
                 'PENDING'
             )
         )
-      : patientsData;
+      : rankedPatientsData;
 
     logger.info('[ADMIN-PATIENTS] List patients with invoices/prescriptions', {
       userId: user.id,

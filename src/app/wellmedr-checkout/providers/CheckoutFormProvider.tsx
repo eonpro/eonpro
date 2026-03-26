@@ -110,6 +110,7 @@ export default function CheckoutFormProvider({
         state: stateAbbr,
         zipCode: '',
       },
+      selectedAddons: storedData?.selectedAddons || [],
       cardholderName: '',
       email: storedData?.email || patientData?.email || '',
     },

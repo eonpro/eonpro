@@ -1,13 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
-
-function getStripeInstance(): Stripe {
-  const key = process.env.WELLMEDR_STRIPE_SECRET_KEY
-    || process.env.EONMEDS_STRIPE_SECRET_KEY
-    || process.env.STRIPE_SECRET_KEY;
-  if (!key) throw new Error('Stripe secret key not configured');
-  return new Stripe(key, { apiVersion: '2025-02-24.acacia' as Stripe.LatestApiVersion });
-}
+import {
+  getWellMedrConnectStripe,
+  getWellMedrConnectOpts,
+} from '@/app/wellmedr-checkout/lib/stripe-connect';
 
 export async function POST(req: NextRequest) {
   try {
@@ -17,12 +13,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, data: { message: 'Promo code is required' } });
     }
 
-    const stripe = getStripeInstance();
+    const stripe = getWellMedrConnectStripe();
+    const connectOpts = getWellMedrConnectOpts();
     const promotionCodes = await stripe.promotionCodes.list({
       code: promoCode,
       active: true,
       expand: ['data.coupon'],
-    });
+    }, connectOpts);
 
     if (promotionCodes.data.length === 0) {
       return NextResponse.json({ success: false, data: { message: 'Invalid promo code' } });

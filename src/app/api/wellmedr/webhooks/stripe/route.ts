@@ -7,21 +7,13 @@ import {
   updateOrderSubscriptionStatus,
   updateOrderStatus,
   updateOrderPaymentDetails,
+  updateOrderAddonMetadata,
 } from '@/app/wellmedr-checkout/lib/order-store';
-
-function getStripeInstance(): Stripe {
-  const key = process.env.WELLMEDR_STRIPE_SECRET_KEY
-    || process.env.EONMEDS_STRIPE_SECRET_KEY
-    || process.env.STRIPE_SECRET_KEY;
-  if (!key) throw new Error('Stripe secret key not configured');
-  return new Stripe(key, { apiVersion: '2025-02-24.acacia' as Stripe.LatestApiVersion });
-}
-
-function getWebhookSecret(): string {
-  return process.env.WELLMEDR_STRIPE_WEBHOOK_SECRET
-    || process.env.STRIPE_WEBHOOK_SECRET
-    || '';
-}
+import {
+  getWellMedrConnectStripe,
+  getWellMedrConnectOpts,
+  getWellMedrConnectWebhookSecret,
+} from '@/app/wellmedr-checkout/lib/stripe-connect';
 
 /** Stripe SDK v20 types omit `subscription` on Invoice; runtime webhook payloads still include it. */
 function getInvoiceSubscriptionId(invoice: Stripe.Invoice): string | undefined {
@@ -37,11 +29,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Missing signature' }, { status: 400 });
   }
 
-  const stripe = getStripeInstance();
+  const stripe = getWellMedrConnectStripe();
+  const connectOpts = getWellMedrConnectOpts();
   let event: Stripe.Event;
 
   try {
-    event = stripe.webhooks.constructEvent(body, sig, getWebhookSecret());
+    event = stripe.webhooks.constructEvent(body, sig, getWellMedrConnectWebhookSecret());
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Webhook verification failed';
     console.error('[wellmedr/webhooks/stripe]', msg);
@@ -74,6 +67,16 @@ export async function POST(req: NextRequest) {
         if (order) {
           const status = subscription.status === 'active' ? 'succeeded' : subscription.status === 'past_due' ? 'failed' : subscription.status;
           await updateOrderSubscriptionStatus(order.id, status);
+
+          // Capture addon metadata from subscription
+          if (subscription.metadata?.selectedAddons) {
+            try {
+              const addons = JSON.parse(subscription.metadata.selectedAddons);
+              if (Array.isArray(addons)) {
+                await updateOrderAddonMetadata(order.id, addons);
+              }
+            } catch { /* ignore parse errors */ }
+          }
         }
         break;
       }
@@ -91,7 +94,7 @@ export async function POST(req: NextRequest) {
           if (order) {
             await updateOrderPaymentStatus(order.id, 'succeeded');
             if (pi.payment_method) {
-              const pm = await stripe.paymentMethods.retrieve(typeof pi.payment_method === 'string' ? pi.payment_method : pi.payment_method.id);
+              const pm = await stripe.paymentMethods.retrieve(typeof pi.payment_method === 'string' ? pi.payment_method : pi.payment_method.id, connectOpts);
               await updateOrderPaymentDetails(order.id, {
                 paymentMethodType: pm.type,
                 cardBrand: pm.card?.brand,

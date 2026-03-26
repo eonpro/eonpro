@@ -36,7 +36,9 @@ import PromoCodeSection from './PromoCodeSection';
 import {
   getStripePublishableKey,
   getStripePaymentConfigId,
+  getStripeConnectedAccountId,
 } from '@/app/wellmedr-checkout/lib/stripe-config';
+import { getAddonTotal } from '@/app/wellmedr-checkout/data/addons';
 import { logger } from '@/app/wellmedr-checkout/utils/logger';
 
 const SUBSCRIPTION_STORAGE_KEY = 'wellmedr_subscription_id';
@@ -65,10 +67,14 @@ function clearSubscriptionId() {
   }
 }
 
-// Load stripe once at module level to prevent recreation on re-renders
+// Load stripe once at module level to prevent recreation on re-renders.
+// For direct charges via Connect, pass the connected account ID so Stripe.js
+// scopes all operations to the WellMedR connected account.
 const publishableKey = getStripePublishableKey();
+const connectedAccountId = getStripeConnectedAccountId();
 const stripePromise = publishableKey
   ? loadStripe(publishableKey, {
+      ...(connectedAccountId ? { stripeAccount: connectedAccountId } : {}),
       developerTools: {
         assistant: {
           enabled: false,
@@ -85,24 +91,28 @@ export default function PaymentForm({ submissionId }: PaymentFormProps) {
   const { watch } = useFormContext<CheckoutFormData>();
   const planDetails = watch('planDetails');
   const selectedProduct = watch('selectedProduct');
+  const selectedAddons = watch('selectedAddons');
   const discountAmount = watch('discountAmount');
   const discountPercentage = watch('discountPercentage');
 
+  // Addon total is a flat charge per billing cycle, not scaled by plan interval
+  const addonAmount = getAddonTotal(selectedAddons || []);
+
   // Calculate amount in cents for Stripe Elements
-  // Use discounted price if promo code applied, otherwise use totalPayToday
-  const baseAmount = planDetails?.totalPayToday || 0;
+  // Use discounted price if promo code applied, otherwise use totalPayToday + addons
+  const baseAmount = (planDetails?.totalPayToday || 0) + addonAmount;
 
   // Calculate actual discount: use fixed amount if provided, otherwise calculate from percentage
   let actualDiscount = 0;
   if (discountAmount && discountAmount > 0) {
     actualDiscount = discountAmount;
   } else if (discountPercentage && discountPercentage > 0) {
-    actualDiscount = (baseAmount * discountPercentage) / 100;
+    actualDiscount = ((planDetails?.totalPayToday || 0) * discountPercentage) / 100;
   }
 
   const finalAmount =
     actualDiscount > 0 ? baseAmount - actualDiscount : baseAmount;
-  const amountInCents = Math.round(Math.max(finalAmount, 1) * 100); // Stripe minimum is 50 cents, but rounding up to $1 for compatibility everywhere
+  const amountInCents = Math.round(Math.max(finalAmount, 1) * 100);
 
   // Show user-friendly error if publishable key is not available
   if (!publishableKey) {
@@ -254,7 +264,7 @@ function PaymentContent({ submissionId }: PaymentContentProps) {
         productName: formData.selectedProduct.name,
         medicationType: formData.selectedProduct.medicationType,
         planType: formData.planDetails.plan_type,
-        // Include promotion code if one was validated
+        selectedAddons: formData.selectedAddons || [],
         promotionCodeId: formData.promotionCodeId,
       }),
     });

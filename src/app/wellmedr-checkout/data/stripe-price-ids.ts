@@ -1,4 +1,4 @@
-import { ProductNameType, MedicationType } from '@/app/wellmedr-checkout/types/checkout';
+import { ProductNameType, MedicationType, AddonId } from '@/app/wellmedr-checkout/types/checkout';
 
 // Fallback Stripe Price IDs (test mode)
 // These are used if dynamic Stripe fetching fails
@@ -33,6 +33,18 @@ const STRIPE_PRICE_IDS: Record<
   },
 };
 
+/**
+ * Stripe Price IDs for add-on products (one-time prices).
+ * Add-ons are flat charges added to each subscription invoice regardless of billing interval.
+ * Create these as one-time prices in WellMedR's Stripe connected account.
+ */
+const ADDON_STRIPE_PRICE_IDS: Record<AddonId, string> = {
+  nad_plus: process.env.NEXT_PUBLIC_STRIPE_ADDON_NAD_PRICE || 'price_1TEFJTDfH4PWyxxdJY3Ngi7T',
+  sermorelin: process.env.NEXT_PUBLIC_STRIPE_ADDON_SERM_PRICE || 'price_1TEFKJDfH4PWyxxdDZkq3vD5',
+  b12: process.env.NEXT_PUBLIC_STRIPE_ADDON_B12_PRICE || 'price_1TEFJ8DfH4PWyxxdgUpek4Yt',
+  elite_bundle: process.env.NEXT_PUBLIC_STRIPE_ADDON_ELITE_PRICE || 'price_1TEFKjDfH4PWyxxd4roD32Ae',
+};
+
 export const getStripePriceId = (
   productName: ProductNameType,
   medicationType: MedicationType,
@@ -58,5 +70,14 @@ export const getStripePriceId = (
     return '';
   }
 
+  return priceId;
+};
+
+export const getAddonStripePriceId = (addonId: AddonId): string => {
+  const priceId = ADDON_STRIPE_PRICE_IDS[addonId];
+  if (!priceId) {
+    console.warn(`Addon not found for stripe price id: ${addonId}`);
+    return '';
+  }
   return priceId;
 };

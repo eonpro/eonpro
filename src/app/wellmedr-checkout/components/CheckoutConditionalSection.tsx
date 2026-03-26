@@ -3,6 +3,7 @@
 import { useCheckout } from '@/app/wellmedr-checkout/hooks/useCheckout';
 import SelectedProductCard from './SelectedProductCard';
 import Plans from './sections/Plans';
+import Addons from './sections/Addons';
 import MoneyBackGuaranteeCard from './MoneyBackGuaranteeCard';
 import WhatMakesUsBetterCard from './sections/WhatMakesUsBetterCard';
 import Testimonials from './sections/Testimonials';
@@ -20,6 +21,7 @@ export default function CheckoutConditionalSection() {
     <>
       <SelectedProductCard />
       <Plans />
+      <Addons />
       <CTA id="cta" />
       <MoneyBackGuaranteeCard />
       <WhatMakesUsBetterCard />
