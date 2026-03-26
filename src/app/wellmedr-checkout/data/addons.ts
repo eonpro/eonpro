@@ -26,7 +26,7 @@ export const ADDON_PRODUCTS: Record<AddonId, AddonProduct> = {
     id: 'elite_bundle',
     name: 'Elite Bundle',
     description: 'All 3 add-ons — NAD+, Sermorelin & B12 — at a discounted rate',
-    monthlyPrice: 179,
+    monthlyPrice: 199,
     isBundle: true,
     bundledAddonIds: ['nad_plus', 'sermorelin', 'b12'],
   },
