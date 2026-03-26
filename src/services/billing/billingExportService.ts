@@ -356,6 +356,89 @@ export const billingExportService = {
 
     return [header.join(','), ...rows].join('\n');
   },
+
+  // ============================================================================
+  // Stripe Accounting CSV Export
+  // ============================================================================
+
+  async generateStripeAccountingCSV(
+    clinicId: number | undefined,
+    startDate: Date,
+    endDate: Date
+  ): Promise<string> {
+    const { getStripeForClinic, getStripeForPlatform, withConnectedAccount } = await import('@/lib/stripe/connect');
+    const Stripe = (await import('stripe')).default;
+
+    const context = clinicId
+      ? await getStripeForClinic(clinicId)
+      : getStripeForPlatform();
+
+    const { stripe } = context;
+    const connOpts = context.stripeAccountId ? { stripeAccount: context.stripeAccountId } : {};
+    const startTs = Math.floor(startDate.getTime() / 1000);
+    const endTs = Math.floor(endDate.getTime() / 1000);
+
+    const allTxns: any[] = [];
+    let hasMore = true;
+    let startingAfter: string | undefined;
+
+    while (hasMore && allTxns.length < 5000) {
+      const params: any = {
+        created: { gte: startTs, lte: endTs },
+        limit: 100,
+        expand: ['data.source'],
+        ...connOpts,
+      };
+      if (startingAfter) params.starting_after = startingAfter;
+      const response = await stripe.balanceTransactions.list(params);
+      allTxns.push(...response.data);
+      hasMore = response.has_more;
+      if (response.data.length > 0) {
+        startingAfter = response.data[response.data.length - 1].id;
+      }
+    }
+
+    const esc = (v: string | number | null | undefined) => {
+      const s = String(v ?? '');
+      return s.includes(',') || s.includes('"') || s.includes('\n') ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+
+    const header = [
+      'Date', 'Transaction ID', 'Type', 'Description', 'Gross Amount', 'Stripe Fee',
+      'Net Amount', 'Currency', 'Source ID', 'Payout ID', 'Customer Email',
+      'Fee Breakdown', 'Account Code',
+    ];
+
+    const rows = allTxns.map((tx) => {
+      const source = typeof tx.source === 'object' ? tx.source : null;
+      const feeDetail = (tx.fee_details || [])
+        .map((fd: any) => `${fd.type}:${fmtCurrency(fd.amount)}`)
+        .join('; ');
+
+      let accountCode = '4000';
+      if (tx.type === 'refund') accountCode = '4010';
+      else if (tx.type === 'payout') accountCode = '1010';
+      else if (tx.type === 'stripe_fee' || tx.type === 'application_fee') accountCode = '6100';
+
+      return [
+        new Date(tx.created * 1000).toISOString().slice(0, 10),
+        tx.id,
+        tx.type,
+        esc(tx.description || ''),
+        fmtCurrency(tx.amount),
+        fmtCurrency(tx.fee),
+        fmtCurrency(tx.net),
+        (tx.currency || 'usd').toUpperCase(),
+        source?.id || '',
+        '',
+        source?.billing_details?.email || source?.receipt_email || '',
+        esc(feeDetail),
+        accountCode,
+      ].join(',');
+    });
+
+    return [header.join(','), ...rows].join('\n');
+  },
 };
 
 export type BillingExportService = typeof billingExportService;

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   DollarSign,
@@ -49,65 +49,59 @@ const DATE_RANGES = [
   { value: 'custom', label: 'Custom Range' },
 ];
 
-// Helper to get date range timestamps
+/**
+ * Build date range boundaries using the browser's IANA timezone so that
+ * "Today" and other presets align with Stripe's account-timezone reporting.
+ * Dates are sent to the API as YYYY-MM-DD strings; the server converts them
+ * to Unix timestamps at the start/end of the calendar day.
+ */
 function getDateRange(
   range: string,
   customStart?: string,
   customEnd?: string
 ): { startDate?: string; endDate?: string } {
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/New_York';
+
+  const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: tz });
+  const [tY, tM, tD] = todayStr.split('-').map(Number);
+
+  function offsetDate(baseY: number, baseM: number, baseD: number, days: number): string {
+    const d = new Date(baseY, baseM - 1, baseD + days);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }
+
+  function monthStart(y: number, m: number): string {
+    return `${y}-${String(m).padStart(2, '0')}-01`;
+  }
 
   switch (range) {
     case 'today':
-      return { startDate: today.toISOString() };
-    case 'yesterday': {
-      const yesterday = new Date(today);
-      yesterday.setDate(yesterday.getDate() - 1);
-      return { startDate: yesterday.toISOString(), endDate: today.toISOString() };
-    }
-    case 'last_7_days': {
-      const start = new Date(today);
-      start.setDate(start.getDate() - 7);
-      return { startDate: start.toISOString() };
-    }
-    case 'last_30_days': {
-      const start = new Date(today);
-      start.setDate(start.getDate() - 30);
-      return { startDate: start.toISOString() };
-    }
-    case 'this_month': {
-      const start = new Date(now.getFullYear(), now.getMonth(), 1);
-      return { startDate: start.toISOString() };
-    }
+      return { startDate: todayStr };
+    case 'yesterday':
+      return { startDate: offsetDate(tY, tM, tD, -1), endDate: todayStr };
+    case 'last_7_days':
+      return { startDate: offsetDate(tY, tM, tD, -7) };
+    case 'last_30_days':
+      return { startDate: offsetDate(tY, tM, tD, -30) };
+    case 'this_month':
+      return { startDate: monthStart(tY, tM) };
     case 'last_month': {
-      const start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-      const end = new Date(now.getFullYear(), now.getMonth(), 1);
-      return { startDate: start.toISOString(), endDate: end.toISOString() };
+      const pm = tM === 1 ? 12 : tM - 1;
+      const py = tM === 1 ? tY - 1 : tY;
+      return { startDate: monthStart(py, pm), endDate: monthStart(tY, tM) };
     }
-    case 'last_3_months': {
-      const start = new Date(today);
-      start.setMonth(start.getMonth() - 3);
-      return { startDate: start.toISOString() };
-    }
-    case 'last_6_months': {
-      const start = new Date(today);
-      start.setMonth(start.getMonth() - 6);
-      return { startDate: start.toISOString() };
-    }
-    case 'this_year': {
-      const start = new Date(now.getFullYear(), 0, 1);
-      return { startDate: start.toISOString() };
-    }
-    case 'last_year': {
-      const start = new Date(now.getFullYear() - 1, 0, 1);
-      const end = new Date(now.getFullYear(), 0, 1);
-      return { startDate: start.toISOString(), endDate: end.toISOString() };
-    }
+    case 'last_3_months':
+      return { startDate: offsetDate(tY, tM, tD, -90) };
+    case 'last_6_months':
+      return { startDate: offsetDate(tY, tM, tD, -180) };
+    case 'this_year':
+      return { startDate: `${tY}-01-01` };
+    case 'last_year':
+      return { startDate: `${tY - 1}-01-01`, endDate: `${tY}-01-01` };
     case 'custom':
       return {
-        startDate: customStart ? new Date(customStart).toISOString() : undefined,
-        endDate: customEnd ? new Date(customEnd).toISOString() : undefined,
+        startDate: customStart || undefined,
+        endDate: customEnd || undefined,
       };
     case 'all_time':
     default:
@@ -741,6 +735,35 @@ export default function StripeDashboard() {
                 <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
                 Refresh
               </button>
+              <button
+                onClick={async () => {
+                  const thirtyDaysAgo = new Date();
+                  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+                  const res = await apiFetch('/api/super-admin/billing-exports', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      type: 'stripe-accounting',
+                      startDate: thirtyDaysAgo.toISOString(),
+                      endDate: new Date().toISOString(),
+                      ...(selectedClinicId && { clinicId: selectedClinicId }),
+                    }),
+                  });
+                  if (res.ok) {
+                    const blob = await res.blob();
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `stripe-accounting-export.csv`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                  }
+                }}
+                className="flex items-center gap-2 rounded-lg border bg-white px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
+              >
+                <Download className="h-4 w-4" />
+                Export
+              </button>
               <a
                 href="https://dashboard.stripe.com"
                 target="_blank"
@@ -1137,6 +1160,91 @@ function DisputesTab({
   );
 }
 
+// Payout Transaction Detail (expandable row)
+function PayoutTransactionDetail({ payoutId }: { payoutId: string }) {
+  const [data, setData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await apiFetch(`/api/stripe/payouts/${payoutId}/transactions`);
+        if (!res.ok) throw new Error('Failed to load');
+        setData(await res.json());
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to load transactions');
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [payoutId]);
+
+  if (loading) return <div className="flex items-center gap-2 px-6 py-4 text-sm text-gray-500"><Loader2 className="h-4 w-4 animate-spin" /> Loading transactions...</div>;
+  if (error) return <div className="px-6 py-4 text-sm text-red-600">{error}</div>;
+  if (!data) return null;
+
+  const { summary: s, transactions } = data;
+
+  return (
+    <div className="border-t bg-gray-50/50 px-6 py-4">
+      <div className="mb-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="rounded-lg bg-white p-3 shadow-sm">
+          <p className="text-xs text-gray-500">Charges</p>
+          <p className="text-sm font-semibold text-emerald-600">{s.totalChargesFormatted} <span className="font-normal text-gray-400">({s.chargeCount})</span></p>
+        </div>
+        <div className="rounded-lg bg-white p-3 shadow-sm">
+          <p className="text-xs text-gray-500">Refunds</p>
+          <p className="text-sm font-semibold text-orange-600">{s.totalRefundsFormatted} <span className="font-normal text-gray-400">({s.refundCount})</span></p>
+        </div>
+        <div className="rounded-lg bg-white p-3 shadow-sm">
+          <p className="text-xs text-gray-500">Fees</p>
+          <p className="text-sm font-semibold text-red-600">{s.totalFeesFormatted}</p>
+        </div>
+        <div className="rounded-lg bg-white p-3 shadow-sm">
+          <p className="text-xs text-gray-500">Net</p>
+          <p className="text-sm font-semibold text-blue-600">{s.totalNetFormatted}</p>
+        </div>
+      </div>
+      {transactions.length > 0 && (
+        <div className="max-h-64 overflow-auto rounded-lg border bg-white">
+          <table className="w-full text-sm">
+            <thead className="sticky top-0 bg-gray-50">
+              <tr className="border-b text-left text-xs text-gray-500">
+                <th className="px-3 py-2 font-medium">Type</th>
+                <th className="px-3 py-2 font-medium">Description</th>
+                <th className="px-3 py-2 font-medium text-right">Amount</th>
+                <th className="px-3 py-2 font-medium text-right">Fee</th>
+                <th className="px-3 py-2 font-medium text-right">Net</th>
+                <th className="px-3 py-2 font-medium">Date</th>
+              </tr>
+            </thead>
+            <tbody>
+              {transactions.map((tx: any) => (
+                <tr key={tx.id} className="border-b last:border-0 hover:bg-gray-50/50">
+                  <td className="px-3 py-2">
+                    <span className={`inline-block rounded px-1.5 py-0.5 text-xs font-medium ${
+                      tx.type === 'charge' || tx.type === 'payment' ? 'bg-emerald-100 text-emerald-700' :
+                      tx.type === 'refund' ? 'bg-orange-100 text-orange-700' :
+                      'bg-gray-100 text-gray-700'
+                    }`}>{tx.type}</span>
+                  </td>
+                  <td className="max-w-[200px] truncate px-3 py-2 text-gray-600">{tx.description || tx.customerEmail || '-'}</td>
+                  <td className="px-3 py-2 text-right font-medium">{tx.amountFormatted}</td>
+                  <td className="px-3 py-2 text-right text-gray-500">{tx.feeFormatted}</td>
+                  <td className="px-3 py-2 text-right font-medium">{tx.netFormatted}</td>
+                  <td className="px-3 py-2 text-gray-500">{formatDate(tx.created)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      <p className="mt-2 text-xs text-gray-400">{transactions.length} transaction{transactions.length !== 1 ? 's' : ''} in this payout</p>
+    </div>
+  );
+}
+
 // Payouts Tab
 function PayoutsTab({
   payouts,
@@ -1150,6 +1258,7 @@ function PayoutsTab({
   hasMore: boolean;
 }) {
   const [loadingMore, setLoadingMore] = useState(false);
+  const [expandedPayout, setExpandedPayout] = useState<string | null>(null);
 
   const handleLoadMore = async () => {
     setLoadingMore(true);
@@ -1190,10 +1299,12 @@ function PayoutsTab({
       {/* Payouts Table */}
       <div className="rounded-xl border bg-white p-6">
         <h3 className="mb-4 font-semibold text-gray-900">Payouts ({payouts.length})</h3>
+        <p className="mb-3 text-xs text-gray-500">Click a payout to see its transaction breakdown</p>
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
               <tr className="border-b text-left text-sm text-gray-500">
+                <th className="pb-3 pl-1 font-medium" style={{ width: 28 }}></th>
                 <th className="pb-3 font-medium">ID</th>
                 <th className="pb-3 font-medium">Amount</th>
                 <th className="pb-3 font-medium">Status</th>
@@ -1202,14 +1313,29 @@ function PayoutsTab({
             </thead>
             <tbody>
               {payouts.map((payout) => (
-                <tr key={payout.id} className="border-b last:border-0 hover:bg-gray-50">
-                  <td className="py-3 font-mono text-sm text-gray-500">{payout.id.slice(-8)}</td>
-                  <td className="py-3 font-semibold">{payout.amountFormatted}</td>
-                  <td className="py-3">
-                    <StatusBadge status={payout.status} />
-                  </td>
-                  <td className="py-3 text-gray-500">{formatDate(payout.arrivalDateFormatted)}</td>
-                </tr>
+                <React.Fragment key={payout.id}>
+                  <tr
+                    className={`cursor-pointer border-b hover:bg-gray-50 ${expandedPayout === payout.id ? 'bg-gray-50' : ''}`}
+                    onClick={() => setExpandedPayout(expandedPayout === payout.id ? null : payout.id)}
+                  >
+                    <td className="py-3 pl-1">
+                      <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${expandedPayout === payout.id ? 'rotate-180' : ''}`} />
+                    </td>
+                    <td className="py-3 font-mono text-sm text-gray-500">{payout.id.slice(-8)}</td>
+                    <td className="py-3 font-semibold">{payout.amountFormatted}</td>
+                    <td className="py-3">
+                      <StatusBadge status={payout.status} />
+                    </td>
+                    <td className="py-3 text-gray-500">{formatDate(payout.arrivalDateFormatted)}</td>
+                  </tr>
+                  {expandedPayout === payout.id && (
+                    <tr>
+                      <td colSpan={5} className="p-0">
+                        <PayoutTransactionDetail payoutId={payout.id} />
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
               ))}
             </tbody>
           </table>

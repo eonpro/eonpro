@@ -10,7 +10,7 @@ function withSuperAdminAuth(handler: (req: NextRequest, user: AuthUser) => Promi
 }
 
 const exportSchema = z.object({
-  type: z.enum(['invoice-html', 'report-excel', 'report-csv', 'quickbooks', 'xero']),
+  type: z.enum(['invoice-html', 'report-excel', 'report-csv', 'quickbooks', 'xero', 'stripe-accounting']),
   invoiceId: z.number().int().positive().optional(),
   startDate: z.string().optional().transform((v) => (v ? new Date(v) : undefined)),
   endDate: z.string().optional().transform((v) => (v ? new Date(v) : undefined)),
@@ -88,6 +88,20 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) 
           headers: {
             'Content-Type': 'text/csv',
             'Content-Disposition': `attachment; filename="eonpro-xero-import-${instantToCalendarDate(defaultStart)}-to-${instantToCalendarDate(defaultEnd)}.csv"`,
+          },
+        });
+      }
+
+      case 'stripe-accounting': {
+        const stripeCsv = await billingExportService.generateStripeAccountingCSV(
+          clinicId,
+          defaultStart,
+          defaultEnd
+        );
+        return new NextResponse(stripeCsv, {
+          headers: {
+            'Content-Type': 'text/csv',
+            'Content-Disposition': `attachment; filename="stripe-accounting-${instantToCalendarDate(defaultStart)}-to-${instantToCalendarDate(defaultEnd)}.csv"`,
           },
         });
       }

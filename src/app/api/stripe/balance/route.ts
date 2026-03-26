@@ -129,8 +129,6 @@ async function getBalanceHandler(request: NextRequest, user: AuthUser) {
             }
           : undefined;
 
-      // Get balance transactions
-      // Build transaction params dynamically to avoid type issues
       const transactionsParams: Record<string, unknown> = {
         limit,
         expand: ['data.source'],
@@ -138,10 +136,10 @@ async function getBalanceHandler(request: NextRequest, user: AuthUser) {
       if (startingAfter) transactionsParams.starting_after = startingAfter;
       if (type) transactionsParams.type = type;
       if (createdFilter) transactionsParams.created = createdFilter;
-      if (stripeAccountId) transactionsParams.stripeAccount = stripeAccountId;
 
       const transactions = await stripe.balanceTransactions.list(
-        transactionsParams as Stripe.BalanceTransactionListParams
+        transactionsParams as Stripe.BalanceTransactionListParams,
+        stripeAccountId ? { stripeAccount: stripeAccountId } : undefined,
       );
 
       // Calculate summary

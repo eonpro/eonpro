@@ -249,8 +249,10 @@ export async function getStripeForClinic(clinicId: number): Promise<StripeContex
 }
 
 /**
- * Make Stripe API call with optional connected account
- * Automatically adds stripeAccount header if needed
+ * @deprecated Use `stripe.xxx.list(params, { stripeAccount: ctx.stripeAccountId })` instead.
+ * Merging stripeAccount into the params object causes stripe-node to misidentify
+ * the argument as an options hash, silently dropping query filters like `created`
+ * and `limit`. Always pass stripeAccount as the SECOND argument to Stripe list calls.
  */
 export function withConnectedAccount<T extends object>(
   context: StripeContext,
@@ -260,6 +262,17 @@ export function withConnectedAccount<T extends object>(
     return { ...params, stripeAccount: context.stripeAccountId };
   }
   return params;
+}
+
+/**
+ * Get Stripe request options for a connected account.
+ * Use as the second argument to any Stripe API call:
+ *   stripe.charges.list(params, stripeRequestOptions(ctx))
+ */
+export function stripeRequestOptions(
+  context: StripeContext
+): { stripeAccount: string } | undefined {
+  return context.stripeAccountId ? { stripeAccount: context.stripeAccountId } : undefined;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

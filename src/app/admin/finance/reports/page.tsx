@@ -16,6 +16,9 @@ import {
   Download,
   Calendar,
   Receipt,
+  CreditCard,
+  Landmark,
+  Scale,
 } from 'lucide-react';
 
 // Report catalog — one-click access to every report
@@ -82,6 +85,42 @@ const REPORTS = [
     icon: Plus,
     accent: 'slate',
     featured: true,
+  },
+  {
+    id: 'stripe-balance',
+    name: 'Stripe Balance',
+    description: 'Balance transactions, charges, fees, refunds & transfers from Stripe',
+    href: '/admin/finance/reports/builder?dataSource=stripe-balance',
+    icon: Wallet,
+    accent: 'purple',
+    featured: false,
+  },
+  {
+    id: 'stripe-transactions',
+    name: 'Stripe Charges',
+    description: 'Detailed charge & refund history with customer, fees, and payment method data',
+    href: '/admin/finance/reports/builder?dataSource=stripe-transactions',
+    icon: CreditCard,
+    accent: 'blue',
+    featured: false,
+  },
+  {
+    id: 'stripe-payouts',
+    name: 'Stripe Payouts',
+    description: 'Payout history with bank deposit status, timing, and amounts',
+    href: '/admin/finance/reports/builder?dataSource=stripe-payouts',
+    icon: Landmark,
+    accent: 'emerald',
+    featured: false,
+  },
+  {
+    id: 'stripe-reconciliation',
+    name: 'Stripe Reconciliation',
+    description: 'Charges vs refunds vs fees vs payouts — accounting-ready reconciliation',
+    href: '/admin/finance/reports/builder?dataSource=stripe-reconciliation',
+    icon: Scale,
+    accent: 'amber',
+    featured: false,
   },
 ];
 

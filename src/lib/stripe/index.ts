@@ -30,6 +30,7 @@ export {
   getStripeForPlatform,
   getStripeForClinic,
   withConnectedAccount,
+  stripeRequestOptions,
   createConnectedAccount,
   getOnboardingLink,
   getDashboardLink,

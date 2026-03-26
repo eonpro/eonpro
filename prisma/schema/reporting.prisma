@@ -57,3 +57,54 @@ model ReportSchedule {
   @@index([templateId])
   @@index([clinicId])
 }
+
+// ==========================================================================
+// REVENUE RECOGNITION (ASC 606 / IFRS 15)
+// ==========================================================================
+// Tracks deferred vs recognized revenue for subscriptions and multi-period
+// charges. Each entry represents a payment that needs revenue recognized
+// over a period. Journal entries record monthly recognition events.
+// ==========================================================================
+
+model RevenueRecognitionEntry {
+  id                 Int      @id @default(autoincrement())
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  clinicId           Int
+  clinic             Clinic   @relation(fields: [clinicId], references: [id])
+  stripeChargeId     String?
+  stripeSubscriptionId String?
+  invoiceItemId      Int?
+  description        String?
+
+  totalAmountCents   Int
+  recognizedCents    Int      @default(0)
+  deferredCents      Int
+
+  recognitionStart   DateTime
+  recognitionEnd     DateTime
+  schedule           String   @default("over_period") // 'immediate' | 'over_period' | 'monthly'
+  status             String   @default("pending")     // 'pending' | 'partial' | 'complete'
+
+  journalEntries     RevenueRecognitionJournal[]
+
+  @@index([clinicId, status])
+  @@index([recognitionEnd])
+  @@index([stripeChargeId])
+  @@index([stripeSubscriptionId])
+}
+
+model RevenueRecognitionJournal {
+  id            Int      @id @default(autoincrement())
+  createdAt     DateTime @default(now())
+  entryId       Int
+  entry         RevenueRecognitionEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  periodStart   DateTime
+  periodEnd     DateTime
+  amountCents   Int
+  journalType   String   // 'recognize_revenue' | 'defer_revenue'
+  notes         String?
+
+  @@index([entryId])
+  @@index([periodStart, periodEnd])
+}

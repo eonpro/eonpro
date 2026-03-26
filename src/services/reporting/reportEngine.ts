@@ -14,6 +14,10 @@ import { fulfillmentDataSource } from './dataSources/fulfillment';
 import { providerDataSource } from './dataSources/provider';
 import { affiliatesDataSource } from './dataSources/affiliates';
 import { subscriptionsDataSource } from './dataSources/subscriptions';
+import { stripeBalanceDataSource } from './dataSources/stripe-balance';
+import { stripeTransactionsDataSource } from './dataSources/stripe-transactions';
+import { stripePayoutsDataSource } from './dataSources/stripe-payouts';
+import { stripeReconciliationDataSource } from './dataSources/stripe-reconciliation';
 import type { DataSourceAdapter, DataSourceDef, ReportConfig, ReportResult } from './types';
 
 const dataSources: Map<string, DataSourceAdapter> = new Map([
@@ -24,6 +28,10 @@ const dataSources: Map<string, DataSourceAdapter> = new Map([
   ['provider', providerDataSource],
   ['affiliates', affiliatesDataSource],
   ['subscriptions', subscriptionsDataSource],
+  ['stripe-balance', stripeBalanceDataSource],
+  ['stripe-transactions', stripeTransactionsDataSource],
+  ['stripe-payouts', stripePayoutsDataSource],
+  ['stripe-reconciliation', stripeReconciliationDataSource],
 ]);
 
 export function getDataSources(): DataSourceDef[] {

@@ -1,4 +1,5 @@
-import { instantToCalendarDate } from '@/lib/utils/platform-calendar';
+import { instantToCalendarDate, PLATFORM_FALLBACK_TIMEZONE } from '@/lib/utils/platform-calendar';
+import { midnightInTz } from '@/lib/utils/timezone';
 /**
  * STRIPE COMPREHENSIVE REPORTS API
  *
@@ -41,12 +42,12 @@ async function getReportsHandler(request: NextRequest, user: AuthUser) {
     const { searchParams } = new URL(request.url);
 
     const reportType = searchParams.get('type') || 'summary';
-    const startDate = searchParams.get('startDate') || getDefaultStartDate();
-    const endDate = searchParams.get('endDate') || new Date().toISOString();
-    const groupBy = searchParams.get('groupBy') || 'day'; // day, week, month
+    const startDateParam = searchParams.get('startDate') || getDefaultStartDate();
+    const endDateParam = searchParams.get('endDate') || new Date().toISOString();
+    const groupBy = searchParams.get('groupBy') || 'day';
 
-    const startTimestamp = Math.floor(new Date(startDate).getTime() / 1000);
-    const endTimestamp = Math.floor(new Date(endDate).getTime() / 1000);
+    const startTimestamp = Math.floor(parseDateToTimestamp(startDateParam) / 1000);
+    const endTimestamp = Math.floor(parseDateToTimestamp(endDateParam, true) / 1000);
 
     let reportData: any = {};
 
@@ -107,8 +108,8 @@ async function getReportsHandler(request: NextRequest, user: AuthUser) {
 
     logger.info('[STRIPE REPORTS] Generated report', {
       type: reportType,
-      startDate,
-      endDate,
+      startDate: startDateParam,
+      endDate: endDateParam,
     });
 
     return NextResponse.json({
@@ -116,8 +117,8 @@ async function getReportsHandler(request: NextRequest, user: AuthUser) {
       report: {
         type: reportType,
         period: {
-          start: startDate,
-          end: endDate,
+          start: startDateParam,
+          end: endDateParam,
         },
         generatedAt: new Date().toISOString(),
         data: reportData,
@@ -143,26 +144,26 @@ async function generateSummaryReport(
   endTimestamp: number,
   accountOptions?: AccountOptions
 ) {
-  // Helper to fetch all items with pagination (handles >100 items)
+  const reqOpts = accountOptions ? accountOptions : undefined;
+
   async function fetchAllCharges(params: Stripe.ChargeListParams): Promise<Stripe.Charge[]> {
     const allItems: Stripe.Charge[] = [];
     let hasMore = true;
     let startingAfter: string | undefined;
 
     while (hasMore) {
-      const response = await stripe.charges.list({
+      const listParams: Stripe.ChargeListParams = {
         ...params,
-        ...accountOptions,
         limit: 100,
         ...(startingAfter && { starting_after: startingAfter }),
-      } as Stripe.ChargeListParams);
+      };
+      const response = await stripe.charges.list(listParams, reqOpts);
       allItems.push(...response.data);
       hasMore = response.has_more;
       if (response.data.length > 0) {
         startingAfter = response.data[response.data.length - 1].id;
       }
-      // Safety limit to prevent infinite loops
-      if (allItems.length > 1000) break;
+      if (allItems.length > 10000) break;
     }
     return allItems;
   }
@@ -173,18 +174,18 @@ async function generateSummaryReport(
     let startingAfter: string | undefined;
 
     while (hasMore) {
-      const response = await stripe.refunds.list({
+      const listParams: Stripe.RefundListParams = {
         ...params,
-        ...accountOptions,
         limit: 100,
         ...(startingAfter && { starting_after: startingAfter }),
-      } as Stripe.RefundListParams);
+      };
+      const response = await stripe.refunds.list(listParams, reqOpts);
       allItems.push(...response.data);
       hasMore = response.has_more;
       if (response.data.length > 0) {
         startingAfter = response.data[response.data.length - 1].id;
       }
-      if (allItems.length > 1000) break;
+      if (allItems.length > 10000) break;
     }
     return allItems;
   }
@@ -195,18 +196,40 @@ async function generateSummaryReport(
     let startingAfter: string | undefined;
 
     while (hasMore) {
-      const response = await stripe.invoices.list({
+      const listParams: Stripe.InvoiceListParams = {
         ...params,
-        ...accountOptions,
         limit: 100,
         ...(startingAfter && { starting_after: startingAfter }),
-      } as Stripe.InvoiceListParams);
+      };
+      const response = await stripe.invoices.list(listParams, reqOpts);
       allItems.push(...response.data);
       hasMore = response.has_more;
       if (response.data.length > 0) {
         startingAfter = response.data[response.data.length - 1].id;
       }
-      if (allItems.length > 1000) break;
+      if (allItems.length > 10000) break;
+    }
+    return allItems;
+  }
+
+  async function fetchAllSubscriptions(): Promise<Stripe.Subscription[]> {
+    const allItems: Stripe.Subscription[] = [];
+    let hasMore = true;
+    let startingAfter: string | undefined;
+
+    while (hasMore) {
+      const listParams: Stripe.SubscriptionListParams = {
+        status: 'active',
+        limit: 100,
+        ...(startingAfter && { starting_after: startingAfter }),
+      };
+      const response = await stripe.subscriptions.list(listParams, reqOpts);
+      allItems.push(...response.data);
+      hasMore = response.has_more;
+      if (response.data.length > 0) {
+        startingAfter = response.data[response.data.length - 1].id;
+      }
+      if (allItems.length > 5000) break;
     }
     return allItems;
   }
@@ -220,32 +243,27 @@ async function generateSummaryReport(
     activeSubscriptions,
     allOpenInvoices,
     dateFilteredInvoices,
+    balanceTransactions,
   ] = await Promise.all([
-    // Date-filtered charges
     fetchAllCharges({ created: { gte: startTimestamp, lte: endTimestamp } }),
-    // Date-filtered refunds
     fetchAllRefunds({ created: { gte: startTimestamp, lte: endTimestamp } }),
-    // Current balance (always current, not date-filtered)
-    stripe.balance.retrieve(),
-    // Date-filtered new customers
-    stripe.customers.list({ created: { gte: startTimestamp, lte: endTimestamp }, limit: 100 }),
-    // ALL active subscriptions for MRR calculation (not date-filtered!)
-    stripe.subscriptions.list({ status: 'active', limit: 100 }),
-    // ALL open invoices (not date-filtered - shows current outstanding)
-    stripe.invoices.list({ status: 'open', limit: 100 }),
-    // Date-filtered invoices for period stats
+    stripe.balance.retrieve(reqOpts),
+    stripe.customers.list({ created: { gte: startTimestamp, lte: endTimestamp }, limit: 100 }, reqOpts),
+    fetchAllSubscriptions(),
+    stripe.invoices.list({ status: 'open', limit: 100 }, reqOpts),
     fetchAllInvoices({ created: { gte: startTimestamp, lte: endTimestamp } }),
+    stripe.balanceTransactions.list({ created: { gte: startTimestamp, lte: endTimestamp }, limit: 100 }, reqOpts),
   ]);
 
   const successfulCharges = charges.filter((c) => c.status === 'succeeded');
   const totalRevenue = successfulCharges.reduce((sum, c) => sum + c.amount, 0);
   const totalRefunds = refunds.reduce((sum, r) => sum + r.amount, 0);
-  const netRevenue = totalRevenue - totalRefunds;
+  const totalFees = balanceTransactions.data.reduce((sum, tx) => sum + tx.fee, 0);
+  const netRevenue = totalRevenue - totalRefunds - totalFees;
 
   const paidInvoices = dateFilteredInvoices.filter((i) => i.status === 'paid');
 
-  // Calculate MRR from ALL active subscriptions (not date-filtered)
-  const currentMRR = calculateMRR(activeSubscriptions.data);
+  const currentMRR = calculateMRR(activeSubscriptions);
 
   return {
     revenue: {
@@ -253,6 +271,8 @@ async function generateSummaryReport(
       grossFormatted: formatCurrency(totalRevenue),
       refunds: totalRefunds,
       refundsFormatted: formatCurrency(totalRefunds),
+      fees: totalFees,
+      feesFormatted: formatCurrency(totalFees),
       net: netRevenue,
       netFormatted: formatCurrency(netRevenue),
       transactionCount: successfulCharges.length,
@@ -274,9 +294,8 @@ async function generateSummaryReport(
       total: 'N/A (requires full count)',
     },
     subscriptions: {
-      // MRR/ARR is always current (shows current recurring revenue, not date-filtered)
-      active: activeSubscriptions.data.length,
-      canceled: 0, // Would need separate query to get canceled in period
+      active: activeSubscriptions.length,
+      canceled: 0,
       mrr: currentMRR,
       mrrFormatted: formatCurrency(currentMRR),
       arr: currentMRR * 12,
@@ -314,13 +333,24 @@ async function generateRevenueReport(
   groupBy: string,
   accountOptions?: AccountOptions
 ) {
-  const charges = await stripe.charges.list({
-    created: { gte: startTimestamp, lte: endTimestamp },
-    limit: 100,
-    ...accountOptions,
-  } as Stripe.ChargeListParams);
+  const reqOpts = accountOptions ? accountOptions : undefined;
+  const allCharges: Stripe.Charge[] = [];
+  let hasMore = true;
+  let startingAfter: string | undefined;
+  while (hasMore) {
+    const params: Stripe.ChargeListParams = {
+      created: { gte: startTimestamp, lte: endTimestamp },
+      limit: 100,
+      ...(startingAfter && { starting_after: startingAfter }),
+    };
+    const response = await stripe.charges.list(params, reqOpts);
+    allCharges.push(...response.data);
+    hasMore = response.has_more;
+    if (response.data.length > 0) startingAfter = response.data[response.data.length - 1].id;
+    if (allCharges.length > 10000) break;
+  }
 
-  const successfulCharges = charges.data.filter((c) => c.status === 'succeeded');
+  const successfulCharges = allCharges.filter((c) => c.status === 'succeeded');
 
   // Group by time period
   const grouped: Record<string, { revenue: number; count: number; refunds: number }> = {};
@@ -397,12 +427,24 @@ async function generateSubscriptionReport(
   endTimestamp: number,
   accountOptions?: AccountOptions
 ) {
-  const subscriptions = await stripe.subscriptions.list({
-    created: { gte: startTimestamp, lte: endTimestamp },
-    limit: 100,
-    expand: ['data.items.data.price'],
-    ...accountOptions,
-  } as Stripe.SubscriptionListParams);
+  const reqOpts = accountOptions ? accountOptions : undefined;
+  const allSubs: Stripe.Subscription[] = [];
+  let hasMore = true;
+  let startingAfter: string | undefined;
+  while (hasMore) {
+    const params: Stripe.SubscriptionListParams = {
+      created: { gte: startTimestamp, lte: endTimestamp },
+      limit: 100,
+      expand: ['data.items.data.price'],
+      ...(startingAfter && { starting_after: startingAfter }),
+    };
+    const response = await stripe.subscriptions.list(params, reqOpts);
+    allSubs.push(...response.data);
+    hasMore = response.has_more;
+    if (response.data.length > 0) startingAfter = response.data[response.data.length - 1].id;
+    if (allSubs.length > 5000) break;
+  }
+  const subscriptions = { data: allSubs };
 
   const statusBreakdown: Record<string, number> = {};
   let totalMRR = 0;
@@ -447,12 +489,24 @@ async function generateProductReport(
   endTimestamp: number,
   accountOptions?: AccountOptions
 ) {
-  const charges = await stripe.charges.list({
-    created: { gte: startTimestamp, lte: endTimestamp },
-    limit: 100,
-    expand: ['data.invoice'],
-    ...accountOptions,
-  } as Stripe.ChargeListParams);
+  const reqOpts = accountOptions ? accountOptions : undefined;
+  const allCharges: Stripe.Charge[] = [];
+  let hasMore = true;
+  let startingAfter: string | undefined;
+  while (hasMore) {
+    const params: Stripe.ChargeListParams = {
+      created: { gte: startTimestamp, lte: endTimestamp },
+      limit: 100,
+      expand: ['data.invoice'],
+      ...(startingAfter && { starting_after: startingAfter }),
+    };
+    const response = await stripe.charges.list(params, reqOpts);
+    allCharges.push(...response.data);
+    hasMore = response.has_more;
+    if (response.data.length > 0) startingAfter = response.data[response.data.length - 1].id;
+    if (allCharges.length > 10000) break;
+  }
+  const charges = { data: allCharges };
 
   const productRevenue: Record<string, { name: string; revenue: number; count: number }> = {};
 
@@ -500,18 +554,38 @@ async function generateCustomerReport(
   endTimestamp: number,
   accountOptions?: AccountOptions
 ) {
-  const [newCustomers, charges] = await Promise.all([
-    stripe.customers.list({
-      created: { gte: startTimestamp, lte: endTimestamp },
-      limit: 100,
-      ...accountOptions,
-    } as Stripe.CustomerListParams),
-    stripe.charges.list({
-      created: { gte: startTimestamp, lte: endTimestamp },
-      limit: 100,
-      ...accountOptions,
-    } as Stripe.ChargeListParams),
+  const reqOpts = accountOptions ? accountOptions : undefined;
+
+  async function fetchAllPaginated<T extends { id: string }>(
+    listFn: (params: any, opts?: any) => Promise<{ data: T[]; has_more: boolean }>,
+    baseParams: Record<string, any>,
+  ): Promise<T[]> {
+    const all: T[] = [];
+    let hasMore = true;
+    let startingAfter: string | undefined;
+    while (hasMore) {
+      const params = { ...baseParams, limit: 100, ...(startingAfter && { starting_after: startingAfter }) };
+      const response = await listFn(params, reqOpts);
+      all.push(...response.data);
+      hasMore = response.has_more;
+      if (response.data.length > 0) startingAfter = response.data[response.data.length - 1].id;
+      if (all.length > 10000) break;
+    }
+    return all;
+  }
+
+  const [newCustomersList, chargesList] = await Promise.all([
+    fetchAllPaginated(
+      stripe.customers.list.bind(stripe.customers),
+      { created: { gte: startTimestamp, lte: endTimestamp } },
+    ),
+    fetchAllPaginated(
+      stripe.charges.list.bind(stripe.charges),
+      { created: { gte: startTimestamp, lte: endTimestamp } },
+    ),
   ]);
+  const newCustomers = { data: newCustomersList };
+  const charges = { data: chargesList };
 
   const successfulCharges = charges.data.filter((c) => c.status === 'succeeded');
   const customerSpending: Record<string, number> = {};
@@ -578,6 +652,25 @@ function calculateMRR(subscriptions: Stripe.Subscription[]): number {
       }, 0)
     );
   }, 0);
+}
+
+/**
+ * Parse a date string to a Unix-millisecond timestamp.
+ * If the input is a plain YYYY-MM-DD string, interpret it in US/Eastern
+ * (matching Stripe's typical account timezone) rather than UTC.
+ * If `endOfDay` is true, use 23:59:59 in that timezone.
+ */
+function parseDateToTimestamp(dateStr: string, endOfDay = false): number {
+  const dateOnlyMatch = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (dateOnlyMatch) {
+    const [, y, m, d] = dateOnlyMatch.map(Number);
+    const midnight = midnightInTz(y, m, d, PLATFORM_FALLBACK_TIMEZONE);
+    if (endOfDay) {
+      return midnight.getTime() + 24 * 60 * 60 * 1000 - 1;
+    }
+    return midnight.getTime();
+  }
+  return new Date(dateStr).getTime();
 }
 
 function getDefaultStartDate(): string {

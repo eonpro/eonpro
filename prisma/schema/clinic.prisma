@@ -269,6 +269,9 @@ model Clinic {
   reportTemplates  ReportTemplate[]
   reportSchedules  ReportSchedule[]
 
+  // Revenue Recognition
+  revenueRecognitionEntries RevenueRecognitionEntry[]
+
   // Provider Routing & Compensation (Enterprise feature)
   providerRoutingConfig      ProviderRoutingConfig?
   providerCompensationPlans  ProviderCompensationPlan[]

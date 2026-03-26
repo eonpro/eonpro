@@ -14,6 +14,9 @@ import {
   Filter,
   ArrowLeft,
   X,
+  Activity,
+  Users,
+  BarChart2,
 } from 'lucide-react';
 import {
   AreaChart,
@@ -29,6 +32,8 @@ import {
   Tooltip,
   ResponsiveContainer,
   Legend,
+  LineChart,
+  Line,
 } from 'recharts';
 import { apiFetch } from '@/lib/api/fetch';
 
@@ -122,6 +127,8 @@ export default function RevenuePage() {
     Array<{ id: number; amount: number; createdAt: string; patientName: string | null; paymentMethod: string; invoiceId: number | null }>
   >([]);
   const [transactionsLoading, setTransactionsLoading] = useState(false);
+  const [stripeAnalytics, setStripeAnalytics] = useState<any>(null);
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
 
   const dateRangeParam = getDateRangeForApi(dateRange, customStart, customEnd);
 
@@ -225,10 +232,25 @@ export default function RevenuePage() {
     }
   };
 
+  const loadStripeAnalytics = useCallback(async () => {
+    setAnalyticsLoading(true);
+    try {
+      const res = await apiFetch('/api/stripe/analytics?type=all&months=12');
+      if (res.ok) {
+        setStripeAnalytics(await res.json());
+      }
+    } catch (err) {
+      console.error('Failed to load Stripe analytics:', err);
+    } finally {
+      setAnalyticsLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (dateRange === 'custom' && (!customStart || !customEnd)) return;
     loadData();
-  }, [loadData, dateRange, customStart, customEnd]);
+    loadStripeAnalytics();
+  }, [loadData, loadStripeAnalytics, dateRange, customStart, customEnd]);
 
   if (loading) {
     return (
@@ -735,6 +757,198 @@ export default function RevenuePage() {
           </div>
         )}
       </div>
+
+      {/* Stripe Revenue Analytics */}
+      {stripeAnalytics && (
+        <>
+          {/* Net Revenue Trend (Stripe) */}
+          {stripeAnalytics.trends?.length > 0 && (
+            <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+              <div className="mb-4 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Activity className="h-5 w-5 text-blue-500" />
+                  <h3 className="text-lg font-semibold text-gray-900">Net Revenue Trend (Stripe)</h3>
+                </div>
+                <span className="text-sm text-gray-500">Last 12 months</span>
+              </div>
+              <ResponsiveContainer width="100%" height={300}>
+                <AreaChart data={stripeAnalytics.trends}>
+                  <defs>
+                    <linearGradient id="grossGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#10B981" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#10B981" stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient id="netGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#3B82F6" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                  <XAxis dataKey="month" tick={{ fontSize: 12, fill: '#6B7280' }} />
+                  <YAxis tick={{ fontSize: 12, fill: '#6B7280' }} tickFormatter={(v) => formatCurrencyCompact(v)} />
+                  <Tooltip formatter={(value: number, name: string) => [formatCurrency(value), name === 'gross' ? 'Gross' : name === 'net' ? 'Net' : name === 'fees' ? 'Fees' : name === 'refunds' ? 'Refunds' : name]} contentStyle={{ borderRadius: '8px', border: '1px solid #E5E7EB' }} />
+                  <Area type="monotone" dataKey="gross" name="Gross" stroke="#10B981" fill="url(#grossGradient)" strokeWidth={2} />
+                  <Area type="monotone" dataKey="net" name="Net" stroke="#3B82F6" fill="url(#netGradient)" strokeWidth={2} />
+                  <Line type="monotone" dataKey="fees" name="Fees" stroke="#EF4444" strokeWidth={1.5} strokeDasharray="4 4" dot={false} />
+                  <Legend />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+
+          {/* MRR / Churn Side by Side */}
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            {/* MRR Time Series */}
+            {stripeAnalytics.mrr?.length > 0 && (
+              <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+                <div className="mb-4 flex items-center gap-2">
+                  <TrendingUp className="h-5 w-5 text-emerald-500" />
+                  <h3 className="text-lg font-semibold text-gray-900">MRR / ARR Over Time</h3>
+                </div>
+                {stripeAnalytics.summary && (
+                  <div className="mb-4 flex gap-4">
+                    <div className="rounded-lg bg-emerald-50 px-3 py-2">
+                      <p className="text-xs text-emerald-600">Current MRR</p>
+                      <p className="text-lg font-bold text-emerald-700">{stripeAnalytics.summary.currentMRRFormatted}</p>
+                    </div>
+                    <div className="rounded-lg bg-blue-50 px-3 py-2">
+                      <p className="text-xs text-blue-600">Current ARR</p>
+                      <p className="text-lg font-bold text-blue-700">{stripeAnalytics.summary.currentARRFormatted}</p>
+                    </div>
+                    <div className="rounded-lg bg-gray-50 px-3 py-2">
+                      <p className="text-xs text-gray-600">Active Subs</p>
+                      <p className="text-lg font-bold text-gray-700">{stripeAnalytics.summary.activeSubscriptions}</p>
+                    </div>
+                  </div>
+                )}
+                <ResponsiveContainer width="100%" height={220}>
+                  <AreaChart data={stripeAnalytics.mrr}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                    <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#6B7280' }} />
+                    <YAxis tick={{ fontSize: 11, fill: '#6B7280' }} tickFormatter={(v) => formatCurrencyCompact(v)} />
+                    <Tooltip formatter={(v: number) => formatCurrency(v)} contentStyle={{ borderRadius: '8px', border: '1px solid #E5E7EB' }} />
+                    <Area type="monotone" dataKey="mrr" name="MRR" stroke="#10B981" fill="#10B98120" strokeWidth={2} />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+
+            {/* Churn Rate */}
+            {stripeAnalytics.churn?.length > 0 && (
+              <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+                <div className="mb-4 flex items-center gap-2">
+                  <Users className="h-5 w-5 text-orange-500" />
+                  <h3 className="text-lg font-semibold text-gray-900">Monthly Churn Rate</h3>
+                </div>
+                {stripeAnalytics.summary && (
+                  <div className="mb-4 flex gap-4">
+                    <div className="rounded-lg bg-orange-50 px-3 py-2">
+                      <p className="text-xs text-orange-600">Avg Churn</p>
+                      <p className="text-lg font-bold text-orange-700">{stripeAnalytics.summary.avgMonthlyChurnFormatted}</p>
+                    </div>
+                    <div className="rounded-lg bg-emerald-50 px-3 py-2">
+                      <p className="text-xs text-emerald-600">Avg Retention</p>
+                      <p className="text-lg font-bold text-emerald-700">{(100 - stripeAnalytics.summary.avgMonthlyChurn).toFixed(1)}%</p>
+                    </div>
+                  </div>
+                )}
+                <ResponsiveContainer width="100%" height={220}>
+                  <LineChart data={stripeAnalytics.churn}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                    <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#6B7280' }} />
+                    <YAxis tick={{ fontSize: 11, fill: '#6B7280' }} tickFormatter={(v) => `${v}%`} />
+                    <Tooltip formatter={(v: number) => `${v}%`} contentStyle={{ borderRadius: '8px', border: '1px solid #E5E7EB' }} />
+                    <Line type="monotone" dataKey="churnRate" name="Churn Rate" stroke="#F59E0B" strokeWidth={2} dot={{ fill: '#F59E0B', r: 3 }} />
+                    <Line type="monotone" dataKey="retentionRate" name="Retention Rate" stroke="#10B981" strokeWidth={2} dot={{ fill: '#10B981', r: 3 }} />
+                    <Legend />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </div>
+
+          {/* Stripe Forecast */}
+          {stripeAnalytics.forecast?.length > 0 && (
+            <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+              <div className="mb-4 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Calendar className="h-5 w-5 text-purple-500" />
+                  <h3 className="text-lg font-semibold text-gray-900">3-Month Revenue Forecast (Stripe)</h3>
+                </div>
+                <span className="text-sm text-gray-500">Based on linear regression</span>
+              </div>
+              <div className="grid grid-cols-3 gap-4">
+                {stripeAnalytics.forecast.map((f: any) => (
+                  <div key={f.month} className="rounded-lg border border-purple-100 bg-purple-50/50 p-4">
+                    <p className="text-sm font-medium text-purple-700">{f.month}</p>
+                    <p className="mt-1 text-2xl font-bold text-purple-900">{f.projectedFormatted}</p>
+                    <p className="mt-1 text-xs text-purple-600">
+                      Range: {f.lowerBoundFormatted} &ndash; {f.upperBoundFormatted}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Cohort Revenue */}
+          {stripeAnalytics.cohorts?.length > 0 && (
+            <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+              <div className="mb-4 flex items-center gap-2">
+                <BarChart2 className="h-5 w-5 text-indigo-500" />
+                <h3 className="text-lg font-semibold text-gray-900">Revenue Cohorts</h3>
+              </div>
+              <p className="mb-3 text-sm text-gray-500">Revenue by customer signup month &mdash; how each cohort spends over time</p>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b text-left text-xs text-gray-500">
+                      <th className="pb-2 pr-4 font-medium">Cohort</th>
+                      <th className="pb-2 pr-3 font-medium text-right">Customers</th>
+                      {Array.from({ length: Math.min(6, stripeAnalytics.cohorts[0]?.months?.length || 0) }, (_, i) => (
+                        <th key={i} className="pb-2 pr-3 font-medium text-right">M{i}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {stripeAnalytics.cohorts.slice(-8).map((cohort: any) => (
+                      <tr key={cohort.cohortMonth} className="border-b last:border-0">
+                        <td className="py-2 pr-4 font-medium text-gray-700">{cohort.cohortMonth}</td>
+                        <td className="py-2 pr-3 text-right text-gray-600">{cohort.customerCount}</td>
+                        {cohort.months.slice(0, 6).map((m: any) => {
+                          const maxRev = Math.max(...cohort.months.slice(0, 6).map((x: any) => x.revenue), 1);
+                          const intensity = Math.min(m.revenue / maxRev, 1);
+                          return (
+                            <td
+                              key={m.month}
+                              className="py-2 pr-3 text-right text-xs font-medium"
+                              style={{
+                                backgroundColor: m.revenue > 0 ? `rgba(16, 185, 129, ${0.1 + intensity * 0.4})` : 'transparent',
+                                color: m.revenue > 0 ? '#065F46' : '#9CA3AF',
+                              }}
+                            >
+                              {m.revenue > 0 ? m.revenueFormatted : '-'}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      {analyticsLoading && (
+        <div className="flex items-center justify-center rounded-xl border border-gray-200 bg-white py-12 shadow-sm">
+          <div className="text-center">
+            <Loader2 className="mx-auto h-8 w-8 animate-spin text-emerald-600" />
+            <p className="mt-2 text-sm text-gray-500">Loading Stripe analytics...</p>
+          </div>
+        </div>
+      )}
 
       {/* Transactions Modal */}
       {showTransactions && (
