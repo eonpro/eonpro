@@ -87,7 +87,7 @@ export class GlobalBreaker {
   }
 
   private get redisKey(): string {
-    return `${this.config.namespace}:${this.config.key}`;
+    return this.config.key;
   }
 
   // ---------------------------------------------------------------------------

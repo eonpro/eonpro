@@ -290,7 +290,7 @@ const cache = new RedisCache();
 /**
  * @deprecated Do NOT use — this decorator generates cache keys WITHOUT tenant (clinicId) scoping,
  * which can cause cross-tenant cache poisoning in a multi-tenant environment.
- * Use FinanceCache, DashboardCache, or manually prefixed cache.get/set with clinicId in the key instead.
+ * Use DashboardCache, tenantGet/tenantSet, or manually prefixed cache.get/set with clinicId in the key instead.
  */
 export function cacheable(ttl: number = 300, namespace?: string) {
   return function (target: any, propertyName: string, descriptor: PropertyDescriptor) {
