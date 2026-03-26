@@ -3,7 +3,7 @@
  *
  * Webhook ingestion and processing. Handles incoming webhooks from
  * external services (Stripe, Lifefile, Twilio, etc.) with signature
- * verification, idempotency, and async processing via BullMQ.
+ * verification, idempotency, and synchronous handler dispatch.
  *
  * @module domains/webhook
  */

@@ -139,39 +139,17 @@ export function createWebhookService(): WebhookService {
         } as any,
       });
 
-      // Step 4: Enqueue for async processing via BullMQ
-      try {
-        const { jobQueue } = await import('@/lib/queue/jobQueue');
-        await jobQueue.deliverWebhook({
-          url: `internal://webhook/${options.source}`,
-          method: 'POST',
-          headers: options.headers ?? {},
-          body: JSON.stringify({
+      // Step 4: Process via registered handler
+      const handler = getWebhookHandler(options.source);
+      if (handler) {
+        try {
+          await handler(delivery.id, options.payload);
+        } catch (handlerErr) {
+          logger.error('[WebhookService] Handler failed', {
             deliveryId: delivery.id,
             source: options.source,
-            eventType: options.eventType,
-            payload: options.payload,
-          }),
-          retryCount: 3,
-        });
-      } catch (err) {
-        logger.warn('[WebhookService] BullMQ enqueue failed, processing synchronously', {
-          deliveryId: delivery.id,
-          error: err instanceof Error ? err.message : 'Unknown',
-        });
-
-        // Fallback: process synchronously if queue unavailable
-        const handler = getWebhookHandler(options.source);
-        if (handler) {
-          try {
-            await handler(delivery.id, options.payload);
-          } catch (handlerErr) {
-            logger.error('[WebhookService] Synchronous handler failed', {
-              deliveryId: delivery.id,
-              source: options.source,
-              error: handlerErr instanceof Error ? handlerErr.message : 'Unknown',
-            });
-          }
+            error: handlerErr instanceof Error ? handlerErr.message : 'Unknown',
+          });
         }
       }
 

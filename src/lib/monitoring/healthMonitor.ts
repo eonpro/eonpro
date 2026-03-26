@@ -12,13 +12,11 @@
  */
 
 import { logger } from '@/lib/logger';
+import cache from '@/lib/cache/redis';
 
 // =============================================================================
 // CONFIGURATION
 // =============================================================================
-
-const UPSTASH_REST_URL = process.env.UPSTASH_REDIS_REST_URL;
-const UPSTASH_REST_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN;
 
 const METRICS_KEY = 'eonpro:metrics';
 const METRICS_WINDOW_SECONDS = 3600; // 1 hour rolling window
@@ -65,33 +63,11 @@ export interface MetricEvent {
 }
 
 // =============================================================================
-// UPSTASH HELPERS
+// REDIS CLIENT HELPER
 // =============================================================================
 
-async function upstashCommand(command: string[]): Promise<unknown> {
-  if (!UPSTASH_REST_URL || !UPSTASH_REST_TOKEN) {
-    return null;
-  }
-
-  try {
-    const response = await fetch(UPSTASH_REST_URL, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${UPSTASH_REST_TOKEN}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(command),
-    });
-
-    if (!response.ok) {
-      return null;
-    }
-
-    const data = await response.json();
-    return data.result;
-  } catch {
-    return null;
-  }
+function getRedis() {
+  return cache.getClient();
 }
 
 // =============================================================================
@@ -104,27 +80,30 @@ const startTime = Date.now();
  * Record a metric event
  */
 export async function recordMetric(event: Omit<MetricEvent, 'timestamp'>): Promise<void> {
+  const redis = getRedis();
+  if (!redis) return;
+
   const metric: MetricEvent = {
     ...event,
     timestamp: Date.now(),
   };
 
-  // Store in Redis with TTL
-  const key = `${METRICS_KEY}:${metric.timestamp}`;
-  await upstashCommand(['SET', key, JSON.stringify(metric), 'EX', String(METRICS_WINDOW_SECONDS)]);
+  try {
+    const key = `${METRICS_KEY}:${metric.timestamp}`;
+    await redis.set(key, JSON.stringify(metric), { ex: METRICS_WINDOW_SECONDS });
 
-  // Update counters
-  const counterKey = `${METRICS_KEY}:counters`;
-  if (metric.success) {
-    await upstashCommand(['HINCRBY', counterKey, 'success', '1']);
-  } else {
-    await upstashCommand(['HINCRBY', counterKey, 'errors', '1']);
+    const counterKey = `${METRICS_KEY}:counters`;
+    if (metric.success) {
+      await redis.hincrby(counterKey, 'success', 1);
+    } else {
+      await redis.hincrby(counterKey, 'errors', 1);
+    }
+    await redis.hincrby(counterKey, 'total', 1);
+    await redis.hincrby(counterKey, 'latencySum', metric.latencyMs);
+    await redis.expire(counterKey, METRICS_WINDOW_SECONDS);
+  } catch {
+    // Metrics are best-effort; don't break the caller
   }
-  await upstashCommand(['HINCRBY', counterKey, 'total', '1']);
-  await upstashCommand(['HINCRBY', counterKey, 'latencySum', String(metric.latencyMs)]);
-
-  // Set expiry on counters (reset every hour)
-  await upstashCommand(['EXPIRE', counterKey, String(METRICS_WINDOW_SECONDS)]);
 }
 
 /**
@@ -190,8 +169,9 @@ async function checkDatabase(): Promise<ServiceCheck> {
  */
 async function checkRedis(): Promise<ServiceCheck> {
   const start = Date.now();
+  const redis = getRedis();
 
-  if (!UPSTASH_REST_URL || !UPSTASH_REST_TOKEN) {
+  if (!redis) {
     return {
       status: 'down',
       lastError: 'Not configured',
@@ -200,7 +180,7 @@ async function checkRedis(): Promise<ServiceCheck> {
   }
 
   try {
-    const result = await upstashCommand(['PING']);
+    const result = await redis.ping();
 
     return {
       status: result === 'PONG' ? 'up' : 'degraded',
@@ -221,10 +201,15 @@ async function checkRedis(): Promise<ServiceCheck> {
  * Check webhook processing health based on recent metrics
  */
 async function checkWebhook(): Promise<ServiceCheck> {
-  const counterKey = `${METRICS_KEY}:counters`;
-  const counters = (await upstashCommand(['HGETALL', counterKey])) as string[] | null;
+  const redis = getRedis();
+  if (!redis) {
+    return { status: 'up', lastCheck: new Date().toISOString() };
+  }
 
-  if (!counters || counters.length === 0) {
+  const counterKey = `${METRICS_KEY}:counters`;
+  const counters = await redis.hgetall<Record<string, string>>(counterKey);
+
+  if (!counters || Object.keys(counters).length === 0) {
     return {
       status: 'up',
       lastCheck: new Date().toISOString(),
@@ -232,8 +217,8 @@ async function checkWebhook(): Promise<ServiceCheck> {
   }
 
   const stats: Record<string, number> = {};
-  for (let i = 0; i < counters.length; i += 2) {
-    stats[counters[i]] = parseInt(counters[i + 1], 10) || 0;
+  for (const [k, v] of Object.entries(counters)) {
+    stats[k] = parseInt(v, 10) || 0;
   }
 
   const total = stats.total || 0;
@@ -279,13 +264,16 @@ async function getQueueDepth(): Promise<number> {
  * Get metrics from the last hour
  */
 async function getMetrics(): Promise<HealthStatus['metrics']> {
-  const counterKey = `${METRICS_KEY}:counters`;
-  const counters = (await upstashCommand(['HGETALL', counterKey])) as string[] | null;
-
+  const redis = getRedis();
   const stats: Record<string, number> = {};
-  if (counters) {
-    for (let i = 0; i < counters.length; i += 2) {
-      stats[counters[i]] = parseInt(counters[i + 1], 10) || 0;
+
+  if (redis) {
+    const counterKey = `${METRICS_KEY}:counters`;
+    const counters = await redis.hgetall<Record<string, string>>(counterKey);
+    if (counters) {
+      for (const [k, v] of Object.entries(counters)) {
+        stats[k] = parseInt(v, 10) || 0;
+      }
     }
   }
 

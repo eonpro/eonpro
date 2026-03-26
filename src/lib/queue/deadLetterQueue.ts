@@ -8,13 +8,11 @@
  */
 
 import { logger } from '@/lib/logger';
+import cache from '@/lib/cache/redis';
 
 // =============================================================================
 // CONFIGURATION
 // =============================================================================
-
-const UPSTASH_REST_URL = process.env.UPSTASH_REDIS_REST_URL;
-const UPSTASH_REST_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN;
 
 const DLQ_KEY = 'eonpro:dlq';
 const DLQ_PROCESSING_KEY = 'eonpro:dlq:processing';
@@ -61,30 +59,15 @@ export interface DLQStats {
 }
 
 // =============================================================================
-// UPSTASH REST API HELPERS
+// REDIS CLIENT HELPER
 // =============================================================================
 
-async function upstashCommand(command: string[]): Promise<unknown> {
-  if (!UPSTASH_REST_URL || !UPSTASH_REST_TOKEN) {
-    throw new Error('Upstash Redis not configured');
+function getRedis() {
+  const client = cache.getClient();
+  if (!client) {
+    throw new Error('Redis not configured — DLQ requires Upstash');
   }
-
-  const response = await fetch(UPSTASH_REST_URL, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${UPSTASH_REST_TOKEN}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(command),
-  });
-
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`Upstash error: ${response.status} - ${error}`);
-  }
-
-  const data = await response.json();
-  return data.result;
+  return client;
 }
 
 // =============================================================================
@@ -95,7 +78,7 @@ async function upstashCommand(command: string[]): Promise<unknown> {
  * Check if DLQ is configured and available
  */
 export function isDLQConfigured(): boolean {
-  return Boolean(UPSTASH_REST_URL && UPSTASH_REST_TOKEN);
+  return cache.isReady();
 }
 
 /**
@@ -122,10 +105,9 @@ export async function queueFailedSubmission(
     metadata,
   };
 
-  await upstashCommand(['HSET', DLQ_KEY, id, JSON.stringify(submission)]);
-
-  // Update stats
-  await upstashCommand(['HINCRBY', DLQ_STATS_KEY, 'totalQueued', '1']);
+  const redis = getRedis();
+  await redis.hset(DLQ_KEY, { [id]: JSON.stringify(submission) });
+  await redis.hincrby(DLQ_STATS_KEY, 'totalQueued', 1);
 
   logger.info(`[DLQ] Queued submission ${id}`, {
     source,
@@ -140,19 +122,19 @@ export async function queueFailedSubmission(
  * Get all queued submissions ready for retry
  */
 export async function getReadySubmissions(): Promise<QueuedSubmission[]> {
-  const all = (await upstashCommand(['HGETALL', DLQ_KEY])) as string[] | null;
+  const redis = getRedis();
+  const all = await redis.hgetall<Record<string, string>>(DLQ_KEY);
 
-  if (!all || all.length === 0) {
+  if (!all || Object.keys(all).length === 0) {
     return [];
   }
 
   const now = Date.now();
   const ready: QueuedSubmission[] = [];
 
-  // HGETALL returns [key1, val1, key2, val2, ...]
   const { safeParseJsonString } = await import('@/lib/utils/safe-json');
-  for (let i = 0; i < all.length; i += 2) {
-    const submission = safeParseJsonString<QueuedSubmission>(all[i + 1]);
+  for (const value of Object.values(all)) {
+    const submission = safeParseJsonString<QueuedSubmission>(value);
     if (!submission) continue;
     const retryTime = new Date(submission.nextRetryAt).getTime();
     if (retryTime <= now && submission.attemptCount < MAX_RETRY_ATTEMPTS) {
@@ -160,7 +142,6 @@ export async function getReadySubmissions(): Promise<QueuedSubmission[]> {
     }
   }
 
-  // Sort by retry time (oldest first)
   ready.sort((a, b) => new Date(a.nextRetryAt).getTime() - new Date(b.nextRetryAt).getTime());
 
   return ready;
@@ -170,17 +151,18 @@ export async function getReadySubmissions(): Promise<QueuedSubmission[]> {
  * Get all queued submissions (for monitoring)
  */
 export async function getAllSubmissions(): Promise<QueuedSubmission[]> {
-  const all = (await upstashCommand(['HGETALL', DLQ_KEY])) as string[] | null;
+  const redis = getRedis();
+  const all = await redis.hgetall<Record<string, string>>(DLQ_KEY);
 
-  if (!all || all.length === 0) {
+  if (!all || Object.keys(all).length === 0) {
     return [];
   }
 
   const submissions: QueuedSubmission[] = [];
 
   const { safeParseJsonString } = await import('@/lib/utils/safe-json');
-  for (let i = 0; i < all.length; i += 2) {
-    const submission = safeParseJsonString<QueuedSubmission>(all[i + 1]);
+  for (const value of Object.values(all)) {
+    const submission = safeParseJsonString<QueuedSubmission>(value);
     if (submission) submissions.push(submission);
   }
 
@@ -195,7 +177,8 @@ export async function updateSubmissionAttempt(
   success: boolean,
   error?: string
 ): Promise<void> {
-  const raw = (await upstashCommand(['HGET', DLQ_KEY, id])) as string | null;
+  const redis = getRedis();
+  const raw = await redis.hget<string>(DLQ_KEY, id);
 
   if (!raw) {
     logger.warn(`[DLQ] Submission ${id} not found for update`);
@@ -212,17 +195,16 @@ export async function updateSubmissionAttempt(
   submission.lastAttemptAt = new Date().toISOString();
 
   if (success) {
-    // Remove from queue on success
-    await upstashCommand(['HDEL', DLQ_KEY, id]);
-    await upstashCommand(['HINCRBY', DLQ_STATS_KEY, 'totalProcessed', '1']);
-    await upstashCommand(['HSET', DLQ_STATS_KEY, 'lastProcessedAt', new Date().toISOString()]);
+    await redis.hdel(DLQ_KEY, id);
+    await redis.hincrby(DLQ_STATS_KEY, 'totalProcessed', 1);
+    await redis.hset(DLQ_STATS_KEY, { lastProcessedAt: new Date().toISOString() });
 
     logger.info(`[DLQ] Successfully processed ${id} after ${submission.attemptCount} attempts`);
   } else if (submission.attemptCount >= MAX_RETRY_ATTEMPTS) {
     // Move to exhausted state
     submission.lastError = error || 'Max retries exhausted';
-    await upstashCommand(['HSET', DLQ_KEY, id, JSON.stringify(submission)]);
-    await upstashCommand(['HINCRBY', DLQ_STATS_KEY, 'totalExhausted', '1']);
+    await redis.hset(DLQ_KEY, { [id]: JSON.stringify(submission) });
+    await redis.hincrby(DLQ_STATS_KEY, 'totalExhausted', 1);
 
     logger.error(`[DLQ] Submission ${id} exhausted all ${MAX_RETRY_ATTEMPTS} retries`, {
       metadata: submission.metadata,
@@ -235,8 +217,8 @@ export async function updateSubmissionAttempt(
     // Update for next retry
     submission.lastError = error || 'Unknown error';
     submission.nextRetryAt = calculateNextRetry(submission.attemptCount);
-    await upstashCommand(['HSET', DLQ_KEY, id, JSON.stringify(submission)]);
-    await upstashCommand(['HINCRBY', DLQ_STATS_KEY, 'totalFailed', '1']);
+    await redis.hset(DLQ_KEY, { [id]: JSON.stringify(submission) });
+    await redis.hincrby(DLQ_STATS_KEY, 'totalFailed', 1);
 
     logger.info(
       `[DLQ] Submission ${id} failed attempt ${submission.attemptCount}, next retry at ${submission.nextRetryAt}`
@@ -248,7 +230,8 @@ export async function updateSubmissionAttempt(
  * Remove a submission from the queue (manual intervention)
  */
 export async function removeSubmission(id: string): Promise<boolean> {
-  const result = await upstashCommand(['HDEL', DLQ_KEY, id]);
+  const redis = getRedis();
+  const result = await redis.hdel(DLQ_KEY, id);
   return result === 1;
 }
 
@@ -256,7 +239,8 @@ export async function removeSubmission(id: string): Promise<boolean> {
  * Get queue statistics
  */
 export async function getQueueStats(): Promise<DLQStats & { pending: number; exhausted: number }> {
-  const statsRaw = (await upstashCommand(['HGETALL', DLQ_STATS_KEY])) as string[] | null;
+  const redis = getRedis();
+  const statsRaw = await redis.hgetall<Record<string, string>>(DLQ_STATS_KEY);
   const submissions = await getAllSubmissions();
 
   const stats: DLQStats = {
@@ -268,11 +252,9 @@ export async function getQueueStats(): Promise<DLQStats & { pending: number; exh
   };
 
   if (statsRaw) {
-    for (let i = 0; i < statsRaw.length; i += 2) {
-      const key = statsRaw[i] as keyof DLQStats;
-      const value = statsRaw[i + 1];
+    for (const [key, value] of Object.entries(statsRaw)) {
       if (key === 'lastProcessedAt') {
-        stats[key] = value;
+        stats.lastProcessedAt = value;
       } else if (key in stats) {
         (stats as unknown as Record<string, unknown>)[key] = parseInt(value, 10) || 0;
       }

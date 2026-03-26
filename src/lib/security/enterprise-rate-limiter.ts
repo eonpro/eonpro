@@ -16,6 +16,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { LRUCache } from 'lru-cache';
 import { logger } from '@/lib/logger';
+import cache from '@/lib/cache/redis';
 
 // ============================================================================
 // Types
@@ -120,52 +121,11 @@ const DELAY_SCHEDULE = [
 ];
 
 // ============================================================================
-// Redis Client (Lazy Initialization)
+// Redis Client (shared singleton from @/lib/cache/redis)
 // ============================================================================
 
-let redisClient: any = null;
-let redisAvailable = false;
-let redisChecked = false;
-
-async function getRedisClient(): Promise<any> {
-  if (redisChecked) {
-    return redisAvailable ? redisClient : null;
-  }
-
-  redisChecked = true;
-
-  const redisUrl = process.env.REDIS_URL || process.env.UPSTASH_REDIS_REST_URL;
-
-  if (!redisUrl) {
-    logger.info('[EnterpriseRateLimit] Redis not configured, using in-memory fallback');
-    return null;
-  }
-
-  try {
-    if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) {
-      const { Redis } = await import('@upstash/redis');
-      redisClient = new Redis({
-        url: process.env.UPSTASH_REDIS_REST_URL,
-        token: process.env.UPSTASH_REDIS_REST_TOKEN,
-      });
-      redisAvailable = true;
-      logger.info('[EnterpriseRateLimit] Connected to Upstash Redis');
-      return redisClient;
-    }
-
-    const { createClient } = await import('redis');
-    redisClient = createClient({ url: redisUrl });
-    await redisClient.connect();
-    redisAvailable = true;
-    logger.info('[EnterpriseRateLimit] Connected to Redis');
-    return redisClient;
-  } catch (error) {
-    logger.warn('[EnterpriseRateLimit] Redis connection failed, using in-memory fallback', {
-      error,
-    });
-    redisAvailable = false;
-    return null;
-  }
+function getRedisClient() {
+  return cache.getClient();
 }
 
 // ============================================================================
@@ -218,11 +178,11 @@ function isTrustedNetwork(ip: string, trustedRanges: string[]): boolean {
 // ============================================================================
 
 async function getEntry(key: string): Promise<RateLimitEntry | null> {
-  const redis = await getRedisClient();
+  const redis = getRedisClient();
 
-  if (redis && redisAvailable) {
+  if (redis) {
     try {
-      const data = await redis.get(key);
+      const data = await redis.get<RateLimitEntry | string>(key);
       if (data) {
         return typeof data === 'string' ? JSON.parse(data) : data;
       }
@@ -236,16 +196,11 @@ async function getEntry(key: string): Promise<RateLimitEntry | null> {
 }
 
 async function setEntry(key: string, entry: RateLimitEntry, ttlSeconds: number): Promise<void> {
-  const redis = await getRedisClient();
+  const redis = getRedisClient();
 
-  if (redis && redisAvailable) {
+  if (redis) {
     try {
-      const isUpstash = !!process.env.UPSTASH_REDIS_REST_URL;
-      if (isUpstash) {
-        await redis.setex(key, ttlSeconds, JSON.stringify(entry));
-      } else {
-        await redis.setEx(key, ttlSeconds, JSON.stringify(entry));
-      }
+      await redis.setex(key, ttlSeconds, JSON.stringify(entry));
       return;
     } catch (err) {
       logger.warn('[EnterpriseRateLimit] Redis write failed', { key, error: err });
@@ -256,9 +211,9 @@ async function setEntry(key: string, entry: RateLimitEntry, ttlSeconds: number):
 }
 
 async function deleteEntry(key: string): Promise<void> {
-  const redis = await getRedisClient();
+  const redis = getRedisClient();
 
-  if (redis && redisAvailable) {
+  if (redis) {
     try {
       await redis.del(key);
     } catch (err) {
@@ -813,41 +768,23 @@ export const otpRateLimiter = new EnterpriseRateLimiter(
 export async function emergencyFlushAllAuthRateLimits(): Promise<{ cleared: number }> {
   let cleared = 0;
 
-  // Clear in-memory LRU
   const memSize = memoryCache.size;
   memoryCache.clear();
   cleared += memSize;
 
-  // Clear Redis keys matching auth:*
-  const redis = await getRedisClient();
-  if (redis && redisAvailable) {
+  const redis = getRedisClient();
+  if (redis) {
     try {
-      const isUpstash = !!process.env.UPSTASH_REDIS_REST_URL;
-      if (isUpstash) {
-        // Upstash: use SCAN to find and delete keys
-        let cursor = 0;
-        do {
-          const result = await redis.scan(cursor, { match: 'auth:*', count: 200 });
-          cursor = result[0];
-          const keys = result[1] as string[];
-          if (keys.length > 0) {
-            await Promise.all(keys.map((k: string) => redis.del(k)));
-            cleared += keys.length;
-          }
-        } while (cursor !== 0);
-      } else {
-        // Standard Redis
-        let cursor = '0';
-        do {
-          const result = await redis.scan(cursor, { MATCH: 'auth:*', COUNT: 200 });
-          cursor = result.cursor?.toString() ?? '0';
-          const keys = result.keys || [];
-          if (keys.length > 0) {
-            await Promise.all(keys.map((k: string) => redis.del(k)));
-            cleared += keys.length;
-          }
-        } while (cursor !== '0');
-      }
+      let cursor = 0;
+      do {
+        const result = await redis.scan(cursor, { match: 'auth:*', count: 200 });
+        cursor = result[0];
+        const keys = result[1] as string[];
+        if (keys.length > 0) {
+          await Promise.all(keys.map((k: string) => redis.del(k)));
+          cleared += keys.length;
+        }
+      } while (cursor !== 0);
     } catch (err) {
       logger.error('[EnterpriseRateLimit] Emergency flush Redis failed', { error: err });
     }

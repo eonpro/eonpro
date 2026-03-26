@@ -267,6 +267,15 @@ class RedisCache {
   }
 
   /**
+   * Access the underlying @upstash/redis client for operations not exposed
+   * by RedisCache (pipeline, hash, scan, etc.). Returns null when Redis is
+   * not configured. Callers MUST handle the null case gracefully.
+   */
+  getClient(): Redis | null {
+    return this.ready ? this.client : null;
+  }
+
+  /**
    * Get all keys matching a pattern.
    * Warning: Use sparingly — KEYS/SCAN can be slow on large datasets.
    */
@@ -287,56 +296,6 @@ class RedisCache {
 // Singleton instance
 const cache = new RedisCache();
 
-/**
- * @deprecated Do NOT use — this decorator generates cache keys WITHOUT tenant (clinicId) scoping,
- * which can cause cross-tenant cache poisoning in a multi-tenant environment.
- * Use DashboardCache, tenantGet/tenantSet, or manually prefixed cache.get/set with clinicId in the key instead.
- */
-export function cacheable(ttl: number = 300, namespace?: string) {
-  return function (target: any, propertyName: string, descriptor: PropertyDescriptor) {
-    const originalMethod = descriptor.value;
-
-    descriptor.value = async function (...args: any[]) {
-      logger.warn(`[DEPRECATED] @cacheable used on ${propertyName} — lacks tenant scoping. Migrate to tenant-aware caching.`);
-      const cacheKey = `${propertyName}:${JSON.stringify(args)}`;
-
-      const cachedResult = await cache.get(cacheKey, { namespace });
-      if (cachedResult !== null) {
-        return cachedResult;
-      }
-
-      const result = await originalMethod.apply(this, args);
-
-      await cache.set(cacheKey, result, { ttl, namespace });
-
-      return result;
-    };
-
-    return descriptor;
-  };
-}
-
-// Cache invalidation decorator
-export function invalidateCache(namespace?: string, pattern?: string) {
-  return function (target: any, propertyName: string, descriptor: PropertyDescriptor) {
-    const originalMethod = descriptor.value;
-
-    descriptor.value = async function (...args: any[]) {
-      const result = await originalMethod.apply(this, args);
-
-      // Invalidate cache after successful operation
-      if (pattern) {
-        await cache.flush(namespace);
-      }
-
-      return result;
-    };
-
-    return descriptor;
-  };
-}
-
 export default cache;
 
-// Export types
 export type { CacheOptions };

@@ -83,20 +83,36 @@ async function checkLifefileAPI(): Promise<ServiceCheck> {
  * Check Redis connectivity (if configured)
  */
 async function checkRedis(): Promise<ServiceCheck> {
-  if (!process.env.REDIS_URL) {
+  const start = Date.now();
+  try {
+    const { default: redisCache } = await import('@/lib/cache/redis');
+
+    if (!redisCache.isReady()) {
+      return {
+        name: 'redis',
+        status: 'degraded',
+        error: 'Not configured — using in-memory fallback',
+      };
+    }
+
+    const testKey = `ready-check-${Date.now()}`;
+    await redisCache.set(testKey, 'ok', { ttl: 10 });
+    const value = await redisCache.get(testKey);
+    await redisCache.delete(testKey);
+
     return {
       name: 'redis',
-      status: 'operational',
-      error: 'Not configured (optional)',
+      status: value === 'ok' ? 'operational' : 'degraded',
+      responseTime: Date.now() - start,
+    };
+  } catch (error: unknown) {
+    return {
+      name: 'redis',
+      status: 'degraded',
+      responseTime: Date.now() - start,
+      error: error instanceof Error ? error.message : 'Redis check failed',
     };
   }
-
-  // If Redis is configured, we would check it here
-  // For now, return as operational if not configured
-  return {
-    name: 'redis',
-    status: 'operational',
-  };
 }
 
 /**
