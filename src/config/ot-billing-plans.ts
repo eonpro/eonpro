@@ -632,6 +632,7 @@ const OTHER: BillingPlan[] = [
     slug: 'ot_tadalafil_3mo',
     months: 3,
     isRecurring: true,
+    stripePriceId: 'price_1SAG1VDQIH4O9FhrgAUE9Z04',
   },
   {
     id: 'ot_tadalafil_6mo',
@@ -642,6 +643,7 @@ const OTHER: BillingPlan[] = [
     slug: 'ot_tadalafil_6mo',
     months: 6,
     isRecurring: true,
+    stripePriceId: 'price_1SAG1gDQIH4O9Fhrac6RoK8e',
   },
   {
     id: 'ot_ghkcu_cream_1mo',
