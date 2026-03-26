@@ -85,12 +85,12 @@ const defaultResources: Resource[] = [
     url: '/patient-portal/resources/exercise-recommendations',
   },
   {
-    id: 'p1',
-    title: 'Patient Handbook',
-    description: 'Complete guide to your weight loss program',
-    type: 'pdf',
+    id: 'a-handbook',
+    title: 'GLP-1 Patient Handbook',
+    description: 'Complete medical & lifestyle guide to your weight loss journey — 14 sections',
+    type: 'article',
     category: 'Guides',
-    url: '/resources/patient-handbook.pdf',
+    url: '/patient-portal/handbook',
   },
 ];
 

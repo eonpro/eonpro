@@ -127,6 +127,10 @@ export default function AddressStep({
       setResponse('addressCity', addressComponents?.city || '');
       setResponse('addressState', addressComponents?.state || '');
       setResponse('addressZipCode', addressComponents?.zipCode || '');
+
+      if (addressComponents?.state) {
+        setResponse('state', addressComponents.state);
+      }
       
       markStepCompleted('address');
       setCurrentStep(nextStep);

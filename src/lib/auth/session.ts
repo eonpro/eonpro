@@ -82,6 +82,15 @@ export async function verifyToken(token: string): Promise<UserSession | null> {
 /**
  * Get user session from request cookies
  */
+const AUTH_OP_TIMEOUT_MS = 4_000;
+
+function withTimeout<T>(promise: Promise<T>, fallback: T): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((resolve) => setTimeout(() => resolve(fallback), AUTH_OP_TIMEOUT_MS)),
+  ]);
+}
+
 export async function getUserFromCookies(): Promise<UserSession | null> {
   try {
     const cookieStore = await cookies();
@@ -115,7 +124,7 @@ export async function getUserFromCookies(): Promise<UserSession | null> {
           const sub = parts.length >= 3 || isLocalhostWithSub ? parts[0] ?? null : null;
           const reserved = ['www', 'app', 'api', 'admin', 'staging'];
           if (sub && !reserved.includes(sub.toLowerCase())) {
-            subdomainClinicId = await resolveSubdomainClinicId(sub);
+            subdomainClinicId = await withTimeout(resolveSubdomainClinicId(sub), null);
           }
         }
       }
@@ -157,7 +166,7 @@ export async function getUserFromCookies(): Promise<UserSession | null> {
             if (Number.isFinite(targetClinicId) && targetClinicId > 0 && user.clinicId !== targetClinicId) {
               const userHasAccess =
                 user.clinicId === targetClinicId ||
-                (await hasClinicAccess(user.id, targetClinicId, user.providerId));
+                (await withTimeout(hasClinicAccess(user.id, targetClinicId, user.providerId), false));
 
               if (userHasAccess) {
                 user.clinicId = targetClinicId;

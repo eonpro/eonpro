@@ -88,7 +88,7 @@ function isGoogleReady(): boolean {
   );
 }
 
-function useGooglePlacesReady() {
+export function useGooglePlacesReady() {
   const [ready, setReady] = useState(isGoogleReady);
 
   useEffect(() => {
@@ -155,7 +155,7 @@ function parseAddressComponents(
  * Attach the legacy google.maps.places.Autocomplete widget to an input element.
  * Returns a cleanup function that removes the listener and widget.
  */
-function attachAutocomplete(
+export function attachAutocomplete(
   input: HTMLInputElement,
   onPlaceChanged: (parsed: AddressData, formatted: string) => void,
 ): () => void {

@@ -7,7 +7,6 @@ import PatientProfileClient from '@/components/PatientProfileClient';
 import PatientQuickSearch from '@/components/PatientQuickSearch';
 import PatientSidebar from '@/components/PatientSidebar';
 import { auditLog, AuditEventType } from '@/lib/audit/hipaa-audit';
-import { resolveSubdomainClinicId, hasClinicAccess } from '@/lib/auth/middleware-cache';
 import { getUserFromCookies } from '@/lib/auth/session';
 import { getClinicFeatureBoolean } from '@/lib/clinic/utils';
 import { queryOptimizer } from '@/lib/database';
@@ -80,34 +79,9 @@ export default async function PatientDetailPage({
     }
 
     const isSuperAdmin = user.role === 'super_admin';
-    let clinicId = isSuperAdmin ? undefined : user.clinicId ?? undefined;
-
-    // Subdomain-based clinic override
-    if (!isSuperAdmin) {
-      try {
-        const host = headersList.get('x-forwarded-host')?.split(',')[0]?.trim() ?? headersList.get('host') ?? '';
-        const hostname = host ? host.split(':')[0] ?? '' : '';
-        if (hostname.includes('.')) {
-          const parts = hostname.split('.');
-          const isLocalhostWithSub = hostname.includes('localhost') && parts.length >= 2;
-          const sub = parts.length >= 3 || isLocalhostWithSub ? parts[0] ?? null : null;
-          const reserved = ['www', 'app', 'api', 'admin', 'staging'];
-          if (sub && !reserved.includes(sub.toLowerCase())) {
-            const subdomainClinic = await resolveSubdomainClinicId(sub);
-            if (subdomainClinic != null && subdomainClinic > 0 && subdomainClinic !== clinicId) {
-              const userHasAccess =
-                user.clinicId === subdomainClinic ||
-                (await hasClinicAccess(user.id, subdomainClinic, user.providerId));
-              if (userHasAccess) {
-                clinicId = subdomainClinic;
-              }
-            }
-          }
-        }
-      } catch {
-        // Subdomain resolution failure is non-critical
-      }
-    }
+    // getUserFromCookies() already resolved subdomain → clinicId and verified
+    // clinic access, so user.clinicId is authoritative — no need to re-resolve.
+    const clinicId = isSuperAdmin ? undefined : user.clinicId ?? undefined;
 
     if (!isSuperAdmin && clinicId == null) {
       return (

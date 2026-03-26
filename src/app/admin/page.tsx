@@ -23,6 +23,7 @@ import {
 import { apiFetch, redirectToLogin } from '@/lib/api/fetch';
 import { AdminDashboardSkeleton } from '@/components/dashboards/AdminDashboardSkeleton';
 import { useAdminDashboard, useAdminGeo } from '@/hooks/useAdminDashboard';
+import { useAuthStore } from '@/lib/stores/authStore';
 const USMapChart = dynamic_import(
   () => import('@/components/dashboards/USMapChart').then((mod) => mod.USMapChart),
   {
@@ -30,7 +31,6 @@ const USMapChart = dynamic_import(
     loading: () => <div className="h-64 animate-pulse rounded-xl bg-gray-100" />,
   },
 );
-import { safeParseJsonString } from '@/lib/utils/safe-json';
 
 // Helper to detect if data looks like encrypted PHI (base64:base64:base64 format)
 const isEncryptedData = (value: string | null | undefined): boolean => {
@@ -80,6 +80,11 @@ interface ClinicInfo {
 
 export default function AdminPage() {
   const router = useRouter();
+  const authUser = useAuthStore((s) => s.user);
+  const isHydrated = useAuthStore((s) => s.isHydrated);
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const storeClinics = useAuthStore((s) => s.clinics);
+  const storeActiveClinicId = useAuthStore((s) => s.activeClinicId);
   const [userData, setUserData] = useState<Record<string, unknown> | null>(null);
   const [activeClinic, setActiveClinic] = useState<ClinicInfo | null>(null);
   const [currentTime, setCurrentTime] = useState<Date | null>(null);
@@ -109,41 +114,47 @@ export default function AdminPage() {
     setIsLogosRxHost(checkIsLogosRxHost());
   }, []);
 
-  // Session expiration is handled globally by the Zustand authStore.
-
+  // Read auth from Zustand store (already hydrated from localStorage by AuthHydrator
+  // in root layout) instead of reading localStorage directly. This eliminates the
+  // split-brain where layout says "authenticated" but the page never gets user data.
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const user = localStorage.getItem('user');
-    if (user) {
-      try {
-        const parsed = safeParseJsonString<Record<string, unknown>>(user);
-        if (!parsed) return;
-        if (typeof parsed.role === 'string' && parsed.role.toLowerCase() === 'super_admin') {
-          window.location.href = '/super-admin';
-          return;
-        }
-        if (typeof parsed.role === 'string' && parsed.role.toLowerCase() === 'pharmacy_rep') {
-          setUserData(parsed);
-          setStats(defaultStats());
-          return;
-        }
-        setUserData(parsed);
-      } catch {
-        // ignore
+    if (!isHydrated) return;
+
+    if (!isAuthenticated || !authUser) {
+      redirectToLogin('session_expired');
+      return;
+    }
+
+    const role = (authUser.role ?? '').toLowerCase();
+    if (role === 'super_admin') {
+      window.location.href = '/super-admin';
+      return;
+    }
+
+    const parsed: Record<string, unknown> = { ...authUser, role };
+    if (role === 'pharmacy_rep') {
+      setUserData(parsed);
+      setStats(defaultStats());
+    } else {
+      setUserData(parsed);
+    }
+
+    // Resolve active clinic from store
+    if (storeClinics.length > 0 && storeActiveClinicId) {
+      const clinic = storeClinics.find((c) => c.id === storeActiveClinicId);
+      if (clinic) {
+        setActiveClinic({ id: clinic.id, name: clinic.name ?? '', subdomain: clinic.subdomain, logoUrl: clinic.logoUrl });
       }
     }
-    const clinicsStr = localStorage.getItem('clinics');
-    const activeClinicIdStr = localStorage.getItem('activeClinicId');
-    if (clinicsStr && activeClinicIdStr) {
-      try {
-        const clinics = JSON.parse(clinicsStr) as ClinicInfo[];
-        const activeClinicId = parseInt(activeClinicIdStr, 10);
-        const clinic = clinics.find((c) => c.id === activeClinicId);
-        if (clinic) setActiveClinic(clinic);
-      } catch {
-        // ignore
-      }
-    }
+  }, [isHydrated, isAuthenticated, authUser, storeClinics, storeActiveClinicId]);
+
+  // Safety timeout: if stats never loads after 15s, fall through with zeros
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setStats((prev) => prev ?? defaultStats());
+      setGeoLoading(false);
+    }, 15_000);
+    return () => clearTimeout(timer);
   }, []);
 
   // React Query: dashboard data (cached across navigations)

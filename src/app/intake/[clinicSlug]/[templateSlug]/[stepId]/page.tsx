@@ -6,7 +6,6 @@ import { FormStep } from '@/domains/intake/components/form-engine';
 import IntakeLandingStep from '@/domains/intake/components/IntakeLandingStep';
 import type { IntakeBrand } from '@/domains/intake/components/IntakeLandingStep';
 import { BookAppointmentStep } from '@/domains/intake/components/form-engine/steps';
-import { CheckoutInner } from '@/app/checkout/page';
 import { useIntakeStore } from '@/domains/intake/store/intakeStore';
 import { LanguageProvider, useLanguage } from '@/domains/intake/contexts/LanguageContext';
 import { trackIntakeEvent } from '@/domains/intake/lib/analytics';
@@ -203,11 +202,28 @@ function IntakeStepContent() {
   }
 
   if (stepId === 'checkout') {
-    return (
-      <div className={transitionClass}>
-        <CheckoutInner />
-      </div>
-    );
+    const r = responses;
+    const searchParams = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
+    const medication = searchParams.get('medication') || '';
+    const redirectParams = new URLSearchParams({
+      ...(medication ? { medication } : {}),
+      ...(r.firstName ? { firstName: String(r.firstName) } : {}),
+      ...(r.lastName ? { lastName: String(r.lastName) } : {}),
+      ...(r.email ? { email: String(r.email) } : {}),
+      ...(r.phone ? { phone: String(r.phone) } : {}),
+      ...(r.state ? { state: String(r.state) } : {}),
+      ...(r.street ? { address: String(r.street) } : {}),
+      ...(r.addressCity ? { city: String(r.addressCity) } : {}),
+      ...(r.addressZipCode ? { zip: String(r.addressZipCode) } : {}),
+      ...(r.dob ? { dob: String(r.dob) } : {}),
+      ...(r.current_weight ? { weight: String(r.current_weight) } : {}),
+      ...(r.ideal_weight ? { goalWeight: String(r.ideal_weight) } : {}),
+      ...(language ? { lang: language } : {}),
+    });
+    if (typeof window !== 'undefined') {
+      window.location.href = `/eonmeds-checkout?${redirectParams.toString()}`;
+    }
+    return <div className="min-h-screen bg-white flex items-center justify-center"><div className="w-12 h-12 border-4 border-[#13a97b] border-t-transparent rounded-full animate-spin" /></div>;
   }
 
   const isWellmedr = intakeBrand === 'wellmedr';

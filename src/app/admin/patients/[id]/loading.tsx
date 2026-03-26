@@ -1,12 +1,41 @@
-/**
- * Admin patient detail loading skeleton.
- *
- * With Suspense streaming, this only shows during Phase 1 (auth + core patient query,
- * typically 1-3 seconds). The tab content has its own Suspense fallback.
- */
+'use client';
+
+import { useEffect, useState } from 'react';
+import { RefreshCw } from 'lucide-react';
+
+const SHOW_RETRY_MS = 12_000;
+const AUTO_RELOAD_MS = 25_000;
+
 export default function PatientDetailLoading() {
+  const [showRetry, setShowRetry] = useState(false);
+
+  useEffect(() => {
+    const retryTimer = setTimeout(() => setShowRetry(true), SHOW_RETRY_MS);
+    const reloadTimer = setTimeout(() => window.location.reload(), AUTO_RELOAD_MS);
+    return () => {
+      clearTimeout(retryTimer);
+      clearTimeout(reloadTimer);
+    };
+  }, []);
+
   return (
-    <div className="min-h-screen bg-[#efece7] p-3 md:p-6">
+    <div className="relative min-h-screen bg-[#efece7] p-3 md:p-6">
+      {showRetry && (
+        <div className="absolute inset-x-0 top-4 z-50 flex justify-center">
+          <div className="flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-5 py-3 shadow-md">
+            <span className="text-sm text-amber-800">Taking longer than expected...</span>
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-amber-700"
+            >
+              <RefreshCw className="h-3 w-3" />
+              Refresh
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-col gap-3 md:flex-row md:gap-6">
         {/* Left sidebar skeleton */}
         <div className="hidden w-72 flex-shrink-0 md:block">

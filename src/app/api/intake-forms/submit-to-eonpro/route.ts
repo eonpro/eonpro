@@ -428,7 +428,7 @@ export async function POST(req: NextRequest) {
     const streetAddr = String(responses.street || '');
     const apt = String(responses.apartment || '');
     const city = String(responses.addressCity || '');
-    const stateCode = String(responses.state || responses.addressState || '').toUpperCase();
+    const stateCode = String(responses.addressState || responses.state || '').toUpperCase();
     const zip = String(responses.addressZipCode || '');
 
     // Build patient directly from storageKeys
