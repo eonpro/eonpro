@@ -26,6 +26,7 @@ import {
   CreditCard,
   Video,
   Receipt,
+  Award,
 } from 'lucide-react';
 import InternalChat from '@/components/InternalChat';
 import {
@@ -56,6 +57,7 @@ const mainNavItems = [
   { icon: FileText, path: '/provider/soap-notes', label: 'SOAP Notes' },
   { icon: MessageSquare, path: '/provider/messages', label: 'Messages' },
   { icon: Ticket, path: '/tickets', label: 'Tickets' },
+  { icon: Award, path: '/provider/results', label: 'Results' },
   { icon: BookOpen, path: '/provider/resources', label: 'Resources' },
   { icon: Settings, path: '/provider/settings', label: 'Settings' },
 ];
