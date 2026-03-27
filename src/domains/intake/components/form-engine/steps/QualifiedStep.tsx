@@ -76,6 +76,7 @@ export default function QualifiedStep({ basePath, prevStep }: QualifiedStepProps
   const submittedRef = useRef(false);
   const isSpanish = language === 'es';
   const clinicSlug = useIntakeStore((s) => s.clinicSlug);
+  const refCode = useIntakeStore((s) => s.refCode);
   const isOt = clinicSlug === 'ot' || clinicSlug === 'otmens';
   const t = (key: keyof typeof T) => T[key][language];
 
@@ -117,6 +118,9 @@ export default function QualifiedStep({ basePath, prevStep }: QualifiedStepProps
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const isPeptide = basePath.includes('peptides');
+  const effectiveRefCode = refCode || (typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('intake_refCode') : null);
+
   useEffect(() => {
     if (submittedRef.current) return;
     const hasIdentifier = responses.firstName || responses.email;
@@ -129,7 +133,14 @@ export default function QualifiedStep({ basePath, prevStep }: QualifiedStepProps
         const res = await fetch('/api/intake-forms/submit-to-eonpro', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ responses, submissionType: 'complete', qualified: 'Yes', clinicSlug, treatmentType: isPeptide ? 'peptides' : 'weight-loss' }),
+          body: JSON.stringify({
+            responses,
+            submissionType: 'complete',
+            qualified: 'Yes',
+            clinicSlug,
+            treatmentType: isPeptide ? 'peptides' : 'weight-loss',
+            ...(effectiveRefCode ? { refCode: effectiveRefCode } : {}),
+          }),
         });
         if (!res.ok && attempt < 3) {
           await new Promise((r) => setTimeout(r, 1000 * attempt));
@@ -164,7 +175,6 @@ export default function QualifiedStep({ basePath, prevStep }: QualifiedStepProps
 
   const handleBack = () => { if (prevStep) router.push(`${basePath}/${prevStep}`); };
 
-  const isPeptide = basePath.includes('peptides');
   const bookingParams = new URLSearchParams({
     ...(responses.firstName ? { first_name: String(responses.firstName) } : {}),
     ...(responses.lastName ? { last_name: String(responses.lastName) } : {}),

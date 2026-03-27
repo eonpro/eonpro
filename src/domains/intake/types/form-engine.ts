@@ -188,6 +188,7 @@ export interface IntakeSessionData {
   responses: Record<string, unknown>;
   qualified?: boolean;
   disqualificationReason?: string;
+  refCode?: string | null;
 }
 
 // ---------------------------------------------------------------------------

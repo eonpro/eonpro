@@ -136,9 +136,7 @@ export function getTimezoneAwareBoundaries(tz: string = DEFAULT_TIMEZONE): {
   const { year, month, day, dayOfWeek } = getDatePartsInTz(tz);
 
   const todayStart = midnightInTz(year, month, day, tz);
-
-  const yesterdayStart = new Date(todayStart);
-  yesterdayStart.setTime(yesterdayStart.getTime() - 24 * 60 * 60 * 1000);
+  const yesterdayStart = midnightInTz(year, month, day - 1, tz);
 
   const weekStart = midnightInTz(year, month, day - dayOfWeek, tz);
   const monthStart = midnightInTz(year, month, 1, tz);

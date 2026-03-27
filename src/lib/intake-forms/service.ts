@@ -1,4 +1,4 @@
-import { prisma } from '@/lib/db';
+import { prisma, basePrisma } from '@/lib/db';
 import { IntakeFormTemplate, IntakeFormQuestion, IntakeFormLink, Prisma } from '@prisma/client';
 import { logger } from '@/lib/logger';
 import { nanoid } from 'nanoid';
@@ -34,6 +34,9 @@ export interface FormLinkInput {
   patientPhone?: string;
   expiresInDays?: number;
   metadata?: any;
+  createdById?: number;
+  salesRepId?: number;
+  clinicId?: number;
 }
 
 // Cache for frequently accessed templates
@@ -338,6 +341,9 @@ export async function createFormLink(input: FormLinkInput): Promise<IntakeFormLi
         patientPhone: input.patientPhone || undefined,
         expiresAt,
         metadata: (input.metadata || {}) as any,
+        createdById: input.createdById || undefined,
+        salesRepId: input.salesRepId || undefined,
+        clinicId: input.clinicId || undefined,
       },
       include: {
         template: {
@@ -566,8 +572,21 @@ export async function submitFormResponses(
         )
       );
 
-      return { ...sub, responses: createdResponses };
+      return { ...sub, responses: createdResponses, resolvedPatientId: patientId };
     }, { timeout: 15000, isolationLevel: 'Serializable' });
+
+    // Post-transaction: auto-attribute patient to sales rep if the link carries one
+    const linkSalesRepId = link.salesRepId as number | null;
+    const resolvedPatientId = (submission as any).resolvedPatientId as number | null;
+    const effectiveClinicId = (link.clinicId ?? templateClinicId) as number | null;
+
+    if (linkSalesRepId && resolvedPatientId && effectiveClinicId) {
+      assignPatientToSalesRep(resolvedPatientId, linkSalesRepId, effectiveClinicId).catch((err) => {
+        logger.warn('Sales rep attribution from intake link failed (non-blocking)', {
+          error: err instanceof Error ? err.message : 'Unknown error',
+        });
+      });
+    }
 
     logger.info(`Form submitted: ${linkId}`);
     return submission;
@@ -681,4 +700,37 @@ export async function exportFormSubmission(submissionId: number): Promise<any> {
     logger.error('Failed to export form submission', error);
     throw error;
   }
+}
+
+/**
+ * Idempotent: assign a patient to a sales rep via PatientSalesRepAssignment.
+ * Used after questionnaire completion when the IntakeFormLink has a salesRepId.
+ */
+async function assignPatientToSalesRep(
+  patientId: number,
+  salesRepId: number,
+  clinicId: number
+): Promise<void> {
+  const existing = await basePrisma.patientSalesRepAssignment.findFirst({
+    where: { patientId, clinicId, isActive: true },
+  });
+
+  if (existing?.salesRepId === salesRepId) return;
+
+  if (existing) {
+    await basePrisma.patientSalesRepAssignment.updateMany({
+      where: { patientId, clinicId, isActive: true },
+      data: { isActive: false, removedAt: new Date() },
+    });
+  }
+
+  await basePrisma.patientSalesRepAssignment.create({
+    data: { patientId, clinicId, salesRepId, isActive: true },
+  });
+
+  logger.info('Patient attributed to sales rep from intake link', {
+    patientId,
+    salesRepId,
+    clinicId,
+  });
 }

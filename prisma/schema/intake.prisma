@@ -111,8 +111,17 @@ model IntakeFormLink {
   isActive     Boolean               @default(true)
   metadata     Json? // Tracking info, utm params, etc.
 
+  createdById  Int?
+  createdBy    User?                 @relation("IntakeFormLinkCreator", fields: [createdById], references: [id])
+  salesRepId   Int?
+  salesRep     User?                 @relation("IntakeFormLinkSalesRep", fields: [salesRepId], references: [id])
+  clinicId     Int?
+  clinic       Clinic?               @relation(fields: [clinicId], references: [id])
+
   @@index([patientEmail, isActive])
   @@index([expiresAt])
+  @@index([salesRepId])
+  @@index([createdById])
 }
 
 model IntakeFormDraft {

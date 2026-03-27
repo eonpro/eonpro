@@ -1068,6 +1068,10 @@ model User {
   assignmentsMadeByUser PatientSalesRepAssignment[] @relation("AssignmentsMadeBy")
   assignmentsRemovedBy  PatientSalesRepAssignment[] @relation("AssignmentsRemovedBy")
 
+  // Intake Form Links (attribution)
+  intakeLinksCreated    IntakeFormLink[]             @relation("IntakeFormLinkCreator")
+  intakeLinksAsSalesRep IntakeFormLink[]             @relation("IntakeFormLinkSalesRep")
+
   // In-App Notifications
   notifications Notification[]
 
@@ -1665,8 +1669,17 @@ model IntakeFormLink {
   isActive     Boolean               @default(true)
   metadata     Json? // Tracking info, utm params, etc.
 
+  createdById  Int?
+  createdBy    User?                 @relation("IntakeFormLinkCreator", fields: [createdById], references: [id])
+  salesRepId   Int?
+  salesRep     User?                 @relation("IntakeFormLinkSalesRep", fields: [salesRepId], references: [id])
+  clinicId     Int?
+  clinic       Clinic?               @relation(fields: [clinicId], references: [id])
+
   @@index([patientEmail, isActive])
   @@index([expiresAt])
+  @@index([salesRepId])
+  @@index([createdById])
 }
 
 // ===== PATIENT PROGRESS TRACKING =====
@@ -2723,6 +2736,7 @@ model Clinic {
   orders          Order[]
   tickets         Ticket[]
   intakeTemplates IntakeFormTemplate[]
+  intakeFormLinks IntakeFormLink[]
 
   // Enterprise Ticket System
   ticketTeams           TicketTeam[]

@@ -388,7 +388,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { responses, submissionType, qualified, clinicSlug, treatmentType } = body;
+    const { responses, submissionType, qualified, clinicSlug, treatmentType, refCode } = body;
 
     if (!responses || typeof responses !== 'object') {
       logger.warn(`[submit-to-eonpro ${requestId}] Missing responses`);
@@ -588,6 +588,7 @@ export async function POST(req: NextRequest) {
         generateSoapNote: submissionType !== 'partial',
         tags: [...intakeTypeTags, clinicTag, 'complete-intake', 'native-form'],
         treatmentType: treatmentType || undefined,
+        ...(refCode ? { promoCode: String(refCode) } : {}),
       })
     );
 

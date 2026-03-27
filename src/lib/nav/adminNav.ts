@@ -34,6 +34,7 @@ export const baseAdminNavConfig: AdminNavItemConfig[] = [
   { path: '/admin/analytics', label: 'Analytics', iconKey: 'TrendingUp', groupKey: 'reporting', groupLabel: 'Reporting', groupIconKey: 'TrendingUp' },
   { path: '/admin/results', label: 'Results', iconKey: 'Award', groupKey: 'reporting' },
   { path: '/admin/sales-rep/commission-plans', label: 'Sales Rep Commissions', iconKey: 'DollarSign', groupKey: 'sales', groupLabel: 'Sales', groupIconKey: 'DollarSign' },
+  { path: '/admin/sales-rep/links', label: 'Intake Links', iconKey: 'Link', groupKey: 'sales' },
   { path: '/admin/sales-rep/dispositions', label: 'Dispositions', iconKey: 'ClipboardCheck', groupKey: 'sales' },
   { path: '/admin/affiliates', label: 'Affiliates', iconKey: 'UserCheck', groupKey: 'sales' },
   { path: '/admin/finance', label: 'Finance', iconKey: 'DollarSign', groupKey: 'finance', groupLabel: 'Finance', groupIconKey: 'DollarSign' },
@@ -114,6 +115,7 @@ export const staffNavConfig: AdminNavItemConfig[] = [
   { path: '/admin/shipping', label: 'Shipping', iconKey: 'Truck', groupKey: 'orders' },
   { path: '/admin/shipment-monitor', label: 'Shipments', iconKey: 'BarChart3', groupKey: 'orders' },
   { path: '/tickets', label: 'Tickets', iconKey: 'Ticket' },
+  { path: '/admin/sales-rep/links', label: 'Intake Links', iconKey: 'Link' },
   { path: '/admin/settings', label: 'Settings', iconKey: 'Settings' },
 ];
 

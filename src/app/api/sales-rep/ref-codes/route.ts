@@ -15,24 +15,36 @@ import crypto from 'crypto';
 
 export const dynamic = 'force-dynamic';
 
+const ADMIN_ROLES = ['super_admin', 'admin', 'staff'] as const;
+
 const createRefCodeSchema = z.object({
   name: z
     .string()
     .min(2, 'Name must be at least 2 characters')
     .max(50)
     .regex(/^[A-Za-z0-9_-]+$/i, 'Name may only contain letters, numbers, hyphens, and underscores'),
+  salesRepId: z.number().positive().optional(),
 });
 
 const MAX_REF_CODES = 10;
 
 async function handleGet(request: NextRequest, user: AuthUser) {
   try {
-    if (user.role !== 'sales_rep' || !user.clinicId) {
-      return NextResponse.json({ error: 'Sales rep clinic context required' }, { status: 403 });
+    if (!user.clinicId) {
+      return NextResponse.json({ error: 'Clinic context required' }, { status: 403 });
     }
 
+    const isAdmin = (ADMIN_ROLES as readonly string[]).includes(user.role);
+    const querySalesRepId = request.nextUrl.searchParams.get('salesRepId');
+
     const clinicId = user.clinicId;
-    const salesRepId = user.id;
+    const salesRepId = isAdmin && querySalesRepId
+      ? parseInt(querySalesRepId, 10)
+      : user.id;
+
+    if (!salesRepId || isNaN(salesRepId)) {
+      return NextResponse.json({ error: 'Invalid salesRepId' }, { status: 400 });
+    }
 
     const result = await runWithClinicContext(clinicId, async () => {
       const refCodes = await prisma.salesRepRefCode.findMany({
@@ -114,8 +126,8 @@ async function handleGet(request: NextRequest, user: AuthUser) {
 
 async function handlePost(request: NextRequest, user: AuthUser) {
   try {
-    if (user.role !== 'sales_rep' || !user.clinicId) {
-      return NextResponse.json({ error: 'Sales rep clinic context required' }, { status: 403 });
+    if (!user.clinicId) {
+      return NextResponse.json({ error: 'Clinic context required' }, { status: 403 });
     }
 
     const body = await request.json();
@@ -127,8 +139,9 @@ async function handlePost(request: NextRequest, user: AuthUser) {
       );
     }
 
+    const isAdmin = (ADMIN_ROLES as readonly string[]).includes(user.role);
     const clinicId = user.clinicId;
-    const salesRepId = user.id;
+    const salesRepId = isAdmin && parsed.data.salesRepId ? parsed.data.salesRepId : user.id;
     const name = parsed.data.name;
 
     const created = await runWithClinicContext(clinicId, async () => {
@@ -201,8 +214,8 @@ async function handlePost(request: NextRequest, user: AuthUser) {
 
 async function handleDelete(request: NextRequest, user: AuthUser) {
   try {
-    if (user.role !== 'sales_rep' || !user.clinicId) {
-      return NextResponse.json({ error: 'Sales rep clinic context required' }, { status: 403 });
+    if (!user.clinicId) {
+      return NextResponse.json({ error: 'Clinic context required' }, { status: 403 });
     }
 
     const code = request.nextUrl.searchParams.get('code');
@@ -210,8 +223,10 @@ async function handleDelete(request: NextRequest, user: AuthUser) {
       return NextResponse.json({ error: 'Query parameter code is required' }, { status: 400 });
     }
 
+    const isAdmin = (ADMIN_ROLES as readonly string[]).includes(user.role);
+    const querySalesRepId = request.nextUrl.searchParams.get('salesRepId');
     const clinicId = user.clinicId;
-    const salesRepId = user.id;
+    const salesRepId = isAdmin && querySalesRepId ? parseInt(querySalesRepId, 10) : user.id;
 
     await runWithClinicContext(clinicId, async () => {
       await prisma.salesRepRefCode.updateMany({
@@ -233,6 +248,8 @@ async function handleDelete(request: NextRequest, user: AuthUser) {
   }
 }
 
-export const GET = withAuth(handleGet, { roles: ['sales_rep'] });
-export const POST = withAuth(handlePost, { roles: ['sales_rep'] });
-export const DELETE = withAuth(handleDelete, { roles: ['sales_rep'] });
+const allowedRoles = ['super_admin', 'admin', 'staff', 'sales_rep'] as const;
+
+export const GET = withAuth(handleGet, { roles: [...allowedRoles] });
+export const POST = withAuth(handlePost, { roles: [...allowedRoles] });
+export const DELETE = withAuth(handleDelete, { roles: [...allowedRoles] });

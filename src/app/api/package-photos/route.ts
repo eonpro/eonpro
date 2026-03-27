@@ -402,9 +402,10 @@ async function getHandler(req: NextRequest, user: AuthUser) {
         hourlyRaw,
       ] = await Promise.all([
         // Daily volume for last 14 days (clinic-tz aware)
-        prisma.$queryRaw<Array<{ day: Date; total: bigint; matched: bigint }>>`
+        // Return date as text to avoid JS Date parsing timezone drift
+        prisma.$queryRaw<Array<{ day: string; total: bigint; matched: bigint }>>`
           SELECT
-            DATE("createdAt" AT TIME ZONE ${tzSql}) as day,
+            TO_CHAR(DATE("createdAt" AT TIME ZONE ${tzSql}), 'YYYY-MM-DD') as day,
             COUNT(*)::bigint as total,
             COUNT(*) FILTER (WHERE matched = true)::bigint as matched
           FROM "PackagePhoto"
@@ -462,7 +463,7 @@ async function getHandler(req: NextRequest, user: AuthUser) {
       // Fill in missing days with zeros for the daily chart
       const dailyVolume: Array<{ date: string; total: number; matched: number; unmatched: number }> = [];
       const dayMap = new Map(dailyVolumeRaw.map((r) => [
-        dbDateToString(new Date(r.day)),
+        r.day,
         { total: Number(r.total), matched: Number(r.matched) },
       ]));
 

@@ -30,6 +30,7 @@ function createInitialState(): IntakeSessionData {
     responses: {},
     qualified: undefined,
     disqualificationReason: undefined,
+    refCode: null,
   };
 }
 
@@ -45,6 +46,7 @@ interface IntakeStore extends IntakeSessionData {
   setResponse: (key: string, value: unknown) => void;
   setResponses: (responses: Record<string, unknown>) => void;
   setQualified: (qualified: boolean, reason?: string) => void;
+  setRefCode: (code: string | null) => void;
 
   initSession: (templateId: string, clinicSlug: string, startStep: string) => void;
   resetIntake: () => void;
@@ -128,6 +130,13 @@ export const useIntakeStore = create<IntakeStore>()(
         });
       },
 
+      setRefCode: (code: string | null) => {
+        set({ refCode: code });
+        if (code && typeof sessionStorage !== 'undefined') {
+          sessionStorage.setItem('intake_refCode', code);
+        }
+      },
+
       // ---- Session ----
 
       initSession: (templateId: string, clinicSlug: string, startStep: string) => {
@@ -160,6 +169,7 @@ export const useIntakeStore = create<IntakeStore>()(
           responses: s.responses,
           qualified: s.qualified,
           disqualificationReason: s.disqualificationReason,
+          refCode: s.refCode,
         };
       },
 
@@ -209,6 +219,7 @@ export const useIntakeStore = create<IntakeStore>()(
         lastUpdatedAt: state.lastUpdatedAt,
         qualified: state.qualified,
         disqualificationReason: state.disqualificationReason,
+        refCode: state.refCode,
         // HIPAA: responses contain PHI (name, DOB, email, phone, address)
         // and must NOT be persisted to localStorage. They are kept in-memory
         // and synced server-side via the draft API. On hydration, responses

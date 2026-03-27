@@ -987,8 +987,14 @@ model IntakeFormLink {
   isActive     Boolean               @default(true)
   metadata     Json? // Tracking info, utm params, etc.
 
+  createdById  Int?
+  salesRepId   Int?
+  clinicId     Int?
+
   @@index([patientEmail, isActive])
   @@index([expiresAt])
+  @@index([salesRepId])
+  @@index([createdById])
 }
 
 // ===== PATIENT PROGRESS TRACKING =====

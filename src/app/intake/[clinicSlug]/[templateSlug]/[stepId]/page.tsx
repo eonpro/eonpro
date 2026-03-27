@@ -1,6 +1,6 @@
 'use client';
 
-import { useParams, useRouter, notFound } from 'next/navigation';
+import { useParams, useRouter, useSearchParams, notFound } from 'next/navigation';
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { FormStep } from '@/domains/intake/components/form-engine';
 import IntakeLandingStep from '@/domains/intake/components/IntakeLandingStep';
@@ -14,6 +14,7 @@ import type { FormConfig, FormStep as FormStepType, FormBranding } from '@/domai
 function IntakeStepContent() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { language, setLanguage } = useLanguage();
 
   const clinicSlug = params.clinicSlug as string;
@@ -31,6 +32,19 @@ function IntakeStepContent() {
   const store = useIntakeStore;
   const responses = useIntakeStore((s) => s.responses);
   const initSession = useIntakeStore((s) => s.initSession);
+
+  // Capture ?ref= sales rep attribution code from URL
+  useEffect(() => {
+    const ref = searchParams.get('ref');
+    if (ref) {
+      store.getState().setRefCode(ref);
+    } else if (typeof sessionStorage !== 'undefined') {
+      const stored = sessionStorage.getItem('intake_refCode');
+      if (stored && !store.getState().refCode) {
+        store.getState().setRefCode(stored);
+      }
+    }
+  }, [searchParams, store]);
 
   useEffect(() => {
     document.body.classList.add('intake-body');

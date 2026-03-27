@@ -36,6 +36,9 @@ import {
   Building2,
   Gauge,
   Camera,
+  Send,
+  Copy,
+  Check,
 } from 'lucide-react';
 import { apiFetch, dispatchSessionExpired, redirectToLogin } from '@/lib/api/fetch';
 import { ClinicBrandingProvider, useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
@@ -138,6 +141,14 @@ function HomePageInner() {
   const [scriptsBreakdownLoading, setScriptsBreakdownLoading] = useState(false);
   const [scriptsBreakdownOpen, setScriptsBreakdownOpen] = useState(false);
   const [expandedDay, setExpandedDay] = useState<string | null>(null);
+
+  // Sales rep quick link generator
+  const [quickLinkClinic, setQuickLinkClinic] = useState('');
+  const [quickLinkTemplate, setQuickLinkTemplate] = useState('weight-loss');
+  const [quickLinkGenerating, setQuickLinkGenerating] = useState(false);
+  const [quickLinkUrl, setQuickLinkUrl] = useState<string | null>(null);
+  const [quickLinkCopied, setQuickLinkCopied] = useState(false);
+  const [quickLinkError, setQuickLinkError] = useState<string | null>(null);
 
   // Get branding colors with fallbacks
   const primaryColor = branding?.primaryColor || '#4fa77e';
@@ -507,6 +518,52 @@ function HomePageInner() {
     }).format(amount);
   };
 
+  const handleQuickLinkGenerate = async () => {
+    if (!quickLinkClinic.trim()) {
+      setQuickLinkError('Enter a clinic slug (e.g. eonmeds, ot, wellmedr)');
+      return;
+    }
+    setQuickLinkError(null);
+    setQuickLinkUrl(null);
+    setQuickLinkCopied(false);
+    setQuickLinkGenerating(true);
+    try {
+      const res = await apiFetch('/api/intake-links/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          flowType: 'wizard',
+          clinicSlug: quickLinkClinic.trim(),
+          templateSlug: quickLinkTemplate,
+        }),
+      });
+      const json = await res.json();
+      if (res.ok && json.url) {
+        setQuickLinkUrl(json.url);
+      } else {
+        setQuickLinkError(json.error || 'Failed to generate link');
+      }
+    } catch {
+      setQuickLinkError('Something went wrong');
+    } finally {
+      setQuickLinkGenerating(false);
+    }
+  };
+
+  const copyQuickLink = async () => {
+    if (!quickLinkUrl) return;
+    try { await navigator.clipboard.writeText(quickLinkUrl); } catch {
+      const el = document.createElement('textarea');
+      el.value = quickLinkUrl;
+      document.body.appendChild(el);
+      el.select();
+      document.execCommand('copy');
+      document.body.removeChild(el);
+    }
+    setQuickLinkCopied(true);
+    setTimeout(() => setQuickLinkCopied(false), 2000);
+  };
+
   const filteredIntakes = recentIntakes
     .filter((patient) => {
       if (!searchQuery) return true;
@@ -772,6 +829,87 @@ function HomePageInner() {
               </>
             )}
           </div>
+
+          {/* Sales Rep: Quick Actions — Create Intake Link */}
+          {userData?.role?.toLowerCase() === 'sales_rep' && (
+            <div className="mb-8 rounded-2xl border border-gray-200 bg-white p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div
+                  className="flex h-10 w-10 items-center justify-center rounded-xl"
+                  style={{ backgroundColor: `${primaryColor}15` }}
+                >
+                  <Send className="h-5 w-5" style={{ color: primaryColor }} />
+                </div>
+                <div>
+                  <h2 className="text-base font-semibold text-gray-900">Create Intake Link</h2>
+                  <p className="text-xs text-gray-500">Generate a shareable link — completed intakes auto-count toward your sales</p>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-end gap-3">
+                <div className="flex-1 min-w-[140px]">
+                  <label className="mb-1 block text-xs font-medium text-gray-500">Clinic</label>
+                  <input
+                    type="text"
+                    value={quickLinkClinic}
+                    onChange={(e) => setQuickLinkClinic(e.target.value)}
+                    placeholder="e.g. eonmeds, ot, wellmedr"
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none focus:ring-1 focus:ring-gray-500"
+                  />
+                </div>
+                <div className="w-40">
+                  <label className="mb-1 block text-xs font-medium text-gray-500">Treatment</label>
+                  <select
+                    value={quickLinkTemplate}
+                    onChange={(e) => setQuickLinkTemplate(e.target.value)}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none focus:ring-1 focus:ring-gray-500"
+                  >
+                    <option value="weight-loss">Weight Loss</option>
+                    <option value="peptides">Peptides</option>
+                  </select>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleQuickLinkGenerate}
+                  disabled={quickLinkGenerating}
+                  className="rounded-lg px-5 py-2 text-sm font-medium text-white transition disabled:opacity-50"
+                  style={{ backgroundColor: primaryColor }}
+                >
+                  {quickLinkGenerating ? 'Generating...' : 'Generate'}
+                </button>
+              </div>
+
+              {quickLinkError && (
+                <p className="mt-2 text-sm text-red-600">{quickLinkError}</p>
+              )}
+
+              {quickLinkUrl && (
+                <div className="mt-3 flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 p-3">
+                  <code className="flex-1 truncate text-xs font-mono text-gray-700">
+                    {quickLinkUrl}
+                  </code>
+                  <button
+                    type="button"
+                    onClick={copyQuickLink}
+                    className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-green-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-800"
+                  >
+                    {quickLinkCopied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                    {quickLinkCopied ? 'Copied!' : 'Copy'}
+                  </button>
+                </div>
+              )}
+
+              <div className="mt-3 flex items-center justify-between">
+                <a
+                  href="/admin/sales-rep/links"
+                  className="text-xs font-medium hover:underline"
+                  style={{ color: primaryColor }}
+                >
+                  View all my links &amp; stats &rarr;
+                </a>
+              </div>
+            </div>
+          )}
 
           {/* Scripts Daily Breakdown (expandable) */}
           {scriptsBreakdownOpen && userData?.role?.toLowerCase() !== 'sales_rep' && (

@@ -148,6 +148,10 @@ model User {
   salesRepDispositions           SalesRepDisposition[]               @relation("SalesRepDispositions")
   dispositionReviews             SalesRepDisposition[]               @relation("DispositionReviews")
 
+  // Intake Form Links (attribution)
+  intakeLinksCreated             IntakeFormLink[]                    @relation("IntakeFormLinkCreator")
+  intakeLinksAsSalesRep          IntakeFormLink[]                    @relation("IntakeFormLinkSalesRep")
+
   // FedEx Shipping Labels
   shipmentLabels ShipmentLabel[]
 
