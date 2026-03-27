@@ -86,7 +86,7 @@ export default function ConsentStep({
             </p>
           </div>
 
-          <div className="space-y-2 max-w-[80%]">
+          <div className="space-y-2">
             {/* Health Priority Card */}
             <div className={`${isOt ? 'bg-[#f5ecd8]' : 'bg-[#f0feab]'} rounded-2xl overflow-hidden flex items-center h-[90px]`}>
               <div className="flex-shrink-0 w-[72px] h-full flex items-end">
@@ -144,10 +144,10 @@ export default function ConsentStep({
               <button
                 type="button"
                 onClick={() => setAgreed(!agreed)}
-                className={`mt-0.5 flex-shrink-0 w-6 h-6 rounded flex items-center justify-center cursor-pointer transition-all ${
+                className={`mt-0.5 flex-shrink-0 rounded flex items-center justify-center cursor-pointer transition-all ${
                   agreed ? 'bg-[#413d3d] border-[#413d3d]' : 'bg-white border-gray-300'
                 }`}
-                style={{ border: agreed ? '2px solid #413d3d' : '2px solid #d1d5db' }}
+                style={{ width: 24, height: 24, minWidth: 24, minHeight: 24, border: agreed ? '2px solid #413d3d' : '2px solid #d1d5db' }}
               >
                 {agreed && (
                   <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" strokeWidth={3} viewBox="0 0 24 24">
