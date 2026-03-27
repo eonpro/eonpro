@@ -1,33 +1,46 @@
 export default function SymptomCheckerLoading() {
   return (
-    <div className="min-h-screen animate-pulse p-4 md:p-6 lg:p-8">
-      <div className="mx-auto max-w-2xl">
-        <div className="mb-6">
-          <div className="h-7 w-44 rounded bg-gray-200" />
-          <div className="mt-2 h-4 w-64 rounded bg-gray-100" />
+    <div className="mx-auto max-w-2xl animate-pulse px-4 pb-24 pt-2 md:px-6">
+      {/* Hero Card Skeleton */}
+      <div className="mb-6 rounded-3xl bg-gray-200 p-6 sm:p-8">
+        <div className="mb-3 flex items-center gap-2">
+          <div className="h-5 w-5 rounded bg-gray-300" />
+          <div className="h-4 w-36 rounded bg-gray-300" />
         </div>
-        {/* Step indicator */}
-        <div className="mb-6 flex items-center gap-2">
+        <div className="h-8 w-56 rounded bg-gray-300" />
+        <div className="mt-3 h-4 w-full rounded bg-gray-300" />
+        <div className="mt-2 h-4 w-3/4 rounded bg-gray-300" />
+      </div>
+
+      {/* How It Works Skeleton */}
+      <div className="mb-6 rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+        <div className="mb-4 h-3 w-28 rounded bg-gray-200" />
+        <div className="space-y-4">
           {Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="flex items-center gap-2">
-              <div className="h-8 w-8 rounded-full bg-gray-200" />
-              {i < 2 && <div className="h-0.5 w-12 rounded bg-gray-100" />}
+            <div key={i} className="flex items-start gap-4">
+              <div className="h-10 w-10 shrink-0 rounded-xl bg-gray-100" />
+              <div className="flex-1">
+                <div className="h-4 w-40 rounded bg-gray-200" />
+                <div className="mt-1 h-3 w-56 rounded bg-gray-100" />
+              </div>
             </div>
           ))}
         </div>
-        {/* Symptom selection grid */}
-        <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
-          <div className="mb-4 h-5 w-40 rounded bg-gray-200" />
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-            {Array.from({ length: 9 }).map((_, i) => (
-              <div key={i} className="flex items-center gap-2 rounded-xl border border-gray-100 p-3">
-                <div className="h-5 w-5 rounded bg-gray-200" />
-                <div className="h-4 w-20 rounded bg-gray-100" />
-              </div>
-            ))}
+      </div>
+
+      {/* Disclaimer Skeleton */}
+      <div className="mb-6 rounded-2xl bg-amber-50/50 p-4">
+        <div className="flex gap-3">
+          <div className="h-5 w-5 shrink-0 rounded bg-amber-200" />
+          <div className="flex-1">
+            <div className="h-4 w-32 rounded bg-amber-200" />
+            <div className="mt-1 h-3 w-full rounded bg-amber-100" />
           </div>
         </div>
       </div>
+
+      {/* CTA Button Skeleton */}
+      <div className="h-14 w-full rounded-2xl bg-gray-200" />
     </div>
   );
 }
