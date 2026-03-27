@@ -11,10 +11,7 @@ const PatientProgressView = dynamic(() => import('@/components/PatientProgressVi
   ssr: false,
   loading: () => <div className="h-64 animate-pulse rounded-xl bg-gray-100" />,
 });
-const PatientPrescriptionsTab = dynamic(() => import('@/components/PatientPrescriptionsTab'), {
-  ssr: false,
-  loading: () => <div className="h-64 animate-pulse rounded-xl bg-gray-100" />,
-});
+import PatientPrescriptionsTab from '@/components/PatientPrescriptionsTab';
 import PatientDocumentsView from '@/components/PatientDocumentsView';
 import PatientLabView from '@/components/PatientLabView';
 import PatientNotesView from '@/components/PatientNotesView';
