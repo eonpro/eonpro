@@ -205,6 +205,7 @@ export interface SOAPGenerationInput {
   chiefComplaint?: string;
   isRenewal?: boolean;
   previousPrescriptions?: PreviousRxInfo[];
+  treatmentType?: string;
 }
 
 export interface SOAPNote {
@@ -266,8 +267,14 @@ export async function generateSOAPNote(input: SOAPGenerationInput): Promise<SOAP
     OPENAI_MAX_TOKENS: process.env.OPENAI_MAX_TOKENS,
   });
 
+  const isPeptideTherapy = input.treatmentType === 'peptides';
   const isRenewal = input.isRenewal && input.previousPrescriptions && input.previousPrescriptions.length > 0;
   const prevRx = isRenewal ? input.previousPrescriptions![0] : null;
+
+  // Peptide therapy (sermorelin, BPC-157, etc.) uses a completely different prompt
+  if (isPeptideTherapy) {
+    return generatePeptideSOAPNote(anonymizedInput, input, PLACEHOLDER_NAME, PLACEHOLDER_AGE, realAge, client, env);
+  }
 
   // Determine if patient is at maximum dose (no further titration possible)
   const prevDose = prevRx?.dose ?? null;
@@ -754,6 +761,276 @@ Return as valid JSON with keys: subjective, objective, assessment, plan, medical
     }
 
     throw new Error(`Failed to generate SOAP note: ${errorMessage}`);
+  }
+}
+
+/**
+ * Generate SOAP note for peptide therapy (sermorelin, BPC-157, etc.)
+ * Separate from GLP-1 weight management to produce clinically accurate notes.
+ */
+async function generatePeptideSOAPNote(
+  anonymizedInput: { intakeData: Record<string, unknown>; patientName: string; patientAge: string; dateOfBirth: string; chiefComplaint?: string },
+  originalInput: SOAPGenerationInput,
+  PLACEHOLDER_NAME: string,
+  PLACEHOLDER_AGE: string,
+  realAge: number | null,
+  client: OpenAI,
+  env: { OPENAI_MODEL: string; OPENAI_TEMPERATURE: number; OPENAI_MAX_TOKENS: number }
+): Promise<SOAPNote> {
+  const systemPrompt = `You are a licensed prescribing provider (MD/DO/NP/PA) creating a comprehensive SOAP note for a telehealth peptide therapy evaluation.
+
+You must generate a professional, clinical-grade SOAP note for peptide therapy evaluation (sermorelin/growth hormone secretagogue therapy).
+
+CRITICAL: Return your response in JSON format with ALL fields as plain text STRINGS. Each field should be detailed and formatted professionally:
+
+{
+  "subjective": "Detailed narrative of patient's symptoms, wellness goals, peptide therapy interest, previous peptide experience, current medications, and treatment expectations",
+  "objective": "Anthropometrics (height, weight, BMI), vital signs, activity level, complete medical/surgical history, current medications, allergies, relevant lab work, peptide therapy history",
+  "assessment": "Clinical assessment of candidacy for peptide therapy, symptom evaluation, contraindication screening, medical necessity rationale for sermorelin or selected peptide",
+  "plan": "Peptide prescription plan (specific compound, dosing, administration), monitoring schedule, lab work orders, follow-up plan, patient education",
+  "medicalNecessity": "Detailed rationale for peptide therapy including: symptom-based clinical indication, age-related hormone decline, expected therapeutic benefits, why this specific peptide is appropriate"
+}
+
+Common Peptide Therapy Indications:
+- Growth hormone deficiency symptoms (fatigue, decreased muscle mass, increased body fat, poor sleep, slow recovery)
+- Age-related decline in growth hormone production
+- Performance and recovery optimization
+- Anti-aging and cellular regeneration
+- Immune function support
+
+Sermorelin-Specific Information:
+- Growth hormone releasing hormone (GHRH) analog
+- Stimulates natural GH production from pituitary
+- Typical starting dose: 200-300 mcg/day subcutaneous injection at bedtime
+- Contraindications: active malignancy, pregnancy/nursing, hypersensitivity
+- Monitor: IGF-1 levels, CBC, metabolic panel
+
+DO NOT return nested objects. Each field must be a comprehensive plain text string.
+DO NOT reference GLP-1, semaglutide, tirzepatide, or weight loss medications — this is peptide therapy, not weight management.`;
+
+  const userPrompt = `Create a professional TELEHEALTH PEPTIDE THERAPY EVALUATION SOAP note for this patient.
+
+IMPORTANT: Use these EXACT placeholders in your response - they will be replaced with real data:
+- For patient name, use exactly: ${PLACEHOLDER_NAME}
+- For patient age, use exactly: ${PLACEHOLDER_AGE}
+
+Patient Reference: ${PLACEHOLDER_NAME}
+Patient Age: ${PLACEHOLDER_AGE}
+DOB Reference: ${anonymizedInput.dateOfBirth || 'See intake data'}
+
+INTAKE FORM DATA:
+${JSON.stringify(anonymizedInput.intakeData, null, 2)}
+
+Generate a comprehensive clinical SOAP note following this exact structure:
+
+═══════════════════════════════════════════════════════════════════════════════
+
+S – SUBJECTIVE:
+Write a detailed narrative paragraph covering:
+- Start with: "${PLACEHOLDER_NAME}, a ${PLACEHOLDER_AGE}-year-old [sex from intake], presents for evaluation of peptide therapy."
+- Current symptoms the patient is experiencing (fatigue, decreased energy, poor recovery, sleep issues, etc.)
+- Interest in peptide therapy (sermorelin or whichever peptide they selected)
+- Goals for therapy (anti-aging, performance, recovery, muscle preservation, etc.)
+- Previous peptide experience (if any)
+- Activity level and lifestyle factors
+- Current medications and supplements
+- Relevant medical history
+- Denial statements for contraindications: active cancer, pregnancy, known hypersensitivity to GHRH analogs
+- Patient's stated goals and expectations
+- Consent to telehealth treatment
+
+═══════════════════════════════════════════════════════════════════════════════
+
+O – OBJECTIVE:
+Format with bullet points and sections:
+
+Anthropometrics:
+• Height: [from intake]
+• Weight: [from intake] lbs
+• BMI: [calculate] kg/m² ([Classification])
+
+Vital Signs (Self-Reported):
+• Blood Pressure: [if provided or "Normal" if not specified]
+
+Activity Level:
+• [from intake]
+
+Medical History:
+• [list relevant conditions or "No significant medical history reported"]
+
+Surgical History:
+• [list or "Denies prior surgeries"]
+
+Medications:
+• [list current medications or "None reported"]
+
+Allergies:
+• [list or "No known drug allergies (NKDA)"]
+
+Relevant Lab Work:
+• [if provided from intake or "Baseline labs to be ordered"]
+
+Peptide Therapy History:
+• [Previous peptide use or "No prior peptide therapy"]
+
+═══════════════════════════════════════════════════════════════════════════════
+
+A – ASSESSMENT:
+
+Clinical Assessment:
+The patient presents for evaluation of peptide therapy based on reported symptoms consistent with:
+• [Relevant symptoms from intake - fatigue, decreased muscle mass, poor recovery, etc.]
+• Age-related decline in growth hormone production
+• Clinical indication for growth hormone secretagogue therapy
+
+The patient has no contraindications to peptide therapy, including:
+• No active malignancy or history of cancer requiring active treatment
+• Not pregnant or nursing
+• No known hypersensitivity to GHRH analogs
+• No uncontrolled diabetes
+
+Medical Necessity Rationale:
+Peptide therapy (sermorelin) is medically appropriate for this patient to:
+• Address symptoms of age-related growth hormone decline
+• Support natural GH production through pituitary stimulation
+• [Specific goals from intake: recovery, anti-aging, performance, etc.]
+
+═══════════════════════════════════════════════════════════════════════════════
+
+P – PLAN:
+
+Medication Plan:
+• Initiate sermorelin [or selected peptide] therapy
+• Starting dose: [appropriate starting dose based on patient profile]
+• Administration: Subcutaneous injection at bedtime
+• Duration: Initial 3-month trial with reassessment
+
+Monitoring & Follow-Up:
+• Order baseline labs: IGF-1, CBC, CMP, thyroid panel
+• Reassess symptoms and lab values at 6-8 weeks
+• Monitor for side effects (injection site reactions, headache, flushing)
+• Follow-up evaluation in 4-6 weeks or sooner if adverse symptoms occur
+
+Patient Education:
+• Reviewed mechanism of peptide therapy (GHRH stimulation of natural GH production)
+• Discussed expected timeline for results (4-12 weeks for noticeable improvement)
+• Counseled on proper injection technique, storage, and administration timing
+• Advised on complementary lifestyle factors (sleep hygiene, exercise, nutrition)
+• Reviewed potential side effects and when to seek medical attention
+
+Disposition:
+• Patient is an appropriate candidate for peptide therapy based on clinical evaluation
+• Prescription approved pending pharmacy processing
+
+═══════════════════════════════════════════════════════════════════════════════
+
+Return as valid JSON with keys: subjective, objective, assessment, plan, medicalNecessity`;
+
+  try {
+    const completion = await withRetry(
+      async () => {
+        return client.chat.completions.create({
+          model: env.OPENAI_MODEL,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt },
+          ],
+          temperature: env.OPENAI_TEMPERATURE,
+          ...getTokenLimitParam(env.OPENAI_MODEL, env.OPENAI_MAX_TOKENS),
+          response_format: { type: 'json_object' },
+        });
+      },
+      4,
+      3000
+    );
+
+    const usage = completion.usage;
+    const usageMetrics: UsageMetrics = {
+      promptTokens: usage?.prompt_tokens || 0,
+      completionTokens: usage?.completion_tokens || 0,
+      totalTokens: usage?.total_tokens || 0,
+      estimatedCost: 0,
+    };
+    usageMetrics.estimatedCost = calculateCost(usageMetrics);
+
+    const content = completion.choices[0].message.content || '{}';
+    const parsed = JSON.parse(content);
+
+    const ensureString = (field: unknown): string => {
+      if (typeof field === 'string') return field;
+      if (typeof field === 'object' && field !== null) {
+        return Object.entries(field)
+          .map(([key, value]) => {
+            const title = key.replace(/([A-Z])/g, ' $1').replace(/^./, (str) => str.toUpperCase());
+            return `${title}: ${value}`;
+          })
+          .join('\n');
+      }
+      return field?.toString() || '';
+    };
+
+    const replacePatientPlaceholders = (text: string): string => {
+      let result = text;
+      result = result.replace(new RegExp(PLACEHOLDER_NAME, 'gi'), originalInput.patientName);
+      if (realAge !== null) {
+        result = result.replace(new RegExp(PLACEHOLDER_AGE, 'gi'), String(realAge));
+      }
+      const patientFirstName = originalInput.patientName.split(' ')[0];
+      const nameAgePattern = /^([A-Z][a-z]+),?\s+a\s+(\d{1,3})-year-old/i;
+      const match = result.match(nameAgePattern);
+      if (match) {
+        const foundName = match[1];
+        const foundAge = match[2];
+        if (foundName.toLowerCase() !== patientFirstName.toLowerCase()) {
+          result = result.replace(
+            nameAgePattern,
+            `${patientFirstName}, a ${realAge !== null ? realAge : foundAge}-year-old`
+          );
+        } else if (realAge !== null && foundAge !== String(realAge)) {
+          result = result.replace(nameAgePattern, `${foundName}, a ${realAge}-year-old`);
+        }
+      }
+      return result;
+    };
+
+    logger.info('[SOAP] Post-processing peptide therapy SOAP to inject real patient data', {
+      patientName: originalInput.patientName,
+      age: realAge,
+    });
+
+    return {
+      subjective: replacePatientPlaceholders(ensureString(parsed.subjective) || ''),
+      objective: replacePatientPlaceholders(ensureString(parsed.objective) || ''),
+      assessment: replacePatientPlaceholders(ensureString(parsed.assessment) || ''),
+      plan: replacePatientPlaceholders(ensureString(parsed.plan) || ''),
+      medicalNecessity: replacePatientPlaceholders(ensureString(parsed.medicalNecessity) || ''),
+      metadata: {
+        generatedAt: new Date(),
+        intakeId: originalInput.intakeData.submissionId as string | undefined,
+        usage: usageMetrics,
+      },
+    };
+  } catch (error: unknown) {
+    const err = error as { message?: string; status?: number; code?: string };
+    const errorMessage = err.message || String(error);
+    logger.error('[OpenAI] Error generating peptide therapy SOAP note:', {
+      error: errorMessage,
+      status: err.status,
+    });
+
+    if (err.status === 429) {
+      throw new Error('OpenAI API is busy. Please wait 30 seconds and try again.');
+    }
+    if (err.status === 401) {
+      throw new Error('Invalid OpenAI API key. Please contact support.');
+    }
+    if (err.status === 500 || err.status === 502 || err.status === 503) {
+      throw new Error('OpenAI service is temporarily unavailable. Please try again in a few minutes.');
+    }
+    if (err.code === 'insufficient_quota') {
+      throw new Error('OpenAI quota exceeded. Please contact support to upgrade the plan.');
+    }
+    throw new Error(`Failed to generate peptide therapy SOAP note: ${errorMessage}`);
   }
 }
 

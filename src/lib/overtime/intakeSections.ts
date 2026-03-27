@@ -412,6 +412,27 @@ const WEIGHT_LOSS_SECTIONS = [
  */
 const PEPTIDES_SECTIONS = [
   {
+    title: 'Current Symptoms',
+    icon: FlaskConical,
+    editable: true,
+    fields: [
+      {
+        id: 'peptideSymptoms',
+        label: 'Current Symptoms',
+        aliases: ['peptide-symptoms', 'peptide_symptoms'],
+        inputType: 'textarea',
+        placeholder: 'Describe your current symptoms...',
+      },
+      {
+        id: 'peptideTherapy',
+        label: 'Peptide Therapy Interest',
+        aliases: ['peptide-therapy', 'peptide_therapy'],
+        inputType: 'text',
+        placeholder: 'Which peptide therapy are you interested in?',
+      },
+    ],
+  },
+  {
     title: 'Peptide Experience',
     icon: FlaskConical,
     editable: true,
@@ -440,6 +461,41 @@ const PEPTIDES_SECTIONS = [
     ],
   },
   {
+    title: 'Sermorelin Therapy',
+    icon: Activity,
+    editable: true,
+    fields: [
+      {
+        id: 'sermorelinGoals',
+        label: 'Sermorelin Therapy Goals',
+        aliases: ['sermorelin-goals', 'sermorelin_goals'],
+        inputType: 'textarea',
+        placeholder: 'What are your sermorelin therapy goals?',
+      },
+      {
+        id: 'optimizeGoals',
+        label: 'Optimization Goals',
+        aliases: ['optimize-goals', 'optimize_goals'],
+        inputType: 'textarea',
+        placeholder: 'What do you want to optimize?',
+      },
+      {
+        id: 'sermorelinMedications',
+        label: 'Sermorelin-Interfering Medications',
+        aliases: ['sermorelin-medications', 'sermorelin_medications'],
+        inputType: 'textarea',
+        placeholder: 'List any medications that may interfere...',
+      },
+      {
+        id: 'sermorelinConditions',
+        label: 'Sermorelin-Specific Conditions',
+        aliases: ['sermorelin-conditions', 'sermorelin_conditions'],
+        inputType: 'textarea',
+        placeholder: 'List relevant conditions...',
+      },
+    ],
+  },
+  {
     title: 'Treatment Goals',
     icon: Activity,
     editable: true,
@@ -464,6 +520,55 @@ const PEPTIDES_SECTIONS = [
           'Muscle Building',
           'Other',
         ],
+      },
+    ],
+  },
+  {
+    title: 'Medical Information',
+    icon: ClipboardList,
+    editable: true,
+    fields: [
+      {
+        id: 'hasPrescriptionMeds',
+        label: 'Taking Prescription Medications',
+        aliases: ['has-prescription-meds', 'has_prescription_meds'],
+        inputType: 'select',
+        options: ['Yes', 'No'],
+      },
+      {
+        id: 'prescriptionDetails',
+        label: 'Prescription Medication Details',
+        aliases: ['prescription-details', 'prescription_details'],
+        inputType: 'textarea',
+        placeholder: 'List current medications...',
+      },
+      {
+        id: 'vitaminB12Deficiency',
+        label: 'Vitamin B-12 Deficiency',
+        aliases: ['vitamin-b12-deficiency', 'vitamin_b12_deficiency'],
+        inputType: 'select',
+        options: ['Yes', 'No'],
+      },
+      {
+        id: 'hasMedicalConditions',
+        label: 'Medical Conditions or Chronic Illness',
+        aliases: ['has-medical-conditions', 'has_medical_conditions'],
+        inputType: 'select',
+        options: ['Yes', 'No'],
+      },
+      {
+        id: 'cancerTreatment',
+        label: 'Currently Undergoing Cancer Treatment',
+        aliases: ['cancer-treatment', 'cancer_treatment'],
+        inputType: 'select',
+        options: ['Yes', 'No'],
+      },
+      {
+        id: 'recentLabWork',
+        label: 'Most Recent Lab Work',
+        aliases: ['recent-lab-work', 'recent_lab_work'],
+        inputType: 'text',
+        placeholder: 'When was your last lab work?',
       },
     ],
   },

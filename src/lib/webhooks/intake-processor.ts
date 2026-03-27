@@ -33,6 +33,7 @@ export interface ProcessIntakeOptions {
   tags?: string[];
   promoCode?: string;
   referralSource?: string;
+  treatmentType?: string;
 }
 
 export interface ProcessIntakeResult {
@@ -96,7 +97,7 @@ export class IntakeProcessor {
     // Step 3: Generate and store PDF
     let document = null;
     try {
-      document = await this.generateAndStoreDocument(normalized, patient, clinicId);
+      document = await this.generateAndStoreDocument(normalized, patient, clinicId, options.treatmentType);
     } catch (error: unknown) {
       this.errors.push(`PDF generation failed: ${(error instanceof Error ? error.message : String(error))}`);
       logger.error(`[INTAKE ${this.requestId}] PDF generation failed:`, error);
@@ -117,7 +118,7 @@ export class IntakeProcessor {
     let soapNote = null;
     if (options.generateSoapNote !== false && document && !options.isPartialSubmission) {
       try {
-        soapNote = await this.generateSoapNote(patient.id, document.id);
+        soapNote = await this.generateSoapNote(patient.id, document.id, options.treatmentType);
       } catch (error: unknown) {
         this.errors.push(`SOAP generation failed: ${(error instanceof Error ? error.message : String(error))}`);
         logger.error(`[INTAKE ${this.requestId}] SOAP generation failed:`, error);
@@ -260,7 +261,8 @@ export class IntakeProcessor {
   private async generateAndStoreDocument(
     normalized: NormalizedIntake,
     patient: any,
-    clinicId: number | null
+    clinicId: number | null,
+    treatmentType?: string
   ): Promise<{ id: number; filename: string; pdfSizeBytes: number }> {
     logger.debug(`[INTAKE ${this.requestId}] Generating PDF...`);
     const pdfBuffer = await generateIntakePdf(normalized, patient);
@@ -301,6 +303,7 @@ export class IntakeProcessor {
       patient: normalized.patient,
       source: this.source,
       receivedAt: new Date().toISOString(),
+      ...(treatmentType ? { treatmentType } : {}),
     };
 
     const existingDocument = await prisma.patientDocument.findUnique({
@@ -351,9 +354,9 @@ export class IntakeProcessor {
   /**
    * Generate SOAP note from intake
    */
-  private async generateSoapNote(patientId: number, documentId: number): Promise<{ id: number }> {
+  private async generateSoapNote(patientId: number, documentId: number, treatmentType?: string): Promise<{ id: number }> {
     logger.debug(`[INTAKE ${this.requestId}] Generating SOAP note...`);
-    const soapNote = await generateSOAPFromIntake(patientId, documentId);
+    const soapNote = await generateSOAPFromIntake(patientId, documentId, undefined, treatmentType);
     logger.info(`[INTAKE ${this.requestId}] SOAP note generated: ${soapNote.id}`);
     return { id: soapNote.id };
   }

@@ -35,6 +35,7 @@ export default function ConditionalLayout({ children }: ConditionalLayoutProps) 
     '/intake',
     '/intake-forms',
     '/patient-portal',
+    '/portal',
     '/dashboard',
     '/checkout',
     '/wellmedr-checkout',

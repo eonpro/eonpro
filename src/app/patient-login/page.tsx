@@ -87,8 +87,15 @@ function PatientLoginPage() {
   const [loading, setLoading] = useState(false);
   const [redirecting, setRedirecting] = useState(false);
   const [step, setStep] = useState<LoginStep>('identifier');
-  const [sessionMessage, setSessionMessage] = useState('');
-  const [registeredMessage, setRegisteredMessage] = useState('');
+  const [sessionMessage, setSessionMessage] = useState(() => {
+    const reason = searchParams.get('reason');
+    if (reason === 'session_expired') return 'Your session has expired. Please log in again.';
+    if (reason === 'no_session') return 'Please log in to continue.';
+    return '';
+  });
+  const [registeredMessage, setRegisteredMessage] = useState(() =>
+    searchParams.get('registered') === 'true' ? 'Account created successfully! You can now log in.' : ''
+  );
 
   // Non-patient rejection state
   const [showStaffLoginLink, setShowStaffLoginLink] = useState(false);
@@ -195,19 +202,8 @@ function PatientLoginPage() {
     }
   }, [searchParams, router]);
 
-  // Check for session/registration messages
-  useEffect(() => {
-    const reason = searchParams.get('reason');
-    if (reason === 'session_expired') {
-      setSessionMessage('Your session has expired. Please log in again.');
-    } else if (reason === 'no_session') {
-      setSessionMessage('Please log in to continue.');
-    }
-
-    if (searchParams.get('registered') === 'true') {
-      setRegisteredMessage('Account created successfully! You can now log in.');
-    }
-  }, [searchParams]);
+  // Session/registration messages are derived from searchParams in useState initializer
+  // to avoid a second render that causes CLS
 
   // Email OTP countdown timer
   useEffect(() => {
@@ -421,7 +417,7 @@ function PatientLoginPage() {
       localStorage.setItem('activeClinicId', String(data.activeClinicId || data.clinics[0]?.id));
     }
 
-    router.push(PATIENT_PORTAL_PATH);
+    window.location.href = PATIENT_PORTAL_PATH;
   };
 
   // Send email OTP for passwordless login
@@ -653,11 +649,11 @@ function PatientLoginPage() {
           </button>
         </div>
 
-        {/* Logo */}
+        {/* Logo — fixed h-12 container prevents CLS when branding swaps */}
         <div className="flex flex-col items-center pb-8 pt-4">
-          {branding && !isMainApp ? (
-            <>
-              {branding.logoUrl ? (
+          <div className="flex h-12 items-center justify-center">
+            {branding && !isMainApp ? (
+              branding.logoUrl ? (
                 <img
                   src={branding.logoUrl}
                   alt={branding.name}
@@ -669,14 +665,16 @@ function PatientLoginPage() {
                 <h1 className="text-3xl font-bold" style={{ color: primaryColor }}>
                   {branding.name}
                 </h1>
-              )}
-              <p className="mt-2 flex items-center justify-center gap-1.5 text-xs text-gray-500">
-                Powered by{' '}
-                <img src="/api/assets/eonpro-logo" alt="EONPRO" className="h-[21px] w-auto" width={84} height={21} />
-              </p>
-            </>
-          ) : (
-            <img src="/api/assets/eonpro-logo" alt="EONPRO" className="h-10 w-auto" width={160} height={40} />
+              )
+            ) : (
+              <img src="/api/assets/eonpro-logo" alt="EONPRO" className="h-10 w-auto" width={160} height={40} />
+            )}
+          </div>
+          {branding && !isMainApp && (
+            <p className="mt-2 flex items-center justify-center gap-1.5 text-xs text-gray-500">
+              Powered by{' '}
+              <img src="/api/assets/eonpro-logo" alt="EONPRO" className="h-[21px] w-auto" width={84} height={21} />
+            </p>
           )}
         </div>
 

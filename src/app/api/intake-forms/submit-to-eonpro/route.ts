@@ -587,6 +587,7 @@ export async function POST(req: NextRequest) {
         isPartialSubmission: submissionType === 'partial',
         generateSoapNote: submissionType !== 'partial',
         tags: [...intakeTypeTags, clinicTag, 'complete-intake', 'native-form'],
+        treatmentType: treatmentType || undefined,
       })
     );
 

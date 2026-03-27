@@ -651,8 +651,8 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
         </div>
       </main>
 
-      {/* Mobile Bottom Navigation - iPhone optimized */}
-      <nav className={`portal-bottom-nav fixed bottom-0 left-0 right-0 z-40 bg-white lg:hidden`}>
+      {/* Mobile Bottom Navigation - iPhone optimized (hidden on chat page which has its own header) */}
+      <nav className={`portal-bottom-nav fixed bottom-0 left-0 right-0 z-40 bg-white lg:hidden ${isChatPage ? 'hidden' : ''}`}>
         <div className="border-t border-gray-200">
           <div className="mx-auto flex max-w-md justify-around gap-1 px-1">
             {mobileNavItems.map((item) => {

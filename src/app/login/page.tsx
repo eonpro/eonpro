@@ -133,7 +133,16 @@ function LoginContent() {
   const [redirecting, setRedirecting] = useState(false); // Optimistic: "Redirecting..." as soon as login succeeds
   const [step, setStep] = useState<LoginStep>('identifier');
   const [loginMethod, setLoginMethod] = useState<LoginMethod>('email');
-  const [sessionMessage, setSessionMessage] = useState('');
+  const [sessionMessage, setSessionMessage] = useState(() => {
+    const reason = searchParams.get('reason');
+    const staleSession = searchParams.get('stale_session');
+    if (reason === 'session_expired' && staleSession === 'affiliate') {
+      return 'Your admin session has expired. A stale affiliate session was detected and cleared. Please log in again.';
+    }
+    if (reason === 'session_expired') return 'Your session has expired. Please log in again.';
+    if (reason === 'no_session') return 'Please log in to continue.';
+    return '';
+  });
 
   // OTP state (phone)
   const [otpSent, setOtpSent] = useState(false);
@@ -294,20 +303,8 @@ function LoginContent() {
     resolveClinic();
   }, []);
 
-  // Check for session expired message
-  useEffect(() => {
-    const reason = searchParams.get('reason');
-    const staleSession = searchParams.get('stale_session');
-    if (reason === 'session_expired' && staleSession === 'affiliate') {
-      setSessionMessage(
-        'Your admin session has expired. A stale affiliate session was detected and cleared. Please log in again.'
-      );
-    } else if (reason === 'session_expired') {
-      setSessionMessage('Your session has expired. Please log in again.');
-    } else if (reason === 'no_session') {
-      setSessionMessage('Please log in to continue.');
-    }
-  }, [searchParams]);
+  // Session messages are derived from searchParams in useState initializer
+  // to avoid a second render that causes CLS
 
   // Prefill identifier when redirected to provider login after provider email detection
   useEffect(() => {
@@ -1155,10 +1152,10 @@ function LoginContent() {
           </button>
         </div>
 
-        {/* Logo centered at top - uses clinic logo if available */}
+        {/* Logo — fixed h-12 container prevents CLS when branding swaps */}
         <div className="flex flex-col items-center pb-6 pt-2 sm:pb-8 sm:pt-4">
-          {isLogosRxExperience && (
-            <>
+          <div className="flex h-12 items-center justify-center">
+            {isLogosRxExperience ? (
               <img
                 src={LOGOSRX_WHITE_LOGO}
                 alt="LogosRx"
@@ -1166,21 +1163,8 @@ function LoginContent() {
                 width={220}
                 height={48}
               />
-              <p className="mt-2 flex items-center justify-center gap-1.5 text-xs text-white/80">
-                Powered by{' '}
-                <img
-                  src="/api/assets/eonpro-logo"
-                  alt="EONPRO"
-                  className="h-[21px] w-auto brightness-0 invert"
-                  width={84}
-                  height={21}
-                />
-              </p>
-            </>
-          )}
-          {!isLogosRxExperience && branding && !isMainApp ? (
-            <>
-              {branding.logoUrl ? (
+            ) : branding && !isMainApp ? (
+              branding.logoUrl ? (
                 <img
                   src={branding.logoUrl}
                   alt={branding.name}
@@ -1192,28 +1176,41 @@ function LoginContent() {
                 <h1 className="text-3xl font-bold" style={{ color: primaryColor }}>
                   {branding.name}
                 </h1>
-              )}
-              <p className="mt-2 flex items-center justify-center gap-1.5 text-xs text-gray-500">
-                Powered by{' '}
-                <img
-                  src="/api/assets/eonpro-logo"
-                  alt="EONPRO"
-                  className="h-[21px] w-auto"
-                  width={84}
-                  height={21}
-                />
-              </p>
-            </>
-          ) : !isLogosRxExperience ? (
-            /* Main app (app.eonpro.io) - show EONPRO logo only, no "Powered by" */
-            <img
-              src="/api/assets/eonpro-logo"
-              alt="EONPRO"
-              className="h-10 w-auto"
-              width={160}
-              height={40}
-            />
-          ) : null}
+              )
+            ) : (
+              <img
+                src="/api/assets/eonpro-logo"
+                alt="EONPRO"
+                className="h-10 w-auto"
+                width={160}
+                height={40}
+              />
+            )}
+          </div>
+          {isLogosRxExperience && (
+            <p className="mt-2 flex items-center justify-center gap-1.5 text-xs text-white/80">
+              Powered by{' '}
+              <img
+                src="/api/assets/eonpro-logo"
+                alt="EONPRO"
+                className="h-[21px] w-auto brightness-0 invert"
+                width={84}
+                height={21}
+              />
+            </p>
+          )}
+          {!isLogosRxExperience && branding && !isMainApp && (
+            <p className="mt-2 flex items-center justify-center gap-1.5 text-xs text-gray-500">
+              Powered by{' '}
+              <img
+                src="/api/assets/eonpro-logo"
+                alt="EONPRO"
+                className="h-[21px] w-auto"
+                width={84}
+                height={21}
+              />
+            </p>
+          )}
         </div>
 
         {/* Main Content */}

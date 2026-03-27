@@ -304,7 +304,7 @@ export default function PatientChatPage() {
 
   if (loading) {
     return (
-      <div className="flex h-[calc(100dvh-80px)] flex-col bg-gray-50 lg:h-[100dvh] animate-pulse">
+      <div className="flex h-[100dvh] flex-col bg-gray-50 animate-pulse">
         {/* Header */}
         <div className="flex items-center gap-4 border-b border-gray-200 bg-white px-4 py-3">
           <div className="h-12 w-12 rounded-full bg-gray-200" />
@@ -347,7 +347,7 @@ export default function PatientChatPage() {
   };
 
   return (
-    <div className="flex h-[calc(100dvh-80px)] flex-col bg-gray-50 lg:h-[100dvh]">
+    <div className="flex h-[100dvh] flex-col bg-gray-50">
       {/* Header */}
       <div className="flex items-center gap-4 border-b border-gray-200 bg-white px-4 py-3">
         <button
@@ -487,7 +487,7 @@ export default function PatientChatPage() {
       )}
 
       {/* Input Area */}
-      <div className="border-t border-gray-200 bg-white p-4 lg:pb-safe">
+      <div className="border-t border-gray-200 bg-white p-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))]">
         <div className="flex items-end gap-3">
           {/* Attachment Button */}
           <button

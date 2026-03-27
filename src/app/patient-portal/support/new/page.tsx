@@ -75,15 +75,15 @@ export default function NewSupportRequestPage() {
         </div>
       </div>
 
-      <div
-        className={`flex items-center gap-2 rounded-xl border p-4 text-sm transition-opacity duration-150 ${
-          error ? 'border-red-200 bg-red-50 text-red-700 opacity-100' : 'pointer-events-none h-0 overflow-hidden border-transparent p-0 opacity-0'
-        }`}
-        aria-live="polite"
-      >
-        {error && <AlertTriangle className="h-4 w-4 flex-shrink-0" />}
-        {error}
-      </div>
+      {error && (
+        <div
+          className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700"
+          role="alert"
+        >
+          <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+          {error}
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-5 rounded-xl border border-gray-200 bg-white p-6">
         <div>

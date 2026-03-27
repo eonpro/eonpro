@@ -4,7 +4,7 @@ import { Outfit } from 'next/font/google';
 // This is similar to Sofia Pro and can be used as a temporary replacement
 // Once you have Sofia Pro files, you can switch to the local font configuration
 export const outfitFont = Outfit({
-  weight: ['300', '400', '500', '600', '700', '800', '900'],
+  weight: ['300', '400', '500', '600', '700'],
   subsets: ['latin'],
   variable: '--font-outfit',
   display: 'swap',

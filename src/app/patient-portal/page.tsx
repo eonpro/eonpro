@@ -39,7 +39,7 @@ const ActiveShipmentTracker = dynamic(
   () => import('@/components/patient-portal/ActiveShipmentTracker'),
   {
     ssr: false,
-    loading: () => null,
+    loading: () => <div className="mb-6 h-[104px]" />,
   },
 );
 import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';

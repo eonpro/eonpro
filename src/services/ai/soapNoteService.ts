@@ -57,7 +57,8 @@ export const editSOAPNoteSchema = z.object({
 export async function generateSOAPFromIntake(
   patientId: number,
   intakeDocumentId?: number,
-  renewalContext?: { isRenewal: boolean; previousPrescriptions: PreviousRxInfo[] }
+  renewalContext?: { isRenewal: boolean; previousPrescriptions: PreviousRxInfo[] },
+  treatmentType?: string
 ): Promise<PrismaSOAPNote> {
   // Fetch patient and intake data
   const rawPatient = await prisma.patient.findUnique({
@@ -152,6 +153,7 @@ export async function generateSOAPFromIntake(
   // Parse intake data
   let intakeData: any = {};
   let structuredData: any = {};
+  let detectedTreatmentType = treatmentType;
 
   try {
     // Read intake data — prefers S3 (if s3DataKey set + flag on), falls back to DB
@@ -159,6 +161,11 @@ export async function generateSOAPFromIntake(
 
     if (parsedData && typeof parsedData === 'object') {
       const pd = parsedData as Record<string, any>;
+
+      // Extract treatmentType from stored intake data if not explicitly provided
+      if (!detectedTreatmentType && pd.treatmentType) {
+        detectedTreatmentType = pd.treatmentType;
+      }
 
       // If the data has an answers array, transform it to a structured format
       if (pd.answers && Array.isArray(pd.answers)) {
@@ -189,18 +196,37 @@ export async function generateSOAPFromIntake(
     };
   }
 
+  // Also detect from patient tags if not already known
+  if (!detectedTreatmentType) {
+    const tags = Array.isArray(patient.tags) ? patient.tags as string[] : [];
+    if (tags.includes('peptide-therapy-intake') || tags.includes('sermorelin')) {
+      detectedTreatmentType = 'peptides';
+    }
+  }
+
+  const isPeptide = detectedTreatmentType === 'peptides';
+
+  // Choose appropriate chief complaint based on treatment type
+  const chiefComplaint = isPeptide
+    ? (intakeData['Sermorelin Therapy Goals'] ||
+       intakeData['Current Symptoms'] ||
+       intakeData.chiefComplaint ||
+       intakeData.reasonForVisit ||
+       'Peptide therapy evaluation — sermorelin for growth hormone optimization')
+    : (intakeData['How would your life change by losing weight?'] ||
+       intakeData.chiefComplaint ||
+       intakeData.reasonForVisit ||
+       (renewalContext?.isRenewal ? 'Follow-up weight management evaluation and dose titration' : 'Weight loss evaluation'));
+
   // Generate SOAP note using AI
   const soapInput: SOAPGenerationInput = {
     intakeData,
     patientName: `${patient.firstName} ${patient.lastName}`,
     dateOfBirth: patient.dob,
-    chiefComplaint:
-      intakeData['How would your life change by losing weight?'] ||
-      intakeData.chiefComplaint ||
-      intakeData.reasonForVisit ||
-      (renewalContext?.isRenewal ? 'Follow-up weight management evaluation and dose titration' : 'Weight loss evaluation'),
+    chiefComplaint,
     isRenewal: renewalContext?.isRenewal,
     previousPrescriptions: renewalContext?.previousPrescriptions,
+    treatmentType: detectedTreatmentType,
   };
 
   logger.debug('[SOAP Service] Generating SOAP note for patient:', { value: patient.id });
@@ -599,11 +625,20 @@ export async function getSOAPNoteById(soapNoteId: number, includeRevisions = fal
 }
 
 /**
- * Export SOAP note as formatted text - Professional Telehealth Weight Management Format
+ * Export SOAP note as formatted text - Adapts format based on treatment type
  */
 export function formatSOAPNote(soapNote: any): string {
   const patient = soapNote.patient;
   const provider = soapNote.approvedByProvider;
+
+  // Detect if this is a peptide therapy note from content
+  const noteContent = [soapNote.subjective, soapNote.assessment, soapNote.plan].join(' ').toLowerCase();
+  const isPeptideNote = (
+    noteContent.includes('sermorelin') ||
+    noteContent.includes('peptide therapy') ||
+    noteContent.includes('growth hormone secretagogue') ||
+    (noteContent.includes('peptide') && !noteContent.includes('glp-1'))
+  );
 
   // Calculate age from DOB
   let age = '';
@@ -622,13 +657,24 @@ export function formatSOAPNote(soapNote: any): string {
     year: 'numeric',
   });
 
-  let formatted = `SOAP NOTE – TELEHEALTH WEIGHT MANAGEMENT\n\n`;
+  const noteTitle = isPeptideNote
+    ? 'SOAP NOTE – TELEHEALTH PEPTIDE THERAPY EVALUATION'
+    : 'SOAP NOTE – TELEHEALTH WEIGHT MANAGEMENT';
+
+  const reasonForVisit = isPeptideNote
+    ? 'Peptide therapy evaluation and treatment consideration'
+    : 'Medical weight management evaluation and treatment consideration';
+
+  const attestation = isPeptideNote
+    ? 'I attest that I personally reviewed the patient\'s intake, medical history, and responses. Based on my clinical judgment, peptide therapy is medically necessary and appropriate for this patient. The patient meets eligibility criteria and has no contraindications to treatment.'
+    : 'I attest that I personally reviewed the patient\'s intake, medical history, and responses. Based on my clinical judgment, compounded GLP-1 therapy with appropriate adjunctive support is medically necessary and appropriate for this patient. The patient meets eligibility criteria and has no contraindications to treatment.';
+
+  let formatted = `${noteTitle}\n\n`;
 
   if (patient) {
     formatted += `Patient Name: ${patient.firstName} ${patient.lastName}\n`;
     formatted += `DOB: ${patient.dob ? new Date(patient.dob).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' }) : 'Not provided'}\n`;
     if (age) formatted += `Age: ${age}\n`;
-    // Format gender - handles "m", "f", "male", "female", "man", "woman"
     const formatSex = (g: string | null | undefined) => {
       if (!g) return 'Not specified';
       const gl = g.toLowerCase().trim();
@@ -651,7 +697,7 @@ export function formatSOAPNote(soapNote: any): string {
     formatted += `Provider: Licensed Prescribing Provider (MD/DO/NP/PA)\n`;
   }
 
-  formatted += `Reason for Visit: Medical weight management evaluation and treatment consideration\n`;
+  formatted += `Reason for Visit: ${reasonForVisit}\n`;
 
   formatted += `\n${'⸻'.repeat(1)}\n\n`;
 
@@ -676,7 +722,7 @@ export function formatSOAPNote(soapNote: any): string {
   formatted += `\n${'⸻'.repeat(1)}\n\n`;
 
   formatted += `PROVIDER ATTESTATION\n\n`;
-  formatted += `I attest that I personally reviewed the patient's intake, medical history, and responses. Based on my clinical judgment, compounded GLP-1 therapy with appropriate adjunctive support is medically necessary and appropriate for this patient. The patient meets eligibility criteria and has no contraindications to treatment.\n\n`;
+  formatted += `${attestation}\n\n`;
 
   formatted += `Electronic Signature: __________________________\n`;
   if (provider) {
