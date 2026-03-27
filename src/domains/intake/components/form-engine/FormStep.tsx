@@ -680,8 +680,8 @@ export default function FormStep({
       {/* Logo */}
       {logoElement}
 
-      {/* Main content - match eonmeds .content-container */}
-      <div className={`flex-1 flex flex-col ${contentPadding} py-8 ${contentMaxWidth} mx-auto w-full`}>
+      {/* Main content */}
+      <div className={`flex-1 flex flex-col ${contentPadding} py-8 pb-10 ${contentMaxWidth} mx-auto w-full`}>
         <div className="space-y-8">
           <div>
             <h1 className="page-title">{getText(config.title)}</h1>
@@ -693,39 +693,39 @@ export default function FormStep({
           {/* Fields */}
           <div className="space-y-4 intake-stagger">{config.fields.map(renderField)}</div>
         </div>
+
+        {/* Continue button -- 20px below last field */}
+        {config.showContinueButton && (
+          <div className="mt-5">
+            <button onClick={handleContinue} className="continue-button">
+              <span>{isSpanish ? 'Continuar' : 'Continue'}</span>
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+            <p className="copyright-text text-center mt-4">
+              {isSpanish ? (
+                <>© 2026 EONPro, LLC. Todos los derechos reservados.<br/>Proceso exclusivo y protegido.</>
+              ) : (
+                <>© 2026 EONPro, LLC. All rights reserved.<br/>Exclusive and protected process.</>
+              )}
+            </p>
+          </div>
+        )}
+
+        {/* Copyright when no continue button */}
+        {!config.showContinueButton && (
+          <div className="mt-8">
+            <p className="copyright-text text-center">
+              {isSpanish ? (
+                <>© 2026 EONPro, LLC. Todos los derechos reservados.<br/>Proceso exclusivo y protegido.</>
+              ) : (
+                <>© 2026 EONPro, LLC. All rights reserved.<br/>Exclusive and protected process.</>
+              )}
+            </p>
+          </div>
+        )}
       </div>
-
-      {/* Continue button */}
-      {config.showContinueButton && (
-        <div className="sticky-bottom-button max-w-[480px] lg:max-w-[560px] mx-auto w-full">
-          <button onClick={handleContinue} className="continue-button">
-            <span>{isSpanish ? 'Continuar' : 'Continue'}</span>
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
-            </svg>
-          </button>
-          <p className="copyright-text text-center mt-4">
-            {isSpanish ? (
-              <>© 2026 EONPro, LLC. Todos los derechos reservados.<br/>Proceso exclusivo y protegido.</>
-            ) : (
-              <>© 2026 EONPro, LLC. All rights reserved.<br/>Exclusive and protected process.</>
-            )}
-          </p>
-        </div>
-      )}
-
-      {/* Copyright when no continue button */}
-      {!config.showContinueButton && (
-        <div className="sticky-bottom-button max-w-[480px] lg:max-w-[560px] mx-auto w-full">
-          <p className="copyright-text text-center">
-            {isSpanish ? (
-              <>© 2026 EONPro, LLC. Todos los derechos reservados.<br/>Proceso exclusivo y protegido.</>
-            ) : (
-              <>© 2026 EONPro, LLC. All rights reserved.<br/>Exclusive and protected process.</>
-            )}
-          </p>
-        </div>
-      )}
     </div>
   );
 }
