@@ -91,28 +91,32 @@ export function MedicalHistoryOverviewStep({
         </button>
       </div>
       
-      <div className="relative px-6 lg:px-8 max-w-md lg:max-w-lg mx-auto w-full flex items-center justify-between">
-        <div className="relative w-14 h-14">
-          <div className="absolute inset-0 rounded-full bg-gradient-to-br from-blue-400 via-purple-400 to-pink-400 opacity-60 blur-md animate-pulse"></div>
-          <div 
-            className="absolute inset-1 rounded-full bg-gradient-to-br from-cyan-300 via-blue-400 to-purple-500"
-            style={{ animation: 'spin-slow 8s linear infinite' }}
-          ></div>
-          <div className="absolute inset-2 rounded-full bg-gradient-to-tr from-white/80 to-transparent"></div>
+      {!isOt && (
+        <div className="relative px-6 lg:px-8 max-w-md lg:max-w-lg mx-auto w-full flex items-center justify-between">
+          <div className="relative w-14 h-14">
+            <div className="absolute inset-0 rounded-full bg-gradient-to-br from-blue-400 via-purple-400 to-pink-400 opacity-60 blur-md animate-pulse"></div>
+            <div
+              className="absolute inset-1 rounded-full bg-gradient-to-br from-cyan-300 via-blue-400 to-purple-500"
+              style={{ animation: 'spin-slow 8s linear infinite' }}
+            ></div>
+            <div className="absolute inset-2 rounded-full bg-gradient-to-tr from-white/80 to-transparent"></div>
+          </div>
         </div>
-      </div>
-      
+      )}
+
       <div className="flex-1 px-6 lg:px-8 py-8 max-w-md lg:max-w-lg mx-auto w-full">
         <div className="space-y-8">
-          <div 
+          <div
             className={`flex justify-start transition-all duration-700 ease-out ${
-              showDoctor 
-                ? 'opacity-100 translate-y-0 scale-100' 
+              showDoctor
+                ? 'opacity-100 translate-y-0 scale-100'
                 : 'opacity-0 translate-y-8 scale-90'
             }`}
           >
-            <img 
-              src="https://static.wixstatic.com/media/c49a9b_7742352092de4c8e82b9e6e10cc20719~mv2.webp"
+            <img
+              src={isOt
+                ? 'https://static.wixstatic.com/media/c49a9b_5b7eb6087f204fb488efae8b63ec6f5f~mv2.webp'
+                : 'https://static.wixstatic.com/media/c49a9b_7742352092de4c8e82b9e6e10cc20719~mv2.webp'}
               alt="Medical Professional"
               className="w-[6.5rem] h-[6.5rem] object-contain"
             />
