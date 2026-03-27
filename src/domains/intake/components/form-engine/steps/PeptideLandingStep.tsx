@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { useLanguage } from '../../../contexts/LanguageContext';
 import { useIntakeActions } from '../../../store/intakeStore';
 
@@ -35,84 +36,100 @@ export default function PeptideLandingStep({
 
   return (
     <div className="min-h-screen bg-white flex flex-col">
-      <div className="w-full h-1 bg-[#f5ecd8]" />
+      <div className="w-full h-[5px] bg-[#f5ecd8] rounded-full" />
 
       <div className="flex-1 flex flex-col px-6 lg:px-8 pt-8 lg:pt-12 pb-6 max-w-md lg:max-w-2xl mx-auto w-full">
-        {/* Logo */}
-        <div
-          className={`mb-6 transform transition-all duration-700 ease-out ${
-            animate ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
-          }`}
-        >
+        {/* Logo + Lottie */}
+        <div className="flex items-center justify-between mb-4">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="https://static.wixstatic.com/shapes/c49a9b_5139736743794db7af38c583595f06fb.svg"
             alt="OT Mens Health"
             className="h-7 w-auto"
           />
+          <div className="w-[70px] h-[70px] overflow-hidden">
+            <iframe
+              src="https://lottie.host/embed/34070443-ae33-4f25-b944-452a94704677/Ol2wOdhexp.lottie"
+              style={{ width: '70px', height: '70px', border: 'none', background: 'transparent' }}
+              title="OT Mens Health animation"
+            />
+          </div>
         </div>
 
-        {/* Headlines */}
+        {/* Doctor photo */}
+        <div className={`mb-4 transform transition-all duration-700 ease-out ${animate ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-5 scale-95'}`}>
+          <div className="w-32 h-32 rounded-full overflow-hidden relative border-2 border-[#cab172]/20">
+            <Image
+              src="https://static.wixstatic.com/media/c49a9b_5b9a0976f96044ccbf05c4d90c382f2d~mv2.webp"
+              alt="Healthcare professional"
+              fill
+              sizes="128px"
+              className="object-cover"
+              priority
+            />
+          </div>
+        </div>
+
+        {/* Headline */}
         <div className="text-left mb-6">
           <h1
-            className={`text-[28px] lg:text-[34px] font-semibold leading-tight transform transition-all duration-700 ease-out delay-150 ${
-              animate ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
-            }`}
+            className={`page-title transform transition-all duration-700 ease-out delay-150 ${animate ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}
             style={{ color: '#cab172' }}
           >
-            {isSpanish
-              ? 'Apoya el envejecimiento saludable y la recuperación.'
-              : 'Support healthy aging and recovery.'}
+            {isSpanish ? (
+              <>Apoya el envejecimiento<br />saludable y la recuperación.</>
+            ) : (
+              <>Support healthy aging<br />and recovery.</>
+            )}
           </h1>
-          <h2
-            className={`text-[28px] lg:text-[34px] font-semibold leading-tight mt-4 transform transition-all duration-700 ease-out ${
-              animate ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
-            }`}
-            style={{ color: '#cab172', transitionDelay: '250ms' }}
-          >
-            {isSpanish
-              ? 'Optimiza la regulación natural de tu cuerpo.'
-              : "Optimize your body's natural regulation."}
-          </h2>
+          <p className={`page-subtitle leading-tight mt-3 transform transition-all duration-700 ease-out delay-300 ${animate ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
+            {isSpanish ? (
+              <>Descubre si la terapia con Sermorelin es adecuada<br />para ti según tus síntomas y estilo de vida.</>
+            ) : (
+              <>Discover if Sermorelin therapy is right for you<br />based on your symptoms and lifestyle.</>
+            )}
+          </p>
         </div>
 
-        {/* Description paragraphs */}
-        <div className="space-y-5 mb-8">
-          <p
-            className={`text-[15px] lg:text-base leading-relaxed text-[#413d3d] transform transition-all duration-700 ease-out ${
-              animate ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
-            }`}
-            style={{ transitionDelay: '350ms' }}
-          >
-            {isSpanish
-              ? 'Power Up de OT Men\'s Health ayuda a determinar si la terapia con Sermorelin puede ser apropiada para ti evaluando tus síntomas, calidad de sueño, patrones de recuperación y estilo de vida general.'
-              : "Power Up by OT Men's Health helps determine whether Sermorelin therapy may be appropriate for you by evaluating your symptoms, sleep quality, recovery patterns, and overall lifestyle."}
+        {/* Trust section */}
+        <div className="space-y-3">
+          <p className={`text-[15px] font-medium text-[#413d3d] transform transition-all duration-700 ease-out delay-500 ${animate ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
+            {isSpanish ? 'Confiado por más de 10,000+ pacientes' : 'Trusted by over 10,000+ patients'}
           </p>
-          <p
-            className={`text-[15px] lg:text-base leading-relaxed text-[#413d3d] transform transition-all duration-700 ease-out ${
-              animate ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
-            }`}
-            style={{ transitionDelay: '450ms' }}
-          >
-            {isSpanish
-              ? 'Sermorelin está diseñado para apoyar una mejor calidad de sueño, mantenimiento muscular, metabolismo de grasas, recuperación y equilibrio metabólico a largo plazo al trabajar con los procesos reguladores naturales de tu cuerpo.'
-              : "Sermorelin is designed to support improved sleep quality, muscle maintenance, fat metabolism, recovery, and long-term metabolic balance by working with your body's natural regulatory processes."}
-          </p>
+
+          {/* Patient photos */}
+          <div className={`flex -space-x-3 transform transition-all duration-700 ease-out ${animate ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`} style={{ transitionDelay: '600ms' }}>
+            <Image
+              src="https://static.wixstatic.com/media/c49a9b_e11bf27141fa4676b7c9d9f2438b334a~mv2.webp"
+              alt="Happy patients"
+              width={150}
+              height={48}
+              className="rounded-lg"
+              priority
+            />
+          </div>
+
+          {/* Google rating */}
+          <div className={`flex items-center transform transition-all duration-700 ease-out ${animate ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`} style={{ transitionDelay: '700ms' }}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="https://static.wixstatic.com/shapes/c49a9b_ea75afc771f74c108742b781ab47157d.svg"
+              alt="Rated 4.9/5 based on verified reviews"
+              width={200}
+              height={50}
+              className="object-contain"
+            />
+          </div>
         </div>
       </div>
 
-      {/* Bottom section */}
+      {/* Bottom -- privacy + CTA */}
       <div
-        className={`px-6 lg:px-8 pb-8 max-w-md lg:max-w-2xl mx-auto w-full space-y-3 transform transition-all duration-700 ease-out ${
-          animate ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-5'
-        }`}
-        style={{ transitionDelay: '550ms' }}
+        className={`px-6 lg:px-8 pb-8 max-w-md lg:max-w-2xl mx-auto w-full space-y-3 transform transition-all duration-700 ease-out ${animate ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-5'}`}
+        style={{ transitionDelay: '800ms' }}
       >
         <div className="mb-4">
-          <p
-            className="text-[11px] lg:text-[13px] leading-tight"
-            style={{ fontWeight: 450, color: 'rgba(65, 61, 61, 0.6)' }}
-          >
+          <p className="text-[11px] lg:text-[13px] leading-tight" style={{ fontWeight: 450, color: 'rgba(65, 61, 61, 0.6)' }}>
             {isSpanish
               ? 'Al hacer clic en "Comenzar", aceptas que Overtime Men\'s Health y EONPro pueden usar tus respuestas para personalizar tu experiencia y para otros propósitos de acuerdo con nuestra '
               : 'By clicking \u201cStart\u201d, you agree that Overtime Men\u2019s Health and EONPro may use your responses to personalize your experience and for other purposes in accordance with our '}
@@ -136,29 +153,20 @@ export default function PeptideLandingStep({
           onClick={handleStart}
           className="continue-button shine-button w-full"
         >
-          <span className="text-white">{isSpanish ? 'Comenzar' : 'Start'}</span>
-          <svg
-            className="w-4 h-4 text-white"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2"
-              d="M9 5l7 7-7 7"
-            />
+          <span>{isSpanish ? 'Comenzar' : 'Start'}</span>
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
           </svg>
         </button>
 
         <div className="mt-6 text-center" style={{ lineHeight: '1.2' }}>
+          <p className="text-gray-400 font-medium text-[11px]">
+            {isSpanish ? 'Formulario médico seguro conforme a HIPAA' : 'HIPAA-Secured Medical Intake'}
+          </p>
           <p className="text-gray-400 text-[11px]">
-            Copyright © 2025 Overtime Mens Health All Rights Reserved
+            © 2026 EONPro, LLC. All rights reserved.
             <br />
-            powered by EONPro, LLC. Exclusive and protected process.
-            <br />
-            Copying or reproduction without authorization is prohibited.
+            Exclusive and protected process. Copying or reproduction without authorization is prohibited.
           </p>
         </div>
       </div>
