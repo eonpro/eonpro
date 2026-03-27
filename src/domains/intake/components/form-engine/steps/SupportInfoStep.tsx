@@ -134,7 +134,7 @@ export default function SupportInfoStep({
           >
             <img 
               src={isOt
-                ? 'https://static.wixstatic.com/media/c49a9b_5b9a0976f96044ccbf05c4d90c382f2d~mv2.webp'
+                ? 'https://static.wixstatic.com/media/c49a9b_9879012a71074e4fb38af2dceae07f7c~mv2.webp'
                 : 'https://static.wixstatic.com/media/c49a9b_2c49b136f5ec49c787b37346cca7f47b~mv2.webp'}
               alt="Customer Service Representative"
               className="w-80 h-auto object-contain"
