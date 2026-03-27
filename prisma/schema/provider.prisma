@@ -83,7 +83,6 @@ model Provider {
   @@index([status])
   @@index([isEonproProvider])
   @@index([clinicId])
-  @@index([doseSpotClinicianId])
 }
 
 // Per-state license with expiration date

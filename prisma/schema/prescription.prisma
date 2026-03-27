@@ -88,7 +88,6 @@ model Order {
   @@index([lastWebhookAt])
   @@index([patientId, createdAt])
   @@index([clinicId, createdAt])
-  @@index([doseSpotPrescriptionId])
 }
 
 model Rx {

@@ -126,9 +126,7 @@ model Patient {
 
   @@unique([clinicId, patientId])
   @@index([clinicId])
-  @@index([clinicId, createdAt(sort: Desc)])
   @@index([profileStatus])
-  @@index([doseSpotPatientId])
 }
 
 model PatientDocument {
