@@ -187,17 +187,17 @@ export async function generateDailyInvoices(
   const nextDay = midnightInTz(eY, eM - 1, eD + 1, CLINIC_TZ);
   const periodEnd = new Date(nextDay.getTime() - 1);
 
-  // PRIMARY: If an order has a Lifefile order ID and falls on this date, it's billable.
-  // The lifefileOrderId is proof the order was submitted to the pharmacy.
-  // "Sent" timestamp = approvedAt when present, otherwise createdAt (direct sends).
+  // Billing anchor = order createdAt (when the patient paid and entered the RX queue).
+  // Orders that enter the queue at 11:30 PM on 03/26 but aren't approved until 03/27
+  // are billed for 03/26. We don't gate on lifefileOrderId or approval status because
+  // for WellMedR, queue entry implies payment — provider approval is a downstream step.
   const allOrders = await basePrisma.order.findMany({
     where: {
       clinicId,
-      lifefileOrderId: { not: null },
-      OR: [
-        { approvedAt: { gte: periodStart, lte: periodEnd } },
-        { AND: [{ approvedAt: null }, { createdAt: { gte: periodStart, lte: periodEnd } }] },
-      ],
+      cancelledAt: null,
+      fulfillmentChannel: 'lifefile',
+      status: { notIn: ['error', 'cancelled', 'declined'] },
+      createdAt: { gte: periodStart, lte: periodEnd },
     },
     select: {
       id: true,
@@ -236,7 +236,6 @@ export async function generateDailyInvoices(
       where: {
         clinicId,
         orderId: { in: orderIds },
-        prescriptionProcessed: true,
       },
       select: { orderId: true, paidAt: true },
     });
@@ -268,7 +267,9 @@ export async function generateDailyInvoices(
       where: {
         clinicId,
         patientId: { in: patientIds },
-        lifefileOrderId: { not: null },
+        fulfillmentChannel: 'lifefile',
+        cancelledAt: null,
+        status: { notIn: ['error', 'cancelled', 'declined'] },
         createdAt: { gte: lookbackDate, lt: periodStart },
       },
       select: { id: true, patientId: true, createdAt: true, approvedAt: true },
