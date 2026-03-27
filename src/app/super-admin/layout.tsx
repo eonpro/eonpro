@@ -24,11 +24,15 @@ import {
 import { useAuthStore } from '@/lib/stores/authStore';
 import { isBrowser, safeLocalStorage } from '@/lib/utils/ssr-safe';
 import InternalChat from '@/components/InternalChat';
+import dynamic from 'next/dynamic';
 import {
   NotificationProvider,
-  NotificationCenter,
   NotificationToastContainer,
 } from '@/components/notifications';
+const NotificationCenter = dynamic(
+  () => import('@/components/notifications/NotificationCenter'),
+  { ssr: false, loading: () => <div className="h-8 w-8 animate-pulse rounded-full bg-gray-200" /> },
+);
 import { ClinicBrandingProvider } from '@/lib/contexts/ClinicBrandingContext';
 import { EONPRO_ICON, EONPRO_LOGO } from '@/lib/constants/brand-assets';
 import { safeParseJsonString } from '@/lib/utils/safe-json';

@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
-import BeccaAILoader from './BeccaAILoader';
+import dynamic from 'next/dynamic';
+const BeccaAILoader = dynamic(() => import('./BeccaAILoader'), { ssr: false });
 import { logger } from '@/lib/logger';
 import { apiFetch } from '@/lib/api/fetch';
 

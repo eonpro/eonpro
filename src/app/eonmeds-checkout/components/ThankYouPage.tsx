@@ -1,7 +1,8 @@
 'use client';
 
 import { useRef, useEffect } from 'react';
-import html2canvas from 'html2canvas';
+// Lazy-loaded on use -- html2canvas is ~400KB
+const loadHtml2Canvas = () => import('html2canvas').then((m) => m.default);
 
 interface ThankYouPageProps {
   paymentIntentId: string;
@@ -140,6 +141,7 @@ export function ThankYouPage({
         // Clone the element to avoid modifying the original
         const element = receiptRef.current;
         
+        const html2canvas = await loadHtml2Canvas();
         const canvas = await html2canvas(element, {
           scale: 2,
           useCORS: true,

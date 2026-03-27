@@ -192,6 +192,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
           primaryMedForm: true,
           rxs: {
             select: { medName: true, strength: true, form: true },
+            take: 5,
           },
         },
       },

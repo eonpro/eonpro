@@ -370,8 +370,8 @@ export default function InternalChat({ currentUserId, currentUserRole }: Interna
   useEffect(() => {
     let cancelled = false;
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
-    const BASE_MS = isOpen ? 4000 : 5000;
-    const MAX_MS = 60000;
+    const BASE_MS = isOpen ? 10_000 : 30_000;
+    const MAX_MS = 60_000;
 
     const scheduleNext = () => {
       if (cancelled) {
@@ -465,8 +465,8 @@ export default function InternalChat({ currentUserId, currentUserRole }: Interna
 
     let cancelled = false;
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
-    const BASE_MS = 4000;
-    const MAX_MS = 60000;
+    const BASE_MS = 10_000;
+    const MAX_MS = 60_000;
 
     const scheduleNext = () => {
       if (cancelled) {

@@ -51,32 +51,26 @@ export function createDoseSpotSSOService(): DoseSpotSSOService {
       }
       logger.info('[DOSESPOT] Credentials resolved', { clinicId, hasBaseUrl: !!credentials.baseUrl });
 
-      let providerSync;
-      try {
-        providerSync = await doseSpotProviderService.syncProvider(providerId, clinicId, userId);
-      } catch (err) {
-        logger.error('[DOSESPOT] Provider sync failed', {
-          providerId, clinicId,
-          error: err instanceof Error ? err.message : String(err),
-        });
-        throw err;
-      }
-      logger.info('[DOSESPOT] Provider synced', {
-        providerId, doseSpotClinicianId: providerSync.doseSpotClinicianId, action: providerSync.action,
-      });
-
-      let patientSync;
-      try {
-        patientSync = await doseSpotPatientService.syncPatient(patientId, clinicId, userId);
-      } catch (err) {
-        logger.error('[DOSESPOT] Patient sync failed', {
-          patientId, clinicId,
-          error: err instanceof Error ? err.message : String(err),
-        });
-        throw err;
-      }
-      logger.info('[DOSESPOT] Patient synced', {
-        patientId, doseSpotPatientId: patientSync.doseSpotPatientId, action: patientSync.action,
+      // Provider and patient syncs are independent — run in parallel
+      const [providerSync, patientSync] = await Promise.all([
+        doseSpotProviderService.syncProvider(providerId, clinicId, userId).catch((err) => {
+          logger.error('[DOSESPOT] Provider sync failed', {
+            providerId, clinicId,
+            error: err instanceof Error ? err.message : String(err),
+          });
+          throw err;
+        }),
+        doseSpotPatientService.syncPatient(patientId, clinicId, userId).catch((err) => {
+          logger.error('[DOSESPOT] Patient sync failed', {
+            patientId, clinicId,
+            error: err instanceof Error ? err.message : String(err),
+          });
+          throw err;
+        }),
+      ]);
+      logger.info('[DOSESPOT] Provider + patient synced in parallel', {
+        providerId, doseSpotClinicianId: providerSync.doseSpotClinicianId, providerAction: providerSync.action,
+        patientId, doseSpotPatientId: patientSync.doseSpotPatientId, patientAction: patientSync.action,
       });
 
       const prescriberUserId = String(providerSync.doseSpotClinicianId);

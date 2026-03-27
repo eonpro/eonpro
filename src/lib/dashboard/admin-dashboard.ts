@@ -88,78 +88,92 @@ export async function getAdminDashboard(
 
   const readDb = getResilientReadDb();
 
-  const statsResult = await executeDbRead(
-    () =>
-      Promise.all([
-        // Query A: All counts + revenue in a single round-trip
-        readDb.$queryRaw<
-          [
-            {
-              total_patients: bigint;
-              total_orders: bigint;
-              recent_patients: bigint;
-              recent_orders: bigint;
-              total_revenue_cents: bigint;
-              recent_revenue_cents: bigint;
-            },
-          ]
-        >(Prisma.sql`
-        SELECT
-          (SELECT COUNT(*) FROM "Patient" WHERE TRUE ${clinicWhere})::bigint
-            AS total_patients,
-          (SELECT COUNT(*) FROM "Order" WHERE TRUE ${clinicWhere})::bigint
-            AS total_orders,
-          (SELECT COUNT(*) FROM "Patient" WHERE "createdAt" >= ${twentyFourHoursAgo} ${clinicWhere})::bigint
-            AS recent_patients,
-          (SELECT COUNT(*) FROM "Order" WHERE "createdAt" >= ${twentyFourHoursAgo} ${clinicWhere})::bigint
-            AS recent_orders,
-          COALESCE((SELECT SUM("amountPaid") FROM "Invoice" WHERE status = 'PAID' ${clinicWhere}), 0)::bigint
-            AS total_revenue_cents,
-          COALESCE((SELECT SUM("amountPaid") FROM "Invoice" WHERE status = 'PAID' AND "paidAt" >= ${twentyFourHoursAgo} ${clinicWhere}), 0)::bigint
-            AS recent_revenue_cents
-        `),
+  // Run stats queries and recent intakes in parallel (previously sequential)
+  const [statsResult, intakesResult] = await Promise.all([
+    executeDbRead(
+      () =>
+        Promise.all([
+          // Query A: All counts + revenue in a single round-trip
+          readDb.$queryRaw<
+            [
+              {
+                total_patients: bigint;
+                total_orders: bigint;
+                recent_patients: bigint;
+                recent_orders: bigint;
+                total_revenue_cents: bigint;
+                recent_revenue_cents: bigint;
+              },
+            ]
+          >(Prisma.sql`
+          SELECT
+            (SELECT COUNT(*) FROM "Patient" WHERE TRUE ${clinicWhere})::bigint
+              AS total_patients,
+            (SELECT COUNT(*) FROM "Order" WHERE TRUE ${clinicWhere})::bigint
+              AS total_orders,
+            (SELECT COUNT(*) FROM "Patient" WHERE "createdAt" >= ${twentyFourHoursAgo} ${clinicWhere})::bigint
+              AS recent_patients,
+            (SELECT COUNT(*) FROM "Order" WHERE "createdAt" >= ${twentyFourHoursAgo} ${clinicWhere})::bigint
+              AS recent_orders,
+            COALESCE((SELECT SUM("amountPaid") FROM "Invoice" WHERE status = 'PAID' ${clinicWhere}), 0)::bigint
+              AS total_revenue_cents,
+            COALESCE((SELECT SUM("amountPaid") FROM "Invoice" WHERE status = 'PAID' AND "paidAt" >= ${twentyFourHoursAgo} ${clinicWhere}), 0)::bigint
+              AS recent_revenue_cents
+          `),
 
-        // Query B: Distinct converted patient IDs (union of payment + order)
-        readDb.$queryRaw<Array<{ patient_id: number }>>(Prisma.sql`
-        SELECT DISTINCT sub."patientId" AS patient_id FROM (
-          SELECT "patientId" FROM "Payment"
-          WHERE status = 'SUCCEEDED'
-            AND "patientId" IN (SELECT id FROM "Patient" WHERE TRUE ${clinicWhere})
-          UNION
-          SELECT "patientId" FROM "Order"
-          WHERE "patientId" IN (SELECT id FROM "Patient" WHERE TRUE ${clinicWhere})
-        ) sub
-        `),
+          // Query B: Distinct converted patient IDs (union of payment + order)
+          readDb.$queryRaw<Array<{ patient_id: number }>>(Prisma.sql`
+          SELECT DISTINCT sub."patientId" AS patient_id FROM (
+            SELECT "patientId" FROM "Payment"
+            WHERE status = 'SUCCEEDED'
+              AND "patientId" IN (SELECT id FROM "Patient" WHERE TRUE ${clinicWhere})
+            UNION
+            SELECT "patientId" FROM "Order"
+            WHERE "patientId" IN (SELECT id FROM "Patient" WHERE TRUE ${clinicWhere})
+          ) sub
+          `),
 
-        // Query C: Subscription MRR (kept as Prisma groupBy — small result set)
-        readDb.subscription
-          .groupBy({
-            by: ['interval'],
-            where: { ...clinicFilter, status: 'ACTIVE' },
-            _sum: { amount: true },
-          })
-          .then((groups) =>
-            groups.reduce((mrr, group) => {
-              const amt = (group._sum.amount ?? 0) / 100;
-              switch (group.interval) {
-                case 'year':
-                case 'yearly':
-                case 'annual':
-                  return mrr + amt / 12;
-                case 'quarter':
-                case 'quarterly':
-                  return mrr + amt / 3;
-                case 'week':
-                case 'weekly':
-                  return mrr + amt * 4;
-                default:
-                  return mrr + amt;
-              }
-            }, 0)
-          ),
-      ]),
-    'admin-dashboard:stats:consolidated'
-  );
+          // Query C: Subscription MRR (kept as Prisma groupBy — small result set)
+          readDb.subscription
+            .groupBy({
+              by: ['interval'],
+              where: { ...clinicFilter, status: 'ACTIVE' },
+              _sum: { amount: true },
+            })
+            .then((groups) =>
+              groups.reduce((mrr, group) => {
+                const amt = (group._sum.amount ?? 0) / 100;
+                switch (group.interval) {
+                  case 'year':
+                  case 'yearly':
+                  case 'annual':
+                    return mrr + amt / 12;
+                  case 'quarter':
+                  case 'quarterly':
+                    return mrr + amt / 3;
+                  case 'week':
+                  case 'weekly':
+                    return mrr + amt * 4;
+                  default:
+                    return mrr + amt;
+                }
+              }, 0)
+            ),
+        ]),
+      'admin-dashboard:stats:consolidated'
+    ),
+    patientService.listPatients(userContext, {
+      limit: RECENT_INTAKES_LIMIT,
+      recent: '24h',
+    }).catch((listErr) => {
+      logger.error('[ADMIN-DASHBOARD] listPatients failed — returning stats without recent intakes', {
+        userId: userContext.id,
+        clinicId,
+        error: listErr instanceof Error ? listErr.message : String(listErr),
+      });
+      return null;
+    }),
+  ]);
 
   let totalPatientsCount = 0;
   let totalOrdersCount = 0;
@@ -240,15 +254,10 @@ export async function getAdminDashboard(
     recentRevenue,
   };
 
-  // Phase 2: Recent intakes via patient service (PHI decryption handled)
+  // Recent intakes were fetched in parallel above
   let recentIntakes: RecentIntake[] = [];
-  try {
-    const listResult = await patientService.listPatients(userContext, {
-      limit: RECENT_INTAKES_LIMIT,
-      recent: '24h',
-    });
-
-    recentIntakes = listResult.data.map((p) => ({
+  if (intakesResult) {
+    recentIntakes = intakesResult.data.map((p) => ({
       id: p.id,
       patientId: p.patientId ?? null,
       firstName: p.firstName ?? '',
@@ -262,12 +271,6 @@ export async function getAdminDashboard(
           ? p.createdAt.toISOString()
           : String(p.createdAt ?? new Date().toISOString()),
     }));
-  } catch (listErr) {
-    logger.error('[ADMIN-DASHBOARD] listPatients failed — returning stats without recent intakes', {
-      userId: userContext.id,
-      clinicId,
-      error: listErr instanceof Error ? listErr.message : String(listErr),
-    });
   }
 
   const payload: AdminDashboardPayload = { stats, recentIntakes };

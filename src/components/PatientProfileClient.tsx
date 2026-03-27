@@ -6,8 +6,15 @@ import PatientPaymentMethods from '@/components/PatientPaymentMethods';
 import PatientSOAPNotesView from '@/components/PatientSOAPNotesView';
 import PatientChatView from '@/components/PatientChatView';
 import PatientAppointmentsView from '@/components/PatientAppointmentsView';
-import PatientProgressView from '@/components/PatientProgressView';
-import PatientPrescriptionsTab from '@/components/PatientPrescriptionsTab';
+import dynamic from 'next/dynamic';
+const PatientProgressView = dynamic(() => import('@/components/PatientProgressView'), {
+  ssr: false,
+  loading: () => <div className="h-64 animate-pulse rounded-xl bg-gray-100" />,
+});
+const PatientPrescriptionsTab = dynamic(() => import('@/components/PatientPrescriptionsTab'), {
+  ssr: false,
+  loading: () => <div className="h-64 animate-pulse rounded-xl bg-gray-100" />,
+});
 import PatientDocumentsView from '@/components/PatientDocumentsView';
 import PatientLabView from '@/components/PatientLabView';
 import PatientNotesView from '@/components/PatientNotesView';

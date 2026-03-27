@@ -126,7 +126,9 @@ model Patient {
 
   @@unique([clinicId, patientId])
   @@index([clinicId])
-  @@index([profileStatus]) // For efficiently querying pending profiles
+  @@index([clinicId, createdAt(sort: Desc)])
+  @@index([profileStatus])
+  @@index([doseSpotPatientId])
 }
 
 model PatientDocument {

@@ -16,11 +16,15 @@ import {
   MessageSquare,
   Camera,
 } from 'lucide-react';
+import dynamic from 'next/dynamic';
 import {
   NotificationProvider,
-  NotificationCenter,
   NotificationToastContainer,
 } from '@/components/notifications';
+const NotificationCenter = dynamic(
+  () => import('@/components/notifications/NotificationCenter'),
+  { ssr: false, loading: () => <div className="h-8 w-8 animate-pulse rounded-full bg-gray-200" /> },
+);
 import { ClinicBrandingProvider, useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
 import { getAdminNavConfig } from '@/lib/nav/adminNav';
 import { EONPRO_LOGO, EONPRO_ICON } from '@/lib/constants/brand-assets';

@@ -21,14 +21,20 @@ import { logger } from '@/lib/logger';
 import { decrypt } from '@/lib/security/encryption';
 import { getClinicFeatureBoolean } from '@/lib/clinic/utils';
 
+const credentialsCache = new Map<number, { data: DoseSpotCredentials | null; expiresAt: number }>();
+const CREDENTIALS_CACHE_TTL_MS = 30_000;
+
 /**
  * Get DoseSpot credentials for a specific clinic.
+ * Cached for 30s to avoid redundant DB lookups within the same SSO flow.
  * Returns null if DoseSpot is not enabled/configured for the clinic
  * AND no environment fallback is available.
  */
 export async function getClinicDoseSpotCredentials(
   clinicId: number
 ): Promise<DoseSpotCredentials | null> {
+  const cached = credentialsCache.get(clinicId);
+  if (cached && cached.expiresAt > Date.now()) return cached.data;
   try {
     const clinic = await prisma.clinic.findUnique({
       where: { id: clinicId },
@@ -104,7 +110,7 @@ export async function getClinicDoseSpotCredentials(
         return null;
       }
 
-      return {
+      const result: DoseSpotCredentials = {
         baseUrl: clinic.doseSpotBaseUrl,
         tokenUrl: clinic.doseSpotTokenUrl,
         ssoUrl: clinic.doseSpotSsoUrl,
@@ -113,12 +119,16 @@ export async function getClinicDoseSpotCredentials(
         adminId: clinic.doseSpotAdminId,
         subscriptionKey,
       };
+      credentialsCache.set(clinicId, { data: result, expiresAt: Date.now() + CREDENTIALS_CACHE_TTL_MS });
+      return result;
     }
 
     logger.info(
       `[CLINIC-DOSESPOT] Clinic ${clinicId} doesn't have DoseSpot configured, trying env fallback`
     );
-    return getEnvCredentials();
+    const envCreds = getEnvCredentials();
+    credentialsCache.set(clinicId, { data: envCreds, expiresAt: Date.now() + CREDENTIALS_CACHE_TTL_MS });
+    return envCreds;
   } catch (error) {
     logger.error(`[CLINIC-DOSESPOT] Error fetching credentials for clinic ${clinicId}`, {
       error: error instanceof Error ? error.message : String(error),

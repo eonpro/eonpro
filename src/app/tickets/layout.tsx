@@ -38,11 +38,15 @@ import {
   Truck,
 } from 'lucide-react';
 import InternalChat from '@/components/InternalChat';
+import dynamic from 'next/dynamic';
 import {
   NotificationProvider,
-  NotificationCenter,
   NotificationToastContainer,
 } from '@/components/notifications';
+const NotificationCenter = dynamic(
+  () => import('@/components/notifications/NotificationCenter'),
+  { ssr: false, loading: () => <div className="h-8 w-8 animate-pulse rounded-full bg-gray-200" /> },
+);
 import { ClinicBrandingProvider, useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import { getAdminNavConfig } from '@/lib/nav/adminNav';
