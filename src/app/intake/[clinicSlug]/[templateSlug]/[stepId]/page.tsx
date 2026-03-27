@@ -246,6 +246,8 @@ function IntakeStepContent() {
         '--intake-text-secondary': isWellmedr ? '#7B95A9' : '#6b7280',
         '--intake-border': isWellmedr ? '#e5eaee' : '#e5e7eb',
         '--intake-selected-bg': isWellmedr ? '#f5f0e8' : (intakeBrand === 'otmens' ? '#f5ecd8' : '#f0feab'),
+        '--intake-button-bg': intakeBrand === 'otmens' ? '#cab172' : undefined,
+        '--intake-button-text': intakeBrand === 'otmens' ? '#413d3d' : undefined,
         '--intake-bg': isWellmedr ? '#F7F7F9' : '#ffffff',
       } as React.CSSProperties}
     >

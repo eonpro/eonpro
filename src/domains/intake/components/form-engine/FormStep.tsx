@@ -655,10 +655,10 @@ export default function FormStep({
   return (
     <div className="min-h-screen flex flex-col" style={{ backgroundColor: 'var(--intake-bg, #ffffff)' }}>
       {/* Progress bar */}
-      <div className="w-full h-1 bg-gray-100">
+      <div className="w-full h-[5px] bg-gray-100 rounded-full">
         <div
-          className="h-full transition-all duration-300"
-          style={{ width: `${config.progressPercent}%`, backgroundColor: 'var(--intake-accent, #f0feab)' }}
+          className="h-full rounded-full"
+          style={{ width: `${config.progressPercent}%`, backgroundColor: 'var(--intake-accent, #f0feab)', transition: 'width 0.5s cubic-bezier(0.4, 0, 0.2, 1)' }}
         />
       </div>
 
@@ -691,7 +691,7 @@ export default function FormStep({
           </div>
 
           {/* Fields */}
-          <div className="space-y-4">{config.fields.map(renderField)}</div>
+          <div className="space-y-4 intake-stagger">{config.fields.map(renderField)}</div>
         </div>
       </div>
 

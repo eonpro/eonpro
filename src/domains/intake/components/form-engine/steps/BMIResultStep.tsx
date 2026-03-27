@@ -41,6 +41,8 @@ export default function BMIResultStep({
   const isSpanish = language === 'es';
   
   const responses = useIntakeStore((state) => state.responses);
+  const clinicSlug = useIntakeStore((s) => s.clinicSlug);
+  const isOt = clinicSlug === 'ot' || clinicSlug === 'otmens';
   const { markStepCompleted, setCurrentStep, setResponse } = useIntakeActions();
   
   const [bmi, setBmi] = useState(0);
@@ -101,7 +103,7 @@ export default function BMIResultStep({
       {/* Progress bar */}
       <div className="w-full h-1 bg-gray-100">
         <div 
-          className="h-full bg-[var(--intake-accent,#f0feab)] transition-all duration-300"
+          className={`h-full transition-all duration-300 ${isOt ? 'bg-[#f5ecd8]' : 'bg-[var(--intake-accent,#f0feab)]'}`}
           style={{ width: `${progressPercent}%` }}
         />
       </div>
@@ -127,19 +129,19 @@ export default function BMIResultStep({
           </div>
           
           {/* BMI Result Card */}
-          <div className="bg-[#f0feab] rounded-3xl p-5 space-y-3 overflow-visible">
+          <div className={`${isOt ? 'bg-[#f5ecd8]' : 'bg-[#f0feab]'} rounded-3xl p-5 space-y-3 overflow-visible`}>
             <h1 className="text-[22px] font-semibold text-black">
-              <span className="text-[#4fa87f]">{firstName || 'firstname'}</span>, {isSpanish ? 'tu IMC' : 'your BMI'} {isSpanish ? 'es' : 'is'}
+              <span className={isOt ? 'text-[#cab172]' : 'text-[#4fa87f]'}>{firstName || 'firstname'}</span>, {isSpanish ? 'tu IMC' : 'your BMI'} {isSpanish ? 'es' : 'is'}
             </h1>
             
-            <div className="text-5xl font-bold text-[#4fa87f]">{bmi ? bmi.toFixed(2) : 'NaN'}</div>
+            <div className={`text-5xl font-bold ${isOt ? 'text-[#cab172]' : 'text-[#4fa87f]'}`}>{bmi ? bmi.toFixed(2) : 'NaN'}</div>
             
             <div className="space-y-0.5 text-sm text-black">
               <p className="font-normal">
-                {isSpanish ? 'Peso actual' : 'Current weight'}: <span className="text-[#4fa87f]">{currentWeight ? `${currentWeight} lbs` : 'starting_weight lbs'}</span>
+                {isSpanish ? 'Peso actual' : 'Current weight'}: <span className={isOt ? 'text-[#cab172]' : 'text-[#4fa87f]'}>{currentWeight ? `${currentWeight} lbs` : 'starting_weight lbs'}</span>
               </p>
               <p className="font-normal">
-                {isSpanish ? 'Altura' : 'Height'}: <span className="text-[#4fa87f]">{heightStr || "feet'inches\""}</span>
+                {isSpanish ? 'Altura' : 'Height'}: <span className={isOt ? 'text-[#cab172]' : 'text-[#4fa87f]'}>{heightStr || "feet'inches\""}</span>
               </p>
             </div>
             
@@ -151,8 +153,8 @@ export default function BMIResultStep({
             
             <BMIWidget bmi={bmi} language={language as 'en' | 'es'} />
             
-            <div className="bg-[#e4fb74] rounded-2xl p-4 flex items-start space-x-3">
-              <div className="w-8 h-8 bg-[#4fa87f] rounded-full flex items-center justify-center flex-shrink-0">
+            <div className={`${isOt ? 'bg-[#e8dcc4]' : 'bg-[#e4fb74]'} rounded-2xl p-4 flex items-start space-x-3`}>
+              <div className={`w-8 h-8 ${isOt ? 'bg-[#cab172]' : 'bg-[#4fa87f]'} rounded-full flex items-center justify-center flex-shrink-0`}>
                 <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                 </svg>
@@ -168,7 +170,7 @@ export default function BMIResultStep({
           {/* Goal Card */}
           <div className="bg-[#d4f084] rounded-3xl p-5 space-y-3">
             <h2 className="text-lg font-semibold text-black">{isSpanish ? 'Tu objetivo' : 'Your goal'}</h2>
-            <div className="text-5xl font-bold text-[#4fa87f]">{weightToLose ? `${Math.abs(weightToLose).toFixed(2)}` : '0.00'} lbs</div>
+            <div className={`text-5xl font-bold ${isOt ? 'text-[#cab172]' : 'text-[#4fa87f]'}`}>{weightToLose ? `${Math.abs(weightToLose).toFixed(2)}` : '0.00'} lbs</div>
             <p className="text-sm text-black font-normal">
               {isSpanish 
                 ? 'Pérdida promedio con GLP-1: 15-20% del peso corporal'
@@ -177,12 +179,12 @@ export default function BMIResultStep({
             
             <div className="space-y-2 pt-2">
               <p className="text-base font-normal text-black">
-                {isSpanish ? 'IMC objetivo' : 'Goal BMI'}: <span className="text-[#4fa87f] font-semibold">{goalBMI ? goalBMI.toFixed(2) : 'NaN'}</span>
+                {isSpanish ? 'IMC objetivo' : 'Goal BMI'}: <span className={`${isOt ? 'text-[#cab172]' : 'text-[#4fa87f]'} font-semibold`}>{goalBMI ? goalBMI.toFixed(2) : 'NaN'}</span>
               </p>
               
               <button 
                 onClick={() => setShowBmiInfo(!showBmiInfo)}
-                className="flex items-center gap-1 text-[#4fa87f] text-sm font-medium"
+                className={`flex items-center gap-1 ${isOt ? 'text-[#cab172]' : 'text-[#4fa87f]'} text-sm font-medium`}
               >
                 <span className="underline">{isSpanish ? '¿Por qué importa el IMC?' : 'Why does BMI matter?'}</span>
                 <svg 
@@ -196,7 +198,7 @@ export default function BMIResultStep({
               </button>
               
               <div className={`overflow-hidden transition-all duration-300 ease-in-out ${showBmiInfo ? 'max-h-40 opacity-100' : 'max-h-0 opacity-0'}`}>
-                <div className="bg-[#f5ffd6] rounded-xl p-3 mt-1 border border-[#4fa87f]/20">
+                <div className={`${isOt ? 'bg-[#f5ecd8]/50' : 'bg-[#f5ffd6]'} rounded-xl p-3 mt-1 border ${isOt ? 'border-[#cab172]/20' : 'border-[#4fa87f]/20'}`}>
                   <p className="text-sm text-gray-700 leading-relaxed">
                     {isSpanish 
                       ? 'El IMC es una medida de la grasa corporal basada en la altura y el peso. Los médicos lo usan para evaluar riesgos de salud relacionados con el peso y determinar tratamientos apropiados.'
@@ -212,7 +214,7 @@ export default function BMIResultStep({
               </p>
             </div>
 
-            <div className="flex items-center space-x-4 bg-[#f0feab] rounded-2xl p-4 mt-3">
+            <div className={`flex items-center space-x-4 ${isOt ? 'bg-[#f5ecd8]' : 'bg-[#f0feab]'} rounded-2xl p-4 mt-3`}>
               <div className="relative rounded-full overflow-hidden flex-shrink-0" style={{ width: '100px', height: '100px' }}>
                 <Image 
                   src="https://static.wixstatic.com/media/c49a9b_60e51d36e98e4128a6edb7987a3d6b8b~mv2.webp"
@@ -270,7 +272,9 @@ export default function BMIResultStep({
                   key={index}
                   onClick={() => setCarouselIndex(index)}
                   className={`h-1.5 rounded-full transition-all duration-300 ${
-                    carouselIndex === index ? 'w-4 bg-[#4fa87f]' : 'w-1.5 bg-gray-300'
+                    carouselIndex === index
+                      ? `w-4 ${isOt ? 'bg-[#cab172]' : 'bg-[#4fa87f]'}`
+                      : 'w-1.5 bg-gray-300'
                   }`}
                 />
               ))}
