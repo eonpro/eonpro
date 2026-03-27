@@ -163,6 +163,10 @@ export function extractVitalsFromIntake(
   let bmiValue = findValue('bmi');
   if (bmiValue) {
     bmiValue = bmiValue.replace(/[^0-9.]/g, '');
+    const parsed = parseFloat(bmiValue);
+    if (isNaN(parsed) || parsed < 10 || parsed > 100) {
+      bmiValue = null;
+    }
   }
   if (!bmiValue && result.height && result.weight) {
     const calculated = calculateBMI(result.height, result.weight);

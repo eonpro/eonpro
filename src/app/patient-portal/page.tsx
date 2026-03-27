@@ -312,7 +312,14 @@ export default function PatientPortalDashboard() {
       if (vitalsRes.ok) {
         const result = await safeParseJson(vitalsRes);
         if (result && typeof result === 'object' && 'success' in result && result.success && 'data' in result && result.data) {
-          setIntakeVitals(result.data as IntakeVitals);
+          const vitals = result.data as IntakeVitals;
+          if (vitals.bmi) {
+            const bmiNum = parseFloat(vitals.bmi);
+            if (isNaN(bmiNum) || bmiNum < 10 || bmiNum > 100) {
+              vitals.bmi = null;
+            }
+          }
+          setIntakeVitals(vitals);
         }
       }
 
