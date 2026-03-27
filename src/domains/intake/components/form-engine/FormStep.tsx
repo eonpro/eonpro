@@ -40,6 +40,8 @@ import {
   ReferralNameStep,
   BookAppointmentStep,
   PeptideLandingStep,
+  PrescriptionSearchStep,
+  AllergySearchStep,
 } from './steps';
 import {
   WmBmiCalcStep,
@@ -399,6 +401,10 @@ export default function FormStep({
         return <BookAppointmentStep {...customProps} />;
       case 'PeptideLandingStep':
         return <PeptideLandingStep {...customProps} />;
+      case 'PrescriptionSearchStep':
+        return <PrescriptionSearchStep {...customProps} />;
+      case 'AllergySearchStep':
+        return <AllergySearchStep {...customProps} />;
       case 'CheckoutStep':
         return null;
       case 'WmBmiCalcStep':

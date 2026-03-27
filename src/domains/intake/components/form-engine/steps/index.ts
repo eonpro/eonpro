@@ -29,3 +29,5 @@ export { default as ReferralSourceStep } from './ReferralSourceStep';
 export { default as ReferralNameStep } from './ReferralNameStep';
 export { default as BookAppointmentStep } from './BookAppointmentStep';
 export { default as PeptideLandingStep } from './PeptideLandingStep';
+export { default as PrescriptionSearchStep } from './PrescriptionSearchStep';
+export { default as AllergySearchStep } from './AllergySearchStep';
