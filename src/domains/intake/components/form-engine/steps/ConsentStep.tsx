@@ -144,10 +144,10 @@ export default function ConsentStep({
               <button
                 type="button"
                 onClick={() => setAgreed(!agreed)}
-                className={`mt-0.5 flex-shrink-0 rounded flex items-center justify-center cursor-pointer transition-all ${
+                className={`mt-0.5 flex-shrink-0 aspect-square rounded flex items-center justify-center cursor-pointer transition-all ${
                   agreed ? 'bg-[#413d3d] border-[#413d3d]' : 'bg-white border-gray-300'
                 }`}
-                style={{ width: 24, height: 24, minWidth: 24, minHeight: 24, border: agreed ? '2px solid #413d3d' : '2px solid #d1d5db' }}
+                style={{ width: 22, height: 22, minWidth: 22, maxWidth: 22, minHeight: 22, maxHeight: 22, border: agreed ? '2px solid #413d3d' : '2px solid #d1d5db' }}
               >
                 {agreed && (
                   <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" strokeWidth={3} viewBox="0 0 24 24">

@@ -160,8 +160,8 @@ export default function ContactInfoStep({
             <div className="flex items-start gap-4 cursor-pointer" onClick={() => setConsent(!consent)}>
               <button
                 type="button"
-                className="mt-0.5 flex-shrink-0 w-6 h-6 rounded flex items-center justify-center transition-all border-2 border-gray-300"
-                style={{ backgroundColor: consent ? 'var(--intake-selected-bg, #f0feab)' : 'white' }}
+                className="mt-0.5 flex-shrink-0 aspect-square rounded flex items-center justify-center transition-all border-2 border-gray-300"
+                style={{ width: 22, height: 22, minWidth: 22, maxWidth: 22, minHeight: 22, maxHeight: 22, backgroundColor: consent ? 'var(--intake-selected-bg, #f0feab)' : 'white' }}
               >
                 {consent && (
                   <svg className="w-3.5 h-3.5" fill="none" stroke="#413d3d" strokeWidth={3} viewBox="0 0 24 24">
