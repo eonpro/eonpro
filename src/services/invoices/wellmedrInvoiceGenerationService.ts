@@ -239,8 +239,7 @@ export async function generateDailyInvoices(
       patientId: true,
       providerId: true,
       status: true,
-      sourceMetadata: true,
-      patient: { select: { id: true, firstName: true, lastName: true } },
+      patient: { select: { id: true, firstName: true, lastName: true, sourceMetadata: true } },
       provider: { select: { id: true, firstName: true, lastName: true } },
       rxs: {
         select: {
@@ -432,7 +431,7 @@ export async function generateDailyInvoices(
 
     // --- Add-on Products (pharmacy fees from subscription metadata) ---
     let orderAddonKeys: AddonKey[] = [];
-    const meta = order.sourceMetadata as Record<string, unknown> | null;
+    const meta = (order.patient?.sourceMetadata ?? null) as Record<string, unknown> | null;
     if (meta?.selectedAddons) {
       try {
         const parsed = typeof meta.selectedAddons === 'string'
