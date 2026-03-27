@@ -28,8 +28,9 @@ export default function OptionButton({
     >
       {showCheckbox && (
         <div
-          className="w-5 h-5 min-w-[1.25rem] rounded-[5px] flex items-center justify-center flex-shrink-0 transition-all duration-150"
+          className="rounded-[5px] flex items-center justify-center flex-shrink-0 aspect-square transition-all duration-150"
           style={{
+            width: 20, height: 20, minWidth: 20, maxWidth: 20, minHeight: 20, maxHeight: 20,
             borderWidth: '2px',
             borderStyle: 'solid',
             borderColor: selected ? 'var(--intake-accent, #413d3d)' : '#d1d5db',

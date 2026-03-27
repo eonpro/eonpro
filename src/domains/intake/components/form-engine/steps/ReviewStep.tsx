@@ -106,9 +106,10 @@ export default function ReviewStep({
             <button
               type="button"
               onClick={() => setConfirmed(!confirmed)}
-              className={`mt-0.5 flex-shrink-0 w-5 h-5 rounded flex items-center justify-center ${
+              className={`mt-0.5 flex-shrink-0 aspect-square rounded flex items-center justify-center ${
                 confirmed ? (isOt ? 'bg-[#f5ecd8]' : 'bg-[#f0feab]') : 'bg-white'
               }`}
+              style={{ width: 22, height: 22, minWidth: 22, maxWidth: 22, minHeight: 22, maxHeight: 22 }}
               style={{ border: '1.5px solid #413d3d' }}
             >
               {confirmed && (

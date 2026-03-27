@@ -178,8 +178,8 @@ export default function DateOfBirthStep({
               <div className="flex items-start gap-4 cursor-pointer" onClick={() => setCertified(!certified)}>
                 <button
                   type="button"
-                  className="mt-0.5 flex-shrink-0 w-6 h-6 rounded flex items-center justify-center transition-all border-2 border-gray-300"
-                  style={{ backgroundColor: certified ? 'var(--intake-selected-bg, #f0feab)' : 'white' }}
+                  className="mt-0.5 flex-shrink-0 aspect-square rounded flex items-center justify-center transition-all border-2 border-gray-300"
+                  style={{ width: 22, height: 22, minWidth: 22, maxWidth: 22, minHeight: 22, maxHeight: 22, backgroundColor: certified ? 'var(--intake-selected-bg, #f0feab)' : 'white' }}
                 >
                   {certified && (
                     <svg className="w-4 h-4" fill="none" stroke="#413d3d" strokeWidth={3} viewBox="0 0 24 24">
