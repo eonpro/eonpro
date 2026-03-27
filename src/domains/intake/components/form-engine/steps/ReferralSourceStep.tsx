@@ -31,6 +31,7 @@ const T = {
 
 export default function ReferralSourceStep({
   basePath,
+  nextStep,
   prevStep,
   progressPercent,
 }: ReferralSourceStepProps) {
@@ -41,9 +42,10 @@ export default function ReferralSourceStep({
 
   const handleSelect = useCallback((id: string) => {
     setResponse('referral_source', id);
-    const target = REQUIRES_NAME.has(id) ? 'referral-name' : 'health-improvements';
+    const fallback = nextStep || 'review';
+    const target = REQUIRES_NAME.has(id) ? 'referral-name' : fallback;
     setTimeout(() => router.push(`${basePath}/${target}`), 150);
-  }, [basePath, router, setResponse]);
+  }, [basePath, nextStep, router, setResponse]);
 
   const handleBack = () => {
     if (prevStep) router.push(`${basePath}/${prevStep}`);
