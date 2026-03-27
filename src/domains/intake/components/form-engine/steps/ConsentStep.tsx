@@ -86,7 +86,7 @@ export default function ConsentStep({
             </p>
           </div>
 
-          <div className="space-y-2 max-w-[65%]">
+          <div className="space-y-2 max-w-[80%]">
             {/* Health Priority Card */}
             <div className={`${isOt ? 'bg-[#f5ecd8]' : 'bg-[#f0feab]'} rounded-2xl overflow-hidden flex items-center h-[90px]`}>
               <div className="flex-shrink-0 w-[72px] h-full flex items-end">
@@ -101,10 +101,10 @@ export default function ConsentStep({
                 />
               </div>
               <div className="flex-1 flex flex-col justify-center pr-4 py-2">
-                <h3 className="font-bold text-[13px] leading-tight mb-0.5">
+                <h3 className="font-bold text-[16px] leading-tight mb-0.5">
                   {isSpanish ? 'Tu salud es nuestra prioridad' : 'Your health is our priority'}
                 </h3>
-                <p className="text-[11px] leading-snug text-[#413d3d]/70">
+                <p className="text-[14px] leading-snug text-[#413d3d]/70">
                   {isSpanish
                     ? 'Tratamientos seguros personalizados para ti'
                     : 'Safe treatments tailored just for you!'}
@@ -126,10 +126,10 @@ export default function ConsentStep({
                 />
               </div>
               <div className="flex-1 flex flex-col justify-center pr-4 py-2">
-                <h3 className="font-bold text-[13px] leading-tight mb-0.5">
+                <h3 className="font-bold text-[16px] leading-tight mb-0.5">
                   {isSpanish ? 'Revisión médica confidencial' : 'Confidential medical review'}
                 </h3>
-                <p className="text-[11px] leading-snug text-[#413d3d]/70">
+                <p className="text-[14px] leading-snug text-[#413d3d]/70">
                   {isSpanish
                     ? 'Un proveedor autorizado revisará tus respuestas'
                     : 'A licensed provider will review your responses'}
