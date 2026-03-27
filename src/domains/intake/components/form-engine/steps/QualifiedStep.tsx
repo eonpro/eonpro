@@ -89,9 +89,13 @@ export default function QualifiedStep({ basePath, prevStep }: QualifiedStepProps
 
   useEffect(() => {
     if (responses.firstName) setFirstName(String(responses.firstName));
+  }, [responses.firstName]);
+
+  useEffect(() => {
     setTimeout(() => { fireConfetti(); }, 500);
     setTimeout(() => { setShowPhase2(true); }, 2000);
-  }, [responses.firstName]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (submittedRef.current) return;
