@@ -802,7 +802,8 @@ export default function ClinicDetailPage() {
       }
     } catch (error) {
       process.env.NODE_ENV === 'development' && console.error('Error updating user:', error);
-      alert('Failed to update user');
+      const msg = error instanceof Error ? error.message : 'Failed to update user';
+      alert(msg);
     } finally {
       setEditingUser(false);
     }

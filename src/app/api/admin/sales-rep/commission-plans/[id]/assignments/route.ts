@@ -117,10 +117,17 @@ export const POST = withAuth(
         }
       }
 
-      // Verify rep belongs to clinic and is SALES_REP
+      // Verify rep belongs to clinic and is SALES_REP (check both legacy clinicId and userClinics)
       const rep = await runWithClinicContext(clinicId, async () =>
         prisma.user.findFirst({
-          where: { id: repId, role: 'SALES_REP', clinicId },
+          where: {
+            id: repId,
+            role: 'SALES_REP',
+            OR: [
+              { clinicId },
+              { userClinics: { some: { clinicId, isActive: true } } },
+            ],
+          },
         })
       );
       if (!rep) {
