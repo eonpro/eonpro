@@ -92,8 +92,8 @@ export default function QualifiedStep({ basePath, prevStep }: QualifiedStepProps
   }, [responses.firstName]);
 
   useEffect(() => {
-    setTimeout(() => { fireConfetti(); }, 500);
-    setTimeout(() => { setShowPhase2(true); }, 2000);
+    setTimeout(() => { fireConfetti(); }, 300);
+    setTimeout(() => { setShowPhase2(true); }, 800);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -133,18 +133,24 @@ export default function QualifiedStep({ basePath, prevStep }: QualifiedStepProps
   const fireConfetti = () => {
     if (confettiRef.current) return;
     confettiRef.current = true;
-    const script = document.createElement('script');
-    script.src = 'https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.0/dist/confetti.browser.min.js';
-    script.onload = () => {
+    const colors = isOt ? ['#cab172', '#f5ecd8', '#413d3d', '#d4a843', '#e8d5a0'] : ['#7cb342', '#aed581', '#e8f5d9', '#4fa87f', '#66bb6a', '#81c784'];
+    const launchConfetti = () => {
       const confetti = (window as unknown as { confetti: (opts: unknown) => void }).confetti;
       if (!confetti) return;
       const end = Date.now() + 3000;
       const frame = () => {
-        confetti({ particleCount: 10, angle: 270, spread: 180, origin: { x: 0.5, y: 0 }, gravity: 1.5, startVelocity: 30, colors: isOt ? ['#cab172', '#f5ecd8', '#413d3d', '#d4a843', '#e8d5a0'] : ['#7cb342', '#aed581', '#e8f5d9', '#4fa87f', '#66bb6a', '#81c784'] });
+        confetti({ particleCount: 10, angle: 270, spread: 180, origin: { x: 0.5, y: 0 }, gravity: 1.5, startVelocity: 30, colors });
         if (Date.now() < end) requestAnimationFrame(frame);
       };
       frame();
     };
+    if ((window as unknown as { confetti: unknown }).confetti) {
+      launchConfetti();
+      return;
+    }
+    const script = document.createElement('script');
+    script.src = 'https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.0/dist/confetti.browser.min.js';
+    script.onload = launchConfetti;
     document.head.appendChild(script);
   };
 
@@ -187,9 +193,9 @@ export default function QualifiedStep({ basePath, prevStep }: QualifiedStepProps
         )}
 
         <div className="flex-1 flex flex-col px-6 lg:px-8 py-8 max-w-md lg:max-w-2xl mx-auto w-full">
-          <div className="w-24 h-24 rounded-full overflow-hidden mb-6 border-2 border-[#cab172]/30">
+          <div className="w-32 h-32 rounded-2xl overflow-hidden mb-6 border-2 border-[#cab172]/20">
             <img
-              src="https://static.wixstatic.com/media/c49a9b_69f9d06860b246988ff7df8096e170fb~mv2.png"
+              src="https://static.wixstatic.com/media/c49a9b_0e0d844da3914972855d63bc78725d99~mv2.png"
               alt="Provider"
               className="w-full h-full object-cover"
             />

@@ -82,6 +82,10 @@ export default function BMIResultStep({
         const calculatedGoalBMI = (idealWeight / (totalInches * totalInches)) * 703;
         setGoalBMI(Math.round(calculatedGoalBMI * 100) / 100);
       }
+
+      setTimeout(() => {
+        window.scrollTo({ top: 300, behavior: 'smooth' });
+      }, 1500);
     }
   }, [currentWeight, idealWeight, totalInches, setResponse]);
 
@@ -214,8 +218,8 @@ export default function BMIResultStep({
               </p>
             </div>
 
-            <div className={`flex items-center space-x-4 ${isOt ? 'bg-[#f5ecd8]' : 'bg-[#f0feab]'} rounded-2xl p-4 mt-3`}>
-              <div className="relative rounded-full overflow-hidden flex-shrink-0" style={{ width: '100px', height: '100px' }}>
+            <div className={`flex items-center space-x-4 ${isOt ? 'bg-[#c9a85c]' : 'bg-[#f0feab]'} rounded-2xl p-4 mt-3`}>
+              <div className={`relative rounded-full overflow-hidden flex-shrink-0 ${isOt ? 'ring-2 ring-[#b89845]' : ''}`} style={{ width: '100px', height: '100px' }}>
                 <Image
                   src={isOt
                     ? 'https://static.wixstatic.com/media/c49a9b_0b980de32c824bbe9b55082cc8c90476~mv2.webp'

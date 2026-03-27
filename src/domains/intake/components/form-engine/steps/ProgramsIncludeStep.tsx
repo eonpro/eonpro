@@ -37,7 +37,7 @@ export default function ProgramsIncludeStep({
       title: 'Chequeos Semanales',
       description: 'Un representate asignado estará contigo durante todo tu tratamiento*',
       bgColor: isOt ? '#cab172' : '#4ea77e',
-      image: isOt ? 'https://static.wixstatic.com/media/c49a9b_5b9a0976f96044ccbf05c4d90c382f2d~mv2.webp' : 'https://static.wixstatic.com/media/c49a9b_2c49b136f5ec49c787b37346cca7f47b~mv2.webp'
+      image: isOt ? 'https://static.wixstatic.com/media/c49a9b_0b980de32c824bbe9b55082cc8c90476~mv2.webp' : 'https://static.wixstatic.com/media/c49a9b_2c49b136f5ec49c787b37346cca7f47b~mv2.webp'
     },
     {
       title: 'Consultas Médicas',
@@ -56,7 +56,7 @@ export default function ProgramsIncludeStep({
       title: 'Weekly Check-ins',
       description: 'An assigned representative will be with you throughout your treatment*',
       bgColor: isOt ? '#cab172' : '#4ea77e',
-      image: isOt ? 'https://static.wixstatic.com/media/c49a9b_5b9a0976f96044ccbf05c4d90c382f2d~mv2.webp' : 'https://static.wixstatic.com/media/c49a9b_2c49b136f5ec49c787b37346cca7f47b~mv2.webp'
+      image: isOt ? 'https://static.wixstatic.com/media/c49a9b_0b980de32c824bbe9b55082cc8c90476~mv2.webp' : 'https://static.wixstatic.com/media/c49a9b_2c49b136f5ec49c787b37346cca7f47b~mv2.webp'
     },
     {
       title: 'Medical Consultations',
