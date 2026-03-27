@@ -251,9 +251,24 @@ const steps: FormStep[] = [
     fields: [],
     autoAdvance: true,
     showContinueButton: false,
-    nextStep: 'contact-info',
+    nextStep: 'bmi-result',
     prevStep: 'current-weight',
     progressPercent: 34,
+  },
+
+  // ===== BMI RESULT =====
+  {
+    id: 'bmi-result',
+    path: 'bmi-result',
+    title: { en: 'Your BMI Result', es: 'Tu Resultado de IMC' },
+    type: 'custom',
+    component: 'BMIResultStep',
+    fields: [],
+    autoAdvance: false,
+    showContinueButton: true,
+    nextStep: 'contact-info',
+    prevStep: 'current-weight',
+    progressPercent: 36,
   },
 
   // ===== CONTACT INFO =====
