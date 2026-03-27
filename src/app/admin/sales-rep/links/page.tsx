@@ -21,7 +21,6 @@ import {
   Send,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api/fetch';
-import { useAuth } from '@/lib/auth/AuthContext';
 
 interface RefCodeItem {
   id: string;
@@ -56,9 +55,18 @@ interface TemplateOption {
 const ADMIN_ROLES = ['super_admin', 'admin', 'staff'];
 
 export default function IntakeLinksPage() {
-  const { user } = useAuth();
-  const isAdmin = user?.role ? ADMIN_ROLES.includes(user.role) : false;
-  const isSalesRep = user?.role === 'sales_rep';
+  const [userRole, setUserRole] = useState<string | null>(null);
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('user');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        setUserRole(String(parsed?.role ?? '').toLowerCase() || null);
+      }
+    } catch { /* ignore */ }
+  }, []);
+  const isAdmin = userRole ? ADMIN_ROLES.includes(userRole) : false;
+  const isSalesRep = userRole === 'sales_rep';
 
   const [data, setData] = useState<LinksData | null>(null);
   const [loading, setLoading] = useState(true);
