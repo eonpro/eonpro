@@ -159,21 +159,21 @@ export default function ConsentStep({
                 className="text-[13px] text-[#413d3d] leading-tight cursor-pointer"
                 onClick={() => setAgreed(!agreed)}
               >
-                {isSpanish ? 'Acepto los ' : 'I agree to the '}
-                <a href="#" className="text-[#413d3d] underline" onClick={(e) => e.stopPropagation()}>
+                {isSpanish ? 'Al marcar esta casilla, reconozco que he leído, entendido y acepto los ' : 'By clicking this box, I acknowledge that I have read, understood, and agree to the '}
+                <a href={isOt ? 'https://www.otmens.com/termsandconditions' : 'https://www.eonmeds.com/termsandconditions'} target="_blank" rel="noopener noreferrer" className="text-[#413d3d] underline" onClick={(e) => e.stopPropagation()}>
                   {isSpanish ? 'Términos de Uso' : 'Terms of Use'}
                 </a>
-                {isSpanish ? ' y la ' : ' and '}
-                <a href="#" className="text-[#413d3d] underline" onClick={(e) => e.stopPropagation()}>
+                {isSpanish ? ', y entiendo y acepto la ' : ', and I understand and agree to the '}
+                <a href={isOt ? 'https://www.otmens.com/privacypolicy' : 'https://www.eonmeds.com/privacypolicy'} target="_blank" rel="noopener noreferrer" className="text-[#413d3d] underline" onClick={(e) => e.stopPropagation()}>
                   {isSpanish ? 'Política de Privacidad' : 'Privacy Policy'}
                 </a>
                 {', '}
-                <a href="#" className="text-[#413d3d] underline" onClick={(e) => e.stopPropagation()}>
+                <a href={isOt ? 'https://www.otmens.com/telehealthconsent' : 'https://www.eonmeds.com/telehealthconsent'} target="_blank" rel="noopener noreferrer" className="text-[#413d3d] underline" onClick={(e) => e.stopPropagation()}>
                   {isSpanish ? 'Consentimiento de Telesalud' : 'Telehealth Consent'}
                 </a>
                 {isSpanish ? ' y ' : ' and '}
-                <a href="#" className="text-[#413d3d] underline" onClick={(e) => e.stopPropagation()}>
-                  {isSpanish ? 'Política de Cancelación' : 'Cancellation Policy'}
+                <a href={isOt ? 'https://www.otmens.com/cancellationpolicy' : 'https://www.eonmeds.com/cancellationpolicy'} target="_blank" rel="noopener noreferrer" className="text-[#413d3d] underline" onClick={(e) => e.stopPropagation()}>
+                  {isSpanish ? 'política de cancelación' : 'cancelation policy'}
                 </a>.
               </div>
             </div>
