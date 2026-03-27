@@ -79,7 +79,7 @@ interface PrescriptionServiceLineItem {
   providerId: number;
   medications: string;
   feeCents: number;
-  chargeType: 'new' | 'refill';
+  chargeType: 'new' | 'refill' | 'cancelled';
 }
 
 interface PrescriptionServicesInvoice {
@@ -94,6 +94,7 @@ interface PrescriptionServicesInvoice {
   refillFeeCents: number;
   newPrescriptionCount: number;
   refillPrescriptionCount: number;
+  cancelledPrescriptionCount: number;
   totalPrescriptions: number;
   totalCents: number;
 }
@@ -879,6 +880,11 @@ function PrescriptionServicesView({ invoice }: { invoice: PrescriptionServicesIn
               <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
                 {invoice.refillPrescriptionCount} refill @ {centsToDisplay(invoice.refillFeeCents)}
               </span>
+              {invoice.cancelledPrescriptionCount > 0 && (
+                <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-500">
+                  {invoice.cancelledPrescriptionCount} cancelled
+                </span>
+              )}
             </span>
           </h3>
         </div>
@@ -917,7 +923,11 @@ function PrescriptionServicesView({ invoice }: { invoice: PrescriptionServicesIn
                     {li.medications}
                   </td>
                   <td className="px-4 py-2.5">
-                    {li.chargeType === 'new' ? (
+                    {li.chargeType === 'cancelled' ? (
+                      <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-500">
+                        Cancelled
+                      </span>
+                    ) : li.chargeType === 'new' ? (
                       <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">
                         New
                       </span>
@@ -966,6 +976,9 @@ function PrescriptionServicesView({ invoice }: { invoice: PrescriptionServicesIn
               {invoice.newPrescriptionCount} new x {centsToDisplay(invoice.newFeeCents)}
               {invoice.refillPrescriptionCount > 0 && (
                 <> + {invoice.refillPrescriptionCount} refill x {centsToDisplay(invoice.refillFeeCents)}</>
+              )}
+              {invoice.cancelledPrescriptionCount > 0 && (
+                <> + {invoice.cancelledPrescriptionCount} cancelled @ $0.00</>
               )}
             </p>
           </div>

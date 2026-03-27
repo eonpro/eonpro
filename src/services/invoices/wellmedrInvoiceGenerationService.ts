@@ -107,7 +107,7 @@ export interface PrescriptionServiceLineItem {
   providerId: number;
   medications: string;
   feeCents: number;
-  chargeType: 'new' | 'refill';
+  chargeType: 'new' | 'refill' | 'cancelled';
 }
 
 export interface PrescriptionServicesInvoice {
@@ -123,6 +123,7 @@ export interface PrescriptionServicesInvoice {
   refillFeeCents: number;
   newPrescriptionCount: number;
   refillPrescriptionCount: number;
+  cancelledPrescriptionCount: number;
   totalPrescriptions: number;
   totalCents: number;
 }
@@ -202,6 +203,7 @@ export async function generateDailyInvoices(
       id: true,
       createdAt: true,
       approvedAt: true,
+      cancelledAt: true,
       lifefileOrderId: true,
       shippingMethod: true,
       patientId: true,
@@ -325,6 +327,7 @@ export async function generateDailyInvoices(
     const orderDate = sentAt.toISOString();
     const invoiceData = invoiceByOrderId.get(order.id);
     const paidAt = invoiceData?.paidAt?.toISOString() ?? null;
+    const isCancelled = order.cancelledAt != null;
 
     // --- Pharmacy Products ---
     let orderVialCount = 0;
@@ -335,8 +338,10 @@ export async function generateDailyInvoices(
       if (!product) continue;
 
       const qty = parseInt(rx.quantity, 10) || 1;
+      const unitPrice = isCancelled ? 0 : product.priceCents;
+
       orderVialCount += qty;
-      orderMedTotalCents += product.priceCents * qty;
+      orderMedTotalCents += unitPrice * qty;
 
       for (let v = 0; v < qty; v++) {
         pharmacyLineItems.push({
@@ -353,8 +358,8 @@ export async function generateDailyInvoices(
           vialSize: product.vialSize,
           medicationKey: rx.medicationKey,
           quantity: 1,
-          unitPriceCents: product.priceCents,
-          lineTotalCents: product.priceCents,
+          unitPriceCents: unitPrice,
+          lineTotalCents: unitPrice,
         });
       }
     }
@@ -362,7 +367,8 @@ export async function generateDailyInvoices(
     subtotalMedicationsCents += orderMedTotalCents;
     totalVialCount += orderVialCount;
 
-    if (orderVialCount > 0) {
+    // No shipping or addon charges for cancelled orders
+    if (!isCancelled && orderVialCount > 0) {
       if (orderVialCount === 1) {
         const fee = SINGLE_VIAL_SHIPPING_FEE_CENTS;
         subtotalShippingCents += fee;
@@ -408,59 +414,81 @@ export async function generateDailyInvoices(
       } catch { /* ignore parse errors */ }
     }
 
-    for (const addonKey of orderAddonKeys) {
-      const addonFee = ADDON_PHARMACY_FEES[addonKey];
-      if (addonFee) {
-        addonLineItems.push({
-          orderId: order.id,
-          lifefileOrderId: order.lifefileOrderId,
-          orderDate,
-          paidAt,
-          patientName,
-          patientId: order.patientId,
-          addonKey,
-          addonName: addonFee.name,
-          feeCents: addonFee.pharmacyFeeCents,
-        });
+    if (!isCancelled) {
+      for (const addonKey of orderAddonKeys) {
+        const addonFee = ADDON_PHARMACY_FEES[addonKey];
+        if (addonFee) {
+          addonLineItems.push({
+            orderId: order.id,
+            lifefileOrderId: order.lifefileOrderId,
+            orderDate,
+            paidAt,
+            patientName,
+            patientId: order.patientId,
+            addonKey,
+            addonName: addonFee.name,
+            feeCents: addonFee.pharmacyFeeCents,
+          });
+        }
       }
     }
 
-    // --- Prescription Services (90-day cycle: $20 new / $3 refill) ---
-    const anchor = cycleAnchorByPatient.get(order.patientId) ?? null;
-    let chargeType: 'new' | 'refill';
-    let rxFee: number;
+    // --- Prescription Services ---
+    // Cancelled orders show on the invoice at $0 and don't affect the 90-day cycle.
+    if (isCancelled) {
+      const medicationsList = order.rxs
+        .map((rx) => `${rx.medName} ${rx.strength}`)
+        .join(', ');
 
-    if (!anchor || daysBetween(anchor, sentAt) >= PRESCRIPTION_SERVICE_CYCLE_DAYS) {
-      chargeType = 'new';
-      rxFee = PRESCRIPTION_SERVICE_FEE_CENTS;
-      cycleAnchorByPatient.set(order.patientId, sentAt);
+      rxServiceLineItems.push({
+        orderId: order.id,
+        lifefileOrderId: order.lifefileOrderId,
+        orderDate,
+        paidAt,
+        patientName,
+        patientId: order.patientId,
+        providerName,
+        providerId: order.providerId,
+        medications: medicationsList,
+        feeCents: 0,
+        chargeType: 'cancelled',
+      });
     } else {
-      chargeType = 'refill';
-      rxFee = PRESCRIPTION_SERVICE_REFILL_FEE_CENTS;
+      const anchor = cycleAnchorByPatient.get(order.patientId) ?? null;
+      let chargeType: 'new' | 'refill';
+      let rxFee: number;
+
+      if (!anchor || daysBetween(anchor, sentAt) >= PRESCRIPTION_SERVICE_CYCLE_DAYS) {
+        chargeType = 'new';
+        rxFee = PRESCRIPTION_SERVICE_FEE_CENTS;
+        cycleAnchorByPatient.set(order.patientId, sentAt);
+      } else {
+        chargeType = 'refill';
+        rxFee = PRESCRIPTION_SERVICE_REFILL_FEE_CENTS;
+      }
+
+      const addonUpcharge = getAddonPrescriptionUpchargeCents(orderAddonKeys);
+      rxFee += addonUpcharge;
+
+      const medicationsList = order.rxs
+        .filter((rx) => WELLMEDR_PRICED_PRODUCT_IDS.has(rx.medicationKey))
+        .map((rx) => `${rx.medName} ${rx.strength}`)
+        .join(', ');
+
+      rxServiceLineItems.push({
+        orderId: order.id,
+        lifefileOrderId: order.lifefileOrderId,
+        orderDate,
+        paidAt,
+        patientName,
+        patientId: order.patientId,
+        providerName,
+        providerId: order.providerId,
+        medications: medicationsList || order.rxs.map((rx) => `${rx.medName} ${rx.strength}`).join(', '),
+        feeCents: rxFee,
+        chargeType,
+      });
     }
-
-    // Add $5 upcharge per addon to the prescription invoice for EonPro
-    const addonUpcharge = getAddonPrescriptionUpchargeCents(orderAddonKeys);
-    rxFee += addonUpcharge;
-
-    const medicationsList = order.rxs
-      .filter((rx) => WELLMEDR_PRICED_PRODUCT_IDS.has(rx.medicationKey))
-      .map((rx) => `${rx.medName} ${rx.strength}`)
-      .join(', ');
-
-    rxServiceLineItems.push({
-      orderId: order.id,
-      lifefileOrderId: order.lifefileOrderId,
-      orderDate,
-      paidAt,
-      patientName,
-      patientId: order.patientId,
-      providerName,
-      providerId: order.providerId,
-      medications: medicationsList || order.rxs.map((rx) => `${rx.medName} ${rx.strength}`).join(', '),
-      feeCents: rxFee,
-      chargeType,
-    });
   }
 
   const subtotalAddonsCents = addonLineItems.reduce((sum, li) => sum + li.feeCents, 0);
@@ -468,6 +496,7 @@ export async function generateDailyInvoices(
   const rxServicesTotalCents = rxServiceLineItems.reduce((sum, li) => sum + li.feeCents, 0);
   const newCount = rxServiceLineItems.filter((li) => li.chargeType === 'new').length;
   const refillCount = rxServiceLineItems.filter((li) => li.chargeType === 'refill').length;
+  const cancelledCount = rxServiceLineItems.filter((li) => li.chargeType === 'cancelled').length;
 
   return {
     pharmacy: {
@@ -500,6 +529,7 @@ export async function generateDailyInvoices(
       refillFeeCents: PRESCRIPTION_SERVICE_REFILL_FEE_CENTS,
       newPrescriptionCount: newCount,
       refillPrescriptionCount: refillCount,
+      cancelledPrescriptionCount: cancelledCount,
       totalPrescriptions: rxServiceLineItems.length,
       totalCents: rxServicesTotalCents,
     },
@@ -605,6 +635,9 @@ export function generatePrescriptionServicesCSV(invoice: PrescriptionServicesInv
   lines.push(`Refill Fee (within ${PRESCRIPTION_SERVICE_CYCLE_DAYS} days),$${centsToDisplay(invoice.refillFeeCents)}`);
   lines.push(`New Prescriptions,${invoice.newPrescriptionCount}`);
   lines.push(`Refill Prescriptions,${invoice.refillPrescriptionCount}`);
+  if (invoice.cancelledPrescriptionCount > 0) {
+    lines.push(`Cancelled Prescriptions,${invoice.cancelledPrescriptionCount}`);
+  }
   lines.push(`Total Prescriptions,${invoice.totalPrescriptions}`);
   lines.push('');
 
@@ -624,7 +657,7 @@ export function generatePrescriptionServicesCSV(invoice: PrescriptionServicesInv
         li.patientName,
         li.providerName,
         li.medications,
-        li.chargeType === 'new' ? 'New' : 'Refill',
+        li.chargeType === 'cancelled' ? 'Cancelled' : li.chargeType === 'new' ? 'New' : 'Refill',
         `$${centsToDisplay(li.feeCents)}`,
       ]
         .map(escapeCSV)
@@ -980,9 +1013,10 @@ export async function generatePrescriptionServicesPDF(invoice: PrescriptionServi
     t(tr(li.patientName, 20), rc.patient, helvB, 7.5);
     t(li.lifefileOrderId ?? '-', rc.lf, sofia, 7, mid);
     t(tr(li.medications, 20), rc.meds, sofia, 7);
-    const isNew = li.chargeType === 'new';
-    t(isNew ? 'New' : 'Refill', rc.type, helvB, 6.5, isNew ? newBadgeColor : refillBadgeColor);
-    t($(li.feeCents), rc.fee, helvB, 7.5, amber);
+    const typeLabel = li.chargeType === 'cancelled' ? 'Cancelled' : li.chargeType === 'new' ? 'New' : 'Refill';
+    const typeColor = li.chargeType === 'cancelled' ? mid : li.chargeType === 'new' ? newBadgeColor : refillBadgeColor;
+    t(typeLabel, rc.type, helvB, 6.5, typeColor);
+    t($(li.feeCents), rc.fee, helvB, 7.5, li.chargeType === 'cancelled' ? mid : amber);
     y -= R;
   }
 
