@@ -1,5 +1,6 @@
 'use client';
 
+import { Component, type ErrorInfo, type ReactNode } from 'react';
 import PatientIntakeView from '@/components/PatientIntakeView';
 import { PatientBillingView } from '@/components/PatientBillingView';
 import PatientPaymentMethods from '@/components/PatientPaymentMethods';
@@ -7,10 +8,29 @@ import PatientSOAPNotesView from '@/components/PatientSOAPNotesView';
 import PatientChatView from '@/components/PatientChatView';
 import PatientAppointmentsView from '@/components/PatientAppointmentsView';
 import dynamic from 'next/dynamic';
-const PatientProgressView = dynamic(() => import('@/components/PatientProgressView'), {
-  ssr: false,
-  loading: () => <div className="h-64 animate-pulse rounded-xl bg-gray-100" />,
-});
+const PatientProgressView = dynamic(
+  () => import('@/components/PatientProgressView').catch((err) => {
+    // Return a fallback module so React doesn't crash on chunk load failure
+    return {
+      default: () => (
+        <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-center">
+          <p className="text-sm font-medium text-red-800">Failed to load Progress tab</p>
+          <p className="mt-1 text-xs text-red-600">{err?.message || 'Unknown error'}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="mt-3 rounded-lg bg-red-600 px-4 py-2 text-sm text-white hover:bg-red-700"
+          >
+            Reload Page
+          </button>
+        </div>
+      ),
+    };
+  }),
+  {
+    ssr: false,
+    loading: () => <div className="h-64 animate-pulse rounded-xl bg-gray-100" />,
+  }
+);
 import PatientPrescriptionsTab from '@/components/PatientPrescriptionsTab';
 import PatientDocumentsView from '@/components/PatientDocumentsView';
 import PatientLabView from '@/components/PatientLabView';
@@ -23,6 +43,57 @@ import { usePatientTab } from '@/components/PatientTabContext';
 import PatientVitalsCard from '@/components/PatientVitalsCard';
 import WeightProgressSummary from '@/components/WeightProgressSummary';
 import PatientProgressSummary from '@/components/PatientProgressSummary';
+import { logger } from '@/lib/logger';
+
+interface TabErrorBoundaryState {
+  hasError: boolean;
+  error: Error | null;
+}
+
+class TabErrorBoundary extends Component<
+  { tabName: string; children: ReactNode },
+  TabErrorBoundaryState
+> {
+  constructor(props: { tabName: string; children: ReactNode }) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error): TabErrorBoundaryState {
+    return { hasError: true, error };
+  }
+
+  override componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    logger.error(`Tab "${this.props.tabName}" crashed`, {
+      error: error.message,
+      componentStack: errorInfo.componentStack?.slice(0, 500),
+    });
+  }
+
+  override render() {
+    if (this.state.hasError) {
+      return (
+        <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-center">
+          <p className="text-sm font-medium text-red-800">
+            Something went wrong loading the {this.props.tabName} tab
+          </p>
+          <p className="mt-1 text-xs text-red-600">
+            {this.state.error?.message || 'An unexpected error occurred'}
+          </p>
+          <button
+            onClick={() => {
+              this.setState({ hasError: false, error: null });
+            }}
+            className="mt-3 rounded-lg bg-red-600 px-4 py-2 text-sm text-white hover:bg-red-700"
+          >
+            Try Again
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 interface PatientProfileClientProps {
   patientId: number;
@@ -160,7 +231,9 @@ export default function PatientProfileClient(props: PatientProfileClientProps) {
           Prescription submitted successfully.
         </div>
       )}
-      <TabContent {...activeProps} />
+      <TabErrorBoundary tabName={currentTab} key={currentTab}>
+        <TabContent {...activeProps} />
+      </TabErrorBoundary>
     </>
   );
 }

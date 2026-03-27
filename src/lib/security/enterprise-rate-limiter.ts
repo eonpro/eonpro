@@ -124,8 +124,20 @@ const DELAY_SCHEDULE = [
 // Redis Client (shared singleton from @/lib/cache/redis)
 // ============================================================================
 
+const REDIS_OP_TIMEOUT_MS = 2_000;
+
 function getRedisClient() {
   return cache.getClient();
+}
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`Redis op timed out after ${ms}ms`)), ms);
+    promise.then(
+      (val) => { clearTimeout(timer); resolve(val); },
+      (err) => { clearTimeout(timer); reject(err); },
+    );
+  });
 }
 
 // ============================================================================
@@ -182,13 +194,16 @@ async function getEntry(key: string): Promise<RateLimitEntry | null> {
 
   if (redis) {
     try {
-      const data = await redis.get<RateLimitEntry | string>(key);
+      const data = await withTimeout(
+        redis.get<RateLimitEntry | string>(key),
+        REDIS_OP_TIMEOUT_MS,
+      );
       if (data) {
         return typeof data === 'string' ? JSON.parse(data) : data;
       }
       return null;
     } catch (err) {
-      logger.warn('[EnterpriseRateLimit] Redis read failed', { key, error: err });
+      logger.warn('[EnterpriseRateLimit] Redis read failed', { key, error: err instanceof Error ? err.message : String(err) });
     }
   }
 
@@ -200,10 +215,13 @@ async function setEntry(key: string, entry: RateLimitEntry, ttlSeconds: number):
 
   if (redis) {
     try {
-      await redis.setex(key, ttlSeconds, JSON.stringify(entry));
+      await withTimeout(
+        redis.setex(key, ttlSeconds, JSON.stringify(entry)),
+        REDIS_OP_TIMEOUT_MS,
+      );
       return;
     } catch (err) {
-      logger.warn('[EnterpriseRateLimit] Redis write failed', { key, error: err });
+      logger.warn('[EnterpriseRateLimit] Redis write failed', { key, error: err instanceof Error ? err.message : String(err) });
     }
   }
 
@@ -215,9 +233,9 @@ async function deleteEntry(key: string): Promise<void> {
 
   if (redis) {
     try {
-      await redis.del(key);
+      await withTimeout(redis.del(key), REDIS_OP_TIMEOUT_MS);
     } catch (err) {
-      logger.warn('[EnterpriseRateLimit] Redis delete failed', { key, error: err });
+      logger.warn('[EnterpriseRateLimit] Redis delete failed', { key, error: err instanceof Error ? err.message : String(err) });
     }
   }
 

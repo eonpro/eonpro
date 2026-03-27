@@ -8,6 +8,10 @@
  * Falls back gracefully to a no-op cache when Upstash env vars are missing
  * (local dev without Redis).
  *
+ * Includes a per-call timeout (REDIS_CALL_TIMEOUT_MS) and a circuit breaker
+ * that trips after consecutive failures, preventing cascading 504s when
+ * Upstash latency spikes (see incident: 2026-03-26 17:15-17:55 UTC).
+ *
  * @module cache/redis
  */
 
@@ -19,9 +23,65 @@ interface CacheOptions {
   namespace?: string;
 }
 
+// ---------------------------------------------------------------------------
+// Timeout + Circuit Breaker Configuration
+// ---------------------------------------------------------------------------
+
+const REDIS_CALL_TIMEOUT_MS = 2_000;
+const CIRCUIT_BREAKER_THRESHOLD = 5;
+const CIRCUIT_BREAKER_COOLDOWN_MS = 30_000;
+
+class CircuitBreaker {
+  private failures = 0;
+  private trippedAt = 0;
+
+  isOpen(): boolean {
+    if (this.failures < CIRCUIT_BREAKER_THRESHOLD) return false;
+    if (Date.now() - this.trippedAt > CIRCUIT_BREAKER_COOLDOWN_MS) {
+      this.halfOpen();
+      return false;
+    }
+    return true;
+  }
+
+  recordSuccess(): void {
+    if (this.failures > 0) {
+      this.failures = 0;
+      this.trippedAt = 0;
+    }
+  }
+
+  recordFailure(): void {
+    this.failures++;
+    if (this.failures >= CIRCUIT_BREAKER_THRESHOLD && this.trippedAt === 0) {
+      this.trippedAt = Date.now();
+      logger.warn('[RedisCache] Circuit breaker OPEN — skipping Redis for cooldown', {
+        failures: this.failures,
+        cooldownMs: CIRCUIT_BREAKER_COOLDOWN_MS,
+      });
+    }
+  }
+
+  private halfOpen(): void {
+    this.failures = CIRCUIT_BREAKER_THRESHOLD - 1;
+    logger.info('[RedisCache] Circuit breaker HALF-OPEN — allowing one probe request');
+  }
+}
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`Redis call timed out after ${ms}ms`)), ms);
+    promise.then(
+      (val) => { clearTimeout(timer); resolve(val); },
+      (err) => { clearTimeout(timer); reject(err); },
+    );
+  });
+}
+
 class RedisCache {
   private client: Redis | null = null;
   private ready = false;
+  private breaker = new CircuitBreaker();
 
   constructor() {
     this.initializeClient();
@@ -32,7 +92,6 @@ class RedisCache {
     const token = process.env.UPSTASH_REDIS_REST_TOKEN;
 
     if (!url || !token) {
-      // Try to derive from REDIS_URL for backwards compatibility
       if (process.env.REDIS_URL) {
         logger.warn(
           '[RedisCache] REDIS_URL is set but UPSTASH_REDIS_REST_URL / UPSTASH_REDIS_REST_TOKEN are missing. ' +
@@ -56,6 +115,27 @@ class RedisCache {
     }
   }
 
+  /**
+   * Execute a Redis operation with timeout and circuit breaker protection.
+   * Returns `fallback` when Redis is unavailable, slow, or the circuit is open.
+   */
+  private async guardedCall<T>(op: () => Promise<T>, fallback: T, label: string): Promise<T> {
+    if (!this.ready || !this.client) return fallback;
+    if (this.breaker.isOpen()) return fallback;
+
+    try {
+      const result = await withTimeout(op(), REDIS_CALL_TIMEOUT_MS);
+      this.breaker.recordSuccess();
+      return result;
+    } catch (error) {
+      this.breaker.recordFailure();
+      logger.error(`[RedisCache] ${label} failed`, {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return fallback;
+    }
+  }
+
   private getKey(key: string, namespace?: string): string {
     const prefix = namespace || 'lifefile';
     return `${prefix}:${key}`;
@@ -66,194 +146,134 @@ class RedisCache {
     return `${prefix}:t${clinicId}:${key}`;
   }
 
-  /**
-   * Tenant-scoped get — cache key automatically includes clinicId.
-   * Use this instead of raw get() for any tenant-specific data.
-   */
   async tenantGet<T = unknown>(clinicId: number, key: string, options?: CacheOptions): Promise<T | null> {
-    if (!this.ready || !this.client) return null;
-    try {
-      const fullKey = this.getTenantKey(clinicId, key, options?.namespace);
-      const value = await this.client.get<T>(fullKey);
-      return value ?? null;
-    } catch (error) {
-      logger.error(`[RedisCache] tenantGet error`, { clinicId, key, error: error instanceof Error ? error.message : String(error) });
-      return null;
-    }
+    const fullKey = this.getTenantKey(clinicId, key, options?.namespace);
+    return this.guardedCall(
+      async () => (await this.client!.get<T>(fullKey)) ?? null,
+      null,
+      'tenantGet',
+    );
   }
 
-  /**
-   * Tenant-scoped set — cache key automatically includes clinicId.
-   * Use this instead of raw set() for any tenant-specific data.
-   */
   async tenantSet(clinicId: number, key: string, value: unknown, options?: CacheOptions): Promise<boolean> {
-    if (!this.ready || !this.client) return false;
-    try {
-      const fullKey = this.getTenantKey(clinicId, key, options?.namespace);
-      if (options?.ttl) {
-        await this.client.set(fullKey, JSON.stringify(value), { ex: options.ttl });
-      } else {
-        await this.client.set(fullKey, JSON.stringify(value));
-      }
-      return true;
-    } catch (error) {
-      logger.error(`[RedisCache] tenantSet error`, { clinicId, key, error: error instanceof Error ? error.message : String(error) });
-      return false;
-    }
+    const fullKey = this.getTenantKey(clinicId, key, options?.namespace);
+    return this.guardedCall(
+      async () => {
+        if (options?.ttl) {
+          await this.client!.set(fullKey, JSON.stringify(value), { ex: options.ttl });
+        } else {
+          await this.client!.set(fullKey, JSON.stringify(value));
+        }
+        return true;
+      },
+      false,
+      'tenantSet',
+    );
   }
 
-  /**
-   * Tenant-scoped delete — cache key automatically includes clinicId.
-   */
   async tenantDelete(clinicId: number, key: string, options?: CacheOptions): Promise<boolean> {
-    if (!this.ready || !this.client) return false;
-    try {
-      const fullKey = this.getTenantKey(clinicId, key, options?.namespace);
-      const result = await this.client.del(fullKey);
-      return result === 1;
-    } catch (error) {
-      logger.error(`[RedisCache] tenantDelete error`, { clinicId, key, error: error instanceof Error ? error.message : String(error) });
-      return false;
-    }
+    const fullKey = this.getTenantKey(clinicId, key, options?.namespace);
+    return this.guardedCall(
+      async () => (await this.client!.del(fullKey)) === 1,
+      false,
+      'tenantDelete',
+    );
   }
 
   async get<T = unknown>(key: string, options?: CacheOptions): Promise<T | null> {
-    if (!this.ready || !this.client) return null;
-
-    try {
-      const fullKey = this.getKey(key, options?.namespace);
-      const value = await this.client.get<T>(fullKey);
-      return value ?? null;
-    } catch (error) {
-      logger.error(`[RedisCache] get error for key ${key}`, {
-        error: error instanceof Error ? error.message : String(error),
-      });
-      return null;
-    }
+    const fullKey = this.getKey(key, options?.namespace);
+    return this.guardedCall(
+      async () => (await this.client!.get<T>(fullKey)) ?? null,
+      null,
+      'get',
+    );
   }
 
   async set(key: string, value: unknown, options?: CacheOptions): Promise<boolean> {
-    if (!this.ready || !this.client) return false;
-
-    try {
-      const fullKey = this.getKey(key, options?.namespace);
-
-      if (options?.ttl) {
-        await this.client.set(fullKey, JSON.stringify(value), { ex: options.ttl });
-      } else {
-        await this.client.set(fullKey, JSON.stringify(value));
-      }
-
-      return true;
-    } catch (error) {
-      logger.error(`[RedisCache] set error for key ${key}`, {
-        error: error instanceof Error ? error.message : String(error),
-      });
-      return false;
-    }
+    const fullKey = this.getKey(key, options?.namespace);
+    return this.guardedCall(
+      async () => {
+        if (options?.ttl) {
+          await this.client!.set(fullKey, JSON.stringify(value), { ex: options.ttl });
+        } else {
+          await this.client!.set(fullKey, JSON.stringify(value));
+        }
+        return true;
+      },
+      false,
+      'set',
+    );
   }
 
   async delete(key: string, options?: CacheOptions): Promise<boolean> {
-    if (!this.ready || !this.client) return false;
-
-    try {
-      const fullKey = this.getKey(key, options?.namespace);
-      const result = await this.client.del(fullKey);
-      return result === 1;
-    } catch (error) {
-      logger.error(`[RedisCache] delete error for key ${key}`, {
-        error: error instanceof Error ? error.message : String(error),
-      });
-      return false;
-    }
+    const fullKey = this.getKey(key, options?.namespace);
+    return this.guardedCall(
+      async () => (await this.client!.del(fullKey)) === 1,
+      false,
+      'delete',
+    );
   }
 
   async flush(namespace?: string): Promise<boolean> {
-    if (!this.ready || !this.client) return false;
-
-    try {
-      const pattern = this.getKey('*', namespace);
-      const keys = await this.client.keys(pattern);
-
-      if (keys.length > 0) {
-        const pipeline = this.client.pipeline();
-        for (const k of keys) {
-          pipeline.del(k);
+    return this.guardedCall(
+      async () => {
+        const pattern = this.getKey('*', namespace);
+        const keys = await this.client!.keys(pattern);
+        if (keys.length > 0) {
+          const pipeline = this.client!.pipeline();
+          for (const k of keys) {
+            pipeline.del(k);
+          }
+          await pipeline.exec();
         }
-        await pipeline.exec();
-      }
-
-      return true;
-    } catch (error) {
-      logger.error('[RedisCache] flush error', {
-        error: error instanceof Error ? error.message : String(error),
-      });
-      return false;
-    }
+        return true;
+      },
+      false,
+      'flush',
+    );
   }
 
   async increment(key: string, amount = 1, options?: CacheOptions): Promise<number | null> {
-    if (!this.ready || !this.client) return null;
-
-    try {
-      const fullKey = this.getKey(key, options?.namespace);
-      const result = await this.client.incrby(fullKey, amount);
-
-      if (options?.ttl) {
-        await this.client.expire(fullKey, options.ttl);
-      }
-
-      return result;
-    } catch (error) {
-      logger.error(`[RedisCache] increment error for key ${key}`, {
-        error: error instanceof Error ? error.message : String(error),
-      });
-      return null;
-    }
+    const fullKey = this.getKey(key, options?.namespace);
+    return this.guardedCall(
+      async () => {
+        const result = await this.client!.incrby(fullKey, amount);
+        if (options?.ttl) {
+          await this.client!.expire(fullKey, options.ttl);
+        }
+        return result;
+      },
+      null,
+      'increment',
+    );
   }
 
   async mget<T = unknown>(keys: string[], options?: CacheOptions): Promise<(T | null)[]> {
-    if (!this.ready || !this.client || keys.length === 0) return keys.map(() => null);
-
-    try {
-      const fullKeys = keys.map((k) => this.getKey(k, options?.namespace));
-      const values = await this.client.mget<(T | null)[]>(...fullKeys);
-      return values ?? keys.map(() => null);
-    } catch (error) {
-      logger.error('[RedisCache] mget error', {
-        error: error instanceof Error ? error.message : String(error),
-      });
-      return keys.map(() => null);
-    }
+    if (keys.length === 0) return [];
+    const fullKeys = keys.map((k) => this.getKey(k, options?.namespace));
+    return this.guardedCall(
+      async () => (await this.client!.mget<(T | null)[]>(...fullKeys)) ?? keys.map(() => null),
+      keys.map(() => null),
+      'mget',
+    );
   }
 
   async exists(key: string, options?: CacheOptions): Promise<boolean> {
-    if (!this.ready || !this.client) return false;
-
-    try {
-      const fullKey = this.getKey(key, options?.namespace);
-      const result = await this.client.exists(fullKey);
-      return result === 1;
-    } catch (error) {
-      logger.error(`[RedisCache] exists error for key ${key}`, {
-        error: error instanceof Error ? error.message : String(error),
-      });
-      return false;
-    }
+    const fullKey = this.getKey(key, options?.namespace);
+    return this.guardedCall(
+      async () => (await this.client!.exists(fullKey)) === 1,
+      false,
+      'exists',
+    );
   }
 
   async ttl(key: string, options?: CacheOptions): Promise<number | null> {
-    if (!this.ready || !this.client) return null;
-
-    try {
-      const fullKey = this.getKey(key, options?.namespace);
-      return await this.client.ttl(fullKey);
-    } catch (error) {
-      logger.error(`[RedisCache] TTL error for key ${key}`, {
-        error: error instanceof Error ? error.message : String(error),
-      });
-      return null;
-    }
+    const fullKey = this.getKey(key, options?.namespace);
+    return this.guardedCall(
+      async () => this.client!.ttl(fullKey),
+      null,
+      'ttl',
+    );
   }
 
   async disconnect(): Promise<void> {
@@ -280,16 +300,11 @@ class RedisCache {
    * Warning: Use sparingly — KEYS/SCAN can be slow on large datasets.
    */
   async keys(pattern: string): Promise<string[]> {
-    if (!this.ready || !this.client) return [];
-
-    try {
-      return await this.client.keys(pattern);
-    } catch (error) {
-      logger.error(`[RedisCache] keys error for pattern ${pattern}`, {
-        error: error instanceof Error ? error.message : String(error),
-      });
-      return [];
-    }
+    return this.guardedCall(
+      async () => this.client!.keys(pattern),
+      [],
+      'keys',
+    );
   }
 }
 

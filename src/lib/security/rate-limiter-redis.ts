@@ -54,10 +54,22 @@ interface RateLimitEntry {
 // In-Memory Fallback (for development or when Redis unavailable)
 // ============================================================================
 
+const REDIS_OP_TIMEOUT_MS = 2_000;
+
 const memoryCache = new LRUCache<string, RateLimitEntry>({
   max: 10000,
   ttl: 60 * 60 * 1000, // 1 hour TTL
 });
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`Redis op timed out after ${ms}ms`)), ms);
+    promise.then(
+      (val) => { clearTimeout(timer); resolve(val); },
+      (err) => { clearTimeout(timer); reject(err); },
+    );
+  });
+}
 
 // ============================================================================
 // Rate Limit Logic
@@ -84,7 +96,7 @@ async function checkRateLimitRedis(
     const windowKey = `ratelimit:${config.identifier}:${key}`;
     const blockKey = `ratelimit:block:${config.identifier}:${key}`;
 
-    const blockedUntil = await redis.get<string>(blockKey);
+    const blockedUntil = await withTimeout(redis.get<string>(blockKey), REDIS_OP_TIMEOUT_MS);
     if (blockedUntil && parseInt(blockedUntil) > now) {
       const retryAfter = parseInt(blockedUntil) - now;
       return {
@@ -99,13 +111,13 @@ async function checkRateLimitRedis(
     const pipeline = redis.pipeline();
     pipeline.incr(windowKey);
     pipeline.ttl(windowKey);
-    const results = await pipeline.exec();
+    const results = await withTimeout(pipeline.exec(), REDIS_OP_TIMEOUT_MS);
 
     const count = results[0] as number;
     const ttl = results[1] as number;
 
     if (ttl === -1) {
-      await redis.expire(windowKey, config.windowSeconds);
+      await withTimeout(redis.expire(windowKey, config.windowSeconds), REDIS_OP_TIMEOUT_MS);
     }
 
     const remaining = Math.max(0, config.maxRequests - count);
@@ -114,7 +126,10 @@ async function checkRateLimitRedis(
     if (count > config.maxRequests) {
       if (config.blockDurationSeconds) {
         const blockUntil = now + config.blockDurationSeconds;
-        await redis.setex(blockKey, config.blockDurationSeconds, blockUntil.toString());
+        await withTimeout(
+          redis.setex(blockKey, config.blockDurationSeconds, blockUntil.toString()),
+          REDIS_OP_TIMEOUT_MS,
+        );
       }
 
       return {
@@ -133,7 +148,9 @@ async function checkRateLimitRedis(
       reset,
     };
   } catch (error) {
-    logger.error('[RateLimit] Redis error, falling back to memory', { error });
+    logger.error('[RateLimit] Redis error, falling back to memory', {
+      error: error instanceof Error ? error.message : String(error),
+    });
     return checkRateLimitMemory(key, config, now);
   }
 }

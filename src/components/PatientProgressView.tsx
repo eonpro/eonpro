@@ -185,6 +185,8 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
   const [medicationReminders, setMedicationReminders] = useState<any[]>([]);
   const [hasActiveTreatment, setHasActiveTreatment] = useState(false);
   const [progressLoaded, setProgressLoaded] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [retryKey, setRetryKey] = useState(0);
 
   // New tracking states
   const [waterLogs, setWaterLogs] = useState<WaterLog[]>([]);
@@ -256,11 +258,15 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
     }
   }, [patient.id]);
 
-  // Fetch all tracking data on mount
+  // Fetch all tracking data on mount (re-runs on retryKey bump)
   useEffect(() => {
     if (!patient.id) return;
 
+    setFetchError(null);
+    setProgressLoaded(false);
+
     const fetchOpts = { headers: getAuthHeaders(), credentials: 'include' as const };
+    let failedEndpoints: string[] = [];
 
     const waterPromise = apiFetch(
       `/api/patient-progress/water?patientId=${patient.id}`,
@@ -272,9 +278,12 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
           setWaterLogs(Array.isArray(result.data) ? result.data : []);
           setWaterMeta(result.meta || null);
           if (result.data?.length > 0) setHasActiveTreatment(true);
+        } else {
+          failedEndpoints.push('water');
         }
       })
       .catch((err) => {
+        failedEndpoints.push('water');
         logger.warn('Failed to fetch water logs', {
           patientId: patient.id,
           error: err instanceof Error ? err.message : 'Unknown',
@@ -291,9 +300,12 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
           setSleepLogs(Array.isArray(result.data) ? result.data : []);
           setSleepMeta(result.meta || null);
           if (result.data?.length > 0) setHasActiveTreatment(true);
+        } else {
+          failedEndpoints.push('sleep');
         }
       })
       .catch((err) => {
+        failedEndpoints.push('sleep');
         logger.warn('Failed to fetch sleep logs', {
           patientId: patient.id,
           error: err instanceof Error ? err.message : 'Unknown',
@@ -310,9 +322,12 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
           setExerciseLogs(Array.isArray(result.data) ? result.data : []);
           setExerciseMeta(result.meta || null);
           if (result.data?.length > 0) setHasActiveTreatment(true);
+        } else {
+          failedEndpoints.push('exercise');
         }
       })
       .catch((err) => {
+        failedEndpoints.push('exercise');
         logger.warn('Failed to fetch exercise logs', {
           patientId: patient.id,
           error: err instanceof Error ? err.message : 'Unknown',
@@ -329,16 +344,21 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
           setNutritionLogs(Array.isArray(result.data) ? result.data : []);
           setNutritionMeta(result.meta || null);
           if (result.data?.length > 0) setHasActiveTreatment(true);
+        } else {
+          failedEndpoints.push('nutrition');
         }
       })
       .catch((err) => {
+        failedEndpoints.push('nutrition');
         logger.warn('Failed to fetch nutrition logs', {
           patientId: patient.id,
           error: err instanceof Error ? err.message : 'Unknown',
         });
       });
 
-    const weightPromise = fetchWeightData();
+    const weightPromise = fetchWeightData().catch(() => {
+      failedEndpoints.push('weight');
+    });
     const remindersPromise = fetchProgressData<any>(
       `/api/patient-progress/medication-reminders?patientId=${patient.id}`,
       'medication reminders'
@@ -351,8 +371,13 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
       sleepPromise,
       exercisePromise,
       nutritionPromise,
-    ]).then(() => setProgressLoaded(true));
-  }, [patient.id, fetchWeightData]);
+    ]).then(() => {
+      if (failedEndpoints.length === 6) {
+        setFetchError('Unable to load progress data. The server may be temporarily unavailable.');
+      }
+      setProgressLoaded(true);
+    });
+  }, [patient.id, fetchWeightData, retryKey]);
 
   // Handle adding new weight entry
   const handleAddWeight = async () => {
@@ -419,6 +444,23 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
       <div className="flex items-center justify-center py-12">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-200 border-t-blue-600" />
         <span className="ml-3 text-gray-500">Loading progress data…</span>
+      </div>
+    );
+  }
+
+  if (fetchError) {
+    return (
+      <div className="py-12 text-center">
+        <Activity className="mx-auto mb-4 h-16 w-16 text-red-400" />
+        <h3 className="mb-2 text-lg font-semibold text-gray-700">Failed to Load Progress Data</h3>
+        <p className="mx-auto max-w-md text-gray-500">{fetchError}</p>
+        <button
+          type="button"
+          onClick={() => setRetryKey((k) => k + 1)}
+          className="mt-4 inline-flex items-center gap-2 rounded-lg bg-gray-800 px-4 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90"
+        >
+          Retry
+        </button>
       </div>
     );
   }
