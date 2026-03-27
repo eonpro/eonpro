@@ -105,7 +105,7 @@ export default function QualifiedStep({ basePath, prevStep }: QualifiedStepProps
         const res = await fetch('/api/intake-forms/submit-to-eonpro', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ responses, submissionType: 'complete', qualified: 'Yes' }),
+          body: JSON.stringify({ responses, submissionType: 'complete', qualified: 'Yes', clinicSlug, treatmentType: isPeptide ? 'peptides' : 'weight-loss' }),
         });
         if (!res.ok && attempt < 3) {
           await new Promise((r) => setTimeout(r, 1000 * attempt));

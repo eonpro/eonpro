@@ -14,6 +14,7 @@ import type { NormalizedIntake, NormalizedPatient, IntakeSection, IntakeEntry } 
 
 const EONMEDS_SUBDOMAIN = 'eonmeds';
 const WELLMEDR_SUBDOMAIN = 'wellmedr';
+const OT_SUBDOMAIN = 'ot';
 
 // ============================================================================
 // Field labels for the intake document display
@@ -81,6 +82,21 @@ const FIELD_LABELS: Record<string, string> = {
   health_improvements: 'Health Improvement Interests',
   ipAddress: 'IP Address',
   userAgent: 'Device/Browser',
+  peptide_symptoms: 'Current Symptoms',
+  peptide_therapy: 'Peptide Therapy Interest',
+  sermorelin_goals: 'Sermorelin Therapy Goals',
+  optimize_goals: 'Optimization Goals',
+  sermorelin_medications: 'Sermorelin-Interfering Medications',
+  has_prescription_meds: 'Taking Prescription Medications',
+  prescription_details: 'Prescription Medication Details',
+  vitamin_b12_deficiency: 'Vitamin B-12 Deficiency',
+  has_medical_conditions: 'Medical Conditions or Chronic Illness',
+  sermorelin_conditions: 'Sermorelin-Specific Conditions',
+  cancer_treatment: 'Currently Undergoing Cancer Treatment',
+  lifestyle_factors: 'Lifestyle Factors',
+  has_allergies: 'Has Allergies',
+  allergy_details: 'Allergy Details',
+  recent_lab_work: 'Most Recent Lab Work',
 };
 
 // ============================================================================
@@ -372,7 +388,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { responses, submissionType, qualified, clinicSlug } = body;
+    const { responses, submissionType, qualified, clinicSlug, treatmentType } = body;
 
     if (!responses || typeof responses !== 'object') {
       logger.warn(`[submit-to-eonpro ${requestId}] Missing responses`);
@@ -390,22 +406,28 @@ export async function POST(req: NextRequest) {
       || 'unknown';
     const userAgent = req.headers.get('user-agent') || 'unknown';
 
-    // Resolve clinic — support WellMedR and other clinic slugs
-    const targetSubdomain = clinicSlug === 'wellmedr' ? WELLMEDR_SUBDOMAIN : EONMEDS_SUBDOMAIN;
-    const targetName = clinicSlug === 'wellmedr' ? 'WELLMEDR' : 'EONMEDS';
+    // Resolve clinic — support OT, WellMedR, and EONMeds
+    const isOtClinic = clinicSlug === 'ot' || clinicSlug === 'otmens';
+    const targetSubdomain = isOtClinic ? OT_SUBDOMAIN
+      : clinicSlug === 'wellmedr' ? WELLMEDR_SUBDOMAIN
+      : EONMEDS_SUBDOMAIN;
+    const targetName = isOtClinic ? 'OVERTIME'
+      : clinicSlug === 'wellmedr' ? 'WELLMEDR'
+      : 'EONMEDS';
 
     const clinic = await basePrisma.clinic.findFirst({
       where: {
         OR: [
           { subdomain: targetSubdomain },
-          { name: { contains: targetName, mode: 'insensitive' } },
+          ...(isOtClinic ? [{ subdomain: 'otmens' }] : []),
+          { name: { contains: targetName, mode: 'insensitive' as const } },
         ],
       },
       select: { id: true, name: true },
     });
 
     if (!clinic) {
-      logger.error(`[submit-to-eonpro ${requestId}] EONMEDS clinic not found`);
+      logger.error(`[submit-to-eonpro ${requestId}] Clinic not found for slug: ${clinicSlug}`);
       return NextResponse.json({ error: 'Clinic not found' }, { status: 500 });
     }
 
@@ -504,11 +526,20 @@ export async function POST(req: NextRequest) {
         ),
       },
       {
+        title: 'Peptide Therapy',
+        entries: answers.filter((a) =>
+          ['peptide_symptoms', 'peptide_therapy', 'sermorelin_goals', 'optimize_goals',
+           'sermorelin_medications', 'has_prescription_meds', 'prescription_details',
+           'vitamin_b12_deficiency', 'has_medical_conditions', 'sermorelin_conditions',
+           'cancer_treatment', 'recent_lab_work'].includes(a.id)
+        ),
+      },
+      {
         title: 'Lifestyle',
         entries: answers.filter((a) =>
           ['recreational_drugs', 'weight_loss_methods', 'weight_loss_support',
            'dosage_interest', 'alcohol_consumption', 'common_side_effects', 'goals',
-           'health_improvements'].includes(a.id)
+           'health_improvements', 'lifestyle_factors', 'has_allergies', 'allergy_details'].includes(a.id)
         ),
       },
       {
@@ -543,7 +574,11 @@ export async function POST(req: NextRequest) {
 
     const processor = new IntakeProcessor({ source: 'eonpro', requestId });
 
-    const clinicTag = clinicSlug === 'wellmedr' ? 'wellmedr' : 'eonmeds';
+    const clinicTag = isOtClinic ? 'otmens' : clinicSlug === 'wellmedr' ? 'wellmedr' : 'eonmeds';
+    const isPeptideIntake = treatmentType === 'peptides';
+    const intakeTypeTags = isPeptideIntake
+      ? ['peptide-therapy-intake', 'sermorelin']
+      : ['weightlossintake', 'glp1'];
 
     const result = await runWithClinicContext(clinic.id, () =>
       processor.process(normalized, {
@@ -551,7 +586,7 @@ export async function POST(req: NextRequest) {
         clinicSubdomain: targetSubdomain,
         isPartialSubmission: submissionType === 'partial',
         generateSoapNote: submissionType !== 'partial',
-        tags: ['weightlossintake', clinicTag, 'glp1', 'complete-intake', 'native-form'],
+        tags: [...intakeTypeTags, clinicTag, 'complete-intake', 'native-form'],
       })
     );
 
