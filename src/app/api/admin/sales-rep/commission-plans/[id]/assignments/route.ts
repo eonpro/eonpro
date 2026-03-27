@@ -137,28 +137,28 @@ export const POST = withAuth(
         );
       }
 
-      // Plans are rep-specific: only one active rep assignment is allowed per plan.
-      const existingActivePlanAssignment = await runWithClinicContext(clinicId, async () =>
+      // Prevent duplicate: don't assign the same plan to the same rep twice
+      const existingRepPlanAssignment = await runWithClinicContext(clinicId, async () =>
         prisma.salesRepPlanAssignment.findFirst({
           where: {
             commissionPlanId: planId,
+            salesRepId: repId,
             effectiveTo: null,
           },
-          select: { id: true, salesRepId: true },
+          select: { id: true },
         })
       );
-      if (existingActivePlanAssignment && existingActivePlanAssignment.salesRepId !== repId) {
+      if (existingRepPlanAssignment) {
         return NextResponse.json(
           {
-            error:
-              'This commission plan is already assigned to another sales rep. Create a separate plan for each rep.',
-            code: 'PLAN_ALREADY_ASSIGNED_TO_ANOTHER_REP',
+            error: 'This sales rep is already assigned to this commission plan',
+            code: 'REP_ALREADY_ASSIGNED_TO_PLAN',
           },
           { status: 409 }
         );
       }
 
-      // End any current assignment for this rep in this clinic
+      // End any previous plan assignment for this rep in this clinic
       await runWithClinicContext(clinicId, async () => {
         await prisma.salesRepPlanAssignment.updateMany({
           where: { salesRepId: repId, effectiveTo: null },
