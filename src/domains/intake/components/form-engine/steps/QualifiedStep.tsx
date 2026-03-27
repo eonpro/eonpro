@@ -73,7 +73,6 @@ export default function QualifiedStep({ basePath, prevStep }: QualifiedStepProps
   const responses = useIntakeStore((state) => state.responses);
   const [firstName, setFirstName] = useState('');
   const [showPhase2, setShowPhase2] = useState(false);
-  const confettiRef = useRef(false);
   const submittedRef = useRef(false);
   const isSpanish = language === 'es';
   const clinicSlug = useIntakeStore((s) => s.clinicSlug);
@@ -92,8 +91,29 @@ export default function QualifiedStep({ basePath, prevStep }: QualifiedStepProps
   }, [responses.firstName]);
 
   useEffect(() => {
-    setTimeout(() => { fireConfetti(); }, 300);
-    setTimeout(() => { setShowPhase2(true); }, 800);
+    const confettiColors = isOt ? ['#cab172', '#f5ecd8', '#413d3d', '#d4a843', '#e8d5a0'] : ['#7cb342', '#aed581', '#e8f5d9', '#4fa87f', '#66bb6a', '#81c784'];
+    const launch = () => {
+      const c = (window as unknown as { confetti?: (opts: unknown) => void }).confetti;
+      if (!c) return;
+      const end = Date.now() + 3000;
+      const frame = () => {
+        c({ particleCount: 10, angle: 270, spread: 180, origin: { x: 0.5, y: 0 }, gravity: 1.5, startVelocity: 30, colors: confettiColors });
+        if (Date.now() < end) requestAnimationFrame(frame);
+      };
+      frame();
+    };
+    const timer1 = setTimeout(() => {
+      if ((window as unknown as { confetti?: unknown }).confetti) {
+        launch();
+      } else {
+        const s = document.createElement('script');
+        s.src = 'https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.0/dist/confetti.browser.min.js';
+        s.onload = launch;
+        document.head.appendChild(s);
+      }
+    }, 300);
+    const timer2 = setTimeout(() => { setShowPhase2(true); }, 800);
+    return () => { clearTimeout(timer1); clearTimeout(timer2); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -130,29 +150,7 @@ export default function QualifiedStep({ basePath, prevStep }: QualifiedStepProps
     submitWithRetry();
   }, [responses]);
 
-  const fireConfetti = () => {
-    if (confettiRef.current) return;
-    confettiRef.current = true;
-    const colors = isOt ? ['#cab172', '#f5ecd8', '#413d3d', '#d4a843', '#e8d5a0'] : ['#7cb342', '#aed581', '#e8f5d9', '#4fa87f', '#66bb6a', '#81c784'];
-    const launchConfetti = () => {
-      const confetti = (window as unknown as { confetti: (opts: unknown) => void }).confetti;
-      if (!confetti) return;
-      const end = Date.now() + 3000;
-      const frame = () => {
-        confetti({ particleCount: 10, angle: 270, spread: 180, origin: { x: 0.5, y: 0 }, gravity: 1.5, startVelocity: 30, colors });
-        if (Date.now() < end) requestAnimationFrame(frame);
-      };
-      frame();
-    };
-    if ((window as unknown as { confetti: unknown }).confetti) {
-      launchConfetti();
-      return;
-    }
-    const script = document.createElement('script');
-    script.src = 'https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.0/dist/confetti.browser.min.js';
-    script.onload = launchConfetti;
-    document.head.appendChild(script);
-  };
+  // confetti logic moved inline into the mount useEffect above
 
   const goCheckout = (medication: MedChoice) => {
     Object.entries(responses).forEach(([key, value]) => {
