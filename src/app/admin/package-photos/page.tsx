@@ -919,6 +919,8 @@ function AuditLog() {
   const [individualRepName, setIndividualRepName] = useState<string | null>(null);
   const [individualReport, setIndividualReport] = useState<DailyReportData | null>(null);
   const [individualReportLoading, setIndividualReportLoading] = useState(false);
+  const [availableRepsForReport, setAvailableRepsForReport] = useState<RepBreakdown[]>([]);
+  const [repsLoading, setRepsLoading] = useState(false);
   const [individualFrom, setIndividualFrom] = useState(() => {
     const d = new Date(); d.setDate(d.getDate() - 29);
     return instantToCalendarDate(d);
@@ -939,6 +941,9 @@ function AuditLog() {
       if (demoRes.ok) {
         const json = await demoRes.json();
         setDemographics(json.data);
+        if (json.data?.repBreakdown?.length) {
+          setAvailableRepsForReport((prev) => prev.length > 0 ? prev : json.data.repBreakdown);
+        }
       }
     } catch { /* non-critical */ }
   }, []);
@@ -967,16 +972,46 @@ function AuditLog() {
     finally { setIndividualReportLoading(false); }
   }, []);
 
+  const fetchRepList = useCallback(async () => {
+    if (availableRepsForReport.length > 0) return;
+    setRepsLoading(true);
+    try {
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      const now = new Date();
+      const from = toCalendarDateStringInTz(new Date(now.getFullYear(), now.getMonth(), 1), tz);
+      const to = calendarTodayClient();
+      const res = await apiFetch(
+        `/api/package-photos?performance-report=true&granularity=daily&from=${from}&to=${to}`,
+      );
+      if (res.ok) {
+        const json = await res.json();
+        if (json.data?.reps?.length) {
+          setAvailableRepsForReport(
+            json.data.reps.map((r: { userId: number; name: string; total: number; matched: number; matchRate: number }) => ({
+              userId: r.userId,
+              name: r.name,
+              total: r.total,
+              matched: r.matched,
+              matchRate: r.matchRate,
+            })),
+          );
+        }
+      }
+    } catch { /* non-critical */ }
+    finally { setRepsLoading(false); }
+  }, [availableRepsForReport.length]);
+
   const handleSelectRepForReport = useCallback((repId: number, repName: string) => {
     setIndividualRepId(repId);
     setIndividualRepName(repName);
     setShowIndividualReport(true);
     setIndividualReport(null);
+    fetchRepList();
     fetchIndividualReport(repId, individualFrom, individualTo);
     setTimeout(() => {
       individualReportRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }, 100);
-  }, [fetchIndividualReport, individualFrom, individualTo]);
+  }, [fetchIndividualReport, fetchRepList, individualFrom, individualTo]);
 
   const fetchPhotos = useCallback(
     async (searchVal: string, matchVal: string, periodVal: string, sortByVal: string, sortOrderVal: string, pageVal: number, fromVal?: string, toVal?: string) => {
@@ -1327,7 +1362,11 @@ function AuditLog() {
       {/* ─── Individual Daily Performance Report ─── */}
       <div ref={individualReportRef} />
       <button
-        onClick={() => setShowIndividualReport((v) => !v)}
+        onClick={() => {
+          const opening = !showIndividualReport;
+          setShowIndividualReport(opening);
+          if (opening) fetchRepList();
+        }}
         className="mb-4 flex w-full items-center justify-between rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-left transition-colors hover:bg-emerald-100"
       >
         <span className="flex items-center gap-2 text-sm font-semibold text-emerald-700">
@@ -1352,14 +1391,14 @@ function AuditLog() {
                 onChange={(e) => {
                   const val = e.target.value ? parseInt(e.target.value, 10) : null;
                   setIndividualRepId(val);
-                  const repObj = demographics?.repBreakdown.find((r) => r.userId === val);
+                  const repObj = availableRepsForReport.find((r) => r.userId === val);
                   setIndividualRepName(repObj?.name ?? null);
                   setIndividualReport(null);
                 }}
                 className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
               >
-                <option value="">— Choose a rep —</option>
-                {(demographics?.repBreakdown ?? []).map((rep) => (
+                <option value="">{repsLoading ? 'Loading reps...' : '— Choose a rep —'}</option>
+                {availableRepsForReport.map((rep) => (
                   <option key={rep.userId} value={rep.userId}>{rep.name} ({rep.total} pkgs)</option>
                 ))}
               </select>
