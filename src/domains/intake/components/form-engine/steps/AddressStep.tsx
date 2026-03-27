@@ -89,14 +89,20 @@ export default function AddressStep({
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             place.address_components.forEach((component: any) => {
               const types = component.types;
+              if (types.includes('street_number')) components.streetNumber = component.long_name;
+              if (types.includes('route')) components.route = component.long_name;
               if (types.includes('locality')) components.city = component.long_name;
+              if (types.includes('sublocality_level_1') && !components.city) components.city = component.long_name;
               if (types.includes('administrative_area_level_1')) components.state = component.short_name;
               if (types.includes('postal_code')) components.zipCode = component.long_name;
+              if (types.includes('country')) components.country = component.short_name;
             });
             if (!components.zipCode && place.formatted_address) {
               const zipMatch = place.formatted_address.match(/\b(\d{5})(?:-\d{4})?\b/);
               if (zipMatch) components.zipCode = zipMatch[1];
             }
+            const streetOnly = [components.streetNumber, components.route].filter(Boolean).join(' ');
+            if (streetOnly) components.streetAddress = streetOnly;
             setAddressComponents(components);
           }
 
@@ -119,9 +125,10 @@ export default function AddressStep({
 
   const handleContinue = () => {
     if (address) {
-      const fullAddress = apartment ? `${address}, ${apartment}` : address;
+      const streetAddr = addressComponents?.streetAddress || address;
+      const fullAddress = apartment ? `${streetAddr}, ${apartment}` : streetAddr;
       
-      setResponse('street', address);
+      setResponse('street', streetAddr);
       setResponse('apartment', apartment);
       setResponse('fullAddress', fullAddress);
       setResponse('addressCity', addressComponents?.city || '');
