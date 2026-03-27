@@ -161,7 +161,13 @@ export default function QualifiedStep({ basePath, prevStep }: QualifiedStepProps
   const handleBack = () => { if (prevStep) router.push(`${basePath}/${prevStep}`); };
 
   const isPeptide = basePath.includes('peptides');
-  const BOOKING_URL = 'https://api.leadconnectorhq.com/widget/bookings/overtime-mens-health-initial-c';
+  const bookingParams = new URLSearchParams({
+    ...(responses.firstName ? { first_name: String(responses.firstName) } : {}),
+    ...(responses.lastName ? { last_name: String(responses.lastName) } : {}),
+    ...(responses.email ? { email: String(responses.email) } : {}),
+    ...(responses.phone ? { phone: String(responses.phone).replace(/\D/g, '') } : {}),
+  });
+  const BOOKING_URL = `https://api.leadconnectorhq.com/widget/bookings/overtime-mens-health-initial-c${bookingParams.toString() ? `?${bookingParams.toString()}` : ''}`;
 
   if (isPeptide) {
     return (

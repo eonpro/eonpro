@@ -11,7 +11,16 @@ interface BookAppointmentStepProps {
   progressPercent: number;
 }
 
-const BOOKING_URL = 'https://api.leadconnectorhq.com/widget/bookings/overtime-mens-health-initial-c';
+function buildBookingUrl(responses: Record<string, unknown>) {
+  const params = new URLSearchParams({
+    ...(responses.firstName ? { first_name: String(responses.firstName) } : {}),
+    ...(responses.lastName ? { last_name: String(responses.lastName) } : {}),
+    ...(responses.email ? { email: String(responses.email) } : {}),
+    ...(responses.phone ? { phone: String(responses.phone).replace(/\D/g, '') } : {}),
+  });
+  const qs = params.toString();
+  return `https://api.leadconnectorhq.com/widget/bookings/overtime-mens-health-initial-c${qs ? `?${qs}` : ''}`;
+}
 
 const T = {
   title: { en: 'You\'re all set!', es: '¡Todo listo!' },
@@ -93,7 +102,7 @@ export default function BookAppointmentStep({ basePath, prevStep }: BookAppointm
           <p className="text-sm text-gray-500">{t('nextDesc')}</p>
 
           <a
-            href={BOOKING_URL}
+            href={buildBookingUrl(responses)}
             target="_blank"
             rel="noopener noreferrer"
             className="block w-full py-4 px-6 rounded-full text-center text-white font-semibold text-[15px] transition-all hover:-translate-y-0.5 hover:shadow-lg"
