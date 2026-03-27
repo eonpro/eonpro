@@ -5,6 +5,10 @@
  * 1. Pharmacy Products Invoice — medication costs + shipping surcharges
  * 2. Prescription Services Invoice — $20 per prescription sent
  *
+ * Billing is based on orders SENT to the pharmacy (lifefileOrderId present)
+ * during the period, regardless of patient payment status. This aligns the
+ * invoice totals with the Rx Queue "Daily Rx" count.
+ *
  * All amounts are in cents internally, formatted to dollars for display/export.
  */
 
@@ -182,53 +186,17 @@ export async function generateDailyInvoices(
   const nextDay = midnightInTz(eY, eM - 1, eD + 1, CLINIC_TZ);
   const periodEnd = new Date(nextDay.getTime() - 1);
 
-  // PRIMARY: Find invoices PAID in this period, then get their linked orders.
-  // This ensures the invoice matches Stripe payment records for the same day.
-  const paidInvoices = await basePrisma.invoice.findMany({
-    where: {
-      clinicId,
-      paidAt: { gte: periodStart, lte: periodEnd },
-      prescriptionProcessed: true,
-      orderId: { not: null },
-    },
-    select: { id: true, orderId: true, paidAt: true, patientId: true, prescriptionProcessedAt: true },
-  });
-
-  const invoiceByOrderId = new Map<number, { paidAt: Date | null }>();
-  const orderIdsFromInvoices = new Set<number>();
-  for (const inv of paidInvoices) {
-    if (inv.orderId) {
-      invoiceByOrderId.set(inv.orderId, { paidAt: inv.paidAt });
-      orderIdsFromInvoices.add(inv.orderId);
-    }
-  }
-
-  // FALLBACK: Also find invoices paid in this period that don't have orderId linked yet (legacy).
-  // Match them to orders by patientId + prescriptionProcessedAt close to order.createdAt.
-  const unlinkedInvoices = await basePrisma.invoice.findMany({
-    where: {
-      clinicId,
-      paidAt: { gte: periodStart, lte: periodEnd },
-      prescriptionProcessed: true,
-      orderId: null,
-    },
-    select: { id: true, paidAt: true, patientId: true, prescriptionProcessedAt: true },
-  });
-
-  // Fetch all WellMedR orders that might match (wider window for fallback matching)
-  const wideStart = new Date(periodStart.getTime() - 7 * 24 * 60 * 60 * 1000);
-  const wideEnd = new Date(periodEnd.getTime() + 7 * 24 * 60 * 60 * 1000);
-
+  // PRIMARY: If an order has a Lifefile order ID and falls on this date, it's billable.
+  // The lifefileOrderId is proof the order was submitted to the pharmacy.
+  // "Sent" timestamp = approvedAt when present, otherwise createdAt (direct sends).
   const allOrders = await basePrisma.order.findMany({
     where: {
       clinicId,
+      lifefileOrderId: { not: null },
       OR: [
-        { id: { in: [...orderIdsFromInvoices] } },
-        { createdAt: { gte: wideStart, lte: wideEnd } },
+        { approvedAt: { gte: periodStart, lte: periodEnd } },
+        { AND: [{ approvedAt: null }, { createdAt: { gte: periodStart, lte: periodEnd } }] },
       ],
-      cancelledAt: null,
-      fulfillmentChannel: 'lifefile',
-      status: { notIn: ['error', 'cancelled', 'declined', 'queued_for_provider'] },
     },
     select: {
       id: true,
@@ -255,37 +223,34 @@ export async function generateDailyInvoices(
     orderBy: { createdAt: 'asc' },
   });
 
-  // Match unlinked invoices to orders by patientId + timestamp proximity
-  for (const inv of unlinkedInvoices) {
-    if (!inv.prescriptionProcessedAt) continue;
-    const processedMs = inv.prescriptionProcessedAt.getTime();
-    let bestOrder: typeof allOrders[number] | null = null;
-    let bestDiff = Infinity;
-    for (const o of allOrders) {
-      if (o.patientId !== inv.patientId) continue;
-      if (orderIdsFromInvoices.has(o.id)) continue;
-      const diff = Math.abs(o.createdAt.getTime() - processedMs);
-      if (diff < bestDiff && diff < 5 * 60 * 1000) {
-        bestDiff = diff;
-        bestOrder = o;
+  const filteredOrders = allOrders;
+
+  // SUPPLEMENTARY: Look up invoice payment data for display (paidAt column).
+  // This is informational only — it does NOT gate whether an order is billable.
+  const invoiceByOrderId = new Map<number, { paidAt: Date | null }>();
+  if (filteredOrders.length > 0) {
+    const orderIds = filteredOrders.map((o) => o.id);
+    const linkedInvoices = await basePrisma.invoice.findMany({
+      where: {
+        clinicId,
+        orderId: { in: orderIds },
+        prescriptionProcessed: true,
+      },
+      select: { orderId: true, paidAt: true },
+    });
+    for (const inv of linkedInvoices) {
+      if (inv.orderId) {
+        invoiceByOrderId.set(inv.orderId, { paidAt: inv.paidAt });
       }
     }
-    if (bestOrder) {
-      invoiceByOrderId.set(bestOrder.id, { paidAt: inv.paidAt });
-      orderIdsFromInvoices.add(bestOrder.id);
-    }
   }
-
-  // Final order set: only orders that have a matching paid invoice
-  const filteredOrders = allOrders.filter((o) => orderIdsFromInvoices.has(o.id));
 
   logger.info('WellMedR invoice generation: orders loaded', {
     clinicId,
     date,
     endDate: endDate ?? date,
-    linkedInvoices: paidInvoices.length,
-    unlinkedInvoices: unlinkedInvoices.length,
-    matchedOrders: filteredOrders.length,
+    totalSentOrders: filteredOrders.length,
+    ordersWithPaidInvoice: invoiceByOrderId.size,
   });
 
   // ── 90-day Rx cycle: determine $20 (new) vs $3 (refill) per patient ──
@@ -301,9 +266,7 @@ export async function generateDailyInvoices(
       where: {
         clinicId,
         patientId: { in: patientIds },
-        fulfillmentChannel: 'lifefile',
-        cancelledAt: null,
-        status: { notIn: ['error', 'cancelled', 'declined', 'queued_for_provider'] },
+        lifefileOrderId: { not: null },
         createdAt: { gte: lookbackDate, lt: periodStart },
       },
       select: { id: true, patientId: true, createdAt: true, approvedAt: true },
