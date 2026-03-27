@@ -72,11 +72,9 @@ export function getServerlessConfig(): ServerlessPoolConfig {
   let connectionLimit: number;
 
   if (explicitLimit) {
-    const requested = parseInt(explicitLimit, 10) || 5;
-    // With external pooler: allow up to 10 per instance (proxy handles multiplexing)
-    // Without external pooler: cap at 1 on Vercel to prevent P2024 exhaustion
-    const cap = hasExternalPooler ? 10 : (isVercel ? 1 : 10);
-    connectionLimit = Math.min(requested, cap);
+    // Explicit DATABASE_CONNECTION_LIMIT is trusted — the operator knows their infra.
+    // Only apply a safety cap of 20 to catch obvious typos.
+    connectionLimit = Math.min(parseInt(explicitLimit, 10) || 5, 20);
   } else if (hasExternalPooler) {
     // RDS Proxy or PgBouncer handles connection multiplexing.
     // 3 connections per instance balances parallelism vs headroom:
