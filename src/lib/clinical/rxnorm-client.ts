@@ -134,10 +134,71 @@ export async function searchDrugsOpenFDA(query: string): Promise<DrugResult[]> {
   }
 }
 
+const COMMON_MEDICATIONS: DrugResult[] = [
+  { name: 'Testosterone Cypionate', genericName: 'testosterone cypionate', drugClass: 'Androgen' },
+  { name: 'Testosterone Enanthate', genericName: 'testosterone enanthate', drugClass: 'Androgen' },
+  { name: 'Testosterone (Topical Gel)', genericName: 'testosterone', drugClass: 'Androgen' },
+  { name: 'Enclomiphene', genericName: 'enclomiphene citrate', drugClass: 'SERM' },
+  { name: 'Clomiphene (Clomid)', genericName: 'clomiphene citrate', drugClass: 'SERM' },
+  { name: 'Anastrozole (Arimidex)', genericName: 'anastrozole', drugClass: 'Aromatase Inhibitor' },
+  { name: 'HCG (Human Chorionic Gonadotropin)', genericName: 'chorionic gonadotropin', drugClass: 'Hormone' },
+  { name: 'Gonadorelin', genericName: 'gonadorelin acetate', drugClass: 'GnRH Agonist' },
+  { name: 'DHEA', genericName: 'dehydroepiandrosterone', drugClass: 'Hormone Precursor' },
+  { name: 'Sermorelin', genericName: 'sermorelin acetate', drugClass: 'GHRH Analog' },
+  { name: 'BPC-157', genericName: 'body protection compound-157', drugClass: 'Peptide' },
+  { name: 'Ipamorelin', genericName: 'ipamorelin', drugClass: 'Growth Hormone Secretagogue' },
+  { name: 'PT-141 (Bremelanotide)', genericName: 'bremelanotide', drugClass: 'Melanocortin Agonist' },
+  { name: 'Sildenafil (Viagra)', genericName: 'sildenafil citrate', drugClass: 'PDE5 Inhibitor' },
+  { name: 'Tadalafil (Cialis)', genericName: 'tadalafil', drugClass: 'PDE5 Inhibitor' },
+  { name: 'Finasteride (Propecia)', genericName: 'finasteride', drugClass: '5-alpha Reductase Inhibitor' },
+  { name: 'Dutasteride (Avodart)', genericName: 'dutasteride', drugClass: '5-alpha Reductase Inhibitor' },
+  { name: 'Minoxidil', genericName: 'minoxidil', drugClass: 'Vasodilator' },
+  { name: 'Metformin', genericName: 'metformin hydrochloride', drugClass: 'Biguanide' },
+  { name: 'Semaglutide (Ozempic/Wegovy)', genericName: 'semaglutide', drugClass: 'GLP-1 Agonist' },
+  { name: 'Tirzepatide (Mounjaro/Zepbound)', genericName: 'tirzepatide', drugClass: 'GLP-1/GIP Agonist' },
+  { name: 'Liraglutide (Saxenda)', genericName: 'liraglutide', drugClass: 'GLP-1 Agonist' },
+  { name: 'Levothyroxine (Synthroid)', genericName: 'levothyroxine sodium', drugClass: 'Thyroid Hormone' },
+  { name: 'Liothyronine (Cytomel)', genericName: 'liothyronine sodium', drugClass: 'Thyroid Hormone' },
+  { name: 'Lisinopril', genericName: 'lisinopril', drugClass: 'ACE Inhibitor' },
+  { name: 'Losartan', genericName: 'losartan potassium', drugClass: 'ARB' },
+  { name: 'Amlodipine', genericName: 'amlodipine besylate', drugClass: 'Calcium Channel Blocker' },
+  { name: 'Atorvastatin (Lipitor)', genericName: 'atorvastatin calcium', drugClass: 'Statin' },
+  { name: 'Rosuvastatin (Crestor)', genericName: 'rosuvastatin calcium', drugClass: 'Statin' },
+  { name: 'Omeprazole (Prilosec)', genericName: 'omeprazole', drugClass: 'Proton Pump Inhibitor' },
+  { name: 'Pantoprazole (Protonix)', genericName: 'pantoprazole sodium', drugClass: 'Proton Pump Inhibitor' },
+  { name: 'Gabapentin (Neurontin)', genericName: 'gabapentin', drugClass: 'Anticonvulsant' },
+  { name: 'Pregabalin (Lyrica)', genericName: 'pregabalin', drugClass: 'Anticonvulsant' },
+  { name: 'Adderall (Amphetamine)', genericName: 'amphetamine/dextroamphetamine', drugClass: 'Stimulant' },
+  { name: 'Wellbutrin (Bupropion)', genericName: 'bupropion hydrochloride', drugClass: 'Antidepressant' },
+  { name: 'Lexapro (Escitalopram)', genericName: 'escitalopram oxalate', drugClass: 'SSRI' },
+  { name: 'Zoloft (Sertraline)', genericName: 'sertraline hydrochloride', drugClass: 'SSRI' },
+  { name: 'Xanax (Alprazolam)', genericName: 'alprazolam', drugClass: 'Benzodiazepine' },
+  { name: 'Prednisone', genericName: 'prednisone', drugClass: 'Corticosteroid' },
+  { name: 'Dexamethasone', genericName: 'dexamethasone', drugClass: 'Corticosteroid' },
+  { name: 'Ibuprofen (Advil)', genericName: 'ibuprofen', drugClass: 'NSAID' },
+  { name: 'Naproxen (Aleve)', genericName: 'naproxen sodium', drugClass: 'NSAID' },
+  { name: 'Aspirin', genericName: 'acetylsalicylic acid', drugClass: 'NSAID/Antiplatelet' },
+  { name: 'Vitamin D3', genericName: 'cholecalciferol', drugClass: 'Supplement' },
+  { name: 'Vitamin B12 (Cyanocobalamin)', genericName: 'cyanocobalamin', drugClass: 'Supplement' },
+  { name: 'NAD+', genericName: 'nicotinamide adenine dinucleotide', drugClass: 'Supplement' },
+  { name: 'Glutathione', genericName: 'glutathione', drugClass: 'Antioxidant' },
+];
+
+function searchLocalMedications(query: string): DrugResult[] {
+  const q = query.toLowerCase();
+  return COMMON_MEDICATIONS.filter((med) =>
+    med.name.toLowerCase().includes(q) ||
+    (med.genericName && med.genericName.toLowerCase().includes(q)) ||
+    (med.drugClass && med.drugClass.toLowerCase().includes(q))
+  );
+}
+
 /**
- * Combined drug search: RxNorm + OpenFDA, merged and deduplicated.
+ * Combined drug search: local common meds + RxNorm + OpenFDA, merged and deduplicated.
  */
 export async function searchDrugs(query: string): Promise<DrugResult[]> {
+  const localResults = searchLocalMedications(query);
+
   const [rxResults, fdaResults] = await Promise.all([
     searchDrugsRxNorm(query),
     searchDrugsOpenFDA(query),
@@ -146,14 +207,14 @@ export async function searchDrugs(query: string): Promise<DrugResult[]> {
   const merged: DrugResult[] = [];
   const seen = new Set<string>();
 
-  for (const r of [...rxResults, ...fdaResults]) {
+  for (const r of [...localResults, ...rxResults, ...fdaResults]) {
     const key = r.name.toLowerCase();
     if (seen.has(key)) continue;
     seen.add(key);
     merged.push(r);
   }
 
-  return merged.slice(0, 15);
+  return merged.slice(0, 20);
 }
 
 /**
