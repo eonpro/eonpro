@@ -168,7 +168,7 @@ export default function BMIResultStep({
           </div>
 
           {/* Goal Card */}
-          <div className="bg-[#d4f084] rounded-3xl p-5 space-y-3">
+          <div className={`${isOt ? 'bg-[#f5ecd8]' : 'bg-[#d4f084]'} rounded-3xl p-5 space-y-3`}>
             <h2 className="text-lg font-semibold text-black">{isSpanish ? 'Tu objetivo' : 'Your goal'}</h2>
             <div className={`text-5xl font-bold ${isOt ? 'text-[#cab172]' : 'text-[#4fa87f]'}`}>{weightToLose ? `${Math.abs(weightToLose).toFixed(2)}` : '0.00'} lbs</div>
             <p className="text-sm text-black font-normal">
@@ -216,8 +216,10 @@ export default function BMIResultStep({
 
             <div className={`flex items-center space-x-4 ${isOt ? 'bg-[#f5ecd8]' : 'bg-[#f0feab]'} rounded-2xl p-4 mt-3`}>
               <div className="relative rounded-full overflow-hidden flex-shrink-0" style={{ width: '100px', height: '100px' }}>
-                <Image 
-                  src="https://static.wixstatic.com/media/c49a9b_60e51d36e98e4128a6edb7987a3d6b8b~mv2.webp"
+                <Image
+                  src={isOt
+                    ? 'https://static.wixstatic.com/media/c49a9b_0b980de32c824bbe9b55082cc8c90476~mv2.webp'
+                    : 'https://static.wixstatic.com/media/c49a9b_60e51d36e98e4128a6edb7987a3d6b8b~mv2.webp'}
                   alt="Doctor"
                   fill
                   sizes="100px"
@@ -232,57 +234,57 @@ export default function BMIResultStep({
             </div>
           </div>
 
-          {/* Before/After Transformation Carousel */}
-          <div className="rounded-3xl bg-white border border-gray-200 p-5 space-y-3">
-            <div className="flex items-center gap-2">
-              <img
-                src="https://static.wixstatic.com/shapes/c49a9b_d96c5f8c37844a39bfa47b0503e6167a.svg"
-                alt="Verified"
-                className="w-8 h-8"
-              />
-              <h3 className="text-base font-semibold text-[#413d3d]">
-                {isSpanish ? 'Transformaciones reales' : 'Real transformations'}
-              </h3>
-            </div>
-            <div
-              className="relative w-full max-w-[220px] mx-auto aspect-[3/4]"
-              onMouseEnter={() => { carouselPaused.current = true; }}
-              onMouseLeave={() => { carouselPaused.current = false; }}
-            >
-              {carouselImages.map((img, index) => (
-                <div
-                  key={index}
-                  className="absolute inset-0 transition-opacity duration-500 ease-in-out"
-                  style={{ opacity: carouselIndex === index ? 1 : 0 }}
-                >
-                  <Image
-                    src={img}
-                    alt={`Transformation ${index + 1}`}
-                    fill
-                    className="object-contain rounded-xl"
-                    sizes="220px"
-                    priority={index === 0}
-                  />
-                </div>
-              ))}
-            </div>
-            <div className="flex justify-center gap-1.5">
-              {carouselImages.map((_, index) => (
-                <button
-                  key={index}
-                  onClick={() => setCarouselIndex(index)}
-                  className={`h-1.5 rounded-full transition-all duration-300 ${
-                    carouselIndex === index
-                      ? `w-4 ${isOt ? 'bg-[#cab172]' : 'bg-[#4fa87f]'}`
-                      : 'w-1.5 bg-gray-300'
-                  }`}
+          {/* Before/After Transformation Carousel -- hidden for OT peptide intake */}
+          {!isOt && (
+            <div className="rounded-3xl bg-white border border-gray-200 p-5 space-y-3">
+              <div className="flex items-center gap-2">
+                <img
+                  src="https://static.wixstatic.com/shapes/c49a9b_d96c5f8c37844a39bfa47b0503e6167a.svg"
+                  alt="Verified"
+                  className="w-8 h-8"
                 />
-              ))}
+                <h3 className="text-base font-semibold text-[#413d3d]">
+                  {isSpanish ? 'Transformaciones reales' : 'Real transformations'}
+                </h3>
+              </div>
+              <div
+                className="relative w-full max-w-[220px] mx-auto aspect-[3/4]"
+                onMouseEnter={() => { carouselPaused.current = true; }}
+                onMouseLeave={() => { carouselPaused.current = false; }}
+              >
+                {carouselImages.map((img, index) => (
+                  <div
+                    key={index}
+                    className="absolute inset-0 transition-opacity duration-500 ease-in-out"
+                    style={{ opacity: carouselIndex === index ? 1 : 0 }}
+                  >
+                    <Image
+                      src={img}
+                      alt={`Transformation ${index + 1}`}
+                      fill
+                      className="object-contain rounded-xl"
+                      sizes="220px"
+                      priority={index === 0}
+                    />
+                  </div>
+                ))}
+              </div>
+              <div className="flex justify-center gap-1.5">
+                {carouselImages.map((_, index) => (
+                  <button
+                    key={index}
+                    onClick={() => setCarouselIndex(index)}
+                    className={`h-1.5 rounded-full transition-all duration-300 ${
+                      carouselIndex === index ? 'w-4 bg-[#4fa87f]' : 'w-1.5 bg-gray-300'
+                    }`}
+                  />
+                ))}
+              </div>
+              <p className="text-[10px] text-gray-400 text-center">
+                {isSpanish ? 'Resultados individuales pueden variar.' : 'Individual results may vary.'}
+              </p>
             </div>
-            <p className="text-[10px] text-gray-400 text-center">
-              {isSpanish ? 'Resultados individuales pueden variar.' : 'Individual results may vary.'}
-            </p>
-          </div>
+          )}
         </div>
       </div>
       
