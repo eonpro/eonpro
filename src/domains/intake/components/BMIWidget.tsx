@@ -5,9 +5,12 @@ import { useState, useEffect, useRef } from 'react';
 interface BMIWidgetProps {
   bmi: number;
   language: 'en' | 'es';
+  accentColor?: string;
 }
 
-export default function BMIWidget({ bmi, language }: BMIWidgetProps) {
+export default function BMIWidget({ bmi, language, accentColor }: BMIWidgetProps) {
+  const accent = accentColor || '#7cb342';
+  const accentDark = accentColor ? accentColor : '#558b2f';
   const [indicatorPosition, setIndicatorPosition] = useState(0);
   const [barFillWidth, setBarFillWidth] = useState(0);
   const [showIndicator, setShowIndicator] = useState(false);
@@ -108,7 +111,7 @@ export default function BMIWidget({ bmi, language }: BMIWidgetProps) {
         <div 
           className="relative text-[11px] font-semibold tracking-wide px-4 py-2 rounded-full whitespace-nowrap"
           style={{
-            background: '#7cb342',
+            background: accent,
             boxShadow: '0 4px 15px rgba(0,0,0,0.2)',
             color: '#ffffff'
           }}
@@ -122,7 +125,7 @@ export default function BMIWidget({ bmi, language }: BMIWidgetProps) {
               bottom: '-6px',
               borderLeft: '7px solid transparent',
               borderRight: '7px solid transparent',
-              borderTop: '7px solid #7cb342'
+              borderTop: `7px solid ${accent}`
             }}
           />
         </div>
@@ -157,7 +160,7 @@ export default function BMIWidget({ bmi, language }: BMIWidgetProps) {
                 transform: 'translate(-50%, -50%)',
                 width: '22px',
                 height: '22px',
-                border: '2px solid rgba(124, 179, 66, 0.6)',
+                border: `2px solid ${accent}99`,
                 borderRadius: '50%',
                 animation: 'ping 2s cubic-bezier(0, 0, 0.2, 1) infinite',
                 transition: 'left 1.2s cubic-bezier(0.4, 0, 0.2, 1)'
@@ -181,7 +184,7 @@ export default function BMIWidget({ bmi, language }: BMIWidgetProps) {
                 className="absolute top-1/2 left-1/2 w-[10px] h-[10px] rounded-full"
                 style={{
                   transform: 'translate(-50%, -50%)',
-                  background: 'linear-gradient(135deg, #7cb342, #558b2f)'
+                  background: `linear-gradient(135deg, ${accent}, ${accentDark})`
                 }}
               />
             </div>

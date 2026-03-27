@@ -151,7 +151,7 @@ export default function BMIResultStep({
                 : 'BMI is just one metric and does not account for muscle mass or other health factors.'}
             </p>
             
-            <BMIWidget bmi={bmi} language={language as 'en' | 'es'} />
+            <BMIWidget bmi={bmi} language={language as 'en' | 'es'} accentColor={isOt ? '#cab172' : undefined} />
             
             <div className={`${isOt ? 'bg-[#e8dcc4]' : 'bg-[#e4fb74]'} rounded-2xl p-4 flex items-start space-x-3`}>
               <div className={`w-8 h-8 ${isOt ? 'bg-[#cab172]' : 'bg-[#4fa87f]'} rounded-full flex items-center justify-center flex-shrink-0`}>
@@ -168,7 +168,7 @@ export default function BMIResultStep({
           </div>
 
           {/* Goal Card */}
-          <div className={`${isOt ? 'bg-[#f5ecd8]' : 'bg-[#d4f084]'} rounded-3xl p-5 space-y-3`}>
+          <div className={`${isOt ? 'bg-[#e8d5a0]' : 'bg-[#d4f084]'} rounded-3xl p-5 space-y-3`}>
             <h2 className="text-lg font-semibold text-black">{isSpanish ? 'Tu objetivo' : 'Your goal'}</h2>
             <div className={`text-5xl font-bold ${isOt ? 'text-[#cab172]' : 'text-[#4fa87f]'}`}>{weightToLose ? `${Math.abs(weightToLose).toFixed(2)}` : '0.00'} lbs</div>
             <p className="text-sm text-black font-normal">
