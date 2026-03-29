@@ -269,9 +269,9 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) 
       );
     }
 
-    // Check if clinic exists
     const clinic = await basePrisma.clinic.findUnique({
       where: { id: clinicId },
+      select: { id: true, name: true, subdomain: true, customDomain: true, logoUrl: true },
     });
 
     if (!clinic) {
