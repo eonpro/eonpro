@@ -1,21 +1,9 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { logger } from '../lib/logger';
 import { getAuthHeaders } from '@/lib/utils/auth-token';
-import { Line } from 'react-chartjs-2';
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Title,
-  Tooltip,
-  Legend,
-  Filler,
-  ChartOptions,
-} from 'chart.js';
+import type { ChartOptions } from 'chart.js';
 import { format } from 'date-fns';
 import { apiFetch } from '@/lib/api/fetch';
 import { toast } from '@/components/Toast';
@@ -39,17 +27,6 @@ import {
   Flame,
   Footprints,
 } from 'lucide-react';
-
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Title,
-  Tooltip,
-  Legend,
-  Filler
-);
 
 // =============================================================================
 // Types
@@ -180,6 +157,37 @@ function SourceBadge({ source }: { source?: string }) {
 
 export default function PatientProgressView({ patient }: PatientProgressViewProps) {
   const { primary: brandPrimary } = useBrandingColors();
+
+  // Lazy-load chart.js + react-chartjs-2 on mount (avoids blocking the dynamic import)
+  const [ChartLine, setChartLine] = useState<React.ComponentType<any> | null>(null);
+  const chartInitRef = useRef(false);
+  useEffect(() => {
+    if (chartInitRef.current) return;
+    chartInitRef.current = true;
+    (async () => {
+      try {
+        const [chartjs, rcc] = await Promise.all([
+          import('chart.js'),
+          import('react-chartjs-2'),
+        ]);
+        chartjs.Chart.register(
+          chartjs.CategoryScale,
+          chartjs.LinearScale,
+          chartjs.PointElement,
+          chartjs.LineElement,
+          chartjs.Title,
+          chartjs.Tooltip,
+          chartjs.Legend,
+          chartjs.Filler,
+        );
+        setChartLine(() => rcc.Line);
+      } catch (err) {
+        logger.error('Failed to load chart library', {
+          error: err instanceof Error ? err.message : 'Unknown',
+        });
+      }
+    })();
+  }, []);
 
   const [weightData, setWeightData] = useState<WeightEntry[]>([]);
   const [medicationReminders, setMedicationReminders] = useState<any[]>([]);
@@ -683,47 +691,53 @@ export default function PatientProgressView({ patient }: PatientProgressViewProp
         >
           {weightData.length > 0 ? (
             <div className="h-full w-full [&_canvas]:!bg-transparent">
-              <Line
-                data={{
-                  labels: weightData.map((d) => format(d.date, 'M/d')),
-                  datasets: [
+              {ChartLine ? (
+                <ChartLine
+                  data={{
+                    labels: weightData.map((d) => format(d.date, 'M/d')),
+                    datasets: [
+                      {
+                        data: weightData.map((d) => d.weight),
+                        borderColor: brandPrimary,
+                        pointBackgroundColor: brandPrimary,
+                        pointBorderColor: '#fff',
+                        pointBorderWidth: 2,
+                        pointRadius: 6,
+                        fill: true,
+                        tension: 0.4,
+                        backgroundColor: `${brandPrimary}20`,
+                      },
+                    ],
+                  }}
+                  options={
                     {
-                      data: weightData.map((d) => d.weight),
-                      borderColor: brandPrimary,
-                      pointBackgroundColor: brandPrimary,
-                      pointBorderColor: '#fff',
-                      pointBorderWidth: 2,
-                      pointRadius: 6,
-                      fill: true,
-                      tension: 0.4,
-                      backgroundColor: `${brandPrimary}20`,
-                    },
-                  ],
-                }}
-                options={
-                  {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    layout: { padding: 0 },
-                    plugins: {
-                      legend: { display: false },
-                      tooltip: { backgroundColor: 'rgba(255,255,255,0.95)' },
-                    },
-                    scales: {
-                      x: {
-                        title: { display: true, text: 'Date', color: '#374151' },
-                        ticks: { color: '#374151' },
-                        grid: { color: 'rgba(0,0,0,0.06)' },
+                      responsive: true,
+                      maintainAspectRatio: false,
+                      layout: { padding: 0 },
+                      plugins: {
+                        legend: { display: false },
+                        tooltip: { backgroundColor: 'rgba(255,255,255,0.95)' },
                       },
-                      y: {
-                        title: { display: true, text: 'Weight (lbs)', color: '#374151' },
-                        ticks: { color: '#374151' },
-                        grid: { color: 'rgba(0,0,0,0.06)' },
+                      scales: {
+                        x: {
+                          title: { display: true, text: 'Date', color: '#374151' },
+                          ticks: { color: '#374151' },
+                          grid: { color: 'rgba(0,0,0,0.06)' },
+                        },
+                        y: {
+                          title: { display: true, text: 'Weight (lbs)', color: '#374151' },
+                          ticks: { color: '#374151' },
+                          grid: { color: 'rgba(0,0,0,0.06)' },
+                        },
                       },
-                    },
-                  } as ChartOptions<'line'>
-                }
-              />
+                    } as ChartOptions<'line'>
+                  }
+                />
+              ) : (
+                <div className="flex h-full items-center justify-center">
+                  <div className="h-6 w-6 animate-spin rounded-full border-2 border-gray-300 border-t-gray-600" />
+                </div>
+              )}
             </div>
           ) : (
             <div className="flex h-full flex-col items-center justify-center text-gray-600">

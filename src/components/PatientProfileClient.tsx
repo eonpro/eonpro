@@ -7,30 +7,7 @@ import PatientPaymentMethods from '@/components/PatientPaymentMethods';
 import PatientSOAPNotesView from '@/components/PatientSOAPNotesView';
 import PatientChatView from '@/components/PatientChatView';
 import PatientAppointmentsView from '@/components/PatientAppointmentsView';
-import dynamic from 'next/dynamic';
-const PatientProgressView = dynamic(
-  () => import('@/components/PatientProgressView').catch((err) => {
-    // Return a fallback module so React doesn't crash on chunk load failure
-    return {
-      default: () => (
-        <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-center">
-          <p className="text-sm font-medium text-red-800">Failed to load Progress tab</p>
-          <p className="mt-1 text-xs text-red-600">{err?.message || 'Unknown error'}</p>
-          <button
-            onClick={() => window.location.reload()}
-            className="mt-3 rounded-lg bg-red-600 px-4 py-2 text-sm text-white hover:bg-red-700"
-          >
-            Reload Page
-          </button>
-        </div>
-      ),
-    };
-  }),
-  {
-    ssr: false,
-    loading: () => <div className="h-64 animate-pulse rounded-xl bg-gray-100" />,
-  }
-);
+import PatientProgressView from '@/components/PatientProgressView';
 import PatientPrescriptionsTab from '@/components/PatientPrescriptionsTab';
 import PatientDocumentsView from '@/components/PatientDocumentsView';
 import PatientLabView from '@/components/PatientLabView';
