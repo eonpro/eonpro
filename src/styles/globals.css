@@ -13,7 +13,7 @@
 
 :root {
   font-family:
-    var(--font-sofia-pro),
+    var(--font-outfit, var(--font-sofia-pro)),
     -apple-system,
     BlinkMacSystemFont,
     'Segoe UI',
@@ -922,4 +922,38 @@ html {
   ) !important;
   background-size: 300% 300% !important;
   animation: login-gradient-shift 16s ease infinite !important;
+}
+
+/* ==========================================================================
+   Performance: content-visibility & containment for mobile rendering speed
+   ========================================================================== */
+
+/* Below-fold sections in portal pages can skip rendering until scrolled near */
+.cv-auto {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 300px;
+}
+
+/* Img elements: prevent layout shift by enforcing aspect-ratio when only one dimension is set */
+img[width][height] {
+  aspect-ratio: attr(width) / attr(height);
+  height: auto;
+}
+
+/* Reduce paint complexity for fixed-position overlays */
+.portal-header,
+.portal-bottom-nav,
+.portal-chat-fab {
+  will-change: transform;
+  contain: layout style;
+}
+
+/* Optimize touch response (INP) — pointer events pass through faster */
+@media (pointer: coarse) {
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+  button, a, [role="button"] {
+    touch-action: manipulation;
+  }
 }

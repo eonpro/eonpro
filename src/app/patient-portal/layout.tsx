@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import nextDynamic from 'next/dynamic';
@@ -319,7 +319,7 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  const handleLogout = (e: React.MouseEvent) => {
+  const handleLogout = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     const token = localStorage.getItem('auth-token') || localStorage.getItem('patient-token');
@@ -339,15 +339,19 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
     localStorage.removeItem('refresh_token');
     localStorage.removeItem('token_timestamp');
     window.location.href = '/patient-login';
-  };
+  }, []);
 
-  const isActive = (path: string, exact?: boolean) => {
-    const current = pathname?.startsWith('/patient-portal')
+  const normalizedPathname = useMemo(() => {
+    if (!pathname) return '';
+    return pathname.startsWith('/patient-portal')
       ? pathname.replace('/patient-portal', PATIENT_PORTAL_PATH)
-      : (pathname ?? '');
-    if (exact) return current === path;
-    return current === path || current.startsWith(path + '/');
-  };
+      : pathname;
+  }, [pathname]);
+
+  const isActive = useCallback((path: string, exact?: boolean) => {
+    if (exact) return normalizedPathname === path;
+    return normalizedPathname === path || normalizedPathname.startsWith(path + '/');
+  }, [normalizedPathname]);
 
   const primaryColor = branding?.primaryColor || '#4fa77e';
   const accentColor = branding?.accentColor || '#d3f931';

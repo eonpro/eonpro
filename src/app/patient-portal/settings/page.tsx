@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
 import { useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';

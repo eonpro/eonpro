@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useTransition, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
@@ -46,6 +46,14 @@ export default function SemaglutideDoseCalculatorPage() {
   const [units, setUnits] = useState('');
   const [concentration, setConcentration] = useState(2.5);
   const [selectedWeek, setSelectedWeek] = useState<(typeof dosingSchedule)[0] | null>(null);
+  const [, startTransition] = useTransition();
+
+  const handleUnitsChange = useCallback((value: string) => {
+    startTransition(() => {
+      setUnits(value);
+      setSelectedWeek(null);
+    });
+  }, [startTransition]);
 
   const result = useMemo(() => {
     const unitsNum = parseFloat(units || '0');
@@ -55,7 +63,10 @@ export default function SemaglutideDoseCalculatorPage() {
     return { mg: mg.toFixed(3), mL: mL.toFixed(3) };
   }, [units, concentration]);
 
-  const fillPercentage = Math.min(100, (parseFloat(units || '0') / 100) * 100);
+  const fillPercentage = useMemo(
+    () => Math.min(100, (parseFloat(units || '0') / 100) * 100),
+    [units],
+  );
 
   return (
     <div className="min-h-[100dvh] px-4 py-6">
@@ -145,10 +156,7 @@ export default function SemaglutideDoseCalculatorPage() {
                   inputMode="numeric"
                   pattern="[0-9]*"
                   value={units}
-                  onChange={(e) => {
-                    setUnits(e.target.value);
-                    setSelectedWeek(null);
-                  }}
+                  onChange={(e) => handleUnitsChange(e.target.value)}
                   placeholder="0"
                   min="0"
                   max="100"
@@ -408,7 +416,7 @@ export default function SemaglutideDoseCalculatorPage() {
                     key={schedule.week}
                     onClick={() => {
                       setSelectedWeek(schedule);
-                      setUnits(scheduleUnits.toString());
+                      startTransition(() => setUnits(scheduleUnits.toString()));
                     }}
                     className={`group flex w-full items-center justify-between p-5 text-left transition-colors duration-150 ${
                       isSelected ? 'bg-gray-50' : 'hover:bg-gray-50'

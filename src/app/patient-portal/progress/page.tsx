@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useTransition } from 'react';
+import { useState, useEffect, useMemo, useTransition, useCallback } from 'react';
 import { useClinicBranding, usePortalFeatures } from '@/lib/contexts/ClinicBrandingContext';
 import { usePatientPortalLanguage } from '@/lib/contexts/PatientPortalLanguageContext';
 import { portalFetch } from '@/lib/api/patient-portal-client';
@@ -236,7 +236,7 @@ export default function ProgressPage() {
     }
   }, [patientId, activeTab]);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     if (!patientId) return;
     try {
       setError(null);
@@ -315,7 +315,7 @@ export default function ProgressPage() {
       });
       setError('Failed to load health data. Please check your connection and try again.');
     }
-  };
+  }, [patientId, activeTab]);
 
   const handleQuickWater = async (amount: number) => {
     if (!patientId) return;

@@ -1623,12 +1623,12 @@ export default function PrescriptionQueuePage() {
         )}
 
         {error && (
-          <div className="flex items-center gap-3 rounded-xl border border-red-200 bg-red-50 p-4">
-            <AlertCircle className="h-5 w-5 text-red-600" />
-            <span className="text-red-800">{error}</span>
+          <div className="flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4">
+            <AlertCircle className="h-5 w-5 text-amber-600" />
+            <span className="text-amber-800">{error}</span>
             <button
               onClick={() => setError('')}
-              className="ml-auto text-red-600 hover:text-red-800"
+              className="ml-auto text-amber-600 hover:text-amber-800"
             >
               <X className="h-4 w-4" />
             </button>
@@ -1737,7 +1737,7 @@ export default function PrescriptionQueuePage() {
               const pasted = e.clipboardData.getData('text');
               setSearchTerm(pasted.replace(/\s+/g, ' ').trim());
             }}
-            className="min-h-[48px] w-full touch-manipulation rounded-xl border border-gray-200 bg-white py-3 pl-4 pr-14 text-base shadow-sm focus:border-transparent focus:ring-2 focus:ring-rose-400"
+            className="min-h-[48px] w-full touch-manipulation rounded-xl border border-gray-200 bg-white py-3 pl-4 pr-14 text-base shadow-sm focus:border-transparent focus:ring-2 focus:ring-[#66a682]"
           />
           {searchTerm && (
             <button
@@ -1764,7 +1764,7 @@ export default function PrescriptionQueuePage() {
             Ready to Prescribe
             {readyItems.length > 0 && (
               <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
-                activeTab === 'ready' ? 'bg-rose-100 text-rose-700' : 'bg-gray-200 text-gray-600'
+                activeTab === 'ready' ? 'bg-[#e8fa87]/40 text-[#5a9474]' : 'bg-gray-200 text-gray-600'
               }`}>
                 {readyItems.length}
               </span>
@@ -1793,12 +1793,12 @@ export default function PrescriptionQueuePage() {
         {/* Queue Cards */}
         {loading ? (
           <div className="flex items-center justify-center py-16">
-            <Loader2 className="h-8 w-8 animate-spin text-rose-500" />
+            <Loader2 className="h-8 w-8 animate-spin text-[#66a682]" />
           </div>
         ) : fetchFailed ? (
-          <div className="rounded-2xl border border-red-200 bg-red-50 p-12 text-center shadow-sm">
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-red-100">
-              <AlertCircle className="h-8 w-8 text-red-600" />
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-12 text-center shadow-sm">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-amber-100">
+              <AlertCircle className="h-8 w-8 text-amber-600" />
             </div>
             <h3 className="mb-2 text-lg font-semibold text-gray-900">
               Failed to load prescriptions
@@ -1813,7 +1813,7 @@ export default function PrescriptionQueuePage() {
                 setError('');
                 fetchQueue();
               }}
-              className="mt-4 inline-flex items-center gap-2 rounded-lg bg-rose-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-rose-600"
+              className="mt-4 inline-flex items-center gap-2 rounded-lg bg-[#e8fa87]/200 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#5a9474]"
             >
               <RefreshCw className="h-3.5 w-3.5" />
               Retry
@@ -1883,9 +1883,9 @@ export default function PrescriptionQueuePage() {
                         <div className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full ${
                           isQueuedOrder
                             ? 'bg-gradient-to-br from-amber-100 to-amber-200'
-                            : 'bg-gradient-to-br from-rose-100 to-rose-200'
+                            : 'bg-gradient-to-br from-[#e8fa87]/40 to-[#f2fdb4]'
                         }`}>
-                          <User className={`h-4 w-4 ${isQueuedOrder ? 'text-amber-600' : 'text-rose-600'}`} />
+                          <User className={`h-4 w-4 ${isQueuedOrder ? 'text-amber-600' : 'text-[#66a682]'}`} />
                         </div>
                         <div className="min-w-0 flex-1 overflow-hidden">
                           <h3 className="truncate text-sm font-semibold text-gray-900 sm:text-xs">
@@ -1942,9 +1942,9 @@ export default function PrescriptionQueuePage() {
                         <div className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full ${
                           isQueuedOrder
                             ? 'bg-gradient-to-br from-amber-100 to-amber-200'
-                            : 'bg-gradient-to-br from-rose-100 to-rose-200'
+                            : 'bg-gradient-to-br from-[#e8fa87]/40 to-[#f2fdb4]'
                         }`}>
-                          <User className={`h-4 w-4 ${isQueuedOrder ? 'text-amber-600' : 'text-rose-600'}`} />
+                          <User className={`h-4 w-4 ${isQueuedOrder ? 'text-amber-600' : 'text-[#66a682]'}`} />
                         </div>
                         <div className="min-w-0 flex-1 overflow-hidden">
                           <div className="flex flex-wrap items-center gap-1.5">
@@ -1969,7 +1969,7 @@ export default function PrescriptionQueuePage() {
                             ) : null}
                             {item.recentPrescription?.hasDuplicate && (
                               <span
-                                className="inline-flex items-center gap-0.5 rounded-full border border-red-300 bg-red-100 px-1.5 py-0.5 text-[9px] font-bold text-red-700"
+                                className="inline-flex items-center gap-0.5 rounded-full border border-amber-300 bg-amber-100 px-1.5 py-0.5 text-[9px] font-bold text-amber-700"
                                 title={`${item.recentPrescription.orders.length} prescription(s) in the last ${item.recentPrescription.windowDays} days`}
                               >
                                 <ShieldAlert className="h-2.5 w-2.5" />
@@ -2042,7 +2042,7 @@ export default function PrescriptionQueuePage() {
                                 item.planMonths >= 6
                                   ? 'bg-emerald-100 text-emerald-700'
                                   : item.planMonths >= 3
-                                    ? 'bg-rose-100 text-rose-700'
+                                    ? 'bg-[#e8fa87]/40 text-[#5a9474]'
                                     : 'bg-gray-200 text-gray-700'
                               }`}
                             >
@@ -2155,7 +2155,7 @@ export default function PrescriptionQueuePage() {
                             <button
                               onClick={() => handleOpenPrescriptionPanel(item)}
                               disabled={!item.clinic?.lifefileEnabled}
-                              className="flex min-h-[48px] min-w-0 flex-1 touch-manipulation items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-rose-500 to-rose-600 px-3 py-2.5 text-sm font-medium text-white shadow-sm transition-all hover:from-rose-600 hover:to-rose-700 disabled:cursor-not-allowed disabled:opacity-50 sm:flex-initial"
+                              className="flex min-h-[48px] min-w-0 flex-1 touch-manipulation items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-[#66a682] to-[#5a9474] px-3 py-2.5 text-sm font-medium text-white shadow-sm transition-all hover:from-[#5a9474] hover:to-[#4d8066] disabled:cursor-not-allowed disabled:opacity-50 sm:flex-initial"
                               title={
                                 item.clinic?.lifefileEnabled
                                   ? 'Write and send prescription'
@@ -2187,7 +2187,7 @@ export default function PrescriptionQueuePage() {
                             </button>
                             <button
                               onClick={() => setDeclineModal({ item })}
-                              className="flex min-h-[44px] min-w-[44px] touch-manipulation items-center justify-center rounded-xl border border-red-200 bg-red-50 px-3 py-2.5 text-sm font-medium text-red-600 transition-all hover:bg-red-100"
+                              className="flex min-h-[44px] min-w-[44px] touch-manipulation items-center justify-center rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm font-medium text-amber-600 transition-all hover:bg-amber-100"
                               title="Decline prescription request"
                             >
                               <X className="h-4 w-4" />
@@ -2212,7 +2212,7 @@ export default function PrescriptionQueuePage() {
                             <button
                               onClick={() => handleOpenPrescriptionPanel(item)}
                               disabled={!item.clinic?.lifefileEnabled}
-                              className="flex min-h-[48px] min-w-0 flex-1 touch-manipulation items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-rose-500 to-rose-600 px-3 py-2.5 text-sm font-medium text-white shadow-sm transition-all hover:from-rose-600 hover:to-rose-700 disabled:cursor-not-allowed disabled:opacity-50 sm:flex-initial"
+                              className="flex min-h-[48px] min-w-0 flex-1 touch-manipulation items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-[#66a682] to-[#5a9474] px-3 py-2.5 text-sm font-medium text-white shadow-sm transition-all hover:from-[#5a9474] hover:to-[#4d8066] disabled:cursor-not-allowed disabled:opacity-50 sm:flex-initial"
                               title="Write and send prescription"
                             >
                               <Send className="h-4 w-4 flex-shrink-0" />
@@ -2220,7 +2220,7 @@ export default function PrescriptionQueuePage() {
                             </button>
                             <button
                               onClick={() => setDeclineModal({ item })}
-                              className="flex min-h-[44px] min-w-[44px] touch-manipulation items-center justify-center rounded-xl border border-red-200 bg-red-50 px-3 py-2.5 text-sm font-medium text-red-600 transition-all hover:bg-red-100"
+                              className="flex min-h-[44px] min-w-[44px] touch-manipulation items-center justify-center rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm font-medium text-amber-600 transition-all hover:bg-amber-100"
                               title="Decline prescription request"
                             >
                               <X className="h-4 w-4" />
@@ -2264,7 +2264,7 @@ export default function PrescriptionQueuePage() {
                             </button>
                             <button
                               onClick={() => setDeclineModal({ item })}
-                              className="flex min-h-[44px] min-w-[44px] touch-manipulation items-center justify-center rounded-xl border border-red-200 bg-red-50 px-3 py-2.5 text-sm font-medium text-red-600 transition-all hover:bg-red-100"
+                              className="flex min-h-[44px] min-w-[44px] touch-manipulation items-center justify-center rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm font-medium text-amber-600 transition-all hover:bg-amber-100"
                               title="Decline this queued prescription"
                             >
                               <X className="h-4 w-4" />
@@ -2288,7 +2288,7 @@ export default function PrescriptionQueuePage() {
                             </button>
                             <button
                               onClick={() => setDeclineModal({ item })}
-                              className="flex min-h-[44px] min-w-[44px] touch-manipulation items-center justify-center rounded-xl border border-red-200 bg-red-50 px-3 py-2.5 text-sm font-medium text-red-600 transition-all hover:bg-red-100"
+                              className="flex min-h-[44px] min-w-[44px] touch-manipulation items-center justify-center rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm font-medium text-amber-600 transition-all hover:bg-amber-100"
                               title="Decline this queued prescription"
                             >
                               <X className="h-4 w-4" />
@@ -2320,32 +2320,32 @@ export default function PrescriptionQueuePage() {
 
                   {/* Duplicate Prescription Warning Banner */}
                   {item.recentPrescription?.hasDuplicate && (
-                    <div className="flex items-start gap-2 border-t border-red-200 bg-red-50 px-4 py-3">
-                      <ShieldAlert className="mt-0.5 h-4 w-4 flex-shrink-0 text-red-600" />
+                    <div className="flex items-start gap-2 border-t border-amber-200 bg-amber-50 px-4 py-3">
+                      <ShieldAlert className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-600" />
                       <div className="min-w-0 flex-1">
-                        <p className="text-xs font-semibold uppercase tracking-wide text-red-700">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">
                           Duplicate Prescription Warning
                         </p>
-                        <p className="mt-0.5 text-sm text-red-900">
+                        <p className="mt-0.5 text-sm text-amber-900">
                           This patient has {item.recentPrescription.orders.length} prescription{item.recentPrescription.orders.length > 1 ? 's' : ''} in the last {item.recentPrescription.windowDays} days:
                         </p>
                         <ul className="mt-1 space-y-0.5">
                           {item.recentPrescription.orders.slice(0, 3).map((order) => (
-                            <li key={order.orderId} className="text-xs text-red-800">
+                            <li key={order.orderId} className="text-xs text-amber-800">
                               <span className="font-medium">{order.primaryMedName || 'Unknown'}</span>
                               {order.primaryMedStrength && ` ${order.primaryMedStrength}`}
                               {' — '}
                               {new Date(order.createdAt).toLocaleDateString()}{' '}
-                              {order.providerName && <span className="text-red-600">by {order.providerName}</span>}
+                              {order.providerName && <span className="text-amber-600">by {order.providerName}</span>}
                               {order.status && (
-                                <span className="ml-1 rounded bg-red-100 px-1 py-0.5 text-[9px] font-medium uppercase text-red-700">
+                                <span className="ml-1 rounded bg-amber-100 px-1 py-0.5 text-[9px] font-medium uppercase text-amber-700">
                                   {order.status}
                                 </span>
                               )}
                             </li>
                           ))}
                         </ul>
-                        <p className="mt-1.5 text-[10px] font-medium text-red-600">
+                        <p className="mt-1.5 text-[10px] font-medium text-amber-600">
                           Please verify this is not a duplicate before prescribing.
                         </p>
                       </div>
@@ -2357,14 +2357,14 @@ export default function PrescriptionQueuePage() {
                     <div className="border-t border-gray-100 bg-gray-50 p-5">
                       {loadingDetails ? (
                         <div className="flex items-center justify-center py-8">
-                          <Loader2 className="h-6 w-6 animate-spin text-rose-500" />
+                          <Loader2 className="h-6 w-6 animate-spin text-[#66a682]" />
                         </div>
                       ) : patientDetails ? (
                         <div className="grid grid-cols-1 gap-4 lg:grid-cols-4 lg:gap-6">
                           {/* Patient Contact Info */}
                           <div className="space-y-4">
                             <h4 className="flex items-center gap-2 font-semibold text-gray-900">
-                              <User className="h-4 w-4 text-rose-500" />
+                              <User className="h-4 w-4 text-[#66a682]" />
                               Patient Information
                             </h4>
                             <div className="space-y-3 text-sm">
@@ -2412,7 +2412,7 @@ export default function PrescriptionQueuePage() {
                                 )}
                               </div>
                               {patientDetails.patient.allergies && (
-                                <div className="flex items-start gap-2 rounded-lg bg-red-50 p-2 text-red-600">
+                                <div className="flex items-start gap-2 rounded-lg bg-amber-50 p-2 text-amber-600">
                                   <ShieldAlert className="mt-0.5 h-4 w-4" />
                                   <div>
                                     <span className="font-medium">Allergies:</span>{' '}
@@ -2427,19 +2427,19 @@ export default function PrescriptionQueuePage() {
                           {patientDetails.clinicalContext && (
                             <div className="space-y-4">
                               <h4 className="flex items-center gap-2 font-semibold text-gray-900">
-                                <Stethoscope className="h-4 w-4 text-rose-500" />
+                                <Stethoscope className="h-4 w-4 text-[#66a682]" />
                                 Clinical Summary
                               </h4>
                               <div className="space-y-3 text-sm">
                                 {/* Contraindications — RED alert */}
                                 {patientDetails.clinicalContext.contraindications.length > 0 && (
-                                  <div className="rounded-lg bg-red-50 border border-red-200 p-3">
-                                    <div className="flex items-center gap-2 font-semibold text-red-700 mb-1">
+                                  <div className="rounded-lg bg-amber-50 border border-amber-200 p-3">
+                                    <div className="flex items-center gap-2 font-semibold text-amber-700 mb-1">
                                       <ShieldAlert className="h-4 w-4" />
                                       Contraindications
                                     </div>
                                     {patientDetails.clinicalContext.contraindications.map((c, i) => (
-                                      <div key={i} className="text-red-600">• {c}</div>
+                                      <div key={i} className="text-amber-600">• {c}</div>
                                     ))}
                                   </div>
                                 )}
@@ -2546,7 +2546,7 @@ export default function PrescriptionQueuePage() {
                                   </div>
                                 )}
                                 {patientDetails.clinicalContext.allergies && (
-                                  <div className="rounded-lg bg-red-50 p-2 text-red-600">
+                                  <div className="rounded-lg bg-amber-50 p-2 text-amber-600">
                                     <span className="font-medium">Allergies:</span> {patientDetails.clinicalContext.allergies}
                                   </div>
                                 )}
@@ -2588,7 +2588,7 @@ export default function PrescriptionQueuePage() {
                           {/* SOAP Note Section */}
                           <div className="space-y-4">
                             <h4 className="flex items-center gap-2 font-semibold text-gray-900">
-                              <ClipboardCheck className="h-4 w-4 text-rose-500" />
+                              <ClipboardCheck className="h-4 w-4 text-[#66a682]" />
                               SOAP Note
                               {patientDetails.soapNote && (
                                 <span
@@ -2612,7 +2612,7 @@ export default function PrescriptionQueuePage() {
                                 )}
                                 <div className="space-y-3 rounded-xl border border-gray-200 bg-white p-4 text-sm">
                                   <div>
-                                    <span className="font-semibold text-rose-600">
+                                    <span className="font-semibold text-[#66a682]">
                                       S - Subjective:
                                     </span>
                                     <p className="mt-1 line-clamp-3 text-gray-700">
@@ -2646,7 +2646,7 @@ export default function PrescriptionQueuePage() {
                                   href={`/provider/patients/${patientDetails.patient.id}?tab=soap`}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="text-xs font-medium text-rose-600 hover:text-rose-700"
+                                  className="text-xs font-medium text-[#66a682] hover:text-[#5a9474]"
                                 >
                                   View Full SOAP Note →
                                 </a>
@@ -2686,7 +2686,7 @@ export default function PrescriptionQueuePage() {
                           {/* Intake Data — collapsed by default on mobile to reduce scroll */}
                           <details className="group" open>
                             <summary className="flex cursor-pointer list-none items-center gap-2 font-semibold text-gray-900 [&::-webkit-details-marker]:hidden">
-                              <FileText className="h-4 w-4 text-rose-500" />
+                              <FileText className="h-4 w-4 text-[#66a682]" />
                               Intake Information
                               {patientDetails.intake.sections.length > 0 && (
                                 <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-normal text-gray-500">
@@ -2708,7 +2708,7 @@ export default function PrescriptionQueuePage() {
                                         <Pill className="h-4 w-4 text-[var(--brand-primary)]" />
                                       )}
                                       {section.section === 'Medical History' && (
-                                        <Heart className="h-4 w-4 text-red-500" />
+                                        <Heart className="h-4 w-4 text-amber-500" />
                                       )}
                                       {section.section === 'Personal Information' && (
                                         <User className="h-4 w-4 text-blue-500" />
@@ -2893,10 +2893,10 @@ export default function PrescriptionQueuePage() {
             </button>
 
             {/* Modal Header */}
-            <div className="rounded-t-2xl border-b border-red-100 bg-red-50 px-6 py-4">
+            <div className="rounded-t-2xl border-b border-amber-100 bg-amber-50 px-6 py-4">
               <div className="flex items-center gap-3">
-                <div className="rounded-lg bg-red-100 p-2">
-                  <AlertCircle className="h-5 w-5 text-red-600" />
+                <div className="rounded-lg bg-amber-100 p-2">
+                  <AlertCircle className="h-5 w-5 text-amber-600" />
                 </div>
                 <div>
                   <h2 className="text-lg font-semibold text-gray-900">Decline Prescription</h2>
@@ -2926,7 +2926,7 @@ export default function PrescriptionQueuePage() {
                   value={declineReason}
                   onChange={(e) => setDeclineReason(e.target.value)}
                   rows={4}
-                  className="w-full resize-none rounded-xl border border-gray-300 px-4 py-3 focus:border-transparent focus:ring-2 focus:ring-red-400"
+                  className="w-full resize-none rounded-xl border border-gray-300 px-4 py-3 focus:border-transparent focus:ring-2 focus:ring-amber-400"
                   placeholder="Please explain why you are declining this prescription request (e.g., medical contraindication, incomplete information, patient needs evaluation, etc.)"
                 />
                 <p className="mt-1 text-xs text-gray-500">Minimum 10 characters required</p>
@@ -2977,7 +2977,7 @@ export default function PrescriptionQueuePage() {
                   }
                 }}
                 disabled={declining || declineReason.trim().length < 10}
-                className="flex min-h-[48px] flex-1 touch-manipulation items-center justify-center gap-2 rounded-xl bg-red-600 px-4 py-2.5 text-base font-medium text-white transition-all hover:bg-red-700 active:bg-red-800 disabled:cursor-not-allowed disabled:opacity-50"
+                className="flex min-h-[48px] flex-1 touch-manipulation items-center justify-center gap-2 rounded-xl bg-amber-600 px-4 py-2.5 text-base font-medium text-white transition-all hover:bg-amber-700 active:bg-amber-800 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {declining ? (
                   <>
@@ -3015,10 +3015,10 @@ export default function PrescriptionQueuePage() {
 
             {approveConfirmModal.item.recentPrescription?.hasDuplicate ? (
               <>
-                <div className="rounded-t-2xl border-b border-red-100 bg-red-50 px-6 py-4">
+                <div className="rounded-t-2xl border-b border-amber-100 bg-amber-50 px-6 py-4">
                   <div className="flex items-center gap-3">
-                    <div className="rounded-lg bg-red-100 p-2">
-                      <ShieldAlert className="h-5 w-5 text-red-600" />
+                    <div className="rounded-lg bg-amber-100 p-2">
+                      <ShieldAlert className="h-5 w-5 text-amber-600" />
                     </div>
                     <div>
                       <h2 className="text-lg font-semibold text-gray-900">Duplicate Prescription Warning</h2>
@@ -3027,9 +3027,9 @@ export default function PrescriptionQueuePage() {
                   </div>
                 </div>
                 <div className="space-y-4 p-6">
-                  <div className="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-3">
-                    <AlertTriangle className="mt-0.5 h-5 w-5 flex-shrink-0 text-red-600" />
-                    <div className="text-sm text-red-800">
+                  <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
+                    <AlertTriangle className="mt-0.5 h-5 w-5 flex-shrink-0 text-amber-600" />
+                    <div className="text-sm text-amber-800">
                       <p className="font-medium">
                         This patient has {approveConfirmModal.item.recentPrescription!.orders.length} prescription
                         {approveConfirmModal.item.recentPrescription!.orders.length > 1 ? 's' : ''} in the last{' '}
@@ -3038,16 +3038,16 @@ export default function PrescriptionQueuePage() {
                       <p className="mt-1">Please verify this is not a duplicate before approving.</p>
                     </div>
                   </div>
-                  <ul className="space-y-2 rounded-lg border border-red-100 bg-red-50 p-3">
+                  <ul className="space-y-2 rounded-lg border border-amber-100 bg-amber-50 p-3">
                     {approveConfirmModal.item.recentPrescription!.orders.slice(0, 3).map((order) => (
-                      <li key={order.orderId} className="flex items-center gap-2 text-sm text-red-800">
-                        <span className="h-1.5 w-1.5 flex-shrink-0 rounded-full bg-red-400" />
+                      <li key={order.orderId} className="flex items-center gap-2 text-sm text-amber-800">
+                        <span className="h-1.5 w-1.5 flex-shrink-0 rounded-full bg-amber-400" />
                         <span className="font-medium">{order.primaryMedName || 'Unknown'}</span>
-                        {order.primaryMedStrength && <span className="text-red-600">{order.primaryMedStrength}</span>}
-                        <span className="text-red-600">— {new Date(order.createdAt).toLocaleDateString()}</span>
-                        {order.providerName && <span className="text-red-500">by {order.providerName}</span>}
+                        {order.primaryMedStrength && <span className="text-amber-600">{order.primaryMedStrength}</span>}
+                        <span className="text-amber-600">— {new Date(order.createdAt).toLocaleDateString()}</span>
+                        {order.providerName && <span className="text-amber-500">by {order.providerName}</span>}
                         {order.status && (
-                          <span className="rounded bg-red-100 px-1 py-0.5 text-[9px] font-medium uppercase text-red-700">
+                          <span className="rounded bg-amber-100 px-1 py-0.5 text-[9px] font-medium uppercase text-amber-700">
                             {order.status}
                           </span>
                         )}
@@ -3117,7 +3117,7 @@ export default function PrescriptionQueuePage() {
                 disabled={approvingOrderId === approveConfirmModal.item.orderId}
                 className={`flex min-h-[48px] flex-1 touch-manipulation items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-base font-medium text-white transition-all disabled:cursor-not-allowed disabled:opacity-50 ${
                   approveConfirmModal.item.recentPrescription?.hasDuplicate
-                    ? 'bg-red-600 hover:bg-red-700 active:bg-red-800'
+                    ? 'bg-amber-600 hover:bg-amber-700 active:bg-amber-800'
                     : 'bg-amber-500 hover:bg-amber-600 active:bg-amber-700'
                 }`}
               >
@@ -3332,7 +3332,7 @@ export default function PrescriptionQueuePage() {
               <div className="flex h-full flex-col bg-white shadow-xl">
                 {/* Panel Header - touch-friendly close on mobile */}
                 <div
-                  className={`px-4 py-4 sm:px-6 sm:py-5 ${prescriptionPanel.item.queueType === 'queued_order' ? 'bg-gradient-to-r from-amber-500 to-amber-600' : 'bg-gradient-to-r from-rose-500 to-rose-600'}`}
+                  className={`px-4 py-4 sm:px-6 sm:py-5 ${prescriptionPanel.item.queueType === 'queued_order' ? 'bg-gradient-to-r from-amber-500 to-amber-600' : 'bg-gradient-to-r from-[#66a682] to-[#5a9474]'}`}
                 >
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex min-w-0 flex-1 items-center gap-3">
@@ -3349,7 +3349,7 @@ export default function PrescriptionQueuePage() {
                             ? 'Approve & send to pharmacy'
                             : 'Write Prescription'}
                         </h2>
-                        <p className="truncate text-sm text-rose-100">
+                        <p className="truncate text-sm text-[#f2fdb4]">
                           {prescriptionPanel.item.patientName}
                         </p>
                       </div>
@@ -3378,7 +3378,7 @@ export default function PrescriptionQueuePage() {
                       </div>
                       <div className="rounded-xl bg-gray-50 p-4">
                         <h3 className="mb-3 flex items-center gap-2 font-medium text-gray-900">
-                          <User className="h-4 w-4 text-rose-500" />
+                          <User className="h-4 w-4 text-[#66a682]" />
                           Patient
                         </h3>
                         <p className="font-medium">{prescriptionPanel.item.patientName}</p>
@@ -3388,7 +3388,7 @@ export default function PrescriptionQueuePage() {
                       </div>
                       <div className="rounded-xl bg-gray-50 p-4">
                         <h3 className="mb-3 flex items-center gap-2 font-medium text-gray-900">
-                          <Pill className="h-4 w-4 text-rose-500" />
+                          <Pill className="h-4 w-4 text-[#66a682]" />
                           Medications
                         </h3>
                         <ul className="space-y-2">
@@ -3421,7 +3421,7 @@ export default function PrescriptionQueuePage() {
                         </ul>
                       </div>
                       {error && (
-                        <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</div>
+                        <div className="rounded-lg bg-amber-50 p-3 text-sm text-amber-700">{error}</div>
                       )}
                       <div className="flex flex-col gap-3 pt-4 sm:flex-row">
                         <button
@@ -3459,7 +3459,7 @@ export default function PrescriptionQueuePage() {
                       {/* Patient Summary */}
                       <div className="rounded-xl bg-gray-50 p-4">
                         <h3 className="mb-3 flex items-center gap-2 font-medium text-gray-900">
-                          <User className="h-4 w-4 text-rose-500" />
+                          <User className="h-4 w-4 text-[#66a682]" />
                           Patient
                         </h3>
                         <div className="grid grid-cols-2 gap-3 text-sm">
@@ -3513,7 +3513,7 @@ export default function PrescriptionQueuePage() {
                           </div>
                         </div>
                         {prescriptionPanel.details.patient.allergies && (
-                          <div className="mt-3 flex items-start gap-2 rounded-lg bg-red-50 p-2 text-sm text-red-600">
+                          <div className="mt-3 flex items-start gap-2 rounded-lg bg-amber-50 p-2 text-sm text-amber-600">
                             <ShieldAlert className="mt-0.5 h-4 w-4 flex-shrink-0" />
                             <div>
                               <span className="font-medium">Allergies:</span>{' '}
@@ -3624,7 +3624,7 @@ export default function PrescriptionQueuePage() {
                               }`}
                             >
                               <div>
-                                <span className="font-semibold text-rose-600">S:</span>{' '}
+                                <span className="font-semibold text-[#66a682]">S:</span>{' '}
                                 <span className="line-clamp-2 text-gray-700">
                                   {prescriptionPanel.details.soapNote?.content.subjective}
                                 </span>
@@ -3790,22 +3790,22 @@ export default function PrescriptionQueuePage() {
 
                       {/* Shipping Address - Editable */}
                       <div
-                        className={`rounded-xl p-4 ${isAddressComplete(prescriptionForm) ? 'bg-gray-50' : 'border border-red-200 bg-red-50'}`}
+                        className={`rounded-xl p-4 ${isAddressComplete(prescriptionForm) ? 'bg-gray-50' : 'border border-amber-200 bg-amber-50'}`}
                       >
                         <h3 className="mb-3 flex items-center gap-2 font-medium text-gray-900">
                           <MapPin
-                            className={`h-4 w-4 ${isAddressComplete(prescriptionForm) ? 'text-rose-500' : 'text-red-500'}`}
+                            className={`h-4 w-4 ${isAddressComplete(prescriptionForm) ? 'text-[#66a682]' : 'text-amber-500'}`}
                           />
                           Shipping Address
                           {!isAddressComplete(prescriptionForm) && (
-                            <span className="ml-2 rounded-full bg-red-100 px-2 py-0.5 text-xs text-red-600">
+                            <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-600">
                               Required for shipping
                             </span>
                           )}
                         </h3>
 
                         {!isAddressComplete(prescriptionForm) && (
-                          <div className="mb-3 flex items-center gap-2 rounded-lg bg-red-100 p-2 text-sm text-red-700">
+                          <div className="mb-3 flex items-center gap-2 rounded-lg bg-amber-100 p-2 text-sm text-amber-700">
                             <AlertCircle className="h-4 w-4" />
                             Address is missing or incomplete. Please fill in below.
                           </div>
@@ -3834,7 +3834,7 @@ export default function PrescriptionQueuePage() {
                               placeholder="123 Main Street"
                               className={`w-full ${
                                 !prescriptionForm.address1
-                                  ? '[&_input]:border-red-300 [&_input]:bg-red-50'
+                                  ? '[&_input]:border-amber-300 [&_input]:bg-amber-50'
                                   : ''
                               }`}
                             />
@@ -3853,7 +3853,7 @@ export default function PrescriptionQueuePage() {
                                 }))
                               }
                               placeholder="Apt 4B (optional)"
-                              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-transparent focus:ring-2 focus:ring-rose-400"
+                              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-transparent focus:ring-2 focus:ring-[#66a682]"
                             />
                           </div>
                           <div className="grid grid-cols-3 gap-2">
@@ -3869,9 +3869,9 @@ export default function PrescriptionQueuePage() {
                                 }
                                 placeholder="Miami"
                                 autoComplete="address-level2"
-                                className={`w-full rounded-lg border px-3 py-2 text-sm focus:border-transparent focus:ring-2 focus:ring-rose-400 ${
+                                className={`w-full rounded-lg border px-3 py-2 text-sm focus:border-transparent focus:ring-2 focus:ring-[#66a682] ${
                                   !prescriptionForm.city
-                                    ? 'border-red-300 bg-red-50'
+                                    ? 'border-amber-300 bg-amber-50'
                                     : 'border-gray-300'
                                 }`}
                               />
@@ -3893,9 +3893,9 @@ export default function PrescriptionQueuePage() {
                                 maxLength={2}
                                 autoComplete="address-level1"
                                 autoCapitalize="characters"
-                                className={`w-full rounded-lg border px-3 py-2 text-sm focus:border-transparent focus:ring-2 focus:ring-rose-400 ${
+                                className={`w-full rounded-lg border px-3 py-2 text-sm focus:border-transparent focus:ring-2 focus:ring-[#66a682] ${
                                   !prescriptionForm.state
-                                    ? 'border-red-300 bg-red-50'
+                                    ? 'border-amber-300 bg-amber-50'
                                     : 'border-gray-300'
                                 }`}
                               />
@@ -3913,9 +3913,9 @@ export default function PrescriptionQueuePage() {
                                 }
                                 placeholder="33101"
                                 autoComplete="postal-code"
-                                className={`w-full rounded-lg border px-3 py-2 text-sm focus:border-transparent focus:ring-2 focus:ring-rose-400 ${
+                                className={`w-full rounded-lg border px-3 py-2 text-sm focus:border-transparent focus:ring-2 focus:ring-[#66a682] ${
                                   !prescriptionForm.zip
-                                    ? 'border-red-300 bg-red-50'
+                                    ? 'border-amber-300 bg-amber-50'
                                     : 'border-gray-300'
                                 }`}
                               />
@@ -3925,9 +3925,9 @@ export default function PrescriptionQueuePage() {
                       </div>
 
                       {/* Plan Duration Info - Important for prescribing */}
-                      <div className="rounded-xl border border-gray-200 bg-rose-50 p-4">
+                      <div className="rounded-xl border border-gray-200 bg-[#e8fa87]/20 p-4">
                         <h3 className="mb-2 flex items-center gap-2 font-medium text-gray-900">
-                          <Calendar className="h-4 w-4 text-rose-600" />
+                          <Calendar className="h-4 w-4 text-[#66a682]" />
                           Prescription Duration
                         </h3>
                         <div className="flex items-center gap-3">
@@ -3936,7 +3936,7 @@ export default function PrescriptionQueuePage() {
                               prescriptionPanel.item.planMonths >= 6
                                 ? 'bg-emerald-200 text-emerald-800'
                                 : prescriptionPanel.item.planMonths >= 3
-                                  ? 'bg-rose-200 text-rose-800'
+                                  ? 'bg-[#f2fdb4] text-[#3d6b50]'
                                   : 'bg-gray-200 text-gray-800'
                             }`}
                           >
@@ -4002,7 +4002,7 @@ export default function PrescriptionQueuePage() {
                           <button
                             type="button"
                             onClick={addMedication}
-                            className="flex items-center gap-1 text-sm font-medium text-rose-600 hover:text-rose-700"
+                            className="flex items-center gap-1 text-sm font-medium text-[#66a682] hover:text-[#5a9474]"
                           >
                             <Plus className="h-4 w-4" /> Add Medication
                           </button>
@@ -4022,7 +4022,7 @@ export default function PrescriptionQueuePage() {
                                 <button
                                   type="button"
                                   onClick={() => removeMedication(index)}
-                                  className="rounded p-1.5 text-red-500 transition-colors hover:bg-red-50 hover:text-red-700"
+                                  className="rounded p-1.5 text-amber-500 transition-colors hover:bg-amber-50 hover:text-amber-700"
                                   title="Remove this medication"
                                 >
                                   <Trash2 className="h-4 w-4" />
@@ -4083,7 +4083,7 @@ export default function PrescriptionQueuePage() {
                                   onChange={(e) =>
                                     updateMedicationField(index, 'quantity', e.target.value)
                                   }
-                                  className={`w-full rounded-xl border bg-white px-4 py-2.5 focus:border-transparent focus:ring-2 focus:ring-rose-400 ${
+                                  className={`w-full rounded-xl border bg-white px-4 py-2.5 focus:border-transparent focus:ring-2 focus:ring-[#66a682] ${
                                     prescriptionPanel?.item.planMonths === 1 &&
                                     medication.medicationKey &&
                                     MEDS[medication.medicationKey] &&
@@ -4103,7 +4103,7 @@ export default function PrescriptionQueuePage() {
                                   onChange={(e) =>
                                     updateMedicationField(index, 'refills', e.target.value)
                                   }
-                                  className="w-full rounded-xl border border-gray-300 bg-white px-4 py-2.5 focus:border-transparent focus:ring-2 focus:ring-rose-400"
+                                  className="w-full rounded-xl border border-gray-300 bg-white px-4 py-2.5 focus:border-transparent focus:ring-2 focus:ring-[#66a682]"
                                 >
                                   {[0, 1, 2, 3, 4, 5, 6, 11].map((n) => (
                                     <option key={n} value={String(n)}>
@@ -4121,7 +4121,7 @@ export default function PrescriptionQueuePage() {
                                   onChange={(e) =>
                                     updateMedicationField(index, 'daysSupply', e.target.value)
                                   }
-                                  className="w-full rounded-xl border border-gray-300 bg-white px-4 py-2.5 focus:border-transparent focus:ring-2 focus:ring-rose-400"
+                                  className="w-full rounded-xl border border-gray-300 bg-white px-4 py-2.5 focus:border-transparent focus:ring-2 focus:ring-[#66a682]"
                                 >
                                   <option value="7">7 days</option>
                                   <option value="14">14 days</option>
@@ -4181,7 +4181,7 @@ export default function PrescriptionQueuePage() {
                         <button
                           type="button"
                           onClick={addMedication}
-                          className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-gray-300 py-3 text-gray-500 transition-colors hover:border-rose-400 hover:text-rose-600"
+                          className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-gray-300 py-3 text-gray-500 transition-colors hover:border-[#66a682] hover:text-[#66a682]"
                         >
                           <Plus className="h-5 w-5" />
                           Add Another Medication
@@ -4227,13 +4227,13 @@ export default function PrescriptionQueuePage() {
                                 }}
                                 className={`flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl border-2 p-3 transition-colors ${
                                   prescriptionForm.pharmacyGender === option.value
-                                    ? 'border-rose-500 bg-rose-50 shadow-sm ring-2 ring-rose-200'
+                                    ? 'border-[#66a682] bg-[#e8fa87]/20 shadow-sm ring-2 ring-[#e8fa87]'
                                     : 'border-gray-200 bg-white hover:border-gray-300'
                                 }`}
                               >
                                 <span className={`font-medium ${
                                   prescriptionForm.pharmacyGender === option.value
-                                    ? 'text-rose-900'
+                                    ? 'text-[#3d6b50]'
                                     : 'text-gray-700'
                                 }`}>
                                   {option.label}
@@ -4278,7 +4278,7 @@ export default function PrescriptionQueuePage() {
                                 }}
                                 className={`flex cursor-pointer items-center gap-4 rounded-xl border-2 p-3 transition-colors ${
                                   isSelected
-                                    ? 'border-rose-500 bg-rose-50 shadow-sm ring-2 ring-rose-200'
+                                    ? 'border-[#66a682] bg-[#e8fa87]/20 shadow-sm ring-2 ring-[#e8fa87]'
                                     : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                                 }`}
                               >
@@ -4297,7 +4297,7 @@ export default function PrescriptionQueuePage() {
                                 </div>
                                 <p
                                   className={`font-medium ${
-                                    isSelected ? 'text-rose-900' : 'text-gray-900'
+                                    isSelected ? 'text-[#3d6b50]' : 'text-gray-900'
                                   }`}
                                 >
                                   {method.label}
@@ -4330,7 +4330,7 @@ export default function PrescriptionQueuePage() {
                           !isAddressComplete(prescriptionForm) ||
                           !prescriptionForm.pharmacyGender
                         }
-                        className="flex min-h-[48px] flex-1 touch-manipulation items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-gradient-to-r from-rose-500 to-rose-600 px-4 py-3 font-medium text-white transition-all hover:from-rose-600 hover:to-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
+                        className="flex min-h-[48px] flex-1 touch-manipulation items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-gradient-to-r from-[#66a682] to-[#5a9474] px-4 py-3 font-medium text-white transition-all hover:from-[#5a9474] hover:to-[#4d8066] disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         {!prescriptionForm.pharmacyGender ? (
                           <>
@@ -4364,8 +4364,8 @@ export default function PrescriptionQueuePage() {
                 <div className="absolute inset-0 z-30 flex flex-col overflow-y-auto bg-white">
                   <div className="sticky top-0 z-10 border-b border-gray-200 bg-white px-4 py-4 sm:px-6">
                     <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-rose-100">
-                        <ShieldAlert className="h-5 w-5 text-rose-600" />
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#e8fa87]/40">
+                        <ShieldAlert className="h-5 w-5 text-[#66a682]" />
                       </div>
                       <div>
                         <h2 className="text-lg font-bold text-gray-900">Confirm Prescription</h2>
@@ -4551,7 +4551,7 @@ export default function PrescriptionQueuePage() {
                           handleSubmitPrescription();
                         }}
                         disabled={submittingPrescription}
-                        className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-rose-500 to-rose-600 px-4 py-3 font-medium text-white transition-all hover:from-rose-600 hover:to-rose-700 disabled:opacity-50"
+                        className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#66a682] to-[#5a9474] px-4 py-3 font-medium text-white transition-all hover:from-[#5a9474] hover:to-[#4d8066] disabled:opacity-50"
                       >
                         {submittingPrescription ? (
                           <>

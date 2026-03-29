@@ -111,7 +111,7 @@ export default function PatientChatPage() {
       } else if (response.status === 401) {
         setError(t('chatSessionExpired'));
         setTimeout(() => {
-          router.push(`/patient-login?redirect=${encodeURIComponent(`${PATIENT_PORTAL_PATH}/chat`)}&reason=session_expired`);
+          window.location.href = `/patient-login?redirect=${encodeURIComponent(`${PATIENT_PORTAL_PATH}/chat`)}&reason=session_expired`;
         }, 2000);
       } else if (response.status === 403) {
         setError(t('chatAccessDenied'));
@@ -243,16 +243,16 @@ export default function PatientChatPage() {
     }
   };
 
-  const formatTime = (dateString: string) => {
+  const formatTime = useCallback((dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleTimeString('en-US', {
       hour: 'numeric',
       minute: '2-digit',
       hour12: true,
     });
-  };
+  }, []);
 
-  const formatDate = (dateString: string) => {
+  const formatDate = useCallback((dateString: string) => {
     const date = new Date(dateString);
     const today = new Date();
     const yesterday = new Date(today);
@@ -269,9 +269,8 @@ export default function PatientChatPage() {
         day: 'numeric',
       });
     }
-  };
+  }, [t]);
 
-  // Group messages by date (memoized to avoid re-computation on every render)
   const groupedMessages = useMemo(() =>
     messages.reduce(
       (groups, message) => {
@@ -283,7 +282,7 @@ export default function PatientChatPage() {
         return groups;
       },
       {} as Record<string, ChatMessage[]>
-    ), [messages]);
+    ), [messages, formatDate]);
 
   const getStatusIcon = (status: string) => {
     switch (status) {

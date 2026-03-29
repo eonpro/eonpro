@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { isBrowser } from '@/lib/utils/ssr-safe';
 import Link from 'next/link';
@@ -131,18 +131,14 @@ export default function RegisterPage() {
   const isPasswordValid = passwordRequirements.every((req) => req.met);
   const passwordsMatch = password === confirmPassword && password.length > 0;
 
-  // Format phone number as user types
-  const formatPhoneNumber = (value: string) => {
-    const digits = value.replace(/\D/g, '');
-    if (digits.length <= 3) return digits;
-    if (digits.length <= 6) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
-    return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6, 10)}`;
-  };
-
-  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const formatted = formatPhoneNumber(e.target.value);
+  const handlePhoneChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const digits = e.target.value.replace(/\D/g, '');
+    let formatted: string;
+    if (digits.length <= 3) formatted = digits;
+    else if (digits.length <= 6) formatted = `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
+    else formatted = `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6, 10)}`;
     setPhone(formatted);
-  };
+  }, []);
 
   // Validate clinic code
   const handleClinicCodeSubmit = async (e: React.FormEvent) => {

@@ -4,6 +4,8 @@ import { prisma } from '@/lib/db';
 import { PatientDocumentCategory } from '@prisma/client';
 import { logger } from '@/lib/logger';
 import { withAuthParams } from '@/lib/auth/middleware-with-params';
+import cache from '@/lib/cache/redis';
+import { queryOptimizer } from '@/lib/database';
 import { readIntakeData, storeIntakeData } from '@/lib/storage/document-data-store';
 
 /**
@@ -196,8 +198,13 @@ export const PUT = withAuthParams(
         logger.info(`Created intake document for patient ${patientId}, doc ${intakeDoc.id}`);
       }
 
-      // Invalidate the patient page cache
+      // Invalidate the patient page cache and vitals query cache
       revalidatePath(`/patients/${patientId}`);
+
+      const clinicScope = user.clinicId ?? 'all';
+      const vitalsKey = `vitals:v3:c${clinicScope}:p${patientId}`;
+      queryOptimizer['l1Cache']?.delete?.(vitalsKey);
+      await cache.delete(vitalsKey, { namespace: 'patient' }).catch(() => {});
 
       return NextResponse.json({
         success: true,

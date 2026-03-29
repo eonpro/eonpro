@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { portalFetch, getPortalResponseError } from '@/lib/api/patient-portal-client';
@@ -249,7 +249,7 @@ export default function PatientPortalDashboard() {
     return () => { cancelled = true; };
   }, [patient?.patientId]);
 
-  const loadPatientData = async (patientId: number) => {
+  const loadPatientData = useCallback(async (patientId: number) => {
     setDataError(null);
     try {
       const [vitalsRes, weightRes, remindersRes, trackingRes, photosRes] =
@@ -420,16 +420,16 @@ export default function PatientPortalDashboard() {
     } finally {
       setDashboardLoading(false);
     }
-  };
+  }, [features, dataError]);
 
-  const formatDate = () => {
+  const formatDate = useCallback(() => {
     return new Date().toLocaleDateString(language === 'es' ? 'es' : 'en-US', {
       weekday: 'long',
       year: 'numeric',
       month: 'long',
       day: 'numeric',
     });
-  };
+  }, [language]);
 
   /**
    * Get color coding for BMI value
@@ -928,7 +928,7 @@ export default function PatientPortalDashboard() {
       )}
 
       {/* Quick Actions */}
-      <div className="mb-6">
+      <div className="cv-auto mb-6">
         <h2 className="mb-3 text-lg font-semibold text-gray-900">{t('dashboardQuickActions')}</h2>
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
           {features.showWeightTracking && (
@@ -983,7 +983,7 @@ export default function PatientPortalDashboard() {
       </div>
 
       {/* Treatment Card */}
-      <Link href={`${PATIENT_PORTAL_PATH}/medications`} className="mb-6 block">
+      <Link href={`${PATIENT_PORTAL_PATH}/medications`} className="cv-auto mb-6 block">
         <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
           <div className="p-4" style={{ backgroundColor: primaryColor }}>
             <div className="flex items-center justify-between">
@@ -1021,7 +1021,7 @@ export default function PatientPortalDashboard() {
       )}
 
       {/* Notifications / Reminders */}
-      <div className="rounded-2xl border border-gray-100 bg-white p-3 shadow-sm sm:p-5">
+      <div className="cv-auto rounded-2xl border border-gray-100 bg-white p-3 shadow-sm sm:p-5">
         <div className="mb-3 flex items-center gap-3 sm:mb-4">
           <Bell className="h-5 w-5 text-gray-400" />
           <h2 className="font-semibold text-gray-900">{t('dashboardReminders')}</h2>

@@ -82,44 +82,51 @@ export function SubdomainClinicBanner() {
     }
   };
 
-  if (!banner) return null;
-
   return (
     <div
-      role="alert"
-      className="flex flex-wrap items-center justify-between gap-3 border-b border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-900"
+      className="grid transition-[grid-template-rows] duration-300 ease-out"
+      style={{ gridTemplateRows: banner ? '1fr' : '0fr' }}
     >
-      <div className="flex items-center gap-2">
-        <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600" />
-        <span>
-          You&apos;re on <strong>{banner.subdomainName}</strong>&apos;s portal. Switch to this
-          clinic to see the correct data.
-        </span>
-      </div>
-      <div className="flex items-center gap-2">
-        <button
-          type="button"
-          onClick={handleSwitch}
-          disabled={switching}
-          className="inline-flex items-center gap-1.5 rounded-lg bg-amber-600 px-3 py-1.5 font-medium text-white transition-colors hover:bg-amber-700 disabled:opacity-60"
-        >
-          {switching ? (
-            'Switching…'
-          ) : (
-            <>
-              <RefreshCw className="h-3.5 w-3.5" />
-              Switch to {banner.subdomainName}
-            </>
-          )}
-        </button>
-        <button
-          type="button"
-          onClick={() => setDismissed(true)}
-          className="rounded px-2 py-1 text-amber-700 hover:bg-amber-100"
-          aria-label="Dismiss"
-        >
-          Dismiss
-        </button>
+      <div className="overflow-hidden">
+        {banner && (
+          <div
+            role="alert"
+            className="flex flex-wrap items-center justify-between gap-3 border-b border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-900"
+          >
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600" />
+              <span>
+                You&apos;re on <strong>{banner.subdomainName}</strong>&apos;s portal. Switch to this
+                clinic to see the correct data.
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleSwitch}
+                disabled={switching}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-amber-600 px-3 py-1.5 font-medium text-white transition-colors hover:bg-amber-700 disabled:opacity-60"
+              >
+                {switching ? (
+                  'Switching…'
+                ) : (
+                  <>
+                    <RefreshCw className="h-3.5 w-3.5" />
+                    Switch to {banner.subdomainName}
+                  </>
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => setDismissed(true)}
+                className="rounded px-2 py-1 text-amber-700 hover:bg-amber-100"
+                aria-label="Dismiss"
+              >
+                Dismiss
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

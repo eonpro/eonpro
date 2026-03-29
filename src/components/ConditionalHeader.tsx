@@ -6,7 +6,7 @@ import { ClinicSwitcher } from '@/components/clinic/ClinicSwitcher';
 import { EONPRO_LOGO } from '@/lib/constants/brand-assets';
 import { safeParseJsonString } from '@/lib/utils/safe-json';
 import { LogOut, User, Shield, Menu, X, ChevronRight } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 
 interface NavLink {
   href: string;
@@ -14,6 +14,16 @@ interface NavLink {
   icon?: React.ReactNode;
   roles: string[];
 }
+
+const NAV_LINKS: NavLink[] = [
+  { href: '/super-admin', label: 'Super Admin', roles: ['super_admin'] },
+  { href: '/super-admin/clinics', label: 'Clinics', roles: ['super_admin'] },
+  { href: '/admin', label: 'Dashboard', roles: ['admin', 'super_admin'] },
+  { href: '/patients', label: 'Patients', roles: ['admin', 'provider', 'staff', 'super_admin'] },
+  { href: '/providers', label: 'Providers', roles: ['admin', 'super_admin'] },
+  { href: '/pharmacy/analytics', label: 'Pharmacy', roles: ['admin', 'provider', 'super_admin'] },
+  { href: '/settings', label: 'Settings', roles: ['admin', 'super_admin'] },
+];
 
 export default function ConditionalHeader() {
   const pathname = usePathname();
@@ -47,7 +57,7 @@ export default function ConditionalHeader() {
     };
   }, [mobileMenuOpen]);
 
-  const handleLogout = (e: React.MouseEvent) => {
+  const handleLogout = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     const token =
@@ -73,51 +83,25 @@ export default function ConditionalHeader() {
         .replace(/=.*/, '=;expires=' + new Date().toUTCString() + ';path=/');
     });
     window.location.href = '/login';
-  };
+  }, []);
 
   const userRole = user?.role?.toLowerCase() || '';
 
-  // Define navigation links with role access
-  const navLinks: NavLink[] = [
-    { href: '/super-admin', label: 'Super Admin', roles: ['super_admin'] },
-    { href: '/super-admin/clinics', label: 'Clinics', roles: ['super_admin'] },
-    { href: '/admin', label: 'Dashboard', roles: ['admin', 'super_admin'] },
-    { href: '/patients', label: 'Patients', roles: ['admin', 'provider', 'staff', 'super_admin'] },
-    { href: '/providers', label: 'Providers', roles: ['admin', 'super_admin'] },
-    { href: '/pharmacy/analytics', label: 'Pharmacy', roles: ['admin', 'provider', 'super_admin'] },
-    { href: '/settings', label: 'Settings', roles: ['admin', 'super_admin'] },
-  ];
+  const visibleLinks = useMemo(
+    () => NAV_LINKS.filter((link) => link.roles.includes(userRole)),
+    [userRole],
+  );
 
-  const visibleLinks = navLinks.filter((link) => link.roles.includes(userRole));
-
-  const noHeaderPages = [
-    '/login',
-    '/patient-login',
-    '/register',
-    '/forgot-password',
-    '/reset-password',
-    '/verify-email',
-    '/affiliate',
-    '/patient-portal',
-    '/portal',
-    '/provider',
-    '/staff',
-    '/support',
-    '/demo',
-    '/pay/',
-    '/admin',
-    '/super-admin',
-    '/patients',
-    '/intake',
-    '/intake-forms',
-    '/affiliate',
-    '/dashboard',
-    '/checkout',
-    '/wellmedr-checkout',
-  ];
-
-  const isNoHeaderPage =
-    pathname === '/' || noHeaderPages.some((page) => pathname?.startsWith(page));
+  const isNoHeaderPage = useMemo(() => {
+    const noHeaderPrefixes = [
+      '/login', '/patient-login', '/register', '/forgot-password',
+      '/reset-password', '/verify-email', '/affiliate', '/patient-portal',
+      '/portal', '/provider', '/staff', '/support', '/demo', '/pay/',
+      '/admin', '/super-admin', '/patients', '/intake', '/intake-forms',
+      '/dashboard', '/checkout', '/wellmedr-checkout',
+    ];
+    return pathname === '/' || noHeaderPrefixes.some((p) => pathname?.startsWith(p));
+  }, [pathname]);
   const multiClinicEnabled = process.env.NEXT_PUBLIC_ENABLE_MULTI_CLINIC === 'true';
 
   if (isNoHeaderPage) {

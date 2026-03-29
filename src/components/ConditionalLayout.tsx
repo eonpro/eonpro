@@ -1,7 +1,7 @@
 'use client';
 
 import { usePathname } from 'next/navigation';
-import { ReactNode } from 'react';
+import { ReactNode, useMemo } from 'react';
 
 interface ConditionalLayoutProps {
   children: ReactNode;
@@ -16,33 +16,17 @@ interface ConditionalLayoutProps {
 export default function ConditionalLayout({ children }: ConditionalLayoutProps) {
   const pathname = usePathname();
 
-  // Pages that need full-width/custom layouts (no container/padding)
-  const fullWidthPages = [
-    '/login',
-    '/patient-login',
-    '/register',
-    '/email-verified',
-    '/forgot-password',
-    '/reset-password',
-    '/verify-email',
-    '/pay/',
-    '/patients/',
-    '/affiliate/',
-    '/provider',
-    '/admin',
-    '/tickets',
-    '/orders',
-    '/intake',
-    '/intake-forms',
-    '/patient-portal',
-    '/portal',
-    '/dashboard',
-    '/checkout',
-    '/wellmedr-checkout',
-  ];
-
-  const isFullWidthPage =
-    pathname === '/' || fullWidthPages.some((page) => pathname?.startsWith(page));
+  const isFullWidthPage = useMemo(() => {
+    const fullWidthPrefixes = [
+      '/login', '/patient-login', '/register', '/email-verified',
+      '/forgot-password', '/reset-password', '/verify-email',
+      '/pay/', '/patients/', '/affiliate/', '/provider', '/admin',
+      '/tickets', '/orders', '/intake', '/intake-forms',
+      '/patient-portal', '/portal', '/dashboard',
+      '/checkout', '/wellmedr-checkout',
+    ];
+    return pathname === '/' || fullWidthPrefixes.some((p) => pathname?.startsWith(p));
+  }, [pathname]);
 
   if (isFullWidthPage) {
     // Return children without wrapper for full-width pages

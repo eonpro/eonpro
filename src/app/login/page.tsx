@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, Suspense, startTransition } from 'react';
+import { useState, useEffect, useRef, Suspense, startTransition, useCallback, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Eye, EyeOff, X, Mail, Phone, ArrowRight, RefreshCw, Building2, Check } from 'lucide-react';
 import { useAuthStore, type AuthUser, type ClinicInfo } from '@/lib/stores/authStore';

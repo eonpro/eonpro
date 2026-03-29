@@ -6,7 +6,8 @@ import { queryOptimizer } from '@/lib/database';
 import { prisma, withoutClinicFilter } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { requirePermission, toPermissionContext } from '@/lib/rbac/permissions';
-import { extractVitalsFromIntake, parseDocumentData } from '@/lib/utils/vitals-extraction';
+import { readIntakeData } from '@/lib/storage/document-data-store';
+import { extractVitalsFromIntake } from '@/lib/utils/vitals-extraction';
 
 interface Params {
   params: Promise<{ id: string }>;
@@ -33,7 +34,7 @@ const getVitalsHandler = withAuthParams(
                 where: { patientId, category: 'MEDICAL_INTAKE_FORM' },
                 orderBy: { createdAt: 'desc' },
                 take: 10,
-                select: { id: true, category: true, data: true },
+                select: { id: true, patientId: true, clinicId: true, category: true, data: true, s3DataKey: true },
               })
             ),
             withoutClinicFilter(() =>
@@ -48,10 +49,12 @@ const getVitalsHandler = withAuthParams(
             ),
           ]);
 
-          const parsedDocs = documents.map((doc) => ({
-            ...doc,
-            data: parseDocumentData(doc.data),
-          }));
+          const parsedDocs = await Promise.all(
+            documents.map(async (doc) => ({
+              ...doc,
+              data: (await readIntakeData(doc)) as Record<string, unknown> | null,
+            }))
+          );
 
           return extractVitalsFromIntake(parsedDocs, submissions);
         },

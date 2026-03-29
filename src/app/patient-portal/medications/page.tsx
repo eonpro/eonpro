@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import { useClinicBranding, getContrastTextColor } from '@/lib/contexts/ClinicBrandingContext';
 import { usePatientPortalLanguage } from '@/lib/contexts/PatientPortalLanguageContext';
@@ -366,9 +366,8 @@ export default function MedicationsPage() {
         });
       });
 
-    await Promise.all([prescriptionsPromise, trackingPromise]);
+    await Promise.all([prescriptionsPromise, trackingPromise, remindersPromise]);
     setLoading(false);
-    void remindersPromise;
   };
 
   const [reminderError, setReminderError] = useState<string | null>(null);

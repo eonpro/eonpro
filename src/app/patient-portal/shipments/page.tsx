@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
@@ -89,14 +89,14 @@ export default function ShipmentsPage() {
     '/api/patient-portal/tracking',
   );
 
-  const allShipments = (() => {
+  const allShipments = useMemo(() => {
     if (!data) return [];
     const active = Array.isArray(data.activeShipments) ? data.activeShipments : [];
     const delivered = Array.isArray(data.deliveredShipments) ? data.deliveredShipments : [];
     const merged = [...active, ...delivered];
     merged.sort((a, b) => new Date(b.orderedAt).getTime() - new Date(a.orderedAt).getTime());
     return merged;
-  })();
+  }, [data]);
 
   const prescriptionJourney = data?.prescriptionJourney ?? null;
   const error = swrError ? (swrError instanceof Error ? swrError.message : 'Failed to load shipments') : null;
@@ -105,7 +105,7 @@ export default function ShipmentsPage() {
   const [confirmingTrackingNumber, setConfirmingTrackingNumber] = useState<string | null>(null);
   const [confirmError, setConfirmError] = useState<string | null>(null);
 
-  const handleConfirmReceipt = async (trackingNumber: string) => {
+  const handleConfirmReceipt = useCallback(async (trackingNumber: string) => {
     setConfirmError(null);
     setConfirmingTrackingNumber(trackingNumber);
     try {
@@ -130,9 +130,9 @@ export default function ShipmentsPage() {
     } finally {
       setConfirmingTrackingNumber(null);
     }
-  };
+  }, [mutate, router]);
 
-  const handleRefresh = async () => {
+  const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
       await portalFetch('/api/patient-portal/tracking/refresh', { method: 'POST' });
@@ -141,7 +141,7 @@ export default function ShipmentsPage() {
     }
     await mutate();
     setRefreshing(false);
-  };
+  }, [mutate]);
 
   if (isLoading) {
     return (
