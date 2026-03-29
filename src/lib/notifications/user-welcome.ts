@@ -60,11 +60,10 @@ function buildSetupUrl(
   rawToken: string,
   role: string,
   clinicSubdomain?: string | null,
-  clinicCustomDomain?: string | null,
+  _clinicCustomDomain?: string | null,
 ): string {
-  const domain = clinicCustomDomain
-    || (clinicSubdomain ? `${clinicSubdomain}.eonpro.io` : null)
-    || 'app.eonpro.io';
+  // Always use subdomain.eonpro.io — custom domains may not have DNS configured
+  const domain = clinicSubdomain ? `${clinicSubdomain}.eonpro.io` : 'app.eonpro.io';
 
   const upperRole = role.toUpperCase();
   if (upperRole === 'AFFILIATE') {

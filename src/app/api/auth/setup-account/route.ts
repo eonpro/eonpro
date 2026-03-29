@@ -246,9 +246,9 @@ async function handlePost(request: NextRequest) {
       clinicId: resetToken.user.clinicId,
     });
 
-    const domain = resetToken.user.clinic?.customDomain
-      || (resetToken.user.clinic?.subdomain ? `${resetToken.user.clinic.subdomain}.eonpro.io` : null)
-      || 'app.eonpro.io';
+    const domain = resetToken.user.clinic?.subdomain
+      ? `${resetToken.user.clinic.subdomain}.eonpro.io`
+      : 'app.eonpro.io';
 
     const role = resetToken.user.role?.toUpperCase();
     let loginPath = '/login';
