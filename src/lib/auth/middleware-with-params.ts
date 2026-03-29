@@ -511,6 +511,35 @@ export function withAuthParams<T extends { params: any }>(
         }
       }
 
+      // Fallback override for environments where edge clinic middleware is disabled:
+      // honor selected-clinic cookie after validating user access.
+      // This mirrors the same fallback in withAuth (middleware.ts).
+      if (user.role !== 'super_admin' && req.headers.get('x-clinic-id') == null) {
+        const selectedClinicCookie = req.cookies.get('selected-clinic')?.value;
+        if (selectedClinicCookie) {
+          const parsed = parseInt(selectedClinicCookie, 10);
+          if (!isNaN(parsed) && parsed > 0 && parsed !== effectiveClinicId) {
+            const accessGranted = await hasClinicAccess(user.id, parsed, user.providerId);
+            if (accessGranted) {
+              effectiveClinicId = parsed;
+              logger.info('[AuthParams] Using selected-clinic cookie override (access verified)', {
+                userId: user.id,
+                clinicId: parsed,
+                jwtClinicId: user.clinicId ?? null,
+                requestId,
+              });
+            } else {
+              logger.security('[AuthParams] BLOCKED: selected-clinic cookie override denied', {
+                userId: user.id,
+                selectedClinicId: parsed,
+                jwtClinicId: user.clinicId ?? null,
+                requestId,
+              });
+            }
+          }
+        }
+      }
+
       // Subdomain override — use header or derive from request host when missing
       // POOL EXHAUSTION FIX: Subdomain→clinicId now resolved via Redis (5 min TTL)
       let subdomain = req.headers.get('x-clinic-subdomain');
