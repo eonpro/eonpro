@@ -24,53 +24,69 @@ export const GET = withAuth(
         );
       }
 
-      // Get all users for this clinic (either primary clinicId OR via UserClinic table)
-      const users = await prisma.user.findMany({
-        where: {
-          OR: [
-            { clinicId: user.clinicId },
-            {
-              userClinics: {
-                some: {
-                  clinicId: user.clinicId,
-                  isActive: true,
-                },
+      const clinicFilter = {
+        OR: [
+          { clinicId: user.clinicId },
+          {
+            userClinics: {
+              some: {
+                clinicId: user.clinicId,
+                isActive: true,
               },
             },
-          ],
-        },
-        select: {
-          id: true,
-          email: true,
-          phone: true,
-          firstName: true,
-          lastName: true,
-          role: true,
-          status: true,
-          createdAt: true,
-          lastLogin: true,
-          clinicId: true,
-          provider: {
-            select: {
-              id: true,
-              npi: true,
-              licenseNumber: true,
-              licenseState: true,
-              titleLine: true,
-            },
           },
-          userClinics: {
-            where: { clinicId: user.clinicId },
-            select: {
-              role: true,
-              isPrimary: true,
-              isActive: true,
-            },
+        ],
+      };
+
+      const userSelect = {
+        id: true,
+        email: true,
+        phone: true,
+        firstName: true,
+        lastName: true,
+        role: true,
+        status: true,
+        createdAt: true,
+        lastLogin: true,
+        clinicId: true,
+        provider: {
+          select: {
+            id: true,
+            npi: true,
+            licenseNumber: true,
+            licenseState: true,
+            titleLine: true,
           },
         },
-        orderBy: { createdAt: 'desc' },
-        take: 100,
-      });
+        userClinics: {
+          where: { clinicId: user.clinicId },
+          select: {
+            role: true,
+            isPrimary: true,
+            isActive: true,
+          },
+        },
+      } as const;
+
+      // Fetch staff/providers separately from patients so admin/provider
+      // users are never truncated by a row limit (patients can be numerous).
+      const staffRoles = ['SUPER_ADMIN', 'ADMIN', 'STAFF', 'SUPPORT', 'SALES_REP', 'PHARMACY_REP', 'PROVIDER', 'INFLUENCER', 'AFFILIATE'] as const;
+
+      const [staffUsers, patientUsers] = await Promise.all([
+        prisma.user.findMany({
+          where: { ...clinicFilter, role: { in: [...staffRoles] } },
+          select: userSelect,
+          orderBy: { createdAt: 'desc' },
+        }),
+        prisma.user.findMany({
+          where: { ...clinicFilter, role: 'PATIENT' },
+          select: userSelect,
+          orderBy: { createdAt: 'desc' },
+          take: 500,
+        }),
+      ]);
+
+      const users = [...staffUsers, ...patientUsers];
 
       // Format response
       const formattedUsers = users.map((u) => {
