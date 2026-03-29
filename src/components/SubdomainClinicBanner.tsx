@@ -24,18 +24,25 @@ export function SubdomainClinicBanner() {
   useEffect(() => {
     if (typeof window === 'undefined' || dismissed || brandingLoading) return;
 
-    const subdomainClinicId = branding?.clinicId;
-    if (!subdomainClinicId || subdomainClinicId === 0) return;
-
     const hostname = window.location.hostname;
+    const reserved = ['www', 'app', 'api', 'admin', 'staging'];
+    const parts = hostname.split('.');
+    const isClinicSubdomain =
+      parts.length >= 3 &&
+      hostname.endsWith('.eonpro.io') &&
+      !reserved.includes(parts[0].toLowerCase());
+
     if (
+      !isClinicSubdomain ||
       hostname === 'localhost' ||
       hostname.startsWith('localhost:') ||
-      hostname === 'app.eonpro.io' ||
       hostname.endsWith('.vercel.app')
     ) {
       return;
     }
+
+    const subdomainClinicId = branding?.clinicId;
+    if (!subdomainClinicId || subdomainClinicId === 0) return;
 
     let cancelled = false;
     (async () => {

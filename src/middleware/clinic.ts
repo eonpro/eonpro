@@ -9,6 +9,7 @@ const PUBLIC_ROUTES = [
   '/api/auth/login', '/api/auth/refresh-token', '/api/auth/send-otp', '/api/auth/verify-otp',
   '/api/auth/reset-password', '/api/auth/validate-clinic-code', '/api/auth/verify-email',
   '/api/webhooks', '/api/webhooks/ping', '/api/clinic/resolve', '/api/clinic/list',
+  '/api/patient-portal/branding',
   '/api/monitoring', '/api/assets', '/_next', '/favicon.ico', '/clinic-select', '/login',
   '/register', '/api/affiliate/auth', '/api/affiliate/apply', '/affiliate/login', '/affiliate/apply',
   '/affiliate/welcome', '/affiliate/forgot-password', '/affiliate/reset-password', '/affiliate/terms',
@@ -17,6 +18,7 @@ const PUBLIC_ROUTES = [
   '/intake', '/api/intake-forms/config', '/patient-login',
 ];
 
+const RESERVED_SUBDOMAINS = ['www', 'app', 'api', 'admin', 'staging'];
 const SUPER_ADMIN_ROUTES = ['/admin/clinics', '/api/admin/clinics', '/super-admin', '/api/super-admin'];
 
 function getHost(request: NextRequest): string {
@@ -35,12 +37,33 @@ async function resolveClinic(request: NextRequest): Promise<number | null> {
   // shared selected-clinic cookies (domain=.eonpro.io).
   const host = getHost(request);
   const sub = getSubdomain(host);
-  if (sub && !['www', 'app', 'api', 'admin'].includes(sub)) {
+  if (sub && !RESERVED_SUBDOMAINS.includes(sub.toLowerCase())) {
+    // Tier 1: env var map (zero latency)
     const map = process.env.SUBDOMAIN_CLINIC_ID_MAP;
-    if (map) for (const pair of map.split(',')) {
-      const [k, v] = pair.split(':').map((s) => s.trim());
-      if (k?.toLowerCase() === sub.toLowerCase() && v) { const id = parseInt(v, 10); if (!isNaN(id)) return id; break; }
+    if (map) {
+      for (const pair of map.split(',')) {
+        const [k, v] = pair.split(':').map((s) => s.trim());
+        if (k?.toLowerCase() === sub.toLowerCase() && v) {
+          const id = parseInt(v, 10);
+          if (!isNaN(id)) return id;
+          break;
+        }
+      }
     }
+
+    // Tier 2: resolve via public API (DB-backed, ~5-50ms).
+    // This ensures subdomains not yet in the env map still resolve correctly
+    // instead of falling through to cookies (which may be from a different clinic).
+    try {
+      const origin = request.nextUrl.origin;
+      const res = await fetch(`${origin}/api/clinic/resolve?domain=${encodeURIComponent(host)}`, {
+        signal: AbortSignal.timeout(3000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.clinicId && typeof data.clinicId === 'number') return data.clinicId;
+      }
+    } catch { /* timeout or network error — fall through to cookie/JWT */ }
   }
 
   const c = request.cookies.get('selected-clinic');
@@ -63,7 +86,7 @@ export async function clinicMiddleware(request: NextRequest): Promise<NextRespon
   if (path === '/') {
     const host = getHost(request);
     const sub = getSubdomain(host);
-    if (sub && !['www', 'app', 'api', 'admin', 'staging'].includes(sub)) {
+    if (sub && !RESERVED_SUBDOMAINS.includes(sub.toLowerCase())) {
       return NextResponse.redirect(new URL('/login', request.url));
     }
   }

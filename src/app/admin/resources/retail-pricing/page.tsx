@@ -11,10 +11,18 @@ import { OtRetailPricingCalculator } from '@/components/resources/OtRetailPricin
 import { AlertCircle } from 'lucide-react';
 
 export default function OtRetailPricingResourcesPage() {
-  const { branding } = useClinicBranding();
+  const { branding, isLoading: brandingLoading } = useClinicBranding();
   const role = useAuthStore((s) => s.role);
   const subdomain = branding?.subdomain?.toLowerCase() ?? '';
   const allowed = role === 'super_admin' || subdomain === 'ot';
+
+  if (brandingLoading) {
+    return (
+      <div className="flex items-center justify-center p-6 lg:p-8">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-gray-600" />
+      </div>
+    );
+  }
 
   if (!allowed) {
     return (
