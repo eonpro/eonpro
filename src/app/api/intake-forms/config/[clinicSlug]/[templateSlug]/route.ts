@@ -15,6 +15,7 @@ import { weightLossIntakeConfig } from '@/domains/intake/templates/weight-loss-i
 import { otMensIntakeConfig } from '@/domains/intake/templates/ot-mens-intake';
 import { wellmedrIntakeConfig } from '@/domains/intake/templates/wellmedr-intake';
 import { otMensPeptideIntakeConfig } from '@/domains/intake/templates/ot-mens-peptide-intake';
+import { otMensTRTIntakeConfig } from '@/domains/intake/templates/ot-mens-trt-intake';
 
 interface RouteParams {
   params: Promise<{ clinicSlug: string; templateSlug: string }>;
@@ -100,6 +101,19 @@ export async function GET(_req: NextRequest, { params }: RouteParams) {
             clinicName: clinic.name,
           });
         }
+        if (templateSlug === 'trt' && isOtNoDb) {
+          const branding: FormBranding = {
+            logo: otMensTRTIntakeConfig.branding?.logo ?? undefined,
+            primaryColor: '#413d3d',
+            accentColor: '#cab172',
+            secondaryColor: '#f5ecd8',
+          };
+          return NextResponse.json({
+            config: { ...otMensTRTIntakeConfig, id: `clinic-${clinic.id}-trt` },
+            branding,
+            clinicName: clinic.name,
+          });
+        }
         return NextResponse.json({ error: 'Template not found' }, { status: 404 });
       }
 
@@ -124,8 +138,13 @@ export async function GET(_req: NextRequest, { params }: RouteParams) {
       const isOtPeptides =
         (templateSlug === 'peptides' || template.treatmentType === 'peptides') &&
         (clinicSlug === 'ot' || clinicSlug === 'otmens');
+      const isOtTRT =
+        (templateSlug === 'trt' || template.treatmentType === 'trt') &&
+        (clinicSlug === 'ot' || clinicSlug === 'otmens');
 
-      const formConfig = isOtPeptides
+      const formConfig = isOtTRT
+        ? { ...otMensTRTIntakeConfig, id: `template-${template.id}` }
+        : isOtPeptides
         ? { ...otMensPeptideIntakeConfig, id: `template-${template.id}` }
         : isWellmedr
         ? { ...wellmedrIntakeConfig, id: `template-${template.id}` }
@@ -139,7 +158,7 @@ export async function GET(_req: NextRequest, { params }: RouteParams) {
         const settings = clinic.settings as Record<string, unknown> | null;
         const portalSettings = settings?.patientPortal as Record<string, unknown> | null;
 
-        const branding: FormBranding = isOtPeptides
+        const branding: FormBranding = (isOtPeptides || isOtTRT)
           ? {
               logo: otMensPeptideIntakeConfig.branding?.logo ?? undefined,
               primaryColor: '#413d3d',

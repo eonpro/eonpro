@@ -119,6 +119,7 @@ export default function QualifiedStep({ basePath, prevStep }: QualifiedStepProps
   }, []);
 
   const isPeptide = basePath.includes('peptides');
+  const isTRT = basePath.includes('/trt');
   const effectiveRefCode = refCode || (typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('intake_refCode') : null);
 
   useEffect(() => {
@@ -138,7 +139,7 @@ export default function QualifiedStep({ basePath, prevStep }: QualifiedStepProps
             submissionType: 'complete',
             qualified: 'Yes',
             clinicSlug,
-            treatmentType: isPeptide ? 'peptides' : 'weight-loss',
+            treatmentType: isPeptide ? 'peptides' : isTRT ? 'trt' : 'weight-loss',
             ...(effectiveRefCode ? { refCode: effectiveRefCode } : {}),
           }),
         });
@@ -237,6 +238,95 @@ export default function QualifiedStep({ basePath, prevStep }: QualifiedStepProps
               <div className="flex-shrink-0 w-16 h-16 rounded-full overflow-hidden">
                 <img
                   src="https://static.wixstatic.com/media/c49a9b_69f9d06860b246988ff7df8096e170fb~mv2.png"
+                  alt="Provider"
+                  className="w-full h-full object-cover"
+                />
+              </div>
+              <div className="flex-1">
+                <h3 className="font-semibold text-[#413d3d] mb-2">
+                  {isSpanish ? 'Reserva una consulta' : 'Book a consultation'}
+                </h3>
+                <a
+                  href={BOOKING_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-white font-semibold text-sm transition-all hover:-translate-y-0.5 hover:shadow-lg"
+                  style={{ backgroundColor: '#cab172' }}
+                >
+                  {isSpanish ? 'Reservar Consulta' : 'Book a Consult'}
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                  </svg>
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="px-6 lg:px-8 pb-8 max-w-md lg:max-w-2xl mx-auto w-full">
+          <p className="copyright-text text-center">
+            Copyright © 2025 Overtime Mens Health All Rights Reserved<br />
+            powered by EONPro, LLC. Exclusive and protected process.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (isTRT) {
+    return (
+      <div className="min-h-screen bg-white flex flex-col relative overflow-hidden">
+        <div className="w-full h-1 bg-gray-200">
+          <div className="h-full w-full bg-[var(--intake-accent,#cab172)] transition-all duration-300" />
+        </div>
+
+        {prevStep && (
+          <div className="px-6 lg:px-8 pt-6 max-w-md lg:max-w-2xl mx-auto w-full">
+            <button onClick={handleBack} className="inline-block p-2 -ml-2 hover:bg-gray-100 rounded-lg">
+              <svg className="w-6 h-6 text-[#413d3d]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+          </div>
+        )}
+
+        <div className="flex-1 flex flex-col px-6 lg:px-8 py-8 max-w-md lg:max-w-2xl mx-auto w-full">
+          <div className="w-32 h-32 rounded-2xl overflow-hidden mb-6 border-2 border-[#cab172]/20">
+            <img
+              src="https://static.wixstatic.com/media/c49a9b_0e0d844da3914972855d63bc78725d99~mv2.png"
+              alt="Provider"
+              className="w-full h-full object-cover"
+            />
+          </div>
+
+          <div className="space-y-4 mb-8">
+            <h1 className="text-2xl lg:text-3xl font-bold leading-tight">
+              <span className="text-gray-400">
+                {isSpanish ? 'Felicidades' : 'Congratulations'}{' '}
+              </span>
+              <span>🥳</span>
+              <span className="text-gray-400"> — </span>
+              <br />
+              <span className="text-gray-400">
+                {isSpanish ? 'calificas para una' : 'you qualify for a'}
+              </span>
+              <br />
+              <span className="text-[#413d3d]">
+                {isSpanish ? 'consulta de Terapia de Reemplazo de Testosterona.' : 'TRT consultation.'}
+              </span>
+            </h1>
+            <p className="text-base text-gray-400">
+              {isSpanish
+                ? 'Reserva una consulta y nuestro equipo podrá explicarte el tratamiento y ayudarte a comenzar.'
+                : 'Book a consultation and our team will be able to explain the treatment and help you get started!'}
+            </p>
+          </div>
+
+          <div className={`transition-all duration-700 ease-out ${showPhase2 ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
+            <div className="bg-[#f5ecd8] rounded-2xl p-5 flex items-center gap-4">
+              <div className="flex-shrink-0 w-16 h-16 rounded-full overflow-hidden">
+                <img
+                  src="https://static.wixstatic.com/media/c49a9b_0e0d844da3914972855d63bc78725d99~mv2.png"
                   alt="Provider"
                   className="w-full h-full object-cover"
                 />

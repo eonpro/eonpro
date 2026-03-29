@@ -97,6 +97,19 @@ const FIELD_LABELS: Record<string, string> = {
   has_allergies: 'Has Allergies',
   allergy_details: 'Allergy Details',
   recent_lab_work: 'Most Recent Lab Work',
+  trt_symptoms: 'TRT Symptoms',
+  trt_interest: 'Reason for Seeking TRT',
+  trt_goals: 'TRT Goals',
+  prior_testosterone: 'Prior Testosterone Use',
+  trt_type: 'Testosterone Type Used',
+  trt_dose: 'Testosterone Dose & Frequency',
+  blood_work_checked: 'Testosterone Levels Checked',
+  blood_work_results: 'Testosterone Level Results',
+  prostate_health: 'Prostate Health',
+  blood_clot_history: 'Blood Clot History',
+  sleep_apnea: 'Sleep Apnea',
+  heart_conditions: 'Cardiovascular History',
+  fertility_concerns: 'Fertility Concerns',
 };
 
 // ============================================================================
@@ -535,6 +548,15 @@ export async function POST(req: NextRequest) {
         ),
       },
       {
+        title: 'Testosterone Replacement Therapy',
+        entries: answers.filter((a) =>
+          ['trt_symptoms', 'trt_interest', 'trt_goals', 'prior_testosterone',
+           'trt_type', 'trt_dose', 'blood_work_checked', 'blood_work_results',
+           'prostate_health', 'blood_clot_history', 'sleep_apnea',
+           'heart_conditions', 'fertility_concerns'].includes(a.id)
+        ),
+      },
+      {
         title: 'Lifestyle',
         entries: answers.filter((a) =>
           ['recreational_drugs', 'weight_loss_methods', 'weight_loss_support',
@@ -576,8 +598,11 @@ export async function POST(req: NextRequest) {
 
     const clinicTag = isOtClinic ? 'otmens' : clinicSlug === 'wellmedr' ? 'wellmedr' : 'eonmeds';
     const isPeptideIntake = treatmentType === 'peptides';
+    const isTRTIntake = treatmentType === 'trt';
     const intakeTypeTags = isPeptideIntake
       ? ['peptide-therapy-intake', 'sermorelin']
+      : isTRTIntake
+      ? ['trt-intake', 'testosterone']
       : ['weightlossintake', 'glp1'];
 
     const result = await runWithClinicContext(clinic.id, () =>
