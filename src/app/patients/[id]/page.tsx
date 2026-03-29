@@ -131,7 +131,7 @@ export default async function PatientDetailPage({
           }),
         {
           cacheKey,
-          cache: { ttl: 300, prefix: 'patient', useL1Cache: true, l1Ttl: 30 },
+          cache: { ttl: 300, prefix: 'patient', useL1Cache: false },
           timeout: 8000,
         }
       );
