@@ -357,7 +357,7 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) 
     });
 
     // Send welcome email to the new affiliate
-    const clinic = await basePrisma.clinic.findUnique({
+    const clinicDetails = await basePrisma.clinic.findUnique({
       where: { id: clinicId },
       select: { name: true, subdomain: true, customDomain: true, logoUrl: true },
     });
@@ -369,10 +369,10 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) 
       lastName: lastName || displayName.split(' ').slice(1).join(' ') || '',
       role: 'AFFILIATE',
       clinicId,
-      clinicName: clinic?.name || 'Your Clinic',
-      clinicSubdomain: clinic?.subdomain,
-      clinicCustomDomain: clinic?.customDomain,
-      clinicLogoUrl: clinic?.logoUrl,
+      clinicName: clinicDetails?.name || 'Your Clinic',
+      clinicSubdomain: clinicDetails?.subdomain,
+      clinicCustomDomain: clinicDetails?.customDomain,
+      clinicLogoUrl: clinicDetails?.logoUrl,
       sendEmail: true,
       sendSms: false,
     });
