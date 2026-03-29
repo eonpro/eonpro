@@ -841,14 +841,35 @@ export default function PrescriptionQueuePage() {
         zip: parsedAddress.zip,
       });
 
-      const glp1Info = item.glp1Info || { usedGlp1: false, glp1Type: null, lastDose: null };
-      const clinicalGlp1 = details.clinicalContext?.glp1History;
-      const mergedGlp1Info = {
-        usedGlp1: glp1Info.usedGlp1 || clinicalGlp1?.used || false,
-        glp1Type: glp1Info.glp1Type || clinicalGlp1?.type || null,
-        lastDose: glp1Info.lastDose || clinicalGlp1?.dose || null,
-      };
-      const preselection = getGlp1Preselection(item.treatment, mergedGlp1Info);
+      // Refills: preselect based on the PREVIOUS PRESCRIPTION (not intake GLP-1 history).
+      // New invoices: merge queue-level glp1Info with clinical context from intake.
+      let preselectionGlp1Info: { usedGlp1: boolean; glp1Type: string | null; lastDose: string | null };
+
+      if (item.queueType === 'refill' || item.isRefill) {
+        const rxDetails = item.lastRxDetails;
+        const glp1Info = item.glp1Info || { usedGlp1: true, glp1Type: null, lastDose: null };
+        preselectionGlp1Info = {
+          usedGlp1: true,
+          glp1Type: rxDetails
+            ? (rxDetails.medName.toLowerCase().includes('tirzepatide') ? 'Tirzepatide'
+              : rxDetails.medName.toLowerCase().includes('semaglutide') ? 'Semaglutide'
+              : glp1Info.glp1Type)
+            : glp1Info.glp1Type,
+          lastDose: rxDetails?.dose != null
+            ? String(rxDetails.dose)
+            : rxDetails?.strength || glp1Info.lastDose || null,
+        };
+      } else {
+        const glp1Info = item.glp1Info || { usedGlp1: false, glp1Type: null, lastDose: null };
+        const clinicalGlp1 = details.clinicalContext?.glp1History;
+        preselectionGlp1Info = {
+          usedGlp1: glp1Info.usedGlp1 || clinicalGlp1?.used || false,
+          glp1Type: glp1Info.glp1Type || clinicalGlp1?.type || null,
+          lastDose: glp1Info.lastDose || clinicalGlp1?.dose || null,
+        };
+      }
+
+      const preselection = getGlp1Preselection(item.treatment, preselectionGlp1Info);
 
       if (preselection) {
         const isMultiMonth = (item.planMonths ?? 1) > 1;
