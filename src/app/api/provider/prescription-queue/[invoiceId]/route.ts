@@ -316,7 +316,8 @@ async function handleGet(req: NextRequest, user: AuthUser, context?: unknown) {
         if (nestedGlp1 && typeof nestedGlp1 === 'object') {
           const usedVal = nestedGlp1.usedLast30Days;
           const isUsed = usedVal === true || (typeof usedVal === 'string' && usedVal.toLowerCase() === 'yes');
-          if (isUsed) {
+          const hasTypeOrDose = !!(nestedGlp1.medicationType?.trim() || nestedGlp1.doseMg?.toString().trim());
+          if (isUsed || hasTypeOrDose) {
             clinicalContext.glp1History.used = true;
             if (nestedGlp1.medicationType && String(nestedGlp1.medicationType).trim())
               clinicalContext.glp1History.type = String(nestedGlp1.medicationType).trim();
@@ -330,15 +331,31 @@ async function handleGet(req: NextRequest, user: AuthUser, context?: unknown) {
         }
         // Flat keys (Airtable/other intake formats)
         if (!clinicalContext.glp1History.used) {
-          const glp1Used = getField(['glp1-last-30', 'glp1Last30', 'glp1_last_30']);
+          const glp1Used = getField(['glp1-last-30', 'glp1Last30', 'glp1_last_30', 'usedGlp1', 'used-glp1', 'glp1Usage', 'glp1-usage']);
           clinicalContext.glp1History.used = glp1Used?.toLowerCase() === 'yes';
         }
         if (!clinicalContext.glp1History.type)
-          clinicalContext.glp1History.type = getField(['glp1-last-30-medication-type', 'glp1Last30MedicationType']);
-        if (!clinicalContext.glp1History.dose)
-          clinicalContext.glp1History.dose = getField(['glp1-last-30-medication-dose-mg', 'glp1Last30MedicationDoseMg']);
+          clinicalContext.glp1History.type = getField([
+            'glp1-last-30-medication-type', 'glp1Last30MedicationType', 'glp1Type', 'glp1-type',
+            'glp1_type', 'glp1MedicationType', 'glp1-medication-type', 'recentGlp1', 'currentGlp1',
+          ]);
+        if (!clinicalContext.glp1History.dose) {
+          const rawDose = getField([
+            'glp1-last-30-medication-dose-mg', 'glp1Last30MedicationDoseMg', 'glp1Dose', 'glp1-dose',
+            'glp1_dose', 'glp1Dosage', 'semaglutideDose', 'semaglutideDosage', 'tirzepatideDose',
+            'tirzepatideDosage', 'lastDose', 'last-dose', 'previousDose', 'currentGlp1Dose',
+          ]);
+          if (rawDose) {
+            const numericDose = rawDose.replace(/[^\d.]/g, '');
+            if (numericDose && parseFloat(numericDose) > 0) clinicalContext.glp1History.dose = numericDose;
+          }
+        }
         if (!clinicalContext.glp1History.sideEffects)
           clinicalContext.glp1History.sideEffects = getField(['glp1-side-effects', 'glp1SideEffects', 'glp1_side_effects']);
+        // Infer usage from type or dose if the explicit usage field was missing
+        if (!clinicalContext.glp1History.used && (clinicalContext.glp1History.type || clinicalContext.glp1History.dose)) {
+          clinicalContext.glp1History.used = true;
+        }
 
         // Preference
         clinicalContext.preferredMedication = getField(['preferred-meds', 'preferredMedication', 'preferredMeds', 'medication-preference']);
@@ -434,29 +451,36 @@ async function handleGet(req: NextRequest, user: AuthUser, context?: unknown) {
     // (expanded row / prescription panel) showed "No prior GLP-1 use" on mobile while desktop list showed history.
     if (!clinicalContext.glp1History.used && invoice.metadata && typeof invoice.metadata === 'object') {
       const meta = invoice.metadata as Record<string, unknown>;
-      const metaGlp1Used = [meta['glp1-last-30'], meta['glp1Last30'], meta['glp1_last_30']].find(
-        (v) => v !== undefined && v !== null && String(v).trim() !== ''
-      );
-      if (metaGlp1Used && String(metaGlp1Used).toLowerCase() === 'yes') {
-        clinicalContext.glp1History.used = true;
-        const typeVal =
-          meta['glp1-last-30-medication-type'] ??
-          meta['glp1Last30MedicationType'] ??
-          meta['glp1_last_30_medication_type'];
-        const doseVal =
-          meta['glp1-last-30-medication-dose-mg'] ??
-          meta['glp1Last30MedicationDoseMg'] ??
-          meta['glp1_last_30_medication_dose_mg'];
-        const sideEffectsVal =
-          meta['glp1-side-effects'] ?? meta['glp1SideEffects'] ?? meta['glp1_side_effects'];
-        if (typeVal != null && String(typeVal).trim())
-          clinicalContext.glp1History.type = String(typeVal).trim();
-        if (doseVal != null && String(doseVal).trim()) {
-          const numericDose = String(doseVal).trim().replace(/[^\d.]/g, '');
-          if (numericDose) clinicalContext.glp1History.dose = numericDose;
+      const findMeta = (...keys: string[]) => {
+        for (const k of keys) {
+          const v = meta[k];
+          if (v !== undefined && v !== null && String(v).trim() !== '') return String(v).trim();
         }
-        if (sideEffectsVal != null && String(sideEffectsVal).trim())
-          clinicalContext.glp1History.sideEffects = String(sideEffectsVal).trim();
+        return null;
+      };
+
+      const metaGlp1Used = findMeta('glp1-last-30', 'glp1Last30', 'glp1_last_30', 'usedGlp1', 'used-glp1', 'glp1Usage');
+      const typeVal = findMeta(
+        'glp1-last-30-medication-type', 'glp1Last30MedicationType', 'glp1_last_30_medication_type',
+        'glp1Type', 'glp1-type', 'glp1_type', 'glp1MedicationType',
+      );
+      const doseVal = findMeta(
+        'glp1-last-30-medication-dose-mg', 'glp1Last30MedicationDoseMg', 'glp1_last_30_medication_dose_mg',
+        'glp1Dose', 'glp1-dose', 'glp1_dose', 'semaglutideDose', 'tirzepatideDose',
+        'lastDose', 'previousDose',
+      );
+      const sideEffectsVal = findMeta('glp1-side-effects', 'glp1SideEffects', 'glp1_side_effects');
+
+      const isUsed = metaGlp1Used?.toLowerCase() === 'yes';
+      // Infer usage from type or dose presence
+      if (isUsed || typeVal || doseVal) {
+        clinicalContext.glp1History.used = true;
+        if (typeVal) clinicalContext.glp1History.type = typeVal;
+        if (doseVal) {
+          const numericDose = doseVal.replace(/[^\d.]/g, '');
+          if (numericDose && parseFloat(numericDose) > 0) clinicalContext.glp1History.dose = numericDose;
+        }
+        if (sideEffectsVal) clinicalContext.glp1History.sideEffects = sideEffectsVal;
       }
     }
 

@@ -918,8 +918,8 @@ export default function PrescriptionQueuePage() {
                 }
               }
             }
-          } catch {
-            // Order set fetch failed silently; provider can select manually
+          } catch (err) {
+            console.error('[Preselection] Failed to fetch/apply order set:', err);
           }
         }
       } else {

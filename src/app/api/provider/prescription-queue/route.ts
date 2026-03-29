@@ -655,14 +655,18 @@ async function handleGet(req: NextRequest, user: AuthUser) {
                   glp1Type = String(val);
                 }
               }
-              // Dose patterns - matches "Semaglutide Dose", "Tirzepatide Dose", "glp1-last-30-medication-dose-mg"
+              // Dose patterns - matches "Semaglutide Dose", "Tirzepatide Dose", "glp1-last-30-medication-dose-mg", "glp1Dose", "lastDose"
               if (
                 key.includes('semaglutidedose') ||
                 key.includes('semaglutidedosage') ||
                 key.includes('tirzepatidedose') ||
                 key.includes('tirzepatidedosage') ||
                 key.includes('dosemg') ||
-                key.includes('currentglp1dose')
+                key.includes('currentglp1dose') ||
+                key.includes('glp1dose') ||
+                key.includes('glp1dosage') ||
+                key.includes('lastdose') ||
+                key.includes('previousdose')
               ) {
                 if (
                   val &&
@@ -676,6 +680,11 @@ async function handleGet(req: NextRequest, user: AuthUser) {
                   }
                 }
               }
+            }
+
+            // If type or dose was found, infer GLP-1 usage even without an explicit usage field
+            if (!usedGlp1 && (glp1Type || lastDose)) {
+              usedGlp1 = true;
             }
 
             if (usedGlp1) {
@@ -734,7 +743,11 @@ async function handleGet(req: NextRequest, user: AuthUser) {
                   key.includes('tirzepatidedose') ||
                   key.includes('tirzepatidedosage') ||
                   key.includes('dosemg') ||
-                  key.includes('currentglp1dose')
+                  key.includes('currentglp1dose') ||
+                  key.includes('glp1dose') ||
+                  key.includes('glp1dosage') ||
+                  key.includes('lastdose') ||
+                  key.includes('previousdose')
                 ) {
                   if (
                     val &&
@@ -749,6 +762,11 @@ async function handleGet(req: NextRequest, user: AuthUser) {
                   }
                 }
               }
+            }
+
+            // If type or dose was found, infer GLP-1 usage even without an explicit usage field
+            if (!sectionUsedGlp1 && (sectionGlp1Type || sectionLastDose)) {
+              sectionUsedGlp1 = true;
             }
 
             if (sectionUsedGlp1) {
