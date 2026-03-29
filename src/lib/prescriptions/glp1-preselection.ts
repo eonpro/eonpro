@@ -88,8 +88,8 @@ const SEMAGLUTIDE_TIERS: DoseTier[] = [
   {
     previousDose: 1,
     oneMonth: {
-      medicationKey: SEMA_2ML,
-      sig: 'Inject 1 mg (40 units) subcutaneously once weekly.',
+      medicationKey: SEMA_3ML,
+      sig: 'Inject 1.7 mg (68 units) subcutaneously once weekly.',
       quantity: '1',
       refills: '0',
       daysSupply: '28',
@@ -99,8 +99,8 @@ const SEMAGLUTIDE_TIERS: DoseTier[] = [
   {
     previousDose: 1.7,
     oneMonth: {
-      medicationKey: SEMA_3ML,
-      sig: 'Inject 1.7 mg (68 units) subcutaneously once weekly.',
+      medicationKey: SEMA_5MG_2ML,
+      sig: 'Inject 2.4 mg (48 units) subcutaneously once weekly.',
       quantity: '1',
       refills: '0',
       daysSupply: '28',
@@ -152,7 +152,7 @@ const TIRZEPATIDE_TIERS: DoseTier[] = [
       refills: '0',
       daysSupply: '28',
     },
-    orderSetName: 'Tirzepatide C- 3 Month',
+    orderSetName: 'Tirzepatide D- 3 Month',
   },
   {
     previousDose: 7.5,
@@ -163,13 +163,13 @@ const TIRZEPATIDE_TIERS: DoseTier[] = [
       refills: '0',
       daysSupply: '28',
     },
-    orderSetName: 'Tirzepatide D- 3 Month',
+    orderSetName: 'Tirzepatide D2- 3 Month',
   },
   {
     previousDose: 10,
     oneMonth: {
       medicationKey: TIRZ_30MG_2ML,
-      sig: 'Inject 15 mg (50 units) subcutaneously once weekly.',
+      sig: 'Inject 12.5 mg (42 units) subcutaneously once weekly.',
       quantity: '1',
       refills: '0',
       daysSupply: '28',
