@@ -13,6 +13,7 @@ import { prisma, Prisma } from '@/lib/db';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
 import bcrypt from 'bcryptjs';
+import { sendUserWelcomeNotification } from '@/lib/notifications/user-welcome';
 
 const createAffiliateSchema = z.object({
   email: z.string().email('Invalid email format').max(255),
@@ -292,6 +293,27 @@ export const POST = withAuth(
         createdBy: user.id,
       });
 
+      // Send welcome email to the new affiliate
+      const clinic = await prisma.clinic.findUnique({
+        where: { id: clinicId },
+        select: { name: true, subdomain: true, customDomain: true, logoUrl: true },
+      });
+
+      const inviteResult = await sendUserWelcomeNotification({
+        userId: result.user.id,
+        email: email.toLowerCase(),
+        firstName: firstName || displayName.split(' ')[0] || 'Affiliate',
+        lastName: lastName || displayName.split(' ').slice(1).join(' ') || '',
+        role: 'AFFILIATE',
+        clinicId,
+        clinicName: clinic?.name || 'Your Clinic',
+        clinicSubdomain: clinic?.subdomain,
+        clinicCustomDomain: clinic?.customDomain,
+        clinicLogoUrl: clinic?.logoUrl,
+        sendEmail: true,
+        sendSms: false,
+      });
+
       return NextResponse.json(
         {
           success: true,
@@ -301,6 +323,8 @@ export const POST = withAuth(
             email: result.user.email,
             status: result.affiliate.status,
           },
+          inviteEmailSent: inviteResult.emailSent,
+          ...(inviteResult.emailError ? { inviteEmailError: inviteResult.emailError } : {}),
         },
         { status: 201 }
       );

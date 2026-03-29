@@ -610,12 +610,23 @@ export default function ClinicDetailPage() {
         });
         setNpiError('');
         fetchClinicUsers();
-        const inviteMethods: string[] = [];
-        if (newUser.sendInvite) inviteMethods.push('email');
-        if (newUser.sendInviteText) inviteMethods.push('text message');
-        const inviteMsg = inviteMethods.length > 0
-          ? ` An invitation has been sent via ${inviteMethods.join(' and ')}.`
-          : '';
+        const sentMethods: string[] = [];
+        const failedMethods: string[] = [];
+        if (newUser.sendInvite) {
+          if (data.inviteEmailSent) sentMethods.push('email');
+          else failedMethods.push('email');
+        }
+        if (newUser.sendInviteText) {
+          if (data.inviteSmsSent) sentMethods.push('text message');
+          else failedMethods.push('text message');
+        }
+        let inviteMsg = '';
+        if (sentMethods.length > 0) {
+          inviteMsg += ` Invitation sent via ${sentMethods.join(' and ')}.`;
+        }
+        if (failedMethods.length > 0) {
+          inviteMsg += ` Failed to send via ${failedMethods.join(' and ')} — the user can use "Forgot Password" to set up access.`;
+        }
         alert(`User created successfully!${inviteMsg}`);
       } else {
         alert(data.error || 'Failed to create user');
@@ -3472,33 +3483,6 @@ export default function ClinicDetailPage() {
                 </p>
               </div>
 
-              <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">
-                  Temporary Password *
-                </label>
-                <div className="relative">
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    required
-                    value={newUser.password}
-                    onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
-                    className="w-full rounded-lg border border-gray-300 px-4 py-2 pr-10 focus:border-teal-500 focus:ring-2 focus:ring-teal-500"
-                    placeholder="Min 8 characters"
-                    minLength={8}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                  >
-                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
-                </div>
-                <p className="mt-1 text-xs text-gray-500">
-                  User will be prompted to change password on first login
-                </p>
-              </div>
-
               <div className="space-y-2 rounded-lg border border-gray-200 bg-gray-50 p-3">
                 <p className="text-xs font-medium text-gray-600 uppercase tracking-wide">Send Invitation</p>
                 <div className="flex items-center gap-2">
@@ -3531,7 +3515,39 @@ export default function ClinicDetailPage() {
                 {!newUser.phone && newUser.sendInviteText === false && (
                   <p className="text-xs text-gray-400 pl-6">Add a phone number above to enable text invitations</p>
                 )}
+                {(newUser.sendInvite || newUser.sendInviteText) && (
+                  <p className="text-xs text-teal-600 mt-1 pl-1">The user will receive a secure link to set their own password.</p>
+                )}
               </div>
+
+              {!newUser.sendInvite && !newUser.sendInviteText && (
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">
+                    Password *
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      required
+                      value={newUser.password}
+                      onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
+                      className="w-full rounded-lg border border-gray-300 px-4 py-2 pr-10 focus:border-teal-500 focus:ring-2 focus:ring-teal-500"
+                      placeholder="Min 8 characters"
+                      minLength={8}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    >
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                  <p className="mt-1 text-xs text-gray-500">
+                    Required when not sending an invitation link
+                  </p>
+                </div>
+              )}
 
               <div className="flex gap-3 border-t border-gray-200 pt-4">
                 <button

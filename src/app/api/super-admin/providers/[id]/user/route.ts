@@ -4,6 +4,7 @@ import { type Prisma } from '@prisma/client';
 import { basePrisma as prisma } from '@/lib/db';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
+import { sendUserWelcomeNotification } from '@/lib/notifications/user-welcome';
 
 /**
  * Middleware to check for Super Admin role
@@ -281,17 +282,36 @@ export const POST = withSuperAdminAuth(
         email: result.email,
       });
 
-      // TODO: Send invite email if requested
+      let inviteResult = { emailSent: false, smsSent: false, emailError: undefined as string | undefined, smsError: undefined as string | undefined };
       if (sendInvite) {
-        logger.info('[SUPER-ADMIN/PROVIDERS/USER] Would send invite email', {
+        const clinic = userClinicId
+          ? await prisma.clinic.findUnique({
+              where: { id: userClinicId },
+              select: { name: true, subdomain: true, customDomain: true, logoUrl: true },
+            })
+          : null;
+
+        inviteResult = await sendUserWelcomeNotification({
+          userId: result.id,
           email: result.email,
+          firstName: result.firstName || provider.firstName,
+          lastName: result.lastName || provider.lastName,
+          role: 'PROVIDER',
+          clinicId: userClinicId || 0,
+          clinicName: clinic?.name || 'Your Clinic',
+          clinicSubdomain: clinic?.subdomain,
+          clinicCustomDomain: clinic?.customDomain,
+          clinicLogoUrl: clinic?.logoUrl,
+          sendEmail: true,
+          sendSms: false,
         });
-        // Email sending would go here
       }
 
       return NextResponse.json({
         user: result,
         message: 'User account created and linked to provider',
+        inviteEmailSent: inviteResult.emailSent,
+        ...(inviteResult.emailError ? { inviteEmailError: inviteResult.emailError } : {}),
       });
     } catch (error: unknown) {
       logger.error('[SUPER-ADMIN/PROVIDERS/USER] Error creating user:', error);
@@ -535,12 +555,34 @@ export const PATCH = withSuperAdminAuth(
         email: provider.user.email,
       });
 
-      // TODO: Send notification email if requested
       if (sendNotification) {
-        logger.info('[SUPER-ADMIN/PROVIDERS/USER] Would send password reset notification', {
-          email: provider.user.email,
-        });
-        // Email sending would go here
+        try {
+          const { sendEmail: sendEmailFn } = await import('@/lib/email');
+          await sendEmailFn({
+            to: provider.user!.email,
+            subject: 'Your Password Has Been Reset',
+            html: `
+              <div style="max-width: 480px; margin: 0 auto; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #374151;">
+                <div style="background: #ffffff; border-radius: 16px; padding: 32px; border: 1px solid #e5e7eb;">
+                  <h1 style="font-size: 20px; font-weight: 600; color: #111827; margin: 0 0 12px;">Password Reset</h1>
+                  <p style="font-size: 15px; line-height: 1.6; color: #4b5563;">
+                    Hi ${provider.firstName || 'there'},<br/><br/>
+                    Your account password has been reset by an administrator. Please contact your administrator for your new credentials.
+                  </p>
+                </div>
+              </div>
+            `,
+            sourceType: 'notification',
+            sourceId: `provider-password-reset-${provider.user!.id}`,
+          });
+          logger.info('[SUPER-ADMIN/PROVIDERS/USER] Password reset notification sent', {
+            userId: provider.user!.id,
+          });
+        } catch (notifyErr) {
+          logger.error('[SUPER-ADMIN/PROVIDERS/USER] Password reset notification failed', {
+            error: notifyErr instanceof Error ? notifyErr.message : String(notifyErr),
+          });
+        }
       }
 
       return NextResponse.json({

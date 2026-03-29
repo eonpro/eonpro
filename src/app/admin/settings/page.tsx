@@ -185,6 +185,7 @@ export default function AdminSettingsPage() {
     licenseNumber: '',
     licenseState: '',
     specialty: '',
+    sendInvite: true,
   });
   const [showPassword, setShowPassword] = useState(false);
   const [userError, setUserError] = useState('');
@@ -530,9 +531,17 @@ export default function AdminSettingsPage() {
       });
 
       if (res.ok) {
+        const data = await res.json();
         setShowUserModal(false);
         resetUserForm();
         loadUsers();
+        if (!editingUser && userForm.sendInvite) {
+          if (data.inviteEmailSent) {
+            alert('User created successfully! A welcome email has been sent.');
+          } else {
+            alert('User created successfully! Welcome email could not be sent — share the credentials manually.');
+          }
+        }
       } else {
         const err = await res.json();
         setUserError(err.error || 'Failed to save user');
@@ -572,6 +581,7 @@ export default function AdminSettingsPage() {
       licenseNumber: user.provider?.licenseNumber || '',
       licenseState: user.provider?.licenseState || '',
       specialty: '',
+      sendInvite: false,
     });
     setShowUserModal(true);
   };
@@ -589,6 +599,7 @@ export default function AdminSettingsPage() {
       licenseNumber: '',
       licenseState: '',
       specialty: '',
+      sendInvite: true,
     });
     setUserError('');
   };
@@ -2207,36 +2218,58 @@ export default function AdminSettingsPage() {
                 </div>
               )}
 
-              <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">
-                  {editingUser ? 'New Password (leave blank to keep current)' : 'Password *'}
-                </label>
-                <div className="flex gap-2">
-                  <div className="relative flex-1">
+              {!editingUser && (
+                <div className="space-y-2 rounded-lg border border-gray-200 bg-gray-50 p-3">
+                  <div className="flex items-center gap-2">
                     <input
-                      type={showPassword ? 'text' : 'password'}
-                      required={!editingUser}
-                      value={userForm.password}
-                      onChange={(e) => setUserForm({ ...userForm, password: e.target.value })}
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 pr-10 focus:ring-2 focus:ring-emerald-500"
+                      type="checkbox"
+                      id="sendInviteEmail"
+                      checked={userForm.sendInvite}
+                      onChange={(e) => setUserForm({ ...userForm, sendInvite: e.target.checked })}
+                      className="h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
                     />
+                    <label htmlFor="sendInviteEmail" className="text-sm text-gray-700">
+                      Send invitation email with secure password setup link
+                    </label>
+                  </div>
+                  {userForm.sendInvite && (
+                    <p className="text-xs text-emerald-600 pl-6">The user will set their own password via a secure link.</p>
+                  )}
+                </div>
+              )}
+
+              {(!userForm.sendInvite || editingUser) && (
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">
+                    {editingUser ? 'New Password (leave blank to keep current)' : 'Password *'}
+                  </label>
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <input
+                        type={showPassword ? 'text' : 'password'}
+                        required={!editingUser && !userForm.sendInvite}
+                        value={userForm.password}
+                        onChange={(e) => setUserForm({ ...userForm, password: e.target.value })}
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2 pr-10 focus:ring-2 focus:ring-emerald-500"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
+                      >
+                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
                     <button
                       type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
+                      onClick={generatePassword}
+                      className="rounded-lg border border-gray-300 px-3 py-2 text-sm hover:bg-gray-50"
                     >
-                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      Generate
                     </button>
                   </div>
-                  <button
-                    type="button"
-                    onClick={generatePassword}
-                    className="rounded-lg border border-gray-300 px-3 py-2 text-sm hover:bg-gray-50"
-                  >
-                    Generate
-                  </button>
                 </div>
-              </div>
+              )}
 
               <div className="flex justify-end gap-3 pt-4">
                 <button

@@ -5,10 +5,12 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import crypto from 'crypto';
 import { basePrisma as prisma } from '@/lib/db';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
 import bcrypt from 'bcryptjs';
+import { sendUserWelcomeNotification } from '@/lib/notifications/user-welcome';
 
 /**
  * GET /api/admin/clinic/users
@@ -169,10 +171,17 @@ export const POST = withAuth(
         specialty,
       } = body;
 
-      // Validate required fields
-      if (!email || !firstName || !lastName || !role || !password) {
+      // Validate required fields — password is optional when sendInvite is true
+      // (user will set their own password via the setup link)
+      if (!email || !firstName || !lastName || !role) {
         return NextResponse.json(
-          { error: 'Email, first name, last name, role, and password are required' },
+          { error: 'Email, first name, last name, and role are required' },
+          { status: 400 }
+        );
+      }
+      if (!password && !sendInvite) {
+        return NextResponse.json(
+          { error: 'Password is required when not sending an invitation' },
           { status: 400 }
         );
       }
@@ -320,8 +329,10 @@ export const POST = withAuth(
         });
       }
 
-      // Create new user
-      const passwordHash = await bcrypt.hash(password, 12);
+      // Create new user — use provided password or generate a random placeholder
+      // (placeholder will be overwritten when user completes setup via the invite link)
+      const effectivePassword = password || crypto.randomBytes(32).toString('hex');
+      const passwordHash = await bcrypt.hash(effectivePassword, 12);
       const prismaRole = role.toUpperCase();
 
       const newUser = await prisma.user.create({
@@ -412,13 +423,44 @@ export const POST = withAuth(
         logger.warn('Failed to create audit log for user creation');
       }
 
-      logger.info(
-        `[CLINIC-USERS] Admin ${user.email} created user ${newUser.email} in clinic ${user.clinicId}`
-      );
+      logger.info('[CLINIC-USERS] User created', {
+        userId: newUser.id,
+        clinicId: user.clinicId,
+        role: newUser.role,
+      });
+
+      // Send welcome notification (non-blocking — user creation already committed)
+      let inviteResult = { emailSent: false, smsSent: false, emailError: undefined as string | undefined, smsError: undefined as string | undefined };
+      if (sendInvite || body.sendInviteText) {
+        const clinic = await prisma.clinic.findUnique({
+          where: { id: user.clinicId! },
+          select: { name: true, subdomain: true, customDomain: true, logoUrl: true },
+        });
+
+        inviteResult = await sendUserWelcomeNotification({
+          userId: newUser.id,
+          email: newUser.email,
+          firstName: newUser.firstName || firstName,
+          lastName: newUser.lastName || lastName,
+          role: newUser.role,
+          clinicId: user.clinicId!,
+          clinicName: clinic?.name || 'Your Clinic',
+          clinicSubdomain: clinic?.subdomain,
+          clinicCustomDomain: clinic?.customDomain,
+          clinicLogoUrl: clinic?.logoUrl,
+          phone: newUser.phone,
+          sendEmail: !!sendInvite,
+          sendSms: !!body.sendInviteText,
+        });
+      }
 
       return NextResponse.json({
         user: newUser,
         message: 'User created successfully',
+        inviteEmailSent: inviteResult.emailSent,
+        inviteSmsSent: inviteResult.smsSent,
+        ...(inviteResult.emailError ? { inviteEmailError: inviteResult.emailError } : {}),
+        ...(inviteResult.smsError ? { inviteSmsError: inviteResult.smsError } : {}),
       });
     } catch (error: unknown) {
       logger.error('Error creating clinic user:', error);

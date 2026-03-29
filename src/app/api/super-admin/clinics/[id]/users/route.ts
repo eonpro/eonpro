@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
+import crypto from 'crypto';
 import { basePrisma as prisma } from '@/lib/db';
 import { withAuthParams, AuthUser } from '@/lib/auth/middleware-with-params';
 import bcrypt from 'bcryptjs';
 import { logger } from '@/lib/logger';
+import { sendUserWelcomeNotification } from '@/lib/notifications/user-welcome';
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -127,10 +129,9 @@ export const POST = withSuperAdminAuth(
         return NextResponse.json({ error: 'Invalid clinic ID' }, { status: 400 });
       }
 
-      // Verify clinic exists (select only needed fields for backwards compatibility)
       const clinic = await prisma.clinic.findUnique({
         where: { id: clinicId },
-        select: { id: true, name: true },
+        select: { id: true, name: true, subdomain: true, customDomain: true, logoUrl: true },
       });
 
       if (!clinic) {
@@ -154,10 +155,15 @@ export const POST = withSuperAdminAuth(
         specialty,
       } = body;
 
-      // Validate required fields
-      if (!email || !firstName || !lastName || !role || !password) {
+      if (!email || !firstName || !lastName || !role) {
         return NextResponse.json(
-          { error: 'Email, first name, last name, role, and password are required' },
+          { error: 'Email, first name, last name, and role are required' },
+          { status: 400 }
+        );
+      }
+      if (!password && !sendInvite) {
+        return NextResponse.json(
+          { error: 'Password is required when not sending an invitation' },
           { status: 400 }
         );
       }
@@ -529,8 +535,8 @@ export const POST = withSuperAdminAuth(
       }
 
       // CASE 4: New user - create everything fresh
-      // Hash password
-      const passwordHash = await bcrypt.hash(password, 12);
+      const effectivePassword = password || crypto.randomBytes(32).toString('hex');
+      const passwordHash = await bcrypt.hash(effectivePassword, 12);
 
       // Create the user
       const newUser = await prisma.user.create({
@@ -605,23 +611,34 @@ export const POST = withSuperAdminAuth(
         }
       }
 
-      // TODO: Send invitation email if sendInvite is true
-      if (sendInvite) {
-        // TODO: Implement invitation email via SES/SendGrid
-        // await sendInvitationEmail({ email, firstName, password, clinicName: clinic.name });
-      }
-
-      // TODO: Send invitation text if sendInviteText is true
+      // Send welcome notification (non-blocking — user creation already committed)
       const { sendInviteText } = body;
-      if (sendInviteText && phone) {
-        // TODO: Implement invitation SMS via Twilio
-        // await sendInvitationSms({ phone, firstName, password, clinicName: clinic.name });
-        logger.info('SMS invitation requested', { userId: newUser.id, clinicId });
+      let inviteResult = { emailSent: false, smsSent: false, emailError: undefined as string | undefined, smsError: undefined as string | undefined };
+      if (sendInvite || sendInviteText) {
+        inviteResult = await sendUserWelcomeNotification({
+          userId: newUser.id,
+          email: newUser.email,
+          firstName: newUser.firstName || firstName,
+          lastName: newUser.lastName || lastName,
+          role: newUser.role,
+          clinicId,
+          clinicName: clinic.name,
+          clinicSubdomain: clinic.subdomain,
+          clinicCustomDomain: clinic.customDomain,
+          clinicLogoUrl: clinic.logoUrl,
+          phone: newUser.phone,
+          sendEmail: !!sendInvite,
+          sendSms: !!sendInviteText,
+        });
       }
 
       return NextResponse.json({
         user: newUser,
         message: 'User created successfully',
+        inviteEmailSent: inviteResult.emailSent,
+        inviteSmsSent: inviteResult.smsSent,
+        ...(inviteResult.emailError ? { inviteEmailError: inviteResult.emailError } : {}),
+        ...(inviteResult.smsError ? { inviteSmsError: inviteResult.smsError } : {}),
       });
     } catch (error: unknown) {
       logger.error('Error creating clinic user', { error: error instanceof Error ? error.message : String(error) });

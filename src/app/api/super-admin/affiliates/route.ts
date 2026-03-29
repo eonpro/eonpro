@@ -13,6 +13,7 @@ import { logger } from '@/lib/logger';
 import { superAdminRateLimit } from '@/lib/rateLimit';
 import { executeDbRead } from '@/lib/database/executeDb';
 import { CircuitOpenError } from '@/lib/database/circuit-breaker';
+import { sendUserWelcomeNotification } from '@/lib/notifications/user-welcome';
 
 /**
  * Middleware to check for Super Admin role
@@ -355,10 +356,33 @@ export const POST = withSuperAdminAuth(async (req: NextRequest, user: AuthUser) 
       return { user, affiliate };
     });
 
+    // Send welcome email to the new affiliate
+    const clinic = await basePrisma.clinic.findUnique({
+      where: { id: clinicId },
+      select: { name: true, subdomain: true, customDomain: true, logoUrl: true },
+    });
+
+    const inviteResult = await sendUserWelcomeNotification({
+      userId: result.user.id,
+      email: email.toLowerCase(),
+      firstName: firstName || displayName.split(' ')[0],
+      lastName: lastName || displayName.split(' ').slice(1).join(' ') || '',
+      role: 'AFFILIATE',
+      clinicId,
+      clinicName: clinic?.name || 'Your Clinic',
+      clinicSubdomain: clinic?.subdomain,
+      clinicCustomDomain: clinic?.customDomain,
+      clinicLogoUrl: clinic?.logoUrl,
+      sendEmail: true,
+      sendSms: false,
+    });
+
     return NextResponse.json({
       success: true,
       affiliateId: result.affiliate.id,
       userId: result.user.id,
+      inviteEmailSent: inviteResult.emailSent,
+      ...(inviteResult.emailError ? { inviteEmailError: inviteResult.emailError } : {}),
     });
   } catch (error) {
     logger.error('Failed to create affiliate', { error: error instanceof Error ? error.message : String(error) });
