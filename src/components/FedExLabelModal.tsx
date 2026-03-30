@@ -101,7 +101,7 @@ export default function FedExLabelModal({
     zip: patientAddress.zip,
   });
 
-  const [oneRate, setOneRate] = useState(false);
+  const [oneRate, setOneRate] = useState(true);
   const [serviceType, setServiceType] = useState('FEDEX_2_DAY');
   const [packagingType, setPackagingType] = useState('FEDEX_PAK');
   const [weightLbs, setWeightLbs] = useState(1);
