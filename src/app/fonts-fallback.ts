@@ -7,7 +7,7 @@ export const outfitFont = Outfit({
   weight: ['300', '400', '500', '600', '700'],
   subsets: ['latin'],
   variable: '--font-outfit',
-  display: 'swap',
+  display: 'optional',
   fallback: ['system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Arial', 'sans-serif'],
 });
 

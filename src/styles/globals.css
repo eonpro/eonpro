@@ -8,7 +8,7 @@
   src: url('/fonts/bodoni/Bodoni72-Book-Italic.woff') format('woff');
   font-weight: 400;
   font-style: italic;
-  font-display: swap;
+  font-display: optional;
 }
 
 :root {

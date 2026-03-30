@@ -118,9 +118,27 @@ function PatientLoginPage() {
   const [resetMethod, setResetMethod] = useState<'email' | 'sms'>('email');
   const [patientFirstName, setPatientFirstName] = useState('');
 
-  // White-label branding
-  const [branding, setBranding] = useState<ClinicBranding | null>(null);
-  const [resolvedClinicId, setResolvedClinicId] = useState<number | null>(null);
+  // White-label branding — restore from cache to avoid CLS on return visits
+  const [branding, setBranding] = useState<ClinicBranding | null>(() => {
+    if (!isBrowser) return null;
+    try {
+      const cached = localStorage.getItem('clinic-branding-cache');
+      if (!cached) return null;
+      const parsed = JSON.parse(cached) as ClinicBranding & { _cachedAt?: number };
+      if (parsed._cachedAt && Date.now() - parsed._cachedAt > 24 * 60 * 60 * 1000) return null;
+      return parsed;
+    } catch { return null; }
+  });
+  const [resolvedClinicId, setResolvedClinicId] = useState<number | null>(() => {
+    if (!isBrowser) return null;
+    try {
+      const cached = localStorage.getItem('clinic-branding-cache');
+      if (!cached) return null;
+      const parsed = JSON.parse(cached) as { clinicId?: number; _cachedAt?: number };
+      if (parsed._cachedAt && Date.now() - parsed._cachedAt > 24 * 60 * 60 * 1000) return null;
+      return parsed.clinicId ?? null;
+    } catch { return null; }
+  });
   const [isMainApp, setIsMainApp] = useState(false);
 
   // Proactively clear stale auth cookies
@@ -153,10 +171,11 @@ function PatientLoginPage() {
           const data = await response.json();
           if (data.isMainApp) {
             setIsMainApp(true);
+            localStorage.removeItem('clinic-branding-cache');
+            localStorage.removeItem('clinic-branding-is-whitelabel');
             return;
           }
-          setResolvedClinicId(data.clinicId);
-          setBranding({
+          const brandingData: ClinicBranding = {
             clinicId: data.clinicId,
             name: data.name,
             logoUrl: data.branding.logoUrl,
@@ -166,7 +185,13 @@ function PatientLoginPage() {
             secondaryColor: data.branding.secondaryColor,
             accentColor: data.branding.accentColor,
             buttonTextColor: data.branding.buttonTextColor || 'auto',
-          });
+          };
+          setResolvedClinicId(data.clinicId);
+          setBranding(brandingData);
+          try {
+            localStorage.setItem('clinic-branding-cache', JSON.stringify({ ...brandingData, _cachedAt: Date.now() }));
+            localStorage.setItem('clinic-branding-is-whitelabel', '1');
+          } catch { /* quota exceeded — non-critical */ }
           if (data.branding.faviconUrl) {
             const injectFavicon = () => {
               let link = document.querySelector("link[rel*='icon']") as HTMLLinkElement | null;

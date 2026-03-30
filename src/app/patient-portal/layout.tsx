@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import nextDynamic from 'next/dynamic';
@@ -164,7 +164,7 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
   // hide layout chrome so it doesn't overlap or trap the user.
   const isChatPage = pathname === `${PATIENT_PORTAL_PATH}/chat` || pathname === '/patient-portal/chat';
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const user = localStorage.getItem('user');
     const token = localStorage.getItem('auth-token') || localStorage.getItem('patient-token');
 
@@ -311,8 +311,8 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
   }, [pathname]);
 
   // White body background on mobile so top/bottom strips (safe areas) are white, not #efece7
-  // Uses a CSS class instead of direct DOM style mutation to avoid CLS/reflow
-  useEffect(() => {
+  // Uses useLayoutEffect to apply before first paint, preventing background color flash
+  useLayoutEffect(() => {
     document.body.classList.add('portal-body');
     return () => {
       document.body.classList.remove('portal-body');
@@ -356,244 +356,180 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
   const primaryColor = branding?.primaryColor || '#4fa77e';
   const accentColor = branding?.accentColor || '#d3f931';
 
-  if (loading) {
-    return (
-      <div className="flex min-h-[100dvh] overflow-x-hidden bg-white lg:bg-[#efece7]">
-        {/* Desktop sidebar skeleton */}
-        <aside className="fixed bottom-0 left-0 top-0 z-50 hidden w-20 flex-col border-r border-gray-200 bg-white py-4 lg:flex">
-          <div className="mb-6 flex items-center justify-center px-4">
-            <div className="h-10 w-10 animate-pulse rounded-lg bg-gray-200" />
-          </div>
-          <nav className="flex flex-1 flex-col space-y-2 px-3">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="flex items-center justify-center rounded-xl px-3 py-2.5">
-                <div className="h-5 w-5 animate-pulse rounded bg-gray-200" />
-              </div>
-            ))}
-          </nav>
-        </aside>
-
-        {/* Mobile header skeleton */}
-        <header className="portal-header fixed left-0 right-0 top-0 z-50 bg-white lg:hidden">
-          <div className="safe-top" />
-          <div className="flex h-14 items-center justify-between px-4">
-            <div className="h-8 w-[120px] animate-pulse rounded bg-gray-200" />
-            <div className="flex items-center gap-1">
-              <div className="h-11 w-11 animate-pulse rounded-xl bg-gray-100" />
-              <div className="h-11 w-11 animate-pulse rounded-xl bg-gray-100" />
-            </div>
-          </div>
-        </header>
-
-        {/* Content skeleton — matches dashboard structure to prevent CLS on transition */}
-        <main className="min-w-0 flex-1 lg:ml-20">
-          <div className="min-h-[100dvh] w-full pb-24 pt-[calc(56px+env(safe-area-inset-top,0px))] lg:pb-0 lg:pt-0">
-            <div className="animate-pulse p-4 lg:p-6">
-              {/* Welcome header */}
-              <div className="mb-6">
-                <div className="h-4 w-28 rounded bg-gray-200" />
-                <div className="mt-2 h-8 w-56 rounded bg-gray-200" />
-              </div>
-              {/* Vitals row */}
-              <div className="mb-6 grid grid-cols-3 gap-3">
-                {Array.from({ length: 3 }).map((_, i) => (
-                  <div key={i} className="rounded-2xl bg-white p-4 shadow-sm">
-                    <div className="mb-2 h-3 w-14 rounded bg-gray-200" />
-                    <div className="h-7 w-16 rounded bg-gray-200" />
-                    <div className="mt-2 h-2 w-full rounded-full bg-gray-100" />
-                  </div>
-                ))}
-              </div>
-              {/* Weight progress hero */}
-              <div className="mb-6 rounded-2xl bg-gray-200 p-5">
-                <div className="mb-3 flex items-center justify-between">
-                  <div className="h-5 w-32 rounded bg-gray-300" />
-                  <div className="h-4 w-16 rounded bg-gray-300" />
-                </div>
-                <div className="h-12 w-full rounded-xl bg-gray-300" />
-              </div>
-              {/* Quick stats */}
-              <div className="mb-6 grid grid-cols-2 gap-3">
-                {Array.from({ length: 2 }).map((_, i) => (
-                  <div key={i} className="h-24 rounded-2xl bg-white shadow-sm" />
-                ))}
-              </div>
-              {/* Quick actions */}
-              <div className="mb-6">
-                <div className="mb-3 h-5 w-28 rounded bg-gray-200" />
-                <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-                  {Array.from({ length: 4 }).map((_, i) => (
-                    <div key={i} className="h-20 rounded-xl bg-white shadow-sm" />
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        </main>
-
-        {/* Mobile bottom nav skeleton */}
-        <nav className="portal-bottom-nav fixed bottom-0 left-0 right-0 z-40 bg-white lg:hidden">
-          <div className="border-t border-gray-200">
-            <div className="mx-auto flex max-w-md justify-around gap-1 px-1">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} className="flex flex-1 flex-col items-center py-2">
-                  <div className="h-11 w-11 animate-pulse rounded-2xl bg-gray-100" />
-                  <div className="mt-0.5 h-2.5 w-8 animate-pulse rounded bg-gray-100" />
-                </div>
-              ))}
-            </div>
-          </div>
-          <div className="safe-bottom bg-white" />
-        </nav>
-      </div>
-    );
-  }
-
   return (
     <div className="flex min-h-[100dvh] overflow-x-hidden" style={{ backgroundColor: `${primaryColor}0A` }}>
       {/* Desktop Sidebar - Hidden on mobile */}
       <aside
         className={`fixed bottom-0 left-0 top-0 z-50 hidden flex-col border-r border-gray-200 bg-white py-4 transition-all duration-300 lg:flex ${
-          sidebarExpanded ? 'w-56' : 'w-20'
+          !loading && sidebarExpanded ? 'w-56' : 'w-20'
         }`}
       >
-        <div className="mb-6 flex items-center justify-center px-4">
-          <Link href={PATIENT_PORTAL_PATH}>
-            <img
-              src={
-                sidebarExpanded
-                  ? branding?.logoUrl || EONPRO_LOGO
-                  : branding?.iconUrl || branding?.faviconUrl || branding?.logoUrl || EONPRO_LOGO
-              }
-              alt={branding?.clinicName || 'EONPRO'}
-              width={sidebarExpanded ? 140 : 40}
-              height={40}
-              className={`${sidebarExpanded ? 'h-10 w-auto max-w-[140px]' : 'h-10 w-10 rounded-lg'} object-contain`}
-            />
-          </Link>
-        </div>
-
-        <button
-          onClick={() => setSidebarExpanded(!sidebarExpanded)}
-          className={`absolute -right-3 top-20 flex h-6 w-6 items-center justify-center rounded-full border border-gray-200 bg-white shadow-sm transition-all hover:bg-gray-50 focus:outline-none ${
-            sidebarExpanded ? 'rotate-180' : ''
-          }`}
-        >
-          <ChevronRight className="h-3 w-3 text-gray-400" />
-        </button>
-
-        <nav className="flex flex-1 flex-col space-y-1 overflow-y-auto px-3">
-          {mainNavItems.map((item) => {
-            const Icon = item.icon;
-            const active = isActive(item.path, item.exact);
-            return (
-              <Link
-                key={item.path}
-                href={item.path}
-                title={!sidebarExpanded ? t(item.labelKey) : undefined}
-                className={`flex items-center gap-3 rounded-xl px-3 py-2.5 transition-all ${
-                  active ? 'text-white' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
-                }`}
-                style={active ? { backgroundColor: primaryColor } : {}}
-              >
-                <Icon className="h-5 w-5 flex-shrink-0" />
-                {sidebarExpanded && (
-                  <span className="whitespace-nowrap text-sm font-medium">{t(item.labelKey)}</span>
-                )}
+        {loading ? (
+          <>
+            <div className="mb-6 flex items-center justify-center px-4">
+              <div className="h-10 w-10 animate-pulse rounded-lg bg-gray-200" />
+            </div>
+            <nav className="flex flex-1 flex-col space-y-2 px-3">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="flex items-center justify-center rounded-xl px-3 py-2.5">
+                  <div className="h-5 w-5 animate-pulse rounded bg-gray-200" />
+                </div>
+              ))}
+            </nav>
+          </>
+        ) : (
+          <>
+            <div className="mb-6 flex items-center justify-center px-4">
+              <Link href={PATIENT_PORTAL_PATH}>
+                <img
+                  src={
+                    sidebarExpanded
+                      ? branding?.logoUrl || EONPRO_LOGO
+                      : branding?.iconUrl || branding?.faviconUrl || branding?.logoUrl || EONPRO_LOGO
+                  }
+                  alt={branding?.clinicName || 'EONPRO'}
+                  width={sidebarExpanded ? 140 : 40}
+                  height={40}
+                  className={`${sidebarExpanded ? 'h-10 w-auto max-w-[140px]' : 'h-10 w-10 rounded-lg'} object-contain`}
+                />
               </Link>
-            );
-          })}
-        </nav>
+            </div>
 
-        <div className="space-y-2 border-t border-gray-100 px-3 pt-4">
-          {userData && (
-            <Link
-              href={`${PATIENT_PORTAL_PATH}/settings`}
-              className="flex items-center gap-3 rounded-xl px-3 py-2 transition-all hover:bg-gray-50"
-              title={sidebarExpanded ? undefined : 'Profile'}
+            <button
+              onClick={() => setSidebarExpanded(!sidebarExpanded)}
+              className={`absolute -right-3 top-20 flex h-6 w-6 items-center justify-center rounded-full border border-gray-200 bg-white shadow-sm transition-all hover:bg-gray-50 focus:outline-none ${
+                sidebarExpanded ? 'rotate-180' : ''
+              }`}
             >
-              <UserAvatar
-                avatarUrl={avatarUrl}
-                firstName={displayName?.firstName || userData.firstName || ''}
-                lastName={displayName?.lastName || userData.lastName || ''}
-                size="sm"
-              />
-              {sidebarExpanded && (
-                <span className="min-w-0 truncate text-xs font-medium text-gray-700">
-                  {displayName
-                    ? `${displayName.firstName} ${displayName.lastName}`.trim() || 'Patient'
-                    : (userData.firstName || userData.lastName)
-                      ? `${userData.firstName ?? ''} ${userData.lastName ?? ''}`.trim()
-                      : 'Patient'}
-                </span>
+              <ChevronRight className="h-3 w-3 text-gray-400" />
+            </button>
+
+            <nav className="flex flex-1 flex-col space-y-1 overflow-y-auto px-3">
+              {mainNavItems.map((item) => {
+                const Icon = item.icon;
+                const active = isActive(item.path, item.exact);
+                return (
+                  <Link
+                    key={item.path}
+                    href={item.path}
+                    title={!sidebarExpanded ? t(item.labelKey) : undefined}
+                    className={`flex items-center gap-3 rounded-xl px-3 py-2.5 transition-all ${
+                      active ? 'text-white' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
+                    }`}
+                    style={active ? { backgroundColor: primaryColor } : {}}
+                  >
+                    <Icon className="h-5 w-5 flex-shrink-0" />
+                    {sidebarExpanded && (
+                      <span className="whitespace-nowrap text-sm font-medium">{t(item.labelKey)}</span>
+                    )}
+                  </Link>
+                );
+              })}
+            </nav>
+
+            <div className="space-y-2 border-t border-gray-100 px-3 pt-4">
+              {userData && (
+                <Link
+                  href={`${PATIENT_PORTAL_PATH}/settings`}
+                  className="flex items-center gap-3 rounded-xl px-3 py-2 transition-all hover:bg-gray-50"
+                  title={sidebarExpanded ? undefined : 'Profile'}
+                >
+                  <UserAvatar
+                    avatarUrl={avatarUrl}
+                    firstName={displayName?.firstName || userData.firstName || ''}
+                    lastName={displayName?.lastName || userData.lastName || ''}
+                    size="sm"
+                  />
+                  {sidebarExpanded && (
+                    <span className="min-w-0 truncate text-xs font-medium text-gray-700">
+                      {displayName
+                        ? `${displayName.firstName} ${displayName.lastName}`.trim() || 'Patient'
+                        : (userData.firstName || userData.lastName)
+                          ? `${userData.firstName ?? ''} ${userData.lastName ?? ''}`.trim()
+                          : 'Patient'}
+                    </span>
+                  )}
+                </Link>
               )}
-            </Link>
-          )}
-          <button
-            type="button"
-            onClick={handleLogout}
-            title={!sidebarExpanded ? t('navSignOut') : undefined}
-            className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-gray-400 transition-all hover:bg-red-50 hover:text-red-600"
-          >
-            <LogOut className="h-5 w-5 flex-shrink-0" />
-            {sidebarExpanded && (
-              <span className="whitespace-nowrap text-sm font-medium">{t('navSignOut')}</span>
-            )}
-          </button>
-        </div>
+              <button
+                type="button"
+                onClick={handleLogout}
+                title={!sidebarExpanded ? t('navSignOut') : undefined}
+                className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-gray-400 transition-all hover:bg-red-50 hover:text-red-600"
+              >
+                <LogOut className="h-5 w-5 flex-shrink-0" />
+                {sidebarExpanded && (
+                  <span className="whitespace-nowrap text-sm font-medium">{t('navSignOut')}</span>
+                )}
+              </button>
+            </div>
+          </>
+        )}
       </aside>
 
       {/* Mobile Header - Optimized for iPhone notch (hidden on chat page) */}
-      <header className={`portal-header fixed left-0 right-0 top-0 z-50 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.05)] lg:hidden ${isChatPage ? 'hidden' : ''}`}>
+      <header className={`portal-header fixed left-0 right-0 top-0 z-50 bg-white lg:hidden ${!loading ? 'shadow-[0_1px_3px_rgba(0,0,0,0.05)]' : ''} ${!loading && isChatPage ? 'hidden' : ''}`}>
         <div className="safe-top" />
         <div className="flex h-14 items-center justify-between px-4">
-          <Link href={PATIENT_PORTAL_PATH} className="flex items-center gap-3">
-            <img
-              src={branding?.logoUrl || EONPRO_LOGO}
-              alt={branding?.clinicName || 'EONPRO'}
-              width={120}
-              height={32}
-              fetchPriority="high"
-              className="h-8 w-auto max-w-[120px] object-contain"
-            />
-          </Link>
-          <div className="flex items-center gap-1">
-            {/* Notification Button - 44x44 touch target */}
-            <button className="relative flex h-11 w-11 items-center justify-center rounded-xl text-gray-600 active:bg-gray-100">
-              <Bell className="h-6 w-6" />
-              {notifications > 0 && (
-                <span
-                  className="absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-semibold text-white"
-                  style={{ backgroundColor: primaryColor }}
-                >
-                  {notifications}
-                </span>
-              )}
-            </button>
-            {/* Avatar / Menu toggle - 44x44 touch target */}
-            <button
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="flex h-11 w-11 items-center justify-center rounded-xl text-gray-600 active:bg-gray-100"
-            >
-              {mobileMenuOpen ? (
-                <X className="h-6 w-6" />
-              ) : avatarUrl || displayName || userData?.firstName ? (
-                <UserAvatar
-                  avatarUrl={avatarUrl}
-                  firstName={displayName?.firstName || userData?.firstName || ''}
-                  lastName={displayName?.lastName || userData?.lastName || ''}
-                  size="sm"
+          {loading ? (
+            <>
+              <div className="h-8 w-[120px] animate-pulse rounded bg-gray-200" />
+              <div className="flex items-center gap-1">
+                <div className="h-11 w-11 animate-pulse rounded-xl bg-gray-100" />
+                <div className="h-11 w-11 animate-pulse rounded-xl bg-gray-100" />
+              </div>
+            </>
+          ) : (
+            <>
+              <Link href={PATIENT_PORTAL_PATH} className="flex items-center gap-3">
+                <img
+                  src={branding?.logoUrl || EONPRO_LOGO}
+                  alt={branding?.clinicName || 'EONPRO'}
+                  width={120}
+                  height={32}
+                  fetchPriority="high"
+                  className="h-8 w-auto max-w-[120px] object-contain"
                 />
-              ) : (
-                <Menu className="h-6 w-6" />
-              )}
-            </button>
-          </div>
+              </Link>
+              <div className="flex items-center gap-1">
+                {/* Notification Button - 44x44 touch target */}
+                <button className="relative flex h-11 w-11 items-center justify-center rounded-xl text-gray-600 active:bg-gray-100">
+                  <Bell className="h-6 w-6" />
+                  {notifications > 0 && (
+                    <span
+                      className="absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-semibold text-white"
+                      style={{ backgroundColor: primaryColor }}
+                    >
+                      {notifications}
+                    </span>
+                  )}
+                </button>
+                {/* Avatar / Menu toggle - 44x44 touch target */}
+                <button
+                  onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                  className="flex h-11 w-11 items-center justify-center rounded-xl text-gray-600 active:bg-gray-100"
+                >
+                  {mobileMenuOpen ? (
+                    <X className="h-6 w-6" />
+                  ) : avatarUrl || displayName || userData?.firstName ? (
+                    <UserAvatar
+                      avatarUrl={avatarUrl}
+                      firstName={displayName?.firstName || userData?.firstName || ''}
+                      lastName={displayName?.lastName || userData?.lastName || ''}
+                      size="sm"
+                    />
+                  ) : (
+                    <Menu className="h-6 w-6" />
+                  )}
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </header>
 
       {/* Mobile Slide-out Menu */}
-      {mobileMenuOpen && (
+      {!loading && mobileMenuOpen && (
         <>
           <div
             className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm lg:hidden"
@@ -648,56 +584,90 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
 
       {/* Main Content Area */}
       <main
-        className={`min-w-0 flex-1 overflow-x-hidden transition-all duration-300 lg:ml-20 ${sidebarExpanded ? 'lg:ml-56' : ''}`}
+        className={`min-w-0 flex-1 overflow-x-hidden transition-all duration-300 lg:ml-20 ${!loading && sidebarExpanded ? 'lg:ml-56' : ''}`}
       >
-        <div className={`min-h-[100dvh] w-full max-w-[100vw] min-w-0 overflow-x-hidden lg:max-w-none ${isChatPage ? 'pb-0 pt-0 lg:pb-0 lg:pt-0' : 'pb-24 pt-[calc(56px+env(safe-area-inset-top,0px))] lg:pb-0 lg:pt-0'}`}>
-          {children}
+        <div className={`min-h-[100dvh] w-full max-w-[100vw] min-w-0 overflow-x-hidden lg:max-w-none ${!loading && isChatPage ? 'pb-0 pt-0 lg:pb-0 lg:pt-0' : 'pb-24 pt-[calc(56px+env(safe-area-inset-top,0px))] lg:pb-0 lg:pt-0'}`}>
+          {loading ? (
+            <div className="animate-pulse p-4 lg:p-6">
+              <div className="mb-6">
+                <div className="h-4 w-28 rounded bg-gray-200" />
+                <div className="mt-2 h-8 w-56 rounded bg-gray-200" />
+              </div>
+              <div className="mb-6 grid grid-cols-3 gap-3">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <div key={i} className="rounded-2xl bg-white p-4 shadow-sm">
+                    <div className="mb-2 h-3 w-14 rounded bg-gray-200" />
+                    <div className="h-7 w-16 rounded bg-gray-200" />
+                    <div className="mt-2 h-2 w-full rounded-full bg-gray-100" />
+                  </div>
+                ))}
+              </div>
+              <div className="mb-6 rounded-2xl bg-gray-200 p-5">
+                <div className="mb-3 flex items-center justify-between">
+                  <div className="h-5 w-32 rounded bg-gray-300" />
+                  <div className="h-4 w-16 rounded bg-gray-300" />
+                </div>
+                <div className="h-12 w-full rounded-xl bg-gray-300" />
+              </div>
+              <div className="mb-6 grid grid-cols-2 gap-3">
+                {Array.from({ length: 2 }).map((_, i) => (
+                  <div key={i} className="h-24 rounded-2xl bg-white shadow-sm" />
+                ))}
+              </div>
+            </div>
+          ) : children}
         </div>
       </main>
 
       {/* Mobile Bottom Navigation - iPhone optimized (hidden on chat page which has its own header) */}
-      <nav className={`portal-bottom-nav fixed bottom-0 left-0 right-0 z-40 bg-white lg:hidden ${isChatPage ? 'hidden' : ''}`}>
+      <nav className={`portal-bottom-nav fixed bottom-0 left-0 right-0 z-40 bg-white lg:hidden ${!loading && isChatPage ? 'hidden' : ''}`}>
         <div className="border-t border-gray-200">
           <div className="mx-auto flex max-w-md justify-around gap-1 px-1">
-            {mobileNavItems.map((item) => {
-              const Icon = item.icon;
-              const active = isActive(item.path, item.exact);
-              return (
-                <Link
-                  key={item.path}
-                  href={item.path}
-                  className="group relative flex min-w-0 flex-1 flex-col items-center py-2"
-                >
-                  {/* Active indicator bar */}
-                  {active && (
+            {loading ? (
+              Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="flex flex-1 flex-col items-center py-2">
+                  <div className="h-11 w-11 animate-pulse rounded-2xl bg-gray-100" />
+                  <div className="mt-0.5 h-2.5 w-8 animate-pulse rounded bg-gray-100" />
+                </div>
+              ))
+            ) : (
+              mobileNavItems.map((item) => {
+                const Icon = item.icon;
+                const active = isActive(item.path, item.exact);
+                return (
+                  <Link
+                    key={item.path}
+                    href={item.path}
+                    className="group relative flex min-w-0 flex-1 flex-col items-center py-2"
+                  >
+                    {active && (
+                      <div
+                        className="absolute -top-[1px] left-1/2 h-[3px] w-8 -translate-x-1/2 rounded-full"
+                        style={{ backgroundColor: primaryColor }}
+                      />
+                    )}
                     <div
-                      className="absolute -top-[1px] left-1/2 h-[3px] w-8 -translate-x-1/2 rounded-full"
-                      style={{ backgroundColor: primaryColor }}
-                    />
-                  )}
-                  {/* Icon container - 44x44 touch target */}
-                  <div
-                    className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl transition-colors ${
-                      active ? '' : 'group-active:bg-gray-100'
-                    }`}
-                    style={active ? { backgroundColor: `${primaryColor}15` } : {}}
-                  >
-                    <Icon
-                      className="h-6 w-6 transition-transform group-active:scale-90"
+                      className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl transition-colors ${
+                        active ? '' : 'group-active:bg-gray-100'
+                      }`}
+                      style={active ? { backgroundColor: `${primaryColor}15` } : {}}
+                    >
+                      <Icon
+                        className="h-6 w-6 transition-transform group-active:scale-90"
+                        style={{ color: active ? primaryColor : '#9ca3af' }}
+                        strokeWidth={active ? 2.5 : 2}
+                      />
+                    </div>
+                    <span
+                      className={`mt-0.5 min-w-0 max-w-full truncate px-0.5 text-center text-[10px] sm:text-[11px] ${active ? 'font-semibold' : 'font-medium'}`}
                       style={{ color: active ? primaryColor : '#9ca3af' }}
-                      strokeWidth={active ? 2.5 : 2}
-                    />
-                  </div>
-                  {/* Label - truncate so long text (e.g. Medicamentos) fits */}
-                  <span
-                    className={`mt-0.5 min-w-0 max-w-full truncate px-0.5 text-center text-[10px] sm:text-[11px] ${active ? 'font-semibold' : 'font-medium'}`}
-                    style={{ color: active ? primaryColor : '#9ca3af' }}
-                  >
-                    {t(item.labelKey)}
-                  </span>
-                </Link>
-              );
-            })}
+                    >
+                      {t(item.labelKey)}
+                    </span>
+                  </Link>
+                );
+              })
+            )}
           </div>
         </div>
         {/* Safe area for home indicator */}
@@ -705,7 +675,7 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
       </nav>
 
       {/* Profile completion banner — fixed toast to avoid CLS from content push-down */}
-      {profileCompletionBanner.show && !bannerDismissed && !isChatPage && (
+      {!loading && profileCompletionBanner.show && !bannerDismissed && !isChatPage && (
         <div className="fixed left-4 right-4 top-[calc(56px+env(safe-area-inset-top,0px)+8px)] z-40 lg:left-24 lg:right-6 lg:top-4">
           <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 shadow-lg">
             <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-amber-600" />
@@ -739,7 +709,7 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
       )}
 
       {/* Floating Chat Button - Above bottom nav on mobile (hidden when already on chat) */}
-      {showChat && !isChatPage && (
+      {!loading && showChat && !isChatPage && (
         <Link
           href={`${PATIENT_PORTAL_PATH}/chat`}
           className="portal-chat-fab fixed z-30 flex h-14 w-14 items-center justify-center rounded-full text-white shadow-xl transition-transform active:scale-95 lg:bottom-6 lg:right-6"

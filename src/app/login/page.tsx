@@ -171,10 +171,32 @@ function LoginContent() {
   const [canResendReset, setCanResendReset] = useState(false);
   const resetCodeRefs = useRef<(HTMLInputElement | null)[]>([]);
 
-  // White-label branding state
-  const [branding, setBranding] = useState<ClinicBranding | null>(null);
-  const [resolvedClinicId, setResolvedClinicId] = useState<number | null>(null);
-  const [isMainApp, setIsMainApp] = useState(false);
+  // White-label branding state — restore from cache to avoid CLS on return visits
+  const [branding, setBranding] = useState<ClinicBranding | null>(() => {
+    if (!isBrowser) return null;
+    try {
+      const cached = localStorage.getItem('clinic-branding-cache');
+      if (!cached) return null;
+      const parsed = JSON.parse(cached) as ClinicBranding & { _cachedAt?: number };
+      if (parsed._cachedAt && Date.now() - parsed._cachedAt > 24 * 60 * 60 * 1000) return null;
+      return parsed;
+    } catch { return null; }
+  });
+  const [resolvedClinicId, setResolvedClinicId] = useState<number | null>(() => {
+    if (!isBrowser) return null;
+    try {
+      const cached = localStorage.getItem('clinic-branding-cache');
+      if (!cached) return null;
+      const parsed = JSON.parse(cached) as { clinicId?: number; _cachedAt?: number };
+      if (parsed._cachedAt && Date.now() - parsed._cachedAt > 24 * 60 * 60 * 1000) return null;
+      return parsed.clinicId ?? null;
+    } catch { return null; }
+  });
+  const [isMainApp, setIsMainApp] = useState(() => {
+    if (!isBrowser) return false;
+    const cached = localStorage.getItem('clinic-branding-cache');
+    return cached === null && !localStorage.getItem('clinic-branding-is-whitelabel');
+  });
   const [isLogosRxExperience, setIsLogosRxExperience] = useState(false);
 
   // Wrong clinic domain: show message + link to correct clinic login
@@ -236,7 +258,6 @@ function LoginContent() {
 
   // Resolve clinic from domain and load branding (non-blocking: on failure use default/main app)
   useEffect(() => {
-    // SSR guard
     if (!isBrowser) return;
 
     const resolveClinic = async () => {
@@ -249,14 +270,14 @@ function LoginContent() {
         if (response.ok) {
           const data = await response.json();
 
-          // Check if this is the main app (not a white-labeled clinic)
           if (data.isMainApp) {
             setIsMainApp(true);
+            localStorage.removeItem('clinic-branding-cache');
+            localStorage.removeItem('clinic-branding-is-whitelabel');
             return;
           }
 
-          setResolvedClinicId(data.clinicId);
-          setBranding({
+          const brandingData: ClinicBranding = {
             clinicId: data.clinicId,
             name: data.name,
             subdomain: data.subdomain ?? null,
@@ -268,12 +289,21 @@ function LoginContent() {
             accentColor: data.branding.accentColor,
             buttonTextColor: data.branding.buttonTextColor || 'auto',
             backgroundColor: data.branding.backgroundColor,
-          });
+          };
+
+          setResolvedClinicId(data.clinicId);
+          setBranding(brandingData);
+
+          // Cache branding for instant render on return visits (24h TTL)
+          try {
+            localStorage.setItem('clinic-branding-cache', JSON.stringify({ ...brandingData, _cachedAt: Date.now() }));
+            localStorage.setItem('clinic-branding-is-whitelabel', '1');
+          } catch { /* quota exceeded — non-critical */ }
+
           if (data.subdomain === 'logosrx') {
             setIsLogosRxExperience(true);
           }
 
-          // Update favicon if clinic has one (defer to avoid blocking main thread)
           if (data.branding.faviconUrl) {
             const injectFavicon = () => {
               const link =
@@ -291,11 +321,9 @@ function LoginContent() {
 
           document.title = `Login | ${data.name}`;
         } else {
-          // 500, 404, etc. → use default branding so login is never blocked
           setIsMainApp(true);
         }
       } catch {
-        // Network error, parse error → use default branding so login is never blocked
         setIsMainApp(true);
       }
     };
