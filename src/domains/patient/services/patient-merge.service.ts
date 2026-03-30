@@ -21,6 +21,7 @@ import type { UserContext } from '@/domains/shared/types';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { decryptPatientPHI, encryptPatientPHI } from '@/lib/security/phi-encryption';
+import { getStripeForClinic } from '@/lib/stripe/connect';
 import { buildPatientSearchIndex } from '@/lib/utils/search';
 
 import { PHI_FIELDS, type PatientEntity, type AuditContext } from '../types';
@@ -277,8 +278,19 @@ export function createPatientMergeService(db: PrismaClient = prisma): PatientMer
         actorId: performedBy.id,
       };
 
+      // Track whether Stripe payment method migration is needed (populated inside tx)
+      const sourceStripeCustomerId = preview.source.stripeCustomerId;
+      const targetStripeCustomerId = preview.target.stripeCustomerId;
+      const needsStripePaymentMethodMigration =
+        !!sourceStripeCustomerId &&
+        !!targetStripeCustomerId &&
+        sourceStripeCustomerId !== targetStripeCustomerId;
+
+      let stripePaymentMethodIdsToMigrate: string[] = [];
+      const clinicId = preview.target.clinicId;
+
       // Execute merge in a transaction
-      return db.$transaction(async (tx) => {
+      const mergeResult = await db.$transaction(async (tx) => {
         // =====================================================================
         // 1. RE-POINT ALL RELATIONS FROM SOURCE TO TARGET
         // =====================================================================
@@ -301,7 +313,16 @@ export function createPatientMergeService(db: PrismaClient = prisma): PatientMer
           data: { patientId: targetPatientId },
         });
 
-        // Payment Methods
+        // Payment Methods — collect Stripe IDs before moving if migration is needed
+        if (needsStripePaymentMethodMigration) {
+          const sourcePMs = await tx.paymentMethod.findMany({
+            where: { patientId: sourcePatientId, isActive: true, stripePaymentMethodId: { not: null } },
+            select: { stripePaymentMethodId: true },
+          });
+          stripePaymentMethodIdsToMigrate = sourcePMs
+            .map((pm) => pm.stripePaymentMethodId)
+            .filter((id): id is string => !!id);
+        }
         await tx.paymentMethod.updateMany({
           where: { patientId: sourcePatientId },
           data: { patientId: targetPatientId },
@@ -842,6 +863,24 @@ export function createPatientMergeService(db: PrismaClient = prisma): PatientMer
           auditId: auditEntry.id,
         };
       }, { timeout: 60000 });
+
+      // =====================================================================
+      // POST-TRANSACTION: Migrate Stripe payment methods between customers
+      // Per data-integrity rules, external API calls happen AFTER the tx.
+      // Failures here are logged but don't roll back the merge.
+      // =====================================================================
+      if (needsStripePaymentMethodMigration) {
+        await migrateStripePaymentMethods({
+          paymentMethodIds: stripePaymentMethodIdsToMigrate,
+          fromCustomerId: sourceStripeCustomerId!,
+          toCustomerId: targetStripeCustomerId!,
+          clinicId,
+          sourcePatientId,
+          targetPatientId,
+        });
+      }
+
+      return mergeResult;
     },
   };
 }
@@ -1098,7 +1137,7 @@ function checkMergeConflicts(
         type: 'warning',
         field: 'stripeCustomerId',
         message:
-          "Both patients have different Stripe customer IDs. The target patient's Stripe ID will be kept. You may need to merge customers in Stripe separately.",
+          "Both patients have different Stripe customer IDs. The target patient's Stripe ID will be kept and saved payment methods will be migrated automatically.",
       });
     }
   }
@@ -1119,6 +1158,200 @@ function checkMergeConflicts(
   // We don't block the merge, just nullify the source user's patient link
 
   return conflicts;
+}
+
+// ============================================================================
+// Stripe Payment Method Migration
+// ============================================================================
+
+interface StripeMigrationParams {
+  paymentMethodIds: string[];
+  fromCustomerId: string;
+  toCustomerId: string;
+  clinicId: number;
+  sourcePatientId: number;
+  targetPatientId: number;
+}
+
+/**
+ * Detach payment methods from the source Stripe customer and re-attach them
+ * to the target Stripe customer. Called AFTER the DB transaction commits.
+ *
+ * Queries Stripe directly for ALL payment methods on the source customer
+ * (not just locally-tracked ones) to ensure nothing is missed.
+ *
+ * Failures are logged but do not throw — the merge itself already succeeded.
+ */
+async function migrateStripePaymentMethods(params: StripeMigrationParams): Promise<void> {
+  const {
+    paymentMethodIds,
+    fromCustomerId,
+    toCustomerId,
+    clinicId,
+    sourcePatientId,
+    targetPatientId,
+  } = params;
+
+  let stripeClient;
+  try {
+    const ctx = await getStripeForClinic(clinicId);
+    stripeClient = ctx.stripe;
+  } catch (err) {
+    logger.error('Failed to get Stripe client for payment method migration', {
+      clinicId,
+      error: err instanceof Error ? err.message : String(err),
+    });
+    return;
+  }
+
+  // Query Stripe directly for ALL payment methods on the source customer.
+  // This catches PMs that exist only in Stripe and not in our local DB.
+  const allPmIds = new Set(paymentMethodIds);
+  try {
+    const stripePMs = await stripeClient.paymentMethods.list({
+      customer: fromCustomerId,
+      type: 'card',
+    });
+    for (const pm of stripePMs.data) {
+      allPmIds.add(pm.id);
+    }
+  } catch (err) {
+    logger.warn('Could not list Stripe PMs for source customer during merge migration', {
+      fromCustomerId,
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
+
+  if (allPmIds.size === 0) {
+    logger.info('No Stripe payment methods to migrate during merge', {
+      sourcePatientId,
+      targetPatientId,
+    });
+    return;
+  }
+
+  logger.info('Migrating Stripe payment methods after patient merge', {
+    sourcePatientId,
+    targetPatientId,
+    fromCustomerId,
+    toCustomerId,
+    localCount: paymentMethodIds.length,
+    totalCount: allPmIds.size,
+  });
+
+  let migrated = 0;
+  let failed = 0;
+  let skippedLegacy = 0;
+
+  for (const pmId of allPmIds) {
+    // Legacy card_ tokens are customer-scoped and cannot be detached/reattached.
+    // They should be deactivated in the local DB; the same physical card will
+    // already have a pm_ record on the target customer if it was added via
+    // the modern PaymentMethods API.
+    if (pmId.startsWith('card_')) {
+      skippedLegacy++;
+      logger.info('Skipping legacy card_ token during merge migration (deactivating local record)', {
+        paymentMethodId: pmId,
+        sourcePatientId,
+        targetPatientId,
+      });
+      try {
+        await db.paymentMethod.updateMany({
+          where: { stripePaymentMethodId: pmId, patientId: targetPatientId },
+          data: { isActive: false },
+        });
+      } catch {
+        // Best-effort deactivation
+      }
+      continue;
+    }
+
+    try {
+      await stripeClient.paymentMethods.detach(pmId);
+      await stripeClient.paymentMethods.attach(pmId, { customer: toCustomerId });
+      migrated++;
+    } catch (err) {
+      failed++;
+      logger.error('Failed to migrate Stripe payment method during merge', {
+        paymentMethodId: pmId,
+        fromCustomerId,
+        toCustomerId,
+        sourcePatientId,
+        targetPatientId,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+
+  logger.info('Stripe payment method migration complete', {
+    sourcePatientId,
+    targetPatientId,
+    migrated,
+    failed,
+    skippedLegacy,
+    total: allPmIds.size,
+  });
+}
+
+/**
+ * Repair payment methods for an already-merged patient.
+ * Moves all PMs from `fromCustomerId` to `toCustomerId` in Stripe.
+ * Exported so an admin API can call it for patients merged before this fix.
+ */
+export async function repairStripePaymentMethods(
+  clinicId: number,
+  patientId: number,
+  fromCustomerId: string,
+  toCustomerId: string
+): Promise<{ migrated: number; failed: number }> {
+  const ctx = await getStripeForClinic(clinicId);
+  const stripeClient = ctx.stripe;
+
+  const sourcePMs = await stripeClient.paymentMethods.list({
+    customer: fromCustomerId,
+    type: 'card',
+  });
+
+  if (sourcePMs.data.length === 0) {
+    logger.info('No Stripe PMs to repair', { patientId, fromCustomerId });
+    return { migrated: 0, failed: 0 };
+  }
+
+  logger.info('Repairing Stripe payment methods for patient', {
+    patientId,
+    fromCustomerId,
+    toCustomerId,
+    count: sourcePMs.data.length,
+  });
+
+  let migrated = 0;
+  let failed = 0;
+
+  for (const pm of sourcePMs.data) {
+    try {
+      await stripeClient.paymentMethods.detach(pm.id);
+      await stripeClient.paymentMethods.attach(pm.id, { customer: toCustomerId });
+      migrated++;
+    } catch (err) {
+      failed++;
+      logger.error('Failed to repair Stripe payment method', {
+        paymentMethodId: pm.id,
+        fromCustomerId,
+        toCustomerId,
+        patientId,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+
+  logger.info('Stripe payment method repair complete', {
+    patientId,
+    migrated,
+    failed,
+    total: sourcePMs.data.length,
+  });
+
+  return { migrated, failed };
 }
 
 // ============================================================================

@@ -36,7 +36,7 @@ type OrderForLabel = {
   rxs?: Array<{ medName?: string; strength?: string }>;
 };
 
-type LabelFormat = 'PDF' | 'ZPLII' | 'PNG';
+type LabelFormat = 'PDF';
 
 type Props = {
   patientId: number;
@@ -74,7 +74,7 @@ export default function FedExLabelModal({
   onClose,
 }: Props) {
   const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
-  const [labelFormat, setLabelFormat] = useState<LabelFormat>('ZPLII');
+  const [labelFormat] = useState<LabelFormat>('PDF');
 
   const untrackedOrders = useMemo(
     () => orders.filter((o) => !o.trackingNumber && o.status !== 'cancelled'),
@@ -102,7 +102,7 @@ export default function FedExLabelModal({
   });
 
   const [oneRate, setOneRate] = useState(false);
-  const [serviceType, setServiceType] = useState('STANDARD_OVERNIGHT');
+  const [serviceType, setServiceType] = useState('FEDEX_2_DAY');
   const [packagingType, setPackagingType] = useState('FEDEX_PAK');
   const [weightLbs, setWeightLbs] = useState(1);
 
@@ -135,7 +135,7 @@ export default function FedExLabelModal({
       const currentServiceValid = FEDEX_SERVICE_TYPES.find(
         (s) => s.code === serviceType && s.oneRateEligible
       );
-      if (!currentServiceValid) setServiceType('STANDARD_OVERNIGHT');
+      if (!currentServiceValid) setServiceType('FEDEX_2_DAY');
 
       const currentPkgValid = FEDEX_PACKAGING_TYPES.find(
         (p) => p.code === packagingType && p.oneRateEligible
@@ -186,36 +186,7 @@ export default function FedExLabelModal({
     }
   };
 
-  const printLabel4x6 = (base64: string, format: string = 'PDF', trackingNum?: string): boolean => {
-    const fileName = `FedEx-Label-${trackingNum || 'label'}`;
-
-    if (format === 'ZPLII') {
-      const blob = new Blob([atob(base64)], { type: 'application/octet-stream' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${fileName}.zpl`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      return true;
-    }
-
-    if (format === 'PNG') {
-      const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
-      const blob = new Blob([bytes], { type: 'image/png' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${fileName}.png`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      return true;
-    }
-
+  const printLabel4x6 = (base64: string, _format: string = 'PDF', _trackingNum?: string): boolean => {
     const pdfBytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
     const blob = new Blob([pdfBytes], { type: 'application/pdf' });
     const pdfUrl = URL.createObjectURL(blob);
@@ -223,27 +194,13 @@ export default function FedExLabelModal({
     return !!win;
   };
 
-  const downloadLabelFile = (base64: string, trackingNumber: string, format: string = 'PDF') => {
-    let blob: Blob;
-    let ext: string;
-
-    if (format === 'ZPLII') {
-      blob = new Blob([atob(base64)], { type: 'application/octet-stream' });
-      ext = 'zpl';
-    } else if (format === 'PNG') {
-      const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
-      blob = new Blob([bytes], { type: 'image/png' });
-      ext = 'png';
-    } else {
-      const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
-      blob = new Blob([bytes], { type: 'application/pdf' });
-      ext = 'pdf';
-    }
-
+  const downloadLabelFile = (base64: string, trackingNumber: string) => {
+    const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+    const blob = new Blob([bytes], { type: 'application/pdf' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `FedEx-Label-${trackingNumber}.${ext}`;
+    a.download = `FedEx-Label-${trackingNumber}.pdf`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -258,7 +215,7 @@ export default function FedExLabelModal({
       const res = await apiFetch(`/api/shipping/fedex/label?id=${success.labelId}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to retrieve label');
-      downloadLabelFile(data.labelData, success.trackingNumber, data.labelFormat || 'PDF');
+      downloadLabelFile(data.labelData, success.trackingNumber);
     } catch (err: unknown) {
       setError((err as any).message || 'Failed to download label');
     } finally {
@@ -341,7 +298,6 @@ export default function FedExLabelModal({
           {/* Success state */}
           {success && (() => {
             const linkedOrder = selectedOrderId ? orders.find((o) => o.id === selectedOrderId) : null;
-            const isZpl = labelFormat === 'ZPLII';
             return (
               <div className="rounded-lg border border-green-200 bg-green-50 p-4">
                 <p className="font-medium text-green-800">Label created successfully!</p>
@@ -358,11 +314,7 @@ export default function FedExLabelModal({
                     </span>
                   </p>
                 )}
-                {isZpl ? (
-                  <p className="mt-1 text-xs text-green-600">
-                    ZPL label file downloaded — send to your Zebra printer.
-                  </p>
-                ) : success.popupBlocked ? (
+                {success.popupBlocked ? (
                   <div className="mt-2 rounded-md border border-amber-300 bg-amber-50 p-3">
                     <p className="text-sm font-medium text-amber-800">
                       Popup was blocked by your browser.
@@ -441,36 +393,6 @@ export default function FedExLabelModal({
                 </fieldset>
               )}
 
-              {/* Label Format */}
-              <fieldset className="space-y-2">
-                <legend className="flex items-center gap-1.5 text-sm font-semibold text-gray-700">
-                  <Printer className="h-4 w-4" />
-                  Label Format
-                </legend>
-                <div className="flex gap-2">
-                  {([
-                    { value: 'ZPLII' as LabelFormat, label: 'ZPL (Zebra Thermal)', desc: 'Direct to thermal printer' },
-                    { value: 'PDF' as LabelFormat, label: 'PDF', desc: 'For regular printers' },
-                    { value: 'PNG' as LabelFormat, label: 'PNG Image', desc: 'Image file' },
-                  ]).map((opt) => (
-                    <button
-                      key={opt.value}
-                      type="button"
-                      onClick={() => setLabelFormat(opt.value)}
-                      className={`flex-1 rounded-lg border p-2.5 text-left transition-colors ${
-                        labelFormat === opt.value
-                          ? 'border-[#4D148C] bg-purple-50 ring-1 ring-[#4D148C]'
-                          : 'border-gray-200 hover:border-gray-300'
-                      }`}
-                    >
-                      <p className={`text-sm font-medium ${labelFormat === opt.value ? 'text-[#4D148C]' : 'text-gray-700'}`}>
-                        {opt.label}
-                      </p>
-                      <p className="text-xs text-gray-500">{opt.desc}</p>
-                    </button>
-                  ))}
-                </div>
-              </fieldset>
 
               {/* Origin Address */}
               <fieldset className="space-y-3">

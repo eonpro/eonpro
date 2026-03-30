@@ -47,7 +47,7 @@ export type FedExPackageDetails = {
   height?: number;
 };
 
-export type LabelFormat = 'PDF' | 'ZPLII' | 'PNG';
+export type LabelFormat = 'PDF';
 
 export type CreateShipmentInput = {
   serviceType: string;
@@ -419,10 +419,8 @@ function buildShipmentPayload(
         },
       },
       labelSpecification: {
-        imageType: input.labelFormat || 'PDF',
-        labelStockType: (input.labelFormat === 'ZPLII' || input.labelFormat === 'PNG')
-          ? 'STOCK_4X6'
-          : 'PAPER_4X6',
+        imageType: 'PDF',
+        labelStockType: 'PAPER_4X6',
         labelFormatType: 'COMMON2D',
         labelPrintingOrientation: 'TOP_EDGE_OF_TEXT_FIRST',
         labelRotation: 'NONE',

@@ -487,17 +487,36 @@ describe('Clinical Difference Statements', () => {
 describe('Date of Birth Normalization', () => {
   const normalizeDob = (input: string): string => {
     if (!input) return '';
+
+    let yyyy: string, mm: string, dd: string;
+
     if (input.includes('-')) {
+      const datePart = input.split('T')[0];
+      const parts = datePart.split('-');
+      if (parts.length !== 3) return input;
+      [yyyy, mm, dd] = parts;
+    } else if (input.includes('/')) {
+      const parts = input.split('/');
+      if (parts.length !== 3) return input;
+      [mm, dd, yyyy] = parts;
+    } else {
       return input;
     }
-    const parts = input.split('/');
-    if (parts.length === 3) {
-      const [mm, dd, yyyy] = parts;
-      if (yyyy && mm && dd) {
-        return `${yyyy.padStart(4, '0')}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`;
-      }
+
+    if (!yyyy || !mm || !dd) return input;
+
+    const normalized = `${yyyy.padStart(4, '0')}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`;
+
+    const y = parseInt(yyyy, 10);
+    const m = parseInt(mm, 10);
+    const d = parseInt(dd, 10);
+    if (isNaN(y) || isNaN(m) || isNaN(d)) return '';
+    const probe = new Date(y, m - 1, d);
+    if (probe.getFullYear() !== y || probe.getMonth() !== m - 1 || probe.getDate() !== d) {
+      return '';
     }
-    return input;
+
+    return normalized;
   };
 
   it('should handle ISO format', () => {
@@ -518,6 +537,28 @@ describe('Date of Birth Normalization', () => {
 
   it('should return original for unknown format', () => {
     expect(normalizeDob('Jan 15, 1990')).toBe('Jan 15, 1990');
+  });
+
+  it('should strip time component from ISO datetime strings', () => {
+    expect(normalizeDob('1990-01-15T00:00:00.000Z')).toBe('1990-01-15');
+    expect(normalizeDob('1974-09-30T12:30:00Z')).toBe('1974-09-30');
+  });
+
+  it('should reject invalid calendar dates', () => {
+    expect(normalizeDob('1974-09-31')).toBe('');
+    expect(normalizeDob('2000-02-30')).toBe('');
+    expect(normalizeDob('1990-13-01')).toBe('');
+    expect(normalizeDob('09/31/1974')).toBe('');
+  });
+
+  it('should accept valid leap year dates', () => {
+    expect(normalizeDob('2000-02-29')).toBe('2000-02-29');
+    expect(normalizeDob('02/29/2000')).toBe('2000-02-29');
+  });
+
+  it('should reject invalid leap year dates', () => {
+    expect(normalizeDob('1900-02-29')).toBe('');
+    expect(normalizeDob('2001-02-29')).toBe('');
   });
 });
 

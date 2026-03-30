@@ -101,4 +101,6 @@ export const prescriptionSchema = z.object({
   invoiceId: z.number().nullable().optional(), // Link to invoice (for refill auto-linking)
   /** When true (admin only), create order as queued_for_provider; do not send to Lifefile. */
   queueForProvider: z.boolean().optional().default(false),
+  /** When true, allows providers to queue addon prescriptions (Elite Bundle auto-queue from prescription queue). */
+  addonAutoQueue: z.boolean().optional().default(false),
 });

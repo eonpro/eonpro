@@ -51,15 +51,36 @@ function getClinicalDifferenceStatement(medicationName: string): string | undefi
 
 function normalizeDob(input: string): string {
   if (!input) return '';
-  if (input.includes('-')) return input;
-  const parts = input.split('/');
-  if (parts.length === 3) {
-    const [mm, dd, yyyy] = parts;
-    if (yyyy && mm && dd) {
-      return `${yyyy.padStart(4, '0')}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`;
-    }
+
+  let yyyy: string, mm: string, dd: string;
+
+  if (input.includes('-')) {
+    const datePart = input.split('T')[0];
+    const parts = datePart.split('-');
+    if (parts.length !== 3) return input;
+    [yyyy, mm, dd] = parts;
+  } else if (input.includes('/')) {
+    const parts = input.split('/');
+    if (parts.length !== 3) return input;
+    [mm, dd, yyyy] = parts;
+  } else {
+    return input;
   }
-  return input;
+
+  if (!yyyy || !mm || !dd) return input;
+
+  const normalized = `${yyyy.padStart(4, '0')}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`;
+
+  const y = parseInt(yyyy, 10);
+  const m = parseInt(mm, 10);
+  const d = parseInt(dd, 10);
+  if (isNaN(y) || isNaN(m) || isNaN(d)) return '';
+  const probe = new Date(y, m - 1, d);
+  if (probe.getFullYear() !== y || probe.getMonth() !== m - 1 || probe.getDate() !== d) {
+    return '';
+  }
+
+  return normalized;
 }
 
 function mapLifefileGender(gender: string): 'm' | 'f' | null {
@@ -241,7 +262,7 @@ export function createPrescriptionService(): PrescriptionService {
       if (!input.patient.dob || !String(input.patient.dob).trim()) {
         missingForPharmacy.push('date of birth');
       } else if (!dobIso || dobIso.length < 8) {
-        missingForPharmacy.push('valid date of birth');
+        missingForPharmacy.push(`valid date of birth (received "${input.patient.dob}" which is not a real calendar date)`);
       }
       const addr1 = (input.patient.address1 ?? '').trim();
       const city = (input.patient.city ?? '').trim();

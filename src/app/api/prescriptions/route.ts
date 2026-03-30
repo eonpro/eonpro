@@ -39,18 +39,36 @@ function getClinicalDifferenceStatement(medicationName: string): string | undefi
 
 function normalizeDob(input: string): string {
   if (!input) return '';
+
+  let yyyy: string, mm: string, dd: string;
+
   if (input.includes('-')) {
-    // Already ISO-like
+    const datePart = input.split('T')[0];
+    const parts = datePart.split('-');
+    if (parts.length !== 3) return input;
+    [yyyy, mm, dd] = parts;
+  } else if (input.includes('/')) {
+    const parts = input.split('/');
+    if (parts.length !== 3) return input;
+    [mm, dd, yyyy] = parts;
+  } else {
     return input;
   }
-  const parts = input.split('/');
-  if (parts.length === 3) {
-    const [mm, dd, yyyy] = parts;
-    if (yyyy && mm && dd) {
-      return `${yyyy.padStart(4, '0')}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`;
-    }
+
+  if (!yyyy || !mm || !dd) return input;
+
+  const normalized = `${yyyy.padStart(4, '0')}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`;
+
+  const y = parseInt(yyyy, 10);
+  const m = parseInt(mm, 10);
+  const d = parseInt(dd, 10);
+  if (isNaN(y) || isNaN(m) || isNaN(d)) return '';
+  const probe = new Date(y, m - 1, d);
+  if (probe.getFullYear() !== y || probe.getMonth() !== m - 1 || probe.getDate() !== d) {
+    return '';
   }
-  return input;
+
+  return normalized;
 }
 
 /**
@@ -104,8 +122,9 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
       );
     }
 
-    // Queue-for-provider is admin-only (compliance: admin queues, provider approves)
-    if (p.queueForProvider && !['admin', 'super_admin'].includes(user.role)) {
+    // Queue-for-provider is admin-only, UNLESS addonAutoQueue is set (system-initiated
+    // from prescription queue when Elite Bundle add-ons need separate prescriber review)
+    if (p.queueForProvider && !['admin', 'super_admin'].includes(user.role) && !p.addonAutoQueue) {
       logger.security('Non-admin attempted to queue prescription for provider', {
         userId: user.id,
         role: user.role,
@@ -507,7 +526,7 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
     if (!p.patient.dob || !String(p.patient.dob).trim()) {
       missingForPharmacy.push('date of birth');
     } else if (!dobIso || dobIso.length < 8) {
-      missingForPharmacy.push('valid date of birth');
+      missingForPharmacy.push(`valid date of birth (received "${p.patient.dob}" which is not a real calendar date)`);
     }
     const addr1 = (p.patient.address1 ?? '').trim();
     const city = (p.patient.city ?? '').trim();

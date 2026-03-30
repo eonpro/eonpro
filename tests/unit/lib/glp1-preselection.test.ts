@@ -154,6 +154,69 @@ describe('getGlp1Preselection', () => {
     });
   });
 
+  describe('Medication switch preselection', () => {
+    it('Tirzepatide → Semaglutide: always Semaglutide C (1mg/week) regardless of tirz dose', () => {
+      for (const tirzDose of ['2.5', '5', '7.5', '10', '12.5', '15']) {
+        const result = getGlp1Preselection('Semaglutide', {
+          usedGlp1: true,
+          glp1Type: 'Tirzepatide',
+          lastDose: tirzDose,
+        });
+        expect(result).not.toBeNull();
+        expect(result!.oneMonth.sig).toContain('1 mg');
+        expect(result!.multiMonth.orderSetName).toContain('Semaglutide C');
+      }
+    });
+
+    it('Semaglutide → Tirzepatide: always Tirzepatide B (5mg/week) regardless of sema dose', () => {
+      for (const semaDose of ['0.25', '0.5', '1', '1.7', '2.4']) {
+        const result = getGlp1Preselection('Tirzepatide', {
+          usedGlp1: true,
+          glp1Type: 'Semaglutide',
+          lastDose: semaDose,
+        });
+        expect(result).not.toBeNull();
+        expect(result!.oneMonth.sig).toContain('5 mg');
+        expect(result!.multiMonth.orderSetName).toContain('Tirzepatide B');
+      }
+    });
+
+    it('switch with brand names in treatment (Ozempic/Mounjaro)', () => {
+      const toOzempic = getGlp1Preselection('Ozempic', {
+        usedGlp1: true,
+        glp1Type: 'Tirzepatide',
+        lastDose: '10',
+      });
+      expect(toOzempic!.oneMonth.sig).toContain('1 mg');
+
+      const toMounjaro = getGlp1Preselection('Mounjaro', {
+        usedGlp1: true,
+        glp1Type: 'Semaglutide',
+        lastDose: '2.4',
+      });
+      expect(toMounjaro!.oneMonth.sig).toContain('5 mg');
+    });
+
+    it('same medication is NOT a switch — uses normal dose escalation', () => {
+      const result = getGlp1Preselection('Semaglutide', {
+        usedGlp1: true,
+        glp1Type: 'Semaglutide',
+        lastDose: '0.5',
+      });
+      expect(result!.oneMonth.sig).toContain('1 mg');
+      expect(result!.multiMonth.orderSetName).toContain('Semaglutide C');
+    });
+
+    it('no previous glp1Type — not a switch, uses normal escalation', () => {
+      const result = getGlp1Preselection('Semaglutide', {
+        usedGlp1: true,
+        glp1Type: null,
+        lastDose: '0.5',
+      });
+      expect(result!.oneMonth.sig).toContain('1 mg');
+    });
+  });
+
   describe('Dose fallback / nearest-lower-tier logic', () => {
     it('non-standard dose falls to nearest lower tier (conservative)', () => {
       const result = getGlp1Preselection('Semaglutide', {

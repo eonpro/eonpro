@@ -445,6 +445,9 @@ export default function PrescriptionQueuePage() {
   const [approvingOrderId, setApprovingOrderId] = useState<number | null>(null);
   const [autoSelectedOrderSetId, setAutoSelectedOrderSetId] = useState<number | null>(null);
 
+  // Elite Bundle addon meds that should be queued separately (not mixed into main GLP-1 Rx)
+  const [pendingEliteAddonMeds, setPendingEliteAddonMeds] = useState<MedicationItem[]>([]);
+
   // SOAP Note generation state
   const [generatingSoapNote, setGeneratingSoapNote] = useState<number | null>(null);
   const [approvingSoapNote, setApprovingSoapNote] = useState<number | null>(null);
@@ -761,14 +764,14 @@ export default function PrescriptionQueuePage() {
         const lifefileId = data?.order?.lifefileOrderId ?? null;
         setQueueItems((prev) => prev.filter((i) => (i as QueueItem).orderId !== orderId));
         setTotal((prev) => Math.max(0, prev - 1));
-        setPrescriptionPanel(null);
+        closePrescriptionPanel();
         setSuccessMessage(`Prescription for ${patientName} approved and sent to pharmacy.`);
         setSuccessLifefileId(lifefileId ? String(lifefileId) : null);
         void fetchStats();
       } else if (res.status === 409) {
         setQueueItems((prev) => prev.filter((i) => (i as QueueItem).orderId !== orderId));
         setTotal((prev) => Math.max(0, prev - 1));
-        setPrescriptionPanel(null);
+        closePrescriptionPanel();
         setError('This prescription was already sent by another provider.');
         fetchQueue();
       } else {
@@ -933,19 +936,24 @@ export default function PrescriptionQueuePage() {
         autoSelectNonGlp1Medication(item.treatment, details);
       }
 
-      // Append add-on medications if the invoice has add-ons (NAD+, Sermorelin, B12)
+      // Handle add-on medications from invoice (NAD+, Sermorelin, B12)
+      // Elite Bundle add-ons are stored separately and queued for prescriber review
+      // after the main GLP-1 prescription is submitted.
+      // Individual add-ons are appended to the main form as before.
       const invoiceMetadata = details.invoice?.metadata as Record<string, unknown> | null;
       const selectedAddons = invoiceMetadata?.selectedAddons;
+      const eliteBundleMeds: MedicationItem[] = [];
+      const inlineAddonMeds: MedicationItem[] = [];
+
       if (Array.isArray(selectedAddons) && selectedAddons.length > 0) {
-        const addonMeds: MedicationItem[] = [];
         for (const addonId of selectedAddons) {
           if (addonId === 'elite_bundle') {
-            // Bundle expands to all 3 individual addons
+            // Elite Bundle → queue separately for prescriber review
             for (const [key, medKey] of Object.entries(ADDON_MEDICATION_MAP)) {
               if (key === addonId) continue;
               const med = MEDS[medKey];
               if (med) {
-                addonMeds.push({
+                eliteBundleMeds.push({
                   id: crypto.randomUUID(),
                   medicationKey: medKey,
                   sig: med.sigTemplates?.[0]?.sig || med.defaultSig || '',
@@ -960,7 +968,7 @@ export default function PrescriptionQueuePage() {
             if (medKey) {
               const med = MEDS[medKey];
               if (med) {
-                addonMeds.push({
+                inlineAddonMeds.push({
                   id: crypto.randomUUID(),
                   medicationKey: medKey,
                   sig: med.sigTemplates?.[0]?.sig || med.defaultSig || '',
@@ -972,12 +980,15 @@ export default function PrescriptionQueuePage() {
             }
           }
         }
-        if (addonMeds.length > 0) {
-          setPrescriptionForm((prev) => ({
-            ...prev,
-            medications: [...prev.medications, ...addonMeds],
-          }));
-        }
+      }
+
+      setPendingEliteAddonMeds(eliteBundleMeds);
+
+      if (inlineAddonMeds.length > 0) {
+        setPrescriptionForm((prev) => ({
+          ...prev,
+          medications: [...prev.medications, ...inlineAddonMeds],
+        }));
       }
     }
   };
@@ -1088,6 +1099,11 @@ export default function PrescriptionQueuePage() {
     }));
   };
 
+  const closePrescriptionPanel = () => {
+    setPrescriptionPanel(null);
+    setPendingEliteAddonMeds([]);
+  };
+
   // Check if address is complete
   const isAddressComplete = (form: PrescriptionFormState) => {
     return form.address1 && form.city && form.state && form.zip;
@@ -1102,6 +1118,55 @@ export default function PrescriptionQueuePage() {
     if (response.ok) {
       const successData = await response.json();
       const lifefileId = successData?.order?.lifefileOrderId ?? null;
+      const hadEliteAddonMeds = pendingEliteAddonMeds.length > 0;
+
+      // Auto-queue Elite Bundle addon meds as a separate prescriber-review order
+      if (hadEliteAddonMeds && prescriptionPanel) {
+        try {
+          const { details } = prescriptionPanel;
+          const addonPayload = {
+            patient: {
+              firstName: details.patient.firstName,
+              lastName: details.patient.lastName,
+              dob: details.patient.dob,
+              gender: prescriptionForm.pharmacyGender,
+              phone: details.patient.phone,
+              email: details.patient.email,
+              address1: prescriptionForm.address1,
+              address2: prescriptionForm.address2,
+              city: prescriptionForm.city,
+              state: prescriptionForm.state,
+              zip: prescriptionForm.zip,
+            },
+            rxs: pendingEliteAddonMeds
+              .filter((m) => m.medicationKey && m.sig)
+              .map((m) => ({
+                medicationKey: m.medicationKey,
+                sig: m.sig,
+                quantity: m.quantity,
+                refills: m.refills,
+                daysSupply: m.daysSupply || '30',
+              })),
+            shippingMethod: parseInt(prescriptionForm.shippingMethod, 10),
+            clinicId: details.clinic?.id,
+            patientId: details.patient.id,
+            queueForProvider: true,
+            addonAutoQueue: true,
+          };
+
+          await apiFetch('/api/prescriptions', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${getAuthToken()}`,
+            },
+            body: JSON.stringify(addonPayload),
+          });
+        } catch (err) {
+          process.env.NODE_ENV === 'development' &&
+            console.error('[Prescription Queue] Failed to auto-queue Elite Bundle:', err);
+        }
+      }
 
       if (item.queueType === 'refill' && item.refillId) {
         setQueueItems((prev) => prev.filter((qi) => !(qi.queueType === 'refill' && qi.refillId === item.refillId)));
@@ -1110,11 +1175,13 @@ export default function PrescriptionQueuePage() {
       }
       setTotal((prev) => Math.max(0, prev - 1));
 
-      setPrescriptionPanel(null);
+      closePrescriptionPanel();
       setShowConfirmation(false);
-      setSuccessMessage(`Prescription for ${item.patientName} sent to pharmacy successfully!`);
+      const eliteQueuedMsg = hadEliteAddonMeds ? ' Elite Package queued for prescriber review.' : '';
+      setSuccessMessage(`Prescription for ${item.patientName} sent to pharmacy successfully!${eliteQueuedMsg}`);
       setSuccessLifefileId(lifefileId ? String(lifefileId) : null);
       void fetchStats();
+      void fetchQueue();
     } else if (response.status === 409) {
       if (item.queueType === 'refill' && item.refillId) {
         setQueueItems((prev) => prev.filter((qi) => !(qi.queueType === 'refill' && qi.refillId === item.refillId)));
@@ -1122,7 +1189,7 @@ export default function PrescriptionQueuePage() {
         setQueueItems((prev) => prev.filter((qi) => qi.invoiceId !== item.invoiceId));
       }
       setTotal((prev) => Math.max(0, prev - 1));
-      setPrescriptionPanel(null);
+      closePrescriptionPanel();
       setShowConfirmation(false);
       setError('This prescription was already sent by another provider.');
       fetchQueue();
@@ -3368,7 +3435,7 @@ export default function PrescriptionQueuePage() {
             aria-hidden
             onClick={(e) => {
               if (e.target === e.currentTarget) {
-                setPrescriptionPanel(null);
+                closePrescriptionPanel();
               }
             }}
           />
@@ -3407,7 +3474,7 @@ export default function PrescriptionQueuePage() {
                     </div>
                     <button
                       type="button"
-                      onClick={() => setPrescriptionPanel(null)}
+                      onClick={() => closePrescriptionPanel()}
                       className="flex min-h-[44px] min-w-[44px] touch-manipulation flex-shrink-0 items-center justify-center rounded-xl text-white/80 transition-colors hover:bg-white/20 hover:text-white"
                       aria-label="Close"
                     >
@@ -3477,7 +3544,7 @@ export default function PrescriptionQueuePage() {
                       <div className="flex flex-col gap-3 pt-4 sm:flex-row">
                         <button
                           type="button"
-                          onClick={() => setPrescriptionPanel(null)}
+                          onClick={() => closePrescriptionPanel()}
                           className="min-h-[48px] flex-1 touch-manipulation rounded-xl border border-gray-300 px-4 py-2.5 text-base font-medium text-gray-700 hover:bg-gray-50 active:bg-gray-100"
                         >
                           Cancel
@@ -4028,6 +4095,22 @@ export default function PrescriptionQueuePage() {
                         </p>
                       </div>
 
+                      {/* Elite Bundle auto-queue notice */}
+                      {pendingEliteAddonMeds.length > 0 && (
+                        <div className="flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+                          <Sparkles className="mt-0.5 h-5 w-5 flex-shrink-0 text-emerald-600" />
+                          <div>
+                            <p className="text-sm font-semibold text-emerald-800">
+                              Elite Package will be queued for prescriber review
+                            </p>
+                            <p className="mt-1 text-xs text-emerald-700">
+                              {pendingEliteAddonMeds.map((m) => MEDS[m.medicationKey]?.name || m.medicationKey).join(', ')} will be
+                              automatically queued as a separate order after you submit the main prescription.
+                            </p>
+                          </div>
+                        </div>
+                      )}
+
                       {/* Order Set Selector */}
                       <OrderSetSelector
                         externalSelectedId={autoSelectedOrderSetId}
@@ -4372,7 +4455,7 @@ export default function PrescriptionQueuePage() {
                   <div className="sticky bottom-0 border-t border-gray-200 bg-gray-50/95 px-4 py-4 backdrop-blur-sm sm:px-6" style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
                     <div className="flex gap-3">
                       <button
-                        onClick={() => setPrescriptionPanel(null)}
+                        onClick={() => closePrescriptionPanel()}
                         className="min-h-[48px] flex-1 touch-manipulation rounded-xl border border-gray-300 px-4 py-3 font-medium text-gray-700 transition-colors hover:bg-gray-100 active:bg-gray-200"
                       >
                         Cancel

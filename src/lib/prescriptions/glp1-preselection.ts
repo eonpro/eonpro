@@ -224,33 +224,36 @@ function findDoseTier(tiers: DoseTier[], previousDose: number): DoseTier {
   return tiers[0];
 }
 
+function classifyMedString(text: string): 'semaglutide' | 'tirzepatide' | null {
+  const lower = text.toLowerCase();
+  if (lower.includes('tirzepatide') || lower.includes('mounjaro') || lower.includes('zepbound')) {
+    return 'tirzepatide';
+  }
+  if (lower.includes('semaglutide') || lower.includes('ozempic') || lower.includes('wegovy')) {
+    return 'semaglutide';
+  }
+  return null;
+}
+
 function identifyMedication(
   treatment: string,
   glp1Type: string | null
 ): 'semaglutide' | 'tirzepatide' | null {
-  const treatmentLower = treatment.toLowerCase();
-  const typeLower = (glp1Type || '').toLowerCase();
+  const fromTreatment = classifyMedString(treatment);
+  if (fromTreatment) return fromTreatment;
 
-  if (
-    treatmentLower.includes('tirzepatide') ||
-    treatmentLower.includes('mounjaro') ||
-    treatmentLower.includes('zepbound')
-  ) {
-    return 'tirzepatide';
+  if (glp1Type) {
+    const fromType = classifyMedString(glp1Type);
+    if (fromType) return fromType;
   }
-  if (
-    treatmentLower.includes('semaglutide') ||
-    treatmentLower.includes('ozempic') ||
-    treatmentLower.includes('wegovy')
-  ) {
-    return 'semaglutide';
-  }
-
-  if (typeLower.includes('tirzepatide')) return 'tirzepatide';
-  if (typeLower.includes('semaglutide')) return 'semaglutide';
 
   return null;
 }
+
+// Fixed switch tiers: Semaglutide C (1mg/week) and Tirzepatide B (5mg/week).
+// Index references into the tier arrays defined above.
+const SEMA_SWITCH_TIER_INDEX = 2; // previousDose=0.5 → Semaglutide C
+const TIRZ_SWITCH_TIER_INDEX = 1; // previousDose=2.5 → Tirzepatide B
 
 // ─── Public API ────────────────────────────────────────────────────────────────
 
@@ -265,6 +268,25 @@ export function getGlp1Preselection(
 ): GLP1PreselectionResult | null {
   const medication = identifyMedication(treatment, glp1Info.glp1Type);
   if (!medication) return null;
+
+  // Detect medication switch: patient's GLP-1 history is on one med but the
+  // treatment/invoice targets the other. In switch scenarios, dose history from
+  // the old medication is not transferable — use fixed clinically-appropriate tiers.
+  if (glp1Info.usedGlp1 && glp1Info.glp1Type) {
+    const previousMed = classifyMedString(glp1Info.glp1Type);
+    const targetMed = classifyMedString(treatment);
+
+    if (previousMed && targetMed && previousMed !== targetMed) {
+      if (targetMed === 'semaglutide') {
+        // Tirzepatide → Semaglutide: start at Semaglutide C (1mg/week)
+        const tier = SEMAGLUTIDE_TIERS[SEMA_SWITCH_TIER_INDEX];
+        return { oneMonth: tier.oneMonth, multiMonth: { orderSetName: tier.orderSetName } };
+      }
+      // Semaglutide → Tirzepatide: start at Tirzepatide B (5mg/week)
+      const tier = TIRZEPATIDE_TIERS[TIRZ_SWITCH_TIER_INDEX];
+      return { oneMonth: tier.oneMonth, multiMonth: { orderSetName: tier.orderSetName } };
+    }
+  }
 
   const tiers = medication === 'semaglutide' ? SEMAGLUTIDE_TIERS : TIRZEPATIDE_TIERS;
   const previousDose = glp1Info.usedGlp1 ? parseLastDose(glp1Info.lastDose) : 0;

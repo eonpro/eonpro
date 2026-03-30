@@ -37,7 +37,7 @@ const createLabelSchema = z.object({
   width: z.number().positive().optional(),
   height: z.number().positive().optional(),
   oneRate: z.boolean().default(false),
-  labelFormat: z.enum(['PDF', 'ZPLII', 'PNG']).default('PDF'),
+  labelFormat: z.literal('PDF').default('PDF'),
   orderId: z.number().int().positive().optional(),
 });
 
