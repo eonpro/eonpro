@@ -191,6 +191,7 @@ export default function AdminSettingsPage() {
   const [userError, setUserError] = useState('');
   const [savingUser, setSavingUser] = useState(false);
   const [userSearch, setUserSearch] = useState('');
+  const [resendingInvite, setResendingInvite] = useState<number | null>(null);
   const [userSectionsExpanded, setUserSectionsExpanded] = useState<
     Record<'admin_staff' | 'provider' | 'affiliate' | 'patient', boolean>
   >({ admin_staff: true, provider: true, affiliate: true, patient: true });
@@ -565,6 +566,27 @@ export default function AdminSettingsPage() {
       }
     } catch {
       alert('Failed to deactivate user');
+    }
+  };
+
+  const handleResendInvite = async (u: User) => {
+    if (!confirm(`Resend setup invitation to ${u.firstName} ${u.lastName} (${u.email})?`)) return;
+    setResendingInvite(u.id);
+    try {
+      const res = await apiFetch(`/api/admin/clinic/users/${u.id}/resend-invite`, {
+        method: 'POST',
+        body: JSON.stringify({}),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        alert(`Invitation resent to ${u.email}`);
+      } else {
+        alert(data.error || 'Failed to resend invitation');
+      }
+    } catch {
+      alert('Failed to resend invitation');
+    } finally {
+      setResendingInvite(null);
     }
   };
 
@@ -1418,6 +1440,16 @@ export default function AdminSettingsPage() {
                                     {u.lastLogin ? new Date(u.lastLogin).toLocaleDateString() : 'Never'}
                                   </td>
                                   <td className="px-6 py-4 text-right">
+                                    {!u.lastLogin && (
+                                      <button
+                                        onClick={() => handleResendInvite(u)}
+                                        disabled={resendingInvite === u.id}
+                                        className="mr-3 text-sm font-medium text-blue-600 hover:text-blue-800 disabled:opacity-50"
+                                        title="Resend setup invitation email"
+                                      >
+                                        {resendingInvite === u.id ? 'Sending...' : 'Resend Invite'}
+                                      </button>
+                                    )}
                                     <button
                                       onClick={() => openEditUser(u)}
                                       className="mr-3 text-emerald-600 hover:text-emerald-900"

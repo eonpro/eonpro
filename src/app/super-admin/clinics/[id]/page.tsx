@@ -323,6 +323,9 @@ export default function ClinicDetailPage() {
   const [newPassword, setNewPassword] = useState('');
   const [resettingPassword, setResettingPassword] = useState(false);
 
+  // Resend invite state
+  const [resendingInvite, setResendingInvite] = useState<number | null>(null);
+
   // Edit user state
   const [editUserModal, setEditUserModal] = useState<{ show: boolean; user: ClinicUser | null }>({
     show: false,
@@ -857,6 +860,29 @@ export default function ClinicDetailPage() {
       alert('Failed to reset password');
     } finally {
       setResettingPassword(false);
+    }
+  };
+
+  const handleResendInvite = async (user: ClinicUser) => {
+    if (!confirm(`Resend setup invitation to ${user.firstName} ${user.lastName} (${user.email})?`)) {
+      return;
+    }
+    setResendingInvite(user.id);
+    try {
+      const response = await apiFetch(
+        `/api/super-admin/clinics/${clinicId}/users/${user.id}/resend-invite`,
+        { method: 'POST', body: JSON.stringify({}) }
+      );
+      const data = await response.json();
+      if (response.ok) {
+        alert(`Invitation resent to ${user.email}`);
+      } else {
+        alert(data.error || 'Failed to resend invitation');
+      }
+    } catch {
+      alert('Failed to resend invitation');
+    } finally {
+      setResendingInvite(null);
     }
   };
 
@@ -2998,6 +3024,16 @@ export default function ClinicDetailPage() {
                                         >
                                           Edit
                                         </button>
+                                        {!user.lastLogin && (
+                                          <button
+                                            onClick={() => handleResendInvite(user)}
+                                            disabled={resendingInvite === user.id}
+                                            className="text-sm font-medium text-emerald-600 hover:text-emerald-800 disabled:opacity-50"
+                                            title="Resend setup invitation email"
+                                          >
+                                            {resendingInvite === user.id ? 'Sending...' : 'Resend Invite'}
+                                          </button>
+                                        )}
                                         <button
                                           onClick={() =>
                                             setResetPasswordModal({
