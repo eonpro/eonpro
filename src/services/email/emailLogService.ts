@@ -458,6 +458,75 @@ class EmailLogService {
   }
 
   /**
+   * List email logs with filtering and pagination (for super-admin UI)
+   */
+  async listEmails(opts: {
+    page?: number;
+    pageSize?: number;
+    status?: EmailLogStatus;
+    clinicId?: number;
+    recipientEmail?: string;
+    sourceType?: string;
+    template?: string;
+    from?: Date;
+    to?: Date;
+  }): Promise<{ emails: any[]; total: number; page: number; pageSize: number }> {
+    const page = Math.max(1, opts.page || 1);
+    const pageSize = Math.min(100, Math.max(1, opts.pageSize || 25));
+
+    const where: Prisma.EmailLogWhereInput = {};
+    if (opts.status) where.status = opts.status;
+    if (opts.clinicId) where.clinicId = opts.clinicId;
+    if (opts.sourceType) where.sourceType = opts.sourceType;
+    if (opts.template) where.template = opts.template;
+    if (opts.recipientEmail) {
+      where.recipientEmail = { contains: opts.recipientEmail, mode: 'insensitive' };
+    }
+    if (opts.from || opts.to) {
+      where.createdAt = {};
+      if (opts.from) where.createdAt.gte = opts.from;
+      if (opts.to) where.createdAt.lte = opts.to;
+    }
+
+    const [emails, total] = await Promise.all([
+      prisma.emailLog.findMany({
+        where,
+        select: {
+          id: true,
+          createdAt: true,
+          recipientEmail: true,
+          subject: true,
+          status: true,
+          template: true,
+          sourceType: true,
+          sourceId: true,
+          messageId: true,
+          sentAt: true,
+          deliveredAt: true,
+          openedAt: true,
+          clickedAt: true,
+          bouncedAt: true,
+          complainedAt: true,
+          errorMessage: true,
+          errorCode: true,
+          bounceType: true,
+          bounceSubType: true,
+          complaintType: true,
+          retryCount: true,
+          clinicId: true,
+          clinic: { select: { name: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      prisma.emailLog.count({ where }),
+    ]);
+
+    return { emails, total, page, pageSize };
+  }
+
+  /**
    * Clean up old email logs (retention policy)
    */
   async cleanupOldLogs(daysToKeep: number = 90): Promise<number> {
