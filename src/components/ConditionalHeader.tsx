@@ -98,7 +98,7 @@ export default function ConditionalHeader() {
       '/reset-password', '/verify-email', '/affiliate', '/patient-portal',
       '/portal', '/provider', '/staff', '/support', '/demo', '/pay/',
       '/admin', '/super-admin', '/patients', '/intake', '/intake-forms',
-      '/dashboard', '/checkout', '/wellmedr-checkout',
+      '/dashboard', '/checkout', '/wellmedr-checkout', '/tickets',
     ];
     return pathname === '/' || noHeaderPrefixes.some((p) => pathname?.startsWith(p));
   }, [pathname]);

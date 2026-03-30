@@ -204,13 +204,18 @@ const getBrandingHandler = async (request: NextRequest) => {
       autoInviteOnFirstOrder: patientPortalSettings.autoInviteOnFirstOrder ?? true,
     };
 
-    return NextResponse.json(branding);
+    return NextResponse.json(branding, {
+      headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' },
+    });
   } catch (error) {
     logger.error(
       'Error fetching clinic branding',
       error instanceof Error ? error : undefined
     );
-    return NextResponse.json({ error: 'Failed to fetch clinic branding' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Failed to fetch clinic branding' },
+      { status: 500, headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' } },
+    );
   }
 };
 

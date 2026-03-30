@@ -512,7 +512,7 @@ export function ClinicBrandingProvider({
 
               const resolveResponse = await fetch(
                 `/api/clinic/resolve?domain=${encodeURIComponent(domain)}`,
-                { signal: controller.signal }
+                { signal: controller.signal, cache: 'no-store' }
               );
               clearTimeout(timeoutId);
 
@@ -596,6 +596,7 @@ export function ClinicBrandingProvider({
           const response = await fetch(`/api/patient-portal/branding?clinicId=${cId}`, {
             signal: brandingController.signal,
             credentials: 'include',
+            cache: 'no-store',
           });
           clearTimeout(brandingTimeoutId);
 
