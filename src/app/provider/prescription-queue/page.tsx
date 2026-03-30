@@ -841,23 +841,29 @@ export default function PrescriptionQueuePage() {
         zip: parsedAddress.zip,
       });
 
-      // Refills: preselect based on the PREVIOUS PRESCRIPTION (not intake GLP-1 history).
-      // New invoices: merge queue-level glp1Info with clinical context from intake.
+      // Preselection priority: previous prescription > intake GLP-1 history > clinical context.
+      // If a previous Rx exists (refill OR renewal), use its actual dose for escalation.
+      // Otherwise fall back to intake form / clinical context data.
       let preselectionGlp1Info: { usedGlp1: boolean; glp1Type: string | null; lastDose: string | null };
 
-      if (item.queueType === 'refill' || item.isRefill) {
-        const rxDetails = item.lastRxDetails;
+      const rxDetails = item.lastRxDetails;
+      if (rxDetails) {
+        const medNameLower = rxDetails.medName.toLowerCase();
+        preselectionGlp1Info = {
+          usedGlp1: true,
+          glp1Type: medNameLower.includes('tirzepatide') ? 'Tirzepatide'
+            : medNameLower.includes('semaglutide') ? 'Semaglutide'
+            : item.glp1Info?.glp1Type || null,
+          lastDose: rxDetails.dose != null
+            ? String(rxDetails.dose)
+            : rxDetails.strength || item.glp1Info?.lastDose || null,
+        };
+      } else if (item.queueType === 'refill' || item.isRefill) {
         const glp1Info = item.glp1Info || { usedGlp1: true, glp1Type: null, lastDose: null };
         preselectionGlp1Info = {
           usedGlp1: true,
-          glp1Type: rxDetails
-            ? (rxDetails.medName.toLowerCase().includes('tirzepatide') ? 'Tirzepatide'
-              : rxDetails.medName.toLowerCase().includes('semaglutide') ? 'Semaglutide'
-              : glp1Info.glp1Type)
-            : glp1Info.glp1Type,
-          lastDose: rxDetails?.dose != null
-            ? String(rxDetails.dose)
-            : rxDetails?.strength || glp1Info.lastDose || null,
+          glp1Type: glp1Info.glp1Type,
+          lastDose: glp1Info.lastDose,
         };
       } else {
         const glp1Info = item.glp1Info || { usedGlp1: false, glp1Type: null, lastDose: null };
@@ -1930,7 +1936,7 @@ export default function PrescriptionQueuePage() {
                     isQueuedOrder
                       ? 'border-amber-200 bg-amber-50/30'
                       : isRenewal
-                        ? 'border-orange-200 bg-orange-50/20 border-l-4 border-l-orange-400'
+                        ? 'border-orange-200 bg-white/20 border-l-4 border-l-orange-400'
                         : 'border-gray-100 bg-white'
                   }`}
                 >
@@ -1958,7 +1964,7 @@ export default function PrescriptionQueuePage() {
                               </span>
                             )}
                             {isRenewal ? (
-                              <span className="inline-flex items-center gap-0.5 rounded-full border border-orange-300 bg-orange-100 px-1.5 py-0.5 text-[9px] font-bold text-orange-700">
+                              <span className="inline-flex items-center gap-0.5 rounded-full border border-gray-200 bg-gray-100 px-1.5 py-0.5 text-[9px] font-bold text-orange-700">
                                 <RefreshCw className="h-2.5 w-2.5" />
                                 RENEWAL
                               </span>
@@ -2058,7 +2064,7 @@ export default function PrescriptionQueuePage() {
                       <div className="hidden min-w-0 items-center gap-1.5 xl:flex">
                         {isRenewal ? (
                           <>
-                            <div className="rounded p-1 bg-orange-100">
+                            <div className="rounded p-1 bg-gray-100">
                               <FileText className="h-3 w-3 text-orange-600" />
                             </div>
                             <div className="min-w-0">
@@ -2478,7 +2484,7 @@ export default function PrescriptionQueuePage() {
 
                                 {/* GLP-1 History / Previous Prescription */}
                                 {item.hasPreviousRx && item.lastRxDetails ? (
-                                  <div className="rounded-lg bg-orange-50 border border-orange-100 p-3">
+                                  <div className="rounded-lg bg-white border border-gray-100 p-3">
                                     <div className="flex items-center gap-2 font-medium text-orange-700 mb-1">
                                       <FileText className="h-4 w-4" />
                                       Previous Prescription Sent
@@ -2488,7 +2494,7 @@ export default function PrescriptionQueuePage() {
                                       <div>Strength: <span className="font-medium">{item.lastRxDetails.strength}</span>
                                         {item.lastRxDetails.dose !== null && <span className="font-medium"> ({item.lastRxDetails.dose}mg)</span>}
                                       </div>
-                                      <div className="rounded bg-orange-100/60 p-2 text-sm">
+                                      <div className="rounded bg-gray-50 p-2 text-sm">
                                         <span className="text-xs font-medium text-orange-600">Sig:</span>{' '}
                                         <span className="text-orange-800">{item.lastRxDetails.sig}</span>
                                       </div>
@@ -3678,7 +3684,7 @@ export default function PrescriptionQueuePage() {
                       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                         {/* Previous Dosage / Previous Prescription Card */}
                         {prescriptionPanel.item.hasPreviousRx ? (
-                          <div className="rounded-xl border border-orange-200 bg-orange-50 p-4">
+                          <div className="rounded-xl border border-orange-200 bg-white p-4">
                             <h3 className="mb-2 flex items-center gap-2 text-sm font-medium text-orange-800">
                               <FileText className="h-4 w-4 text-orange-600" />
                               Previous Prescription
@@ -3696,7 +3702,7 @@ export default function PrescriptionQueuePage() {
                                       Strength: {rxDetails.strength}
                                       {rxDetails.dose !== null && ` (${rxDetails.dose}mg)`}
                                     </p>
-                                    <div className="rounded-lg bg-orange-100/60 p-2">
+                                    <div className="rounded-lg bg-gray-50 p-2">
                                       <p className="text-xs font-medium text-orange-600">Sig (Directions)</p>
                                       <p className="mt-0.5 text-sm text-orange-800">{rxDetails.sig}</p>
                                     </div>
@@ -4380,11 +4386,11 @@ export default function PrescriptionQueuePage() {
                   <div className="flex-1 space-y-4 p-4 sm:p-6">
                     {/* Card 1: Previous Prescription / GLP-1 History */}
                     {prescriptionPanel.item.hasPreviousRx ? (
-                      <div className="overflow-hidden rounded-xl border border-orange-200 bg-orange-50">
-                        <div className="flex items-center gap-2 border-b border-orange-200 bg-orange-100/60 px-4 py-2.5">
+                      <div className="overflow-hidden rounded-xl border border-orange-200 bg-white">
+                        <div className="flex items-center gap-2 border-b border-orange-200 bg-gray-50 px-4 py-2.5">
                           <FileText className="h-4 w-4 text-orange-700" />
                           <h3 className="text-sm font-semibold text-orange-900">Previous Prescription</h3>
-                          <span className="rounded-full bg-orange-200 px-2 py-0.5 text-[10px] font-bold text-orange-800">
+                          <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-bold text-orange-800">
                             RENEWAL
                           </span>
                         </div>
@@ -4400,7 +4406,7 @@ export default function PrescriptionQueuePage() {
                                 {prescriptionPanel.item.lastRxDetails.strength}
                                 {prescriptionPanel.item.lastRxDetails.dose !== null && ` (${prescriptionPanel.item.lastRxDetails.dose}mg)`}
                               </p>
-                              <div className="rounded bg-orange-100/60 p-2 text-sm">
+                              <div className="rounded bg-gray-50 p-2 text-sm">
                                 <span className="text-xs font-medium text-orange-600">Sig:</span>{' '}
                                 <span className="text-orange-800">{prescriptionPanel.item.lastRxDetails.sig}</span>
                               </div>
