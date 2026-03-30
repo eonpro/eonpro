@@ -208,13 +208,25 @@ export default function SigBuilder({
     if (enhanced && enhanced.length > 0) {
       setTemplates(enhanced);
       if (initialSig) {
-        // External sig provided (e.g. from order set) — sync to internal state
-        // and set a template base so toggle buttons still work.
+        // External sig provided (e.g. from preselection or order set) — sync to
+        // internal state and highlight the matching dosing template.
         // Mark as manually edited so the [options, selectedTemplate] effect
         // doesn't overwrite this sig with a template-generated one.
         setSig(initialSig);
         onSigChange(initialSig);
-        setSelectedTemplate(enhanced[0]);
+
+        // Match the template whose dose matches the preselected sig
+        const sigDoseMatch = initialSig.match(/(?:inject|administer)\s+([\d.]+)\s*mg/i);
+        let matchedTemplate = enhanced[0];
+        if (sigDoseMatch) {
+          const sigDose = parseFloat(sigDoseMatch[1]);
+          const byDose = enhanced.find((t) => {
+            const td = t.targetDose?.replace(/[^\d.]/g, '');
+            return td && parseFloat(td) === sigDose;
+          });
+          if (byDose) matchedTemplate = byDose;
+        }
+        setSelectedTemplate(matchedTemplate);
         manuallyEditedRef.current = true;
       } else {
         handleSelectTemplate(enhanced[0]);
