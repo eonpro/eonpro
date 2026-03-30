@@ -952,7 +952,6 @@ const steps: FormStep[] = [
         { id: 'facebook', label: { en: 'Facebook', es: 'Facebook' }, value: 'facebook' },
         { id: 'friend_family', label: { en: 'Friend/Family', es: 'Amigo/Familia' }, value: 'friend_family' },
         { id: 'google', label: { en: 'Google', es: 'Google' }, value: 'google' },
-        { id: 'univision', label: { en: 'Univision/Telemundo', es: 'Univision/Telemundo' }, value: 'univision' },
         { id: 'youtube', label: { en: 'Youtube', es: 'Youtube' }, value: 'youtube' },
         { id: 'tiktok', label: { en: 'Tiktok', es: 'Tiktok' }, value: 'tiktok' },
         { id: 'ot_rep', label: { en: 'Overtime Representative', es: 'Representante de Overtime' }, value: 'ot_rep' },
