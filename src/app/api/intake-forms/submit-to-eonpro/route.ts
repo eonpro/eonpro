@@ -110,6 +110,8 @@ const FIELD_LABELS: Record<string, string> = {
   sleep_apnea: 'Sleep Apnea',
   heart_conditions: 'Cardiovascular History',
   fertility_concerns: 'Fertility Concerns',
+  lab_file_name: 'Lab Results File',
+  lab_file_skipped: 'Lab Upload Skipped',
 };
 
 // ============================================================================
@@ -390,7 +392,7 @@ function formatValue(key: string, val: unknown): string {
 
 // Keys to exclude from answers (internal-only, not useful for display)
 const EXCLUDE_KEYS = new Set([
-  'fullAddress', 'addressState',
+  'fullAddress', 'addressState', 'lab_file', 'lab_file_type',
 ]);
 
 export async function POST(req: NextRequest) {
@@ -553,7 +555,7 @@ export async function POST(req: NextRequest) {
           ['trt_symptoms', 'trt_interest', 'trt_goals', 'prior_testosterone',
            'trt_type', 'trt_dose', 'blood_work_checked', 'blood_work_results',
            'prostate_health', 'blood_clot_history', 'sleep_apnea',
-           'heart_conditions', 'fertility_concerns'].includes(a.id)
+           'heart_conditions', 'fertility_concerns', 'lab_file_name'].includes(a.id)
         ),
       },
       {

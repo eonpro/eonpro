@@ -41,6 +41,7 @@ import {
   BookAppointmentStep,
   PeptideLandingStep,
   TRTLandingStep,
+  LabUploadStep,
   PrescriptionSearchStep,
   AllergySearchStep,
 } from './steps';
@@ -404,6 +405,8 @@ export default function FormStep({
         return <PeptideLandingStep {...customProps} />;
       case 'TRTLandingStep':
         return <TRTLandingStep {...customProps} />;
+      case 'LabUploadStep':
+        return <LabUploadStep {...customProps} />;
       case 'PrescriptionSearchStep':
         return <PrescriptionSearchStep {...customProps} />;
       case 'AllergySearchStep':

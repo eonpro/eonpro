@@ -473,7 +473,8 @@ const steps: FormStep[] = [
       label: { en: 'Testosterone Blood Work', es: 'Análisis de Testosterona' },
       storageKey: 'testosterone_blood_work',
       options: [
-        { id: 'recent', label: { en: 'Yes, within the last 6 months', es: 'Sí, dentro de los últimos 6 meses' }, value: 'recent' },
+        { id: 'within_90_days', label: { en: 'Yes, within the last 90 days', es: 'Sí, dentro de los últimos 90 días' }, value: 'within_90_days' },
+        { id: '3_to_6_months', label: { en: 'Yes, 3 to 6 months ago', es: 'Sí, hace 3 a 6 meses' }, value: '3_to_6_months' },
         { id: 'over_6_months', label: { en: 'Yes, but over 6 months ago', es: 'Sí, pero hace más de 6 meses' }, value: 'over_6_months' },
         { id: 'never', label: { en: 'No, I have never had my levels checked', es: 'No, nunca me he hecho un análisis de niveles' }, value: 'never' },
       ],
@@ -481,11 +482,32 @@ const steps: FormStep[] = [
     autoAdvance: true,
     showContinueButton: false,
     nextStep: [
-      { conditions: [{ field: 'testosterone_blood_work', operator: 'in', value: ['recent', 'over_6_months'] }], target: 'blood-work-results' },
+      { conditions: [{ field: 'testosterone_blood_work', operator: 'equals', value: 'within_90_days' }], target: 'lab-upload' },
+      { conditions: [{ field: 'testosterone_blood_work', operator: 'in', value: ['3_to_6_months', 'over_6_months'] }], target: 'blood-work-results' },
       { conditions: [{ field: 'testosterone_blood_work', operator: 'equals', value: 'never' }], target: 'activity-level' },
     ],
     prevStep: 'prior-testosterone',
     progressPercent: 50,
+  },
+
+  // ===== LAB UPLOAD (within 90 days) =====
+  {
+    id: 'lab-upload',
+    path: 'lab-upload',
+    title: { en: 'Upload your lab results', es: 'Sube tus resultados de laboratorio' },
+    subtitle: { en: "If you have your lab results available, upload them here. If not, don't worry — you can submit them later.", es: 'Si tienes tus resultados de laboratorio disponibles, súbelos aquí. Si no, no te preocupes — puedes enviarlos después.' },
+    type: 'custom',
+    component: 'LabUploadStep',
+    fields: [{
+      id: 'lab_file', type: 'file',
+      label: { en: 'Lab Results', es: 'Resultados de Laboratorio' },
+      storageKey: 'lab_file',
+    }],
+    autoAdvance: false,
+    showContinueButton: false,
+    nextStep: 'blood-work-results',
+    prevStep: 'blood-work',
+    progressPercent: 51,
   },
 
   // ===== BLOOD WORK RESULTS =====
