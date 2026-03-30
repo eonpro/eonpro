@@ -208,6 +208,8 @@ describe('findOrderSetByName', () => {
     { id: 1, name: 'Semaglutide A- 3 Month' },
     { id: 2, name: 'Semaglutide B - 3 Month' },
     { id: 3, name: 'Tirzepatide D- 3 Month' },
+    { id: 4, name: 'Tirzepatide B - 3 Month.' },
+    { id: 5, name: 'Tirzepatide D2 - 3 month' },
   ];
 
   it('exact match', () => {
@@ -219,8 +221,17 @@ describe('findOrderSetByName', () => {
     expect(findOrderSetByName(orderSets, 'Tirzepatide D - 3 Month')?.id).toBe(3);
   });
 
+  it('fuzzy match ignoring trailing period', () => {
+    expect(findOrderSetByName(orderSets, 'Tirzepatide B- 3 Month')?.id).toBe(4);
+    expect(findOrderSetByName(orderSets, 'Tirzepatide B - 3 Month')?.id).toBe(4);
+  });
+
   it('case-insensitive match', () => {
     expect(findOrderSetByName(orderSets, 'semaglutide b - 3 month')?.id).toBe(2);
+  });
+
+  it('core-token match (medication + letter)', () => {
+    expect(findOrderSetByName(orderSets, 'Tirzepatide D2- 3 Month')?.id).toBe(5);
   });
 
   it('returns null for no match', () => {

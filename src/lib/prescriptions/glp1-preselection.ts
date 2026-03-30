@@ -278,7 +278,8 @@ export function getGlp1Preselection(
 
 /**
  * Find matching order set by name (case-insensitive, trimmed).
- * Uses progressive matching: exact → normalized → fuzzy → contains.
+ * Uses progressive matching: exact → normalized → fuzzy → core-token.
+ * Handles real-world naming quirks (trailing periods, inconsistent dashes/spaces).
  */
 export function findOrderSetByName(
   orderSets: Array<{ id: number; name: string; [key: string]: unknown }>,
@@ -292,21 +293,34 @@ export function findOrderSetByName(
 
   const target = normalize(targetName);
 
+  // 1. Exact (case-insensitive, whitespace-normalized)
   const exact = orderSets.find((s) => normalize(s.name) === target);
   if (exact) return exact;
 
+  // 2. Fuzzy: strip dashes, trailing punctuation, collapse whitespace
   const fuzzyNormalize = (s: string) =>
     normalize(s)
-      .replace(/[-–—]/g, '')
-      .replace(/\s+/g, ' ');
+      .replace(/[-–—.,:;!]+/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
 
   const fuzzyTarget = fuzzyNormalize(targetName);
   const fuzzy = orderSets.find((s) => fuzzyNormalize(s.name) === fuzzyTarget);
   if (fuzzy) return fuzzy;
 
+  // 3. Core-token match: extract "medication letter" pattern (e.g. "tirzepatide b")
+  //    and match against order sets that contain the same core token.
+  const coreTokenMatch = fuzzyTarget.match(/^((?:semaglutide|tirzepatide)\s+\w+)/);
+  if (coreTokenMatch) {
+    const coreToken = coreTokenMatch[1];
+    const byCore = orderSets.find((s) => fuzzyNormalize(s.name).startsWith(coreToken));
+    if (byCore) return byCore;
+  }
+
+  // 4. Substring containment
   return (
     orderSets.find(
-      (s) => normalize(s.name).includes(target) || target.includes(normalize(s.name))
+      (s) => fuzzyNormalize(s.name).includes(fuzzyTarget) || fuzzyTarget.includes(fuzzyNormalize(s.name))
     ) || null
   );
 }
