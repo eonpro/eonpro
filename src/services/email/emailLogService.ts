@@ -6,7 +6,7 @@ import { instantToCalendarDate } from '@/lib/utils/platform-calendar';
  * Provides analytics and reporting capabilities for email operations.
  */
 
-import { prisma } from '@/lib/db';
+import { basePrisma as prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import type { EmailLogStatus, Prisma } from '@prisma/client';
 

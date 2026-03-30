@@ -176,4 +176,5 @@ export const BASE_PRISMA_ALLOWLIST: readonly string[] = [
   'patientshippingupdate',
   'order',
   'shipmentlabel',
+  'emaillog',
 ];
