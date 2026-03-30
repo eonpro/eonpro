@@ -12,6 +12,7 @@ import { withSuperAdminAuth } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
 import { serverError } from '@/lib/api/error-response';
 import { superAdminRateLimit } from '@/lib/rateLimit';
+import { COMMISSION_ELIGIBLE_ROLES } from '@/lib/constants/commission-eligible-roles';
 
 function parseDateRange(req: NextRequest): { startDate: Date; endDate: Date } {
   const params = req.nextUrl.searchParams;
@@ -130,10 +131,9 @@ async function handler(req: NextRequest): Promise<Response> {
     const parsedClinicId = clinicIdParam ? parseInt(clinicIdParam, 10) : null;
     const clinicFilter = parsedClinicId && !Number.isNaN(parsedClinicId) ? { clinicId: parsedClinicId } : {};
 
-    // Sales reps are Users with role SALES_REP
     const salesReps = await prisma.user.findMany({
       where: {
-        role: 'SALES_REP',
+        role: { in: [...COMMISSION_ELIGIBLE_ROLES] },
         ...clinicFilter,
       },
       select: {

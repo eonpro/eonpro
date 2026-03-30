@@ -17,6 +17,7 @@ import { withAdminAuth, AuthUser } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
 import { handleApiError } from '@/domains/shared/errors';
 import { getResilientReadDb, isTransientDbError, hasReadReplica } from '@/lib/database/read-replica';
+import { decryptPHI } from '@/lib/security/phi-encryption';
 import {
   RevenueAnalyticsService,
   PatientAnalyticsService,
@@ -193,17 +194,30 @@ async function getOrderData(clinicId: number, period: Period) {
         });
         return counts;
       }),
-    db.order.findMany({
-      where: { clinicId, createdAt: { gte: dateRange.start, lte: dateRange.end } },
-      orderBy: { createdAt: 'desc' },
-      take: 20,
-      select: {
-        id: true,
-        status: true,
-        createdAt: true,
-        patient: { select: { id: true, firstName: true, lastName: true } },
-      },
-    }),
+    db.order
+      .findMany({
+        where: { clinicId, createdAt: { gte: dateRange.start, lte: dateRange.end } },
+        orderBy: { createdAt: 'desc' },
+        take: 20,
+        select: {
+          id: true,
+          status: true,
+          createdAt: true,
+          patient: { select: { id: true, firstName: true, lastName: true } },
+        },
+      })
+      .then((orders) =>
+        orders.map((o) => ({
+          ...o,
+          patient: o.patient
+            ? {
+                id: o.patient.id,
+                firstName: decryptPHI(o.patient.firstName) ?? '',
+                lastName: decryptPHI(o.patient.lastName) ?? '',
+              }
+            : null,
+        }))
+      ),
     getOrderTimeline(clinicId, period),
   ]);
 

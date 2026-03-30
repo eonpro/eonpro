@@ -798,21 +798,27 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
                       }`}
                     >
                       <div className="flex items-center gap-3">
-                        {/* Use iconUrl or faviconUrl for smaller icon display, fallback to logoUrl */}
-                        {clinic.iconUrl || clinic.faviconUrl || clinic.logoUrl ? (
+                        {(clinic.iconUrl || clinic.faviconUrl || clinic.logoUrl) && (
                           <img
                             src={clinic.iconUrl || clinic.faviconUrl || clinic.logoUrl || ''}
                             alt={clinic.name}
-                            className="h-8 w-8 rounded-lg object-contain"
+                            className="h-8 w-8 flex-shrink-0 rounded-lg object-contain"
+                            onError={(e) => {
+                              e.currentTarget.style.display = 'none';
+                              const fallback = e.currentTarget.nextElementSibling as HTMLElement | null;
+                              if (fallback) fallback.style.display = '';
+                            }}
                           />
-                        ) : (
-                          <div
-                            className="flex h-8 w-8 items-center justify-center rounded-lg text-sm font-bold text-white"
-                            style={{ backgroundColor: clinic.primaryColor || primaryColor }}
-                          >
-                            {clinic.name.charAt(0).toUpperCase()}
-                          </div>
                         )}
+                        <div
+                          className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg text-sm font-bold text-white"
+                          style={{
+                            backgroundColor: clinic.primaryColor || primaryColor,
+                            display: clinic.iconUrl || clinic.faviconUrl || clinic.logoUrl ? 'none' : '',
+                          }}
+                        >
+                          {clinic.name.charAt(0).toUpperCase()}
+                        </div>
                         <div>
                           <p className="font-medium text-gray-900">{clinic.name}</p>
                           {clinic.subdomain && (

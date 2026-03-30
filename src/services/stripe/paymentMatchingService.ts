@@ -79,6 +79,13 @@ export interface StripePaymentData {
     postal_code: string | null;
     country: string | null;
   } | null;
+  /** Expanded Stripe line item details (product names, descriptions, amounts) */
+  lineItemDetails?: Array<{
+    description: string;
+    productName?: string;
+    amount: number;
+    quantity: number;
+  }>;
 }
 
 // ============================================================================
@@ -887,8 +894,23 @@ export async function createPaidInvoiceFromStripe(
     }
   }
 
-  // Create line item description
+  // Build line items from expanded Stripe data when available, falling back to description
   const description = paymentData.description || 'Payment received via Stripe';
+
+  const lineItemsJson = paymentData.lineItemDetails && paymentData.lineItemDetails.length > 0
+    ? paymentData.lineItemDetails.map((li) => ({
+        description: li.description,
+        product: li.productName || li.description,
+        amount: li.amount,
+        quantity: li.quantity,
+      }))
+    : [{ description, amount: paymentData.amount, quantity: 1 }];
+
+  // Derive top-level product name for the prescription queue to read
+  const productName = paymentData.lineItemDetails?.[0]?.productName
+    || paymentData.metadata?.product
+    || paymentData.metadata?.product_name
+    || null;
 
   // Wrap invoice and payment creation in a transaction for atomicity
   const invoice = await prisma.$transaction(async (tx) => {
@@ -898,24 +920,19 @@ export async function createPaidInvoiceFromStripe(
         patientId: patient.id,
         clinicId: patient.clinicId,
         stripeInvoiceId: paymentData.stripeInvoiceId,
-        description,
+        description: productName || description,
         amount: paymentData.amount,
         amountDue: 0, // Already paid
         amountPaid: paymentData.amount,
         currency: paymentData.currency || 'usd',
         status: 'PAID' as InvoiceStatus,
         paidAt: paymentData.paidAt,
-        lineItems: [
-          {
-            description,
-            amount: paymentData.amount,
-            quantity: 1,
-          },
-        ] as any,
+        lineItems: lineItemsJson as any,
         metadata: {
           source: 'stripe_webhook',
           paymentIntentId: paymentData.paymentIntentId,
           chargeId: paymentData.chargeId,
+          ...(productName ? { product: productName } : {}),
           stripeMetadata: paymentData.metadata,
         } as any,
       },

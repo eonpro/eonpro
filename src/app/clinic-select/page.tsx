@@ -143,18 +143,24 @@ export default function ClinicSelectPage() {
               )}
 
               <div className="flex items-start gap-4">
-                {/* Use iconUrl or faviconUrl for smaller icon display, fallback to logoUrl */}
-                {clinic.iconUrl || clinic.faviconUrl || clinic.logoUrl ? (
+                {(clinic.iconUrl || clinic.faviconUrl || clinic.logoUrl) && (
                   <img
                     src={clinic.iconUrl || clinic.faviconUrl || clinic.logoUrl || ''}
                     alt={clinic.name}
-                    className="h-12 w-12 rounded-lg object-contain"
+                    className="h-12 w-12 flex-shrink-0 rounded-lg object-contain"
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none';
+                      const fallback = e.currentTarget.nextElementSibling as HTMLElement | null;
+                      if (fallback) fallback.style.display = '';
+                    }}
                   />
-                ) : (
-                  <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 text-lg font-bold text-white">
-                    {clinic.name.charAt(0).toUpperCase()}
-                  </div>
                 )}
+                <div
+                  className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 text-lg font-bold text-white"
+                  style={{ display: clinic.iconUrl || clinic.faviconUrl || clinic.logoUrl ? 'none' : '' }}
+                >
+                  {clinic.name.charAt(0).toUpperCase()}
+                </div>
 
                 <div className="flex-1 text-left">
                   <h3 className="mb-1 text-lg font-semibold text-gray-900">{clinic.name}</h3>

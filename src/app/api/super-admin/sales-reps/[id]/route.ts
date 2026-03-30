@@ -11,6 +11,7 @@ import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
 import { serverError } from '@/lib/api/error-response';
 import { decryptPHI } from '@/lib/security/phi-encryption';
+import { COMMISSION_ELIGIBLE_ROLES } from '@/lib/constants/commission-eligible-roles';
 
 function withSalesRepAuth(
   handler: (req: NextRequest, user: AuthUser, params: { id: string }) => Promise<Response>
@@ -119,7 +120,7 @@ async function handler(
       patientAssignments,
     ] = await Promise.all([
       prisma.user.findFirst({
-        where: { id: userId, role: 'SALES_REP' },
+        where: { id: userId, role: { in: [...COMMISSION_ELIGIBLE_ROLES] } },
         select: {
           id: true, firstName: true, lastName: true, email: true,
           status: true, clinicId: true, createdAt: true, lastLogin: true,

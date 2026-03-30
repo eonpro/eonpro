@@ -41,6 +41,7 @@ import {
 } from 'lucide-react';
 import { BrandingImageUploader } from '@/components/admin/BrandingImageUploader';
 import { apiFetch } from '@/lib/api/fetch';
+import { COMMISSION_ELIGIBLE_ROLES } from '@/lib/constants/commission-eligible-roles';
 import { CheckboxGroup } from '@/components/ui/Checkbox';
 import {
   TREATMENT_PRESETS,
@@ -761,7 +762,8 @@ export default function ClinicDetailPage() {
       licenseState: '',
       specialty: '',
     });
-    if (user.role?.toUpperCase() === 'SALES_REP') {
+    const upperRole = user.role?.toUpperCase() || '';
+    if ((COMMISSION_ELIGIBLE_ROLES as readonly string[]).includes(upperRole)) {
       await loadSalesRepCommissionContext(user.id);
     } else {
       setSalesRepCommissionPlans([]);
@@ -788,10 +790,11 @@ export default function ClinicDetailPage() {
       const data = await response.json();
 
       if (response.ok) {
-        if (editUserData.role === 'SALES_REP') {
+        const isEligible = (COMMISSION_ELIGIBLE_ROLES as readonly string[]).includes(editUserData.role);
+        if (isEligible) {
           await syncSalesRepCommissionPlanAssignment(editUserModal.user.id);
         } else if (currentSalesRepAssignment) {
-          // If role changed away from sales rep, clear active assignment.
+          // If role changed to a non-eligible role, clear active assignment.
           const removeResponse = await apiFetch(
             `/api/admin/sales-rep/commission-plans/${currentSalesRepAssignment.planId}/assignments/${currentSalesRepAssignment.assignmentId}`,
             { method: 'DELETE' }
@@ -800,7 +803,7 @@ export default function ClinicDetailPage() {
             const removeData = await removeResponse
               .json()
               .catch(() => ({}) as { error?: string });
-            throw new Error(removeData.error || 'Failed to clear sales rep commission assignment');
+            throw new Error(removeData.error || 'Failed to clear commission assignment');
           }
         }
         setEditUserModal({ show: false, user: null });
@@ -3782,9 +3785,9 @@ export default function ClinicDetailPage() {
                   onChange={(e) => {
                     const nextRole = e.target.value;
                     setEditUserData({ ...editUserData, role: nextRole });
-                    if (nextRole === 'SALES_REP' && editUserModal.user) {
+                    if ((COMMISSION_ELIGIBLE_ROLES as readonly string[]).includes(nextRole) && editUserModal.user) {
                       loadSalesRepCommissionContext(editUserModal.user.id);
-                    } else if (nextRole !== 'SALES_REP') {
+                    } else {
                       setSalesRepCommissionPlans([]);
                       setCurrentSalesRepAssignment(null);
                       setSelectedSalesRepPlanId('');
@@ -3801,7 +3804,7 @@ export default function ClinicDetailPage() {
                 </select>
               </div>
 
-              {editUserData.role === 'SALES_REP' && (
+              {(COMMISSION_ELIGIBLE_ROLES as readonly string[]).includes(editUserData.role) && (
                 <div className="space-y-2 rounded-lg border border-emerald-200 bg-emerald-50 p-4">
                   <label className="block text-sm font-medium text-emerald-900">
                     Commission Plan
@@ -3827,7 +3830,7 @@ export default function ClinicDetailPage() {
                     ))}
                   </select>
                   <p className="text-xs text-emerald-800">
-                    Select the commission plan for this sales rep. Saving will update the active
+                    Select the commission plan for this employee. Saving will update the active
                     assignment.
                   </p>
                 </div>

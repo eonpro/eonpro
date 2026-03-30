@@ -164,16 +164,24 @@ export class StripeCustomerService {
   static async getCustomerPortalUrl(patientId: number, returnUrl: string): Promise<string> {
     const stripeClient = getStripe();
 
-    // Get or create customer
     const customer = await this.getOrCreateCustomer(patientId);
 
-    // Create billing portal session
-    const session = await stripeClient.billingPortal.sessions.create({
-      customer: customer.id,
-      return_url: returnUrl,
-    });
+    try {
+      const session = await stripeClient.billingPortal.sessions.create({
+        customer: customer.id,
+        return_url: returnUrl,
+      });
 
-    return session.url;
+      return session.url;
+    } catch (err: unknown) {
+      const stripeErr = err as { type?: string; message?: string };
+      if (stripeErr.type === 'StripeInvalidRequestError' && stripeErr.message?.includes('configuration')) {
+        throw new Error(
+          'Stripe billing portal is not configured. Set it up at https://dashboard.stripe.com/settings/billing/portal'
+        );
+      }
+      throw err;
+    }
   }
 
   /**

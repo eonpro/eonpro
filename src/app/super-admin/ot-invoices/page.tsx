@@ -333,26 +333,7 @@ export default function OtInvoicesPage() {
     <div className="min-h-screen p-6 lg:p-8">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">OT (Overtime) Invoices</h1>
-        <p className="mt-1 text-gray-500">
-          EONPro collects patient payments (Stripe); this report is a reconciliation statement: it lists
-          cost and fee allocations so you can see what remains as the OT clinic payout. Line items include
-          pharmacy costs,{' '}
-          <strong className="font-medium text-gray-700">$20 shipping per prescription</strong> ($30 if the
-          order includes NAD+, glutathione, sermorelin, semaglutide, or tirzepatide),{' '}
-          <strong className="font-medium text-gray-700">$30 async</strong> /{' '}
-          <strong className="font-medium text-gray-700">$50 sync</strong> (testosterone cypionate) doctor / Rx fee on new
-          sales or if the last paid Rx was ≥90 days ago;{' '}
-          <strong className="font-medium text-gray-700">$0</strong> for refills within 90 days,{' '}
-          <strong className="font-medium text-gray-700">$50 TRT telehealth</strong> for testosterone replacement
-          therapy orders only, other Stripe lines, plus{' '}
-          <strong className="font-medium text-gray-700">4% merchant processing</strong> and{' '}
-          <strong className="font-medium text-gray-700">10% EONPro</strong> on gross patient payments, plus{' '}
-          <strong className="font-medium text-gray-700">sales rep commission</strong> and{' '}
-          <strong className="font-medium text-gray-700">manager oversight</strong> from the commission ledger when
-          present. On the Doctor approvals card, <strong className="font-medium text-gray-700">sync</strong> counts
-          orders with <strong className="font-medium text-gray-700">testosterone cypionate</strong>;{' '}
-          <strong className="font-medium text-gray-700">async</strong> counts all other prescription types.
-        </p>
+        <p className="mt-1 text-sm text-gray-500">Reconciliation statement — cost and fee allocations for OT clinic payout.</p>
       </div>
 
       <div className="mb-6 rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
@@ -407,18 +388,6 @@ export default function OtInvoicesPage() {
             Generate
           </button>
         </div>
-        <p className="mt-3 text-sm text-gray-500">
-          The <strong>All payments</strong> tab lists every <code className="rounded bg-gray-100 px-1 text-xs">Payment</code>{' '}
-          row for OT patients with <strong>paidAt</strong> (or <strong>createdAt</strong> if paidAt is empty) in the
-          Eastern window — that is the cash ledger to compare to Stripe.           Pharmacy / per-sale rows match invoices with an <code className="rounded bg-gray-100 px-1 text-xs">orderId</code>{' '}
-          linked from each payment (<code className="rounded bg-gray-100 px-1 text-xs">Payment.invoiceId</code> or Stripe
-          reconciliation), or by <strong>patient + paid invoice on Order</strong> when the payment row does not point at
-          the Rx invoice. Invoices are included even when <strong>Invoice.paidAt</strong> lags the payment or{' '}
-          <strong>prescription processed</strong> is still pending. Matched orders load even if{' '}
-          <code className="rounded bg-gray-100 px-1 text-xs">fulfillmentChannel</code> is unusual. A day with no All
-          payments rows means nothing settled in the DB
-          for that window; use <strong>Date range</strong> to match your payout batch.
-        </p>
       </div>
 
       {error && (
@@ -638,30 +607,7 @@ export default function OtInvoicesPage() {
                   <NonRxChargesTable rows={data.nonRxChargeLineItems ?? []} />
                 )}
                 <div>
-                  <h3 className="mb-1 text-sm font-semibold text-gray-900">Cash collected — every payment</h3>
-                  <p className="mb-3 text-xs text-gray-500">
-                    Same ledger as the <strong>All payments</strong> tab; shown here so you can match Stripe amounts to
-                    patients and open profiles when pharmacy lines are empty or unclear.
-                    {(data.paymentsWithoutPharmacyCogs?.length ?? 0) > 0 && (
-                      <>
-                        {' '}
-                        <span className="font-medium text-amber-800">
-                          {data.paymentsWithoutPharmacyCogs!.length} payment(s) did not map to a pharmacy COGS row for
-                          this period
-                          {(data.nonRxExplainedPaymentCount ?? 0) > 0 ? (
-                            <>
-                              {' '}
-                              (
-                              <strong>{data.nonRxExplainedPaymentCount}</strong> of those are tied to{' '}
-                              <strong>non-Rx</strong> invoices such as bloodwork — see table above when present).
-                            </>
-                          ) : (
-                            '.'
-                          )}
-                        </span>
-                      </>
-                    )}
-                  </p>
+                  <h3 className="mb-3 text-sm font-semibold text-gray-900">Cash collected — every payment</h3>
                   <PaymentCollectionsTable
                     rows={data.paymentCollections ?? []}
                     matchedRxGrossCents={data.matchedPrescriptionInvoiceGrossCents ?? 0}
@@ -690,11 +636,6 @@ export default function OtInvoicesPage() {
         <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-300 bg-gray-50 py-20 text-center">
           <FileText className="mb-4 h-12 w-12 text-gray-300" />
           <p className="text-lg font-medium text-gray-500">Select a date and generate</p>
-          <p className="mt-1 max-w-md text-sm text-gray-400">
-            Doctor <strong>async</strong> / <strong>sync</strong> counts follow medication: testosterone cypionate →
-            sync; all other Rx types → async. Expand shipping SKUs and medication keys in{' '}
-            <code className="rounded bg-gray-200 px-1 text-xs">ot-pricing.ts</code>.
-          </p>
         </div>
       )}
     </div>
@@ -771,10 +712,8 @@ function nonRxKindLabel(kind: OtNonPharmacyChargeKind): string {
 function NonRxChargesTable({ rows }: { rows: OtNonRxChargeLineItem[] }) {
   return (
     <div className="overflow-x-auto rounded-2xl border border-indigo-100 bg-white shadow-sm">
-      <p className="border-b border-indigo-100 bg-indigo-50/60 px-4 py-3 text-sm text-gray-700">
-        <strong>Non-Rx charges</strong> (separate Stripe invoices — not counted in pharmacy COGS). Typical{' '}
-        <strong>bloodwork</strong> is <strong>$180</strong>. Open the patient&apos;s{' '}
-        <strong>Billing &amp; Payments</strong> tab for full line detail when sync is sparse.
+      <p className="border-b border-indigo-100 bg-indigo-50/60 px-4 py-3 text-sm font-medium text-gray-700">
+        Non-Rx charges
       </p>
       <table className="w-full text-sm">
         <thead>
@@ -839,14 +778,6 @@ function PaymentCollectionsTable({
   const totalNet = rows.reduce((s, r) => s + r.netCollectedCents, 0);
   return (
     <div className="overflow-x-auto rounded-2xl border border-gray-100 bg-white shadow-sm">
-      <p className="border-b border-gray-100 px-4 py-3 text-sm text-gray-600">
-        Every <strong>Payment</strong> record for OT clinic patients in this Eastern window (not limited to prescription
-        invoices). <strong>Net</strong> is amount minus refunds. Summary <strong>4% / 10%</strong> fees use this net total
-        when it is greater than zero{feesUseCashCollectedBasis ? ' (active for this period)' : ''}. Matched Rx-invoice
-        gross for the same period is{' '}
-        <span className="font-semibold text-gray-800">{centsToDisplay(matchedRxGrossCents)}</span> (subset used for
-        pharmacy / per-sale breakdowns).
-      </p>
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-gray-100 bg-gray-50 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
@@ -865,8 +796,7 @@ function PaymentCollectionsTable({
           {rows.length === 0 ? (
             <tr>
               <td colSpan={9} className="px-4 py-10 text-center text-gray-500">
-                No Payment rows in this window. If Stripe shows charges, check another day or use <strong>Date range</strong>
-                ; confirm patients are on the OT clinic and that webhooks recorded <code className="rounded bg-gray-100 px-1 text-xs">paidAt</code>.
+                No payments found for this period.
               </td>
             </tr>
           ) : (
@@ -1067,11 +997,6 @@ function PharmacyTable({
 
   return (
     <div className="overflow-x-auto rounded-2xl border border-gray-100 bg-white shadow-sm">
-      <p className="border-b border-gray-100 px-4 py-3 text-sm text-gray-600">
-        Pharmacy <strong>Qty</strong> is internal COGS units (one dispensed package for typical oral lines), not Lifefile
-        tablet/day counts. Each <strong>order</strong> is one row; expand for medication lines plus shipping, doctor / Rx,
-        and TRT. Patient totals in Stripe stay on the <strong>Per-sale</strong> tab as gross.
-      </p>
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-gray-100 bg-gray-50 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
@@ -1267,11 +1192,6 @@ function PharmacyTable({
 function DoctorTable({ invoice }: { invoice: OtDoctorApprovalsInvoice }) {
   return (
     <div className="overflow-x-auto rounded-2xl border border-gray-100 bg-white shadow-sm">
-      <p className="border-b border-gray-100 px-4 py-3 text-sm text-gray-600">
-        Doctor / Rx schedule {centsToDisplay(invoice.asyncFeeCents)} (async) · {centsToDisplay(invoice.syncFeeCents)} (sync).
-        Charged amount is <strong>$0</strong> when the 90‑day refill rule waives the fee; expand the pharmacy tab to see
-        schedule vs waived per order.
-      </p>
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-gray-100 bg-gray-50 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
@@ -1330,10 +1250,6 @@ function DoctorTable({ invoice }: { invoice: OtDoctorApprovalsInvoice }) {
 function FulfillmentTable({ invoice }: { invoice: OtFulfillmentInvoice }) {
   return (
     <div className="overflow-x-auto rounded-2xl border border-gray-100 bg-white shadow-sm">
-      <p className="border-b border-gray-100 px-4 py-3 text-sm text-gray-600">
-        Non-pharmacy Stripe invoice lines (heuristic). Set per-line fees in{' '}
-        <code className="rounded bg-gray-100 px-1 text-xs">ot-pricing.ts</code>.
-      </p>
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-gray-100 bg-gray-50 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
@@ -1350,7 +1266,7 @@ function FulfillmentTable({ invoice }: { invoice: OtFulfillmentInvoice }) {
           {invoice.lineItems.length === 0 ? (
             <tr>
               <td colSpan={7} className="px-4 py-8 text-center text-gray-400">
-                No other line items in this period (or all lines matched pharmacy / shipping heuristics).
+                No fulfillment line items in this period.
               </td>
             </tr>
           ) : (
@@ -1394,13 +1310,6 @@ function PerSaleReconciliationTable({ rows }: { rows: OtPerSaleReconciliationLin
 
   return (
     <div className="overflow-x-auto rounded-2xl border border-gray-100 bg-white shadow-sm">
-      <p className="border-b border-gray-100 px-4 py-3 text-sm text-gray-600">
-        Each row is one order / sale. Patient gross uses net succeeded <strong>Payment</strong> rows when present
-        (Stripe-settled); otherwise the prescription <strong>Invoice</strong> amounts synced from Stripe. Pharmacy
-        breakdown comes from the Lifefile order / Rx on that sale. Doctor / Rx: $30 nominal (async/sync); charged
-        amount is $0 when the patient had another paid prescription invoice at this clinic within the last 90 days. Rep
-        commission and manager oversight come from the commission ledger (Stripe invoice id match).
-      </p>
       <table className="w-full min-w-[1960px] text-sm">
         <thead>
           <tr className="border-b border-gray-100 bg-gray-50 text-left text-xs font-medium uppercase tracking-wider text-gray-500">

@@ -1,6 +1,9 @@
 {
   "buildCommand": "npm run vercel-build",
   "functions": {
+    "src/app/api/ai/chat/stream/*.ts": {
+      "maxDuration": 60
+    },
     "src/app/api/**/*.ts": {
       "maxDuration": 30
     },

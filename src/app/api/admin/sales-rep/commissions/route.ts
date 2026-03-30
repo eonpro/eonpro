@@ -11,6 +11,7 @@ import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
 import { z } from 'zod';
 import { handleApiError } from '@/domains/shared/errors';
+import { COMMISSION_ELIGIBLE_ROLES } from '@/lib/constants/commission-eligible-roles';
 
 const createSchema = z.object({
   salesRepId: z.number().positive(),
@@ -179,12 +180,12 @@ async function handlePost(req: NextRequest, user: AuthUser): Promise<Response> {
     }
 
     const rep = await prisma.user.findFirst({
-      where: { id: salesRepId, role: 'SALES_REP' },
+      where: { id: salesRepId, role: { in: [...COMMISSION_ELIGIBLE_ROLES] } },
       select: { id: true, clinicId: true },
     });
 
     if (!rep) {
-      return NextResponse.json({ error: 'Sales rep not found' }, { status: 404 });
+      return NextResponse.json({ error: 'Employee not found or not eligible for commissions' }, { status: 404 });
     }
 
     const targetClinicId = clinicId || rep.clinicId;

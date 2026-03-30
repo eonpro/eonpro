@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma, runWithClinicContext } from '@/lib/db';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
+import { COMMISSION_ELIGIBLE_ROLES } from '@/lib/constants/commission-eligible-roles';
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -117,12 +118,12 @@ export const POST = withAuth(
         }
       }
 
-      // Verify rep belongs to clinic and is SALES_REP (check both legacy clinicId and userClinics)
+      // Verify employee belongs to clinic and has an eligible role
       const rep = await runWithClinicContext(clinicId, async () =>
         prisma.user.findFirst({
           where: {
             id: repId,
-            role: 'SALES_REP',
+            role: { in: [...COMMISSION_ELIGIBLE_ROLES] },
             OR: [
               { clinicId },
               { userClinics: { some: { clinicId, isActive: true } } },
@@ -132,7 +133,7 @@ export const POST = withAuth(
       );
       if (!rep) {
         return NextResponse.json(
-          { error: 'Sales rep not found or not in this clinic', code: 'REP_NOT_FOUND' },
+          { error: 'Employee not found or not in this clinic', code: 'REP_NOT_FOUND' },
           { status: 400 }
         );
       }

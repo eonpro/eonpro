@@ -284,6 +284,62 @@ async function processOTWebhookEvent(
           clinicId: clinicId.toString(),
         };
 
+        // If description is missing/generic, try to find product name from the
+        // associated checkout session's line items (payment link flow)
+        const isGenericDesc = !intentPaymentData.description
+          || intentPaymentData.description === 'Checkout payment'
+          || intentPaymentData.description === 'Payment received via Stripe';
+
+        if (isGenericDesc) {
+          try {
+            const otStripe = getOTStripe();
+            // Look up checkout sessions linked to this payment intent
+            const sessions = await otStripe.checkout.sessions.list({
+              payment_intent: paymentIntent.id,
+              limit: 1,
+            });
+
+            if (sessions.data.length > 0) {
+              const expandedLineItems = await otStripe.checkout.sessions.listLineItems(
+                sessions.data[0].id,
+                { limit: 20, expand: ['data.price.product'] }
+              );
+
+              if (expandedLineItems.data.length > 0) {
+                intentPaymentData.lineItemDetails = expandedLineItems.data.map((li) => {
+                  const product = li.price?.product;
+                  const productName =
+                    typeof product === 'object' && product && 'name' in product
+                      ? (product as Stripe.Product).name
+                      : null;
+                  return {
+                    description: li.description || productName || 'Line item',
+                    productName: productName || li.description || undefined,
+                    amount: li.amount_total || 0,
+                    quantity: li.quantity || 1,
+                  };
+                });
+
+                const firstProductName = intentPaymentData.lineItemDetails[0]?.productName;
+                if (firstProductName) {
+                  intentPaymentData.description = firstProductName;
+                }
+
+                logger.info('[OT STRIPE WEBHOOK] Enriched PI with checkout line items', {
+                  paymentIntentId: paymentIntent.id,
+                  sessionId: sessions.data[0].id,
+                  firstProduct: firstProductName,
+                });
+              }
+            }
+          } catch (enrichErr) {
+            logger.warn('[OT STRIPE WEBHOOK] Could not enrich PI with checkout line items', {
+              paymentIntentId: paymentIntent.id,
+              error: enrichErr instanceof Error ? enrichErr.message : 'Unknown',
+            });
+          }
+        }
+
         const result = await processStripePayment(intentPaymentData, event.id, event.type);
 
         if (!result.success) {
@@ -523,6 +579,49 @@ async function processOTWebhookEvent(
           ...sessionPaymentData.metadata,
           clinicId: clinicId.toString(),
         };
+
+        // Expand checkout session line items to get actual product names
+        // (not included in webhook payload by default)
+        try {
+          const otStripe = getOTStripe();
+          const expandedLineItems = await otStripe.checkout.sessions.listLineItems(session.id, {
+            limit: 20,
+            expand: ['data.price.product'],
+          });
+
+          if (expandedLineItems.data.length > 0) {
+            sessionPaymentData.lineItemDetails = expandedLineItems.data.map((li) => {
+              const product = li.price?.product;
+              const productName =
+                typeof product === 'object' && product && 'name' in product
+                  ? (product as Stripe.Product).name
+                  : null;
+              return {
+                description: li.description || productName || 'Line item',
+                productName: productName || li.description || undefined,
+                amount: li.amount_total || 0,
+                quantity: li.quantity || 1,
+              };
+            });
+
+            // Also set the description to the first product name if currently generic
+            const firstProductName = sessionPaymentData.lineItemDetails[0]?.productName;
+            if (firstProductName && (!sessionPaymentData.description || sessionPaymentData.description === 'Checkout payment')) {
+              sessionPaymentData.description = firstProductName;
+            }
+
+            logger.info('[OT STRIPE WEBHOOK] Enriched checkout with line item details', {
+              sessionId: session.id,
+              lineItemCount: expandedLineItems.data.length,
+              firstProduct: firstProductName,
+            });
+          }
+        } catch (lineItemErr) {
+          logger.warn('[OT STRIPE WEBHOOK] Could not expand checkout line items', {
+            sessionId: session.id,
+            error: lineItemErr instanceof Error ? lineItemErr.message : 'Unknown',
+          });
+        }
 
         const result = await processStripePayment(sessionPaymentData, event.id, event.type);
 
@@ -857,6 +956,61 @@ async function processOTWebhookEvent(
         return {
           success: true,
           details: { invoiceId: invoice.id, status: invoice.status, clinicId },
+        };
+      }
+
+      // ================================================================
+      // Subscription Events — sync to local Subscription for MRR/ARR
+      // ================================================================
+      case 'customer.subscription.created':
+      case 'customer.subscription.updated': {
+        const subscription = event.data.object as Stripe.Subscription;
+        const { syncSubscriptionFromStripe } =
+          await import('@/services/stripe/subscriptionSyncService');
+        const syncResult = await syncSubscriptionFromStripe(subscription, event.id, {
+          clinicId,
+          stripeAccountId: undefined,
+        });
+        logger.info('[OT STRIPE WEBHOOK] Subscription synced', {
+          stripeSubscriptionId: subscription.id,
+          eventType: event.type,
+          clinicId,
+          success: syncResult.success,
+          skipped: syncResult.skipped,
+          reason: syncResult.reason,
+        });
+        return {
+          success: syncResult.success || syncResult.skipped === true,
+          details: {
+            stripeSubscriptionId: subscription.id,
+            localId: syncResult.subscriptionId,
+            skipped: syncResult.skipped,
+            reason: syncResult.reason,
+          },
+        };
+      }
+
+      case 'customer.subscription.deleted': {
+        const subscription = event.data.object as Stripe.Subscription;
+        const { cancelSubscriptionFromStripe } =
+          await import('@/services/stripe/subscriptionSyncService');
+        const canceledAt = subscription.canceled_at
+          ? new Date(subscription.canceled_at * 1000)
+          : undefined;
+        const cancelResult = await cancelSubscriptionFromStripe(subscription.id, canceledAt);
+        logger.info('[OT STRIPE WEBHOOK] Subscription canceled', {
+          stripeSubscriptionId: subscription.id,
+          clinicId,
+          success: cancelResult.success,
+          skipped: cancelResult.skipped,
+        });
+        return {
+          success: cancelResult.success || cancelResult.skipped === true,
+          details: {
+            stripeSubscriptionId: subscription.id,
+            localId: cancelResult.subscriptionId,
+            skipped: cancelResult.skipped,
+          },
         };
       }
 

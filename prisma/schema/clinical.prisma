@@ -103,6 +103,7 @@ model AIConversation {
   sessionId     String
   isActive      Boolean     @default(true)
   lastMessageAt DateTime?
+  summary       String? // AI-generated conversation summary for long-context memory
   patient       Patient?    @relation(fields: [patientId], references: [id])
   messages      AIMessage[]
 
@@ -123,6 +124,9 @@ model AIMessage {
   completionTokens Int?
   estimatedCost    Float?
   responseTimeMs   Int?
+  toolCallsCount   Int? // Number of tool calls made during this response
+  firstTokenMs     Int? // Time to first streamed token (TTFT)
+  model            String? // Model used for this response
   conversation     AIConversation @relation(fields: [conversationId], references: [id])
 
   @@index([conversationId])

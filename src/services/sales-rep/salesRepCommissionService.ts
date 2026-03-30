@@ -18,6 +18,7 @@ import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { getDatePartsInTz, midnightInTz } from '@/lib/utils/timezone';
 import type { CommissionEventStatus, CommissionPlanType } from '@prisma/client';
+import { COMMISSION_ELIGIBLE_ROLES } from '@/lib/constants/commission-eligible-roles';
 
 /** Count-based tiers: minSales/maxSales + flat amountCents per commissioned sale */
 const VOLUME_TIER_BASIS_SALE_COUNT = 'SALE_COUNT';
@@ -646,9 +647,9 @@ export async function processPaymentForSalesRepCommission(
 
     const salesRepId = assignment.salesRepId;
 
-    // Verify the rep is an active user
+    // Verify the assigned employee is an active user with a commission-eligible role
     const rep = await prisma.user.findFirst({
-      where: { id: salesRepId, role: 'SALES_REP', status: 'ACTIVE' },
+      where: { id: salesRepId, role: { in: [...COMMISSION_ELIGIBLE_ROLES] }, status: 'ACTIVE' },
       select: { id: true },
     });
 
@@ -656,7 +657,7 @@ export async function processPaymentForSalesRepCommission(
       return {
         success: true,
         skipped: true,
-        skipReason: 'Sales rep not active',
+        skipReason: 'Assigned employee not active or not eligible for commission',
       };
     }
 

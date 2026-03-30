@@ -11,9 +11,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { ensureTenantResource, tenantNotFoundResponse } from '@/lib/tenant-response';
-import { getAuthUser } from '@/lib/auth';
+import { withAuth, type AuthUser } from '@/lib/auth/middleware';
 import { requirePermission, toPermissionContext } from '@/lib/rbac/permissions';
 import { auditPhiAccess, buildAuditPhiOptions } from '@/lib/audit/hipaa-audit';
+import { handleApiError } from '@/domains/shared/errors';
 import { z } from 'zod';
 import { isStripeConfigured } from '@/lib/stripe/config';
 import { decryptPatientPHI } from '@/lib/security/phi-encryption';
@@ -56,13 +57,11 @@ type Params = {
   params: Promise<{ id: string }>;
 };
 
-export async function GET(request: NextRequest, { params }: Params) {
+async function getHandler(request: NextRequest, user: AuthUser, context?: Params) {
   try {
-    const user = await getAuthUser(request);
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     requirePermission(toPermissionContext(user), 'invoice:view');
 
-    const resolvedParams = await params;
+    const resolvedParams = await context!.params;
     const id = parseInt(resolvedParams.id, 10);
 
     if (isNaN(id)) {
@@ -160,21 +159,15 @@ export async function GET(request: NextRequest, { params }: Params) {
       invoice,
     });
   } catch (error: unknown) {
-    logger.error('[API] Error fetching invoice:', error);
-
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : String(error) || 'Failed to fetch invoice' },
-      { status: 500 }
-    );
+    return handleApiError(error, { route: 'GET /api/stripe/invoices/[id]' });
   }
 }
 
-export async function POST(request: NextRequest, { params }: Params) {
-  try {
-    const user = await getAuthUser(request);
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+export const GET = withAuth<Params>(getHandler);
 
-    const resolvedParams = await params;
+async function postHandler(request: NextRequest, user: AuthUser, context?: Params) {
+  try {
+    const resolvedParams = await context!.params;
     const id = parseInt(resolvedParams.id, 10);
 
     if (isNaN(id)) {
@@ -557,26 +550,20 @@ export async function POST(request: NextRequest, { params }: Params) {
         );
     }
   } catch (error: unknown) {
-    logger.error('[API] Error processing invoice action:', error);
-
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : String(error) || 'Failed to process invoice action' },
-      { status: 500 }
-    );
+    return handleApiError(error, { route: 'POST /api/stripe/invoices/[id]' });
   }
 }
+
+export const POST = withAuth<Params>(postHandler);
 
 /**
  * PATCH - Edit invoice before payment
  *
  * Can edit: description, due date, memo, line items (for DRAFT invoices)
  */
-export async function PATCH(request: NextRequest, { params }: Params) {
+async function patchHandler(request: NextRequest, user: AuthUser, context?: Params) {
   try {
-    const user = await getAuthUser(request);
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
-    const resolvedParams = await params;
+    const resolvedParams = await context!.params;
     const id = parseInt(resolvedParams.id, 10);
 
     if (isNaN(id)) {
@@ -745,33 +732,20 @@ export async function PATCH(request: NextRequest, { params }: Params) {
       message: 'No changes applied',
     });
   } catch (error: unknown) {
-    logger.error('[API] Error updating invoice:', error);
-
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: 'Invalid request data', details: error.errors },
-        { status: 400 }
-      );
-    }
-
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : String(error) || 'Failed to update invoice' },
-      { status: 500 }
-    );
+    return handleApiError(error, { route: 'PATCH /api/stripe/invoices/[id]' });
   }
 }
+
+export const PATCH = withAuth<Params>(patchHandler);
 
 /**
  * DELETE - Delete an unpaid invoice
  *
  * Can only delete DRAFT or OPEN invoices that haven't been paid
  */
-export async function DELETE(request: NextRequest, { params }: Params) {
+async function deleteHandler(request: NextRequest, user: AuthUser, context?: Params) {
   try {
-    const user = await getAuthUser(request);
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
-    const resolvedParams = await params;
+    const resolvedParams = await context!.params;
     const id = parseInt(resolvedParams.id, 10);
 
     if (isNaN(id)) {
@@ -854,11 +828,8 @@ export async function DELETE(request: NextRequest, { params }: Params) {
       deletedId: id,
     });
   } catch (error: unknown) {
-    logger.error('[API] Error deleting invoice:', error);
-
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : String(error) || 'Failed to delete invoice' },
-      { status: 500 }
-    );
+    return handleApiError(error, { route: 'DELETE /api/stripe/invoices/[id]' });
   }
 }
+
+export const DELETE = withAuth<Params>(deleteHandler);

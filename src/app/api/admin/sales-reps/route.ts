@@ -13,6 +13,7 @@ import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { handleApiError } from '@/domains/shared/errors';
+import { COMMISSION_ELIGIBLE_ROLES } from '@/lib/constants/commission-eligible-roles';
 
 /**
  * GET /api/admin/sales-reps
@@ -29,12 +30,11 @@ async function handleGet(req: NextRequest, user: AuthUser): Promise<Response> {
       ? (clinicIdParam ? parseInt(clinicIdParam, 10) : undefined)
       : user.clinicId;
 
-    // Support querying multiple roles (e.g. ?roles=SALES_REP,ADMIN for override manager dropdown)
     const rolesParam = searchParams.get('roles');
-    const allowedRoles = ['SALES_REP', 'ADMIN', 'STAFF'];
+    const allowedRoles: readonly string[] = COMMISSION_ELIGIBLE_ROLES;
     const requestedRoles = rolesParam
       ? rolesParam.split(',').filter((r) => allowedRoles.includes(r))
-      : ['SALES_REP'];
+      : [...COMMISSION_ELIGIBLE_ROLES];
 
     const whereClause: Record<string, unknown> = {
       role: requestedRoles.length === 1 ? requestedRoles[0] : { in: requestedRoles },

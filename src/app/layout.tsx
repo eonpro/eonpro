@@ -66,7 +66,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
               <SessionExpirationHandler />
               <ConditionalHeader />
               <ConditionalLayout>{children}</ConditionalLayout>
-              {/* Becca AI Assistant - Only shown for authenticated users with proper roles */}
+              {/* Becca AI v2 — Streaming + Tool Calling */}
               <BeccaAIGlobalChat />
             </ToastProvider>
             </QueryProvider>

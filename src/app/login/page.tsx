@@ -2081,24 +2081,30 @@ function LoginContent() {
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                          {/* Use iconUrl or faviconUrl for smaller icon display, fallback to logoUrl */}
-                          {clinic.iconUrl || clinic.faviconUrl || clinic.logoUrl ? (
+                          {(clinic.iconUrl || clinic.faviconUrl || clinic.logoUrl) && (
                             <img
                               src={clinic.iconUrl || clinic.faviconUrl || clinic.logoUrl || ''}
                               alt={clinic.name}
-                              className="h-10 w-10 rounded-lg object-contain"
+                              className="h-10 w-10 flex-shrink-0 rounded-lg object-contain"
                               width={40}
                               height={40}
                               loading="lazy"
+                              onError={(e) => {
+                                e.currentTarget.style.display = 'none';
+                                const fallback = e.currentTarget.nextElementSibling as HTMLElement | null;
+                                if (fallback) fallback.style.display = '';
+                              }}
                             />
-                          ) : (
-                            <div
-                              className="flex h-10 w-10 items-center justify-center rounded-lg"
-                              style={{ backgroundColor: `${primaryColor}20` }}
-                            >
-                              <Building2 className="h-5 w-5" style={{ color: primaryColor }} />
-                            </div>
                           )}
+                          <div
+                            className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg"
+                            style={{
+                              backgroundColor: `${primaryColor}20`,
+                              display: clinic.iconUrl || clinic.faviconUrl || clinic.logoUrl ? 'none' : '',
+                            }}
+                          >
+                            <Building2 className="h-5 w-5" style={{ color: primaryColor }} />
+                          </div>
                           <div>
                             <p className="font-medium text-gray-900">{clinic.name}</p>
                             <p className="text-sm capitalize text-gray-500">{clinic.role}</p>

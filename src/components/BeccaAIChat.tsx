@@ -1,17 +1,28 @@
 'use client';
 
-import { useState, useEffect, useRef, KeyboardEvent } from 'react';
-import { logger } from '@/lib/logger';
+import { useState, useEffect, useRef, useCallback, type KeyboardEvent } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { apiFetch } from '@/lib/api/fetch';
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
 
 interface Message {
   id?: number;
-  role: 'user' | 'assistant';
+  role: 'user' | 'assistant' | 'tool';
   content: string;
   createdAt?: string;
-  confidence?: number;
-  queryType?: string;
   isStreaming?: boolean;
+  toolCalls?: ToolCallEvent[];
+}
+
+interface ToolCallEvent {
+  name: string;
+  description: string;
+  status: 'running' | 'done';
+  summary?: string;
 }
 
 interface BeccaAIChatProps {
@@ -24,63 +35,30 @@ interface BeccaAIChatProps {
   onClose?: () => void;
 }
 
-// Typing indicator component - ChatGPT style
-function TypingIndicator() {
+// ---------------------------------------------------------------------------
+// Subcomponents
+// ---------------------------------------------------------------------------
+
+function ToolCallIndicator({ tc }: { tc: ToolCallEvent }) {
   return (
-    <div className="flex items-center gap-1 px-1">
-      <div className="flex gap-1">
-        <span className="h-2 w-2 animate-bounce rounded-full bg-gray-400 [animation-delay:-0.3s]" />
-        <span className="h-2 w-2 animate-bounce rounded-full bg-gray-400 [animation-delay:-0.15s]" />
-        <span className="h-2 w-2 animate-bounce rounded-full bg-gray-400" />
-      </div>
+    <div className="my-1 flex items-center gap-2 rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-600">
+      {tc.status === 'running' ? (
+        <svg className="h-3.5 w-3.5 animate-spin text-[#17aa7b]" fill="none" viewBox="0 0 24 24">
+          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+        </svg>
+      ) : (
+        <svg className="h-3.5 w-3.5 text-[#17aa7b]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+        </svg>
+      )}
+      <span>{tc.status === 'running' ? tc.description : tc.summary || tc.description}</span>
     </div>
   );
 }
 
-// Thinking state component
-function ThinkingState({ stage }: { stage: string }) {
-  return (
-    <div className="flex items-center gap-2 text-sm text-gray-500">
-      <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
-        <circle
-          className="opacity-25"
-          cx="12"
-          cy="12"
-          r="10"
-          stroke="currentColor"
-          strokeWidth="4"
-        />
-        <path
-          className="opacity-75"
-          fill="currentColor"
-          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-        />
-      </svg>
-      <span className="animate-pulse">{stage}</span>
-    </div>
-  );
-}
-
-// Message bubble component
 function MessageBubble({ message, isLast }: { message: Message; isLast: boolean }) {
   const isUser = message.role === 'user';
-
-  // Parse markdown-style formatting in the message
-  const formatContent = (content: string) => {
-    // Handle the medical disclaimer specially
-    if (content.includes('---\n*For educational')) {
-      const [mainContent, disclaimer] = content.split('---\n');
-      return (
-        <>
-          <div className="whitespace-pre-wrap">{mainContent.trim()}</div>
-          <div className="mt-3 border-t border-gray-200 pt-3 text-xs italic text-gray-500">
-            {disclaimer?.replace(/\*/g, '').trim()}
-          </div>
-        </>
-      );
-    }
-    return <div className="whitespace-pre-wrap">{content}</div>;
-  };
 
   return (
     <div className={`flex ${isUser ? 'justify-end' : 'justify-start'} mb-3`}>
@@ -91,34 +69,120 @@ function MessageBubble({ message, isLast }: { message: Message; isLast: boolean 
             : 'rounded-[20px] rounded-bl-[4px] bg-[#f0f0f0] text-gray-900'
         } ${isLast && !isUser ? 'animate-fadeIn' : ''}`}
       >
-        <div className="text-[15px] leading-relaxed">
-          {message.isStreaming ? <TypingIndicator /> : formatContent(message.content)}
-        </div>
+        {/* Tool call indicators */}
+        {message.toolCalls && message.toolCalls.length > 0 && (
+          <div className="mb-2">
+            {message.toolCalls.map((tc, i) => (
+              <ToolCallIndicator key={i} tc={tc} />
+            ))}
+          </div>
+        )}
+
+        {/* Content */}
+        {message.isStreaming && !message.content ? (
+          <div className="flex items-center gap-1 px-1">
+            <div className="flex gap-1">
+              <span className="h-2 w-2 animate-bounce rounded-full bg-gray-400 [animation-delay:-0.3s]" />
+              <span className="h-2 w-2 animate-bounce rounded-full bg-gray-400 [animation-delay:-0.15s]" />
+              <span className="h-2 w-2 animate-bounce rounded-full bg-gray-400" />
+            </div>
+          </div>
+        ) : (
+          <div className="becca-prose text-[15px] leading-relaxed">
+            {isUser ? (
+              <span>{message.content}</span>
+            ) : (
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
-// Quick action chip
-function QuickAction({
-  label,
-  onClick,
-  icon,
-}: {
-  label: string;
-  onClick: () => void;
-  icon?: React.ReactNode;
-}) {
+function QuickAction({ label, onClick }: { label: string; onClick: () => void }) {
   return (
     <button
       onClick={onClick}
-      className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-700 shadow-sm transition-all duration-200 hover:border-gray-300 hover:bg-gray-50"
+      className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-700 shadow-sm transition-all duration-200 hover:border-[#17aa7b]/30 hover:bg-[#17aa7b]/5 hover:text-[#17aa7b]"
     >
-      {icon}
-      <span className="max-w-[200px] truncate">{label}</span>
+      <span className="max-w-[220px] truncate">{label}</span>
     </button>
   );
 }
+
+// ---------------------------------------------------------------------------
+// SSE Parser
+// ---------------------------------------------------------------------------
+
+function parseSSELine(line: string): { event: string; data: unknown } | null {
+  if (!line.startsWith('event:') && !line.startsWith('data:')) return null;
+  return null; // handled by buffered parser below
+}
+
+async function consumeSSEStream(
+  reader: ReadableStreamDefaultReader<Uint8Array>,
+  handlers: {
+    onTextDelta: (content: string) => void;
+    onToolCallStart: (name: string, description: string) => void;
+    onToolCallResult: (name: string, summary: string) => void;
+    onSuggestions: (suggestions: string[]) => void;
+    onDone: (data: { sessionId: string; messageId: number }) => void;
+    onError: (message: string) => void;
+  },
+) {
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let currentEvent = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() || '';
+
+    for (const line of lines) {
+      if (line.startsWith('event: ')) {
+        currentEvent = line.slice(7).trim();
+      } else if (line.startsWith('data: ')) {
+        const raw = line.slice(6);
+        try {
+          const data = JSON.parse(raw);
+          switch (currentEvent) {
+            case 'text_delta':
+              handlers.onTextDelta(data.content ?? '');
+              break;
+            case 'tool_call_start':
+              handlers.onToolCallStart(data.name, data.description);
+              break;
+            case 'tool_call_result':
+              handlers.onToolCallResult(data.name, data.summary);
+              break;
+            case 'suggestions':
+              handlers.onSuggestions(data.suggestions ?? []);
+              break;
+            case 'done':
+              handlers.onDone(data);
+              break;
+            case 'error':
+              handlers.onError(data.message ?? 'Unknown error');
+              break;
+          }
+        } catch {
+          // Ignore malformed JSON lines
+        }
+        currentEvent = '';
+      }
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Main Component
+// ---------------------------------------------------------------------------
 
 export default function BeccaAIChat({
   userEmail,
@@ -132,192 +196,173 @@ export default function BeccaAIChat({
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [thinkingStage, setThinkingStage] = useState<string>('');
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
-  // Initialize with welcome message
+  // Initialize welcome message
   useEffect(() => {
     if (messages.length === 0) {
-      const welcomeMessage: Message = {
+      const welcome: Message = {
         role: 'assistant',
         content: patientName
-          ? `Hi! I'm Becca, your AI assistant. I can help you with information about ${patientName}, clinical questions, prescriptions, and more.\n\nWhat would you like to know?`
-          : `Hi! I'm Becca, your AI assistant. I can help you with:\n\n• Patient information & records\n• Clinical questions about GLP-1 medications\n• Prescription directions (SIGs)\n• SOAP note guidance\n• Platform workflows\n\nHow can I help you today?`,
+          ? `Hi! I can help you with information about **${patientName}** — orders, prescriptions, SOAP notes, tracking, and clinical questions.\n\nWhat would you like to know?`
+          : `Hi! I'm Becca, your clinical assistant. I can help with:\n\n- **Patient lookups** — search by name, DOB, or email\n- **Orders & tracking** — status, shipping, prescriptions\n- **Clinical guidance** — GLP-1 dosing, SIG templates, SOAP notes\n- **Clinic stats** — patient counts, pending items\n\nHow can I help?`,
         createdAt: new Date().toISOString(),
       };
-      setMessages([welcomeMessage]);
+      setMessages([welcome]);
 
-      // Set initial suggestions
       if (patientName) {
-        setSuggestions([
-          `Show ${patientName}'s recent orders`,
-          `What prescriptions does ${patientName} have?`,
-        ]);
+        setSuggestions([`Show ${patientName}'s recent orders`, `What prescriptions does ${patientName} have?`]);
       } else {
-        setSuggestions([
-          'What is the semaglutide titration schedule?',
-          'Help me write a prescription SIG',
-          'How many patients are in the system?',
-        ]);
+        setSuggestions(['How many patients do we have?', 'What is the semaglutide titration schedule?']);
       }
     }
   }, [patientName, messages.length]);
 
-  // Auto-scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isLoading]);
 
-  // Focus input on mount
   useEffect(() => {
-    if (embedded) {
-      inputRef.current?.focus();
-    }
+    if (embedded) inputRef.current?.focus();
   }, [embedded]);
 
-  // Simulate thinking stages
-  const simulateThinking = async () => {
-    const stages = [
-      'Understanding your question...',
-      'Searching knowledge base...',
-      'Generating response...',
-    ];
+  const sendMessage = useCallback(
+    async (messageText?: string) => {
+      const text = (messageText || input).trim();
+      if (!text || isLoading) return;
 
-    for (const stage of stages) {
-      setThinkingStage(stage);
-      await new Promise((resolve) => setTimeout(resolve, 600 + Math.random() * 400));
-    }
-  };
+      const userMsg: Message = { role: 'user', content: text, createdAt: new Date().toISOString() };
+      setMessages((prev) => [...prev, userMsg]);
+      setInput('');
+      setIsLoading(true);
+      setSuggestions([]);
 
-  // Send message
-  const sendMessage = async (messageText?: string) => {
-    const textToSend = messageText || input.trim();
-    if (!textToSend || isLoading) return;
+      // Create streaming placeholder
+      const streamingMsg: Message = { role: 'assistant', content: '', isStreaming: true, toolCalls: [] };
+      setMessages((prev) => [...prev, streamingMsg]);
 
-    const userMessage: Message = {
-      role: 'user',
-      content: textToSend,
-      createdAt: new Date().toISOString(),
-    };
+      const controller = new AbortController();
+      abortRef.current = controller;
 
-    setMessages((prev) => [...prev, userMessage]);
-    setInput('');
-    setIsLoading(true);
-    setSuggestions([]);
-
-    // Add streaming placeholder
-    setMessages((prev) => [...prev, { role: 'assistant', content: '', isStreaming: true }]);
-
-    // Start thinking animation
-    const thinkingPromise = simulateThinking();
-
-    try {
-      // Try to get clinicId from cookie as fallback
-      let effectiveClinicId = clinicId;
-      if (!effectiveClinicId) {
-        const cookies = document.cookie.split(';');
-        for (const cookie of cookies) {
-          const [name, value] = cookie.trim().split('=');
-          if (name === 'selected-clinic' && value) {
-            effectiveClinicId = parseInt(value, 10) || undefined;
-            break;
-          }
+      try {
+        let effectiveClinicId = clinicId;
+        if (!effectiveClinicId && typeof document !== 'undefined') {
+          const match = document.cookie.match(/(?:^|;\s*)selected-clinic=(\d+)/);
+          if (match) effectiveClinicId = parseInt(match[1], 10) || undefined;
         }
-      }
 
-      const response = await apiFetch('/api/ai/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          query: textToSend,
-          userEmail,
-          sessionId: sessionId || undefined,
-          patientId: patientId || undefined,
-          clinicId: effectiveClinicId || undefined,
-        }),
-      });
+        const res = await fetch('/api/ai/chat/stream', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            query: text,
+            userEmail,
+            sessionId: sessionId || undefined,
+            patientId: patientId || undefined,
+            clinicId: effectiveClinicId || undefined,
+          }),
+          signal: controller.signal,
+          credentials: 'include',
+        });
 
-      // Wait for thinking animation to complete
-      await thinkingPromise;
-
-      const data = await response.json();
-
-      // Remove streaming placeholder and add real message
-      setMessages((prev) => {
-        const filtered = prev.filter((m) => !m.isStreaming);
-        if (data.ok) {
-          return [
-            ...filtered,
-            {
-              id: data.data.messageId,
-              role: 'assistant',
-              content: data.data.answer,
-              createdAt: new Date().toISOString(),
-              confidence: data.data.confidence,
-            },
-          ];
-        } else {
-          return [
-            ...filtered,
-            {
-              role: 'assistant',
-              content:
-                "I'm sorry, I encountered an error processing your request. Please try again.",
-              createdAt: new Date().toISOString(),
-            },
-          ];
+        if (!res.ok || !res.body) {
+          throw new Error(`HTTP ${res.status}`);
         }
-      });
 
-      if (data.ok) {
-        setSessionId(data.data.sessionId);
-        generateSuggestions(textToSend, data.data.answer);
-      }
-    } catch (err: unknown) {
-      logger.error('Error sending message:', err);
-      setMessages((prev) => {
-        const filtered = prev.filter((m) => !m.isStreaming);
-        return [
-          ...filtered,
-          {
-            role: 'assistant',
-            content:
-              "I'm having trouble connecting right now. Please check your connection and try again.",
-            createdAt: new Date().toISOString(),
+        const reader = res.body.getReader();
+
+        await consumeSSEStream(reader, {
+          onTextDelta(content) {
+            setMessages((prev) => {
+              const arr = [...prev];
+              const last = arr[arr.length - 1];
+              if (last?.isStreaming) {
+                arr[arr.length - 1] = { ...last, content: last.content + content };
+              }
+              return arr;
+            });
           },
-        ];
-      });
-    } finally {
-      setIsLoading(false);
-      setThinkingStage('');
-    }
-  };
+          onToolCallStart(name, description) {
+            setMessages((prev) => {
+              const arr = [...prev];
+              const last = arr[arr.length - 1];
+              if (last?.isStreaming) {
+                const toolCalls = [...(last.toolCalls || []), { name, description, status: 'running' as const }];
+                arr[arr.length - 1] = { ...last, toolCalls };
+              }
+              return arr;
+            });
+          },
+          onToolCallResult(name, summary) {
+            setMessages((prev) => {
+              const arr = [...prev];
+              const last = arr[arr.length - 1];
+              if (last?.isStreaming) {
+                const toolCalls = (last.toolCalls || []).map((tc) =>
+                  tc.name === name && tc.status === 'running'
+                    ? { ...tc, status: 'done' as const, summary }
+                    : tc,
+                );
+                arr[arr.length - 1] = { ...last, toolCalls };
+              }
+              return arr;
+            });
+          },
+          onSuggestions(newSuggestions) {
+            setSuggestions(newSuggestions);
+          },
+          onDone(data) {
+            setSessionId(data.sessionId);
+            setMessages((prev) => {
+              const arr = [...prev];
+              const last = arr[arr.length - 1];
+              if (last?.isStreaming) {
+                arr[arr.length - 1] = { ...last, id: data.messageId, isStreaming: false };
+              }
+              return arr;
+            });
+          },
+          onError(message) {
+            setMessages((prev) => {
+              const arr = [...prev];
+              const last = arr[arr.length - 1];
+              if (last?.isStreaming) {
+                arr[arr.length - 1] = {
+                  ...last,
+                  content: `I'm sorry, something went wrong. ${message}`,
+                  isStreaming: false,
+                };
+              }
+              return arr;
+            });
+          },
+        });
+      } catch (err: unknown) {
+        if ((err as Error).name === 'AbortError') return;
+        setMessages((prev) => {
+          const arr = [...prev];
+          const last = arr[arr.length - 1];
+          if (last?.isStreaming) {
+            arr[arr.length - 1] = {
+              ...last,
+              content: "I'm having trouble connecting. Please check your connection and try again.",
+              isStreaming: false,
+            };
+          }
+          return arr;
+        });
+      } finally {
+        setIsLoading(false);
+        abortRef.current = null;
+      }
+    },
+    [input, isLoading, clinicId, userEmail, sessionId, patientId],
+  );
 
-  // Generate contextual suggestions
-  const generateSuggestions = (query: string, response: string) => {
-    const responseLower = response.toLowerCase();
-    const newSuggestions: string[] = [];
-
-    if (responseLower.includes('semaglutide') || responseLower.includes('tirzepatide')) {
-      newSuggestions.push('What are the common side effects?');
-      newSuggestions.push('Show me the titration protocol');
-    } else if (responseLower.includes('prescription') || responseLower.includes('sig')) {
-      newSuggestions.push('Generate a different SIG');
-      newSuggestions.push('What quantity should I prescribe?');
-    } else if (responseLower.includes('patient')) {
-      newSuggestions.push('Show more details');
-      newSuggestions.push('Any recent orders?');
-    } else {
-      newSuggestions.push('Tell me more');
-    }
-
-    setSuggestions(newSuggestions.slice(0, 2));
-  };
-
-  // Handle keyboard
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -325,15 +370,14 @@ export default function BeccaAIChat({
     }
   };
 
-  // Auto-resize textarea
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setInput(e.target.value);
     e.target.style.height = 'auto';
     e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
   };
 
-  // Clear chat
   const clearChat = () => {
+    if (abortRef.current) abortRef.current.abort();
     setMessages([]);
     setSessionId(null);
     setSuggestions([]);
@@ -341,26 +385,16 @@ export default function BeccaAIChat({
 
   return (
     <div className={`flex h-full flex-col bg-white ${className}`}>
-      {/* Messages area */}
+      {/* Messages */}
       <div className="flex-1 overflow-y-auto px-4 py-4">
-        {messages.map((message, index) => (
-          <MessageBubble key={index} message={message} isLast={index === messages.length - 1} />
+        {messages.map((msg, i) => (
+          <MessageBubble key={i} message={msg} isLast={i === messages.length - 1} />
         ))}
 
-        {/* Thinking indicator */}
-        {isLoading && thinkingStage && (
-          <div className="mb-3 flex justify-start">
-            <div className="rounded-[20px] rounded-bl-[4px] bg-[#f0f0f0] px-4 py-3 text-gray-900">
-              <ThinkingState stage={thinkingStage} />
-            </div>
-          </div>
-        )}
-
-        {/* Quick suggestions */}
         {suggestions.length > 0 && !isLoading && (
           <div className="mb-2 mt-2 flex flex-wrap gap-2">
-            {suggestions.map((suggestion, index) => (
-              <QuickAction key={index} label={suggestion} onClick={() => sendMessage(suggestion)} />
+            {suggestions.map((s, i) => (
+              <QuickAction key={i} label={s} onClick={() => sendMessage(s)} />
             ))}
           </div>
         )}
@@ -368,7 +402,7 @@ export default function BeccaAIChat({
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input area - iMessage style */}
+      {/* Input */}
       <div className="border-t border-gray-100 bg-white px-4 py-3">
         <div className="flex items-end gap-2">
           <div className="relative flex-1">
@@ -377,7 +411,7 @@ export default function BeccaAIChat({
               value={input}
               onChange={handleInputChange}
               onKeyDown={handleKeyDown}
-              placeholder="Message Becca..."
+              placeholder={patientName ? `Ask about ${patientName}...` : 'Message Becca...'}
               className="max-h-[120px] w-full resize-none rounded-[20px] bg-[#f0f0f0] px-4 py-2.5 text-[15px] placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#17aa7b]/30"
               rows={1}
               disabled={isLoading}
@@ -393,44 +427,39 @@ export default function BeccaAIChat({
             }`}
           >
             <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M5 12h14M12 5l7 7-7 7"
-              />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h14M12 5l7 7-7 7" />
             </svg>
           </button>
         </div>
 
-        {/* Footer actions */}
         {messages.length > 1 && (
           <div className="mt-2 flex justify-center">
-            <button
-              onClick={clearChat}
-              className="text-xs text-gray-400 transition-colors hover:text-gray-600"
-            >
+            <button onClick={clearChat} className="text-xs text-gray-400 transition-colors hover:text-gray-600">
               Clear conversation
             </button>
           </div>
         )}
       </div>
 
-      {/* Custom styles for animations */}
-      <style jsx>{`
+      <style jsx global>{`
         @keyframes fadeIn {
-          from {
-            opacity: 0;
-            transform: translateY(10px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
+          from { opacity: 0; transform: translateY(10px); }
+          to { opacity: 1; transform: translateY(0); }
         }
-        .animate-fadeIn {
-          animation: fadeIn 0.3s ease-out;
-        }
+        .animate-fadeIn { animation: fadeIn 0.3s ease-out; }
+
+        .becca-prose p { margin: 0.25em 0; }
+        .becca-prose ul, .becca-prose ol { margin: 0.25em 0; padding-left: 1.25em; }
+        .becca-prose li { margin: 0.1em 0; }
+        .becca-prose strong { font-weight: 600; }
+        .becca-prose table { width: 100%; border-collapse: collapse; margin: 0.5em 0; font-size: 0.85em; }
+        .becca-prose th, .becca-prose td { border: 1px solid #e5e7eb; padding: 4px 8px; text-align: left; }
+        .becca-prose th { background: #f9fafb; font-weight: 600; }
+        .becca-prose code { background: #f3f4f6; padding: 1px 4px; border-radius: 3px; font-size: 0.9em; }
+        .becca-prose pre { background: #f3f4f6; padding: 8px 12px; border-radius: 6px; overflow-x: auto; margin: 0.5em 0; }
+        .becca-prose pre code { background: none; padding: 0; }
+        .becca-prose hr { border: none; border-top: 1px solid #e5e7eb; margin: 0.75em 0; }
+        .becca-prose blockquote { border-left: 3px solid #17aa7b; padding-left: 12px; margin: 0.5em 0; color: #6b7280; }
       `}</style>
     </div>
   );

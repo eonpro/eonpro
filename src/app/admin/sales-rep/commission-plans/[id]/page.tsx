@@ -363,11 +363,11 @@ export default function SalesRepCommissionPlanDetailPage() {
         <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</div>
       )}
 
-      {/* Assigned rep + hourly rate */}
+      {/* Assigned employee + hourly rate */}
       <section className="mb-8 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
         <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-gray-900">
           <Users className="h-5 w-5" />
-          Assigned rep & compensation
+          Assigned employee & compensation
         </h2>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -414,13 +414,13 @@ export default function SalesRepCommissionPlanDetailPage() {
         </div>
         <div className="mt-4 flex flex-wrap items-end gap-3 rounded-lg border border-dashed border-gray-200 bg-gray-50/50 p-4">
           <div>
-            <label className="block text-xs font-medium text-gray-500">Add rep</label>
+            <label className="block text-xs font-medium text-gray-500">Add employee</label>
             <select
               value={addRepId === '' ? '' : addRepId}
               onChange={(e) => setAddRepId(e.target.value === '' ? '' : Number(e.target.value))}
               className="mt-1 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
             >
-              <option value="">Select rep</option>
+              <option value="">Select employee</option>
               {availableReps.map((r) => (
                 <option key={r.id} value={r.id}>
                   {r.firstName} {r.lastName}

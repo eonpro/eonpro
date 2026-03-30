@@ -386,9 +386,14 @@ export function PatientBillingView({ patientId, patientName, clinicSubdomain }: 
 
       if (res.ok) {
         const data = await res.json();
-        window.open(data.url, '_blank');
+        if (data.url) {
+          window.location.href = data.url;
+        } else {
+          toast.error('No portal URL returned. Check Stripe billing portal configuration.');
+        }
       } else {
-        toast.error('Failed to open customer portal');
+        const data = await res.json().catch(() => ({} as Record<string, unknown>));
+        toast.error((data.error as string) || 'Failed to open customer portal');
       }
     } catch (err: unknown) {
       logger.error('Error opening customer portal:', err);

@@ -17,6 +17,7 @@ import {
   type DispositionStatus,
   Prisma,
 } from '@prisma/client';
+import { COMMISSION_ELIGIBLE_ROLES } from '@/lib/constants/commission-eligible-roles';
 
 // ============================================================================
 // Types
@@ -98,12 +99,12 @@ export async function createDisposition(input: CreateDispositionInput) {
   }
 
   const rep = await prisma.user.findFirst({
-    where: { id: salesRepId, role: 'SALES_REP', status: 'ACTIVE' },
+    where: { id: salesRepId, role: { in: [...COMMISSION_ELIGIBLE_ROLES] }, status: 'ACTIVE' },
     select: { id: true },
   });
 
   if (!rep) {
-    throw new Error('Sales rep not found or inactive');
+    throw new Error('Employee not found, inactive, or not eligible for commissions');
   }
 
   const disposition = await prisma.salesRepDisposition.create({

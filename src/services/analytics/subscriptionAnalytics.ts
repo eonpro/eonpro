@@ -15,6 +15,16 @@ import {
   eachMonthOfInterval,
 } from 'date-fns';
 import type { DateRange } from './revenueAnalytics';
+import { decryptPHI } from '@/lib/security/phi-encryption';
+
+function safeDecrypt(value: string | null | undefined): string {
+  if (!value) return '';
+  try {
+    return decryptPHI(value) || value;
+  } catch {
+    return value;
+  }
+}
 
 // Types
 export interface SubscriptionMetrics {
@@ -492,9 +502,9 @@ export class SubscriptionAnalyticsService {
             id: sub.id,
             patientId: sub.patientId,
             patientName: sub.patient
-              ? `${sub.patient.firstName} ${sub.patient.lastName}`
+              ? `${safeDecrypt(sub.patient.firstName)} ${safeDecrypt(sub.patient.lastName)}`.trim()
               : 'Unknown',
-            patientEmail: sub.patient?.email || '',
+            patientEmail: sub.patient?.email ? safeDecrypt(sub.patient.email) : '',
             planName: sub.planName,
             status: sub.status,
             amount: sub.amount,
@@ -550,8 +560,10 @@ export class SubscriptionAnalyticsService {
       return subscriptions.map((sub: (typeof subscriptions)[number]) => ({
         id: sub.id,
         patientId: sub.patientId,
-        patientName: sub.patient ? `${sub.patient.firstName} ${sub.patient.lastName}` : 'Unknown',
-        patientEmail: sub.patient?.email || '',
+        patientName: sub.patient
+          ? `${safeDecrypt(sub.patient.firstName)} ${safeDecrypt(sub.patient.lastName)}`.trim()
+          : 'Unknown',
+        patientEmail: sub.patient?.email ? safeDecrypt(sub.patient.email) : '',
         planName: sub.planName,
         status: sub.status,
         amount: sub.amount,
@@ -560,8 +572,8 @@ export class SubscriptionAnalyticsService {
         canceledAt: sub.canceledAt,
         cancelReason:
           ((sub.metadata as Record<string, unknown> | null)?.cancelReason as string) || null,
-        lifetimeValue: 0, // Would need additional query
-        paymentCount: 0, // Would need additional query
+        lifetimeValue: 0,
+        paymentCount: 0,
         daysSinceStart: differenceInDays(now, sub.createdAt),
       }));
     });
@@ -610,8 +622,10 @@ export class SubscriptionAnalyticsService {
         return {
           id: sub.id,
           patientId: sub.patientId,
-          patientName: sub.patient ? `${sub.patient.firstName} ${sub.patient.lastName}` : 'Unknown',
-          patientEmail: sub.patient?.email || '',
+          patientName: sub.patient
+            ? `${safeDecrypt(sub.patient.firstName)} ${safeDecrypt(sub.patient.lastName)}`.trim()
+            : 'Unknown',
+          patientEmail: sub.patient?.email ? safeDecrypt(sub.patient.email) : '',
           planName: sub.planName,
           status: sub.status,
           amount: sub.amount,
