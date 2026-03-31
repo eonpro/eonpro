@@ -145,24 +145,33 @@ export async function runStreamingAssistant(
       })),
     });
 
-    for (const tc of currentToolCalls.values()) {
+    // Emit all tool_call_start events immediately
+    const toolCallEntries = Array.from(currentToolCalls.values());
+    for (const tc of toolCallEntries) {
       toolCallsCount++;
-      const toolDescription = getToolDescription(tc.name);
-      writer.write('tool_call_start', { name: tc.name, description: toolDescription });
+      writer.write('tool_call_start', { name: tc.name, description: getToolDescription(tc.name) });
+    }
 
-      let args: Record<string, unknown>;
-      try {
-        args = JSON.parse(tc.args);
-      } catch {
-        args = {};
-      }
+    // Execute all tool calls in parallel for faster response
+    const results = await Promise.all(
+      toolCallEntries.map(async (tc) => {
+        let args: Record<string, unknown>;
+        try {
+          args = JSON.parse(tc.args);
+        } catch {
+          args = {};
+        }
+        const result = await routeToolCall(tc.name, args, ctx.clinicId);
+        return { tc, result };
+      }),
+    );
 
-      const result = await routeToolCall(tc.name, args, ctx.clinicId);
+    // Emit results and build response messages
+    for (const { tc, result } of results) {
       writer.write('tool_call_result', {
         name: tc.name,
         summary: summarizeToolResult(tc.name, result),
       });
-
       toolCallResults.push({
         role: 'tool',
         tool_call_id: tc.id,

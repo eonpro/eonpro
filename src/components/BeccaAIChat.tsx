@@ -57,13 +57,44 @@ function ToolCallIndicator({ tc }: { tc: ToolCallEvent }) {
   );
 }
 
-function MessageBubble({ message, isLast }: { message: Message; isLast: boolean }) {
-  const isUser = message.role === 'user';
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch { /* clipboard not available */ }
+  };
 
   return (
-    <div className={`flex ${isUser ? 'justify-end' : 'justify-start'} mb-3`}>
+    <button
+      onClick={handleCopy}
+      className="absolute -right-1 top-1 rounded-md p-1 text-gray-400 opacity-0 transition-all hover:bg-gray-200 hover:text-gray-600 group-hover/msg:opacity-100"
+      title="Copy to clipboard"
+    >
+      {copied ? (
+        <svg className="h-3.5 w-3.5 text-[#17aa7b]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+        </svg>
+      ) : (
+        <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+        </svg>
+      )}
+    </button>
+  );
+}
+
+function MessageBubble({ message, isLast }: { message: Message; isLast: boolean }) {
+  const isUser = message.role === 'user';
+  const showCopy = !isUser && !message.isStreaming && message.content.length > 0;
+
+  return (
+    <div className={`group/msg relative flex ${isUser ? 'justify-end' : 'justify-start'} mb-3`}>
       <div
-        className={`max-w-[85%] px-4 py-2.5 ${
+        className={`relative max-w-[85%] px-4 py-2.5 ${
           isUser
             ? 'rounded-[20px] rounded-br-[4px] bg-[#17aa7b] text-white'
             : 'rounded-[20px] rounded-bl-[4px] bg-[#f0f0f0] text-gray-900'
@@ -92,10 +123,31 @@ function MessageBubble({ message, isLast }: { message: Message; isLast: boolean 
             {isUser ? (
               <span>{message.content}</span>
             ) : (
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                components={{
+                  a: ({ href, children }) => {
+                    const isInternal = href?.startsWith('/');
+                    return (
+                      <a
+                        href={href}
+                        className="font-medium text-[#17aa7b] underline decoration-[#17aa7b]/30 underline-offset-2 hover:decoration-[#17aa7b]"
+                        {...(isInternal ? {} : { target: '_blank', rel: 'noopener noreferrer' })}
+                      >
+                        {children}
+                      </a>
+                    );
+                  },
+                }}
+              >
+                {message.content}
+              </ReactMarkdown>
             )}
           </div>
         )}
+
+        {/* Copy button */}
+        {showCopy && <CopyButton text={message.content} />}
       </div>
     </div>
   );
@@ -230,6 +282,8 @@ export default function BeccaAIChat({
     if (embedded) inputRef.current?.focus();
   }, [embedded]);
 
+  const sendMessageRef = useRef<(text?: string) => void>();
+
   const sendMessage = useCallback(
     async (messageText?: string) => {
       const text = (messageText || input).trim();
@@ -363,6 +417,21 @@ export default function BeccaAIChat({
     [input, isLoading, clinicId, userEmail, sessionId, patientId],
   );
 
+  // Keep ref current for event listener
+  sendMessageRef.current = sendMessage;
+
+  // Listen for quick-action chip events from the parent panel
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const query = (e as CustomEvent).detail;
+      if (typeof query === 'string' && query.trim()) {
+        sendMessageRef.current?.(query);
+      }
+    };
+    window.addEventListener('becca-send', handler);
+    return () => window.removeEventListener('becca-send', handler);
+  }, []);
+
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -408,6 +477,7 @@ export default function BeccaAIChat({
           <div className="relative flex-1">
             <textarea
               ref={inputRef}
+              data-becca-input
               value={input}
               onChange={handleInputChange}
               onKeyDown={handleKeyDown}

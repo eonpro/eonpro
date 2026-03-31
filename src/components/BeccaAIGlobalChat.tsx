@@ -188,14 +188,40 @@ export default function BeccaAIGlobalChat({ userEmail }: BeccaAIGlobalChatProps)
               </div>
             </div>
 
-            {/* Patient context bar */}
+            {/* Patient context bar with quick-action chips */}
             {patientInfo?.name && (
               <div className="border-b border-[#17aa7b]/10 bg-[#17aa7b]/5 px-4 py-2">
                 <div className="flex items-center gap-2 text-sm">
-                  <svg className="h-4 w-4 text-[#17aa7b]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="h-4 w-4 shrink-0 text-[#17aa7b]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                   </svg>
                   <span className="font-medium text-[#17aa7b]">{patientInfo.name}</span>
+                </div>
+                <div className="mt-1.5 flex gap-1.5 overflow-x-auto pb-0.5">
+                  {[
+                    { label: 'Orders', query: `Show ${patientInfo.name}'s recent orders` },
+                    { label: 'Rx', query: `What prescriptions does ${patientInfo.name} have?` },
+                    { label: 'SOAP', query: `Show ${patientInfo.name}'s latest SOAP notes` },
+                    { label: 'Tracking', query: `What's the tracking status for ${patientInfo.name}?` },
+                    { label: 'Weight', query: `Show ${patientInfo.name}'s weight history` },
+                  ].map((chip) => (
+                    <button
+                      key={chip.label}
+                      onClick={() => {
+                        const chatEl = document.querySelector<HTMLTextAreaElement>('[data-becca-input]');
+                        if (chatEl) {
+                          const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value')?.set;
+                          nativeInputValueSetter?.call(chatEl, chip.query);
+                          chatEl.dispatchEvent(new Event('input', { bubbles: true }));
+                          chatEl.form?.requestSubmit?.();
+                        }
+                        window.dispatchEvent(new CustomEvent('becca-send', { detail: chip.query }));
+                      }}
+                      className="shrink-0 rounded-full border border-[#17aa7b]/20 bg-white px-2.5 py-0.5 text-[11px] font-medium text-[#17aa7b] transition-colors hover:bg-[#17aa7b]/10"
+                    >
+                      {chip.label}
+                    </button>
+                  ))}
                 </div>
               </div>
             )}

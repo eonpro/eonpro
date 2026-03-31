@@ -27,6 +27,7 @@ export const baseAdminNavConfig: AdminNavItemConfig[] = [
   { path: '/admin/subscription-renewals', label: 'Renewals', iconKey: 'CreditCard', groupKey: 'memberships' },
   { path: '/admin/finance/pending-profiles', label: 'Pending Profiles', iconKey: 'ClipboardCheck', groupKey: 'memberships' },
   { path: '/admin/orders', label: 'Orders', iconKey: 'ShoppingCart', groupKey: 'orders', groupLabel: 'Orders', groupIconKey: 'ShoppingCart' },
+  { path: '/admin/order-sets', label: 'Order Sets', iconKey: 'ClipboardList', groupKey: 'orders' },
   { path: '/admin/shipping', label: 'Shipping', iconKey: 'Truck', groupKey: 'orders' },
   { path: '/admin/shipment-monitor', label: 'Shipments', iconKey: 'BarChart3', groupKey: 'orders' },
   { path: '/tickets', label: 'Tickets', iconKey: 'Ticket' },

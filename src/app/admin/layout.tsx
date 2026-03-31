@@ -37,6 +37,7 @@ import {
   BarChart3,
   Calculator,
   Award,
+  ClipboardList,
 } from 'lucide-react';
 import dynamic from 'next/dynamic';
 const InternalChat = dynamic(() => import('@/components/InternalChat'), { ssr: false });
@@ -156,6 +157,7 @@ const adminNavIconMap = {
   Video,
   BarChart3,
   Award,
+  ClipboardList,
 } as const;
 
 function AdminLayoutInner({ children }: { children: React.ReactNode }) {

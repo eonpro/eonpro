@@ -3631,8 +3631,8 @@ export default function PrescriptionQueuePage() {
                           </div>
                         </div>
                         {prescriptionPanel.details.patient.allergies && (
-                          <div className="mt-3 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-2.5 text-sm text-amber-800">
-                            <ShieldAlert className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-500" />
+                          <div className="mt-3 flex items-start gap-2 rounded-lg border border-[#efec97] bg-[#f2fdb4]/30 p-2.5 text-sm text-[#6b5d10]">
+                            <ShieldAlert className="mt-0.5 h-4 w-4 flex-shrink-0 text-[#c4a835]" />
                             <div>
                               <span className="font-semibold">Allergies:</span>{' '}
                               {prescriptionPanel.details.patient.allergies}
@@ -3646,25 +3646,25 @@ export default function PrescriptionQueuePage() {
                         <div
                           className={`overflow-hidden rounded-xl border shadow-sm ${
                             prescriptionPanel.details.soapNote?.isApproved
-                              ? 'border-emerald-200 bg-emerald-50/50'
-                              : 'border-amber-200 bg-amber-50/50'
+                              ? 'border-[#66a682]/30 bg-[#66a682]/5'
+                              : 'border-[#efec97]/80 bg-[#f2fdb4]/20'
                           }`}
                         >
                           <div className={`border-b px-4 py-3 ${
                             prescriptionPanel.details.soapNote?.isApproved
-                              ? 'border-emerald-100 bg-emerald-50'
-                              : 'border-amber-100 bg-amber-50'
+                              ? 'border-[#66a682]/20 bg-[#66a682]/10'
+                              : 'border-[#efec97]/60 bg-[#f2fdb4]/30'
                           }`}>
                             <h3 className="flex items-center gap-2 font-semibold text-gray-900">
                               <ClipboardCheck className={`h-4 w-4 ${
-                                prescriptionPanel.details.soapNote?.isApproved ? 'text-emerald-600' : 'text-amber-500'
+                                prescriptionPanel.details.soapNote?.isApproved ? 'text-[#66a682]' : 'text-[#c4a835]'
                               }`} />
                               Clinical Documentation
                               <span
                                 className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wide ${
                                   prescriptionPanel.details.soapNote?.isApproved
-                                    ? 'bg-emerald-100 text-emerald-700'
-                                    : 'bg-amber-100 text-amber-700'
+                                    ? 'bg-[#66a682]/15 text-[#3d6b50]'
+                                    : 'bg-[#f2fdb4]/60 text-[#8a7a20]'
                                 }`}
                               >
                                 {prescriptionPanel.details.soapNoteStatus}
@@ -3673,8 +3673,8 @@ export default function PrescriptionQueuePage() {
                           </div>
                           <div className="p-4">
                             {!prescriptionPanel.details.soapNote?.isApproved && (
-                              <div className="mb-3 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 p-2.5 text-sm font-medium text-amber-800">
-                                <AlertTriangle className="h-4 w-4 text-amber-500" />
+                              <div className="mb-3 flex items-center gap-2 rounded-lg border border-[#efec97] bg-[#f2fdb4]/30 p-2.5 text-sm font-medium text-[#6b5d10]">
+                                <AlertTriangle className="h-4 w-4 text-[#c4a835]" />
                                 <span>SOAP note requires provider approval before prescribing.</span>
                               </div>
                             )}
@@ -3682,7 +3682,7 @@ export default function PrescriptionQueuePage() {
                             <p className="text-sm text-gray-600">
                               SOAP note available for this patient.
                               {prescriptionPanel.details.soapNote?.generatedByAI && (
-                                <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-violet-50 px-2 py-0.5 text-xs font-medium text-violet-600">
+                                <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-[#66a682]/10 px-2 py-0.5 text-xs font-medium text-[#66a682]">
                                   <Sparkles className="h-3 w-3" /> AI Generated
                                 </span>
                               )}
@@ -3714,7 +3714,7 @@ export default function PrescriptionQueuePage() {
 
                             {prescriptionPanel.details.soapNote?.isApproved &&
                               prescriptionPanel.details.soapNote?.approvedByProvider && (
-                                <p className="mt-2 text-xs font-medium text-emerald-600">
+                                <p className="mt-2 text-xs font-medium text-[#66a682]">
                                   Approved by{' '}
                                   {prescriptionPanel.details.soapNote.approvedByProvider.firstName}{' '}
                                   {prescriptionPanel.details.soapNote.approvedByProvider.lastName}
@@ -3755,10 +3755,10 @@ export default function PrescriptionQueuePage() {
                           </div>
                         </div>
                       ) : (
-                        <div className="overflow-hidden rounded-xl border border-amber-200 bg-amber-50/30 shadow-sm">
-                          <div className="border-b border-amber-100 bg-amber-50 px-4 py-3">
+                        <div className="overflow-hidden rounded-xl border border-[#efec97]/80 bg-[#f2fdb4]/15 shadow-sm">
+                          <div className="border-b border-[#efec97]/60 bg-[#f2fdb4]/25 px-4 py-3">
                             <h3 className="flex items-center gap-2 font-semibold text-gray-900">
-                              <FileWarning className="h-4 w-4 text-amber-500" />
+                              <FileWarning className="h-4 w-4 text-[#c4a835]" />
                               Missing SOAP Note
                             </h3>
                           </div>
@@ -3786,9 +3786,9 @@ export default function PrescriptionQueuePage() {
                       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                         {/* Previous Dosage / Previous Prescription Card */}
                         {prescriptionPanel.item.hasPreviousRx ? (
-                          <div className="overflow-hidden rounded-xl border border-orange-200 bg-orange-50/30 shadow-sm">
-                            <div className="border-b border-orange-100 bg-orange-50 px-4 py-2.5">
-                              <h3 className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-orange-700">
+                          <div className="overflow-hidden rounded-xl border border-[#e8fa87]/60 bg-[#e8fa87]/10 shadow-sm">
+                            <div className="border-b border-[#e8fa87]/50 bg-[#e8fa87]/20 px-4 py-2.5">
+                              <h3 className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#5a7a30]">
                                 <FileText className="h-3.5 w-3.5" />
                                 Previous Prescription
                               </h3>
@@ -3803,12 +3803,12 @@ export default function PrescriptionQueuePage() {
                                     <p className="text-base font-bold text-gray-900 leading-tight">
                                       {rxDetails.medName}
                                     </p>
-                                    <p className="text-sm font-semibold text-orange-700">
+                                    <p className="text-sm font-semibold text-[#5a7a30]">
                                       {rxDetails.strength}
-                                      {rxDetails.dose !== null && <span className="ml-1 text-orange-500">({rxDetails.dose}mg)</span>}
+                                      {rxDetails.dose !== null && <span className="ml-1 text-[#7a9a50]">({rxDetails.dose}mg)</span>}
                                     </p>
-                                    <div className="rounded-lg border border-orange-100 bg-orange-50 p-2.5">
-                                      <p className="text-[10px] font-bold uppercase tracking-wider text-orange-400">Sig (Directions)</p>
+                                    <div className="rounded-lg border border-[#e8fa87]/40 bg-[#e8fa87]/15 p-2.5">
+                                      <p className="text-[10px] font-bold uppercase tracking-wider text-[#8aaa60]">Sig (Directions)</p>
                                       <p className="mt-1 text-sm leading-relaxed text-gray-800">{rxDetails.sig}</p>
                                     </div>
                                     {prescriptionPanel.item.glp1Source === 'last_prescription' && (
@@ -3825,7 +3825,7 @@ export default function PrescriptionQueuePage() {
                                     <p className="text-3xl font-bold tracking-tight text-gray-900">
                                       {glp1.lastDose ? `${glp1.lastDose}mg` : 'N/A'}
                                     </p>
-                                    <p className="mt-1 text-sm font-medium text-orange-600">
+                                    <p className="mt-1 text-sm font-medium text-[#5a7a30]">
                                       {glp1.glp1Type || 'GLP-1 Medication'}
                                     </p>
                                   </div>
@@ -3840,9 +3840,9 @@ export default function PrescriptionQueuePage() {
                             </div>
                           </div>
                         ) : (
-                          <div className="overflow-hidden rounded-xl border border-sky-200 bg-sky-50/30 shadow-sm">
-                            <div className="border-b border-sky-100 bg-sky-50 px-4 py-2.5">
-                              <h3 className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-sky-700">
+                          <div className="overflow-hidden rounded-xl border border-[#66a682]/25 bg-[#66a682]/5 shadow-sm">
+                            <div className="border-b border-[#66a682]/15 bg-[#66a682]/10 px-4 py-2.5">
+                              <h3 className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#3d6b50]">
                                 <Pill className="h-3.5 w-3.5" />
                                 Previous Dosage
                               </h3>
@@ -3861,7 +3861,7 @@ export default function PrescriptionQueuePage() {
                                     <p className="text-3xl font-bold tracking-tight text-gray-900">
                                       {dose ? `${dose}mg` : 'N/A'}
                                     </p>
-                                    <p className="mt-1 text-sm font-semibold text-sky-600">
+                                    <p className="mt-1 text-sm font-semibold text-[#66a682]">
                                       {medType || 'GLP-1 Medication'}
                                     </p>
                                     {ctx?.sideEffects && (
@@ -3873,7 +3873,7 @@ export default function PrescriptionQueuePage() {
                                 );
                               }
                               return (
-                                <p className="text-sm font-medium text-sky-400 italic">
+                                <p className="text-sm font-medium text-[#66a682]/60 italic">
                                   No prior GLP-1 history
                                 </p>
                               );
@@ -3883,9 +3883,9 @@ export default function PrescriptionQueuePage() {
                         )}
 
                         {/* Amount Paid Card */}
-                        <div className="overflow-hidden rounded-xl border border-emerald-200 bg-emerald-50/30 shadow-sm">
-                          <div className="border-b border-emerald-100 bg-emerald-50 px-4 py-2.5">
-                            <h3 className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-emerald-700">
+                        <div className="overflow-hidden rounded-xl border border-[#66a682]/25 bg-[#66a682]/5 shadow-sm">
+                          <div className="border-b border-[#66a682]/15 bg-[#66a682]/10 px-4 py-2.5">
+                            <h3 className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#3d6b50]">
                               <DollarSign className="h-3.5 w-3.5" />
                               Patient Paid
                             </h3>
@@ -3900,7 +3900,7 @@ export default function PrescriptionQueuePage() {
                               {prescriptionPanel.item.treatment || 'Treatment'}
                             </p>
                             {prescriptionPanel.item.plan && prescriptionPanel.item.plan !== 'N/A' && (
-                              <p className="mt-0.5 text-xs font-medium text-emerald-600">
+                              <p className="mt-0.5 text-xs font-medium text-[#66a682]">
                                 Plan: {prescriptionPanel.item.plan}
                               </p>
                             )}
@@ -4045,9 +4045,9 @@ export default function PrescriptionQueuePage() {
                       </div>
 
                       {/* Plan Duration Info - Important for prescribing */}
-                      <div className="overflow-hidden rounded-xl border border-violet-200 bg-violet-50/30 shadow-sm">
-                        <div className="border-b border-violet-100 bg-violet-50 px-4 py-2.5">
-                          <h3 className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-violet-700">
+                      <div className="overflow-hidden rounded-xl border border-[#f2fdb4]/80 bg-[#f2fdb4]/15 shadow-sm">
+                        <div className="border-b border-[#f2fdb4]/60 bg-[#f2fdb4]/25 px-4 py-2.5">
+                          <h3 className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#6b5d10]">
                             <Calendar className="h-3.5 w-3.5" />
                             Prescription Duration
                           </h3>
@@ -4056,9 +4056,9 @@ export default function PrescriptionQueuePage() {
                           <span
                             className={`inline-flex items-center rounded-lg px-3 py-1.5 text-sm font-bold ${
                               prescriptionPanel.item.planMonths >= 6
-                                ? 'bg-emerald-100 text-emerald-800'
+                                ? 'bg-[#66a682]/15 text-[#3d6b50]'
                                 : prescriptionPanel.item.planMonths >= 3
-                                  ? 'bg-violet-100 text-violet-800'
+                                  ? 'bg-[#f2fdb4]/50 text-[#6b5d10]'
                                   : 'bg-gray-100 text-gray-800'
                             }`}
                           >
@@ -4518,9 +4518,9 @@ export default function PrescriptionQueuePage() {
                   <div className="flex-1 space-y-4 p-4 sm:p-6">
                     {/* Card 1: Previous Prescription / GLP-1 History */}
                     {prescriptionPanel.item.hasPreviousRx ? (
-                      <div className="overflow-hidden rounded-xl border border-orange-200 bg-orange-50/30">
-                        <div className="flex items-center gap-2 border-b border-orange-200 bg-orange-50 px-4 py-2.5">
-                          <FileText className="h-4 w-4 text-orange-600" />
+                      <div className="overflow-hidden rounded-xl border border-[#e8fa87]/60 bg-[#e8fa87]/10">
+                        <div className="flex items-center gap-2 border-b border-[#e8fa87]/50 bg-[#e8fa87]/20 px-4 py-2.5">
+                          <FileText className="h-4 w-4 text-[#5a7a30]" />
                           <h3 className="text-sm font-semibold text-gray-900">Previous Prescription</h3>
                           <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-bold text-gray-700">
                             RENEWAL
@@ -4606,9 +4606,9 @@ export default function PrescriptionQueuePage() {
                     )}
 
                     {/* Card 2: What Patient Paid For */}
-                    <div className="overflow-hidden rounded-xl border border-emerald-200 bg-emerald-50/30">
-                      <div className="flex items-center gap-2 border-b border-emerald-200 bg-emerald-50 px-4 py-2.5">
-                        <DollarSign className="h-4 w-4 text-emerald-600" />
+                    <div className="overflow-hidden rounded-xl border border-[#66a682]/25 bg-[#66a682]/5">
+                      <div className="flex items-center gap-2 border-b border-[#66a682]/15 bg-[#66a682]/10 px-4 py-2.5">
+                        <DollarSign className="h-4 w-4 text-[#66a682]" />
                         <h3 className="text-sm font-semibold text-gray-900">What Patient Paid For</h3>
                       </div>
                       <div className="grid grid-cols-2 gap-x-4 gap-y-2 px-4 py-3">
@@ -4634,9 +4634,9 @@ export default function PrescriptionQueuePage() {
                     </div>
 
                     {/* Card 3: Medications Being Prescribed */}
-                    <div className="overflow-hidden rounded-xl border border-sky-200 bg-sky-50/30">
-                      <div className="flex items-center gap-2 border-b border-sky-200 bg-sky-50 px-4 py-2.5">
-                        <Pill className="h-4 w-4 text-sky-600" />
+                    <div className="overflow-hidden rounded-xl border border-[#e8fa87]/60 bg-[#e8fa87]/10">
+                      <div className="flex items-center gap-2 border-b border-[#e8fa87]/50 bg-[#e8fa87]/20 px-4 py-2.5">
+                        <Pill className="h-4 w-4 text-[#5a7a30]" />
                         <h3 className="text-sm font-semibold text-gray-900">
                           Medications Being Sent to Pharmacy
                         </h3>
