@@ -383,7 +383,7 @@ interface PrescriptionFormState {
   medications: MedicationItem[];
   shippingMethod: string;
   // Pharmacy gender: Lifefile only accepts 'm' or 'f'
-  // When patient gender is 'other' or unknown, provider must select biological sex
+  // When patient gender is not set, provider must select biological sex
   pharmacyGender: 'm' | 'f' | '';
   // Address fields (for editing if missing)
   address1: string;
@@ -4376,7 +4376,7 @@ export default function PrescriptionQueuePage() {
                           </h3>
                           <p className="text-sm text-amber-700">
                             The pharmacy requires biological sex for prescription processing.
-                            Patient gender is not set or is &quot;Other&quot;. Please select:
+                            Patient gender is not set. Please select:
                           </p>
                           <div className="flex gap-3" role="radiogroup" aria-label="Biological Sex">
                             {[

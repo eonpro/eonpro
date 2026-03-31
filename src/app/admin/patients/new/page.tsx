@@ -73,7 +73,7 @@ export default function NewPatientPage() {
     email: '',
     phone: '',
     dob: '',
-    gender: '' as 'male' | 'female' | 'other' | 'prefer_not_to_say' | '',
+    gender: '' as 'male' | 'female' | '',
     address1: '',
     address2: '',
     city: '',
@@ -282,8 +282,6 @@ export default function NewPatientPage() {
                 <option value="">Select gender</option>
                 <option value="male">Male</option>
                 <option value="female">Female</option>
-                <option value="other">Other</option>
-                <option value="prefer_not_to_say">Prefer not to say</option>
               </select>
             </div>
           </div>

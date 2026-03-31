@@ -486,7 +486,7 @@ All errors follow this format:
           email: { type: 'string', format: 'email' },
           phone: { type: 'string' },
           dob: { type: 'string', format: 'date' },
-          gender: { type: 'string', enum: ['male', 'female', 'other'] },
+          gender: { type: 'string', enum: ['male', 'female'] },
           address1: { type: 'string' },
           city: { type: 'string' },
           state: { type: 'string' },

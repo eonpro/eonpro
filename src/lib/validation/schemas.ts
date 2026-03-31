@@ -113,7 +113,7 @@ export const patientCreateSchema = z.object({
   email: emailSchema,
   phone: phoneSchema,
   dob: dobSchema,
-  gender: z.enum(['Male', 'Female', 'Other', 'Prefer not to say']),
+  gender: z.enum(['Male', 'Female']),
   address1: z.string().min(1, 'Address is required').max(200),
   address2: z.string().max(200).optional(),
   city: z.string().min(1, 'City is required').max(100),

@@ -666,12 +666,12 @@ export class ReportingService {
   /**
    * Normalize gender for consistent grouping
    */
-  private normalizeGender(raw: string | null): 'Male' | 'Female' | 'Other' {
-    if (!raw || typeof raw !== 'string') return 'Other';
+  private normalizeGender(raw: string | null): 'Male' | 'Female' | 'Unknown' {
+    if (!raw || typeof raw !== 'string') return 'Unknown';
     const v = raw.trim().toLowerCase();
     if (['m', 'male'].includes(v)) return 'Male';
     if (['f', 'female'].includes(v)) return 'Female';
-    return 'Other';
+    return 'Unknown';
   }
 
   /**
@@ -818,7 +818,7 @@ export class ReportingService {
       });
     if (otherCount > 0)
       genderBreakdown.push({
-        value: 'Other',
+        value: 'Unknown',
         count: otherCount,
         percentage: genderTotal > 0 ? Math.round((otherCount / genderTotal) * 10000) / 100 : 0,
       });

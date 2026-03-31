@@ -11,7 +11,6 @@ import { apiFetch } from '@/lib/api/fetch';
 const GENDER_OPTIONS = [
   { value: 'Male', label: 'Male' },
   { value: 'Female', label: 'Female' },
-  { value: 'Other', label: 'Other' },
 ];
 
 // Normalize gender from database format to dropdown format
@@ -20,7 +19,6 @@ function normalizeGenderForDropdown(gender: string | null | undefined): string {
   const g = gender.toLowerCase().trim();
   if (g === 'm' || g === 'male' || g === 'man') return 'Male';
   if (g === 'f' || g === 'female' || g === 'woman') return 'Female';
-  if (g === 'other' || g === 'o' || g === 'non-binary') return 'Other';
   return '';
 }
 
@@ -85,7 +83,7 @@ export default function EditPatientForm({ patient, documents }: Props) {
   };
 
   const save = async () => {
-    if (!['Male', 'Female', 'Other'].includes(form.gender)) {
+    if (!['Male', 'Female'].includes(form.gender)) {
       setMessage('Select patient gender before saving.');
       return;
     }

@@ -496,7 +496,7 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
     }
 
     // CRITICAL: Lifefile pharmacy API only accepts 'm' or 'f' for gender.
-    // 'other' or empty values cause a 422 rejection.
+    // Empty values cause a 422 rejection.
     // Map to Lifefile-compatible value or reject with a clear message.
     const lifefileGender = (() => {
       const g = (p.patient.gender || '').toLowerCase().trim();

@@ -43,11 +43,7 @@ const genderSchema = z.string().transform((val, ctx) => {
   if (['f', 'female', 'woman'].includes(normalized)) {
     return 'f';
   }
-  // Accept other/non-binary
-  if (['other', 'o', 'non-binary', 'nonbinary', 'nb'].includes(normalized)) {
-    return 'other';
-  }
-  ctx.addIssue({ code: z.ZodIssueCode.custom, message: `Invalid gender: ${val}` });
+  ctx.addIssue({ code: z.ZodIssueCode.custom, message: `Invalid gender: ${val}. Only Male or Female is accepted.` });
   return z.NEVER;
 });
 

@@ -28,7 +28,7 @@ export const PatientIdentitySchema = z.object({
       /^\d{4}-\d{2}-\d{2}$|^\d{1,2}\/\d{1,2}\/\d{4}$/,
       'Date must be YYYY-MM-DD or MM/DD/YYYY'
     ),
-  gender: z.enum(['male', 'female', 'other', 'Male', 'Female', 'Other', 'm', 'f', 'M', 'F']),
+  gender: z.enum(['male', 'female', 'Male', 'Female', 'm', 'f', 'M', 'F']),
 });
 
 export const AddressSchema = z.object({

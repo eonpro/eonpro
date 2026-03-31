@@ -27,7 +27,7 @@ const createPatientSchema = z.object({
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/, 'Date of birth must be in YYYY-MM-DD format')
     .optional(),
-  gender: z.enum(['male', 'female', 'other', 'prefer_not_to_say']).optional(),
+  gender: z.enum(['male', 'female']).optional(),
   address1: z.string().max(200).optional(),
   address2: z.string().max(200).optional(),
   city: z.string().max(100).optional(),
