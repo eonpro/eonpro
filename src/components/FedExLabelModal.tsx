@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { X, Loader2, Printer, Package, Truck, AlertCircle, Zap, DollarSign, Download } from 'lucide-react';
 import { AddressInput, type AddressData } from '@/components/AddressAutocomplete';
 import { apiFetch } from '@/lib/api/fetch';
@@ -73,13 +73,18 @@ export default function FedExLabelModal({
   orders = [],
   onClose,
 }: Props) {
-  const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
   const [labelFormat] = useState<LabelFormat>('PDF');
 
   const untrackedOrders = useMemo(
     () => orders.filter((o) => !o.trackingNumber && o.status !== 'cancelled'),
     [orders],
   );
+
+  const [selectedOrderId, setSelectedOrderId] = useState<number | null>(() => {
+    const untracked = orders.filter((o) => !o.trackingNumber && o.status !== 'cancelled');
+    if (untracked.length === 0) return null;
+    return [...untracked].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0].id;
+  });
 
   const [origin, setOrigin] = useState<Address>({
     personName: 'Logos RX',
@@ -185,6 +190,16 @@ export default function FedExLabelModal({
       setRateLoading(false);
     }
   };
+
+  const autoFetched = useRef(false);
+  useEffect(() => {
+    if (autoFetched.current) return;
+    if (origin.address1 && origin.zip && destination.address1 && destination.zip) {
+      autoFetched.current = true;
+      handleGetRate();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const printLabel4x6 = (base64: string, _format: string = 'PDF', _trackingNum?: string): boolean => {
     const pdfBytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
