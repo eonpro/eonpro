@@ -39,12 +39,21 @@ import {
   CalendarDays,
   FileDown,
   Table,
+  Building2,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api/fetch';
+import { isLogosRxHost } from '@/lib/constants/brand-assets';
+import { useAuthStore } from '@/lib/stores/authStore';
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
+
+interface AssignableClinic {
+  id: number;
+  name: string;
+  subdomain: string | null;
+}
 
 interface PackagePhotoRecord {
   id: number;
@@ -61,6 +70,8 @@ interface PackagePhotoRecord {
   capturedBy: { id: number; firstName: string; lastName: string; email: string };
   patient: { id: number; firstName: string; lastName: string } | null;
   order: { id: number; lifefileOrderId: string | null; status: string | null; trackingNumber: string | null } | null;
+  assignedClinicId: number | null;
+  assignedClinic: { id: number; name: string } | null;
 }
 
 interface UploadResult {
@@ -74,6 +85,8 @@ interface UploadResult {
   orderId: number | null;
   s3Url: string;
   createdAt: string;
+  assignedClinicId: number | null;
+  assignedClinic: { id: number; name: string } | null;
 }
 
 interface AuditStats {
@@ -360,6 +373,16 @@ function StepIndicator({ step }: { step: CaptureStep }) {
 export default function PackagePhotosPage() {
   const [mode, setMode] = useState<'capture' | 'audit'>('capture');
   const [sessionCount, setSessionCount] = useState(0);
+  const authUser = useAuthStore((s) => s.user);
+  const [isPharmacy, setIsPharmacy] = useState(true);
+
+  useEffect(() => {
+    setIsPharmacy(isLogosRxHost() || authUser?.role === 'pharmacy_rep' || authUser?.role === 'super_admin');
+  }, [authUser]);
+
+  if (!isPharmacy && authUser?.clinicId) {
+    return <AssignedPackagesView clinicId={authUser.clinicId} />;
+  }
 
   return (
     <div className="mx-auto max-w-6xl px-3 py-3 sm:px-6 sm:py-5">
@@ -416,6 +439,267 @@ export default function PackagePhotosPage() {
 }
 
 // ---------------------------------------------------------------------------
+// Assigned Packages View — Read-only list for clinic admins (Wellnow, SIPAMed)
+// ---------------------------------------------------------------------------
+
+function AssignedPackagesView({ clinicId }: { clinicId: number }) {
+  const [photos, setPhotos] = useState<PackagePhotoRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [selectedPhoto, setSelectedPhoto] = useState<PackagePhotoRecord | null>(null);
+  const [periodFilter, setPeriodFilter] = useState<string>('all');
+  const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const fetchPhotos = useCallback(async (searchVal: string, periodVal: string, pageVal: number) => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams();
+      params.set('assignedClinicId', String(clinicId));
+      if (searchVal) params.set('search', searchVal);
+      if (periodVal !== 'all') params.set('period', periodVal);
+      params.set('sortBy', 'createdAt');
+      params.set('sortOrder', 'desc');
+      params.set('page', String(pageVal));
+      params.set('limit', '25');
+
+      const res = await apiFetch(`/api/package-photos?${params.toString()}`);
+      if (res.ok) {
+        const json = await res.json();
+        setPhotos(json.data);
+        setTotalPages(json.meta.totalPages);
+        setTotal(json.meta.total);
+      }
+    } catch { /* silent */ }
+    finally { setLoading(false); }
+  }, [clinicId]);
+
+  useEffect(() => {
+    fetchPhotos(search, periodFilter, page);
+  }, [fetchPhotos, periodFilter, page]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleSearchChange = useCallback((value: string) => {
+    setSearch(value);
+    if (searchTimeout.current) clearTimeout(searchTimeout.current);
+    searchTimeout.current = setTimeout(() => {
+      setPage(1);
+      fetchPhotos(value, periodFilter, 1);
+    }, 350);
+  }, [fetchPhotos, periodFilter]);
+
+  return (
+    <div className="mx-auto max-w-6xl px-3 py-3 sm:px-6 sm:py-5">
+      {/* Header */}
+      <div className="mb-5 flex items-center gap-2.5 sm:gap-3">
+        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-violet-100 sm:h-10 sm:w-10">
+          <Package className="h-4.5 w-4.5 text-violet-600 sm:h-5 sm:w-5" />
+        </div>
+        <div>
+          <h1 className="text-lg font-bold text-gray-900 sm:text-xl">Assigned Packages</h1>
+          <p className="hidden text-xs text-gray-500 sm:block">
+            Packages assigned to your clinic by the pharmacy
+          </p>
+        </div>
+        <span className="ml-auto rounded-full bg-violet-50 px-3 py-1 text-xs font-semibold text-violet-700">
+          {total} package{total !== 1 ? 's' : ''}
+        </span>
+      </div>
+
+      {/* Filters */}
+      <div className="mb-4 space-y-2">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => handleSearchChange(e.target.value)}
+            placeholder="Search by LifeFile ID or tracking number..."
+            className="w-full rounded-lg border border-gray-200 bg-white py-3 pl-10 pr-4 text-sm font-medium text-gray-900 placeholder:text-gray-400 focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/20 sm:py-2.5"
+          />
+        </div>
+        <select
+          value={periodFilter}
+          onChange={(e) => { setPeriodFilter(e.target.value); setPage(1); }}
+          className="rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm font-medium text-gray-700 focus:border-violet-500 focus:outline-none sm:text-xs"
+        >
+          <option value="all">All Time</option>
+          <option value="today">Today</option>
+          <option value="yesterday">Yesterday</option>
+          <option value="last7">Last 7 Days</option>
+          <option value="last30">Last 30 Days</option>
+          <option value="week">This Week</option>
+          <option value="month">This Month</option>
+        </select>
+      </div>
+
+      {/* Loading */}
+      {loading && (
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="h-6 w-6 animate-spin text-violet-400" />
+        </div>
+      )}
+
+      {/* Empty state */}
+      {!loading && photos.length === 0 && (
+        <div className="py-20 text-center">
+          <Package className="mx-auto mb-3 h-10 w-10 text-gray-200" />
+          <p className="text-sm font-medium text-gray-500">No packages assigned yet</p>
+          <p className="mt-1 text-xs text-gray-400">Packages assigned by the pharmacy will appear here</p>
+        </div>
+      )}
+
+      {/* Photo list */}
+      {!loading && photos.length > 0 && (
+        <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
+          <div className="divide-y divide-gray-100">
+            {photos.map((photo) => (
+              <button
+                key={photo.id}
+                onClick={() => setSelectedPhoto(photo)}
+                className="flex w-full items-center gap-3 px-3 py-4 text-left transition-colors hover:bg-violet-50/30 active:bg-violet-50/50 sm:gap-4 sm:px-4 sm:py-3"
+              >
+                <PhotoThumbnail photoId={photo.id} s3Key={photo.s3Key} size="sm" />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between">
+                    <span className="font-mono text-sm font-bold text-gray-900">{photo.lifefileId}</span>
+                    <span className="text-xs text-gray-400">{relativeTime(photo.createdAt)}</span>
+                  </div>
+                  <div className="mt-0.5 flex items-center gap-2 text-[11px] text-gray-400">
+                    {photo.trackingNumber ? (
+                      <span className="flex items-center gap-0.5 font-mono text-blue-600">
+                        <Truck className="h-3 w-3" />
+                        {photo.trackingNumber.slice(0, 18)}{photo.trackingNumber.length > 18 ? '...' : ''}
+                      </span>
+                    ) : (
+                      <span>No tracking</span>
+                    )}
+                    <span>&middot;</span>
+                    <span>
+                      {new Date(photo.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+                    </span>
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="mt-4 flex items-center justify-between">
+          <span className="text-xs text-gray-400">Page {page} of {totalPages}</span>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page <= 1}
+              className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50 disabled:opacity-30"
+            >
+              <ChevronLeft className="h-3.5 w-3.5" />
+            </button>
+            <button
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={page >= totalPages}
+              className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50 disabled:opacity-30"
+            >
+              <ChevronRight className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Detail modal (read-only — no assignable clinics needed) */}
+      {selectedPhoto && (
+        <AssignedPackageDetailModal photo={selectedPhoto} onClose={() => setSelectedPhoto(null)} />
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Assigned Package Detail Modal — Read-only view for clinic admins
+// ---------------------------------------------------------------------------
+
+function AssignedPackageDetailModal({
+  photo,
+  onClose,
+}: {
+  photo: PackagePhotoRecord;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', handleEsc);
+    return () => document.removeEventListener('keydown', handleEsc);
+  }, [onClose]);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-4" onClick={onClose}>
+      <div
+        className="w-full max-w-lg overflow-hidden rounded-t-2xl bg-white shadow-2xl sm:max-h-[90vh] sm:overflow-y-auto sm:rounded-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="relative bg-gray-900">
+          <PhotoThumbnail photoId={photo.id} s3Key={photo.s3Key} size="full" />
+          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent px-4 pb-3 pt-12">
+            <div className="flex items-end justify-between text-white">
+              <p className="font-mono text-lg font-bold">{photo.lifefileId}</p>
+              <p className="text-[11px] opacity-75">
+                {new Date(photo.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+              </p>
+            </div>
+          </div>
+          <button onClick={onClose} className="absolute right-3 top-3 rounded-full bg-black/40 p-1.5 text-white/80 backdrop-blur-sm transition-colors hover:bg-black/60 hover:text-white">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="p-5 space-y-3">
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-gray-500">LifeFile ID</span>
+            <span className="flex items-center font-mono font-bold text-gray-900">
+              {photo.lifefileId}
+              <CopyButton text={photo.lifefileId} />
+            </span>
+          </div>
+
+          {photo.trackingNumber && (
+            <div className="flex items-center justify-between rounded-xl bg-blue-50 px-4 py-3">
+              <span className="flex items-center gap-1.5 text-xs font-semibold text-blue-700">
+                <Truck className="h-4 w-4" />
+                Tracking
+              </span>
+              <span className="flex items-center font-mono text-xs font-bold text-blue-900">
+                {photo.trackingNumber}
+                <CopyButton text={photo.trackingNumber} />
+              </span>
+            </div>
+          )}
+
+          <div className="rounded-xl bg-gray-50 p-4">
+            <p className="mb-1 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+              <Clock className="h-3 w-3" /> Captured
+            </p>
+            <p className="text-sm text-gray-900">{formatTimestamp(photo.createdAt)}</p>
+          </div>
+
+          {photo.notes && (
+            <div className="text-sm">
+              <span className="text-gray-500">Notes</span>
+              <p className="mt-1 rounded-lg bg-gray-50 px-3 py-2 text-gray-900">{photo.notes}</p>
+            </div>
+          )}
+
+          <DownloadPdfButton photoId={photo.id} lifefileId={photo.lifefileId} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Capture Flow — 3-step: Scan ID → Photograph → Confirm
 // ---------------------------------------------------------------------------
 
@@ -437,6 +721,51 @@ function CaptureFlow({
   const [trackingSaved, setTrackingSaved] = useState(false);
   const idInputRef = useRef<HTMLInputElement>(null);
 
+  // Clinic assignment for unmatched packages
+  const [assignableClinics, setAssignableClinics] = useState<AssignableClinic[]>([]);
+  const [assigningSaving, setAssigningSaving] = useState(false);
+  const [assignedClinic, setAssignedClinic] = useState<{ id: number; name: string } | null>(null);
+  const assignableClinicsLoaded = useRef(false);
+
+  useEffect(() => {
+    if (assignableClinicsLoaded.current) return;
+    assignableClinicsLoaded.current = true;
+    apiFetch('/api/package-photos?assignable-clinics=true')
+      .then(async (res) => {
+        if (res.ok) {
+          const json = await res.json();
+          setAssignableClinics(json.data ?? []);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const handleAssignClinic = useCallback(async (clinicId: number) => {
+    if (!uploadResult) return;
+    setAssigningSaving(true);
+    setError(null);
+    try {
+      const res = await apiFetch(`/api/package-photos/${uploadResult.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ assignedClinicId: clinicId }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'Failed to assign' }));
+        throw new Error(err.error || 'Failed to assign clinic');
+      }
+      const json = await res.json();
+      setAssignedClinic(json.data.assignedClinic ?? null);
+      setUploadResult((prev) =>
+        prev ? { ...prev, assignedClinicId: json.data.assignedClinicId, assignedClinic: json.data.assignedClinic } : prev,
+      );
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to assign clinic.');
+    } finally {
+      setAssigningSaving(false);
+    }
+  }, [uploadResult]);
+
   const reset = useCallback(() => {
     setStep('lifefileId');
     setLifefileId('');
@@ -448,6 +777,7 @@ function CaptureFlow({
     setError(null);
     setTrackingSaving(false);
     setTrackingSaved(false);
+    setAssignedClinic(null);
     setTimeout(() => idInputRef.current?.focus(), 50);
   }, [previewUrl]);
 
@@ -666,6 +996,50 @@ function CaptureFlow({
                 </div>
               )}
             </div>
+
+            {/* Clinic assignment for unmatched packages */}
+            {!uploadResult.matched && (
+              <div className="mb-4 rounded-xl border border-dashed border-gray-200 p-4">
+                {assignedClinic || uploadResult.assignedClinic ? (
+                  <div className="flex items-center justify-between">
+                    <span className="flex items-center gap-1.5 text-xs font-semibold text-violet-700">
+                      <Building2 className="h-4 w-4" />
+                      Assigned to
+                    </span>
+                    <span className="rounded-full bg-violet-50 px-3 py-1 text-xs font-bold text-violet-700">
+                      {(assignedClinic ?? uploadResult.assignedClinic)?.name}
+                    </span>
+                  </div>
+                ) : (
+                  <>
+                    <label className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-gray-700">
+                      <Building2 className="h-3.5 w-3.5 text-gray-400" />
+                      Assign to Clinic <span className="font-normal text-gray-400">(optional)</span>
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      {assignableClinics.map((clinic) => (
+                        <button
+                          key={clinic.id}
+                          onClick={() => handleAssignClinic(clinic.id)}
+                          disabled={assigningSaving}
+                          className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-700 transition-colors hover:border-violet-300 hover:bg-violet-50 hover:text-violet-700 disabled:opacity-50"
+                        >
+                          {clinic.name}
+                        </button>
+                      ))}
+                      {assignableClinics.length === 0 && (
+                        <p className="text-xs text-gray-400">No clinics available</p>
+                      )}
+                    </div>
+                    {assigningSaving && (
+                      <div className="mt-2 flex items-center gap-1.5 text-xs text-gray-400">
+                        <Loader2 className="h-3 w-3 animate-spin" /> Assigning...
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
 
             {/* Tracking section */}
             {uploadResult.trackingNumber || trackingSaved ? (
@@ -891,6 +1265,7 @@ function AuditLog() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [matchFilter, setMatchFilter] = useState<'all' | 'true' | 'false'>('all');
+  const [clinicFilter, setClinicFilter] = useState<string>('all');
   const [periodFilter, setPeriodFilter] = useState<string>('all');
   const [customFrom, setCustomFrom] = useState('');
   const [customTo, setCustomTo] = useState('');
@@ -927,6 +1302,33 @@ function AuditLog() {
   });
   const [individualTo, setIndividualTo] = useState(() => calendarTodayServer());
   const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Assignable clinics for reassignment in modal
+  const [assignableClinics, setAssignableClinics] = useState<AssignableClinic[]>([]);
+  const assignableClinicsLoaded = useRef(false);
+
+  useEffect(() => {
+    if (assignableClinicsLoaded.current) return;
+    assignableClinicsLoaded.current = true;
+    apiFetch('/api/package-photos?assignable-clinics=true')
+      .then(async (res) => {
+        if (res.ok) {
+          const json = await res.json();
+          setAssignableClinics(json.data ?? []);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const handlePhotoAssigned = useCallback((photoId: number, clinic: { id: number; name: string } | null) => {
+    setPhotos((prev) =>
+      prev.map((p) =>
+        p.id === photoId
+          ? { ...p, assignedClinicId: clinic?.id ?? null, assignedClinic: clinic }
+          : p,
+      ),
+    );
+  }, []);
 
   const fetchStats = useCallback(async () => {
     try {
@@ -1014,12 +1416,19 @@ function AuditLog() {
   }, [fetchIndividualReport, fetchRepList, individualFrom, individualTo]);
 
   const fetchPhotos = useCallback(
-    async (searchVal: string, matchVal: string, periodVal: string, sortByVal: string, sortOrderVal: string, pageVal: number, fromVal?: string, toVal?: string) => {
+    async (searchVal: string, matchVal: string, periodVal: string, sortByVal: string, sortOrderVal: string, pageVal: number, fromVal?: string, toVal?: string, clinicFilterVal?: string) => {
       setLoading(true);
       try {
         const params = new URLSearchParams();
         if (searchVal) params.set('search', searchVal);
         if (matchVal !== 'all') params.set('matched', matchVal);
+        if (clinicFilterVal && clinicFilterVal !== 'all') {
+          if (clinicFilterVal === 'unassigned') {
+            params.set('assignedFilter', 'unassigned');
+          } else {
+            params.set('assignedClinicId', clinicFilterVal);
+          }
+        }
         if (periodVal !== 'all') params.set('period', periodVal);
         if (periodVal === 'custom' && fromVal) {
           params.set('from', fromVal);
@@ -1046,8 +1455,8 @@ function AuditLog() {
   useEffect(() => { fetchStats(); }, [fetchStats]);
 
   useEffect(() => {
-    fetchPhotos(search, matchFilter, periodFilter, sortBy, sortOrder, page, customFrom, customTo);
-  }, [fetchPhotos, matchFilter, periodFilter, sortBy, sortOrder, page, customFrom, customTo]); // eslint-disable-line react-hooks/exhaustive-deps
+    fetchPhotos(search, matchFilter, periodFilter, sortBy, sortOrder, page, customFrom, customTo, clinicFilter);
+  }, [fetchPhotos, matchFilter, clinicFilter, periodFilter, sortBy, sortOrder, page, customFrom, customTo]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSearchChange = useCallback(
     (value: string) => {
@@ -1055,10 +1464,10 @@ function AuditLog() {
       if (searchTimeout.current) clearTimeout(searchTimeout.current);
       searchTimeout.current = setTimeout(() => {
         setPage(1);
-        fetchPhotos(value, matchFilter, periodFilter, sortBy, sortOrder, 1, customFrom, customTo);
+        fetchPhotos(value, matchFilter, periodFilter, sortBy, sortOrder, 1, customFrom, customTo, clinicFilter);
       }, 350);
     },
-    [fetchPhotos, matchFilter, periodFilter, sortBy, sortOrder, customFrom, customTo],
+    [fetchPhotos, matchFilter, clinicFilter, periodFilter, sortBy, sortOrder, customFrom, customTo],
   );
 
   const toggleSort = (col: 'createdAt' | 'lifefileId') => {
@@ -2000,6 +2409,17 @@ function AuditLog() {
             <option value="false">Unmatched</option>
           </select>
           <select
+            value={clinicFilter}
+            onChange={(e) => { setClinicFilter(e.target.value); setPage(1); }}
+            className="flex-1 rounded-lg border border-gray-200 bg-white px-3 py-3 text-sm font-medium text-gray-700 focus:border-violet-500 focus:outline-none sm:flex-none sm:py-2.5 sm:text-xs"
+          >
+            <option value="all">All Clinics</option>
+            <option value="unassigned">Unassigned</option>
+            {assignableClinics.map((c) => (
+              <option key={c.id} value={String(c.id)}>{c.name}</option>
+            ))}
+          </select>
+          <select
             value={periodFilter}
             onChange={(e) => {
               setPeriodFilter(e.target.value);
@@ -2109,15 +2529,22 @@ function AuditLog() {
                   <div className="min-w-0 flex-1 md:hidden">
                     <div className="flex items-center justify-between">
                       <span className="font-mono text-sm font-bold text-gray-900">{photo.lifefileId}</span>
-                      {photo.matched ? (
-                        <span className="inline-flex items-center gap-0.5 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
-                          <CheckCircle className="h-3 w-3" /> Matched
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
-                          Unmatched
-                        </span>
-                      )}
+                      <div className="flex items-center gap-1">
+                        {!photo.matched && photo.assignedClinic && (
+                          <span className="inline-flex items-center gap-0.5 rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-semibold text-violet-700">
+                            <Building2 className="h-2.5 w-2.5" /> {photo.assignedClinic.name}
+                          </span>
+                        )}
+                        {photo.matched ? (
+                          <span className="inline-flex items-center gap-0.5 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
+                            <CheckCircle className="h-3 w-3" /> Matched
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
+                            Unmatched
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <div className="mt-0.5 flex items-center gap-2 text-[11px] text-gray-400">
                       <span>{relativeTime(photo.createdAt)}</span>
@@ -2158,16 +2585,23 @@ function AuditLog() {
                       <span className="text-xs text-gray-300">&mdash;</span>
                     )}
                   </div>
-                  <div className="hidden w-24 text-right md:block">
-                    {photo.matched ? (
-                      <span className="inline-flex items-center gap-0.5 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
-                        <CheckCircle className="h-3 w-3" /> Matched
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
-                        Unmatched
-                      </span>
-                    )}
+                  <div className="hidden w-32 text-right md:block">
+                    <div className="flex flex-col items-end gap-0.5">
+                      {photo.matched ? (
+                        <span className="inline-flex items-center gap-0.5 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
+                          <CheckCircle className="h-3 w-3" /> Matched
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
+                          Unmatched
+                        </span>
+                      )}
+                      {!photo.matched && photo.assignedClinic && (
+                        <span className="inline-flex items-center gap-0.5 rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-semibold text-violet-700">
+                          <Building2 className="h-2.5 w-2.5" /> {photo.assignedClinic.name}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </button>
               ))}
@@ -2205,7 +2639,12 @@ function AuditLog() {
 
       {/* Detail modal */}
       {selectedPhoto && (
-        <AuditDetailModal photo={selectedPhoto} onClose={() => setSelectedPhoto(null)} />
+        <AuditDetailModal
+          photo={selectedPhoto}
+          onClose={() => setSelectedPhoto(null)}
+          assignableClinics={assignableClinics}
+          onAssigned={handlePhotoAssigned}
+        />
       )}
 
     </div>
@@ -2695,15 +3134,46 @@ function PerformanceReports() {
 function AuditDetailModal({
   photo,
   onClose,
+  assignableClinics,
+  onAssigned,
 }: {
   photo: PackagePhotoRecord;
   onClose: () => void;
+  assignableClinics: AssignableClinic[];
+  onAssigned?: (photoId: number, clinic: { id: number; name: string } | null) => void;
 }) {
+  const [localAssigned, setLocalAssigned] = useState<{ id: number; name: string } | null>(photo.assignedClinic);
+  const [assigning, setAssigning] = useState(false);
+  const [assignError, setAssignError] = useState<string | null>(null);
+
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     document.addEventListener('keydown', handleEsc);
     return () => document.removeEventListener('keydown', handleEsc);
   }, [onClose]);
+
+  const handleAssign = async (clinicId: number | null) => {
+    setAssigning(true);
+    setAssignError(null);
+    try {
+      const res = await apiFetch(`/api/package-photos/${photo.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ assignedClinicId: clinicId }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'Failed' }));
+        throw new Error(err.error || 'Failed to assign clinic');
+      }
+      const json = await res.json();
+      setLocalAssigned(json.data.assignedClinic ?? null);
+      onAssigned?.(photo.id, json.data.assignedClinic ?? null);
+    } catch (err: unknown) {
+      setAssignError(err instanceof Error ? err.message : 'Failed to assign.');
+    } finally {
+      setAssigning(false);
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-4" onClick={onClose}>
@@ -2760,6 +3230,53 @@ function AuditDetailModal({
             )}
             <span className="text-xs text-gray-400">#{photo.id}</span>
           </div>
+
+          {/* Clinic assignment for unmatched */}
+          {!photo.matched && (
+            <div className="mb-4 rounded-xl border border-gray-200 bg-gray-50 p-4">
+              <label className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-gray-700">
+                <Building2 className="h-3.5 w-3.5 text-violet-500" />
+                Assigned Clinic
+              </label>
+              {localAssigned ? (
+                <div className="flex items-center justify-between">
+                  <span className="rounded-full bg-violet-50 px-3 py-1 text-xs font-bold text-violet-700">
+                    {localAssigned.name}
+                  </span>
+                  <button
+                    onClick={() => handleAssign(null)}
+                    disabled={assigning}
+                    className="text-xs text-gray-400 transition-colors hover:text-red-500 disabled:opacity-50"
+                  >
+                    Remove
+                  </button>
+                </div>
+              ) : (
+                <select
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value, 10);
+                    if (!isNaN(val)) handleAssign(val);
+                  }}
+                  disabled={assigning}
+                  defaultValue=""
+                  className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/20 disabled:opacity-50"
+                >
+                  <option value="" disabled>Select clinic...</option>
+                  {assignableClinics.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+              )}
+              {assigning && (
+                <div className="mt-1.5 flex items-center gap-1.5 text-xs text-gray-400">
+                  <Loader2 className="h-3 w-3 animate-spin" /> Saving...
+                </div>
+              )}
+              {assignError && (
+                <p className="mt-1.5 text-xs text-red-600">{assignError}</p>
+              )}
+            </div>
+          )}
 
           {/* Tracking */}
           {photo.trackingNumber && (

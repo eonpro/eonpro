@@ -2,7 +2,7 @@ import { instantToCalendarDate } from '@/lib/utils/platform-calendar';
 import { NextRequest, NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
 import { withPharmacyAccessAuth, type AuthUser } from '@/lib/auth/middleware';
-import { prisma, withoutClinicFilter } from '@/lib/db';
+import { prisma, basePrisma, withoutClinicFilter } from '@/lib/db';
 import { handleApiError } from '@/domains/shared/errors';
 import { uploadToS3, generateSignedUrl } from '@/lib/integrations/aws/s3Service';
 import { FileCategory, isS3Enabled } from '@/lib/integrations/aws/s3Config';
@@ -343,6 +343,8 @@ export const POST = withPharmacyAccessAuth(postHandler);
 const searchSchema = z.object({
   search: z.string().optional(),
   matched: z.enum(['true', 'false', 'all']).optional().default('all'),
+  assignedClinicId: z.coerce.number().int().positive().optional(),
+  assignedFilter: z.enum(['all', 'unassigned', 'assigned']).optional().default('all'),
   period: z.enum(['today', 'yesterday', 'last7', 'last30', 'week', 'month', 'custom', 'all']).optional().default('all'),
   from: z.string().optional(),
   to: z.string().optional(),
@@ -355,6 +357,16 @@ const searchSchema = z.object({
 async function getHandler(req: NextRequest, user: AuthUser) {
   try {
     const url = new URL(req.url);
+
+    // Assignable clinics mode — returns active clinics for unmatched package assignment
+    if (url.searchParams.get('assignable-clinics') === 'true') {
+      const clinics = await basePrisma.clinic.findMany({
+        where: { status: 'ACTIVE' },
+        select: { id: true, name: true, subdomain: true },
+        orderBy: { name: 'asc' },
+      });
+      return NextResponse.json({ success: true, data: clinics });
+    }
 
     // Stats mode — aggregate counts for the audit dashboard
     if (url.searchParams.get('stats') === 'true') {
@@ -928,7 +940,7 @@ async function getHandler(req: NextRequest, user: AuthUser) {
     }
 
     const params = searchSchema.parse(Object.fromEntries(url.searchParams));
-    const { search, matched, period, from, to, page, limit, sortBy, sortOrder } = params;
+    const { search, matched, assignedClinicId, assignedFilter, period, from, to, page, limit, sortBy, sortOrder } = params;
 
     const where: Record<string, unknown> = {};
 
@@ -943,6 +955,15 @@ async function getHandler(req: NextRequest, user: AuthUser) {
       where.matched = true;
     } else if (matched === 'false') {
       where.matched = false;
+    }
+
+    if (assignedClinicId) {
+      where.assignedClinicId = assignedClinicId;
+    } else if (assignedFilter === 'unassigned') {
+      where.assignedClinicId = null;
+      where.matched = false;
+    } else if (assignedFilter === 'assigned') {
+      where.assignedClinicId = { not: null };
     }
 
     if (period !== 'all') {
@@ -983,6 +1004,7 @@ async function getHandler(req: NextRequest, user: AuthUser) {
           capturedBy: { select: { id: true, firstName: true, lastName: true, email: true } },
           patient: { select: { id: true, firstName: true, lastName: true } },
           order: { select: { id: true, lifefileOrderId: true, status: true, trackingNumber: true } },
+          assignedClinic: { select: { id: true, name: true } },
         },
         orderBy: { [sortBy]: sortOrder },
         skip: (page - 1) * limit,

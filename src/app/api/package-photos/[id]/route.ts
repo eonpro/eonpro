@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withPharmacyAccessAuth, type AuthUser } from '@/lib/auth/middleware';
-import { prisma } from '@/lib/db';
+import { prisma, basePrisma } from '@/lib/db';
 import { handleApiError } from '@/domains/shared/errors';
 import { logger } from '@/lib/logger';
 import { z } from 'zod';
@@ -8,6 +8,7 @@ import { z } from 'zod';
 const patchSchema = z.object({
   trackingNumber: z.string().min(1).max(100).optional(),
   notes: z.string().max(500).optional(),
+  assignedClinicId: z.number().int().positive().nullable().optional(),
 });
 
 async function patchHandler(
@@ -28,7 +29,7 @@ async function patchHandler(
 
     const existing = await prisma.packagePhoto.findUnique({
       where: { id: photoId },
-      select: { id: true, clinicId: true, trackingNumber: true },
+      select: { id: true, clinicId: true, trackingNumber: true, matched: true },
     });
 
     if (!existing) {
@@ -44,6 +45,19 @@ async function patchHandler(
 
     if (validated.notes !== undefined) {
       updateData.notes = validated.notes.trim() || null;
+    }
+
+    if (validated.assignedClinicId !== undefined) {
+      if (validated.assignedClinicId !== null) {
+        const clinic = await basePrisma.clinic.findFirst({
+          where: { id: validated.assignedClinicId, status: 'ACTIVE' },
+          select: { id: true },
+        });
+        if (!clinic) {
+          return NextResponse.json({ error: 'Assigned clinic not found or inactive' }, { status: 400 });
+        }
+      }
+      updateData.assignedClinicId = validated.assignedClinicId;
     }
 
     if (Object.keys(updateData).length === 0) {
@@ -65,6 +79,8 @@ async function patchHandler(
         s3Url: true,
         notes: true,
         createdAt: true,
+        assignedClinicId: true,
+        assignedClinic: { select: { id: true, name: true } },
       },
     });
 

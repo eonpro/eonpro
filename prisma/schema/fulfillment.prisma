@@ -177,12 +177,17 @@ model PackagePhoto {
   // Optional notes from the rep
   notes String?
 
+  // Destination clinic assignment (for unmatched packages: SIPAMed, Wellnow, etc.)
+  assignedClinicId Int?
+  assignedClinic   Clinic? @relation("PackagePhotosAssigned", fields: [assignedClinicId], references: [id])
+
   @@index([clinicId, createdAt(sort: Desc)])
   @@index([lifefileId])
   @@index([trackingNumber])
   @@index([patientId])
   @@index([capturedById])
   @@index([matched])
+  @@index([assignedClinicId])
 }
 
 // Status flow for prescription refills

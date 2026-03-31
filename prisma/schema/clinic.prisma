@@ -257,6 +257,9 @@ model Clinic {
   // Package photos taken by pharmacy reps
   packagePhotos PackagePhoto[]
 
+  // Package photos assigned to this clinic as destination (for unmatched packages)
+  packagePhotosAssigned PackagePhoto[] @relation("PackagePhotosAssigned")
+
   // Medication Beyond Use Date Configuration
   defaultBudDays Int @default(90) // Default Beyond Use Date in days for multi-shipment scheduling
 
