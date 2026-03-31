@@ -1596,7 +1596,8 @@ export default function PrescriptionQueuePage() {
   const filteredItems = activeTab === 'ready' ? readyItems : needsInfoItems;
 
   const newScriptCount = readyItems.filter((i) => !i.hasPreviousRx && i.queueType !== 'refill' && !i.isRefill).length;
-  const renewalCount = readyItems.filter((i) => i.hasPreviousRx || i.queueType === 'refill' || i.isRefill).length;
+  const refillCount = readyItems.filter((i) => i.hasPreviousRx || i.queueType === 'refill' || i.isRefill).length;
+  const duplicateCount = readyItems.filter((i) => i.recentPrescription?.hasDuplicate).length;
 
   return (
     <div className="min-h-[100dvh]" style={{ backgroundColor: '#efece7' }}>
@@ -1866,17 +1867,23 @@ export default function PrescriptionQueuePage() {
           </button>
         </div>
 
-        {/* NEW / RENEWAL breakdown (only on Ready tab with items) */}
+        {/* NEW / REFILL / DUPLICATE breakdown (only on Ready tab with items) */}
         {activeTab === 'ready' && readyItems.length > 0 && (
-          <div className="flex items-center gap-3 text-xs">
-            <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 font-semibold text-emerald-800">
+          <div className="flex items-center gap-2 text-xs">
+            <span className="inline-flex items-center gap-1 rounded-full border border-[#66a682]/30 bg-[#66a682]/10 px-2.5 py-1 font-semibold text-[#3d6b50]">
               <Sparkles className="h-3 w-3" />
               {newScriptCount} New
             </span>
-            <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 font-semibold text-amber-800">
+            <span className="inline-flex items-center gap-1 rounded-full border border-[#e8fa87]/60 bg-[#e8fa87]/20 px-2.5 py-1 font-semibold text-[#5a7a30]">
               <RefreshCw className="h-3 w-3" />
-              {renewalCount} Renewal{renewalCount !== 1 ? 's' : ''}
+              {refillCount} Refill{refillCount !== 1 ? 's' : ''}
             </span>
+            {duplicateCount > 0 && (
+              <span className="inline-flex items-center gap-1 rounded-full border border-[#f2fdb4] bg-[#f2fdb4]/30 px-2.5 py-1 font-bold text-[#8a7a20] animate-pulse">
+                <ShieldAlert className="h-3 w-3" />
+                {duplicateCount} Duplicate{duplicateCount !== 1 ? 's' : ''}
+              </span>
+            )}
           </div>
         )}
 
@@ -1957,16 +1964,19 @@ export default function PrescriptionQueuePage() {
             {searchResult.closeMatches.map((item) => {
               const itemKey = item.orderId ?? item.invoiceId ?? item.refillId ?? item.patientId;
               const isQueuedOrder = item.queueType === 'queued_order';
-              const isSearchRenewal = item.hasPreviousRx === true || item.queueType === 'refill' || item.isRefill;
+              const isSearchRefill = item.hasPreviousRx === true || item.queueType === 'refill' || item.isRefill;
+              const isSearchDuplicate = !!item.recentPrescription?.hasDuplicate;
               return (
                 <div
                   key={itemKey}
                   className={`overflow-hidden rounded-2xl border shadow-sm transition-all hover:shadow-md ${
                     isQueuedOrder
                       ? 'border-gray-200 bg-gray-50/30'
-                      : isSearchRenewal
-                        ? 'border-amber-200 bg-amber-50/40 border-l-4 border-l-amber-400'
-                        : 'border-emerald-200 bg-emerald-50/20 border-l-4 border-l-emerald-400'
+                      : isSearchDuplicate
+                        ? 'border-[#f2fdb4] bg-[#f2fdb4]/10 border-l-4 border-l-[#c4a835]'
+                        : isSearchRefill
+                          ? 'border-[#e8fa87]/60 bg-[#e8fa87]/5 border-l-4 border-l-[#e8fa87]'
+                          : 'border-[#66a682]/30 bg-[#66a682]/5 border-l-4 border-l-[#66a682]'
                   }`}
                   style={{ opacity: 0.85 }}
                 >
@@ -1976,24 +1986,32 @@ export default function PrescriptionQueuePage() {
                         <div className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full ${
                           isQueuedOrder
                             ? 'bg-gradient-to-br from-gray-100 to-gray-200'
-                            : isSearchRenewal
-                              ? 'bg-gradient-to-br from-amber-100 to-amber-200'
-                              : 'bg-gradient-to-br from-emerald-100 to-emerald-200'
+                            : isSearchDuplicate
+                              ? 'bg-gradient-to-br from-[#f2fdb4]/40 to-[#f2fdb4]/70'
+                              : isSearchRefill
+                                ? 'bg-gradient-to-br from-[#e8fa87]/30 to-[#e8fa87]/60'
+                                : 'bg-gradient-to-br from-[#66a682]/10 to-[#66a682]/20'
                         }`}>
-                          <User className={`h-4 w-4 ${isQueuedOrder ? 'text-gray-500' : isSearchRenewal ? 'text-amber-700' : 'text-emerald-700'}`} />
+                          <User className={`h-4 w-4 ${isQueuedOrder ? 'text-gray-500' : isSearchDuplicate ? 'text-[#8a7a20]' : isSearchRefill ? 'text-[#5a7a30]' : 'text-[#3d6b50]'}`} />
                         </div>
                         <div className="min-w-0 flex-1 overflow-hidden">
                           <div className="flex items-center gap-1.5">
                             <h3 className="truncate text-sm font-semibold text-gray-900 sm:text-xs">
                               {item.patientName}
                             </h3>
-                            {isSearchRenewal ? (
-                              <span className="inline-flex items-center gap-0.5 rounded-full border border-amber-300 bg-amber-100 px-1.5 py-0.5 text-[9px] font-bold text-amber-800">
+                            {isSearchDuplicate && (
+                              <span className="inline-flex items-center gap-0.5 rounded-full border border-[#f2fdb4] bg-[#f2fdb4]/40 px-1.5 py-0.5 text-[9px] font-bold text-[#8a7a20] animate-pulse">
+                                <ShieldAlert className="h-2.5 w-2.5" />
+                                DUPLICATE
+                              </span>
+                            )}
+                            {isSearchRefill ? (
+                              <span className="inline-flex items-center gap-0.5 rounded-full border border-[#e8fa87]/60 bg-[#e8fa87]/25 px-1.5 py-0.5 text-[9px] font-bold text-[#5a7a30]">
                                 <RefreshCw className="h-2.5 w-2.5" />
-                                RENEWAL
+                                REFILL
                               </span>
                             ) : !isQueuedOrder ? (
-                              <span className="inline-flex items-center gap-0.5 rounded-full border border-emerald-300 bg-emerald-100 px-1.5 py-0.5 text-[9px] font-bold text-emerald-800">
+                              <span className="inline-flex items-center gap-0.5 rounded-full border border-[#66a682]/30 bg-[#66a682]/10 px-1.5 py-0.5 text-[9px] font-bold text-[#3d6b50]">
                                 NEW
                               </span>
                             ) : null}
@@ -2029,16 +2047,19 @@ export default function PrescriptionQueuePage() {
             {filteredItems.map((item) => {
               const itemKey = item.orderId ?? item.invoiceId ?? item.refillId ?? item.patientId;
               const isQueuedOrder = item.queueType === 'queued_order';
-              const isRenewal = item.hasPreviousRx === true || item.queueType === 'refill' || item.isRefill;
+              const isRefillItem = item.hasPreviousRx === true || item.queueType === 'refill' || item.isRefill;
+              const isDuplicate = !!item.recentPrescription?.hasDuplicate;
               return (
                 <div
                   key={itemKey}
                   className={`overflow-hidden rounded-2xl border shadow-sm transition-all hover:shadow-md ${
                     isQueuedOrder
                       ? 'border-gray-200 bg-gray-50/30'
-                      : isRenewal
-                        ? 'border-amber-200 bg-amber-50/40 border-l-4 border-l-amber-400'
-                        : 'border-emerald-200 bg-emerald-50/20 border-l-4 border-l-emerald-400'
+                      : isDuplicate
+                        ? 'border-[#f2fdb4] bg-[#f2fdb4]/10 border-l-4 border-l-[#c4a835]'
+                        : isRefillItem
+                          ? 'border-[#e8fa87]/60 bg-[#e8fa87]/5 border-l-4 border-l-[#e8fa87]'
+                          : 'border-[#66a682]/30 bg-[#66a682]/5 border-l-4 border-l-[#66a682]'
                   }`}
                 >
                   {/* Main Card Content - stacked on mobile, grid on xl */}
@@ -2049,11 +2070,13 @@ export default function PrescriptionQueuePage() {
                         <div className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full ${
                           isQueuedOrder
                             ? 'bg-gradient-to-br from-gray-100 to-gray-200'
-                            : isRenewal
-                              ? 'bg-gradient-to-br from-amber-100 to-amber-200'
-                              : 'bg-gradient-to-br from-emerald-100 to-emerald-200'
+                            : isDuplicate
+                              ? 'bg-gradient-to-br from-[#f2fdb4]/40 to-[#f2fdb4]/70'
+                              : isRefillItem
+                                ? 'bg-gradient-to-br from-[#e8fa87]/30 to-[#e8fa87]/60'
+                                : 'bg-gradient-to-br from-[#66a682]/10 to-[#66a682]/20'
                         }`}>
-                          <User className={`h-4 w-4 ${isQueuedOrder ? 'text-gray-500' : isRenewal ? 'text-amber-700' : 'text-emerald-700'}`} />
+                          <User className={`h-4 w-4 ${isQueuedOrder ? 'text-gray-500' : isDuplicate ? 'text-[#8a7a20]' : isRefillItem ? 'text-[#5a7a30]' : 'text-[#3d6b50]'}`} />
                         </div>
                         <div className="min-w-0 flex-1 overflow-hidden">
                           <div className="flex flex-wrap items-center gap-1.5">
@@ -2066,26 +2089,26 @@ export default function PrescriptionQueuePage() {
                                 Admin Queued
                               </span>
                             )}
-                            {isRenewal ? (
-                              <span className="inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-100 px-2 py-0.5 text-[10px] font-bold tracking-wide text-amber-800">
-                                <RefreshCw className="h-3 w-3" />
-                                RENEWAL
-                              </span>
-                            ) : !isQueuedOrder ? (
-                              <span className="inline-flex items-center gap-1 rounded-full border border-emerald-300 bg-emerald-100 px-2 py-0.5 text-[10px] font-bold tracking-wide text-emerald-800">
-                                <Sparkles className="h-3 w-3" />
-                                NEW
-                              </span>
-                            ) : null}
-                            {item.recentPrescription?.hasDuplicate && (
+                            {isDuplicate && (
                               <span
-                                className="inline-flex items-center gap-1 rounded-full border border-red-300 bg-red-100 px-2 py-0.5 text-[10px] font-bold tracking-wide text-red-800 animate-pulse"
-                                title={`${item.recentPrescription.orders.length} prescription(s) in the last ${item.recentPrescription.windowDays} days`}
+                                className="inline-flex items-center gap-1 rounded-full border border-[#f2fdb4] bg-[#f2fdb4]/40 px-2 py-0.5 text-[10px] font-bold tracking-wide text-[#8a7a20] animate-pulse"
+                                title={`${item.recentPrescription!.orders.length} prescription(s) in the last ${item.recentPrescription!.windowDays} days`}
                               >
                                 <ShieldAlert className="h-3 w-3" />
                                 DUPLICATE
                               </span>
                             )}
+                            {isRefillItem ? (
+                              <span className="inline-flex items-center gap-1 rounded-full border border-[#e8fa87]/60 bg-[#e8fa87]/25 px-2 py-0.5 text-[10px] font-bold tracking-wide text-[#5a7a30]">
+                                <RefreshCw className="h-3 w-3" />
+                                REFILL
+                              </span>
+                            ) : !isQueuedOrder ? (
+                              <span className="inline-flex items-center gap-1 rounded-full border border-[#66a682]/30 bg-[#66a682]/10 px-2 py-0.5 text-[10px] font-bold tracking-wide text-[#3d6b50]">
+                                <Sparkles className="h-3 w-3" />
+                                NEW
+                              </span>
+                            ) : null}
                             <span
                               className="hidden items-center rounded bg-slate-100 px-1.5 py-0.5 text-[9px] font-medium text-slate-600 xl:inline-flex"
                               title="Clinic"
@@ -2109,9 +2132,9 @@ export default function PrescriptionQueuePage() {
                             <span className="mx-1.5 text-gray-400">•</span>
                             <span className="text-[#66a682]">{item.amountFormatted}</span>
                           </p>
-                          {/* Mobile: previous Rx for renewals */}
-                          {isRenewal && item.lastRxDetails && (
-                            <p className="mt-0.5 text-[11px] text-amber-700 xl:hidden">
+                          {/* Mobile: previous Rx for refills */}
+                          {isRefillItem && item.lastRxDetails && (
+                            <p className="mt-0.5 text-[11px] text-[#5a7a30] xl:hidden">
                               <RefreshCw className="mr-0.5 inline h-3 w-3" />
                               Last Rx: {item.lastRxDetails.medName}
                               {item.lastRxDetails.dose ? ` ${item.lastRxDetails.dose}mg` : ` ${item.lastRxDetails.strength}`}
@@ -2174,13 +2197,13 @@ export default function PrescriptionQueuePage() {
 
                       {/* GLP-1 History / Previous Rx - Col 3 (hidden on mobile) */}
                       <div className="hidden min-w-0 items-center gap-1.5 xl:flex">
-                        {isRenewal ? (
+                        {isRefillItem ? (
                           <>
-                            <div className="rounded p-1 bg-amber-100">
-                              <FileText className="h-3 w-3 text-amber-600" />
+                            <div className="rounded p-1 bg-[#e8fa87]/25">
+                              <FileText className="h-3 w-3 text-[#5a7a30]" />
                             </div>
                             <div className="min-w-0">
-                              <p className="truncate text-[10px] font-semibold text-amber-700">
+                              <p className="truncate text-[10px] font-semibold text-[#5a7a30]">
                                 Previous Rx
                               </p>
                               {item.lastRxDetails ? (
@@ -2438,13 +2461,13 @@ export default function PrescriptionQueuePage() {
 
                   {/* Duplicate Prescription Warning Banner */}
                   {item.recentPrescription?.hasDuplicate && (
-                    <div className="flex items-start gap-2 border-t border-red-200 bg-red-50 px-4 py-3">
-                      <ShieldAlert className="mt-0.5 h-4 w-4 flex-shrink-0 text-red-600" />
+                    <div className="flex items-start gap-2 border-t border-[#f2fdb4] bg-[#f2fdb4]/20 px-4 py-3">
+                      <ShieldAlert className="mt-0.5 h-4 w-4 flex-shrink-0 text-[#c4a835]" />
                       <div className="min-w-0 flex-1">
-                        <p className="text-xs font-semibold uppercase tracking-wide text-red-700">
+                        <p className="text-xs font-bold uppercase tracking-wide text-[#8a7a20]">
                           Duplicate Prescription Warning
                         </p>
-                        <p className="mt-0.5 text-sm text-red-900">
+                        <p className="mt-0.5 text-sm text-gray-800">
                           This patient has {item.recentPrescription.orders.length} prescription{item.recentPrescription.orders.length > 1 ? 's' : ''} in the last {item.recentPrescription.windowDays} days:
                         </p>
                         <ul className="mt-1 space-y-0.5">
@@ -2456,14 +2479,14 @@ export default function PrescriptionQueuePage() {
                               {new Date(order.createdAt).toLocaleDateString()}{' '}
                               {order.providerName && <span className="text-gray-500">by {order.providerName}</span>}
                               {order.status && (
-                                <span className="ml-1 rounded bg-gray-100 px-1 py-0.5 text-[9px] font-medium uppercase text-gray-600">
+                                <span className="ml-1 rounded bg-[#f2fdb4]/30 px-1 py-0.5 text-[9px] font-medium uppercase text-[#6b5d10]">
                                   {order.status}
                                 </span>
                               )}
                             </li>
                           ))}
                         </ul>
-                        <p className="mt-1.5 text-[10px] font-bold text-red-700">
+                        <p className="mt-1.5 text-[10px] font-bold text-[#8a7a20]">
                           Please verify this is not a duplicate before prescribing.
                         </p>
                       </div>
@@ -3133,46 +3156,46 @@ export default function PrescriptionQueuePage() {
 
             {approveConfirmModal.item.recentPrescription?.hasDuplicate ? (
               <>
-                <div className="rounded-t-2xl border-b border-red-200 bg-red-50 px-6 py-4">
+                <div className="rounded-t-2xl border-b border-[#f2fdb4] bg-[#f2fdb4]/20 px-6 py-4">
                   <div className="flex items-center gap-3">
-                    <div className="rounded-lg bg-red-100 p-2">
-                      <ShieldAlert className="h-5 w-5 text-red-600" />
+                    <div className="rounded-lg bg-[#f2fdb4]/40 p-2">
+                      <ShieldAlert className="h-5 w-5 text-[#c4a835]" />
                     </div>
                     <div>
-                      <h2 className="text-lg font-semibold text-red-900">Duplicate Prescription Warning</h2>
-                      <p className="text-sm text-red-700">{approveConfirmModal.item.patientName}</p>
+                      <h2 className="text-lg font-semibold text-[#6b5d10]">Duplicate Prescription Warning</h2>
+                      <p className="text-sm text-[#8a7a20]">{approveConfirmModal.item.patientName}</p>
                     </div>
                   </div>
                 </div>
                 <div className="space-y-4 p-6">
-                  <div className="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-3">
-                    <AlertTriangle className="mt-0.5 h-5 w-5 flex-shrink-0 text-red-600" />
-                    <div className="text-sm text-red-900">
+                  <div className="flex items-start gap-3 rounded-lg border border-[#f2fdb4] bg-[#f2fdb4]/15 p-3">
+                    <AlertTriangle className="mt-0.5 h-5 w-5 flex-shrink-0 text-[#c4a835]" />
+                    <div className="text-sm text-gray-800">
                       <p className="font-medium">
                         This patient has {approveConfirmModal.item.recentPrescription!.orders.length} prescription
                         {approveConfirmModal.item.recentPrescription!.orders.length > 1 ? 's' : ''} in the last{' '}
                         {approveConfirmModal.item.recentPrescription!.windowDays} days.
                       </p>
-                      <p className="mt-1 font-semibold">Please verify this is not a duplicate before approving.</p>
+                      <p className="mt-1 font-semibold text-[#6b5d10]">Please verify this is not a duplicate before approving.</p>
                     </div>
                   </div>
-                  <ul className="space-y-2 rounded-lg border border-red-100 bg-red-50/50 p-3">
+                  <ul className="space-y-2 rounded-lg border border-[#f2fdb4]/60 bg-[#f2fdb4]/10 p-3">
                     {approveConfirmModal.item.recentPrescription!.orders.slice(0, 3).map((order) => (
                       <li key={order.orderId} className="flex items-center gap-2 text-sm text-gray-700">
-                        <span className="h-1.5 w-1.5 flex-shrink-0 rounded-full bg-red-400" />
+                        <span className="h-1.5 w-1.5 flex-shrink-0 rounded-full bg-[#c4a835]" />
                         <span className="font-medium">{order.primaryMedName || 'Unknown'}</span>
                         {order.primaryMedStrength && <span className="text-gray-500">{order.primaryMedStrength}</span>}
                         <span className="text-gray-500">— {new Date(order.createdAt).toLocaleDateString()}</span>
                         {order.providerName && <span className="text-gray-400">by {order.providerName}</span>}
                         {order.status && (
-                          <span className="rounded bg-red-100 px-1 py-0.5 text-[9px] font-medium uppercase text-red-700">
+                          <span className="rounded bg-[#f2fdb4]/30 px-1 py-0.5 text-[9px] font-medium uppercase text-[#6b5d10]">
                             {order.status}
                           </span>
                         )}
                       </li>
                     ))}
                   </ul>
-                  <p className="text-xs font-medium text-red-600">This action will be logged for compliance.</p>
+                  <p className="text-xs font-medium text-[#8a7a20]">This action will be logged for compliance.</p>
                 </div>
               </>
             ) : (
@@ -3235,8 +3258,8 @@ export default function PrescriptionQueuePage() {
                 disabled={approvingOrderId === approveConfirmModal.item.orderId}
                 className={`flex min-h-[48px] flex-1 touch-manipulation items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-base font-medium text-white transition-all disabled:cursor-not-allowed disabled:opacity-50 ${
                   approveConfirmModal.item.recentPrescription?.hasDuplicate
-                    ? 'bg-red-600 hover:bg-red-700 active:bg-red-800'
-                    : 'bg-gray-500 hover:bg-[#66a682] active:bg-[#4d8066]'
+                    ? 'bg-[#c4a835] hover:bg-[#a89030] active:bg-[#8a7a20]'
+                    : 'bg-[#66a682] hover:bg-[#5a9474] active:bg-[#4d8066]'
                 }`}
               >
                 {approvingOrderId === approveConfirmModal.item.orderId ? (
@@ -3450,23 +3473,41 @@ export default function PrescriptionQueuePage() {
               <div className="flex h-full flex-col bg-white shadow-xl">
                 {/* Panel Header - touch-friendly close on mobile */}
                 <div
-                  className={`px-4 py-4 sm:px-6 sm:py-5 ${prescriptionPanel.item.queueType === 'queued_order' ? 'bg-gradient-to-r from-[#66a682] to-[#5a9474]' : 'bg-gradient-to-r from-[#66a682] to-[#5a9474]'}`}
+                  className={`px-4 py-4 sm:px-6 sm:py-5 ${
+                    prescriptionPanel.item.queueType === 'queued_order'
+                      ? 'bg-gradient-to-r from-[#66a682] to-[#5a9474]'
+                      : (prescriptionPanel.item.hasPreviousRx || prescriptionPanel.item.queueType === 'refill' || prescriptionPanel.item.isRefill)
+                        ? 'bg-gradient-to-r from-[#5a7a30] to-[#4a6a28]'
+                        : 'bg-gradient-to-r from-[#66a682] to-[#5a9474]'
+                  }`}
                 >
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex min-w-0 flex-1 items-center gap-3">
                       <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-white/20">
                         {prescriptionPanel.item.queueType === 'queued_order' ? (
                           <ClipboardCheck className="h-5 w-5 text-white" />
+                        ) : (prescriptionPanel.item.hasPreviousRx || prescriptionPanel.item.queueType === 'refill' || prescriptionPanel.item.isRefill) ? (
+                          <RefreshCw className="h-5 w-5 text-white" />
                         ) : (
                           <Send className="h-5 w-5 text-white" />
                         )}
                       </div>
                       <div className="min-w-0">
-                        <h2 className="text-base font-semibold text-white sm:text-lg">
-                          {prescriptionPanel.item.queueType === 'queued_order'
-                            ? 'Approve & send to pharmacy'
-                            : 'Write Prescription'}
-                        </h2>
+                        <div className="flex items-center gap-2">
+                          <h2 className="text-base font-semibold text-white sm:text-lg">
+                            {prescriptionPanel.item.queueType === 'queued_order'
+                              ? 'Approve & send to pharmacy'
+                              : (prescriptionPanel.item.hasPreviousRx || prescriptionPanel.item.queueType === 'refill' || prescriptionPanel.item.isRefill)
+                                ? 'Refill Prescription'
+                                : 'Write Prescription'}
+                          </h2>
+                          {prescriptionPanel.item.recentPrescription?.hasDuplicate && (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-[#f2fdb4]/80 px-2 py-0.5 text-[10px] font-bold text-[#6b5d10] animate-pulse">
+                              <ShieldAlert className="h-3 w-3" />
+                              DUPLICATE
+                            </span>
+                          )}
+                        </div>
                         <p className="truncate text-sm text-white/70">
                           {prescriptionPanel.item.patientName}
                         </p>
@@ -4522,8 +4563,8 @@ export default function PrescriptionQueuePage() {
                         <div className="flex items-center gap-2 border-b border-[#e8fa87]/50 bg-[#e8fa87]/20 px-4 py-2.5">
                           <FileText className="h-4 w-4 text-[#5a7a30]" />
                           <h3 className="text-sm font-semibold text-gray-900">Previous Prescription</h3>
-                          <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-bold text-gray-700">
-                            RENEWAL
+                          <span className="rounded-full bg-[#e8fa87]/25 px-2 py-0.5 text-[10px] font-bold text-[#5a7a30]">
+                            REFILL
                           </span>
                         </div>
                         <div className="px-4 py-3">
