@@ -491,6 +491,171 @@ async function processWebhookEvent(
           }
         }
 
+        // ────────────────────────────────────────────────────────────
+        // ADDON SUBSCRIPTIONS (Connect): Create a local Invoice so addon
+        // medications appear in the Rx queue for provider approval.
+        // The normal GLP-1 path relies on Airtable automation (wellmedr-invoice),
+        // but standalone addon subscriptions (Elite+ Bundle) have no Airtable
+        // record and were previously invisible to the prescription pipeline.
+        // ────────────────────────────────────────────────────────────
+        let addonInvoiceCreated = false;
+        if (isConnectEvent && invoiceSubscriptionId && invoice.status === 'paid') {
+          try {
+            const { isWellMedrAddonPriceId, getAddonPlanByStripePriceId } =
+              await import('@/config/billingPlans');
+            const { getStripeClient } = await import('@/lib/stripe/config');
+            const { findPatientByEmail } = await import('@/services/stripe/paymentMatchingService');
+
+            const connectAcct = (event as Stripe.Event & { account?: string }).account;
+            const stripeForAddon = getStripeClient();
+            if (stripeForAddon) {
+              const requestOpts: import('stripe').default.RequestOptions | undefined = connectAcct
+                ? { stripeAccount: connectAcct }
+                : undefined;
+
+              const stripeSub = await stripeForAddon.subscriptions.retrieve(
+                invoiceSubscriptionId,
+                { expand: ['items.data.price.product'] },
+                requestOpts,
+              );
+
+              const priceId = stripeSub.items?.data?.[0]?.price?.id;
+              if (priceId && isWellMedrAddonPriceId(priceId)) {
+                const addonPlan = getAddonPlanByStripePriceId(priceId);
+                const addonName = addonPlan?.name || 'Add-on';
+
+                const customerId =
+                  typeof stripeSub.customer === 'string'
+                    ? stripeSub.customer
+                    : stripeSub.customer?.id;
+
+                let patientId: number | undefined;
+                let clinicId: number | undefined;
+
+                if (customerId) {
+                  const patientByCust = await prisma.patient.findFirst({
+                    where: { stripeCustomerId: customerId },
+                    select: { id: true, clinicId: true },
+                  });
+                  if (patientByCust?.clinicId) {
+                    patientId = patientByCust.id;
+                    clinicId = patientByCust.clinicId;
+                  }
+                }
+
+                if (!patientId && customerId) {
+                  try {
+                    const customer = await stripeForAddon.customers.retrieve(customerId, requestOpts);
+                    if (customer && !customer.deleted && 'email' in customer && customer.email) {
+                      const patient = await findPatientByEmail(
+                        customer.email.trim().toLowerCase(),
+                        resolvedClinicId > 0 ? resolvedClinicId : undefined,
+                      );
+                      if (patient?.clinicId) {
+                        patientId = patient.id;
+                        clinicId = patient.clinicId;
+                      }
+                    }
+                  } catch (emailErr) {
+                    logger.warn('[STRIPE WEBHOOK] Addon invoice: email fallback failed', {
+                      error: emailErr instanceof Error ? emailErr.message : 'Unknown',
+                    });
+                  }
+                }
+
+                if (!clinicId && resolvedClinicId > 0) {
+                  clinicId = resolvedClinicId;
+                }
+
+                if (patientId && clinicId) {
+                  const addonIds = addonPlan?.id === 'wm_addon_elite_bundle'
+                    ? ['elite_bundle']
+                    : addonPlan?.id === 'wm_addon_nad' ? ['nad_plus']
+                    : addonPlan?.id === 'wm_addon_sermorelin' ? ['sermorelin']
+                    : addonPlan?.id === 'wm_addon_b12' ? ['b12']
+                    : [];
+
+                  const amountCents = invoice.amount_paid || addonPlan?.price || 0;
+                  const invoiceNumber = `WM-ADDON-${Date.now().toString(36).toUpperCase()}${Math.random().toString(36).slice(2, 5).toUpperCase()}`;
+
+                  const existingAddonInvoice = await prisma.invoice.findFirst({
+                    where: {
+                      patientId,
+                      clinicId,
+                      metadata: { path: ['stripeInvoiceId'], equals: invoice.id },
+                    },
+                  });
+
+                  if (!existingAddonInvoice) {
+                    await prisma.invoice.create({
+                      data: {
+                        patientId,
+                        clinicId,
+                        stripeInvoiceId: invoice.id,
+                        amount: amountCents,
+                        amountDue: 0,
+                        amountPaid: amountCents,
+                        currency: 'usd',
+                        status: 'PAID',
+                        paidAt: new Date(),
+                        description: `${addonName} - Payment received`,
+                        dueDate: new Date(),
+                        prescriptionProcessed: false,
+                        lineItems: [{
+                          description: addonName,
+                          quantity: 1,
+                          unitPrice: amountCents,
+                          product: addonName,
+                          medicationType: 'add-on',
+                          plan: '',
+                        }],
+                        metadata: {
+                          invoiceNumber,
+                          source: 'stripe-connect-addon',
+                          stripeInvoiceId: invoice.id,
+                          stripeSubscriptionId: invoiceSubscriptionId,
+                          product: addonName,
+                          medicationType: 'add-on',
+                          ...(addonIds.length > 0 ? { selectedAddons: addonIds } : {}),
+                        },
+                      },
+                    });
+                    addonInvoiceCreated = true;
+
+                    logger.info('[STRIPE WEBHOOK] Created addon Invoice for Rx queue', {
+                      patientId,
+                      clinicId,
+                      addonName,
+                      addonIds,
+                      stripeInvoiceId: invoice.id,
+                      stripeSubscriptionId: invoiceSubscriptionId,
+                      amountCents,
+                    });
+                  } else {
+                    logger.info('[STRIPE WEBHOOK] Addon Invoice already exists, skipping', {
+                      existingInvoiceId: existingAddonInvoice.id,
+                      stripeInvoiceId: invoice.id,
+                    });
+                  }
+                } else {
+                  logger.warn('[STRIPE WEBHOOK] Addon subscription detected but no patient found', {
+                    stripeSubscriptionId: invoiceSubscriptionId,
+                    addonName,
+                    priceId,
+                    customerId,
+                    resolvedClinicId,
+                  });
+                }
+              }
+            }
+          } catch (addonErr) {
+            logger.error('[STRIPE WEBHOOK] Failed to process addon subscription invoice', {
+              stripeSubscriptionId: invoiceSubscriptionId,
+              error: addonErr instanceof Error ? addonErr.message : 'Unknown',
+            });
+          }
+        }
+
         // Process sales rep commission for paid invoices
         let salesRepCommResult = null;
         if (invoice.status === 'paid' && processPaymentForSalesRepCommission) {
@@ -556,6 +721,7 @@ async function processWebhookEvent(
             invoiceId: invoice.id,
             status: invoice.status,
             subscriptionRefillTriggered: refillTriggered,
+            addonInvoiceCreated,
             billingReason: invoice.billing_reason,
             salesRepCommission: salesRepCommResult ? 'processed' : 'skipped',
           },

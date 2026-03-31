@@ -1445,12 +1445,17 @@ export async function holdRefillsForSubscription(
  * Extract medication name from plan name string.
  * e.g., "Semaglutide 2.5mg/2mL" → "Semaglutide"
  *       "Tirzepatide 10mg/3mL"  → "Tirzepatide"
+ *       "Elite Bundle"          → "Elite Bundle (NAD+, Sermorelin, B12)"
  */
 function extractMedicationName(planName: string | null): string | undefined {
   if (!planName) return undefined;
   const lower = planName.toLowerCase();
   if (lower.includes('semaglutide')) return 'Semaglutide';
   if (lower.includes('tirzepatide')) return 'Tirzepatide';
+  if (lower.includes('elite') && lower.includes('bundle')) return 'Elite Bundle (NAD+, Sermorelin, B12)';
+  if (lower.includes('nad')) return 'NAD+';
+  if (lower.includes('sermorelin')) return 'Sermorelin';
+  if (lower.includes('b12') || lower.includes('cyanocobalamin')) return 'Cyanocobalamin (B12)';
   return undefined;
 }
 

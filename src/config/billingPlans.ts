@@ -687,6 +687,25 @@ export const WELLMEDR_BILLING_PLANS: BillingPlan[] = [
 ];
 
 // ═══════════════════════════════════════════════════════════════════════════
+// WellMedR Addon Price ID Detection
+// ═══════════════════════════════════════════════════════════════════════════
+const WELLMEDR_ADDON_PRICE_IDS = new Set(
+  WELLMEDR_BILLING_PLANS
+    .filter((p) => p.category === 'addons' && p.stripePriceId)
+    .map((p) => p.stripePriceId!),
+);
+
+export function isWellMedrAddonPriceId(priceId: string): boolean {
+  return WELLMEDR_ADDON_PRICE_IDS.has(priceId);
+}
+
+export function getAddonPlanByStripePriceId(priceId: string): BillingPlan | undefined {
+  return WELLMEDR_BILLING_PLANS.find(
+    (p) => p.category === 'addons' && p.stripePriceId === priceId,
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // Default / backwards-compatible export (EONMEDS plans)
 // ═══════════════════════════════════════════════════════════════════════════
 export const BILLING_PLANS = EONMEDS_BILLING_PLANS;

@@ -5,9 +5,15 @@ import { z } from 'zod';
 import { logger } from '@/lib/logger';
 import Stripe from 'stripe';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
-  apiVersion: '2026-01-28.clover',
-});
+let _stripe: Stripe | null = null;
+function getStripe(): Stripe {
+  if (!_stripe) {
+    _stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
+      apiVersion: '2026-01-28.clover',
+    });
+  }
+  return _stripe;
+}
 
 // Validation schema
 const bundleSchema = z.object({
@@ -131,7 +137,7 @@ async function handlePost(req: NextRequest, user: AuthUser) {
 
     if (process.env.STRIPE_SECRET_KEY) {
       try {
-        const stripeProduct = await stripe.products.create({
+        const stripeProduct = await getStripe().products.create({
           name: validated.name,
           description: validated.description || `Bundle: ${validated.name}`,
           metadata: { clinicId: clinicId.toString(), type: 'bundle' },
@@ -167,7 +173,7 @@ async function handlePost(req: NextRequest, user: AuthUser) {
           };
         }
 
-        const stripePrice = await stripe.prices.create(priceData);
+        const stripePrice = await getStripe().prices.create(priceData);
         stripePriceId = stripePrice.id;
       } catch (stripeError: unknown) {
         logger.warn('[Bundles API] Stripe creation failed:', (stripeError as any).message);

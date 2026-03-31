@@ -5,9 +5,15 @@ import { z } from 'zod';
 import { logger } from '@/lib/logger';
 import Stripe from 'stripe';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
-  apiVersion: '2026-01-28.clover',
-});
+let _stripe: Stripe | null = null;
+function getStripe(): Stripe {
+  if (!_stripe) {
+    _stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
+      apiVersion: '2026-01-28.clover',
+    });
+  }
+  return _stripe;
+}
 
 // Validation schema for creating discount codes
 const discountCodeSchema = z.object({
@@ -153,7 +159,7 @@ async function handlePost(req: NextRequest, user: AuthUser) {
           couponParams.duration = 'once';
         }
 
-        const stripeCoupon = await stripe.coupons.create(couponParams);
+        const stripeCoupon = await getStripe().coupons.create(couponParams);
         stripeCouponId = stripeCoupon.id;
       } catch (stripeError: unknown) {
         logger.warn('[Discounts API] Stripe coupon creation failed:', (stripeError as any).message);

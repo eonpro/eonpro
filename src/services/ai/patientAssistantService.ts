@@ -20,9 +20,13 @@ import { logger } from '@/lib/logger';
 import { anonymizeText, anonymizeName } from '@/lib/security/phi-anonymization';
 import OpenAI from 'openai';
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+let _openai: OpenAI | null = null;
+function getOpenAI(): OpenAI {
+  if (!_openai) {
+    _openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  }
+  return _openai;
+}
 
 export interface PatientChatMessage {
   role: 'user' | 'assistant';
@@ -275,7 +279,7 @@ export async function processPatientChat(
     messages.push({ role: 'user', content: anonymizeText(message) });
 
     // Call OpenAI
-    const completion = await openai.chat.completions.create({
+    const completion = await getOpenAI().chat.completions.create({
       model: 'gpt-4o-mini',
       messages,
       temperature: 0.7,

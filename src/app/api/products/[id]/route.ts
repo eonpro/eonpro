@@ -6,9 +6,15 @@ import { z } from 'zod';
 import { logger } from '@/lib/logger';
 import Stripe from 'stripe';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
-  apiVersion: '2026-01-28.clover',
-});
+let _stripe: Stripe | null = null;
+function getStripe(): Stripe {
+  if (!_stripe) {
+    _stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
+      apiVersion: '2026-01-28.clover',
+    });
+  }
+  return _stripe;
+}
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -113,7 +119,7 @@ async function handlePut(req: NextRequest, user: AuthUser, context: RouteContext
     // Update Stripe product if name changed
     if (validated.name && existingProduct.stripeProductId && process.env.STRIPE_SECRET_KEY) {
       try {
-        await stripe.products.update(existingProduct.stripeProductId, {
+        await getStripe().products.update(existingProduct.stripeProductId, {
           name: validated.name,
           description: validated.description || undefined,
         });
@@ -132,7 +138,7 @@ async function handlePut(req: NextRequest, user: AuthUser, context: RouteContext
       try {
         // Archive old price
         if (existingProduct.stripePriceId) {
-          await stripe.prices.update(existingProduct.stripePriceId, { active: false });
+          await getStripe().prices.update(existingProduct.stripePriceId, { active: false });
         }
 
         // Create new price
@@ -170,7 +176,7 @@ async function handlePut(req: NextRequest, user: AuthUser, context: RouteContext
           };
         }
 
-        const newPrice = await stripe.prices.create(priceData);
+        const newPrice = await getStripe().prices.create(priceData);
         (validated as any).stripePriceId = newPrice.id;
 
         logger.info('[Products API] Created new Stripe price', { priceId: newPrice.id });
@@ -224,9 +230,9 @@ async function handleDelete(req: NextRequest, user: AuthUser, context: RouteCont
     // Archive in Stripe
     if (existingProduct.stripeProductId && process.env.STRIPE_SECRET_KEY) {
       try {
-        await stripe.products.update(existingProduct.stripeProductId, { active: false });
+        await getStripe().products.update(existingProduct.stripeProductId, { active: false });
         if (existingProduct.stripePriceId) {
-          await stripe.prices.update(existingProduct.stripePriceId, { active: false });
+          await getStripe().prices.update(existingProduct.stripePriceId, { active: false });
         }
       } catch (stripeError: unknown) {
         logger.warn('[Products API] Failed to archive Stripe product:', (stripeError as any).message);

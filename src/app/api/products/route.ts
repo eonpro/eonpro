@@ -6,9 +6,15 @@ import { logger } from '@/lib/logger';
 import Stripe from 'stripe';
 import { getClinicIdFromRequest } from '@/lib/clinic/utils';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
-  apiVersion: '2026-01-28.clover',
-});
+let _stripe: Stripe | null = null;
+function getStripe(): Stripe {
+  if (!_stripe) {
+    _stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
+      apiVersion: '2026-01-28.clover',
+    });
+  }
+  return _stripe;
+}
 
 // Validation schema for creating/updating products
 const productSchema = z.object({
@@ -132,7 +138,7 @@ async function handlePost(req: NextRequest, user: AuthUser) {
     if (process.env.STRIPE_SECRET_KEY) {
       try {
         // Create Stripe Product
-        const stripeProduct = await stripe.products.create({
+        const stripeProduct = await getStripe().products.create({
           name: validated.name,
           description: validated.description || undefined,
           metadata: {
@@ -175,7 +181,7 @@ async function handlePost(req: NextRequest, user: AuthUser) {
           };
         }
 
-        const stripePrice = await stripe.prices.create(priceData);
+        const stripePrice = await getStripe().prices.create(priceData);
         stripePriceId = stripePrice.id;
 
         logger.info('[Products API] Created Stripe product and price', {

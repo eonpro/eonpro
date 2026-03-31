@@ -1620,7 +1620,7 @@ export default function ClinicDetailPage() {
                   onImageChange={(url) => setFormData({ ...formData, faviconUrl: url || '' })}
                   imageType="favicon"
                   accept="image/png,image/x-icon,.ico"
-                  maxSizeMB={0.1}
+                  maxSizeMB={0.5}
                   recommendedSize="Required: 32x32px or 16x16px"
                   clinicId={parseInt(clinicId as string)}
                 />

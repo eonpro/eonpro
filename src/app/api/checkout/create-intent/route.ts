@@ -1,9 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 
-const stripe = new Stripe(process.env.EONMEDS_STRIPE_SECRET_KEY || '', {
-  apiVersion: '2024-06-20' as Stripe.LatestApiVersion,
-});
+let _stripe: Stripe | null = null;
+function getStripe(): Stripe {
+  if (!_stripe) {
+    _stripe = new Stripe(process.env.EONMEDS_STRIPE_SECRET_KEY || '', {
+      apiVersion: '2024-06-20' as Stripe.LatestApiVersion,
+    });
+  }
+  return _stripe;
+}
 
 // TODO: Add rate limiting (e.g. upstash/ratelimit) before production launch
 
@@ -24,13 +30,13 @@ async function getOrCreateCustomer(
   const isValidEmail = email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
   if (isValidEmail) {
-    const existingCustomers = await stripe.customers.list({
+    const existingCustomers = await getStripe().customers.list({
       email,
       limit: 1,
     });
 
     if (existingCustomers.data.length > 0) {
-      const customer = await stripe.customers.update(existingCustomers.data[0].id, {
+      const customer = await getStripe().customers.update(existingCustomers.data[0].id, {
         name: name || undefined,
         phone: phone || undefined,
         address: address || undefined,
@@ -39,7 +45,7 @@ async function getOrCreateCustomer(
       return customer;
     }
 
-    return stripe.customers.create({
+    return getStripe().customers.create({
       email,
       name: name || undefined,
       phone: phone || undefined,
@@ -48,7 +54,7 @@ async function getOrCreateCustomer(
     });
   }
 
-  return stripe.customers.create({
+  return getStripe().customers.create({
     name: name || undefined,
     phone: phone || undefined,
     address: address || undefined,
@@ -180,7 +186,7 @@ export async function POST(req: NextRequest) {
       }),
     };
 
-    const paymentIntent = await stripe.paymentIntents.create({
+    const paymentIntent = await getStripe().paymentIntents.create({
       amount,
       currency: currency || 'usd',
       customer: customer.id,

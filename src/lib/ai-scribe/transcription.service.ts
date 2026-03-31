@@ -9,10 +9,13 @@ import OpenAI from 'openai';
 import { logger } from '@/lib/logger';
 import { prisma } from '@/lib/db';
 
-// Initialize OpenAI client
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+let _openai: OpenAI | null = null;
+function getOpenAI(): OpenAI {
+  if (!_openai) {
+    _openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  }
+  return _openai;
+}
 
 // Types
 export interface TranscriptionSegment {
@@ -79,7 +82,7 @@ export async function transcribeAudio(input: TranscribeAudioInput): Promise<Tran
       type: input.mimeType || 'audio/webm',
     });
 
-    const response = await openai.audio.transcriptions.create({
+    const response = await getOpenAI().audio.transcriptions.create({
       file: audioFile,
       model: 'whisper-1',
       language: input.language || 'en',

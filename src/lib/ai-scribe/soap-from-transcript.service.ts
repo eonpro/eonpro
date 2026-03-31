@@ -10,10 +10,13 @@ import { logger } from '@/lib/logger';
 import { prisma } from '@/lib/db';
 import { TranscriptionSegment } from './transcription.service';
 
-// Initialize OpenAI client
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+let _openai: OpenAI | null = null;
+function getOpenAI(): OpenAI {
+  if (!_openai) {
+    _openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  }
+  return _openai;
+}
 
 /**
  * Check if model requires max_completion_tokens instead of max_tokens
@@ -163,7 +166,7 @@ TRANSCRIPT:
 ${input.transcript}`;
 
     const modelToUse = process.env.OPENAI_MODEL || 'gpt-4-turbo-preview';
-    const response = await openai.chat.completions.create({
+    const response = await getOpenAI().chat.completions.create({
       model: modelToUse,
       messages: [
         {
@@ -294,7 +297,7 @@ export async function generateConversationSummary(transcript: string): Promise<{
 }> {
   try {
     const modelToUse = process.env.OPENAI_MODEL || 'gpt-4-turbo-preview';
-    const response = await openai.chat.completions.create({
+    const response = await getOpenAI().chat.completions.create({
       model: modelToUse,
       messages: [
         {
@@ -341,7 +344,7 @@ export async function extractMedicationChanges(transcript: string): Promise<{
 }> {
   try {
     const modelToUse = process.env.OPENAI_MODEL || 'gpt-4-turbo-preview';
-    const response = await openai.chat.completions.create({
+    const response = await getOpenAI().chat.completions.create({
       model: modelToUse,
       messages: [
         {
@@ -396,7 +399,7 @@ export async function checkForRedFlags(transcript: string): Promise<{
 }> {
   try {
     const modelToUse = process.env.OPENAI_MODEL || 'gpt-4-turbo-preview';
-    const response = await openai.chat.completions.create({
+    const response = await getOpenAI().chat.completions.create({
       model: modelToUse,
       messages: [
         {

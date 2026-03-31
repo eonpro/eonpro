@@ -25,10 +25,16 @@ const STRIPE_PRODUCTS = {
   },
 };
 
-const stripe = new Stripe(
-  process.env.EONMEDS_STRIPE_SECRET_KEY || process.env.STRIPE_SECRET_KEY || '',
-  { apiVersion: '2024-06-20' as any },
-);
+let _stripe: Stripe | null = null;
+function getStripe(): Stripe {
+  if (!_stripe) {
+    _stripe = new Stripe(
+      process.env.EONMEDS_STRIPE_SECRET_KEY || process.env.STRIPE_SECRET_KEY || '',
+      { apiVersion: '2024-06-20' as any },
+    );
+  }
+  return _stripe;
+}
 
 async function getOrCreateCustomer(
   email: string | undefined,
@@ -40,16 +46,16 @@ async function getOrCreateCustomer(
   const isValidEmail = email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
   if (isValidEmail) {
-    const existing = await stripe.customers.list({ email, limit: 1 });
+    const existing = await getStripe().customers.list({ email, limit: 1 });
     if (existing.data.length > 0) {
-      return stripe.customers.update(existing.data[0].id, {
+      return getStripe().customers.update(existing.data[0].id, {
         name: name || undefined,
         phone: phone || undefined,
         address: address || undefined,
         metadata: metadata || {},
       });
     }
-    return stripe.customers.create({
+    return getStripe().customers.create({
       email,
       name: name || undefined,
       phone: phone || undefined,
@@ -58,7 +64,7 @@ async function getOrCreateCustomer(
     });
   }
 
-  return stripe.customers.create({
+  return getStripe().customers.create({
     name: name || undefined,
     phone: phone || undefined,
     address: address || undefined,
@@ -239,7 +245,7 @@ export async function POST(req: NextRequest) {
 
     const isValidEmail = customer_email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customer_email);
 
-    const paymentIntent = await stripe.paymentIntents.create({
+    const paymentIntent = await getStripe().paymentIntents.create({
       amount,
       currency: currency || 'usd',
       customer: customer.id,
