@@ -36,7 +36,12 @@ import {
   scheduleFutureRefillsFromInvoice,
   parsePackageMonthsFromPlan,
 } from '@/lib/shipment-schedule';
-import { decryptPHI, encryptPatientPHI } from '@/lib/security/phi-encryption';
+import {
+  computeEmailHash,
+  computeDobHash,
+  decryptPHI,
+  encryptPatientPHI,
+} from '@/lib/security/phi-encryption';
 import { PHISearchService } from '@/lib/security/phi-search';
 import { isDLQConfigured, queueFailedSubmission } from '@/lib/queue/deadLetterQueue';
 import { readIntakeData } from '@/lib/storage/document-data-store';
@@ -1038,7 +1043,11 @@ export async function POST(req: NextRequest) {
       let actualPatient = verifiedPatient;
       if (wasAutoCreated && stubPatientCreateData) {
         const created = await tx.patient.create({
-          data: stubPatientCreateData as any,
+          data: {
+            ...stubPatientCreateData,
+            emailHash: computeEmailHash(email),
+            dobHash: computeDobHash('1900-01-01'),
+          } as any,
           select: { id: true, patientId: true, firstName: true, lastName: true, email: true },
         });
         actualPatient = created as WellMedRPatient;

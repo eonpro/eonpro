@@ -9,6 +9,7 @@ import { withProviderAuth } from '@/lib/auth/middleware';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { Patient, Provider, Order } from '@/types/models';
+import { computeEmailHash, computeDobHash } from '@/lib/security/phi-encryption';
 import { buildPatientSearchIndex } from '@/lib/utils/search';
 
 /**
@@ -95,6 +96,8 @@ export const POST = withProviderAuth(async (req, user) => {
           email: body.email,
           phone: body.phone,
           dob: body.dob,
+          emailHash: computeEmailHash(body.email),
+          dobHash: computeDobHash(body.dob),
           gender: body.gender,
           address1: body.address1,
           address2: body.address2,

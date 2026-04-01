@@ -12,7 +12,7 @@ import { prisma, withoutClinicFilter } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { sendTemplatedEmail, EmailTemplate } from '@/lib/email';
 import { buildPatientSearchIndex } from '@/lib/utils/search';
-import { decryptPHI } from '@/lib/security/phi-encryption';
+import { decryptPHI, computeEmailHash, computeDobHash } from '@/lib/security/phi-encryption';
 
 // Configuration
 const VERIFICATION_TOKEN_LENGTH = 32;
@@ -453,6 +453,8 @@ export async function registerPatient(
           data: {
             clinicId: inviteCode.clinicId,
             ...phiData,
+            emailHash: computeEmailHash(normalizedEmail),
+            dobHash: computeDobHash(normalizedDOB),
             gender: 'other',
             address1: '',
             city: '',

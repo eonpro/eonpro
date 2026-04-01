@@ -4,7 +4,8 @@ import { logger } from '@/lib/logger';
 import { nanoid } from 'nanoid';
 import { addDays } from 'date-fns';
 import { buildPatientSearchIndex } from '@/lib/utils/search';
-import { encryptPHI } from '@/lib/security/phi-encryption';
+import { encryptPHI, computeEmailHash, computeDobHash } from '@/lib/security/phi-encryption';
+import { patientDeduplicationService } from '@/domains/patient';
 
 // Types
 export interface CreateFormTemplateInput {
@@ -449,16 +450,42 @@ export async function submitFormResponses(
     const templateClinicId = link.template.clinicId;
 
     const submission = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-      // Patient find/create/update inside the transaction for atomicity
+      // Patient find/create/update inside the transaction for atomicity.
+      // Uses hash-based dedup on email + DOB within the clinic.
       if (!patientId && patientInfo?.email) {
-        let patient = await tx.patient.findFirst({
-          where: {
-            email: patientInfo.email.toLowerCase(),
-            ...(templateClinicId ? { clinicId: templateClinicId } : {}),
-          },
-        });
+        const email = patientInfo.email.toLowerCase().trim();
+        const dob = patientInfo.dob || '1900-01-01';
 
-        if (!patient) {
+        const existing = templateClinicId
+          ? await patientDeduplicationService.findDuplicate(email, dob, templateClinicId, tx)
+          : null;
+
+        if (existing) {
+          const newFirstName = patientInfo.firstName || existing.firstName;
+          const newLastName = patientInfo.lastName || existing.lastName;
+          const newPhone = patientInfo.phone || existing.phone;
+          const updateSearchIndex = buildPatientSearchIndex({
+            firstName: newFirstName,
+            lastName: newLastName,
+            email: existing.email,
+            phone: newPhone,
+            patientId: existing.patientId,
+          });
+          const emailH = computeEmailHash(email);
+          const dobH = computeDobHash(dob);
+          await tx.patient.update({
+            where: { id: existing.id },
+            data: {
+              firstName: encryptPHI(newFirstName) || newFirstName,
+              lastName: encryptPHI(newLastName) || newLastName,
+              phone: encryptPHI(newPhone) || newPhone,
+              searchIndex: updateSearchIndex,
+              ...(emailH && !existing.emailHash ? { emailHash: emailH } : {}),
+              ...(dobH && !existing.dobHash ? { dobHash: dobH } : {}),
+            },
+          });
+          patientId = existing.id;
+        } else {
           if (!templateClinicId) {
             logger.warn('Creating patient without clinicId from intake form', {
               templateId: link.template.id,
@@ -468,16 +495,16 @@ export async function submitFormResponses(
           const searchIndex = buildPatientSearchIndex({
             firstName: patientInfo.firstName || '',
             lastName: patientInfo.lastName || '',
-            email: patientInfo.email,
+            email,
             phone: patientInfo.phone || undefined,
           });
-          patient = await tx.patient.create({
+          const patient = await tx.patient.create({
             data: {
-              email: encryptPHI(patientInfo.email.toLowerCase()) || patientInfo.email.toLowerCase(),
+              email: encryptPHI(email) || email,
               firstName: encryptPHI(patientInfo.firstName || '') || '',
               lastName: encryptPHI(patientInfo.lastName || '') || '',
               phone: encryptPHI(patientInfo.phone || '') || '',
-              dob: encryptPHI('1900-01-01') || '1900-01-01',
+              dob: encryptPHI(dob) || dob,
               gender: 'OTHER',
               address1: '',
               city: '',
@@ -486,30 +513,12 @@ export async function submitFormResponses(
               clinicId: templateClinicId,
               searchIndex,
               source: 'intake-form',
+              emailHash: computeEmailHash(email),
+              dobHash: computeDobHash(dob),
             },
           });
-        } else {
-          const newFirstName = patientInfo.firstName || patient.firstName;
-          const newLastName = patientInfo.lastName || patient.lastName;
-          const newPhone = patientInfo.phone || patient.phone;
-          const updateSearchIndex = buildPatientSearchIndex({
-            firstName: newFirstName,
-            lastName: newLastName,
-            email: patient.email,
-            phone: newPhone,
-            patientId: patient.patientId,
-          });
-          patient = await tx.patient.update({
-            where: { id: patient.id },
-            data: {
-              firstName: encryptPHI(newFirstName) || newFirstName,
-              lastName: encryptPHI(newLastName) || newLastName,
-              phone: encryptPHI(newPhone) || newPhone,
-              searchIndex: updateSearchIndex,
-            },
-          });
+          patientId = patient.id;
         }
-        patientId = patient.id;
       }
 
       // Re-check for duplicate submission inside transaction (prevents race condition)

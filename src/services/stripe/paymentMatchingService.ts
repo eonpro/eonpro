@@ -19,7 +19,7 @@
 import { prisma, getClinicContext } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { generatePatientId } from '@/lib/patients';
-import { decryptPHI, encryptPatientPHI } from '@/lib/security/phi-encryption';
+import { decryptPHI, encryptPatientPHI, computeEmailHash, computeDobHash } from '@/lib/security/phi-encryption';
 import { buildPatientSearchIndex } from '@/lib/utils/search';
 import Stripe from 'stripe';
 import type { Patient, Invoice, InvoiceStatus } from '@prisma/client';
@@ -824,6 +824,8 @@ export async function createPatientFromStripePayment(
       clinicId,
       ...encryptedPHI,
       searchIndex,
+      emailHash: computeEmailHash(paymentData.email || null),
+      dobHash: computeDobHash('1900-01-01'),
       gender: 'unknown',
       stripeCustomerId: paymentData.customerId,
       source: 'stripe',

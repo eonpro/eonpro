@@ -16,6 +16,7 @@ import { generatePatientId } from '@/lib/patients';
 import { buildPatientSearchIndex } from '@/lib/utils/search';
 import { encryptPatientPHI } from '@/lib/security/phi-encryption';
 import { storeIntakeData } from '@/lib/storage/document-data-store';
+import { patientDeduplicationService } from '@/domains/patient';
 
 /**
  * WEIGHTLOSSINTAKE Webhook - EONMEDS CLINIC ONLY (BULLETPROOF VERSION)
@@ -315,41 +316,35 @@ export async function POST(req: NextRequest) {
   };
 
   try {
-    // Create new patient only. No auto-merge; duplicate profiles are merged manually.
-    const patientNumber = await getNextPatientId(clinicId);
-    // Build search index from plain-text data BEFORE it gets encrypted
-    const searchIndex = buildPatientSearchIndex({
-      ...patientData,
-      patientId: patientNumber,
-    });
-    const encryptedPHI = encryptPatientPHI(patientData);
-    patient = await withRetry(() =>
-      prisma.patient.create({
-        data: {
-          ...encryptedPHI,
-          patientId: patientNumber,
-          clinicId: clinicId,
-          tags: submissionTags,
-          notes: buildNotes(null),
-          source: 'webhook',
-          searchIndex,
-          sourceMetadata: {
-            type: 'weightlossintake',
-            submissionId: normalized.submissionId,
-            submissionType,
-            qualified: qualifiedStatus,
-            intakeNotes,
-            timestamp: new Date().toISOString(),
-            clinicId,
-            clinicName: 'EONMEDS',
-          },
+    const result = await withRetry(() =>
+      patientDeduplicationService.resolvePatientForIntake(patientData, {
+        clinicId,
+        tags: submissionTags,
+        notes: buildNotes(null),
+        source: 'webhook',
+        sourceMetadata: {
+          type: 'weightlossintake',
+          submissionId: normalized.submissionId,
+          submissionType,
+          qualified: qualifiedStatus,
+          intakeNotes,
+          timestamp: new Date().toISOString(),
+          clinicId,
+          clinicName: 'EONMEDS',
         },
       })
     );
-    isNewPatient = true;
-    logger.info(
-      `[WEIGHTLOSSINTAKE ${requestId}] ✓ Created patient: ${patient.id} (${patient.patientId})`
-    );
+    patient = result.patient;
+    isNewPatient = result.isNew;
+    if (result.wasMerged) {
+      logger.info(
+        `[WEIGHTLOSSINTAKE ${requestId}] ✓ Merged into existing patient: ${patient.id} (${patient.patientId})`
+      );
+    } else {
+      logger.info(
+        `[WEIGHTLOSSINTAKE ${requestId}] ✓ Created patient: ${patient.id} (${patient.patientId})`
+      );
+    }
   } catch (err) {
     const errorMsg = err instanceof Error ? err.message : 'Unknown error';
     logger.error(`[WEIGHTLOSSINTAKE ${requestId}] CRITICAL: Patient upsert failed:`, {

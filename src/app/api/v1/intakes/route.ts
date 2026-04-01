@@ -15,8 +15,8 @@ import { storeIntakePdf } from '@/services/storage/intakeStorage';
 import { generateSOAPFromIntake } from '@/services/ai/soapNoteService';
 import { logger } from '@/lib/logger';
 import { PatientDocumentCategory } from '@prisma/client';
-import { buildPatientSearchIndex } from '@/lib/utils/search';
 import { storeIntakeData } from '@/lib/storage/document-data-store';
+import { patientDeduplicationService } from '@/domains/patient';
 
 export async function POST(req: NextRequest) {
   const requestId = `v1-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
@@ -72,44 +72,35 @@ export async function POST(req: NextRequest) {
 
     const clinicId = clinic?.id || 3;
 
-    // Extract patient data from normalized intake
     const patientData = normalized.patient;
 
-    // Create new patient only. No auto-merge; duplicate profiles are merged manually.
-    const patientCount = await prisma.patient.count();
-    const patientId = String(patientCount + 1).padStart(6, '0');
-    const searchIndex = buildPatientSearchIndex({
-      firstName: patientData.firstName || 'Unknown',
-      lastName: patientData.lastName || 'Patient',
-      email: patientData.email,
-      phone: patientData.phone,
-      patientId,
-    });
-
-    const { encryptPatientPHI } = await import('@/lib/security/phi-encryption');
-    const phiData = encryptPatientPHI({
-      firstName: patientData.firstName || 'Unknown',
-      lastName: patientData.lastName || 'Patient',
-      email: patientData.email || `unknown-${Date.now()}@intake.local`,
-      phone: patientData.phone || '',
-      dob: patientData.dob || '1900-01-01',
-    });
-    const patient = await prisma.patient.create({
-      data: {
-        patientId,
-        ...phiData,
+    const result = await patientDeduplicationService.resolvePatientForIntake(
+      {
+        firstName: patientData.firstName || 'Unknown',
+        lastName: patientData.lastName || 'Patient',
+        email: patientData.email || `unknown-${Date.now()}@intake.local`,
+        phone: patientData.phone || '',
+        dob: patientData.dob || '1900-01-01',
         gender: patientData.gender || 'Unknown',
         address1: patientData.address1 || '',
+        address2: patientData.address2 || '',
         city: patientData.city || '',
         state: patientData.state || '',
         zip: patientData.zip || '',
-        clinicId,
-        source: 'api',
-        searchIndex,
-        tags: ['v1-intake', 'complete-intake'],
       },
-    });
-    const isNewPatient = true;
+      {
+        clinicId,
+        tags: ['v1-intake', 'complete-intake'],
+        source: 'api',
+        sourceMetadata: {
+          type: 'v1-intake',
+          submissionId: normalized.submissionId,
+          timestamp: new Date().toISOString(),
+        },
+      },
+    );
+    const patient = result.patient;
+    const isNewPatient = result.isNew;
 
     // Generate PDF
     let documentId: number | null = null;

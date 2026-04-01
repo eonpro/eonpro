@@ -62,6 +62,15 @@ export {
   type PatientMergeFields,
 } from './services/patient-merge.service';
 
+export {
+  patientDeduplicationService,
+  createPatientDeduplicationService,
+  type PatientDeduplicationService,
+  type IntakePatientData,
+  type ResolvePatientOptions,
+  type ResolvePatientResult,
+} from './services/patient-dedup.service';
+
 // ============================================================================
 // PHI Search Service - For searching encrypted patient data
 // ============================================================================

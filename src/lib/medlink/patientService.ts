@@ -1,36 +1,16 @@
-import type { Patient, Prisma } from '@prisma/client';
-import { prisma } from '@/lib/db';
-import { generatePatientId } from '@/lib/patients';
+import type { Patient } from '@prisma/client';
 import { logger } from '@/lib/logger';
-import { buildPatientSearchIndex } from '@/lib/utils/search';
-import { encryptPatientPHI } from '@/lib/security/phi-encryption';
+import { patientDeduplicationService } from '@/domains/patient';
 import type { NormalizedIntake, NormalizedPatient } from './types';
 
-type NormalizedPatientForCreate = {
-  firstName: string;
-  lastName: string;
-  email: string;
-  phone: string;
-  dob: string;
-  gender: string;
-  address1: string;
-  address2?: string;
-  city: string;
-  state: string;
-  zip: string;
-};
-
 /**
- * Upsert a patient from intake form data
+ * Upsert a patient from intake form data.
  *
- * CRITICAL: Multi-tenant isolation is enforced by:
- * 1. Always filtering patient searches by clinicId (when provided)
- * 2. Logging security warnings when cross-clinic matches are detected
- * 3. Creating new patients with the correct clinicId
+ * Uses deterministic HMAC hash-based dedup: matches on email + DOB within the
+ * clinic. If a duplicate is found, the existing record is updated (merging tags,
+ * notes, and non-placeholder fields). Otherwise a new patient is created.
  *
- * @param intake - Normalized intake form data
- * @param options.clinicId - The clinic ID to scope the search and creation
- * @param options.tags - Additional tags to apply
+ * CRITICAL: Multi-tenant isolation is enforced by clinicId scope in the dedup service.
  */
 export async function upsertPatientFromIntake(
   intake: NormalizedIntake,
@@ -41,133 +21,41 @@ export async function upsertPatientFromIntake(
   const additionalTags = options?.tags || [];
   const allTags = [...new Set([...hashtags, ...additionalTags])];
 
-  const matchFilters = buildMatchFilters(normalized);
-  let existing: Patient | null = null;
-
-  if (matchFilters.length > 0) {
-    // CRITICAL: Build the where clause with clinic isolation
-    const whereClause: Prisma.PatientWhereInput = {
-      OR: matchFilters,
-    };
-
-    // If clinicId is provided, ALWAYS filter by it
-    if (options?.clinicId) {
-      whereClause.clinicId = options.clinicId;
-    }
-
-    existing = await prisma.patient.findFirst({
-      where: whereClause,
-    });
-
-    // SECURITY AUDIT: Check if matching data exists in another clinic
-    if (!existing && options?.clinicId) {
-      const globalMatch = await prisma.patient.findFirst({
-        where: { OR: matchFilters },
-        select: { id: true, clinicId: true, email: true, patientId: true },
-      });
-
-      if (globalMatch && globalMatch.clinicId !== options.clinicId) {
-        logger.warn(
-          '[MedLinkPatientService] SECURITY: Patient with matching data exists in different clinic',
-          {
-            matchedPatientId: globalMatch.id,
-            matchedPatientDisplayId: globalMatch.patientId,
-            matchedClinicId: globalMatch.clinicId,
-            requestedClinicId: options.clinicId,
-            submissionId: intake.submissionId,
-          }
-        );
-      }
-    }
+  if (!options?.clinicId) {
+    logger.warn('[MedLinkPatientService] No clinicId provided — cannot deduplicate');
   }
 
-  if (existing) {
-    logger.info('[MedLinkPatientService] Updating existing patient', {
-      patientId: existing.id,
-      clinicId: existing.clinicId,
+  const result = await patientDeduplicationService.resolvePatientForIntake(normalized, {
+    clinicId: options?.clinicId!,
+    tags: allTags,
+    notes: `Created via MedLink submission ${intake.submissionId}`,
+    source: 'webhook',
+    sourceMetadata: {
+      type: 'heyflow',
       submissionId: intake.submissionId,
-    });
-
-    // Don't overwrite address/contact with empty or placeholder — preserve existing when intake omits or sends placeholder
-    const addressKeys = ['address1', 'address2', 'city', 'state', 'zip'] as const;
-    const mergedForUpdate = { ...normalized };
-    for (const key of addressKeys) {
-      const value = mergedForUpdate[key];
-      if (value === '' || value == null) {
-        const existingValue = (existing as Record<string, unknown>)[key];
-        if (existingValue != null && String(existingValue).trim() !== '') {
-          (mergedForUpdate as Record<string, string>)[key] = String(existingValue);
-        }
-      }
-    }
-    const existingRecord = existing as Record<string, unknown>;
-    if (!mergedForUpdate.phone || mergedForUpdate.phone === '0000000000') {
-      const existingPhone = existingRecord.phone;
-      if (existingPhone != null && String(existingPhone).trim() !== '' && String(existingPhone) !== '0000000000') {
-        mergedForUpdate.phone = String(existingPhone);
-      }
-    }
-    if (!mergedForUpdate.email || mergedForUpdate.email === 'unknown@example.com') {
-      const existingEmail = existingRecord.email;
-      if (existingEmail != null && String(existingEmail).trim() !== '' && String(existingEmail) !== 'unknown@example.com') {
-        mergedForUpdate.email = String(existingEmail);
-      }
-    }
-
-    const updateSearchIndex = buildPatientSearchIndex({
-      ...mergedForUpdate,
-      patientId: existing.patientId,
-    });
-    const updated = await prisma.patient.update({
-      where: { id: existing.id },
-      data: {
-        ...mergedForUpdate,
-        // NOTE: Do NOT update clinicId - this would violate multi-tenant isolation
-        // Patients should only be moved between clinics via explicit admin action
-        tags: mergeTags(existing.tags, allTags),
-        notes: appendNotes(existing.notes, intake.submissionId),
-        searchIndex: updateSearchIndex,
-      },
-    });
-    return updated;
-  }
-
-  // Generate patient ID using the shared utility (handles clinic prefixes)
-  const clinicIdForCounter = options?.clinicId || 1;
-  const patientId = await generatePatientId(clinicIdForCounter);
-  const searchIndex = buildPatientSearchIndex({
-    ...normalized,
-    patientId,
-  });
-
-  logger.info('[MedLinkPatientService] Creating new patient', {
-    generatedPatientId: patientId,
-    clinicId: options?.clinicId || null,
-    submissionId: intake.submissionId,
-  });
-
-  const encryptedPHI = encryptPatientPHI(normalized);
-  const created = await prisma.patient.create({
-    data: {
-      ...encryptedPHI,
-      patientId,
-      clinicId: options?.clinicId!,
-      tags: allTags,
-      notes: `Created via MedLink submission ${intake.submissionId}`,
-      source: 'webhook',
-      searchIndex,
-      sourceMetadata: {
-        type: 'heyflow',
-        submissionId: intake.submissionId,
-        timestamp: new Date().toISOString(),
-      },
+      timestamp: new Date().toISOString(),
     },
   });
 
-  return created;
+  if (result.wasMerged) {
+    logger.info('[MedLinkPatientService] Merged into existing patient', {
+      patientId: result.patient.id,
+      clinicId: result.patient.clinicId,
+      submissionId: intake.submissionId,
+    });
+  } else {
+    logger.info('[MedLinkPatientService] Created new patient', {
+      patientId: result.patient.id,
+      displayId: result.patient.patientId,
+      clinicId: options?.clinicId ?? null,
+      submissionId: intake.submissionId,
+    });
+  }
+
+  return result.patient;
 }
 
-function normalizePatient(patient: NormalizedPatient): NormalizedPatientForCreate {
+function normalizePatient(patient: NormalizedPatient) {
   return {
     firstName: capitalize(patient.firstName) || 'Unknown',
     lastName: capitalize(patient.lastName) || 'Unknown',
@@ -183,24 +71,6 @@ function normalizePatient(patient: NormalizedPatient): NormalizedPatientForCreat
   };
 }
 
-function buildMatchFilters(patient: NormalizedPatient) {
-  const filters: Prisma.PatientWhereInput[] = [];
-  if (patient.email) {
-    filters.push({ email: patient.email.toLowerCase() });
-  }
-  if (patient.phone) {
-    filters.push({ phone: sanitizePhone(patient.phone) });
-  }
-  if (patient.firstName && patient.lastName && patient.dob) {
-    filters.push({
-      firstName: patient.firstName,
-      lastName: patient.lastName,
-      dob: patient.dob,
-    });
-  }
-  return filters;
-}
-
 function sanitizePhone(value?: string) {
   if (!value) return '0000000000';
   const digits = value.replace(/\D/g, '');
@@ -210,11 +80,8 @@ function sanitizePhone(value?: string) {
 function normalizeGender(value?: string) {
   if (!value) return 'm';
   const lower = value.toLowerCase().trim();
-  // Check for female/woman variations
   if (lower === 'f' || lower === 'female' || lower === 'woman') return 'f';
-  // Check for male/man variations
   if (lower === 'm' || lower === 'male' || lower === 'man') return 'm';
-  // Fallback: if starts with 'f' or 'w' (woman), treat as female
   if (lower.startsWith('f') || lower.startsWith('w')) return 'f';
   return 'm';
 }
@@ -235,30 +102,17 @@ function capitalize(value?: string) {
   return value
     .toLowerCase()
     .split(' ')
-    .map((chunk: any) => chunk.charAt(0).toUpperCase() + chunk.slice(1))
+    .map((chunk: string) => chunk.charAt(0).toUpperCase() + chunk.slice(1))
     .join(' ');
-}
-
-function mergeTags(existing: any, incoming: string[]) {
-  const current = Array.isArray(existing) ? (existing as string[]) : [];
-  const merged = new Set([...current, ...incoming]);
-  return Array.from(merged).filter(Boolean);
 }
 
 function collectHashtags(intake: NormalizedIntake) {
   const tags = new Set<string>(['medlink']);
-  intake.answers.forEach((answer: any) => {
+  intake.answers.forEach((answer: { value: string }) => {
     const matches = answer.value.match(/#\w+/g);
     if (matches) {
-      matches.forEach((tag: any) => tags.add(tag.replace(/^#/, '').toLowerCase()));
+      matches.forEach((tag: string) => tags.add(tag.replace(/^#/, '').toLowerCase()));
     }
   });
   return Array.from(tags);
-}
-
-function appendNotes(existing: string | null | undefined, submissionId: string) {
-  const suffix = `Synced from MedLink ${submissionId}`;
-  if (!existing) return suffix;
-  if (existing.includes(submissionId)) return existing;
-  return `${existing}\n${suffix}`;
 }

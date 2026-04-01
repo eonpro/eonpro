@@ -461,6 +461,101 @@ export function clearEncryptionKey(): void {
 }
 
 // ============================================================================
+// Deterministic Hashing for Dedup Lookups
+// ============================================================================
+
+const HMAC_ALGO = 'sha256';
+const DEDUP_HMAC_CONTEXT = 'patient-dedup-v1';
+
+/**
+ * Derive a stable sub-key for HMAC dedup hashes via HKDF.
+ * Separate from the AES encryption key so that key rotation
+ * on the encryption side does not invalidate all dedup hashes.
+ */
+let hmacKey: Buffer | null = null;
+
+function getHmacKey(): Buffer {
+  if (hmacKey) return hmacKey;
+  const masterKey = getKeySync();
+  hmacKey = crypto.createHmac(HMAC_ALGO, masterKey)
+    .update(DEDUP_HMAC_CONTEXT)
+    .digest();
+  return hmacKey;
+}
+
+function hmacHash(value: string): string {
+  return crypto
+    .createHmac(HMAC_ALGO, getHmacKey())
+    .update(value)
+    .digest('hex');
+}
+
+const PLACEHOLDER_EMAILS = new Set([
+  'unknown@example.com',
+  'unknown@intake.local',
+  'noemail@placeholder.local',
+  '',
+]);
+
+const PLACEHOLDER_DOBS = new Set([
+  '1900-01-01',
+  '',
+]);
+
+/**
+ * Compute a deterministic HMAC-SHA256 hash of a normalized email address.
+ * Returns null for placeholder / empty values that should not participate in dedup.
+ */
+export function computeEmailHash(email: string | null | undefined): string | null {
+  if (!email) return null;
+  const normalized = email.toLowerCase().trim();
+  if (PLACEHOLDER_EMAILS.has(normalized) || normalized.endsWith('@intake.local') || normalized.endsWith('@placeholder.local')) {
+    return null;
+  }
+  return hmacHash(normalized);
+}
+
+/**
+ * Compute a deterministic HMAC-SHA256 hash of a normalized date-of-birth string.
+ * Accepts ISO date strings (YYYY-MM-DD) and common US formats.
+ * Returns null for placeholder / empty values.
+ */
+export function computeDobHash(dob: string | null | undefined): string | null {
+  if (!dob) return null;
+  const trimmed = dob.trim();
+  if (PLACEHOLDER_DOBS.has(trimmed)) return null;
+
+  // Normalize to YYYY-MM-DD. Accept MM/DD/YYYY, MM-DD-YYYY, YYYY-MM-DD, or ISO timestamps.
+  let normalized = trimmed;
+  const slashMatch = trimmed.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
+  if (slashMatch) {
+    const [, mm, dd, yyyy] = slashMatch;
+    normalized = `${yyyy}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`;
+  } else if (trimmed.includes('T')) {
+    normalized = trimmed.split('T')[0];
+  }
+
+  if (PLACEHOLDER_DOBS.has(normalized)) return null;
+  return hmacHash(normalized);
+}
+
+/**
+ * Enrich a patient create/update data object with emailHash and dobHash.
+ * Handles both plaintext and encrypted inputs by trying to read the raw value.
+ */
+export function withPatientHashes<T extends Record<string, unknown>>(
+  data: T,
+  plainEmail?: string | null,
+  plainDob?: string | null,
+): T & { emailHash: string | null; dobHash: string | null } {
+  return {
+    ...data,
+    emailHash: computeEmailHash(plainEmail ?? null),
+    dobHash: computeDobHash(plainDob ?? null),
+  };
+}
+
+// ============================================================================
 // Export for testing
 // ============================================================================
 
@@ -469,4 +564,5 @@ export const _testExports = {
   ivLength,
   tagLength,
   getKeySync,
+  getHmacKey,
 };

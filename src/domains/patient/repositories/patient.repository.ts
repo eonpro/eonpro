@@ -18,7 +18,7 @@ import { Errors } from '@/domains/shared/errors';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { generatePatientId } from '@/lib/patients';
-import { encryptPatientPHI, decryptPHI } from '@/lib/security/phi-encryption';
+import { encryptPatientPHI, decryptPHI, computeEmailHash, computeDobHash } from '@/lib/security/phi-encryption';
 import { normalizeSearch, splitSearchTerms, buildPatientSearchIndex, buildPatientSearchWhere, buildIncompleteSearchIndexWhere, fuzzyTermMatch } from '@/lib/utils/search';
 
 import {
@@ -538,7 +538,6 @@ export function createPatientRepository(db: PrismaClient = prisma): PatientRepos
           timestamp: new Date().toISOString(),
         }) as Prisma.InputJsonValue;
 
-        // Create patient - spread encrypted data and add system fields
         const createData = {
           ...encryptedData,
           patientId,
@@ -548,6 +547,8 @@ export function createPatientRepository(db: PrismaClient = prisma): PatientRepos
           source: input.source ?? 'api',
           sourceMetadata,
           searchIndex,
+          emailHash: computeEmailHash(input.email),
+          dobHash: computeDobHash(input.dob),
         };
         const patient = await tx.patient.create({
           data: createData as unknown as Prisma.PatientCreateInput,
@@ -600,16 +601,24 @@ export function createPatientRepository(db: PrismaClient = prisma): PatientRepos
         });
       }
 
-      // Encrypt PHI fields in update data
       const encryptedData = encryptPatientPHI(input as unknown as Record<string, unknown>, [...PHI_FIELDS]);
 
+      // Recompute dedup hashes when email or dob changes
+      const hashUpdates: Record<string, string | null> = {};
+      if (input.email !== undefined) {
+        hashUpdates.emailHash = computeEmailHash(input.email);
+      }
+      if (input.dob !== undefined) {
+        hashUpdates.dobHash = computeDobHash(input.dob);
+      }
+
       return db.$transaction(async (tx: Prisma.TransactionClient) => {
-        // Update patient
         const patient = await tx.patient.update({
           where: { id },
           data: {
             ...encryptedData,
             ...(searchIndex !== undefined && { searchIndex }),
+            ...hashUpdates,
           } as Prisma.PatientUpdateInput,
         });
 

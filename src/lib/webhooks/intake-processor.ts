@@ -22,6 +22,7 @@ import type { NormalizedIntake, NormalizedPatient } from '@/lib/heyflow/types';
 import { storeIntakeData } from '@/lib/storage/document-data-store';
 import { uploadToS3 } from '@/lib/integrations/aws/s3Service';
 import { isS3Enabled, FileCategory } from '@/lib/integrations/aws/s3Config';
+import { patientDeduplicationService } from '@/domains/patient';
 
 export type IntakeSource = 'heyflow' | 'medlink' | 'weightlossintake' | 'eonpro' | 'internal';
 
@@ -205,7 +206,8 @@ export class IntakeProcessor {
   }
 
   /**
-   * Upsert patient from normalized intake data
+   * Upsert patient from normalized intake data.
+   * Checks for duplicate by email + DOB within the clinic before creating.
    */
   private async upsertPatient(
     normalized: NormalizedIntake,
@@ -214,41 +216,59 @@ export class IntakeProcessor {
   ): Promise<{ patient: any; isNew: boolean }> {
     const patientData = this.normalizePatientData(normalized.patient);
 
-    // Build tags
     const baseTags = [this.source];
     const allTags = [...baseTags, ...(options.tags || [])];
     if (options.isPartialSubmission) {
       allTags.push('partial-lead', 'needs-followup');
     }
 
-    // Create new patient only. No auto-merge; duplicate profiles are merged manually.
-    const patientNumber = await this.getNextPatientId(clinicId ?? undefined);
-    const searchIndex = buildPatientSearchIndex({
-      ...patientData,
-      patientId: patientNumber,
-    });
-
-    const patient = await prisma.patient.create({
-      data: {
-        ...patientData,
-        patientId: patientNumber,
-        clinicId: clinicId!,
-        tags: allTags,
-        notes: `Created via ${this.source} intake ${normalized.submissionId}`,
-        source: 'webhook',
-        searchIndex,
-        sourceMetadata: {
-          type: this.source,
-          submissionId: normalized.submissionId,
-          timestamp: new Date().toISOString(),
+    if (!clinicId) {
+      // Without a clinic we cannot deduplicate — fall back to create
+      const patientNumber = await this.getNextPatientId();
+      const searchIndex = buildPatientSearchIndex({ ...patientData, patientId: patientNumber });
+      const patient = await prisma.patient.create({
+        data: {
+          ...patientData,
+          patientId: patientNumber,
+          clinicId: clinicId!,
+          tags: allTags,
+          notes: `Created via ${this.source} intake ${normalized.submissionId}`,
+          source: 'webhook',
+          searchIndex,
+          sourceMetadata: {
+            type: this.source,
+            submissionId: normalized.submissionId,
+            timestamp: new Date().toISOString(),
+          },
         },
+      });
+      logger.info(`[INTAKE ${this.requestId}] Created patient (no clinic): ${patient.id}`);
+      return { patient, isNew: true };
+    }
+
+    const result = await patientDeduplicationService.resolvePatientForIntake(patientData, {
+      clinicId,
+      tags: allTags,
+      notes: `Created via ${this.source} intake ${normalized.submissionId}`,
+      source: 'webhook',
+      sourceMetadata: {
+        type: this.source,
+        submissionId: normalized.submissionId,
+        timestamp: new Date().toISOString(),
       },
     });
 
-    logger.info(
-      `[INTAKE ${this.requestId}] Created patient: ${patient.id} (${patient.patientId})`
-    );
-    return { patient, isNew: true };
+    if (result.wasMerged) {
+      logger.info(
+        `[INTAKE ${this.requestId}] Merged into existing patient: ${result.patient.id} (${result.patient.patientId})`
+      );
+    } else {
+      logger.info(
+        `[INTAKE ${this.requestId}] Created patient: ${result.patient.id} (${result.patient.patientId})`
+      );
+    }
+
+    return { patient: result.patient, isNew: result.isNew };
   }
 
   /**

@@ -24,7 +24,7 @@ import { isDLQConfigured, queueFailedSubmission } from '@/lib/queue/deadLetterQu
 import { uploadToS3 } from '@/lib/integrations/aws/s3Service';
 import { isS3Enabled, FileCategory } from '@/lib/integrations/aws/s3Config';
 import { generatePatientId } from '@/lib/patients';
-import { decryptPHI, encryptPatientPHI } from '@/lib/security/phi-encryption';
+import { decryptPHI, encryptPatientPHI, computeEmailHash, computeDobHash } from '@/lib/security/phi-encryption';
 import { buildPatientSearchIndex } from '@/lib/utils/search';
 import { storeIntakeData } from '@/lib/storage/document-data-store';
 
@@ -441,6 +441,8 @@ export async function POST(req: NextRequest) {
           patient = await prisma.patient.create({
             data: {
               ...encryptedPHI,
+              emailHash: computeEmailHash(patientData.email),
+              dobHash: computeDobHash(patientData.dob),
               patientId: patientNumber,
               clinicId: clinicId,
               tags: submissionTags,

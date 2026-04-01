@@ -14,7 +14,7 @@ import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { z } from 'zod';
-import { decryptPatientPHI, decryptPHI, encryptPHI } from '@/lib/security/phi-encryption';
+import { decryptPatientPHI, decryptPHI, encryptPHI, computeEmailHash, computeDobHash } from '@/lib/security/phi-encryption';
 import { handleApiError } from '@/domains/shared/errors';
 import { buildPatientSearchIndex } from '@/lib/utils/search';
 
@@ -167,6 +167,7 @@ async function handlePatch(req: NextRequest, user: AuthUser) {
       }
       userUpdateData.email = email.toLowerCase();
       patientUpdateData.email = encryptPHI(email.toLowerCase());
+      patientUpdateData.emailHash = computeEmailHash(email.toLowerCase());
       updatedFields.push('email');
     }
     if (phone !== undefined) {
@@ -187,6 +188,7 @@ async function handlePatch(req: NextRequest, user: AuthUser) {
         }
       }
       patientUpdateData.dob = dateOfBirth ? encryptPHI(dateOfBirth) : '';
+      patientUpdateData.dobHash = dateOfBirth ? computeDobHash(dateOfBirth) : null;
       updatedFields.push('dateOfBirth');
     }
     if (address !== undefined && address !== null) {

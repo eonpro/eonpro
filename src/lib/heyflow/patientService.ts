@@ -1,150 +1,55 @@
-import type { Patient, Prisma } from '@prisma/client';
-import { prisma } from '@/lib/db';
-import { generatePatientId } from '@/lib/patients';
+import type { Patient } from '@prisma/client';
 import { logger } from '@/lib/logger';
-import { buildPatientSearchIndex } from '@/lib/utils/search';
-import { encryptPatientPHI } from '@/lib/security/phi-encryption';
+import { patientDeduplicationService } from '@/domains/patient';
 import type { NormalizedIntake, NormalizedPatient } from './types';
 
-type NormalizedPatientForCreate = {
-  firstName: string;
-  lastName: string;
-  email: string;
-  phone: string;
-  dob: string;
-  gender: string;
-  address1: string;
-  address2?: string;
-  city: string;
-  state: string;
-  zip: string;
-};
-
 /**
- * Upsert a patient from intake form data
+ * Upsert a patient from intake form data.
  *
- * CRITICAL: Multi-tenant isolation is enforced by:
- * 1. Only searching for existing patients within the specified clinic
- * 2. Creating new patients with the correct clinicId
+ * Uses deterministic HMAC hash-based dedup: matches on email + DOB within the
+ * clinic. If a duplicate is found, the existing record is updated (merging tags,
+ * notes, and non-placeholder fields). Otherwise a new patient is created.
  *
- * @param intake - Normalized intake form data
- * @param clinicId - The clinic ID to use (required for multi-tenant isolation)
- *                   Defaults to 1 (EONMEDS) for backward compatibility with heyflow-intake webhook
+ * CRITICAL: Multi-tenant isolation is enforced by clinicId scope in the dedup service.
  */
 export async function upsertPatientFromIntake(
   intake: NormalizedIntake,
-  clinicId: number = 1 // Default to EONMEDS for backward compatibility
+  clinicId: number = 1,
 ): Promise<Patient> {
   const normalized = normalizePatient(intake.patient);
   const hashtags = collectHashtags(intake);
 
-  const matchFilters = buildMatchFilters(normalized);
-  let existing: Patient | null = null;
-
-  // CRITICAL: Always filter by clinicId to prevent cross-clinic data leakage
-  if (matchFilters.length > 0) {
-    existing = await prisma.patient.findFirst({
-      where: {
-        clinicId: clinicId, // CRITICAL: Enforce clinic isolation
-        OR: matchFilters,
-      },
-    });
-
-    // Log if we would have matched a patient from a different clinic (security audit)
-    if (!existing && matchFilters.length > 0) {
-      const globalMatch = await prisma.patient.findFirst({
-        where: { OR: matchFilters },
-        select: { id: true, clinicId: true, email: true, patientId: true },
-      });
-
-      if (globalMatch && globalMatch.clinicId !== clinicId) {
-        logger.warn(
-          '[HeyflowPatientService] SECURITY: Patient with matching data exists in different clinic',
-          {
-            matchedPatientId: globalMatch.id,
-            matchedPatientDisplayId: globalMatch.patientId,
-            matchedClinicId: globalMatch.clinicId,
-            requestedClinicId: clinicId,
-            submissionId: intake.submissionId,
-          }
-        );
-      }
-    }
-  }
-
-  if (existing) {
-    logger.info('[HeyflowPatientService] Updating existing patient', {
-      patientId: existing.id,
-      clinicId: existing.clinicId,
+  const result = await patientDeduplicationService.resolvePatientForIntake(normalized, {
+    clinicId,
+    tags: hashtags,
+    notes: `Created via Heyflow submission ${intake.submissionId}`,
+    source: 'webhook',
+    sourceMetadata: {
+      type: 'heyflow',
       submissionId: intake.submissionId,
-    });
-
-    // Don't overwrite phone/email with placeholder — preserve existing when intake omits or sends placeholder
-    const dataForUpdate = { ...normalized };
-    if (!dataForUpdate.phone || dataForUpdate.phone === '0000000000') {
-      const existingPhone = existing.phone;
-      if (existingPhone?.trim() && existingPhone !== '0000000000') {
-        dataForUpdate.phone = existingPhone;
-      }
-    }
-    if (!dataForUpdate.email || dataForUpdate.email === 'unknown@example.com') {
-      const existingEmail = existing.email;
-      if (existingEmail?.trim() && existingEmail !== 'unknown@example.com') {
-        dataForUpdate.email = existingEmail;
-      }
-    }
-
-    const updateSearchIndex = buildPatientSearchIndex({
-      ...dataForUpdate,
-      patientId: existing.patientId,
-    });
-    const updated = await prisma.patient.update({
-      where: { id: existing.id },
-      data: {
-        ...dataForUpdate,
-        tags: mergeTags(existing.tags, hashtags),
-        notes: appendNotes(existing.notes, intake.submissionId),
-        searchIndex: updateSearchIndex,
-      },
-    });
-    return updated;
-  }
-
-  // Generate patient ID using the shared utility (handles clinic prefixes)
-  const patientId = await generatePatientId(clinicId);
-  const searchIndex = buildPatientSearchIndex({
-    ...normalized,
-    patientId,
-  });
-
-  logger.info('[HeyflowPatientService] Creating new patient', {
-    generatedPatientId: patientId,
-    clinicId: clinicId,
-    submissionId: intake.submissionId,
-  });
-
-  const encryptedPHI = encryptPatientPHI(normalized);
-  const created = await prisma.patient.create({
-    data: {
-      ...encryptedPHI,
-      patientId,
-      clinicId,
-      tags: hashtags,
-      notes: `Created via MedLink submission ${intake.submissionId}`,
-      source: 'webhook',
-      searchIndex,
-      sourceMetadata: {
-        type: 'heyflow',
-        submissionId: intake.submissionId,
-        timestamp: new Date().toISOString(),
-      },
+      timestamp: new Date().toISOString(),
     },
   });
 
-  return created;
+  if (result.wasMerged) {
+    logger.info('[HeyflowPatientService] Merged into existing patient', {
+      patientId: result.patient.id,
+      clinicId: result.patient.clinicId,
+      submissionId: intake.submissionId,
+    });
+  } else {
+    logger.info('[HeyflowPatientService] Created new patient', {
+      patientId: result.patient.id,
+      displayId: result.patient.patientId,
+      clinicId,
+      submissionId: intake.submissionId,
+    });
+  }
+
+  return result.patient;
 }
 
-function normalizePatient(patient: NormalizedPatient): NormalizedPatientForCreate {
+function normalizePatient(patient: NormalizedPatient) {
   return {
     firstName: capitalize(patient.firstName) || 'Unknown',
     lastName: capitalize(patient.lastName) || 'Unknown',
@@ -160,24 +65,6 @@ function normalizePatient(patient: NormalizedPatient): NormalizedPatientForCreat
   };
 }
 
-function buildMatchFilters(patient: NormalizedPatient) {
-  const filters: Prisma.PatientWhereInput[] = [];
-  if (patient.email) {
-    filters.push({ email: patient.email.toLowerCase() });
-  }
-  if (patient.phone) {
-    filters.push({ phone: sanitizePhone(patient.phone) });
-  }
-  if (patient.firstName && patient.lastName && patient.dob) {
-    filters.push({
-      firstName: patient.firstName,
-      lastName: patient.lastName,
-      dob: patient.dob,
-    });
-  }
-  return filters;
-}
-
 function sanitizePhone(value?: string) {
   if (!value) return '0000000000';
   const digits = value.replace(/\D/g, '');
@@ -187,11 +74,8 @@ function sanitizePhone(value?: string) {
 function normalizeGender(value?: string) {
   if (!value) return 'm';
   const lower = value.toLowerCase().trim();
-  // Check for female/woman variations
   if (lower === 'f' || lower === 'female' || lower === 'woman') return 'f';
-  // Check for male/man variations
   if (lower === 'm' || lower === 'male' || lower === 'man') return 'm';
-  // Fallback: if starts with 'f' or 'w' (woman), treat as female
   if (lower.startsWith('f') || lower.startsWith('w')) return 'f';
   return 'm';
 }
@@ -212,30 +96,17 @@ function capitalize(value?: string) {
   return value
     .toLowerCase()
     .split(' ')
-    .map((chunk: any) => chunk.charAt(0).toUpperCase() + chunk.slice(1))
+    .map((chunk: string) => chunk.charAt(0).toUpperCase() + chunk.slice(1))
     .join(' ');
-}
-
-function mergeTags(existing: any, incoming: string[]) {
-  const current = Array.isArray(existing) ? (existing as string[]) : [];
-  const merged = new Set([...current, ...incoming]);
-  return Array.from(merged).filter(Boolean);
 }
 
 function collectHashtags(intake: NormalizedIntake) {
   const tags = new Set<string>(['medlink']);
-  intake.answers.forEach((answer: any) => {
+  intake.answers.forEach((answer: { value: string }) => {
     const matches = answer.value.match(/#\w+/g);
     if (matches) {
-      matches.forEach((tag: any) => tags.add(tag.replace(/^#/, '').toLowerCase()));
+      matches.forEach((tag: string) => tags.add(tag.replace(/^#/, '').toLowerCase()));
     }
   });
   return Array.from(tags);
-}
-
-function appendNotes(existing: string | null | undefined, submissionId: string) {
-  const suffix = `Synced from MedLink ${submissionId}`;
-  if (!existing) return suffix;
-  if (existing.includes(submissionId)) return existing;
-  return `${existing}\n${suffix}`;
 }

@@ -130,9 +130,16 @@ model Patient {
   identityVerifiedAt DateTime?
   identityVerifiedBy Int?
 
+  // DEDUP: Deterministic HMAC-SHA256 hashes for duplicate detection on intake.
+  // Random-IV encryption on email/dob prevents DB equality lookups, so we store
+  // stable hashes alongside encrypted PHI for O(1) duplicate matching.
+  emailHash String?
+  dobHash   String?
+
   @@unique([clinicId, patientId])
   @@index([clinicId])
   @@index([profileStatus]) // For efficiently querying pending profiles
+  @@index([clinicId, emailHash, dobHash])
 }
 
 model Order {

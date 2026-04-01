@@ -17,6 +17,7 @@ import { markPrescribed, queueForProvider } from '@/services/refill';
 import { providerCompensationService } from '@/services/provider';
 import { platformFeeService } from '@/services/billing';
 import { buildPatientSearchIndex } from '@/lib/utils/search';
+import { computeEmailHash, computeDobHash } from '@/lib/security/phi-encryption';
 
 // Medication-specific clinical difference statements for Lifefile
 function getClinicalDifferenceStatement(medicationName: string): string | undefined {
@@ -858,6 +859,8 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
                     zip: p.patient.zip,
                     clinicId: activeClinicId,
                     searchIndex,
+                    emailHash: computeEmailHash(p.patient.email),
+                    dobHash: computeDobHash(p.patient.dob),
                   },
                 });
                 patientClinicId = activeClinicId;

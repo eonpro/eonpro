@@ -17,7 +17,12 @@ import { uploadToS3 } from '@/lib/integrations/aws/s3Service';
 import { storeIntakeData } from '@/lib/storage/document-data-store';
 import { isS3Enabled, FileCategory } from '@/lib/integrations/aws/s3Config';
 import { generatePatientId } from '@/lib/patients';
-import { decryptPHI, encryptPHI } from '@/lib/security/phi-encryption';
+import {
+  computeDobHash,
+  computeEmailHash,
+  decryptPHI,
+  encryptPHI,
+} from '@/lib/security/phi-encryption';
 import { buildPatientSearchIndex } from '@/lib/utils/search';
 
 /**
@@ -629,9 +634,13 @@ export async function POST(req: NextRequest) {
         tags: updatedTags,
         notes: buildNotes(existingPatient.notes),
         searchIndex: updateSearchIndex,
+        dobHash: computeDobHash(patientData.dob),
       };
       if (phoneForDb && phoneForDb !== '0000000000') {
         (updateData as any).phone = encryptPHI(phoneForDb) ?? phoneForDb;
+      }
+      if (patientData.email && patientData.email !== 'unknown@example.com') {
+        (updateData as any).emailHash = computeEmailHash(patientData.email);
       }
       if (updateData.email === undefined) delete updateData.email;
 
@@ -693,6 +702,8 @@ export async function POST(req: NextRequest) {
             city: rawPayload.city ? (encryptPHI(rawPayload.city) ?? rawPayload.city) : '',
             state: rawPayload.state ? (encryptPHI(rawPayload.state) ?? rawPayload.state) : '',
             zip: rawPayload.zip ? (encryptPHI(rawPayload.zip) ?? rawPayload.zip) : '',
+            emailHash: computeEmailHash(patientData.email),
+            dobHash: computeDobHash(patientData.dob),
           };
           patient = await prisma.patient.create({
             data: createPayload,
@@ -756,12 +767,14 @@ export async function POST(req: NextRequest) {
                   tags: mergeTags(refetchPatient.tags, submissionTags),
                   notes: buildNotes(refetchPatient.notes),
                   searchIndex: retrySearchIndex,
+                  dobHash: computeDobHash(patientData.dob),
                 };
                 if (phoneForDb && phoneForDb !== '0000000000') {
                   (retryUpdateData as any).phone = encryptPHI(phoneForDb) ?? phoneForDb;
                 }
                 if (patientData.email && patientData.email !== 'unknown@example.com') {
                   (retryUpdateData as any).email = encryptPHI(patientData.email) ?? patientData.email;
+                  (retryUpdateData as any).emailHash = computeEmailHash(patientData.email);
                 }
                 patient = await prisma.patient.update({
                   where: { id: refetchPatient.id },
