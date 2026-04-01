@@ -66,8 +66,8 @@ export const LOGOSRX = {
 export const SIPAMED = {
   HOST: 'sipa.eonpro.io',
   PRIMARY: '#1E3A5F',
-  LOGO: '/images/logos/sipa-logo.svg',
-  ICON: '/images/logos/sipa-icon.svg',
+  LOGO: '/images/logos/SIPA LOGO.png',
+  ICON: '/images/logos/SIPA ICON.png',
   NAME: 'SIPAMed',
 } as const;
 
