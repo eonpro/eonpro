@@ -175,4 +175,4 @@ async function handlePost(
   }
 }
 
-export const POST = withAuth(handlePost, { roles: ['super_admin', 'admin', 'provider', 'staff', 'sales_rep'] });
+export const POST = withAuth(handlePost, { roles: ['super_admin', 'admin', 'provider', 'staff'] });

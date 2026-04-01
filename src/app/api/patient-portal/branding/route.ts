@@ -15,6 +15,28 @@ const getBrandingQuerySchema = z.object({
   clinicId: z.string().regex(/^\d+$/, 'clinicId must be a number').transform(Number),
 });
 
+/** Refresh an S3 presigned URL that may have expired. Non-S3 URLs pass through unchanged. */
+async function refreshBrandingUrl(url: string | null): Promise<string | null> {
+  if (!url || !isS3Enabled()) return url;
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname;
+    const isS3Url =
+      (host.includes('.s3.') && host.includes('amazonaws.com')) ||
+      (host.endsWith('.amazonaws.com') && host.includes(s3Config.bucketName));
+    const isCloudFrontUrl =
+      s3Config.cloudFrontUrl && host === new URL(s3Config.cloudFrontUrl).hostname;
+    if (!isS3Url && !isCloudFrontUrl) return url;
+    const key = decodeURIComponent(
+      parsed.pathname.startsWith('/') ? parsed.pathname.slice(1) : parsed.pathname
+    );
+    if (!key) return url;
+    return await generateSignedUrl(key, 'GET', 604800);
+  } catch {
+    return url;
+  }
+}
+
 /**
  * When request is from an authenticated patient, resolve their treatment type from
  * their most recent order/prescription so portal features match their treatment (e.g.
