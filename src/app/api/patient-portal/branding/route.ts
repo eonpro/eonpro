@@ -7,6 +7,8 @@ import { logger } from '@/lib/logger';
 import { relaxedRateLimiter } from '@/lib/security/rate-limiter-redis';
 import { getTreatmentTypeFromOrder } from '@/lib/patient-portal/treatment-from-prescription';
 import type { PortalTreatmentType } from '@/lib/patient-portal/types';
+import { generateSignedUrl } from '@/lib/integrations/aws/s3Service';
+import { isS3Enabled, s3Config } from '@/lib/integrations/aws/s3Config';
 
 // Query params validation
 const getBrandingQuerySchema = z.object({

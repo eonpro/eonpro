@@ -199,6 +199,9 @@ function LoginContent() {
   });
   const [isLogosRxExperience, setIsLogosRxExperience] = useState(false);
 
+  // Logo load failure: gracefully fall back to clinic name text
+  const [logoLoadError, setLogoLoadError] = useState(false);
+
   // Wrong clinic domain: show message + link to correct clinic login
   const [wrongClinicRedirectUrl, setWrongClinicRedirectUrl] = useState<string | null>(null);
   const [wrongClinicName, setWrongClinicName] = useState<string | null>(null);
@@ -291,6 +294,8 @@ function LoginContent() {
             backgroundColor: data.branding.backgroundColor,
           };
 
+          setIsMainApp(false);
+          setLogoLoadError(false);
           setResolvedClinicId(data.clinicId);
           setBranding(brandingData);
 
@@ -1192,13 +1197,14 @@ function LoginContent() {
                 height={48}
               />
             ) : branding && !isMainApp ? (
-              branding.logoUrl ? (
+              branding.logoUrl && !logoLoadError ? (
                 <img
                   src={branding.logoUrl}
                   alt={branding.name}
                   className="h-12 max-w-[200px] object-contain"
                   width={200}
                   height={48}
+                  onError={() => setLogoLoadError(true)}
                 />
               ) : (
                 <h1 className="text-3xl font-bold" style={{ color: primaryColor }}>

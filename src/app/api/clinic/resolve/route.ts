@@ -4,6 +4,8 @@ import { basePrisma } from '@/lib/db';
 import { Prisma } from '@prisma/client';
 import { logger } from '@/lib/logger';
 import { withApiHandler } from '@/domains/shared/errors';
+import { generateSignedUrl } from '@/lib/integrations/aws/s3Service';
+import { isS3Enabled, s3Config } from '@/lib/integrations/aws/s3Config';
 
 /**
  * GET /api/clinic/resolve
@@ -63,6 +65,39 @@ const LOGOS_RX_THEME = {
     phone: null,
   },
 };
+
+/**
+ * Refresh an S3 presigned URL that may have expired.
+ * Branding URLs stored in the DB are presigned with short TTL;
+ * this extracts the S3 key and generates a fresh signed URL.
+ * Non-S3 URLs (external, data:, etc.) pass through unchanged.
+ */
+async function refreshBrandingUrl(url: string | null): Promise<string | null> {
+  if (!url || !isS3Enabled()) return url;
+
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname;
+
+    const isS3Url =
+      (host.includes('.s3.') && host.includes('amazonaws.com')) ||
+      (host.endsWith('.amazonaws.com') && host.includes(s3Config.bucketName));
+    const isCloudFrontUrl =
+      s3Config.cloudFrontUrl &&
+      host === new URL(s3Config.cloudFrontUrl).hostname;
+
+    if (!isS3Url && !isCloudFrontUrl) return url;
+
+    const key = decodeURIComponent(
+      parsed.pathname.startsWith('/') ? parsed.pathname.slice(1) : parsed.pathname
+    );
+    if (!key) return url;
+
+    return await generateSignedUrl(key, 'GET', 604800); // 7-day expiry
+  } catch {
+    return url;
+  }
+}
 
 function isMainAppDomain(domain: string): boolean {
   const normalized = domain.split(':')[0].toLowerCase();
@@ -159,6 +194,13 @@ async function handler(request: NextRequest) {
     const buttonTextColor = clinic.buttonTextColor ?? 'auto';
     const backgroundColor = clinic.backgroundColor ?? '#F9FAFB';
 
+    // Refresh S3 presigned URLs so branding images don't break after expiry
+    const [logoUrl, iconUrl, faviconUrl] = await Promise.all([
+      refreshBrandingUrl(clinic.logoUrl),
+      refreshBrandingUrl(clinic.iconUrl),
+      refreshBrandingUrl(clinic.faviconUrl),
+    ]);
+
     return NextResponse.json(
       {
         clinicId: clinic.id,
@@ -166,9 +208,9 @@ async function handler(request: NextRequest) {
         subdomain: clinic.subdomain,
         customDomain: clinic.customDomain,
         branding: {
-          logoUrl: clinic.logoUrl,
-          iconUrl: clinic.iconUrl,
-          faviconUrl: clinic.faviconUrl,
+          logoUrl,
+          iconUrl,
+          faviconUrl,
           primaryColor: clinic.primaryColor || '#4fa77e',
           secondaryColor: clinic.secondaryColor || '#3B82F6',
           accentColor: clinic.accentColor || '#d3f931',

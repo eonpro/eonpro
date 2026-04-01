@@ -140,6 +140,7 @@ function PatientLoginPage() {
     } catch { return null; }
   });
   const [isMainApp, setIsMainApp] = useState(false);
+  const [logoLoadError, setLogoLoadError] = useState(false);
 
   // Proactively clear stale auth cookies
   useEffect(() => {
@@ -678,13 +679,14 @@ function PatientLoginPage() {
         <div className="flex flex-col items-center pb-8 pt-4">
           <div className="flex h-12 items-center justify-center">
             {branding && !isMainApp ? (
-              branding.logoUrl ? (
+              branding.logoUrl && !logoLoadError ? (
                 <img
                   src={branding.logoUrl}
                   alt={branding.name}
                   className="h-12 max-w-[200px] object-contain"
                   width={200}
                   height={48}
+                  onError={() => setLogoLoadError(true)}
                 />
               ) : (
                 <h1 className="text-3xl font-bold" style={{ color: primaryColor }}>

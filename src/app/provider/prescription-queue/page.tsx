@@ -942,8 +942,8 @@ export default function PrescriptionQueuePage() {
             console.error('[Preselection] Failed to fetch/apply order set:', err);
           }
         }
-      } else {
-        // Non-GLP-1 medication: fall back to generic treatment matching
+      } else if (!isAddonOnlyInvoice) {
+        // Non-GLP-1, non-addon medication: fall back to generic treatment matching
         autoSelectNonGlp1Medication(item.treatment, details);
       }
 

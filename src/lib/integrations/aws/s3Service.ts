@@ -121,8 +121,9 @@ export async function uploadToS3(params: UploadFileParams): Promise<S3FileRespon
     // Execute upload
     const response = await client.send(command);
 
-    // Generate signed URL for access
-    const url = await generateSignedUrl(key, 'GET', 3600); // 1 hour expiry
+    // Branding assets need long-lived URLs; other files use short-lived URLs
+    const signedUrlExpiry = params.category === FileCategory.BRANDING ? 604800 : 3600;
+    const url = await generateSignedUrl(key, 'GET', signedUrlExpiry);
 
     return {
       key,
