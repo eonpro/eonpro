@@ -36,7 +36,10 @@ const BATCH_SIZE = 500;
 const algorithm = 'aes-256-gcm';
 const tagLength = 16;
 
+let _encryptionKey: Buffer | null = null;
+
 function getEncryptionKey(): Buffer {
+  if (_encryptionKey) return _encryptionKey;
   const keyHex = process.env.ENCRYPTION_KEY;
   if (!keyHex || keyHex.length !== 64) {
     throw new Error(
@@ -44,15 +47,31 @@ function getEncryptionKey(): Buffer {
       'Set it before running this script.'
     );
   }
-  return Buffer.from(keyHex, 'hex');
+  _encryptionKey = Buffer.from(keyHex, 'hex');
+  return _encryptionKey;
+}
+
+function hasEncryptionKey(): boolean {
+  const keyHex = process.env.ENCRYPTION_KEY;
+  return !!keyHex && keyHex.length === 64;
+}
+
+function looksEncrypted(value: string): boolean {
+  const parts = value.split(':');
+  return parts.length === 3 && parts.every((p) => p.length >= 2);
 }
 
 function tryDecrypt(value: string | null | undefined): string | null {
   if (!value) return null;
-  const parts = value.split(':').map((p) => p.trim().replace(/\s/g, ''));
-  if (parts.length !== 3) return value; // plaintext
+  if (!looksEncrypted(value)) return value; // plaintext
+
+  if (!hasEncryptionKey()) {
+    // No encryption key — return raw value (will be treated as plaintext)
+    return value;
+  }
 
   try {
+    const parts = value.split(':').map((p) => p.trim().replace(/\s/g, ''));
     const key = getEncryptionKey();
     const iv = Buffer.from(parts[0], 'base64');
     const authTag = Buffer.from(parts[1], 'base64');
@@ -76,6 +95,9 @@ let hmacKey: Buffer | null = null;
 
 function getHmacKey(): Buffer {
   if (hmacKey) return hmacKey;
+  if (!hasEncryptionKey()) {
+    throw new Error('ENCRYPTION_KEY required for HMAC hash computation');
+  }
   const masterKey = getEncryptionKey();
   hmacKey = crypto.createHmac(HMAC_ALGO, masterKey).update(DEDUP_HMAC_CONTEXT).digest();
   return hmacKey;
@@ -122,6 +144,13 @@ function computeDobHash(dob: string | null): string | null {
 // ============================================================================
 
 async function main() {
+  if (!hasEncryptionKey()) {
+    console.error('ERROR: ENCRYPTION_KEY env var is required to compute HMAC hashes.');
+    console.error('Load it alongside your database credentials, e.g.:');
+    console.error('  ENCRYPTION_KEY=<hex> npx tsx scripts/backfill-patient-dedup-hashes.ts');
+    process.exit(1);
+  }
+
   console.log(`Backfill patient dedup hashes (DRY_RUN=${DRY_RUN})\n`);
 
   let processed = 0;
