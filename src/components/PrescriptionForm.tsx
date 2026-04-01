@@ -254,6 +254,8 @@ export default function PrescriptionForm({
   // Determine if user is a provider (uses their own profile) or admin (selects from dropdown)
   const isProviderRole = userRole === 'provider';
   const isAdminRole = userRole === 'admin' || userRole === 'super_admin';
+  const isSalesRepRole = userRole === 'sales_rep';
+  const canQueueForProvider = isAdminRole || isSalesRepRole;
   const selectedProvider = isProviderRole
     ? selfProvider
     : providers.find((p: any) => p.id === form.providerId);
@@ -368,7 +370,8 @@ export default function PrescriptionForm({
         } else if ('providers' in data && data.providers?.length) {
           setProviders(data.providers);
           setForm((f: any) => ({ ...f, providerId: data.providers![0].id }));
-          setUserRole(data.role === 'super_admin' ? 'super_admin' : 'admin');
+          const roleMap: Record<string, string> = { super_admin: 'super_admin', sales_rep: 'sales_rep' };
+          setUserRole(roleMap[data.role as string] ?? 'admin');
           logger.info(`[PrescriptionForm] Loaded ${data.providers.length} providers for clinic`);
         } else {
           setProviderLoadError(
@@ -556,7 +559,7 @@ export default function PrescriptionForm({
       const submissionData = {
         ...form,
         patientId: selectedPatientId || null,
-        queueForProvider: queueForProvider && isAdminRole,
+        queueForProvider: queueForProvider && canQueueForProvider,
         overrideVialSafeguard,
       };
       let res = await apiFetch('/api/prescriptions', {
@@ -833,11 +836,15 @@ export default function PrescriptionForm({
             >
               ← Back to Edit
             </button>
-            {isAdminRole && (
+            {canQueueForProvider && (
               <button
                 onClick={() => submit(true)}
                 disabled={isSubmitting}
-                className="min-w-[180px] flex-1 rounded-lg bg-amber-500 px-6 py-3 font-medium text-white transition-colors hover:bg-amber-600 disabled:cursor-not-allowed disabled:opacity-50"
+                className={`min-w-[180px] flex-1 rounded-lg px-6 py-3 font-medium text-white transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                  isSalesRepRole
+                    ? 'bg-[#4fa77e] hover:bg-[#3f8660]'
+                    : 'bg-amber-500 hover:bg-amber-600'
+                }`}
               >
                 {isSubmitting ? (
                   <span className="flex items-center justify-center">
@@ -868,6 +875,7 @@ export default function PrescriptionForm({
                 )}
               </button>
             )}
+            {!isSalesRepRole && (
             <button
               onClick={() => submit(false)}
               disabled={isSubmitting}
@@ -901,6 +909,7 @@ export default function PrescriptionForm({
                 'Send to Pharmacy →'
               )}
             </button>
+            )}
           </div>
         </div>
       </div>

@@ -83,13 +83,18 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
   let claimedInvoiceId: number | null = null;
   let claimedRefillId: number | null = null;
   try {
-    // Verify user has prescribing permissions
-    if (!['provider', 'admin', 'super_admin'].includes(user.role)) {
+    // Verify user has prescribing or queueing permissions
+    if (!['provider', 'admin', 'super_admin', 'sales_rep'].includes(user.role)) {
       logger.security('Unauthorized prescription attempt', { userId: user.id, role: user.role });
       return NextResponse.json(
         { error: 'Not authorized to create prescriptions' },
         { status: 403 }
       );
+    }
+
+    // Sales reps MUST queue for provider — they cannot send to pharmacy directly
+    if (user.role === 'sales_rep') {
+      body.queueForProvider = true;
     }
 
     const body = await req.json();
@@ -123,15 +128,15 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
       );
     }
 
-    // Queue-for-provider is admin-only, UNLESS addonAutoQueue is set (system-initiated
-    // from prescription queue when Elite Bundle add-ons need separate prescriber review)
-    if (p.queueForProvider && !['admin', 'super_admin'].includes(user.role) && !p.addonAutoQueue) {
+    // Queue-for-provider is allowed for admin, super_admin, and sales_rep.
+    // Also allowed when addonAutoQueue is set (system-initiated from prescription queue).
+    if (p.queueForProvider && !['admin', 'super_admin', 'sales_rep'].includes(user.role) && !p.addonAutoQueue) {
       logger.security('Non-admin attempted to queue prescription for provider', {
         userId: user.id,
         role: user.role,
       });
       return NextResponse.json(
-        { error: 'Only clinic admins can queue prescriptions for provider review' },
+        { error: 'Not authorized to queue prescriptions for provider review' },
         { status: 403 }
       );
     }

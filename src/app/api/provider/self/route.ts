@@ -177,12 +177,12 @@ export const GET = withAuth(
         });
       }
 
-      // Admin/super_admin: return providers list for clinic selection
+      // Admin/super_admin/sales_rep: return providers list for clinic selection
       let effectiveClinicId = user.clinicId;
       const clinicIdParam = req.nextUrl.searchParams.get('clinicId');
       const activeClinicId = req.nextUrl.searchParams.get('activeClinicId');
 
-      if (clinicIdParam && (user.role === 'admin' || user.role === 'super_admin')) {
+      if (clinicIdParam && ['admin', 'super_admin', 'sales_rep'].includes(user.role)) {
         const requestedId = parseInt(clinicIdParam, 10);
         if (!Number.isNaN(requestedId)) {
           const hasAccess =
@@ -214,9 +214,14 @@ export const GET = withAuth(
       const result = await providerService.listProviders(userContext);
       trace('Admin list', { count: result.count, effectiveClinicId });
 
+      const roleMapping: Record<string, string> = {
+        super_admin: 'super_admin',
+        admin: 'admin',
+        sales_rep: 'sales_rep',
+      };
       return NextResponse.json({
         providers: result.providers,
-        role: user.role === 'super_admin' ? 'super_admin' : 'admin',
+        role: roleMapping[user.role] ?? 'admin',
       });
     } catch (error) {
       logger.error('[ProviderSelf] Error', { error, userId: user.id });
@@ -226,7 +231,7 @@ export const GET = withAuth(
     }
   },
   {
-    roles: ['provider', 'admin', 'super_admin'],
+    roles: ['provider', 'admin', 'super_admin', 'sales_rep'],
     unauthorizedMessage: 'Authentication required',
   }
 );

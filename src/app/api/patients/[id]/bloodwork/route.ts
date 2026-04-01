@@ -149,5 +149,5 @@ export const GET = withAuthParams(
       });
     }
   },
-  { roles: ['admin', 'provider', 'staff', 'super_admin'] }
+  { roles: ['admin', 'provider', 'staff', 'super_admin', 'sales_rep'] }
 );

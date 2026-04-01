@@ -106,7 +106,7 @@ const getHandler = withAuthParams(
       );
     }
   },
-  { roles: ['super_admin', 'admin', 'provider', 'staff', 'support', 'patient'] }
+  { roles: ['super_admin', 'admin', 'provider', 'staff', 'support', 'patient', 'sales_rep'] }
 );
 
 const postHandler = withAuthParams(
@@ -206,7 +206,7 @@ const postHandler = withAuthParams(
       );
     }
   },
-  { roles: ['super_admin', 'admin', 'provider', 'staff', 'support'] }
+  { roles: ['super_admin', 'admin', 'provider', 'staff', 'support', 'sales_rep'] }
 );
 
 export const GET = getHandler;

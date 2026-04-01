@@ -127,13 +127,6 @@ export default async function PatientDetailPage({
                 take: 1,
                 select: { id: true, planName: true },
               },
-              salesRepAssignments: {
-                where: { isActive: true },
-                take: 1,
-                include: {
-                  salesRep: { select: { id: true, firstName: true, lastName: true } },
-                },
-              },
             },
           }),
         {
@@ -194,6 +187,18 @@ export default async function PatientDetailPage({
       eventType: AuditEventType.PHI_VIEW, resourceType: 'Patient', resourceId: id, patientId: id,
       action: 'VIEW_PATIENT_RECORD', outcome: 'SUCCESS',
     }).catch(() => {});
+
+    // Fetch active sales rep assignment (uncached — changes frequently)
+    let activeSalesRep: { id: number; firstName: string; lastName: string } | null = null;
+    try {
+      const assignment = await basePrisma.patientSalesRepAssignment.findFirst({
+        where: { patientId: id, isActive: true },
+        select: { salesRep: { select: { id: true, firstName: true, lastName: true } } },
+      });
+      activeSalesRep = assignment?.salesRep ?? null;
+    } catch {
+      // Non-critical — sidebar will show "Unassigned"
+    }
 
     // Decrypt PHI fields
     let patientDecrypted: any;
@@ -278,9 +283,7 @@ export default async function PatientDetailPage({
                   }
                 : undefined
             }
-            currentSalesRep={
-              (patientDecrypted as any).salesRepAssignments?.[0]?.salesRep ?? null
-            }
+            currentSalesRep={activeSalesRep}
             userRole={user.role}
             currentUserId={user.id}
             clinicInfo={
