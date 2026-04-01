@@ -138,6 +138,7 @@ async function processDigestsForClinic(
       const notifications = await prisma.notification.findMany({
         where: {
           userId: user.id,
+          clinicId,
           isRead: false,
           isArchived: false,
           createdAt: { gte: oneWeekAgo },

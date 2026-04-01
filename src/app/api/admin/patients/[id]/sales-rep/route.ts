@@ -195,8 +195,16 @@ async function handlePost(
 
     const { salesRepId, note } = result.data;
 
-    // Get clinic context for non-super-admin users
+    // Sales reps can only assign themselves — not other reps
     const userRole = user.role?.toLowerCase();
+    if (userRole === 'sales_rep' && salesRepId !== user.id) {
+      return NextResponse.json(
+        { error: 'Sales reps can only assign themselves to a patient' },
+        { status: 403 }
+      );
+    }
+
+    // Get clinic context for non-super-admin users
     const clinicId = userRole === 'super_admin' ? undefined : user.clinicId;
 
     // Verify patient exists and user has access
@@ -426,6 +434,6 @@ async function handleDelete(
   }
 }
 
-export const GET = withAuth(handleGet, { roles: ['super_admin', 'admin'] });
-export const POST = withAuth(handlePost, { roles: ['super_admin', 'admin'] });
+export const GET = withAuth(handleGet, { roles: ['super_admin', 'admin', 'sales_rep'] });
+export const POST = withAuth(handlePost, { roles: ['super_admin', 'admin', 'sales_rep'] });
 export const DELETE = withAuth(handleDelete, { roles: ['super_admin', 'admin'] });

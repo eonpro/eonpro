@@ -1051,6 +1051,7 @@ export default function PatientSidebar({
               patientId={patient.id}
               currentSalesRep={currentSalesRep}
               userRole={userRole}
+              currentUserId={currentUserId}
             />
             {isSalesRep && (
               <div className="mt-2 rounded-lg border border-emerald-200 bg-emerald-50 p-2.5">

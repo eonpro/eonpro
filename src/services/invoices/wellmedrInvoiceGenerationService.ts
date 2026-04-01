@@ -29,6 +29,7 @@ import {
   ADDON_PHARMACY_FEES,
   getAddonPharmacyFeeCents,
   getAddonPrescriptionUpchargeCents,
+  detectAddonKeysFromRxs,
   type AddonKey,
 } from '@/lib/invoices/wellmedr-pricing';
 
@@ -413,6 +414,11 @@ export async function generateDailyInvoices(
           );
         }
       } catch { /* ignore parse errors */ }
+    }
+
+    if (orderAddonKeys.length === 0) {
+      const rxMedKeys = order.rxs.map((rx) => rx.medicationKey);
+      orderAddonKeys = detectAddonKeysFromRxs(rxMedKeys);
     }
 
     if (!isCancelled) {

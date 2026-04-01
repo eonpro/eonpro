@@ -19,6 +19,7 @@ interface SalesRepDropdownProps {
     lastName: string;
   } | null;
   userRole: string;
+  currentUserId?: number;
   disabled?: boolean;
   onAssigned?: (rep: SalesRep | null) => void;
 }
@@ -27,6 +28,7 @@ export default function SalesRepDropdown({
   patientId,
   currentSalesRep,
   userRole,
+  currentUserId,
   disabled = false,
   onAssigned,
 }: SalesRepDropdownProps) {
@@ -49,9 +51,38 @@ export default function SalesRepDropdown({
     }
   }, [currentSalesRep?.id]);
 
-  // Only admins and super_admins can change the assignment
   const normalizedRole = userRole?.toLowerCase();
   const canEdit = ['admin', 'super_admin'].includes(normalizedRole);
+  const isSalesRep = normalizedRole === 'sales_rep';
+  const isAlreadyAssignedToMe = isSalesRep && currentUserId != null && selectedRep?.id === currentUserId;
+  const [selfAssigning, setSelfAssigning] = useState(false);
+  const [selfAssignError, setSelfAssignError] = useState<string | null>(null);
+
+  const handleSelfAssign = async () => {
+    if (!currentUserId) return;
+    setSelfAssigning(true);
+    setSelfAssignError(null);
+    try {
+      const response = await apiFetch(`/api/admin/patients/${patientId}/sales-rep`, {
+        method: 'POST',
+        body: JSON.stringify({ salesRepId: currentUserId }),
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.detail || data.error || 'Failed to assign');
+      }
+      const data = await response.json();
+      const rep = data.assignment?.salesRep;
+      if (rep) {
+        setSelectedRep(rep);
+        onAssigned?.(rep);
+      }
+    } catch (err) {
+      setSelfAssignError(err instanceof Error ? err.message : 'Failed to assign');
+    } finally {
+      setSelfAssigning(false);
+    }
+  };
 
   // Fetch sales reps when dropdown opens
   useEffect(() => {
@@ -121,7 +152,6 @@ export default function SalesRepDropdown({
     }
   };
 
-  // If user can't edit, just show the current rep (or "Unassigned")
   if (!canEdit) {
     return (
       <div className="mt-4 border-t border-gray-200 pt-4">
@@ -129,6 +159,26 @@ export default function SalesRepDropdown({
         <p className="text-sm text-gray-900">
           {selectedRep ? `${selectedRep.firstName} ${selectedRep.lastName}` : 'Unassigned'}
         </p>
+        {isSalesRep && !isAlreadyAssignedToMe && (
+          <button
+            onClick={handleSelfAssign}
+            disabled={selfAssigning || disabled}
+            className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg border border-[var(--brand-primary,#4fa77e)] bg-[var(--brand-primary-light,rgba(79,167,126,0.06))] px-3 py-2 text-sm font-medium text-[var(--brand-primary,#4fa77e)] transition-colors hover:bg-[var(--brand-primary-light,rgba(79,167,126,0.15))] disabled:opacity-50"
+          >
+            {selfAssigning ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <UserCheck className="h-4 w-4" />
+            )}
+            Assign myself
+          </button>
+        )}
+        {isSalesRep && isAlreadyAssignedToMe && (
+          <p className="mt-1 text-xs text-[var(--brand-primary,#4fa77e)]">You are the assigned rep</p>
+        )}
+        {selfAssignError && (
+          <p className="mt-1 text-xs text-red-600">{selfAssignError}</p>
+        )}
       </div>
     );
   }

@@ -150,8 +150,9 @@ export function getDedicatedAccountPublishableKey(subdomain: string): string | u
 const getPlatformStripe = getConnectPlatformStripe;
 
 /**
- * Get Stripe context for the platform account (EONmeds)
- * Use this for platform-level operations
+ * Get Stripe context for the EONpro Connect platform account.
+ * Use this for platform-level operations (Connect onboarding, transfers, etc.).
+ * This is NOT the EonMeds clinic account — EonMeds has its own dedicated key.
  */
 export function getStripeForPlatform(): StripeContext {
   return {
@@ -164,10 +165,14 @@ export function getStripeForPlatform(): StripeContext {
  * Get Stripe context for a specific clinic
  *
  * Priority:
- * 1. Dedicated accounts (OT, etc.) - by subdomain
- * 2. Platform account (EonMeds) - by stripePlatformAccount flag
- * 3. Connected accounts - by stripeAccountId
- * 4. Not configured - returns platform stripe with isPlatformAccount: false
+ * 1. Dedicated accounts (EonMeds, OT, etc.) - by subdomain → own secret key
+ * 2. EONpro platform account - by stripePlatformAccount flag → Connect platform key
+ * 3. Connected accounts (WellMedR, etc.) - by stripeAccountId → Connect platform key + stripeAccount header
+ * 4. Not configured - returns Connect platform stripe with isPlatformAccount: false
+ *
+ * NOTE: The "platform" is EONpro (the SaaS Connect account using
+ * STRIPE_CONNECT_PLATFORM_SECRET_KEY). EonMeds is a dedicated clinic
+ * account (EONMEDS_STRIPE_SECRET_KEY), NOT the platform.
  */
 export async function getStripeForClinic(clinicId: number): Promise<StripeContext> {
   // Get clinic's Stripe info including subdomain

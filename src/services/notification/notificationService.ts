@@ -56,6 +56,7 @@ export interface BroadcastNotificationInput {
 
 export interface NotificationFilters {
   userId: number;
+  clinicId?: number;
   category?: NotificationCategory;
   isRead?: boolean;
   isArchived?: boolean;
@@ -90,6 +91,7 @@ class NotificationService {
             userId: input.userId,
             sourceType: input.sourceType,
             sourceId: input.sourceId,
+            ...(input.clinicId != null && { clinicId: input.clinicId }),
           },
         });
 
@@ -399,8 +401,11 @@ class NotificationService {
     page = 1,
     pageSize = 20
   ): Promise<PaginatedNotifications> {
+    const clinicFilter = filters.clinicId != null ? { clinicId: filters.clinicId } : {};
+
     const where: Prisma.NotificationWhereInput = {
       userId: filters.userId,
+      ...clinicFilter,
       ...(filters.category && { category: filters.category }),
       ...(filters.isRead !== undefined && { isRead: filters.isRead }),
       ...(filters.isArchived !== undefined && { isArchived: filters.isArchived }),
@@ -417,7 +422,7 @@ class NotificationService {
       }),
       prisma.notification.count({ where }),
       prisma.notification.count({
-        where: { userId: filters.userId, isRead: false, isArchived: false },
+        where: { userId: filters.userId, ...clinicFilter, isRead: false, isArchived: false },
       }),
     ]);
 
@@ -434,10 +439,11 @@ class NotificationService {
   /**
    * Get unread count for badge display
    */
-  async getUnreadCount(userId: number): Promise<number> {
+  async getUnreadCount(userId: number, clinicId?: number): Promise<number> {
     return prisma.notification.count({
       where: {
         userId,
+        ...(clinicId != null && { clinicId }),
         isRead: false,
         isArchived: false,
       },
@@ -499,10 +505,11 @@ class NotificationService {
   /**
    * Mark all notifications as read for a user
    */
-  async markAllAsRead(userId: number, category?: NotificationCategory): Promise<number> {
+  async markAllAsRead(userId: number, category?: NotificationCategory, clinicId?: number): Promise<number> {
     const result = await prisma.notification.updateMany({
       where: {
         userId,
+        ...(clinicId != null && { clinicId }),
         isRead: false,
         ...(category && { category }),
       },
@@ -516,6 +523,7 @@ class NotificationService {
       userId,
       count: result.count,
       category,
+      clinicId,
     });
 
     return result.count;

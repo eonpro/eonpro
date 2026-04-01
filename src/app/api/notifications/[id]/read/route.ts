@@ -4,6 +4,7 @@ import { standardRateLimit } from '@/lib/rateLimit';
 import { notificationService } from '@/services/notification';
 import { invalidateNotificationsCountCache } from '@/app/api/notifications/count/route';
 import { logger } from '@/lib/logger';
+import { getClinicContext } from '@/lib/db';
 
 /**
  * POST /api/notifications/[id]/read
@@ -28,8 +29,9 @@ async function markSingleReadHandler(req: NextRequest, user: AuthUser): Promise<
     }
 
     const notification = await notificationService.markAsRead(notificationId, user.id);
+    const clinicId = getClinicContext();
 
-    await invalidateNotificationsCountCache(user.id);
+    await invalidateNotificationsCountCache(user.id, clinicId ?? undefined);
 
     if (!notification) {
       return NextResponse.json(
@@ -40,8 +42,7 @@ async function markSingleReadHandler(req: NextRequest, user: AuthUser): Promise<
       );
     }
 
-    // Get updated unread count
-    const unreadCount = await notificationService.getUnreadCount(user.id);
+    const unreadCount = await notificationService.getUnreadCount(user.id, clinicId ?? undefined);
 
     return NextResponse.json({
       success: true,

@@ -17,13 +17,25 @@
 
 import { prisma } from '@/lib/db';
 import { getStripe, STRIPE_CONFIG } from '@/lib/stripe';
+import { getStripeForClinic, StripeContext, stripeRequestOptions } from '@/lib/stripe/connect';
 import { StripeCustomerService } from '@/services/stripe/customerService';
+import { decryptPatientPHI, DEFAULT_PHI_FIELDS } from '@/lib/security/phi-encryption';
 import { logger } from '@/lib/logger';
 import { sendEmail } from '@/lib/email';
 import { sendSMS, formatPhoneNumber } from '@/lib/integrations/twilio/smsService';
 import type Stripe from 'stripe';
 import type { InvoiceStatus } from '@prisma/client';
 import { Prisma } from '@prisma/client';
+
+/**
+ * Resolved Stripe connection for a specific clinic.
+ * `client` is the Stripe SDK instance; `opts` carries `{ stripeAccount }` for
+ * Connect accounts (WellMedR, etc.) or `undefined` for dedicated / platform accounts.
+ */
+interface ResolvedStripe {
+  client: Stripe;
+  opts: Stripe.RequestOptions | undefined;
+}
 
 // ============================================================================
 // TYPES & INTERFACES
@@ -174,16 +186,76 @@ export interface InvoiceMetadata {
 // ============================================================================
 
 export class InvoiceManager {
-  private stripeClient: Stripe | null = null;
+  private _stripeContext: StripeContext | null = null;
+  private _stripeResolved = false;
   private clinicId?: number;
 
   constructor(clinicId?: number) {
     this.clinicId = clinicId;
-    try {
-      this.stripeClient = getStripe();
-    } catch {
-      logger.warn('Stripe not configured - running in demo mode');
+  }
+
+  /**
+   * Lazily resolve the correct Stripe context for this clinic.
+   * Connected accounts (WellMedR) → Connect platform key + stripeAccount header.
+   * Dedicated accounts (EonMeds, OT) → their own secret key.
+   * No clinicId → falls back to legacy EonMeds key for backwards compatibility.
+   */
+  private async resolveStripe(): Promise<ResolvedStripe | null> {
+    if (this._stripeResolved) {
+      if (!this._stripeContext) return null;
+      return { client: this._stripeContext.stripe, opts: stripeRequestOptions(this._stripeContext) };
     }
+    this._stripeResolved = true;
+
+    try {
+      if (this.clinicId) {
+        this._stripeContext = await getStripeForClinic(this.clinicId);
+      } else {
+        this._stripeContext = { stripe: getStripe(), isPlatformAccount: true };
+      }
+    } catch {
+      logger.warn('[InvoiceManager] Stripe not configured - running in demo mode', {
+        clinicId: this.clinicId,
+      });
+      return null;
+    }
+
+    return { client: this._stripeContext.stripe, opts: stripeRequestOptions(this._stripeContext) };
+  }
+
+  /**
+   * Get or create a Stripe customer on the correct account.
+   * Connected accounts have their own customer namespace, so we search by email.
+   * Platform/dedicated accounts use the shared StripeCustomerService.
+   */
+  private async getOrCreateCustomerForContext(
+    patientId: number,
+    stripe: ResolvedStripe,
+  ): Promise<Stripe.Customer> {
+    if (stripe.opts) {
+      const patient = await prisma.patient.findUnique({ where: { id: patientId } });
+      if (!patient) throw new Error('Patient not found');
+
+      let decrypted: Record<string, unknown> = patient as Record<string, unknown>;
+      try {
+        decrypted = decryptPatientPHI(patient as Record<string, unknown>, DEFAULT_PHI_FIELDS as unknown as string[]);
+      } catch { /* use raw values */ }
+
+      const email = (decrypted.email as string) || '';
+      const name = `${decrypted.firstName || ''} ${decrypted.lastName || ''}`.trim();
+
+      if (email) {
+        const existing = await stripe.client.customers.list({ email, limit: 1 }, stripe.opts);
+        if (existing.data.length > 0) return existing.data[0];
+      }
+
+      return stripe.client.customers.create(
+        { email: email || undefined, name: name || undefined, metadata: { patientId: patientId.toString() } },
+        stripe.opts,
+      );
+    }
+
+    return StripeCustomerService.getOrCreateCustomer(patientId);
   }
 
   // --------------------------------------------------------------------------
@@ -229,14 +301,13 @@ export class InvoiceManager {
     let stripeInvoiceUrl: string | undefined;
     let stripePdfUrl: string | undefined;
 
-    // Create in Stripe if configured
-    if (this.stripeClient) {
+    // Create in Stripe if configured — routes to the correct account for this clinic
+    const stripe = await this.resolveStripe();
+    if (stripe) {
       try {
-        // Get or create Stripe customer
-        const customer = await StripeCustomerService.getOrCreateCustomer(options.patientId);
+        const customer = await this.getOrCreateCustomerForContext(options.patientId, stripe);
 
-        // Create Stripe invoice
-        stripeInvoice = await this.stripeClient.invoices.create({
+        stripeInvoice = await stripe.client.invoices.create({
           customer: customer.id,
           description: options.description,
           collection_method: options.collectionMethod || STRIPE_CONFIG.collectionMethod,
@@ -255,12 +326,11 @@ export class InvoiceManager {
             invoiceNumber,
             ...options.metadata,
           },
-        });
+        }, stripe.opts);
 
-        // Add line items
         for (const item of options.lineItems) {
           const itemTotal = this.calculateLineItemTotal(item);
-          await this.stripeClient.invoiceItems.create({
+          await stripe.client.invoiceItems.create({
             customer: customer.id,
             invoice: stripeInvoice.id,
             description:
@@ -268,49 +338,43 @@ export class InvoiceManager {
             amount: itemTotal,
             currency: STRIPE_CONFIG.currency,
             metadata: item.metadata,
-          });
+          }, stripe.opts);
         }
 
-        // Apply discount if provided
         if (options.discount && options.discount.value > 0) {
-          // Create a coupon for this invoice
-          const coupon = await this.stripeClient.coupons.create({
+          const coupon = await stripe.client.coupons.create({
             ...(options.discount.type === 'percentage'
               ? { percent_off: options.discount.value }
               : { amount_off: options.discount.value, currency: STRIPE_CONFIG.currency }),
             duration: 'once',
             name: options.discount.description || 'Invoice Discount',
-          });
+          }, stripe.opts);
 
-          await this.stripeClient.invoices.update(stripeInvoice.id, {
+          await stripe.client.invoices.update(stripeInvoice.id, {
             discounts: [{ coupon: coupon.id }],
-          });
+          }, stripe.opts);
         }
 
-        // Finalize the invoice
-        const finalizedInvoice = await this.stripeClient.invoices.finalizeInvoice(stripeInvoice.id);
+        const finalizedInvoice = await stripe.client.invoices.finalizeInvoice(stripeInvoice.id, stripe.opts);
 
         stripeInvoiceId = finalizedInvoice.id;
         stripeInvoiceUrl = finalizedInvoice.hosted_invoice_url || undefined;
         stripePdfUrl = finalizedInvoice.invoice_pdf || undefined;
         stripeInvoice = finalizedInvoice;
 
-        // Auto-send if requested
         if (options.autoSend) {
-          await this.stripeClient.invoices.sendInvoice(finalizedInvoice.id);
+          await stripe.client.invoices.sendInvoice(finalizedInvoice.id, stripe.opts);
         }
 
-        // Auto-charge if requested and payment method available
         if (options.autoCharge) {
           try {
-            await this.stripeClient.invoices.pay(finalizedInvoice.id);
+            await stripe.client.invoices.pay(finalizedInvoice.id, stripe.opts);
           } catch (payError) {
             logger.warn('Auto-charge failed', { invoiceId: finalizedInvoice.id, error: payError });
           }
         }
       } catch (stripeError: unknown) {
         logger.error('Stripe invoice creation failed', stripeError);
-        // Continue without Stripe - create local invoice only
       }
     }
 
@@ -442,8 +506,9 @@ export class InvoiceManager {
       throw new Error('Only draft invoices can be finalized');
     }
 
-    // Create in Stripe if configured
-    if (this.stripeClient && !invoice.stripeInvoiceId) {
+    // Create in Stripe if configured — uses clinic-aware context
+    const stripe = await this.resolveStripe();
+    if (stripe && !invoice.stripeInvoiceId) {
       const lineItems = (invoice.lineItems as unknown as LineItem[]) || [];
       const invoiceMeta = (invoice.metadata as InvoiceMetadata) || {};
       const result = await this.createInvoice({
@@ -619,10 +684,11 @@ export class InvoiceManager {
     const clinicName = invoice.clinic?.name || 'EONMeds';
     const amount = '$' + ((invoice.amount ?? 0) / 100).toFixed(2);
 
-    // Send via Stripe if available
-    if (this.stripeClient && invoice.stripeInvoiceId && invoice.status === 'OPEN') {
+    // Send via Stripe if available — routes to correct account
+    const stripe = await this.resolveStripe();
+    if (stripe && invoice.stripeInvoiceId && invoice.status === 'OPEN') {
       try {
-        await this.stripeClient.invoices.sendInvoice(invoice.stripeInvoiceId);
+        await stripe.client.invoices.sendInvoice(invoice.stripeInvoiceId, stripe.opts);
         delivery.push({ method: 'stripe_email', success: true });
       } catch (stripeError: unknown) {
         delivery.push({ method: 'stripe_email', success: false, error: stripeError instanceof Error ? stripeError.message : String(stripeError) });
@@ -699,10 +765,10 @@ export class InvoiceManager {
       throw new Error('Cannot void a paid invoice. Issue a refund instead.');
     }
 
-    // Void in Stripe
-    if (this.stripeClient && invoice.stripeInvoiceId) {
+    const stripe = await this.resolveStripe();
+    if (stripe && invoice.stripeInvoiceId) {
       try {
-        await this.stripeClient.invoices.voidInvoice(invoice.stripeInvoiceId);
+        await stripe.client.invoices.voidInvoice(invoice.stripeInvoiceId, stripe.opts);
       } catch (stripeError: unknown) {
         logger.warn('Stripe void failed', { error: stripeError instanceof Error ? stripeError.message : String(stripeError) });
       }
@@ -735,10 +801,10 @@ export class InvoiceManager {
       throw new Error('Invoice not found');
     }
 
-    // For unpaid invoices in Stripe, void them
-    if (this.stripeClient && invoice.stripeInvoiceId && invoice.status !== 'PAID') {
+    const stripe = await this.resolveStripe();
+    if (stripe && invoice.stripeInvoiceId && invoice.status !== 'PAID') {
       try {
-        await this.stripeClient.invoices.voidInvoice(invoice.stripeInvoiceId);
+        await stripe.client.invoices.voidInvoice(invoice.stripeInvoiceId, stripe.opts);
       } catch (stripeError: unknown) {
         logger.warn('Stripe void failed during cancel', { error: stripeError instanceof Error ? stripeError.message : String(stripeError) });
       }
@@ -771,10 +837,10 @@ export class InvoiceManager {
       throw new Error('Invoice not found');
     }
 
-    // Mark in Stripe
-    if (this.stripeClient && invoice.stripeInvoiceId) {
+    const stripe = await this.resolveStripe();
+    if (stripe && invoice.stripeInvoiceId) {
       try {
-        await this.stripeClient.invoices.markUncollectible(invoice.stripeInvoiceId);
+        await stripe.client.invoices.markUncollectible(invoice.stripeInvoiceId, stripe.opts);
       } catch (stripeError: unknown) {
         logger.warn('Stripe mark uncollectible failed', { error: stripeError instanceof Error ? stripeError.message : String(stripeError) });
       }
@@ -1087,16 +1153,16 @@ export class InvoiceManager {
 
     const refundAmount = options.amount || invoice.amountPaid || invoice.amount;
 
-    // Process refund in Stripe if applicable
-    if (this.stripeClient && options.refundToPaymentMethod && refundAmount) {
+    const stripe = await this.resolveStripe();
+    if (stripe && options.refundToPaymentMethod && refundAmount) {
       const stripePayment = invoice.payments.find((p) => p.stripePaymentIntentId);
       if (stripePayment?.stripePaymentIntentId) {
         try {
-          await this.stripeClient.refunds.create({
+          await stripe.client.refunds.create({
             payment_intent: stripePayment.stripePaymentIntentId,
             amount: refundAmount,
             reason: 'requested_by_customer',
-          });
+          }, stripe.opts);
         } catch (stripeError: unknown) {
           const errMsg = stripeError instanceof Error ? stripeError instanceof Error ? stripeError.message : String(stripeError) : 'Unknown error';
           logger.error('Stripe refund failed', { error: errMsg });

@@ -1,6 +1,8 @@
 import { stripe, getStripe, STRIPE_CONFIG } from '@/lib/stripe';
+import { getStripeForClinic, stripeRequestOptions } from '@/lib/stripe/connect';
 import { prisma } from '@/lib/db';
 import { StripeCustomerService } from './customerService';
+import { decryptPatientPHI, DEFAULT_PHI_FIELDS } from '@/lib/security/phi-encryption';
 import type Stripe from 'stripe';
 import type { InvoiceStatus } from '@prisma/client';
 import { logger } from '@/lib/logger';
@@ -31,6 +33,7 @@ export interface InvoiceLineItem {
 
 export interface CreateInvoiceOptions {
   patientId: number;
+  clinicId?: number;
   description?: string;
   lineItems: InvoiceLineItem[];
   dueInDays?: number;
@@ -44,35 +47,85 @@ export interface CreateInvoiceOptions {
  */
 export class StripeInvoiceService {
   /**
-   * Create an invoice for a patient
+   * Create an invoice for a patient.
+   * When clinicId is provided, routes to the correct Stripe account
+   * (Connected, Dedicated, or Platform) via getStripeForClinic().
    */
   static async createInvoice(options: CreateInvoiceOptions): Promise<{
     invoice: any;
     stripeInvoice: Stripe.Invoice;
   }> {
-    const stripeClient = getStripe();
+    // Resolve clinic from patient if not provided
+    let clinicId = options.clinicId;
+    if (!clinicId) {
+      const patient = await prisma.patient.findUnique({
+        where: { id: options.patientId },
+        select: { clinicId: true },
+      });
+      clinicId = patient?.clinicId ?? undefined;
+    }
 
-    // Get or create Stripe customer
-    const customer = await StripeCustomerService.getOrCreateCustomer(options.patientId);
+    let stripeClient: Stripe;
+    let stripeOpts: Stripe.RequestOptions | undefined;
 
-    // Create invoice in Stripe
+    if (clinicId) {
+      const ctx = await getStripeForClinic(clinicId);
+      stripeClient = ctx.stripe;
+      stripeOpts = stripeRequestOptions(ctx);
+    } else {
+      stripeClient = getStripe();
+      stripeOpts = undefined;
+    }
+
+    // Get or create Stripe customer on the correct account
+    let customer: Stripe.Customer;
+    if (stripeOpts) {
+      const patient = await prisma.patient.findUnique({ where: { id: options.patientId } });
+      if (!patient) throw new Error('Patient not found');
+
+      let decrypted: Record<string, unknown> = patient as Record<string, unknown>;
+      try {
+        decrypted = decryptPatientPHI(patient as Record<string, unknown>, DEFAULT_PHI_FIELDS as unknown as string[]);
+      } catch { /* use raw */ }
+
+      const email = (decrypted.email as string) || '';
+      const name = `${decrypted.firstName || ''} ${decrypted.lastName || ''}`.trim();
+
+      if (email) {
+        const existing = await stripeClient.customers.list({ email, limit: 1 }, stripeOpts);
+        if (existing.data.length > 0) {
+          customer = existing.data[0];
+        } else {
+          customer = await stripeClient.customers.create(
+            { email, name: name || undefined, metadata: { patientId: options.patientId.toString() } },
+            stripeOpts,
+          );
+        }
+      } else {
+        customer = await stripeClient.customers.create(
+          { name: name || undefined, metadata: { patientId: options.patientId.toString() } },
+          stripeOpts,
+        );
+      }
+    } else {
+      customer = await StripeCustomerService.getOrCreateCustomer(options.patientId);
+    }
+
     const stripeInvoice = await stripeClient.invoices.create({
       customer: customer.id,
       description: options.description,
       collection_method: STRIPE_CONFIG.collectionMethod,
       days_until_due: options.dueInDays || STRIPE_CONFIG.invoiceDueDays,
-      auto_advance: false, // Don't auto-finalize yet
+      auto_advance: false,
       metadata: {
         patientId: options.patientId.toString(),
+        ...(clinicId ? { clinicId: clinicId.toString() } : {}),
         orderId: options.orderId?.toString() || '',
         ...options.metadata,
       } as any,
-    });
+    }, stripeOpts);
 
-    // Add line items
     for (const item of options.lineItems) {
-      // Stripe API: use 'amount' for total line item cost (cannot combine with 'quantity')
-      // Our InvoiceLineItem.amount is the TOTAL cost, not per-unit price
       await stripeClient.invoiceItems.create({
         customer: customer.id,
         invoice: stripeInvoice.id,
@@ -80,24 +133,20 @@ export class StripeInvoiceService {
           item.quantity && item.quantity > 1
             ? `${item.description} (x${item.quantity})`
             : item.description,
-        amount: item.amount, // Total amount in cents for this line item
+        amount: item.amount,
         currency: STRIPE_CONFIG.currency,
         metadata: item.metadata,
-      });
+      }, stripeOpts);
     }
 
-    // Finalize the invoice
-    const finalizedInvoice = await stripeClient.invoices.finalizeInvoice(stripeInvoice.id);
+    const finalizedInvoice = await stripeClient.invoices.finalizeInvoice(stripeInvoice.id, stripeOpts);
 
-    // Auto-send if requested
     if (options.autoSend) {
-      await stripeClient.invoices.sendInvoice(finalizedInvoice.id);
+      await stripeClient.invoices.sendInvoice(finalizedInvoice.id, stripeOpts);
     }
 
-    // Calculate total amount (amount is already the total for each line item)
     const totalAmount = options.lineItems.reduce((sum, item) => sum + item.amount, 0);
 
-    // Store invoice in database
     const dbInvoice = await prisma.invoice.create({
       data: {
         stripeInvoiceId: finalizedInvoice.id,
@@ -105,6 +154,7 @@ export class StripeInvoiceService {
         stripeInvoiceUrl: finalizedInvoice.hosted_invoice_url || undefined,
         stripePdfUrl: finalizedInvoice.invoice_pdf || undefined,
         patientId: options.patientId,
+        clinicId: clinicId,
         description: options.description || undefined,
         amountDue: totalAmount,
         currency: STRIPE_CONFIG.currency,
@@ -117,7 +167,7 @@ export class StripeInvoiceService {
     });
 
     logger.debug(
-      `[STRIPE] Created invoice ${finalizedInvoice.id} for patient ${options.patientId}`
+      `[STRIPE] Created invoice ${finalizedInvoice.id} for patient ${options.patientId} (clinic: ${clinicId || 'default'})`
     );
 
     return {

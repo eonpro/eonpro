@@ -52,7 +52,7 @@ async function getUnreadCountHandler(req: NextRequest, user: AuthUser): Promise<
       }
     }
 
-    const count = await notificationService.getUnreadCount(user.id);
+    const count = await notificationService.getUnreadCount(user.id, clinicId);
 
     if (cache.isReady()) {
       await cache.set(cacheKey, { count }, {

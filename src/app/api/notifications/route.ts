@@ -6,6 +6,7 @@ import { invalidateNotificationsCountCache } from '@/app/api/notifications/count
 import { z } from 'zod';
 import type { NotificationCategory } from '@prisma/client';
 import { logger } from '@/lib/logger';
+import { getClinicContext } from '@/lib/db';
 
 // ============================================================================
 // Validation Schemas
@@ -90,13 +91,15 @@ async function getNotificationsHandler(req: NextRequest, user: AuthUser): Promis
     }
 
     const { page, pageSize, category, isRead, isArchived } = parsed.data;
+    const clinicId = getClinicContext();
 
     const result = await notificationService.getUserNotifications(
       {
         userId: user.id,
+        clinicId: clinicId ?? undefined,
         category: category as NotificationCategory | undefined,
         isRead,
-        isArchived: isArchived ?? false, // Default to excluding archived
+        isArchived: isArchived ?? false,
       },
       page,
       pageSize
@@ -198,13 +201,15 @@ async function markNotificationsReadHandler(req: NextRequest, user: AuthUser): P
     }
 
     const { notificationIds, markAll, category } = parsed.data;
+    const clinicId = getClinicContext();
 
     let count = 0;
 
     if (markAll) {
       count = await notificationService.markAllAsRead(
         user.id,
-        category as NotificationCategory | undefined
+        category as NotificationCategory | undefined,
+        clinicId ?? undefined
       );
     } else if (notificationIds && notificationIds.length > 0) {
       count = await notificationService.markManyAsRead(notificationIds, user.id);
@@ -217,8 +222,8 @@ async function markNotificationsReadHandler(req: NextRequest, user: AuthUser): P
       );
     }
 
-    await invalidateNotificationsCountCache(user.id);
-    const unreadCount = await notificationService.getUnreadCount(user.id);
+    await invalidateNotificationsCountCache(user.id, clinicId ?? undefined);
+    const unreadCount = await notificationService.getUnreadCount(user.id, clinicId ?? undefined);
 
     return NextResponse.json({
       success: true,
@@ -261,9 +266,10 @@ async function archiveNotificationsHandler(req: NextRequest, user: AuthUser): Pr
     const { notificationIds } = parsed.data;
 
     const count = await notificationService.archiveMany(notificationIds, user.id);
+    const clinicId = getClinicContext();
 
-    await invalidateNotificationsCountCache(user.id);
-    const unreadCount = await notificationService.getUnreadCount(user.id);
+    await invalidateNotificationsCountCache(user.id, clinicId ?? undefined);
+    const unreadCount = await notificationService.getUnreadCount(user.id, clinicId ?? undefined);
 
     return NextResponse.json({
       success: true,

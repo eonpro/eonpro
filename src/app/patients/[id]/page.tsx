@@ -127,6 +127,13 @@ export default async function PatientDetailPage({
                 take: 1,
                 select: { id: true, planName: true },
               },
+              salesRepAssignments: {
+                where: { isActive: true },
+                take: 1,
+                include: {
+                  salesRep: { select: { id: true, firstName: true, lastName: true } },
+                },
+              },
             },
           }),
         {
@@ -271,7 +278,9 @@ export default async function PatientDetailPage({
                   }
                 : undefined
             }
-            currentSalesRep={null}
+            currentSalesRep={
+              (patientDecrypted as any).salesRepAssignments?.[0]?.salesRep ?? null
+            }
             userRole={user.role}
             currentUserId={user.id}
             clinicInfo={

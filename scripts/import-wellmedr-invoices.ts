@@ -614,11 +614,15 @@ async function sendProviderNotifications(
       }
     }
 
-    // Also notify admins
+    // Notify admins scoped to this clinic only (not all SUPER_ADMINs platform-wide)
     const admins = await prisma.user.findMany({
       where: {
         role: { in: ['ADMIN', 'SUPER_ADMIN'] },
-        OR: [{ clinicId }, { role: 'SUPER_ADMIN' }],
+        OR: [
+          { clinicId },
+          { userClinics: { some: { clinicId, isActive: true } } },
+        ],
+        status: 'ACTIVE',
       },
       select: { id: true },
       take: 20,

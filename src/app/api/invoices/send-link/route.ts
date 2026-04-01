@@ -91,19 +91,18 @@ async function sendInvoiceLinkHandler(req: NextRequest, user: AuthUser): Promise
         return NextResponse.json({ error: 'Patient not found' }, { status: 404 });
       }
 
-      // Check if Stripe is configured
-      const stripeConfigured = !!process.env.STRIPE_SECRET_KEY;
+      const stripeConfigured = !!process.env.EONMEDS_STRIPE_SECRET_KEY || !!process.env.STRIPE_SECRET_KEY;
 
       if (stripeConfigured) {
-        // Create real Stripe invoice
         const { StripeInvoiceService } = await import('@/services/stripe/invoiceService');
 
         const result = await StripeInvoiceService.createInvoice({
           patientId: validated.patientId,
+          clinicId: user.clinicId,
           description: validated.description,
           lineItems: validated.lineItems,
           dueInDays: validated.dueInDays,
-          autoSend: false, // We'll send via SMS instead
+          autoSend: false,
         });
 
         invoice = result.invoice;

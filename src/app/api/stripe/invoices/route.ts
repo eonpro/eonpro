@@ -483,9 +483,10 @@ async function createInvoiceHandler(request: NextRequest, user: AuthUser) {
     try {
       const { StripeInvoiceService } = await import('@/services/stripe/invoiceService');
 
-      // Create invoice with subscription flag
+      // Create invoice with subscription flag — clinicId routes to correct Stripe account
       const result = await StripeInvoiceService.createInvoice({
         ...validatedData,
+        clinicId: user.clinicId,
         lineItems,
       } as any);
 
