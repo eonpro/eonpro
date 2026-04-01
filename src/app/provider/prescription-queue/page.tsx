@@ -878,7 +878,10 @@ export default function PrescriptionQueuePage() {
         };
       }
 
-      const preselection = getGlp1Preselection(item.treatment, preselectionGlp1Info);
+      const invoiceMedType = (details.invoice?.metadata as Record<string, unknown> | null)?.medicationType;
+      const isAddonOnlyInvoice = invoiceMedType === 'add-on';
+
+      const preselection = isAddonOnlyInvoice ? null : getGlp1Preselection(item.treatment, preselectionGlp1Info);
 
       if (preselection) {
         const isMultiMonth = (item.planMonths ?? 1) > 1;
@@ -1009,10 +1012,12 @@ export default function PrescriptionQueuePage() {
       }
 
       if (inlineAddonMeds.length > 0) {
-        setPrescriptionForm((prev) => ({
-          ...prev,
-          medications: [...prev.medications, ...inlineAddonMeds],
-        }));
+        setPrescriptionForm((prev) => {
+          const existingMeds = isAddonOnlyInvoice
+            ? prev.medications.filter((m) => m.medicationKey && m.medicationKey !== '')
+            : prev.medications;
+          return { ...prev, medications: [...existingMeds, ...inlineAddonMeds] };
+        });
       }
     }
   };
