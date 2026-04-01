@@ -17,6 +17,7 @@ import {
   Activity,
   Users,
   BarChart2,
+  Package,
 } from 'lucide-react';
 import {
   AreaChart,
@@ -106,6 +107,18 @@ const formatCurrencyCompact = (cents: number) => {
 
 const COLORS = ['#10B981', '#3B82F6', '#8B5CF6', '#F59E0B', '#EF4444', '#6366F1'];
 
+interface ProductBreakdownData {
+  products: Array<{
+    product: string;
+    count: number;
+    revenue: number;
+    percentageOfRevenue: number;
+  }>;
+  totalRevenue: number;
+  totalUnits: number;
+  invoiceCount: number;
+}
+
 type DatePreset = '1d' | '7d' | '30d' | '90d' | 'quarter' | 'semester' | '12m' | 'custom';
 
 function getDateRangeForApi(preset: DatePreset, customStart?: string, customEnd?: string): string {
@@ -129,24 +142,31 @@ export default function RevenuePage() {
   const [transactionsLoading, setTransactionsLoading] = useState(false);
   const [stripeAnalytics, setStripeAnalytics] = useState<any>(null);
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
+  const [productBreakdown, setProductBreakdown] = useState<ProductBreakdownData | null>(null);
+  const [productBreakdownLoading, setProductBreakdownLoading] = useState(false);
 
   const dateRangeParam = getDateRangeForApi(dateRange, customStart, customEnd);
 
   const loadData = useCallback(async () => {
     setLoading(true);
+    setProductBreakdownLoading(true);
     try {
-      const response = await apiFetch(
-        `/api/finance/revenue?${dateRangeParam}&granularity=${granularity}`
-      );
+      const [revenueRes, breakdownRes] = await Promise.all([
+        apiFetch(`/api/finance/revenue?${dateRangeParam}&granularity=${granularity}`),
+        apiFetch(`/api/finance/product-breakdown?${dateRangeParam}`),
+      ]);
 
-      if (response.ok) {
-        const result = await response.json();
-        setData(result);
+      if (revenueRes.ok) {
+        setData(await revenueRes.json());
+      }
+      if (breakdownRes.ok) {
+        setProductBreakdown(await breakdownRes.json());
       }
     } catch (error) {
       console.error('Failed to load revenue data:', error);
     } finally {
       setLoading(false);
+      setProductBreakdownLoading(false);
     }
   }, [dateRangeParam, granularity]);
 
@@ -588,7 +608,7 @@ export default function RevenuePage() {
           )}
         </div>
 
-        {/* Revenue by Product */}
+        {/* Revenue by Product (catalog-linked) */}
         <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
           <h3 className="mb-4 text-lg font-semibold text-gray-900">Revenue by Product</h3>
           {displayData.byProduct.length === 0 ? (
@@ -645,6 +665,124 @@ export default function RevenuePage() {
             </div>
           )}
         </div>
+      </div>
+
+      {/* Product Breakdown — units sold & revenue per product category */}
+      <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+        <div className="mb-4 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Package className="h-5 w-5 text-emerald-600" />
+            <h3 className="text-lg font-semibold text-gray-900">Product Breakdown</h3>
+          </div>
+          {productBreakdown && (
+            <div className="flex items-center gap-4 text-sm text-gray-500">
+              <span>{productBreakdown.invoiceCount} invoices</span>
+              <span className="font-medium text-gray-900">
+                {formatCurrency(productBreakdown.totalRevenue)}
+              </span>
+            </div>
+          )}
+        </div>
+        {productBreakdownLoading ? (
+          <div className="flex h-[200px] items-center justify-center">
+            <Loader2 className="h-8 w-8 animate-spin text-emerald-500" />
+          </div>
+        ) : !productBreakdown || productBreakdown.products.length === 0 ? (
+          <div className="flex h-[200px] flex-col items-center justify-center text-gray-400">
+            <Package className="mb-3 h-12 w-12" />
+            <p className="text-gray-500">No paid invoices in this period</p>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-6 lg:flex-row">
+            {/* Pie chart */}
+            <div className="flex-shrink-0">
+              <ResponsiveContainer width={220} height={220}>
+                <PieChart>
+                  <Pie
+                    data={productBreakdown.products}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={55}
+                    outerRadius={90}
+                    paddingAngle={2}
+                    dataKey="revenue"
+                    nameKey="product"
+                  >
+                    {productBreakdown.products.map((_entry, index) => (
+                      <Cell key={`pb-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    formatter={(value) => formatCurrency(value as number)}
+                    contentStyle={{ borderRadius: '8px', border: '1px solid #E5E7EB' }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            {/* Table */}
+            <div className="flex-1 overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-gray-100 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                    <th className="pb-3 pr-4">Product</th>
+                    <th className="pb-3 pr-4 text-right">Units Sold</th>
+                    <th className="pb-3 pr-4 text-right">Revenue</th>
+                    <th className="pb-3 text-right">% of Total</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {productBreakdown.products.map((row, index) => (
+                    <tr key={row.product} className="hover:bg-gray-50/50">
+                      <td className="py-3 pr-4">
+                        <div className="flex items-center gap-2">
+                          <div
+                            className="h-3 w-3 flex-shrink-0 rounded-full"
+                            style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                          />
+                          <span className="font-medium text-gray-900">{row.product}</span>
+                        </div>
+                      </td>
+                      <td className="py-3 pr-4 text-right tabular-nums text-gray-700">
+                        {row.count.toLocaleString()}
+                      </td>
+                      <td className="py-3 pr-4 text-right tabular-nums font-medium text-gray-900">
+                        {formatCurrency(row.revenue)}
+                      </td>
+                      <td className="py-3 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <div className="h-2 w-16 overflow-hidden rounded-full bg-gray-100">
+                            <div
+                              className="h-full rounded-full"
+                              style={{
+                                width: `${Math.min(row.percentageOfRevenue, 100)}%`,
+                                backgroundColor: COLORS[index % COLORS.length],
+                              }}
+                            />
+                          </div>
+                          <span className="w-12 text-right tabular-nums text-gray-500">
+                            {row.percentageOfRevenue}%
+                          </span>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="border-t border-gray-200 font-semibold text-gray-900">
+                    <td className="pt-3 pr-4">Total</td>
+                    <td className="pt-3 pr-4 text-right tabular-nums">
+                      {productBreakdown.totalUnits.toLocaleString()}
+                    </td>
+                    <td className="pt-3 pr-4 text-right tabular-nums">
+                      {formatCurrency(productBreakdown.totalRevenue)}
+                    </td>
+                    <td className="pt-3 text-right tabular-nums text-gray-500">100%</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Revenue Forecast */}
