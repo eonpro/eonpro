@@ -850,7 +850,12 @@ export default function PrescriptionQueuePage() {
       let preselectionGlp1Info: { usedGlp1: boolean; glp1Type: string | null; lastDose: string | null };
 
       const rxDetails = item.lastRxDetails;
-      if (rxDetails) {
+      const rxIsGlp1 = rxDetails && (
+        rxDetails.medName.toLowerCase().includes('tirzepatide') ||
+        rxDetails.medName.toLowerCase().includes('semaglutide') ||
+        rxDetails.medName.toLowerCase().includes('glycine')
+      );
+      if (rxDetails && rxIsGlp1) {
         const medNameLower = rxDetails.medName.toLowerCase();
         preselectionGlp1Info = {
           usedGlp1: true,
