@@ -155,5 +155,5 @@ export const GET = withAuth<RouteContext>(
       return NextResponse.json({ error: 'Failed to export SOAP note' }, { status: 500 });
     }
   },
-  { roles: ['super_admin', 'admin', 'provider'] }
+  { roles: ['super_admin', 'admin', 'provider', 'sales_rep'] }
 );

@@ -333,7 +333,7 @@ export const GET = withAuthParams(
       );
     }
   },
-  { roles: ['super_admin', 'admin', 'provider', 'staff', 'patient'] }
+  { roles: ['super_admin', 'admin', 'provider', 'staff', 'patient', 'sales_rep'] }
 );
 
 export const DELETE = withAuthParams(
@@ -428,5 +428,5 @@ export const DELETE = withAuthParams(
       );
     }
   },
-  { roles: ['super_admin', 'admin', 'provider', 'staff'] }
+  { roles: ['super_admin', 'admin', 'provider', 'staff', 'sales_rep'] }
 );

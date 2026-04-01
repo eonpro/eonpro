@@ -5,7 +5,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { withProviderAuth } from '@/lib/auth/middleware';
+import { withAuth, withProviderAuth } from '@/lib/auth/middleware';
 import { createFormTemplate, getFormTemplates } from '@/lib/intake-forms/service';
 import { logger } from '@/lib/logger';
 import { z } from 'zod';
@@ -48,7 +48,7 @@ const createTemplateSchema = z.object({
  * GET /api/intake-forms/templates
  * Get all active form templates
  */
-export const GET = withProviderAuth(async (req: NextRequest, user) => {
+export const GET = withAuth(async (req, user) => {
   try {
     const providerId = user.role === 'provider' ? user.providerId : undefined;
     const templates = await getFormTemplates(providerId);
@@ -66,7 +66,7 @@ export const GET = withProviderAuth(async (req: NextRequest, user) => {
     logger.error('Failed to get form templates', error);
     return NextResponse.json({ error: 'Failed to get form templates' }, { status: 500 });
   }
-});
+}, { roles: ['super_admin', 'admin', 'provider', 'sales_rep'] });
 
 /**
  * POST /api/intake-forms/templates

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { withProviderAuth } from '@/lib/auth/middleware';
+import { withAuth, withProviderAuth } from '@/lib/auth/middleware';
 import { createFormLink } from '@/lib/intake-forms/service';
 import { logger } from '@/lib/logger';
 import { z } from 'zod';
@@ -138,7 +138,7 @@ async function sendSMSWithLink(phone: string, formName: string, link: string): P
  * POST /api/intake-forms/send-link
  * Send an intake form link to a patient
  */
-export const POST = withProviderAuth(async (req: NextRequest, user) => {
+export const POST = withAuth(async (req: NextRequest, user) => {
   try {
     const body = await req.json();
 
@@ -198,4 +198,4 @@ export const POST = withProviderAuth(async (req: NextRequest, user) => {
       { status: 500 }
     );
   }
-});
+}, { roles: ['super_admin', 'admin', 'provider', 'sales_rep'] });

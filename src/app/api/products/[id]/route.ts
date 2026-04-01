@@ -254,6 +254,6 @@ async function handleDelete(req: NextRequest, user: AuthUser, context: RouteCont
   }
 }
 
-export const GET = withAuthParams(handleGet, { roles: ['super_admin', 'admin', 'provider'] });
+export const GET = withAuthParams(handleGet, { roles: ['super_admin', 'admin', 'provider', 'sales_rep'] });
 export const PUT = withAuthParams(handlePut, { roles: ['super_admin', 'admin'] });
 export const DELETE = withAuthParams(handleDelete, { roles: ['super_admin', 'admin'] });

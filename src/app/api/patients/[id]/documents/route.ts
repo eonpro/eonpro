@@ -128,7 +128,7 @@ export const GET = withAuthParams(
       }
     }
   },
-  { roles: ['admin', 'provider', 'staff', 'patient'] }
+  { roles: ['admin', 'provider', 'staff', 'patient', 'sales_rep'] }
 );
 
 export const POST = withAuthParams(
@@ -370,5 +370,5 @@ export const POST = withAuthParams(
       return NextResponse.json(body, { status });
     }
   },
-  { roles: ['admin', 'provider', 'staff', 'patient'] }
+  { roles: ['admin', 'provider', 'staff', 'patient', 'sales_rep'] }
 );

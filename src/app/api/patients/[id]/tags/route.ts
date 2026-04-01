@@ -120,7 +120,7 @@ const removeTagHandler = withAuthParams(
       return Response.json({ error: 'Failed to remove tag' }, { status: 500 });
     }
   },
-  { roles: ['super_admin', 'admin', 'provider', 'staff'] }
+  { roles: ['super_admin', 'admin', 'provider', 'staff', 'sales_rep'] }
 );
 
 export const DELETE = removeTagHandler;
@@ -227,7 +227,7 @@ const addTagHandler = withAuthParams(
       return Response.json({ error: 'Failed to add tag' }, { status: 500 });
     }
   },
-  { roles: ['super_admin', 'admin', 'provider', 'staff'] }
+  { roles: ['super_admin', 'admin', 'provider', 'staff', 'sales_rep'] }
 );
 
 export const POST = addTagHandler;

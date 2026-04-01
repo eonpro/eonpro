@@ -138,7 +138,7 @@ const patchHandler = withAuthParams(
       );
     }
   },
-  { roles: ['super_admin', 'admin', 'provider', 'staff', 'support'] }
+  { roles: ['super_admin', 'admin', 'provider', 'staff', 'support', 'sales_rep'] }
 );
 
 const deleteHandler = withAuthParams(
@@ -197,7 +197,7 @@ const deleteHandler = withAuthParams(
       );
     }
   },
-  { roles: ['super_admin', 'admin', 'provider', 'staff', 'support'] }
+  { roles: ['super_admin', 'admin', 'provider', 'staff', 'support', 'sales_rep'] }
 );
 
 export const PATCH = patchHandler;

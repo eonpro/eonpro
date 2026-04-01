@@ -179,7 +179,7 @@ async function postHandler(
 }
 
 const authHandler = withAuthParams(postHandler, {
-  roles: ['admin', 'provider', 'staff', 'super_admin'],
+  roles: ['admin', 'provider', 'staff', 'super_admin', 'sales_rep'],
 });
 
 export async function POST(

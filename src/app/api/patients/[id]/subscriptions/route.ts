@@ -65,7 +65,7 @@ const getSubscriptionsHandler = withAuthParams(
       );
     }
   },
-  { roles: ['super_admin', 'admin', 'provider', 'patient'] }
+  { roles: ['super_admin', 'admin', 'provider', 'patient', 'sales_rep'] }
 );
 
 export const GET = getSubscriptionsHandler;

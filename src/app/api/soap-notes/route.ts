@@ -92,7 +92,7 @@ export const GET = withAuth(
       );
     }
   },
-  { roles: ['super_admin', 'admin', 'provider'] }
+  { roles: ['super_admin', 'admin', 'provider', 'sales_rep'] }
 );
 
 /**
@@ -272,5 +272,5 @@ export const POST = withAuth(
       );
     }
   },
-  { roles: ['super_admin', 'admin', 'provider'] }
+  { roles: ['super_admin', 'admin', 'provider', 'sales_rep'] }
 );
