@@ -219,7 +219,14 @@ function ProviderLayoutInner({ children }: { children: React.ReactNode }) {
         {/* Mobile: close button (below md) */}
         <div className="flex items-center justify-between px-4 pb-2 md:hidden">
           <Link href="/provider" onClick={() => setMobileNavOpen(false)}>
-            <img src={clinicLogo} alt={clinicName} className="h-9 w-auto max-w-[140px] object-contain" />
+            <img
+              src={clinicLogo}
+              alt={clinicName}
+              className="h-9 w-auto max-w-[140px] object-contain"
+              onError={(e) => {
+                e.currentTarget.src = EONPRO_LOGO;
+              }}
+            />
           </Link>
           <button
             type="button"
@@ -239,9 +246,19 @@ function ProviderLayoutInner({ children }: { children: React.ReactNode }) {
                 src={clinicLogo}
                 alt={clinicName}
                 className="h-10 w-auto max-w-[140px] object-contain"
+                onError={(e) => {
+                  e.currentTarget.src = EONPRO_LOGO;
+                }}
               />
             ) : (
-              <img src={clinicIcon} alt={clinicName} className="h-10 w-10 object-contain" />
+              <img
+                src={clinicIcon}
+                alt={clinicName}
+                className="h-10 w-10 object-contain"
+                onError={(e) => {
+                  e.currentTarget.src = EONPRO_ICON;
+                }}
+              />
             )}
           </Link>
           {isWhiteLabeled && sidebarExpanded && (

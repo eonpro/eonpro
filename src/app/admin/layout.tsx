@@ -55,7 +55,7 @@ import { getAdminNavConfig } from '@/lib/nav/adminNav';
 import { logger } from '@/lib/logger';
 import * as Sentry from '@sentry/nextjs';
 import { apiFetch, redirectToLogin } from '@/lib/api/fetch';
-import { EONPRO_LOGO, EONPRO_ICON, LOGOSRX, isLogosRxHost as checkIsLogosRxHost } from '@/lib/constants/brand-assets';
+import { EONPRO_LOGO, EONPRO_ICON, LOGOSRX, SIPAMED, isLogosRxHost as checkIsLogosRxHost, isSipaMedHost as checkIsSipaMedHost } from '@/lib/constants/brand-assets';
 import { safeParseJsonString } from '@/lib/utils/safe-json';
 import { useAuthStore } from '@/lib/stores/authStore';
 
@@ -184,9 +184,11 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
 
   const isPharmacyRep = userRole === 'pharmacy_rep';
   const [isLogosRx, setIsLogosRx] = useState(false);
+  const [isSipaMed, setIsSipaMed] = useState(false);
 
   useEffect(() => {
     setIsLogosRx(checkIsLogosRxHost());
+    setIsSipaMed(checkIsSipaMedHost());
   }, []);
 
   // SESSION_EXPIRED_EVENT is handled globally by the Zustand authStore
@@ -194,12 +196,12 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
 
   const isPharmacyExperience = isPharmacyRep || isLogosRx;
 
-  // LogosRx pharmacy reps always see LogosRx branding, regardless of active clinic
-  const primaryColor = isPharmacyExperience ? LOGOSRX_PRIMARY : (branding?.primaryColor || '#4fa77e');
-  const clinicLogo = isPharmacyExperience ? LOGOSRX_LOGO : (branding?.logoUrl || EONPRO_LOGO);
-  const clinicIcon = isPharmacyExperience ? LOGOSRX_ICON : (branding?.iconUrl || branding?.faviconUrl || branding?.logoUrl || EONPRO_ICON);
-  const clinicName = isPharmacyExperience ? 'LogosRx' : (branding?.clinicName || 'EONPRO');
-  const isWhiteLabeled = isPharmacyExperience || (branding?.clinicName && branding.clinicName !== 'EONPRO');
+  // Resolve brand assets: LogosRx > SIPAMed (local files) > API branding > EONPRO defaults
+  const primaryColor = isPharmacyExperience ? LOGOSRX_PRIMARY : (isSipaMed ? SIPAMED.PRIMARY : (branding?.primaryColor || '#4fa77e'));
+  const clinicLogo = isPharmacyExperience ? LOGOSRX_LOGO : (isSipaMed ? SIPAMED.LOGO : (branding?.logoUrl || EONPRO_LOGO));
+  const clinicIcon = isPharmacyExperience ? LOGOSRX_ICON : (isSipaMed ? SIPAMED.ICON : (branding?.iconUrl || branding?.faviconUrl || branding?.logoUrl || EONPRO_ICON));
+  const clinicName = isPharmacyExperience ? 'LogosRx' : (isSipaMed ? SIPAMED.NAME : (branding?.clinicName || 'EONPRO'));
+  const isWhiteLabeled = isPharmacyExperience || isSipaMed || (branding?.clinicName && branding.clinicName !== 'EONPRO');
 
   // Fetch user's clinic assignments
   const fetchUserClinics = async () => {
@@ -526,9 +528,19 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
             <div className="mb-6 flex flex-col items-center px-4">
               <a href={isPharmacyExperience ? '/admin' : '/dashboard'}>
                 {sidebarExpanded ? (
-                  <img src={clinicLogo} alt={clinicName} className="h-10 w-auto max-w-[140px] object-contain" />
+                  <img
+                    src={clinicLogo}
+                    alt={clinicName}
+                    className="h-10 w-auto max-w-[140px] object-contain"
+                    onError={(e) => { e.currentTarget.src = EONPRO_LOGO; }}
+                  />
                 ) : (
-                  <img src={clinicIcon} alt={clinicName} className="h-10 w-10 object-contain" />
+                  <img
+                    src={clinicIcon}
+                    alt={clinicName}
+                    className="h-10 w-10 object-contain"
+                    onError={(e) => { e.currentTarget.src = EONPRO_ICON; }}
+                  />
                 )}
               </a>
               {isWhiteLabeled && sidebarExpanded && (

@@ -44,7 +44,7 @@ import { safeParseJsonString } from '@/lib/utils/safe-json';
 import { safeParseJson } from '@/lib/utils/safe-json';
 import { portalFetch } from '@/lib/api/patient-portal-client';
 import { isBrowser } from '@/lib/utils/ssr-safe';
-import { EONPRO_LOGO } from '@/lib/constants/brand-assets';
+import { EONPRO_LOGO, EONPRO_ICON } from '@/lib/constants/brand-assets';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import {
   NAV_MODULES,
@@ -391,6 +391,9 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
                   width={sidebarExpanded ? 140 : 40}
                   height={40}
                   className={`${sidebarExpanded ? 'h-10 w-auto max-w-[140px]' : 'h-10 w-10 rounded-lg'} object-contain`}
+                  onError={(e) => {
+                    e.currentTarget.src = sidebarExpanded ? EONPRO_LOGO : EONPRO_ICON;
+                  }}
                 />
               </Link>
             </div>
@@ -489,6 +492,9 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
                   height={32}
                   fetchPriority="high"
                   className="h-8 w-auto max-w-[120px] object-contain"
+                  onError={(e) => {
+                    e.currentTarget.src = EONPRO_LOGO;
+                  }}
                 />
               </Link>
               <div className="flex items-center gap-1">

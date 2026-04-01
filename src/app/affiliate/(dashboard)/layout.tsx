@@ -328,6 +328,9 @@ export default function AffiliateDashboardLayout({ children }: { children: React
                 src={branding.logoUrl}
                 alt={branding.clinicName}
                 className="h-8 max-w-[180px] object-contain"
+                onError={(e) => {
+                  e.currentTarget.src = EONPRO_LOGO;
+                }}
               />
             ) : (
               <h1 className="text-xl font-semibold text-gray-900">{portalName}</h1>

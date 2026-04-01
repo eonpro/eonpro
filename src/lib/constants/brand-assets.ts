@@ -60,10 +60,27 @@ export const LOGOSRX = {
   NAME: 'LogosRx',
 } as const;
 
+/**
+ * SIPAMed brand constants — self-hosted to avoid S3/CDN upload failures.
+ */
+export const SIPAMED = {
+  HOST: 'sipa.eonpro.io',
+  PRIMARY: '#1E3A5F',
+  LOGO: '/images/logos/sipa-logo.svg',
+  ICON: '/images/logos/sipa-icon.svg',
+  NAME: 'SIPAMed',
+} as const;
+
 /** Returns true when running on the LogosRx pharmacy hostname. */
 export function isLogosRxHost(): boolean {
   if (typeof window === 'undefined') return false;
   return window.location.hostname.toLowerCase() === LOGOSRX.HOST;
+}
+
+/** Returns true when running on the SIPAMed hostname. */
+export function isSipaMedHost(): boolean {
+  if (typeof window === 'undefined') return false;
+  return window.location.hostname.toLowerCase() === SIPAMED.HOST;
 }
 
 /** Resolves a Stripe/stored card brand string to a local logo path, or null if unknown. */
