@@ -158,10 +158,13 @@ async function main() {
   let skipped = 0;
   let errors = 0;
 
+  let lastSeenId = 0;
+
   // eslint-disable-next-line no-constant-condition
   while (true) {
     const batch = await prisma.patient.findMany({
       where: {
+        id: { gt: lastSeenId },
         OR: [{ emailHash: null }, { dobHash: null }],
       },
       select: { id: true, email: true, dob: true, emailHash: true, dobHash: true },
@@ -170,6 +173,7 @@ async function main() {
     });
 
     if (batch.length === 0) break;
+    lastSeenId = batch[batch.length - 1].id;
 
     for (const patient of batch) {
       processed++;
