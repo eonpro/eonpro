@@ -390,7 +390,7 @@ export default function AffiliateDashboardLayout({ children }: { children: React
               <span>Help & Support</span>
             </a>
             {branding && (
-              <p className="mt-4 flex items-center gap-1.5 px-4 text-xs text-gray-400">
+              <p className="mt-4 flex items-center gap-1.5 px-4 text-xs text-gray-400 whitespace-nowrap">
                 Powered by{' '}
                 <img
                   src={EONPRO_LOGO}

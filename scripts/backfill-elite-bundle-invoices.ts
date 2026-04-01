@@ -29,9 +29,8 @@ dotenv.config({ path: '.env.production.local' });
 dotenv.config({ path: '.env.local' });
 dotenv.config({ path: '.env' });
 
-import { prisma } from '../src/lib/db';
+import { prisma, runWithClinicContext } from '../src/lib/db';
 import { getStripeForClinic } from '../src/lib/stripe/connect';
-import { findPatientByEmail } from '../src/services/stripe/paymentMatchingService';
 import { getAddonPlanByStripePriceId } from '../src/config/billingPlans';
 import type Stripe from 'stripe';
 
@@ -129,83 +128,101 @@ async function main() {
     }
 
     try {
-      let patient = await prisma.patient.findFirst({
-        where: { stripeCustomerId: customerId },
-        select: { id: true, clinicId: true, firstName: true, lastName: true },
-      });
+      const result = await runWithClinicContext(clinicId, async () => {
+        let patient = await prisma.patient.findFirst({
+          where: { stripeCustomerId: customerId },
+          select: { id: true, clinicId: true, firstName: true, lastName: true },
+        });
 
-      if (!patient) {
-        patient = await findPatientByEmail(email, clinicId) as typeof patient;
-      }
+        if (!patient) {
+          patient = await prisma.patient.findFirst({
+            where: { searchIndex: { contains: email, mode: 'insensitive' }, clinicId },
+            select: { id: true, clinicId: true, firstName: true, lastName: true },
+            orderBy: { createdAt: 'desc' },
+          });
+        }
 
-      if (!patient) {
-        console.log(`  SKIP (no patient): sub=${sub.id} email=${email}`);
-        skippedNoPatient++;
-        continue;
-      }
+        if (!patient) {
+          patient = await prisma.patient.findFirst({
+            where: { email: { equals: email, mode: 'insensitive' }, clinicId },
+            select: { id: true, clinicId: true, firstName: true, lastName: true },
+            orderBy: { createdAt: 'desc' },
+          });
+        }
 
-      const patientClinicId = patient.clinicId || clinicId;
+        if (!patient) return { action: 'skip_no_patient' as const };
 
-      const existingInvoice = await prisma.invoice.findFirst({
-        where: {
-          patientId: patient.id,
-          clinicId: patientClinicId,
-          OR: [
-            { metadata: { path: ['stripeSubscriptionId'], equals: sub.id } },
-            { metadata: { path: ['source'], equals: 'stripe-connect-addon-backfill' } },
-          ],
-          description: { contains: 'Elite' },
-        },
-      });
+        const patientClinicId = patient.clinicId || clinicId;
 
-      if (existingInvoice) {
-        console.log(`  SKIP (exists): sub=${sub.id} email=${email} invoiceId=${existingInvoice.id}`);
-        skippedAlreadyExists++;
-        continue;
-      }
-
-      const amountCents = addonPlan?.price || 19900;
-      const invoiceNumber = `WM-ADDON-BF-${Date.now().toString(36).toUpperCase()}${Math.random().toString(36).slice(2, 5).toUpperCase()}`;
-
-      if (execute) {
-        const inv = await prisma.invoice.create({
-          data: {
+        const existingInvoice = await prisma.invoice.findFirst({
+          where: {
             patientId: patient.id,
             clinicId: patientClinicId,
-            stripeInvoiceId: null,
-            amount: amountCents,
-            amountDue: 0,
-            amountPaid: amountCents,
-            currency: 'usd',
-            status: 'PAID',
-            paidAt: new Date(sub.created * 1000),
-            description: `${addonName} - Payment received`,
-            dueDate: new Date(sub.created * 1000),
-            prescriptionProcessed: false,
-            lineItems: [{
-              description: addonName,
-              quantity: 1,
-              unitPrice: amountCents,
-              product: addonName,
-              medicationType: 'add-on',
-              plan: '',
-            }],
-            metadata: {
-              invoiceNumber,
-              source: 'stripe-connect-addon-backfill',
-              stripeSubscriptionId: sub.id,
-              stripeCustomerId: customerId || '',
-              product: addonName,
-              medicationType: 'add-on',
-              selectedAddons: ['elite_bundle'],
-            },
+            OR: [
+              { metadata: { path: ['stripeSubscriptionId'], equals: sub.id } },
+              { metadata: { path: ['source'], equals: 'stripe-connect-addon-backfill' } },
+            ],
+            description: { contains: 'Elite' },
           },
         });
-        console.log(`  CREATED: sub=${sub.id} email=${email} invoiceId=${inv.id}`);
+
+        if (existingInvoice) return { action: 'skip_exists' as const, invoiceId: existingInvoice.id };
+
+        const amountCents = addonPlan?.price || 19900;
+        const invoiceNumber = `WM-ADDON-BF-${Date.now().toString(36).toUpperCase()}${Math.random().toString(36).slice(2, 5).toUpperCase()}`;
+
+        if (execute) {
+          const inv = await prisma.invoice.create({
+            data: {
+              patientId: patient.id,
+              clinicId: patientClinicId,
+              stripeInvoiceId: null,
+              amount: amountCents,
+              amountDue: 0,
+              amountPaid: amountCents,
+              currency: 'usd',
+              status: 'PAID',
+              paidAt: new Date(sub.created * 1000),
+              description: `${addonName} - Payment received`,
+              dueDate: new Date(sub.created * 1000),
+              prescriptionProcessed: false,
+              lineItems: [{
+                description: addonName,
+                quantity: 1,
+                unitPrice: amountCents,
+                product: addonName,
+                medicationType: 'add-on',
+                plan: '',
+              }],
+              metadata: {
+                invoiceNumber,
+                source: 'stripe-connect-addon-backfill',
+                stripeSubscriptionId: sub.id,
+                stripeCustomerId: customerId || '',
+                product: addonName,
+                medicationType: 'add-on',
+                selectedAddons: ['elite_bundle'],
+              },
+            },
+          });
+          return { action: 'created' as const, invoiceId: inv.id, patientId: patient.id };
+        }
+        return { action: 'would_create' as const, patientId: patient.id };
+      });
+
+      if (result.action === 'skip_no_patient') {
+        console.log(`  SKIP (no patient): sub=${sub.id} email=${email}`);
+        skippedNoPatient++;
+      } else if (result.action === 'skip_exists') {
+        console.log(`  SKIP (exists): sub=${sub.id} email=${email} invoiceId=${result.invoiceId}`);
+        skippedAlreadyExists++;
+      } else if (result.action === 'created') {
+        console.log(`  CREATED: sub=${sub.id} email=${email} invoiceId=${result.invoiceId}`);
+        created++;
       } else {
-        console.log(`  WOULD CREATE: sub=${sub.id} email=${email} patient=${patient.id}`);
+        console.log(`  WOULD CREATE: sub=${sub.id} email=${email} patient=${result.patientId}`);
+        created++;
       }
-      created++;
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       console.error(`  ERROR: sub=${sub.id} email=${email} — ${msg}`);

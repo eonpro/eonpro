@@ -696,7 +696,7 @@ function PatientLoginPage() {
             )}
           </div>
           {branding && !isMainApp && (
-            <p className="mt-2 flex items-center justify-center gap-1.5 text-xs text-gray-500">
+            <p className="mt-2 flex items-center justify-center gap-1.5 text-xs text-gray-500 whitespace-nowrap">
               Powered by{' '}
               <img src="/api/assets/eonpro-logo" alt="EONPRO" className="h-[21px] w-auto" width={84} height={21} />
             </p>

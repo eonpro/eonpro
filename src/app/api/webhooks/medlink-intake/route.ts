@@ -85,7 +85,7 @@ export async function POST(req: NextRequest) {
     // Resolve clinic from configured mapping or environment
     const medlinkClinicId = process.env.MEDLINK_DEFAULT_CLINIC_ID
       ? parseInt(process.env.MEDLINK_DEFAULT_CLINIC_ID, 10)
-      : 1;
+      : 3;
 
     const patient = await upsertPatientFromIntake(normalized, { clinicId: medlinkClinicId });
 

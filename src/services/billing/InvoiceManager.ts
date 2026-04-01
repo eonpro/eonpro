@@ -616,7 +616,7 @@ export class InvoiceManager {
       invoice.stripeInvoiceUrl ||
       `${process.env.NEXT_PUBLIC_APP_URL || 'https://eonpro-kappa.vercel.app'}/pay/${invoice.id}`;
 
-    const clinicName = invoice.clinic?.name || 'EON Medical';
+    const clinicName = invoice.clinic?.name || 'EONMeds';
     const amount = '$' + ((invoice.amount ?? 0) / 100).toFixed(2);
 
     // Send via Stripe if available
@@ -1520,7 +1520,7 @@ export class InvoiceManager {
     paymentUrl: string,
     customMessage?: string
   ): string {
-    const clinicName = invoice.clinic?.name || 'EON Medical';
+    const clinicName = invoice.clinic?.name || 'EONMeds';
     const amount = '$' + (invoice.amount / 100).toFixed(2);
     const lineItems = (invoice.lineItems as LineItem[]) || [];
     const dueDate = invoice.dueDate
@@ -1606,7 +1606,7 @@ export class InvoiceManager {
     paymentUrl: string,
     customMessage?: string
   ): string {
-    const clinicName = invoice.clinic?.name || 'EON Medical';
+    const clinicName = invoice.clinic?.name || 'EONMeds';
     const amount = '$' + (invoice.amount / 100).toFixed(2);
     const dueDate = invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString() : 'N/A';
 

@@ -177,7 +177,7 @@ export default function AffiliateForgotPasswordPage() {
                   {branding.name}
                 </h1>
               )}
-              <p className="mt-2 flex items-center justify-center gap-1.5 text-xs text-gray-500">
+              <p className="mt-2 flex items-center justify-center gap-1.5 text-xs text-gray-500 whitespace-nowrap">
                 Powered by{' '}
                 <img
                   src={EONPRO_LOGO}

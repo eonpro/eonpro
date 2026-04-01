@@ -36,7 +36,9 @@ export interface AppliedMedication {
 }
 
 interface OrderSetSelectorProps {
-  onApply: (medications: AppliedMedication[]) => void;
+  onApply: (medications: AppliedMedication[], action: 'add' | 'remove', setId: number) => void;
+  externalSelectedIds?: number[];
+  /** @deprecated Use externalSelectedIds instead */
   externalSelectedId?: number | null;
 }
 
@@ -388,13 +390,22 @@ function OrderSetModal({
 // MAIN SELECTOR COMPONENT
 // ============================================================================
 
-export default function OrderSetSelector({ onApply, externalSelectedId }: OrderSetSelectorProps) {
+export default function OrderSetSelector({ onApply, externalSelectedIds, externalSelectedId }: OrderSetSelectorProps) {
   const [orderSets, setOrderSets] = useState<OrderSet[]>([]);
   const [loading, setLoading] = useState(true);
-  const [internalSelectedId, setInternalSelectedId] = useState<number | null>(null);
-  const selectedId = internalSelectedId ?? externalSelectedId ?? null;
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [showModal, setShowModal] = useState(false);
   const [editingSet, setEditingSet] = useState<OrderSet | null>(null);
+
+  useEffect(() => {
+    const ids = new Set<number>();
+    if (externalSelectedIds?.length) {
+      for (const id of externalSelectedIds) ids.add(id);
+    } else if (externalSelectedId != null) {
+      ids.add(externalSelectedId);
+    }
+    if (ids.size > 0) setSelectedIds(ids);
+  }, [externalSelectedIds, externalSelectedId]);
 
   const fetchOrderSets = useCallback(async () => {
     try {
@@ -406,7 +417,7 @@ export default function OrderSetSelector({ onApply, externalSelectedId }: OrderS
       }
     } catch (err) {
       logger.error('[OrderSetSelector] Failed to fetch', {
-        error: err instanceof Error ? (err instanceof Error ? err.message : String(err)) : String(err),
+        error: err instanceof Error ? err.message : String(err),
       });
     } finally {
       setLoading(false);
@@ -417,7 +428,7 @@ export default function OrderSetSelector({ onApply, externalSelectedId }: OrderS
     fetchOrderSets();
   }, [fetchOrderSets]);
 
-  const handleApply = (set: OrderSet) => {
+  const handleToggle = (set: OrderSet) => {
     const medications: AppliedMedication[] = set.items.map((item) => ({
       medicationKey: item.medicationKey,
       sig: item.sig,
@@ -425,8 +436,18 @@ export default function OrderSetSelector({ onApply, externalSelectedId }: OrderS
       refills: item.refills,
       daysSupply: String(item.daysSupply),
     }));
-    setInternalSelectedId(set.id);
-    onApply(medications);
+
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(set.id)) {
+        next.delete(set.id);
+        onApply(medications, 'remove', set.id);
+      } else {
+        next.add(set.id);
+        onApply(medications, 'add', set.id);
+      }
+      return next;
+    });
   };
 
   const handleEdit = (set: OrderSet, e: React.MouseEvent) => {
@@ -470,7 +491,7 @@ export default function OrderSetSelector({ onApply, externalSelectedId }: OrderS
         ) : (
           <div className="flex flex-wrap gap-2">
             {orderSets.map((set) => {
-              const isSelected = selectedId === set.id;
+              const isSelected = selectedIds.has(set.id);
               const medNames = set.items
                 .map((i) => {
                   const med = MEDS[i.medicationKey];
@@ -482,7 +503,7 @@ export default function OrderSetSelector({ onApply, externalSelectedId }: OrderS
                 <button
                   key={set.id}
                   type="button"
-                  onClick={() => handleApply(set)}
+                  onClick={() => handleToggle(set)}
                   className={`group relative rounded-lg border px-3 py-2 text-left transition-all ${
                     isSelected
                       ? 'border-[#17aa7b] bg-[#e9f7f2] ring-1 ring-[#17aa7b]'

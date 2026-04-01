@@ -443,7 +443,7 @@ export default function PrescriptionQueuePage() {
   const [submittingPrescription, setSubmittingPrescription] = useState(false);
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [approvingOrderId, setApprovingOrderId] = useState<number | null>(null);
-  const [autoSelectedOrderSetId, setAutoSelectedOrderSetId] = useState<number | null>(null);
+  const [autoSelectedOrderSetIds, setAutoSelectedOrderSetIds] = useState<number[]>([]);
 
   // Elite Bundle addon meds that should be queued separately (not mixed into main GLP-1 Rx)
   const [pendingEliteAddonMeds, setPendingEliteAddonMeds] = useState<MedicationItem[]>([]);
@@ -822,7 +822,7 @@ export default function PrescriptionQueuePage() {
     const details = await fetchPatientDetails(item.invoiceId!);
     if (details) {
       setPrescriptionPanel({ item, details });
-      setAutoSelectedOrderSetId(null);
+      setAutoSelectedOrderSetIds([]);
       const parsedAddress = getPatientAddress(details.patient);
       const isWellmedr =
         item.clinic?.subdomain?.toLowerCase().includes('wellmedr') ||
@@ -912,17 +912,20 @@ export default function PrescriptionQueuePage() {
               if (matched) {
                 const fullSet = orderSets.find((s: any) => s.id === matched.id);
                 if (fullSet?.items?.length) {
-                  setAutoSelectedOrderSetId(fullSet.id);
+                  setAutoSelectedOrderSetIds((prev) => [...prev, fullSet.id]);
                   setPrescriptionForm((prev) => ({
                     ...prev,
-                    medications: fullSet.items.map((os: any) => ({
-                      id: crypto.randomUUID(),
-                      medicationKey: os.medicationKey,
-                      sig: os.sig,
-                      quantity: os.quantity,
-                      refills: os.refills,
-                      daysSupply: String(os.daysSupply || '28'),
-                    })),
+                    medications: [
+                      ...prev.medications,
+                      ...fullSet.items.map((os: any) => ({
+                        id: crypto.randomUUID(),
+                        medicationKey: os.medicationKey,
+                        sig: os.sig,
+                        quantity: os.quantity,
+                        refills: os.refills,
+                        daysSupply: String(os.daysSupply || '28'),
+                      })),
+                    ],
                   }));
                 }
               }
@@ -937,23 +940,23 @@ export default function PrescriptionQueuePage() {
       }
 
       // Handle add-on medications from invoice (NAD+, Sermorelin, B12)
-      // Elite Bundle add-ons are stored separately and queued for prescriber review
-      // after the main GLP-1 prescription is submitted.
-      // Individual add-ons are appended to the main form as before.
+      // All paid addons (including Elite Bundle) are included inline in the same
+      // prescription. The Elite Package order set is auto-selected to pre-fill
+      // the correct medications alongside the GLP-1 order set.
       const invoiceMetadata = details.invoice?.metadata as Record<string, unknown> | null;
       const selectedAddons = invoiceMetadata?.selectedAddons;
-      const eliteBundleMeds: MedicationItem[] = [];
       const inlineAddonMeds: MedicationItem[] = [];
+      let hasEliteBundle = false;
 
       if (Array.isArray(selectedAddons) && selectedAddons.length > 0) {
         for (const addonId of selectedAddons) {
           if (addonId === 'elite_bundle') {
-            // Elite Bundle → queue separately for prescriber review
+            hasEliteBundle = true;
             for (const [key, medKey] of Object.entries(ADDON_MEDICATION_MAP)) {
               if (key === addonId) continue;
               const med = MEDS[medKey];
               if (med) {
-                eliteBundleMeds.push({
+                inlineAddonMeds.push({
                   id: crypto.randomUUID(),
                   medicationKey: medKey,
                   sig: med.sigTemplates?.[0]?.sig || med.defaultSig || '',
@@ -982,7 +985,28 @@ export default function PrescriptionQueuePage() {
         }
       }
 
-      setPendingEliteAddonMeds(eliteBundleMeds);
+      setPendingEliteAddonMeds([]);
+
+      if (hasEliteBundle) {
+        try {
+          const res = await apiFetch('/api/clinic/order-sets', {
+            headers: { Authorization: `Bearer ${getAuthToken()}` },
+          });
+          if (res.ok) {
+            const data = await res.json();
+            const orderSets = data.orderSets || [];
+            const matched = findOrderSetByName(orderSets, 'Elite Package');
+            if (matched) {
+              const fullSet = orderSets.find((s: any) => s.id === matched.id);
+              if (fullSet?.items?.length) {
+                setAutoSelectedOrderSetIds((prev) => [...prev, fullSet.id]);
+              }
+            }
+          }
+        } catch (err) {
+          console.error('[Preselection] Failed to auto-select Elite Package order set:', err);
+        }
+      }
 
       if (inlineAddonMeds.length > 0) {
         setPrescriptionForm((prev) => ({
@@ -4154,20 +4178,32 @@ export default function PrescriptionQueuePage() {
 
                       {/* Order Set Selector */}
                       <OrderSetSelector
-                        externalSelectedId={autoSelectedOrderSetId}
-                        onApply={(medications: AppliedMedication[]) => {
-                          setAutoSelectedOrderSetId(null);
-                          setPrescriptionForm((prev) => ({
-                            ...prev,
-                            medications: medications.map((m) => ({
-                              id: crypto.randomUUID(),
-                              medicationKey: m.medicationKey,
-                              sig: m.sig,
-                              quantity: m.quantity,
-                              refills: m.refills,
-                              daysSupply: m.daysSupply,
-                            })),
-                          }));
+                        externalSelectedIds={autoSelectedOrderSetIds}
+                        onApply={(medications: AppliedMedication[], action: 'add' | 'remove', setId: number) => {
+                          if (action === 'add') {
+                            setAutoSelectedOrderSetIds((prev) => [...prev, setId]);
+                            setPrescriptionForm((prev) => ({
+                              ...prev,
+                              medications: [
+                                ...prev.medications,
+                                ...medications.map((m) => ({
+                                  id: crypto.randomUUID(),
+                                  medicationKey: m.medicationKey,
+                                  sig: m.sig,
+                                  quantity: m.quantity,
+                                  refills: m.refills,
+                                  daysSupply: m.daysSupply,
+                                })),
+                              ],
+                            }));
+                          } else {
+                            const removeKeys = new Set(medications.map((m) => m.medicationKey));
+                            setAutoSelectedOrderSetIds((prev) => prev.filter((id) => id !== setId));
+                            setPrescriptionForm((prev) => ({
+                              ...prev,
+                              medications: prev.medications.filter((m) => !removeKeys.has(m.medicationKey)),
+                            }));
+                          }
                         }}
                       />
 

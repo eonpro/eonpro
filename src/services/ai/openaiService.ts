@@ -271,6 +271,9 @@ export async function generateSOAPNote(input: SOAPGenerationInput): Promise<SOAP
   const isRenewal = input.isRenewal && input.previousPrescriptions && input.previousPrescriptions.length > 0;
   const prevRx = isRenewal ? input.previousPrescriptions![0] : null;
 
+  const selectedAddons = Array.isArray(input.intakeData?.selectedAddons) ? input.intakeData.selectedAddons : [];
+  const hasEliteBundle = selectedAddons.includes('elite_bundle');
+
   // Peptide therapy (sermorelin, BPC-157, etc.) uses a completely different prompt
   if (isPeptideTherapy) {
     return generatePeptideSOAPNote(anonymizedInput, input, PLACEHOLDER_NAME, PLACEHOLDER_AGE, realAge, client, env);
@@ -297,6 +300,19 @@ ${isTirzepatide ? '• Tirzepatide maximum weekly dose: 15mg' : ''}${isSemagluti
 • Current dose: ${prevDose}mg
 DO NOT recommend titrating up. The plan should MAINTAIN the current dose.
 Rationale should focus on continued efficacy at maximum dose and ongoing monitoring.
+` : ''}${hasEliteBundle ? `
+ADJUNCTIVE THERAPY — ELITE BUNDLE (NAD+, Sermorelin, B12):
+The patient has been prescribed the Elite Bundle add-on alongside their GLP-1 therapy. The Assessment and Plan sections MUST include clinical justification for stacking these adjunctive therapies with GLP-1 treatment:
+
+• NAD+ (Nicotinamide Adenine Dinucleotide): Supports mitochondrial energy production and cellular metabolism during caloric deficit. GLP-1 therapy reduces caloric intake, and NAD+ supplementation helps maintain cellular energy homeostasis, reduces fatigue associated with weight loss, and supports metabolic adaptation. Evidence suggests NAD+ precursors enhance fat oxidation and improve insulin sensitivity, complementing the metabolic benefits of GLP-1 agonists.
+
+• Sermorelin (Growth Hormone Releasing Peptide): Stimulates endogenous growth hormone secretion, promoting lean body mass preservation during GLP-1-mediated weight loss. Patients on GLP-1 therapy can lose both fat and lean mass; sermorelin helps shift body composition toward fat loss while maintaining muscle. Additionally supports improved sleep quality, recovery, and overall metabolic rate — critical during active weight management.
+
+• Cyanocobalamin (B12): Essential cofactor for energy metabolism, neurological function, and red blood cell formation. GLP-1 agonists can reduce nutrient absorption due to delayed gastric emptying and decreased food intake. B12 supplementation mitigates the risk of deficiency, supports energy levels during caloric restriction, and complements the metabolic optimization achieved by GLP-1 therapy.
+
+Include in the Assessment: "The combination of GLP-1 receptor agonist therapy with adjunctive NAD+, Sermorelin, and B12 provides a comprehensive metabolic optimization approach — addressing weight reduction (GLP-1), cellular energy and fat oxidation (NAD+), lean mass preservation and hormonal support (Sermorelin), and nutritional repletion (B12)."
+
+Include in the Plan: Prescribe the Elite Bundle (NAD+, Sermorelin, Cyanocobalamin B12) as adjunctive therapy to the GLP-1 regimen.
 ` : ''}
 CRITICAL: Return your response in JSON format with ALL fields as plain text STRINGS. Each field should be detailed and formatted professionally:
 

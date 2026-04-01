@@ -117,7 +117,7 @@ export default function Error({
               support@eonpro.io
             </a>
           </p>
-          <div className="flex items-center justify-center gap-1.5 text-xs text-gray-400">
+          <div className="flex items-center justify-center gap-1.5 text-xs text-gray-400 whitespace-nowrap">
             Powered by
             <img src={EONPRO_LOGO} alt="EONPRO" width={60} height={18} className="h-[18px] w-auto opacity-50" />
           </div>

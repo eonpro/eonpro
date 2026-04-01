@@ -155,7 +155,7 @@ async function sendInvoiceLinkHandler(req: NextRequest, user: AuthUser): Promise
     const clinic = user.clinicId
       ? await prisma.clinic.findUnique({ where: { id: user.clinicId } })
       : null;
-    const clinicName = clinic?.name || 'EON Medical';
+    const clinicName = clinic?.name || 'EONMeds';
 
     // Format amount for display
     const amountDisplay = '$' + (invoice.amount / 100).toFixed(2);

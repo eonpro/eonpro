@@ -138,7 +138,7 @@ export async function POST(req: NextRequest) {
     // Resolve clinic from configured mapping or environment
     const heyflowClinicId = process.env.HEYFLOW_DEFAULT_CLINIC_ID
       ? parseInt(process.env.HEYFLOW_DEFAULT_CLINIC_ID, 10)
-      : 1;
+      : 3;
 
     const patient = await upsertPatientFromIntake(normalized, { clinicId: heyflowClinicId });
 

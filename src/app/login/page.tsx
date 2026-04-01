@@ -1216,7 +1216,7 @@ function LoginContent() {
             )}
           </div>
           {isLogosRxExperience && (
-            <p className="mt-2 flex items-center justify-center gap-1.5 text-xs text-white/80">
+            <p className="mt-2 flex items-center justify-center gap-1.5 text-xs text-white/80 whitespace-nowrap">
               Powered by{' '}
               <img
                 src="/api/assets/eonpro-logo"
@@ -1228,7 +1228,7 @@ function LoginContent() {
             </p>
           )}
           {!isLogosRxExperience && branding && !isMainApp && (
-            <p className="mt-2 flex items-center justify-center gap-1.5 text-xs text-gray-500">
+            <p className="mt-2 flex items-center justify-center gap-1.5 text-xs text-gray-500 whitespace-nowrap">
               Powered by{' '}
               <img
                 src="/api/assets/eonpro-logo"

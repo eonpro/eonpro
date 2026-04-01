@@ -555,6 +555,9 @@ async function generateSoapFromInvoiceMetadata(
     // Lifestyle
     activityLevel: metadata.activity_level || metadata.activityLevel,
     sleepQuality: metadata.sleep_quality || metadata.sleepQuality,
+
+    // Add-on products (Elite Bundle: NAD+, Sermorelin, B12)
+    selectedAddons: metadata.selectedAddons,
   };
 
   // Filter out undefined values

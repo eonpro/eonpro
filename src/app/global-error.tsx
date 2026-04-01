@@ -205,6 +205,7 @@ export default function GlobalError({
                   gap: '6px',
                   fontSize: '12px',
                   color: '#9CA3AF',
+                  whiteSpace: 'nowrap',
                 }}
               >
                 Powered by

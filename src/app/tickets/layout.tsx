@@ -284,7 +284,7 @@ function TicketsLayoutInner({ children }: { children: React.ReactNode }) {
                 )}
               </a>
               {isWhiteLabeled && sidebarExpanded && (
-                <span className="mt-1 flex items-center justify-center gap-1 text-[10px] text-gray-400">
+                <span className="mt-1 flex items-center justify-center gap-1 text-[10px] text-gray-400 whitespace-nowrap">
                   Powered by{' '}
                   <img
                     src={EONPRO_LOGO}
