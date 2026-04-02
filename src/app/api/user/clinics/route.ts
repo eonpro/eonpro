@@ -3,6 +3,30 @@ import { NextRequest, NextResponse } from 'next/server';
 import { basePrisma as prisma } from '@/lib/db';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
+import { generateSignedUrl } from '@/lib/integrations/aws/s3Service';
+import { isS3Enabled, s3Config } from '@/lib/integrations/aws/s3Config';
+
+/** Refresh an S3 presigned URL that may have expired. Non-S3 URLs pass through unchanged. */
+async function refreshBrandingUrl(url: string | null): Promise<string | null> {
+  if (!url || !isS3Enabled()) return url;
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname;
+    const isS3Url =
+      (host.includes('.s3.') && host.includes('amazonaws.com')) ||
+      (host.endsWith('.amazonaws.com') && host.includes(s3Config.bucketName));
+    const isCloudFrontUrl =
+      s3Config.cloudFrontUrl && host === new URL(s3Config.cloudFrontUrl).hostname;
+    if (!isS3Url && !isCloudFrontUrl) return url;
+    const key = decodeURIComponent(
+      parsed.pathname.startsWith('/') ? parsed.pathname.slice(1) : parsed.pathname
+    );
+    if (!key) return url;
+    return await generateSignedUrl(key, 'GET', 604800);
+  } catch {
+    return url;
+  }
+}
 
 // GET /api/user/clinics - Get all clinics the user belongs to
 async function handleGet(req: NextRequest, user: AuthUser) {
@@ -149,8 +173,18 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       userData?.clinicId ||
       clinics[0]?.id;
 
+    // Refresh S3 presigned URLs so branding images don't break after expiry
+    const refreshedClinics = await Promise.all(
+      clinics.map(async (clinic) => ({
+        ...clinic,
+        logoUrl: await refreshBrandingUrl(clinic.logoUrl),
+        iconUrl: await refreshBrandingUrl(clinic.iconUrl),
+        faviconUrl: await refreshBrandingUrl(clinic.faviconUrl),
+      }))
+    );
+
     return NextResponse.json({
-      clinics,
+      clinics: refreshedClinics,
       activeClinicId,
       hasMultipleClinics: clinics.length > 1,
     });

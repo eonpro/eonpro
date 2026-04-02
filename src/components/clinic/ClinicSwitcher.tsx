@@ -156,11 +156,20 @@ export function ClinicSwitcher({ className = '', showLabel = true }: ClinicSwitc
       <div className={`flex items-center gap-2 px-3 py-2 ${className}`}>
         {/* Use iconUrl or faviconUrl for smaller icon display, fallback to logoUrl */}
         {clinic.iconUrl || clinic.faviconUrl || clinic.logoUrl ? (
-          <img
-            src={clinic.iconUrl || clinic.faviconUrl || clinic.logoUrl || ''}
-            alt=""
-            className="h-6 w-6 rounded object-contain"
-          />
+          <>
+            <img
+              src={clinic.iconUrl || clinic.faviconUrl || clinic.logoUrl || ''}
+              alt=""
+              className="h-6 w-6 rounded object-contain"
+              onError={(e) => { e.currentTarget.style.display = 'none'; const fb = e.currentTarget.nextElementSibling as HTMLElement | null; if (fb) fb.style.display = ''; }}
+            />
+            <div
+              className="flex h-6 w-6 items-center justify-center rounded text-xs font-bold text-white"
+              style={{ backgroundColor: clinic.primaryColor || '#3B82F6', display: 'none' }}
+            >
+              {clinic.name.charAt(0).toUpperCase()}
+            </div>
+          </>
         ) : (
           <div
             className="flex h-6 w-6 items-center justify-center rounded text-xs font-bold text-white"
@@ -191,11 +200,20 @@ export function ClinicSwitcher({ className = '', showLabel = true }: ClinicSwitc
         {switching ? (
           <RefreshCw className="h-5 w-5 animate-spin text-teal-600" />
         ) : activeClinic?.iconUrl || activeClinic?.faviconUrl || activeClinic?.logoUrl ? (
-          <img
-            src={activeClinic.iconUrl || activeClinic.faviconUrl || activeClinic.logoUrl || ''}
-            alt=""
-            className="h-6 w-6 rounded object-contain"
-          />
+          <>
+            <img
+              src={activeClinic.iconUrl || activeClinic.faviconUrl || activeClinic.logoUrl || ''}
+              alt=""
+              className="h-6 w-6 rounded object-contain"
+              onError={(e) => { e.currentTarget.style.display = 'none'; const fb = e.currentTarget.nextElementSibling as HTMLElement | null; if (fb) fb.style.display = ''; }}
+            />
+            <div
+              className="flex h-6 w-6 items-center justify-center rounded text-xs font-bold text-white"
+              style={{ backgroundColor: activeClinic?.primaryColor || '#3B82F6', display: 'none' }}
+            >
+              {activeClinic?.name.charAt(0).toUpperCase()}
+            </div>
+          </>
         ) : (
           <div
             className="flex h-6 w-6 items-center justify-center rounded text-xs font-bold text-white"
@@ -233,11 +251,20 @@ export function ClinicSwitcher({ className = '', showLabel = true }: ClinicSwitc
               >
                 {/* Use iconUrl or faviconUrl for smaller icon display, fallback to logoUrl */}
                 {clinic.iconUrl || clinic.faviconUrl || clinic.logoUrl ? (
-                  <img
-                    src={clinic.iconUrl || clinic.faviconUrl || clinic.logoUrl || ''}
-                    alt=""
-                    className="h-10 w-10 flex-shrink-0 rounded-lg object-contain"
-                  />
+                  <>
+                    <img
+                      src={clinic.iconUrl || clinic.faviconUrl || clinic.logoUrl || ''}
+                      alt=""
+                      className="h-10 w-10 flex-shrink-0 rounded-lg object-contain"
+                      onError={(e) => { e.currentTarget.style.display = 'none'; const fb = e.currentTarget.nextElementSibling as HTMLElement | null; if (fb) fb.style.display = ''; }}
+                    />
+                    <div
+                      className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg font-bold text-white"
+                      style={{ backgroundColor: clinic.primaryColor || '#3B82F6', display: 'none' }}
+                    >
+                      {clinic.name.charAt(0).toUpperCase()}
+                    </div>
+                  </>
                 ) : (
                   <div
                     className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg font-bold text-white"

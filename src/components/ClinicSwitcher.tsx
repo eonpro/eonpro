@@ -145,11 +145,15 @@ export default function ClinicSwitcher({ className = '' }: ClinicSwitcherProps) 
       <div className={`flex items-center gap-2 px-3 py-2 ${className}`}>
         {/* Use iconUrl or faviconUrl for smaller icon display, fallback to logoUrl */}
         {activeClinic.iconUrl || activeClinic.faviconUrl || activeClinic.logoUrl ? (
-          <img
-            src={activeClinic.iconUrl || activeClinic.faviconUrl || activeClinic.logoUrl}
-            alt=""
-            className="h-5 w-5 rounded object-contain"
-          />
+          <>
+            <img
+              src={activeClinic.iconUrl || activeClinic.faviconUrl || activeClinic.logoUrl}
+              alt=""
+              className="h-5 w-5 rounded object-contain"
+              onError={(e) => { e.currentTarget.style.display = 'none'; const fb = e.currentTarget.nextElementSibling as HTMLElement | null; if (fb) fb.style.display = ''; }}
+            />
+            <Building2 className="h-4 w-4 text-gray-500" style={{ display: 'none' }} />
+          </>
         ) : (
           <Building2 className="h-4 w-4 text-gray-500" />
         )}
@@ -172,11 +176,15 @@ export default function ClinicSwitcher({ className = '' }: ClinicSwitcherProps) 
         {switching ? (
           <RefreshCw className="h-4 w-4 animate-spin text-teal-600" />
         ) : activeClinic?.iconUrl || activeClinic?.faviconUrl || activeClinic?.logoUrl ? (
-          <img
-            src={activeClinic.iconUrl || activeClinic.faviconUrl || activeClinic.logoUrl}
-            alt=""
-            className="h-5 w-5 rounded object-contain"
-          />
+          <>
+            <img
+              src={activeClinic.iconUrl || activeClinic.faviconUrl || activeClinic.logoUrl}
+              alt=""
+              className="h-5 w-5 rounded object-contain"
+              onError={(e) => { e.currentTarget.style.display = 'none'; const fb = e.currentTarget.nextElementSibling as HTMLElement | null; if (fb) fb.style.display = ''; }}
+            />
+            <Building2 className="h-4 w-4 text-gray-500" style={{ display: 'none' }} />
+          </>
         ) : (
           <Building2 className="h-4 w-4 text-gray-500" />
         )}
@@ -207,11 +215,20 @@ export default function ClinicSwitcher({ className = '' }: ClinicSwitcherProps) 
               >
                 {/* Use iconUrl or faviconUrl for smaller icon display, fallback to logoUrl */}
                 {clinic.iconUrl || clinic.faviconUrl || clinic.logoUrl ? (
-                  <img
-                    src={clinic.iconUrl || clinic.faviconUrl || clinic.logoUrl}
-                    alt=""
-                    className="h-8 w-8 rounded-lg object-contain"
-                  />
+                  <>
+                    <img
+                      src={clinic.iconUrl || clinic.faviconUrl || clinic.logoUrl}
+                      alt=""
+                      className="h-8 w-8 rounded-lg object-contain"
+                      onError={(e) => { e.currentTarget.style.display = 'none'; const fb = e.currentTarget.nextElementSibling as HTMLElement | null; if (fb) fb.style.display = ''; }}
+                    />
+                    <div
+                      className="flex h-8 w-8 items-center justify-center rounded-lg"
+                      style={{ backgroundColor: clinic.primaryColor || '#3B82F6', display: 'none' }}
+                    >
+                      <Building2 className="h-4 w-4 text-white" />
+                    </div>
+                  </>
                 ) : (
                   <div
                     className="flex h-8 w-8 items-center justify-center rounded-lg"
