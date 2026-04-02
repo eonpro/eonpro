@@ -53,6 +53,7 @@ import {
 } from '@/app/wellmedr-checkout/lib/stripe-connect';
 import { ADDON_PRODUCTS } from '@/app/wellmedr-checkout/data/addons';
 import type { AddonId } from '@/app/wellmedr-checkout/types/checkout';
+import { deduplicateShipping } from '@/services/billing/shippingDedup';
 
 // Vercel/Next.js serverless function timeout (seconds)
 export const maxDuration = 60;
@@ -1030,6 +1031,27 @@ export async function POST(req: NextRequest) {
     };
   });
 
+  // Shipping dedup: if this order has addon products + shipping, check same-day invoices
+  const rawLineItems = [
+    {
+      description: productName,
+      quantity: 1,
+      unitPrice: amountInCents,
+      product: product,
+      medicationType: medicationType,
+      plan: plan,
+    },
+    ...addonInvoiceLineItems,
+  ];
+  const { items: finalLineItems, shippingRemoved } = await deduplicateShipping(
+    rawLineItems,
+    verifiedPatient.id,
+    clinicId,
+  );
+  const finalAmountInCents = shippingRemoved
+    ? finalLineItems.reduce((sum, li) => sum + (li.unitPrice || 0), 0)
+    : amountInCents;
+
   try {
     // Generate a unique invoice number (timestamp + random suffix eliminates race conditions)
     const now = new Date();
@@ -1061,25 +1083,15 @@ export async function POST(req: NextRequest) {
           stripeInvoiceNumber: null,
           stripeInvoiceUrl: null,
           stripePdfUrl: null,
-          amount: amountInCents,
+          amount: finalAmountInCents,
           amountDue: 0,
-          amountPaid: amountInCents,
+          amountPaid: finalAmountInCents,
           currency: 'usd',
           status: 'PAID',
           paidAt: parsePaymentDate(payload.payment_date),
           description: `${productName} - Payment received`,
           dueDate: new Date(),
-          lineItems: [
-            {
-              description: productName,
-              quantity: 1,
-              unitPrice: amountInCents,
-              product: product,
-              medicationType: medicationType,
-              plan: plan,
-            },
-            ...addonInvoiceLineItems,
-          ],
+          lineItems: finalLineItems,
           metadata: {
             invoiceNumber,
             source: 'wellmedr-airtable',

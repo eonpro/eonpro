@@ -1,8 +1,9 @@
-import { stripe, getStripe, STRIPE_CONFIG } from '@/lib/stripe';
+import { getStripe, STRIPE_CONFIG } from '@/lib/stripe';
 import { getStripeForClinic, stripeRequestOptions } from '@/lib/stripe/connect';
 import { prisma } from '@/lib/db';
 import { StripeCustomerService } from './customerService';
 import { decryptPatientPHI, DEFAULT_PHI_FIELDS } from '@/lib/security/phi-encryption';
+import { deduplicateShipping } from '@/services/billing/shippingDedup';
 import type Stripe from 'stripe';
 import type { InvoiceStatus } from '@prisma/client';
 import { logger } from '@/lib/logger';
@@ -111,6 +112,14 @@ export class StripeInvoiceService {
       customer = await StripeCustomerService.getOrCreateCustomer(options.patientId);
     }
 
+    // Shipping dedup: strip duplicate shipping for same-day addon orders
+    const { items: dedupedLineItems } = await deduplicateShipping(
+      options.lineItems as any,
+      options.patientId,
+      clinicId,
+    );
+    options = { ...options, lineItems: dedupedLineItems as InvoiceLineItem[] };
+
     const stripeInvoice = await stripeClient.invoices.create({
       customer: customer.id,
       description: options.description,
@@ -180,8 +189,6 @@ export class StripeInvoiceService {
    * Send an invoice to a patient
    */
   static async sendInvoice(invoiceId: number): Promise<void> {
-    const stripeClient = getStripe();
-
     // Get invoice from database with patient info
     const invoice = await prisma.invoice.findUnique({
       where: { id: invoiceId },
@@ -196,8 +203,22 @@ export class StripeInvoiceService {
       throw new Error(`Invoice ${invoiceId} has no Stripe invoice ID`);
     }
 
+    const clinicId = invoice.clinicId ?? invoice.patient?.clinicId ?? undefined;
+    let stripeClient: Stripe;
+    let stripeOpts: Stripe.RequestOptions | undefined;
+    if (clinicId) {
+      const ctx = await getStripeForClinic(clinicId);
+      stripeClient = ctx.stripe;
+      stripeOpts = stripeRequestOptions(ctx);
+    } else {
+      stripeClient = getStripe();
+      stripeOpts = undefined;
+    }
+
     // Send via Stripe
-    const sentInvoice = await stripeClient.invoices.sendInvoice(invoice.stripeInvoiceId);
+    const sentInvoice = stripeOpts
+      ? await stripeClient.invoices.sendInvoice(invoice.stripeInvoiceId, stripeOpts)
+      : await stripeClient.invoices.sendInvoice(invoice.stripeInvoiceId);
 
     logger.debug(`[STRIPE] Sent invoice ${invoice.stripeInvoiceId}`);
 
@@ -234,11 +255,10 @@ export class StripeInvoiceService {
    * Void an invoice
    */
   static async voidInvoice(invoiceId: number): Promise<void> {
-    const stripeClient = getStripe();
-
     // Get invoice from database
     const invoice = await prisma.invoice.findUnique({
       where: { id: invoiceId },
+      include: { patient: { select: { clinicId: true } } },
     });
 
     if (!invoice) {
@@ -249,8 +269,24 @@ export class StripeInvoiceService {
       throw new Error(`Invoice ${invoiceId} has no Stripe invoice ID`);
     }
 
+    const clinicId = invoice.clinicId ?? invoice.patient?.clinicId ?? undefined;
+    let stripeClient: Stripe;
+    let stripeOpts: Stripe.RequestOptions | undefined;
+    if (clinicId) {
+      const ctx = await getStripeForClinic(clinicId);
+      stripeClient = ctx.stripe;
+      stripeOpts = stripeRequestOptions(ctx);
+    } else {
+      stripeClient = getStripe();
+      stripeOpts = undefined;
+    }
+
     // Void in Stripe
-    await stripeClient.invoices.voidInvoice(invoice.stripeInvoiceId);
+    if (stripeOpts) {
+      await stripeClient.invoices.voidInvoice(invoice.stripeInvoiceId, stripeOpts);
+    } else {
+      await stripeClient.invoices.voidInvoice(invoice.stripeInvoiceId);
+    }
 
     // Update database
     await prisma.invoice.update({
@@ -265,11 +301,10 @@ export class StripeInvoiceService {
    * Mark invoice as uncollectible
    */
   static async markUncollectible(invoiceId: number): Promise<void> {
-    const stripeClient = getStripe();
-
     // Get invoice from database
     const invoice = await prisma.invoice.findUnique({
       where: { id: invoiceId },
+      include: { patient: { select: { clinicId: true } } },
     });
 
     if (!invoice) {
@@ -280,8 +315,24 @@ export class StripeInvoiceService {
       throw new Error(`Invoice ${invoiceId} has no Stripe invoice ID`);
     }
 
+    const clinicId = invoice.clinicId ?? invoice.patient?.clinicId ?? undefined;
+    let stripeClient: Stripe;
+    let stripeOpts: Stripe.RequestOptions | undefined;
+    if (clinicId) {
+      const ctx = await getStripeForClinic(clinicId);
+      stripeClient = ctx.stripe;
+      stripeOpts = stripeRequestOptions(ctx);
+    } else {
+      stripeClient = getStripe();
+      stripeOpts = undefined;
+    }
+
     // Mark as uncollectible in Stripe
-    await stripeClient.invoices.markUncollectible(invoice.stripeInvoiceId);
+    if (stripeOpts) {
+      await stripeClient.invoices.markUncollectible(invoice.stripeInvoiceId, stripeOpts);
+    } else {
+      await stripeClient.invoices.markUncollectible(invoice.stripeInvoiceId);
+    }
 
     // Update database
     await prisma.invoice.update({
@@ -508,8 +559,24 @@ export class StripeInvoiceService {
     // Email fallback: fetch Stripe customer email and match
     if (!patient) {
       try {
-        const stripeClient = getStripe();
-        const stripeCustomer = await stripeClient.customers.retrieve(customerId);
+        const metaClinicRaw = stripeInvoice.metadata?.clinicId;
+        const metaClinicId =
+          metaClinicRaw != null && metaClinicRaw !== ''
+            ? parseInt(String(metaClinicRaw), 10)
+            : NaN;
+        let stripeClient: Stripe;
+        let stripeOpts: Stripe.RequestOptions | undefined;
+        if (Number.isFinite(metaClinicId) && metaClinicId > 0) {
+          const ctx = await getStripeForClinic(metaClinicId);
+          stripeClient = ctx.stripe;
+          stripeOpts = stripeRequestOptions(ctx);
+        } else {
+          stripeClient = getStripe();
+          stripeOpts = undefined;
+        }
+        const stripeCustomer = stripeOpts
+          ? await stripeClient.customers.retrieve(customerId, stripeOpts)
+          : await stripeClient.customers.retrieve(customerId);
         if (stripeCustomer && !stripeCustomer.deleted && 'email' in stripeCustomer && stripeCustomer.email) {
           patient = await findPatientByEmail(stripeCustomer.email.trim().toLowerCase());
           if (patient) {
@@ -779,8 +846,18 @@ export class StripeInvoiceService {
    */
   static async createSubscriptionsFromInvoice(invoice: any): Promise<void> {
     try {
-      const stripeClient = getStripe();
       const { patient } = invoice;
+      const clinicId = invoice.clinicId ?? patient?.clinicId ?? undefined;
+      let stripeClient: Stripe;
+      let stripeOpts: Stripe.RequestOptions | undefined;
+      if (clinicId) {
+        const ctx = await getStripeForClinic(clinicId);
+        stripeClient = ctx.stripe;
+        stripeOpts = stripeRequestOptions(ctx);
+      } else {
+        stripeClient = getStripe();
+        stripeOpts = undefined;
+      }
 
       if (!patient?.stripeCustomerId) {
         logger.warn(`[STRIPE] Cannot create subscription - patient has no Stripe customer ID`);
@@ -809,7 +886,7 @@ export class StripeInvoiceService {
           }
 
           // Create Stripe subscription first (external API call)
-          const subscription = await stripeClient.subscriptions.create({
+          const subParams = {
             customer: patient.stripeCustomerId,
             items: [{ price: product.stripePriceId as string }],
             trial_period_days: product.trialDays || undefined,
@@ -817,9 +894,12 @@ export class StripeInvoiceService {
               patientId: patient.id.toString(),
               productId: product.id.toString(),
               invoiceId: invoice.id.toString(),
-              clinicId: invoice.clinicId?.toString() || '',
+              clinicId: invoice.clinicId?.toString() || clinicId?.toString() || '',
             },
-          });
+          };
+          const subscription = stripeOpts
+            ? await stripeClient.subscriptions.create(subParams, stripeOpts)
+            : await stripeClient.subscriptions.create(subParams);
 
           stripeSubscriptions.push({ subscription, product });
 

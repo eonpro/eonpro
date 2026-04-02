@@ -20,6 +20,7 @@ import { getStripe, STRIPE_CONFIG } from '@/lib/stripe';
 import { getStripeForClinic, StripeContext, stripeRequestOptions } from '@/lib/stripe/connect';
 import { StripeCustomerService } from '@/services/stripe/customerService';
 import { decryptPatientPHI, DEFAULT_PHI_FIELDS } from '@/lib/security/phi-encryption';
+import { deduplicateShipping } from '@/services/billing/shippingDedup';
 import { logger } from '@/lib/logger';
 import { sendEmail } from '@/lib/email';
 import { sendSMS, formatPhoneNumber } from '@/lib/integrations/twilio/smsService';
@@ -270,6 +271,14 @@ export class InvoiceManager {
     stripeInvoice?: Stripe.Invoice;
     summary: InvoiceSummary;
   }> {
+    // Shipping dedup: strip duplicate shipping for same-day addon orders
+    const { items: dedupedItems } = await deduplicateShipping(
+      options.lineItems as any,
+      options.patientId,
+      options.clinicId ?? this.clinicId,
+    );
+    options = { ...options, lineItems: dedupedItems as LineItem[] };
+
     // Calculate totals
     const summary = this.calculateInvoiceSummary(
       options.lineItems,
