@@ -31,7 +31,7 @@ import {
 } from '@/services/billing/InvoiceManager';
 import { logger } from '@/lib/logger';
 import { prisma } from '@/lib/db';
-import { isStripeConfigured, getStripeClient } from '@/lib/stripe';
+import { getStripeForClinic } from '@/lib/stripe/connect';
 
 // Action schemas
 const sendActionSchema = z.object({
@@ -272,13 +272,17 @@ export async function POST(
             { status: 400 }
           );
         }
-        if (invoice.stripeInvoiceId && isStripeConfigured()) {
+        if (invoice.stripeInvoiceId != null && invoice.clinicId != null) {
           try {
-            const stripe = getStripeClient()!;
+            const stripeContext = await getStripeForClinic(invoice.clinicId);
+            const stripe = stripeContext.stripe;
+            const connectOpts = stripeContext.stripeAccountId
+              ? { stripeAccount: stripeContext.stripeAccountId }
+              : undefined;
             if (invoice.status === 'DRAFT') {
-              await stripe.invoices.del(invoice.stripeInvoiceId);
+              await stripe.invoices.del(invoice.stripeInvoiceId, connectOpts);
             } else {
-              await stripe.invoices.voidInvoice(invoice.stripeInvoiceId);
+              await stripe.invoices.voidInvoice(invoice.stripeInvoiceId, connectOpts);
             }
           } catch (stripeErr: unknown) {
             logger.warn('Stripe delete/void failed during invoice delete', {

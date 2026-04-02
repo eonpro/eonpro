@@ -9,7 +9,8 @@ import { handleApiError } from '@/domains/shared/errors';
 import { prisma } from '@/lib/db';
 import { logPHIAccess } from '@/lib/audit/hipaa-audit';
 import Stripe from 'stripe';
-import { requireStripeClient } from '@/lib/stripe/config';
+import { getStripeForClinic } from '@/lib/stripe/connect';
+import { StripeCustomerService } from '@/services/stripe/customerService';
 
 /**
  * POST /api/patient-portal/billing/portal
@@ -17,7 +18,6 @@ import { requireStripeClient } from '@/lib/stripe/config';
  */
 export const POST = withAuth(async (req: NextRequest, user: AuthUser) => {
   try {
-    const stripe = requireStripeClient();
     if (!user.patientId) {
       return NextResponse.json(
         { error: 'Patient ID required', code: 'PATIENT_ID_REQUIRED' },
@@ -25,10 +25,9 @@ export const POST = withAuth(async (req: NextRequest, user: AuthUser) => {
       );
     }
 
-    // Get patient's Stripe customer ID
     const patient = await prisma.patient.findUnique({
       where: { id: user.patientId },
-      select: { stripeCustomerId: true },
+      select: { stripeCustomerId: true, clinicId: true },
     });
 
     if (!patient?.stripeCustomerId) {
@@ -38,13 +37,29 @@ export const POST = withAuth(async (req: NextRequest, user: AuthUser) => {
       );
     }
 
-    // Create portal session
+    const stripeContext = await getStripeForClinic(patient.clinicId);
+    const stripe = stripeContext.stripe;
+    const connectOpts = stripeContext.stripeAccountId
+      ? { stripeAccount: stripeContext.stripeAccountId }
+      : undefined;
+
+    const resolvedCustomer = await StripeCustomerService.getOrCreateCustomerForContext(
+      user.patientId,
+      stripe,
+      connectOpts,
+    );
+
     let session: Stripe.BillingPortal.Session;
     try {
-      session = await stripe.billingPortal.sessions.create({
-        customer: patient.stripeCustomerId,
-        return_url: `${process.env.NEXT_PUBLIC_APP_URL}/portal/billing`,
-      });
+      session = connectOpts
+        ? await stripe.billingPortal.sessions.create({
+            customer: resolvedCustomer.id,
+            return_url: `${process.env.NEXT_PUBLIC_APP_URL}/portal/billing`,
+          }, connectOpts)
+        : await stripe.billingPortal.sessions.create({
+            customer: resolvedCustomer.id,
+            return_url: `${process.env.NEXT_PUBLIC_APP_URL}/portal/billing`,
+          });
     } catch (stripeError) {
       const isStripeError =
         stripeError instanceof Stripe.errors.StripeError ||

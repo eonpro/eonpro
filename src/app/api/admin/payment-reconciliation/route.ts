@@ -9,12 +9,46 @@
  * POST - Retry failed payment processing
  */
 
-import { NextRequest, NextResponse } from 'next/server';
-import { verifyAuth } from '@/lib/auth/middleware';
+import type { NextRequest } from 'next/server';
+import { NextResponse } from 'next/server';
+
+import { verifyAuth, type AuthUser } from '@/lib/auth/middleware';
+import { getClinicIdFromRequest } from '@/lib/clinic/utils';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { AGGREGATION_TAKE } from '@/lib/pagination';
 import { decryptPatientPHI } from '@/lib/security/phi-encryption';
+import { getStripeForClinic, stripeRequestOptions } from '@/lib/stripe/connect';
+
+import type Stripe from 'stripe';
+
+function parseBodyClinicId(bodyClinicId?: number | null): number | undefined {
+  if (bodyClinicId === undefined || bodyClinicId === null) return undefined;
+  const n = Number(bodyClinicId);
+  return Number.isNaN(n) ? undefined : n;
+}
+
+async function resolveClinicIdForStripeAdmin(
+  req: NextRequest,
+  user: AuthUser,
+  bodyClinicId?: number | null
+): Promise<{ clinicId: number } | { response: NextResponse }> {
+  const defaultClinic = parseInt(process.env.DEFAULT_CLINIC_ID ?? '0', 10);
+  const fallback = defaultClinic > 0 ? defaultClinic : undefined;
+  const clinicId =
+    parseBodyClinicId(bodyClinicId) ??
+    (await getClinicIdFromRequest(req)) ??
+    user.clinicId ??
+    fallback;
+
+  if (clinicId === undefined || clinicId < 1) {
+    return { response: NextResponse.json({ error: 'clinicId required' }, { status: 400 }) };
+  }
+  if (user.role !== 'super_admin' && user.clinicId !== undefined && user.clinicId !== clinicId) {
+    return { response: NextResponse.json({ error: 'Access denied' }, { status: 403 }) };
+  }
+  return { clinicId };
+}
 
 export async function GET(req: NextRequest) {
   const auth = await verifyAuth(req);
@@ -259,17 +293,23 @@ export async function POST(req: NextRequest) {
 
     if (action === 'fetch_stripe_payments') {
       // Fetch recent payments directly from Stripe for manual reconciliation
-      const { getStripe } = await import('@/lib/stripe');
-      const stripe = getStripe();
+      const resolved = await resolveClinicIdForStripeAdmin(req, auth.user, body.clinicId);
+      if ('response' in resolved) return resolved.response;
+
+      const stripeContext = await getStripeForClinic(resolved.clinicId);
+      const reqOpts = stripeRequestOptions(stripeContext);
 
       const days = body.days ?? 7;
       const limit = Math.min(body.limit ?? 100, 500);
       const since = Math.floor(Date.now() / 1000) - days * 24 * 60 * 60;
 
-      const paymentIntents = await stripe.paymentIntents.list({
-        created: { gte: since },
-        limit,
-      });
+      const paymentIntents = await stripeContext.stripe.paymentIntents.list(
+        {
+          created: { gte: since },
+          limit,
+        },
+        reqOpts
+      );
 
       const successfulPayments = paymentIntents.data.filter((pi) => pi.status === 'succeeded');
 
@@ -304,8 +344,6 @@ export async function POST(req: NextRequest) {
 
     if (action === 'sync_from_stripe') {
       // Bulk sync missing Stripe payments into the platform (for EonMeds 10k+ backlog)
-      const { getStripe } = await import('@/lib/stripe');
-      const stripe = getStripe();
       const {
         processStripePayment,
         extractPaymentDataFromPaymentIntent,
@@ -313,15 +351,13 @@ export async function POST(req: NextRequest) {
 
       const days = body.days ?? 30;
       const batchSize = Math.min(body.batchSize ?? 50, 100);
-      const clinicId =
-        body.clinicId ?? parseInt(process.env.DEFAULT_CLINIC_ID || '0', 10);
+      const resolved = await resolveClinicIdForStripeAdmin(req, auth.user, body.clinicId);
+      if ('response' in resolved) return resolved.response;
+      const clinicId = resolved.clinicId;
       const endingBefore = body.endingBefore as string | undefined;
-      if (!clinicId) {
-        return NextResponse.json(
-          { error: 'clinicId or DEFAULT_CLINIC_ID required for sync' },
-          { status: 400 }
-        );
-      }
+
+      const stripeContext = await getStripeForClinic(clinicId);
+      const reqOpts = stripeRequestOptions(stripeContext);
 
       const since = Math.floor(Date.now() / 1000) - days * 24 * 60 * 60;
       const listParams: Record<string, unknown> = {
@@ -330,7 +366,10 @@ export async function POST(req: NextRequest) {
       };
       if (endingBefore) listParams.ending_before = endingBefore;
 
-      const paymentIntents = await stripe.paymentIntents.list(listParams as any);
+      const paymentIntents = await stripeContext.stripe.paymentIntents.list(
+        listParams as Stripe.PaymentIntentListParams,
+        reqOpts
+      );
       const successful = paymentIntents.data.filter((pi) => pi.status === 'succeeded');
       const piIds = successful.map((pi) => pi.id);
       const existing = await prisma.paymentReconciliation.findMany({
@@ -400,10 +439,16 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'paymentIntentId required' }, { status: 400 });
       }
 
-      const { getStripe } = await import('@/lib/stripe');
-      const stripe = getStripe();
+      const resolved = await resolveClinicIdForStripeAdmin(req, auth.user, overrideClinicId);
+      if ('response' in resolved) return resolved.response;
 
-      const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+      const stripeContext = await getStripeForClinic(resolved.clinicId);
+      const reqOpts = stripeRequestOptions(stripeContext);
+
+      const paymentIntent = await stripeContext.stripe.paymentIntents.retrieve(
+        paymentIntentId,
+        reqOpts
+      );
 
       if (paymentIntent.status !== 'succeeded') {
         return NextResponse.json({ error: 'Payment not succeeded' }, { status: 400 });
@@ -414,11 +459,8 @@ export async function POST(req: NextRequest) {
 
       const paymentData = await extractPaymentDataFromPaymentIntent(paymentIntent);
       // Inject clinicId when missing (EonMeds/IntakeQ payments from Payment Links lack metadata)
-      const fallbackClinicId =
-        overrideClinicId ??
-        parseInt(process.env.DEFAULT_CLINIC_ID || '0', 10);
-      if (fallbackClinicId > 0 && !paymentData.metadata?.clinicId) {
-        paymentData.metadata = { ...paymentData.metadata, clinicId: String(fallbackClinicId) };
+      if (resolved.clinicId > 0 && !paymentData.metadata?.clinicId) {
+        paymentData.metadata = { ...paymentData.metadata, clinicId: String(resolved.clinicId) };
       }
       const result = await processStripePayment(
         paymentData,

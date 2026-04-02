@@ -9,7 +9,7 @@ import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { auditLog, AuditEventType } from '@/lib/audit/hipaa-audit';
 import { handleApiError } from '@/domains/shared/errors';
-import { requireStripeClient } from '@/lib/stripe/config';
+import { getStripeForClinic } from '@/lib/stripe/connect';
 
 /**
  * GET /api/patient-portal/billing
@@ -17,7 +17,6 @@ import { requireStripeClient } from '@/lib/stripe/config';
  */
 export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
   try {
-    const stripe = requireStripeClient();
     if (!user.patientId) {
       return NextResponse.json(
         { error: 'Patient ID required', code: 'PATIENT_ID_REQUIRED' },
@@ -29,6 +28,7 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
     const patient = await prisma.patient.findUnique({
       where: { id: user.patientId },
       select: {
+        clinicId: true,
         stripeCustomerId: true,
         subscriptions: {
           orderBy: { createdAt: 'desc' },
@@ -62,6 +62,12 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
       );
     }
 
+    const stripeContext = await getStripeForClinic(patient.clinicId);
+    const stripe = stripeContext.stripe;
+    const connectOpts = stripeContext.stripeAccountId
+      ? { stripeAccount: stripeContext.stripeAccountId }
+      : undefined;
+
     let subscription = null;
     let paymentMethods: Array<{
       id: string;
@@ -73,15 +79,24 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
     }> = [];
     let upcomingInvoice = null;
 
-    // If patient has Stripe customer ID, fetch from Stripe
+    // If patient has Stripe customer ID, fetch from Stripe.
+    // Resolve the correct customer on this clinic's Stripe account.
     if (patient.stripeCustomerId) {
       try {
+        const { StripeCustomerService } = await import('@/services/stripe/customerService');
+        const resolvedCustomer = await StripeCustomerService.getOrCreateCustomerForContext(
+          patient.id,
+          stripe,
+          connectOpts,
+        );
+        const customerId = resolvedCustomer.id;
+
+        const listOpts = connectOpts || {};
+
         // Get subscriptions from Stripe
-        const stripeSubscriptions = await stripe.subscriptions.list({
-          customer: patient.stripeCustomerId,
-          status: 'active',
-          limit: 1,
-        });
+        const stripeSubscriptions = connectOpts
+          ? await stripe.subscriptions.list({ customer: customerId, status: 'active', limit: 1 }, connectOpts)
+          : await stripe.subscriptions.list({ customer: customerId, status: 'active', limit: 1 });
 
         if (stripeSubscriptions.data.length > 0) {
           const sub = stripeSubscriptions.data[0];
@@ -99,15 +114,14 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
 
           // Get upcoming invoice
           try {
-            const upcoming = await (stripe.invoices as any).retrieveUpcoming({
-              customer: patient.stripeCustomerId,
-            });
+            const upcoming = connectOpts
+              ? await (stripe.invoices as any).retrieveUpcoming({ customer: customerId }, connectOpts)
+              : await (stripe.invoices as any).retrieveUpcoming({ customer: customerId });
             upcomingInvoice = {
               amount: upcoming.amount_due,
               date: new Date(upcoming.next_payment_attempt! * 1000).toISOString(),
             };
           } catch (error: unknown) {
-            // No upcoming invoice
             logger.warn('[Patient Billing] Failed to fetch upcoming invoice', {
               error: error instanceof Error ? error.message : 'Unknown error',
             });
@@ -115,15 +129,16 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
         }
 
         // Get payment methods from Stripe
-        const stripePaymentMethods = await stripe.paymentMethods.list({
-          customer: patient.stripeCustomerId,
-          type: 'card',
-        });
+        const stripePaymentMethods = connectOpts
+          ? await stripe.paymentMethods.list({ customer: customerId, type: 'card' }, connectOpts)
+          : await stripe.paymentMethods.list({ customer: customerId, type: 'card' });
 
-        const customer = await stripe.customers.retrieve(patient.stripeCustomerId);
+        const customerObj = connectOpts
+          ? await stripe.customers.retrieve(customerId, connectOpts)
+          : await stripe.customers.retrieve(customerId);
         const defaultPaymentMethod =
-          typeof customer !== 'string' && !customer.deleted
-            ? customer.invoice_settings?.default_payment_method
+          typeof customerObj !== 'string' && !customerObj.deleted
+            ? customerObj.invoice_settings?.default_payment_method
             : null;
 
         paymentMethods = stripePaymentMethods.data.map((pm) => ({

@@ -8,6 +8,8 @@ import { z } from 'zod';
 import { verifyAuth } from '@/lib/auth/middleware';
 import { isFeatureEnabled } from '@/lib/features';
 import { getStripe } from '@/lib/stripe';
+import { getStripeForClinic } from '@/lib/stripe/connect';
+import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 
 const bodySchema = z.object({ subscriptionId: z.string().min(1) });
@@ -56,11 +58,29 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Cancel real Stripe subscription
+    // Cancel real Stripe subscription.
+    // Look up the local record to determine which Stripe account owns this subscription.
     try {
-      const stripe = getStripe();
+      const localSub = await prisma.subscription.findFirst({
+        where: { stripeSubscriptionId: subscriptionId },
+        select: { clinicId: true, patientId: true, patient: { select: { clinicId: true } } },
+      });
 
-      const subscription = await stripe.subscriptions.cancel(subscriptionId);
+      const clinicId = localSub?.clinicId ?? localSub?.patient?.clinicId;
+      let stripe;
+      let requestOptions: Record<string, string> = {};
+
+      if (clinicId) {
+        const ctx = await getStripeForClinic(clinicId);
+        stripe = ctx.stripe;
+        if (ctx.stripeAccountId) {
+          requestOptions = { stripeAccount: ctx.stripeAccountId };
+        }
+      } else {
+        stripe = getStripe();
+      }
+
+      const subscription = await stripe.subscriptions.cancel(subscriptionId, requestOptions);
 
       logger.debug('[STRIPE_TEST] Cancelled subscription:', { id: subscription.id });
 

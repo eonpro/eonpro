@@ -10,6 +10,7 @@
 
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import { getStripeForClinic } from '@/lib/stripe/connect';
 import type {
   CancelSubscriptionInput,
   PauseSubscriptionInput,
@@ -38,16 +39,23 @@ export function createSubscriptionService(): SubscriptionService {
       const sub = await prisma.subscription.findUnique({ where: { id: input.subscriptionId } });
       if (!sub) throw new Error('Subscription not found');
 
-      // Cancel in Stripe first
-      if (sub.stripeSubscriptionId) {
+      // Cancel in Stripe first — use the clinic's Stripe account
+      if (sub.stripeSubscriptionId && sub.clinicId) {
         try {
-          const stripe = (await import('@/lib/stripe')).requireStripeClient();
-          await stripe.subscriptions.update(sub.stripeSubscriptionId, {
-            cancel_at_period_end: input.cancelAtPeriodEnd ?? true,
-          });
+          const stripeContext = await getStripeForClinic(sub.clinicId);
+          const requestOptions = stripeContext.stripeAccountId
+            ? { stripeAccount: stripeContext.stripeAccountId }
+            : {};
+
+          await stripeContext.stripe.subscriptions.update(
+            sub.stripeSubscriptionId,
+            { cancel_at_period_end: input.cancelAtPeriodEnd ?? true },
+            requestOptions,
+          );
         } catch (err) {
           logger.error('[SubscriptionService] Stripe cancel failed', {
             subscriptionId: sub.id,
+            clinicId: sub.clinicId,
             error: err instanceof Error ? err.message : 'Unknown',
           });
           throw err;

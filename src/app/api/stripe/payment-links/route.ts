@@ -11,7 +11,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getStripe, formatCurrency } from '@/lib/stripe';
+import { formatCurrency } from '@/lib/stripe';
+import { getStripeContextForRequest, getNotConnectedResponse } from '@/lib/stripe/context';
 import { logger } from '@/lib/logger';
 import { withAdminAuth, type AuthUser } from '@/lib/auth/middleware';
 import { z } from 'zod';
@@ -34,9 +35,16 @@ const createPaymentLinkSchema = z.object({
     .optional(),
 });
 
-async function handleGet(request: NextRequest, _user: AuthUser) {
+async function handleGet(request: NextRequest, user: AuthUser) {
   try {
-    const stripe = getStripe();
+    const { context, error, notConnected } = await getStripeContextForRequest(request, user);
+    if (error) return error;
+    if (notConnected || !context) {
+      return getNotConnectedResponse(context?.clinicId);
+    }
+
+    const { stripe, stripeAccountId } = context;
+    const stripeOpts = stripeAccountId ? { stripeAccount: stripeAccountId } : undefined;
     const { searchParams } = new URL(request.url);
 
     const limit = Math.min(parseInt(searchParams.get('limit') || '50'), 100);
@@ -50,14 +58,14 @@ async function handleGet(request: NextRequest, _user: AuthUser) {
       ...(active !== null && { active: active === 'true' }),
     };
 
-    const paymentLinks = await stripe.paymentLinks.list(paymentLinkParams);
+    const paymentLinks = await stripe.paymentLinks.list(paymentLinkParams, stripeOpts);
 
     // Get line items for each link
     const formattedLinks = await Promise.all(
       paymentLinks.data.map(async (link) => {
         let lineItems: any[] = [];
         try {
-          const items = await stripe.paymentLinks.listLineItems(link.id, { limit: 10 });
+          const items = await stripe.paymentLinks.listLineItems(link.id, { limit: 10 }, stripeOpts);
           lineItems = items.data.map((item) => {
             const product = item.price?.product;
             const productName =
@@ -135,9 +143,16 @@ async function handleGet(request: NextRequest, _user: AuthUser) {
   }
 }
 
-async function handlePost(request: NextRequest, _user: AuthUser) {
+async function handlePost(request: NextRequest, user: AuthUser) {
   try {
-    const stripe = getStripe();
+    const { context, error, notConnected } = await getStripeContextForRequest(request, user);
+    if (error) return error;
+    if (notConnected || !context) {
+      return getNotConnectedResponse(context?.clinicId);
+    }
+
+    const { stripe, stripeAccountId } = context;
+    const stripeOpts = stripeAccountId ? { stripeAccount: stripeAccountId } : undefined;
     const body = await request.json();
     const validated = createPaymentLinkSchema.parse(body);
 
@@ -153,15 +168,21 @@ async function handlePost(request: NextRequest, _user: AuthUser) {
       }
 
       // Create product and price
-      const product = await stripe.products.create({
-        name: validated.productName,
-      });
+      const product = await stripe.products.create(
+        {
+          name: validated.productName,
+        },
+        stripeOpts
+      );
 
-      const price = await stripe.prices.create({
-        product: product.id,
-        unit_amount: validated.amount,
-        currency: validated.currency,
-      });
+      const price = await stripe.prices.create(
+        {
+          product: product.id,
+          unit_amount: validated.amount,
+          currency: validated.currency,
+        },
+        stripeOpts
+      );
 
       priceId = price.id;
     }
@@ -198,7 +219,7 @@ async function handlePost(request: NextRequest, _user: AuthUser) {
       }
     }
 
-    const paymentLink = await stripe.paymentLinks.create(linkParams);
+    const paymentLink = await stripe.paymentLinks.create(linkParams, stripeOpts);
 
     logger.info('[STRIPE PAYMENT LINKS] Created payment link', {
       linkId: paymentLink.id,

@@ -5,27 +5,35 @@
  * Catches payments missed by webhooks. Uses runCronPerTenant + runWithClinicContext
  * so each clinic's missing payments are processed in that clinic's context.
  *
- * 1. Fetch successful payment intents from Stripe (last 48h)
- * 2. Per clinic: determine which are missing, process in clinic context
+ * 1. Per clinic: list succeeded payment intents from that clinic's Stripe (last 48h)
+ * 2. Determine which are missing in DB, process in clinic context
  * 3. Alert on failures
  *
  * Vercel Cron: 0 6 * * * (6 AM UTC daily)
  */
 
-import { NextRequest, NextResponse } from 'next/server';
-import { logger } from '@/lib/logger';
-import { prisma, runWithClinicContext } from '@/lib/db';
+import type { NextRequest } from 'next/server';
+import { NextResponse } from 'next/server';
+
 import { verifyCronAuth, runCronPerTenant } from '@/lib/cron/tenant-isolation';
 import { circuitBreaker, DbTier } from '@/lib/database/circuit-breaker';
+import { prisma, runWithClinicContext } from '@/lib/db';
+import { logger } from '@/lib/logger';
+
+import type Stripe from 'stripe';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 30;
 
-type PerClinicResult = {
+interface PerClinicResult {
   newlyProcessed: number;
   failed: number;
   errors: string[];
-};
+  /** Succeeded payment intents seen in Stripe for this clinic in the window */
+  stripePaymentCount: number;
+  /** Platform-account PIs in the window missing clinic metadata (not attributed to this clinic) */
+  skippedNoClinic: number;
+}
 
 export async function GET(req: NextRequest) {
   return runReconcile(req);
@@ -65,54 +73,82 @@ async function runReconcile(req: NextRequest) {
   };
 
   try {
-    const { getStripe } = await import('@/lib/stripe');
+    const { getStripeForClinic, stripeRequestOptions } = await import('@/lib/stripe/connect');
     const { processStripePayment, extractPaymentDataFromPaymentIntent } = await import(
       '@/services/stripe/paymentMatchingService'
     );
 
-    const stripe = getStripe();
     const since = Math.floor(Date.now() / 1000) - 48 * 60 * 60;
 
     logger.info('[Reconciliation Cron] Starting daily payment reconciliation (per-tenant)', {
       since: new Date(since * 1000).toISOString(),
     });
 
-    let hasMore = true;
-    let startingAfter: string | undefined;
-    const allPayments: any[] = [];
-
-    while (hasMore) {
-      const paymentIntents = await stripe.paymentIntents.list({
-        created: { gte: since },
-        limit: 100,
-        starting_after: startingAfter,
-      });
-      const succeeded = paymentIntents.data.filter((pi) => pi.status === 'succeeded');
-      allPayments.push(...succeeded);
-      hasMore = paymentIntents.has_more;
-      if (paymentIntents.data.length > 0) {
-        startingAfter = paymentIntents.data[paymentIntents.data.length - 1].id;
-      }
-    }
-
-    results.stripePayments = allPayments.length;
-
-    if (allPayments.length === 0) {
-      return NextResponse.json({
-        success: true,
-        message: 'No payments to reconcile',
-        results,
-        duration: Date.now() - startTime,
-      });
-    }
-
-    const piIds = allPayments.map((pi) => pi.id);
-
-    const { results: perClinicResults, totalDurationMs } = await runCronPerTenant<PerClinicResult>({
+    const { results: perClinicResults } = await runCronPerTenant<PerClinicResult>({
       jobName: 'reconcile-payments',
       perClinic: async (clinicId) => {
         return runWithClinicContext(clinicId, async () => {
-          const out: PerClinicResult = { newlyProcessed: 0, failed: 0, errors: [] };
+          const out: PerClinicResult = {
+            newlyProcessed: 0,
+            failed: 0,
+            errors: [],
+            stripePaymentCount: 0,
+            skippedNoClinic: 0,
+          };
+
+          const stripeContext = await getStripeForClinic(clinicId);
+          if (
+            !stripeContext.isPlatformAccount &&
+            !stripeContext.stripeAccountId &&
+            !stripeContext.isDedicatedAccount
+          ) {
+            logger.info('[Reconciliation Cron] Skipping clinic — no Stripe account configured', {
+              clinicId,
+            });
+            return out;
+          }
+
+          const reqOpts = stripeRequestOptions(stripeContext);
+          const allPayments: Stripe.PaymentIntent[] = [];
+          let hasMore = true;
+          let startingAfter: string | undefined;
+
+          while (hasMore) {
+            const paymentIntents = await stripeContext.stripe.paymentIntents.list(
+              {
+                created: { gte: since },
+                limit: 100,
+                starting_after: startingAfter,
+              },
+              reqOpts
+            );
+            const succeeded = paymentIntents.data.filter((pi) => pi.status === 'succeeded');
+            allPayments.push(...succeeded);
+            hasMore = paymentIntents.has_more;
+            if (paymentIntents.data.length > 0) {
+              startingAfter = paymentIntents.data[paymentIntents.data.length - 1].id;
+            }
+          }
+
+          out.stripePaymentCount = allPayments.length;
+          if (stripeContext.isPlatformAccount && !stripeContext.isDedicatedAccount) {
+            out.skippedNoClinic = allPayments.filter((pi) => {
+              if (pi.invoice) return false;
+              const meta = pi.metadata as Record<string, string | undefined>;
+              const metaClinicId = meta.clinic_id ?? meta.clinicId;
+              return (
+                metaClinicId === null ||
+                metaClinicId === undefined ||
+                metaClinicId === ''
+              );
+            }).length;
+          }
+
+          if (allPayments.length === 0) {
+            return out;
+          }
+
+          const piIds = allPayments.map((pi) => pi.id);
 
           const existingRec = await prisma.paymentReconciliation.findMany({
             where: { stripePaymentIntentId: { in: piIds } },
@@ -129,10 +165,15 @@ async function runReconcile(req: NextRequest) {
 
           const missingForClinic = allPayments.filter((pi) => {
             if (processedIds.has(pi.id)) return false;
-            if ((pi as any).invoice) return false;
-            const meta = (pi.metadata || {}) as Record<string, unknown>;
-            const metaClinicId = meta?.clinic_id ?? meta?.clinicId;
-            return Number(metaClinicId) === clinicId;
+            if (pi.invoice) return false;
+            // Connect / dedicated accounts: listing is already scoped to this clinic.
+            // Platform Stripe (single clinic on Connect platform): require metadata match.
+            if (stripeContext.isPlatformAccount && !stripeContext.isDedicatedAccount) {
+              const meta = pi.metadata as Record<string, string | undefined>;
+              const metaClinicId = meta.clinic_id ?? meta.clinicId;
+              return Number(metaClinicId) === clinicId;
+            }
+            return true;
           });
 
           for (const pi of missingForClinic) {
@@ -172,12 +213,24 @@ async function runReconcile(req: NextRequest) {
       },
     });
 
-    const skippedNoClinic = allPayments.filter((pi) => {
-      if ((pi as any).invoice) return false;
-      const meta = (pi.metadata || {}) as Record<string, unknown>;
-      const metaClinicId = meta?.clinic_id ?? meta?.clinicId;
-      return metaClinicId == null || metaClinicId === '';
-    }).length;
+    results.stripePayments = perClinicResults.reduce(
+      (s, r) => s + (r.data?.stripePaymentCount ?? 0),
+      0
+    );
+
+    if (results.stripePayments === 0) {
+      return NextResponse.json({
+        success: true,
+        message: 'No payments to reconcile',
+        results,
+        duration: Date.now() - startTime,
+      });
+    }
+
+    const skippedNoClinic = perClinicResults.reduce(
+      (s, r) => s + (r.data?.skippedNoClinic ?? 0),
+      0
+    );
 
     results.skippedNoClinic = skippedNoClinic;
     results.newlyProcessed = perClinicResults.reduce((s, r) => s + (r.data?.newlyProcessed ?? 0), 0);
@@ -221,9 +274,9 @@ async function alertReconciliationFailures(results: {
     severity: 'WARNING',
     title: 'Payment Reconciliation Issues',
     message: `Daily reconciliation completed with ${results.failed} failures`,
-    successfullyProcessed: results.newlyProcessed || 0,
+    successfullyProcessed: results.newlyProcessed ?? 0,
     failed: results.failed,
-    errors: (results.errors || []).slice(0, 10),
+    errors: results.errors.slice(0, 10),
     timestamp: new Date().toISOString(),
     actionRequired: 'Review failed payments in Admin > Payment Reconciliation',
   };

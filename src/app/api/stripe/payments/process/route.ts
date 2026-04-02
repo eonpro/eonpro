@@ -127,6 +127,23 @@ async function handlePost(request: NextRequest, _user: AuthUser) {
       return NextResponse.json({ error: 'Patient not found' }, { status: 404 });
     }
 
+    // Resolve the clinic's Stripe context upfront so customer + payment use the same account.
+    // getStripeForClinic may return the platform (EONpro), a dedicated, or a connected Stripe —
+    // all of which have separate customer namespaces from the legacy EonMeds default.
+    const stripeContext = await getStripeForClinic(patient.clinicId);
+    const stripe = stripeContext.stripe;
+    const connectOpts = stripeContext.stripeAccountId
+      ? { stripeAccount: stripeContext.stripeAccountId }
+      : undefined;
+
+    // Ensure Stripe customer exists on the SAME account that will process the payment.
+    const customer = await StripeCustomerService.getOrCreateCustomerForContext(
+      patient.id,
+      stripe,
+      connectOpts,
+    );
+    const stripeCustomerId = customer.id;
+
     // --- Saved card path: actually charges through Stripe ---
     if (savedPaymentMethodId) {
       const savedId = String(savedPaymentMethodId);
@@ -159,16 +176,6 @@ async function handlePost(request: NextRequest, _user: AuthUser) {
         localPaymentMethodId = existingMethod.id;
       }
 
-      const stripeContext = await getStripeForClinic(patient.clinicId);
-      const stripe = stripeContext.stripe;
-
-      // Ensure Stripe customer exists
-      let stripeCustomerId = patient.stripeCustomerId;
-      if (!stripeCustomerId) {
-        const customer = await StripeCustomerService.getOrCreateCustomer(patient.id);
-        stripeCustomerId = customer.id;
-      }
-
       // If local card has no Stripe link, create an unconfirmed PaymentIntent
       // and return clientSecret so the frontend can confirm via Stripe.js
       if (!stripePaymentMethodId && localPaymentMethodId) {
@@ -185,10 +192,6 @@ async function handlePost(request: NextRequest, _user: AuthUser) {
             cardBrand,
           },
         };
-
-        const connectOpts = stripeContext.stripeAccountId
-          ? { stripeAccount: stripeContext.stripeAccountId }
-          : undefined;
 
         const intent = connectOpts
           ? await stripe.paymentIntents.create(intentParams as any, connectOpts)
@@ -507,18 +510,7 @@ async function handlePost(request: NextRequest, _user: AuthUser) {
     // --- New card path via Stripe Elements (PCI DSS compliant) ---
     // No raw card data reaches this server. We create an unconfirmed PaymentIntent
     // and return clientSecret so the frontend confirms via Stripe.js CardElement.
-
-    let stripeCustomerId = patient.stripeCustomerId;
-    if (!stripeCustomerId) {
-      const customer = await StripeCustomerService.getOrCreateCustomer(patient.id);
-      stripeCustomerId = customer.id;
-    }
-
-    const stripeContext = await getStripeForClinic(patient.clinicId);
-    const stripe = stripeContext.stripe;
-    const connectOpts = stripeContext.stripeAccountId
-      ? { stripeAccount: stripeContext.stripeAccountId }
-      : undefined;
+    // stripeContext, stripe, stripeCustomerId, and connectOpts are resolved above.
 
     const intentParams: Record<string, unknown> = {
       amount,
@@ -580,6 +572,29 @@ async function handlePost(request: NextRequest, _user: AuthUser) {
       stripeConnectedAccountId: stripeContext.stripeAccountId || null,
     });
   } catch (error: unknown) {
+    // Surface Stripe-specific errors with actionable messages instead of generic 500s
+    if (error instanceof Error) {
+      const msg = error.message;
+      const stripeType = (error as any).type as string | undefined;
+      const isStripeError =
+        stripeType === 'StripeInvalidRequestError' ||
+        stripeType === 'StripeCardError' ||
+        stripeType === 'StripeAuthenticationError' ||
+        msg.includes('No such customer') ||
+        msg.includes('No such payment');
+
+      if (isStripeError) {
+        logger.error('[PaymentProcess] Stripe error in payment flow', {
+          error: msg,
+          stripeType,
+        });
+        return NextResponse.json(
+          { error: msg },
+          { status: (error as any).statusCode || 402 },
+        );
+      }
+    }
+
     return handleApiError(error, { route: 'POST /api/stripe/payments/process' });
   }
 }

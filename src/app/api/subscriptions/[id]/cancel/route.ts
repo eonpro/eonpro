@@ -13,7 +13,7 @@ import { SubscriptionStatus, Prisma } from '@prisma/client';
 import { logger } from '@/lib/logger';
 import { withAuthParams } from '@/lib/auth/middleware-with-params';
 import { verifyClinicAccess } from '@/lib/auth/clinic-access';
-import { getStripeClient } from '@/lib/stripe/config';
+import { getStripeForClinic } from '@/lib/stripe/connect';
 
 type TransactionClient = Prisma.TransactionClient;
 
@@ -49,19 +49,28 @@ async function cancelSubscriptionHandler(
       return NextResponse.json({ error: 'Subscription is already canceled' }, { status: 400 });
     }
 
-    // ENTERPRISE: Cancel in Stripe FIRST if subscription has Stripe ID
+    // ENTERPRISE: Cancel in Stripe FIRST if subscription has Stripe ID.
+    // Uses the clinic's Stripe context (platform, dedicated, or connected) so the
+    // subscription ID is resolved on the correct Stripe account.
     if (subscription.stripeSubscriptionId) {
       try {
-        const stripe = getStripeClient();
-        if (stripe) {
+        const clinicId = subscription.clinicId ?? subscription.patient?.clinicId;
+        if (clinicId) {
+          const stripeContext = await getStripeForClinic(clinicId);
+          const requestOptions = stripeContext.stripeAccountId
+            ? { stripeAccount: stripeContext.stripeAccountId }
+            : {};
+
           logger.info('[SUBSCRIPTIONS] Canceling Stripe subscription', {
             subscriptionId,
             stripeSubscriptionId: subscription.stripeSubscriptionId,
+            clinicId,
           });
 
-          await stripe.subscriptions.cancel(subscription.stripeSubscriptionId, {
-            prorate: true,
-          });
+          await stripeContext.stripe.subscriptions.cancel(
+            subscription.stripeSubscriptionId,
+            requestOptions,
+          );
 
           logger.info('[SUBSCRIPTIONS] Stripe subscription canceled successfully', {
             subscriptionId,
@@ -69,10 +78,9 @@ async function cancelSubscriptionHandler(
           });
         } else {
           logger.warn(
-            '[SUBSCRIPTIONS] No Stripe client available, proceeding with DB-only cancellation',
+            '[SUBSCRIPTIONS] No clinic context for Stripe, proceeding with DB-only cancellation',
             {
               subscriptionId,
-              clinicId: subscription.clinicId,
             }
           );
         }

@@ -12,6 +12,7 @@ import Stripe from 'stripe';
 import { prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
+import { getStripeForClinic } from '@/lib/stripe/connect';
 
 const refundSchema = z.object({
   paymentId: z.number().optional(),
@@ -168,36 +169,62 @@ async function createRefundHandler(request: NextRequest, user: AuthUser) {
       });
     }
 
-    // Production mode - use Stripe
+    // Production mode - use Stripe (clinic-scoped client / Connect account)
     try {
-      const { getStripe } = await import('@/lib/stripe');
-      const stripe = getStripe();
+      const clinicId =
+        payment?.clinicId ??
+        payment?.patient?.clinicId ??
+        invoice?.clinicId ??
+        invoice?.patient?.clinicId;
+
+      if (clinicId == null) {
+        return NextResponse.json(
+          {
+            error:
+              'Cannot resolve clinic for this payment or invoice; refund requires a linked clinic.',
+          },
+          { status: 400 }
+        );
+      }
+
+      const stripeContext = await getStripeForClinic(clinicId);
+      const stripe = stripeContext.stripe;
+      const connectOpts = stripeContext.stripeAccountId
+        ? { stripeAccount: stripeContext.stripeAccountId }
+        : undefined;
 
       let refund;
       const isFullRefund = refundAmount >= maxRefundable;
 
       // Try payment intent refund first
       if (payment?.stripePaymentIntentId) {
-        refund = await stripe.refunds.create({
-          payment_intent: payment.stripePaymentIntentId,
-          amount: refundAmount,
-          reason:
-            validated.reason === 'fraudulent'
-              ? 'fraudulent'
-              : validated.reason === 'duplicate'
-                ? 'duplicate'
-                : 'requested_by_customer',
-          metadata: {
-            paymentId: payment.id.toString(),
-            patientId: payment.patientId.toString(),
-            reason: validated.reason || 'requested_by_customer',
+        refund = await stripe.refunds.create(
+          {
+            payment_intent: payment.stripePaymentIntentId,
+            amount: refundAmount,
+            reason:
+              validated.reason === 'fraudulent'
+                ? 'fraudulent'
+                : validated.reason === 'duplicate'
+                  ? 'duplicate'
+                  : 'requested_by_customer',
+            metadata: {
+              paymentId: payment.id.toString(),
+              patientId: payment.patientId.toString(),
+              reason: validated.reason || 'requested_by_customer',
+            },
           },
-        });
+          connectOpts
+        );
       } else if (validated.stripeInvoiceId) {
         // Try invoice-based refund via charge or payment_intent lookup
-        const stripeInvoice = (await stripe.invoices.retrieve(validated.stripeInvoiceId, {
-          expand: ['payment_intent', 'charge'],
-        })) as Stripe.Invoice & {
+        const stripeInvoice = (await stripe.invoices.retrieve(
+          validated.stripeInvoiceId,
+          {
+            expand: ['payment_intent', 'charge'],
+          },
+          connectOpts
+        )) as Stripe.Invoice & {
           charge?: string | Stripe.Charge | null;
           payment_intent?: string | Stripe.PaymentIntent | null;
         };
@@ -221,20 +248,23 @@ async function createRefundHandler(request: NextRequest, user: AuthUser) {
               ? stripeInvoice.charge
               : stripeInvoice.charge.id;
 
-          refund = await stripe.refunds.create({
-            charge: chargeId,
-            amount: refundAmount,
-            reason:
-              validated.reason === 'fraudulent'
-                ? 'fraudulent'
-                : validated.reason === 'duplicate'
-                  ? 'duplicate'
-                  : 'requested_by_customer',
-            metadata: {
-              invoiceId: validated.stripeInvoiceId,
-              reason: validated.reason || 'requested_by_customer',
+          refund = await stripe.refunds.create(
+            {
+              charge: chargeId,
+              amount: refundAmount,
+              reason:
+                validated.reason === 'fraudulent'
+                  ? 'fraudulent'
+                  : validated.reason === 'duplicate'
+                    ? 'duplicate'
+                    : 'requested_by_customer',
+              metadata: {
+                invoiceId: validated.stripeInvoiceId,
+                reason: validated.reason || 'requested_by_customer',
+              },
             },
-          });
+            connectOpts
+          );
         } else if (stripeInvoice.payment_intent) {
           // Invoice was paid via PaymentIntent (newer method)
           const paymentIntentId =
@@ -242,20 +272,23 @@ async function createRefundHandler(request: NextRequest, user: AuthUser) {
               ? stripeInvoice.payment_intent
               : stripeInvoice.payment_intent.id;
 
-          refund = await stripe.refunds.create({
-            payment_intent: paymentIntentId,
-            amount: refundAmount,
-            reason:
-              validated.reason === 'fraudulent'
-                ? 'fraudulent'
-                : validated.reason === 'duplicate'
-                  ? 'duplicate'
-                  : 'requested_by_customer',
-            metadata: {
-              invoiceId: validated.stripeInvoiceId,
-              reason: validated.reason || 'requested_by_customer',
+          refund = await stripe.refunds.create(
+            {
+              payment_intent: paymentIntentId,
+              amount: refundAmount,
+              reason:
+                validated.reason === 'fraudulent'
+                  ? 'fraudulent'
+                  : validated.reason === 'duplicate'
+                    ? 'duplicate'
+                    : 'requested_by_customer',
+              metadata: {
+                invoiceId: validated.stripeInvoiceId,
+                reason: validated.reason || 'requested_by_customer',
+              },
             },
-          });
+            connectOpts
+          );
         } else {
           // No charge or payment intent directly on invoice
           // Try to find the charge by listing charges with invoice metadata
@@ -274,10 +307,13 @@ async function createRefundHandler(request: NextRequest, user: AuthUser) {
 
             if (customerId) {
               // List recent charges for this customer
-              const charges = await stripe.charges.list({
-                customer: customerId,
-                limit: 20,
-              });
+              const charges = await stripe.charges.list(
+                {
+                  customer: customerId,
+                  limit: 20,
+                },
+                connectOpts
+              );
 
               // Find a charge that matches the invoice amount
               const matchingCharge = charges.data.find(
@@ -293,39 +329,9 @@ async function createRefundHandler(request: NextRequest, user: AuthUser) {
                   amount: matchingCharge.amount,
                 });
 
-                refund = await stripe.refunds.create({
-                  charge: matchingCharge.id,
-                  amount: refundAmount,
-                  reason:
-                    validated.reason === 'fraudulent'
-                      ? 'fraudulent'
-                      : validated.reason === 'duplicate'
-                        ? 'duplicate'
-                        : 'requested_by_customer',
-                  metadata: {
-                    invoiceId: validated.stripeInvoiceId,
-                    reason: validated.reason || 'requested_by_customer',
-                  },
-                });
-              } else {
-                // Try payment intents
-                const paymentIntents = await stripe.paymentIntents.list({
-                  customer: customerId,
-                  limit: 20,
-                });
-
-                const matchingPI = paymentIntents.data.find(
-                  (pi) => pi.amount === stripeInvoice.amount_paid && pi.status === 'succeeded'
-                );
-
-                if (matchingPI) {
-                  logger.info('[Refunds] Found matching payment intent via customer lookup', {
-                    paymentIntentId: matchingPI.id,
-                    amount: matchingPI.amount,
-                  });
-
-                  refund = await stripe.refunds.create({
-                    payment_intent: matchingPI.id,
+                refund = await stripe.refunds.create(
+                  {
+                    charge: matchingCharge.id,
                     amount: refundAmount,
                     reason:
                       validated.reason === 'fraudulent'
@@ -337,7 +343,46 @@ async function createRefundHandler(request: NextRequest, user: AuthUser) {
                       invoiceId: validated.stripeInvoiceId,
                       reason: validated.reason || 'requested_by_customer',
                     },
+                  },
+                  connectOpts
+                );
+              } else {
+                // Try payment intents
+                const paymentIntents = await stripe.paymentIntents.list(
+                  {
+                    customer: customerId,
+                    limit: 20,
+                  },
+                  connectOpts
+                );
+
+                const matchingPI = paymentIntents.data.find(
+                  (pi) => pi.amount === stripeInvoice.amount_paid && pi.status === 'succeeded'
+                );
+
+                if (matchingPI) {
+                  logger.info('[Refunds] Found matching payment intent via customer lookup', {
+                    paymentIntentId: matchingPI.id,
+                    amount: matchingPI.amount,
                   });
+
+                  refund = await stripe.refunds.create(
+                    {
+                      payment_intent: matchingPI.id,
+                      amount: refundAmount,
+                      reason:
+                        validated.reason === 'fraudulent'
+                          ? 'fraudulent'
+                          : validated.reason === 'duplicate'
+                            ? 'duplicate'
+                            : 'requested_by_customer',
+                      metadata: {
+                        invoiceId: validated.stripeInvoiceId,
+                        reason: validated.reason || 'requested_by_customer',
+                      },
+                    },
+                    connectOpts
+                  );
                 }
               }
             }

@@ -13,7 +13,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getStripe } from '@/lib/stripe';
+import { getStripeContextForRequest, getNotConnectedResponse } from '@/lib/stripe/context';
 import { logger } from '@/lib/logger';
 import Stripe from 'stripe';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
@@ -71,7 +71,14 @@ async function getEventsHandler(request: NextRequest, user: AuthUser) {
       return NextResponse.json({ error: 'Unauthorized - admin access required' }, { status: 403 });
     }
 
-    const stripe = getStripe();
+    const { context, error, notConnected } = await getStripeContextForRequest(request, user);
+    if (error) return error;
+    if (notConnected || !context) {
+      return getNotConnectedResponse(context?.clinicId);
+    }
+
+    const { stripe, stripeAccountId } = context;
+    const stripeOpts = stripeAccountId ? { stripeAccount: stripeAccountId } : undefined;
     const { searchParams } = new URL(request.url);
 
     const limit = Math.min(parseInt(searchParams.get('limit') || '50'), 100);
@@ -108,7 +115,10 @@ async function getEventsHandler(request: NextRequest, user: AuthUser) {
       ...(deliverySuccess !== null && { delivery_success: deliverySuccess === 'true' }),
     };
 
-    const events = await stripe.events.list(eventParams as Record<string, unknown>);
+    const events = await stripe.events.list(
+      eventParams as Record<string, unknown>,
+      stripeOpts
+    );
 
     // Process events
     const typeBreakdown: Record<string, number> = {};

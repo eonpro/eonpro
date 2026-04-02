@@ -9,12 +9,11 @@ import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { prisma } from '@/lib/db';
 import { handleApiError } from '@/domains/shared/errors';
 import { logger } from '@/lib/logger';
-import { requireStripeClient } from '@/lib/stripe/config';
+import { getStripeForClinic } from '@/lib/stripe/connect';
+import { StripeCustomerService } from '@/services/stripe/customerService';
 
 export const POST = withAuth(async (req: NextRequest, user: AuthUser) => {
   try {
-    const stripe = requireStripeClient();
-
     if (!user.patientId) {
       return NextResponse.json(
         { error: 'Patient ID required', code: 'PATIENT_ID_REQUIRED' },
@@ -34,18 +33,27 @@ export const POST = withAuth(async (req: NextRequest, user: AuthUser) => {
       );
     }
 
-    let stripeCustomerId = patient.stripeCustomerId;
+    const stripeContext = await getStripeForClinic(patient.clinicId);
+    const stripe = stripeContext.stripe;
+    const connectOpts = stripeContext.stripeAccountId
+      ? { stripeAccount: stripeContext.stripeAccountId }
+      : undefined;
 
-    if (!stripeCustomerId) {
-      const { StripeCustomerService } = await import('@/services/stripe/customerService');
-      const customer = await StripeCustomerService.getOrCreateCustomer(patient.id);
-      stripeCustomerId = customer.id;
-    }
+    const customer = await StripeCustomerService.getOrCreateCustomerForContext(
+      patient.id,
+      stripe,
+      connectOpts,
+    );
 
-    const setupIntent = await stripe.setupIntents.create({
-      customer: stripeCustomerId,
-      usage: 'off_session',
-    });
+    const setupIntent = connectOpts
+      ? await stripe.setupIntents.create({
+          customer: customer.id,
+          usage: 'off_session',
+        }, connectOpts)
+      : await stripe.setupIntents.create({
+          customer: customer.id,
+          usage: 'off_session',
+        });
 
     logger.info('[Portal SetupIntent] Created', {
       patientId: user.patientId,

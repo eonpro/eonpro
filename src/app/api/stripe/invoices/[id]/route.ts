@@ -17,6 +17,7 @@ import { auditPhiAccess, buildAuditPhiOptions } from '@/lib/audit/hipaa-audit';
 import { handleApiError } from '@/domains/shared/errors';
 import { z } from 'zod';
 import { isStripeConfigured } from '@/lib/stripe/config';
+import { getStripeForClinic, stripeRequestOptions } from '@/lib/stripe/connect';
 import { decryptPatientPHI } from '@/lib/security/phi-encryption';
 
 // Schema for updating an invoice
@@ -56,6 +57,14 @@ const updateInvoiceSchema = z
 type Params = {
   params: Promise<{ id: string }>;
 };
+
+async function resolveClinicStripe(clinicId: number) {
+  const stripeContext = await getStripeForClinic(clinicId);
+  return {
+    stripe: stripeContext.stripe,
+    opts: stripeRequestOptions(stripeContext),
+  };
+}
 
 async function getHandler(request: NextRequest, user: AuthUser, context?: Params) {
   try {
@@ -188,11 +197,10 @@ async function postHandler(request: NextRequest, user: AuthUser, context?: Param
     switch (action) {
       case 'send': {
         // Send invoice via Stripe or email
-        if (invoice.stripeInvoiceId && process.env.STRIPE_SECRET_KEY) {
+        if (invoice.stripeInvoiceId) {
           try {
-            const { getStripeClient } = await import('@/lib/stripe');
-            const stripe = getStripeClient()!;
-            await stripe.invoices.sendInvoice(invoice.stripeInvoiceId);
+            const { stripe, opts } = await resolveClinicStripe(invoice.clinicId);
+            await stripe.invoices.sendInvoice(invoice.stripeInvoiceId, opts);
 
             await prisma.invoice.update({
               where: { id },
@@ -233,11 +241,10 @@ async function postHandler(request: NextRequest, user: AuthUser, context?: Param
           );
         }
 
-        if (invoice.stripeInvoiceId && process.env.STRIPE_SECRET_KEY) {
+        if (invoice.stripeInvoiceId) {
           try {
-            const { getStripeClient } = await import('@/lib/stripe');
-            const stripe = getStripeClient()!;
-            await stripe.invoices.voidInvoice(invoice.stripeInvoiceId);
+            const { stripe, opts } = await resolveClinicStripe(invoice.clinicId);
+            await stripe.invoices.voidInvoice(invoice.stripeInvoiceId, opts);
           } catch (stripeError: unknown) {
             logger.warn('[API] Stripe void invoice error:', { error: stripeError } as Record<string, unknown>);
           }
@@ -338,11 +345,10 @@ async function postHandler(request: NextRequest, user: AuthUser, context?: Param
           );
         }
 
-        if (invoice.stripeInvoiceId && process.env.STRIPE_SECRET_KEY) {
+        if (invoice.stripeInvoiceId) {
           try {
-            const { getStripeClient } = await import('@/lib/stripe');
-            const stripe = getStripeClient()!;
-            const finalizedInvoice = await stripe.invoices.finalizeInvoice(invoice.stripeInvoiceId);
+            const { stripe, opts } = await resolveClinicStripe(invoice.clinicId);
+            const finalizedInvoice = await stripe.invoices.finalizeInvoice(invoice.stripeInvoiceId, opts);
 
             await prisma.invoice.update({
               where: { id },
@@ -394,22 +400,24 @@ async function postHandler(request: NextRequest, user: AuthUser, context?: Param
           );
         }
 
-        if (invoice.stripeInvoiceId && process.env.STRIPE_SECRET_KEY) {
+        if (invoice.stripeInvoiceId) {
           try {
-            const { getStripeClient } = await import('@/lib/stripe');
-            const stripe = getStripeClient()!;
+            const { stripe, opts } = await resolveClinicStripe(invoice.clinicId);
 
             // Add a negative line item (credit)
-            await stripe.invoiceItems.create({
-              customer: invoice.patient.stripeCustomerId!,
-              invoice: invoice.stripeInvoiceId,
-              amount: -amount, // Negative for credit
-              currency: 'usd',
-              description: creditDescription || 'Credit/Discount',
-            });
+            await stripe.invoiceItems.create(
+              {
+                customer: invoice.patient.stripeCustomerId!,
+                invoice: invoice.stripeInvoiceId,
+                amount: -amount, // Negative for credit
+                currency: 'usd',
+                description: creditDescription || 'Credit/Discount',
+              },
+              opts
+            );
 
             // Refresh invoice to get updated total
-            const updatedStripeInvoice = await stripe.invoices.retrieve(invoice.stripeInvoiceId);
+            const updatedStripeInvoice = await stripe.invoices.retrieve(invoice.stripeInvoiceId, opts);
 
             await prisma.invoice.update({
               where: { id },
@@ -493,11 +501,10 @@ async function postHandler(request: NextRequest, user: AuthUser, context?: Param
           );
         }
 
-        if (invoice.stripeInvoiceId && process.env.STRIPE_SECRET_KEY) {
+        if (invoice.stripeInvoiceId) {
           try {
-            const { getStripeClient } = await import('@/lib/stripe');
-            const stripe = getStripeClient()!;
-            await stripe.invoices.markUncollectible(invoice.stripeInvoiceId);
+            const { stripe, opts } = await resolveClinicStripe(invoice.clinicId);
+            await stripe.invoices.markUncollectible(invoice.stripeInvoiceId, opts);
           } catch (stripeError: unknown) {
             logger.warn('[API] Stripe mark uncollectible error:', { error: stripeError } as Record<string, unknown>);
           }
@@ -516,11 +523,10 @@ async function postHandler(request: NextRequest, user: AuthUser, context?: Param
 
       case 'resend': {
         // Resend invoice email
-        if (invoice.stripeInvoiceId && process.env.STRIPE_SECRET_KEY) {
+        if (invoice.stripeInvoiceId) {
           try {
-            const { getStripeClient } = await import('@/lib/stripe');
-            const stripe = getStripeClient()!;
-            await stripe.invoices.sendInvoice(invoice.stripeInvoiceId);
+            const { stripe, opts } = await resolveClinicStripe(invoice.clinicId);
+            await stripe.invoices.sendInvoice(invoice.stripeInvoiceId, opts);
 
             return NextResponse.json({
               success: true,
@@ -667,8 +673,7 @@ async function patchHandler(request: NextRequest, user: AuthUser, context?: Para
     // Update Stripe invoice if applicable
     if (invoice.stripeInvoiceId && isStripeConfigured() && invoice.status === 'DRAFT') {
       try {
-        const { getStripeClient } = await import('@/lib/stripe');
-        const stripe = getStripeClient()!;
+        const { stripe, opts } = await resolveClinicStripe(invoice.clinicId);
 
         const stripeUpdateData: any = {};
 
@@ -689,18 +694,21 @@ async function patchHandler(request: NextRequest, user: AuthUser, context?: Para
         }
 
         if (Object.keys(stripeUpdateData).length > 0) {
-          await stripe.invoices.update(invoice.stripeInvoiceId, stripeUpdateData);
+          await stripe.invoices.update(invoice.stripeInvoiceId, stripeUpdateData, opts);
         }
 
         // Handle line item changes in Stripe
         if (validatedData.addLineItem) {
-          await stripe.invoiceItems.create({
-            customer: invoice.patient.stripeCustomerId!,
-            invoice: invoice.stripeInvoiceId,
-            description: validatedData.addLineItem.description,
-            amount: validatedData.addLineItem.amount,
-            currency: 'usd',
-          });
+          await stripe.invoiceItems.create(
+            {
+              customer: invoice.patient.stripeCustomerId!,
+              invoice: invoice.stripeInvoiceId,
+              description: validatedData.addLineItem.description,
+              amount: validatedData.addLineItem.amount,
+              currency: 'usd',
+            },
+            opts
+          );
         }
 
         logger.info('[API] Updated Stripe invoice', { invoiceId: invoice.stripeInvoiceId });
@@ -783,15 +791,14 @@ async function deleteHandler(request: NextRequest, user: AuthUser, context?: Par
     // Delete/void in Stripe if applicable
     if (invoice.stripeInvoiceId && isStripeConfigured()) {
       try {
-        const { getStripeClient } = await import('@/lib/stripe');
-        const stripe = getStripeClient()!;
+        const { stripe, opts } = await resolveClinicStripe(invoice.clinicId);
 
         // Try to delete if draft, otherwise void
         if (invoice.status === 'DRAFT') {
-          await stripe.invoices.del(invoice.stripeInvoiceId);
+          await stripe.invoices.del(invoice.stripeInvoiceId, opts);
           logger.info('[API] Deleted Stripe invoice', { stripeInvoiceId: invoice.stripeInvoiceId });
         } else {
-          await stripe.invoices.voidInvoice(invoice.stripeInvoiceId);
+          await stripe.invoices.voidInvoice(invoice.stripeInvoiceId, opts);
           logger.info('[API] Voided Stripe invoice', { stripeInvoiceId: invoice.stripeInvoiceId });
         }
       } catch (stripeError: unknown) {

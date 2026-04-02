@@ -14,7 +14,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getStripe, formatCurrency } from '@/lib/stripe';
+import { formatCurrency } from '@/lib/stripe';
+import { getStripeContextForRequest, getNotConnectedResponse } from '@/lib/stripe/context';
 import { logger } from '@/lib/logger';
 import { z } from 'zod';
 import Stripe from 'stripe';
@@ -42,7 +43,14 @@ async function getProductsHandler(request: NextRequest, user: AuthUser) {
       return NextResponse.json({ error: 'Unauthorized - admin access required' }, { status: 403 });
     }
 
-    const stripe = getStripe();
+    const { context, error, notConnected } = await getStripeContextForRequest(request, user);
+    if (error) return error;
+    if (notConnected || !context) {
+      return getNotConnectedResponse(context?.clinicId);
+    }
+
+    const { stripe, stripeAccountId } = context;
+    const stripeOpts = stripeAccountId ? { stripeAccount: stripeAccountId } : undefined;
     const { searchParams } = new URL(request.url);
 
     const limit = Math.min(parseInt(searchParams.get('limit') || '100'), 100);
@@ -58,14 +66,17 @@ async function getProductsHandler(request: NextRequest, user: AuthUser) {
       expand: ['data.default_price'],
     };
 
-    const products = await stripe.products.list(productParams);
+    const products = await stripe.products.list(productParams, stripeOpts);
 
     // Fetch all prices
-    const prices = await stripe.prices.list({
-      limit: 100,
-      active: true,
-      expand: ['data.product'],
-    });
+    const prices = await stripe.prices.list(
+      {
+        limit: 100,
+        active: true,
+        expand: ['data.product'],
+      },
+      stripeOpts
+    );
 
     // Map prices to products
     const pricesByProduct: Record<string, Stripe.Price[]> = {};
@@ -179,17 +190,27 @@ async function createProductHandler(request: NextRequest, user: AuthUser) {
       return NextResponse.json({ error: 'Unauthorized - admin access required' }, { status: 403 });
     }
 
-    const stripe = getStripe();
+    const { context, error, notConnected } = await getStripeContextForRequest(request, user);
+    if (error) return error;
+    if (notConnected || !context) {
+      return getNotConnectedResponse(context?.clinicId);
+    }
+
+    const { stripe, stripeAccountId } = context;
+    const stripeOpts = stripeAccountId ? { stripeAccount: stripeAccountId } : undefined;
     const body = await request.json();
     const validated = createProductSchema.parse(body);
 
     // Create product
-    const product = await stripe.products.create({
-      name: validated.name,
-      description: validated.description,
-      active: validated.active,
-      metadata: validated.metadata,
-    });
+    const product = await stripe.products.create(
+      {
+        name: validated.name,
+        description: validated.description,
+        active: validated.active,
+        metadata: validated.metadata,
+      },
+      stripeOpts
+    );
 
     // Create price
     const priceParams: Stripe.PriceCreateParams = {
@@ -205,12 +226,16 @@ async function createProductHandler(request: NextRequest, user: AuthUser) {
       };
     }
 
-    const price = await stripe.prices.create(priceParams);
+    const price = await stripe.prices.create(priceParams, stripeOpts);
 
     // Set as default price
-    await stripe.products.update(product.id, {
-      default_price: price.id,
-    });
+    await stripe.products.update(
+      product.id,
+      {
+        default_price: price.id,
+      },
+      stripeOpts
+    );
 
     logger.info('[STRIPE PRODUCTS] Created product', {
       productId: product.id,

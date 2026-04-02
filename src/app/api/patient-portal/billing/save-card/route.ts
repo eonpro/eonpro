@@ -12,7 +12,7 @@ import { prisma } from '@/lib/db';
 import { handleApiError } from '@/domains/shared/errors';
 import { logger } from '@/lib/logger';
 import { auditLog, AuditEventType } from '@/lib/audit/hipaa-audit';
-import { requireStripeClient } from '@/lib/stripe/config';
+import { getStripeForClinic } from '@/lib/stripe/connect';
 
 const requestSchema = z.object({
   stripePaymentMethodId: z.string().min(1),
@@ -21,8 +21,6 @@ const requestSchema = z.object({
 
 export const POST = withAuth(async (req: NextRequest, user: AuthUser) => {
   try {
-    const stripe = requireStripeClient();
-
     if (!user.patientId) {
       return NextResponse.json(
         { error: 'Patient ID required', code: 'PATIENT_ID_REQUIRED' },
@@ -53,7 +51,15 @@ export const POST = withAuth(async (req: NextRequest, user: AuthUser) => {
       );
     }
 
-    const pm = await stripe.paymentMethods.retrieve(stripePaymentMethodId);
+    const stripeContext = await getStripeForClinic(patient.clinicId);
+    const stripe = stripeContext.stripe;
+    const connectOpts = stripeContext.stripeAccountId
+      ? { stripeAccount: stripeContext.stripeAccountId }
+      : undefined;
+
+    const pm = connectOpts
+      ? await stripe.paymentMethods.retrieve(stripePaymentMethodId, connectOpts)
+      : await stripe.paymentMethods.retrieve(stripePaymentMethodId);
 
     const existing = await prisma.paymentMethod.findFirst({
       where: { stripePaymentMethodId, patientId: patient.id, isActive: true },

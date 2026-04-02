@@ -15,6 +15,9 @@ const mockPrisma = vi.hoisted(() => {
       findMany: vi.fn(),
       update: vi.fn(),
     },
+    paymentMethod: {
+      findFirst: vi.fn(),
+    },
     invoice: {
       update: vi.fn(),
     },
@@ -63,6 +66,17 @@ vi.mock('@/lib/stripe', () => ({
   },
 }));
 
+const mockStripeContext = vi.hoisted(() => ({
+  stripe: mockStripeClient,
+  stripeAccountId: undefined as string | undefined,
+  isPlatformAccount: true,
+}));
+
+vi.mock('@/lib/stripe/connect', () => ({
+  getStripeForClinic: vi.fn(async () => mockStripeContext),
+  stripeRequestOptions: vi.fn(() => undefined),
+}));
+
 // Mock customer service
 const mockGetOrCreateCustomer = vi.hoisted(() => vi.fn().mockResolvedValue({ id: 'cus_test123' }));
 vi.mock('@/services/stripe/customerService', () => ({
@@ -96,6 +110,11 @@ describe('Stripe Payment Service', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetOrCreateCustomer.mockResolvedValue({ id: 'cus_test123' });
+    vi.mocked(prisma.patient.findUnique).mockResolvedValue({ clinicId: 1 } as any);
+    vi.mocked(prisma.paymentMethod.findFirst).mockResolvedValue({
+      clinicId: 1,
+      patient: { clinicId: 1 },
+    } as any);
     // Default: payment.create returns pending, payment.update returns with Stripe ID
     vi.mocked(prisma.payment.create).mockResolvedValue({ id: 1, status: 'PENDING', patientId: 1, amount: 0 } as any);
     vi.mocked(prisma.payment.update).mockImplementation(async (args: any) => ({
@@ -152,7 +171,9 @@ describe('Stripe Payment Service', () => {
           currency: 'usd',
           customer: 'cus_test123',
         }),
-        expect.objectContaining({ idempotencyKey: expect.any(String) })
+        expect.objectContaining({
+          idempotencyKey: expect.any(String),
+        })
       );
     });
 
@@ -223,9 +244,13 @@ describe('Stripe Payment Service', () => {
       });
 
       expect(result).toBeDefined();
-      expect(mockStripeClient.paymentIntents.confirm).toHaveBeenCalledWith('pi_process123', {
-        payment_method: 'pm_test123',
-      });
+      expect(mockStripeClient.paymentIntents.confirm).toHaveBeenCalledWith(
+        'pi_process123',
+        {
+          payment_method: 'pm_test123',
+        },
+        undefined
+      );
     });
 
     it('should throw error if payment method not provided', async () => {
@@ -347,9 +372,11 @@ describe('Stripe Payment Service', () => {
       vi.mocked(prisma.payment.findUnique).mockResolvedValue({
         id: 1,
         amount: 10000,
+        clinicId: 1,
         stripePaymentIntentId: 'pi_refund123',
         stripeChargeId: 'ch_refund123',
         metadata: {},
+        patient: { clinicId: 1 },
       } as any);
 
       mockStripeClient.refunds.create.mockResolvedValue({
@@ -366,7 +393,8 @@ describe('Stripe Payment Service', () => {
           payment_intent: 'pi_refund123',
           amount: 10000,
           reason: 'requested_by_customer',
-        })
+        }),
+        undefined
       );
     });
 
@@ -376,9 +404,11 @@ describe('Stripe Payment Service', () => {
       vi.mocked(prisma.payment.findUnique).mockResolvedValue({
         id: 1,
         amount: 10000,
+        clinicId: 1,
         stripePaymentIntentId: 'pi_partial123',
         stripeChargeId: 'ch_partial123',
         metadata: {},
+        patient: { clinicId: 1 },
       } as any);
 
       mockStripeClient.refunds.create.mockResolvedValue({
@@ -394,7 +424,8 @@ describe('Stripe Payment Service', () => {
           payment_intent: 'pi_partial123',
           amount: 5000,
           reason: 'requested_by_customer',
-        })
+        }),
+        undefined
       );
     });
 
@@ -427,9 +458,11 @@ describe('Stripe Payment Service', () => {
       vi.mocked(prisma.payment.findUnique).mockResolvedValue({
         id: 1,
         amount: 10000,
+        clinicId: 1,
         stripePaymentIntentId: 'pi_status123',
         stripeChargeId: 'ch_status123',
         metadata: {},
+        patient: { clinicId: 1 },
       } as any);
 
       mockStripeClient.refunds.create.mockResolvedValue({
@@ -463,10 +496,13 @@ describe('Stripe Payment Service', () => {
 
       expect(result).toHaveLength(2);
       expect(result[0].id).toBe('pm_1');
-      expect(mockStripeClient.paymentMethods.list).toHaveBeenCalledWith({
-        customer: 'cus_test123',
-        type: 'card',
-      });
+      expect(mockStripeClient.paymentMethods.list).toHaveBeenCalledWith(
+        {
+          customer: 'cus_test123',
+          type: 'card',
+        },
+        undefined
+      );
     });
 
     it('should return empty array for no payment methods', async () => {
@@ -492,9 +528,13 @@ describe('Stripe Payment Service', () => {
       const result = await StripePaymentService.attachPaymentMethod(1, 'pm_newcard');
 
       expect(result.id).toBe('pm_attached');
-      expect(mockStripeClient.paymentMethods.attach).toHaveBeenCalledWith('pm_newcard', {
-        customer: 'cus_test123',
-      });
+      expect(mockStripeClient.paymentMethods.attach).toHaveBeenCalledWith(
+        'pm_newcard',
+        {
+          customer: 'cus_test123',
+        },
+        undefined
+      );
     });
   });
 
@@ -510,7 +550,7 @@ describe('Stripe Payment Service', () => {
       const result = await StripePaymentService.detachPaymentMethod('pm_remove');
 
       expect(result.id).toBe('pm_detached');
-      expect(mockStripeClient.paymentMethods.detach).toHaveBeenCalledWith('pm_remove');
+      expect(mockStripeClient.paymentMethods.detach).toHaveBeenCalledWith('pm_remove', undefined);
     });
   });
 

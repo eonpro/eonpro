@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { getStripe } from '@/lib/stripe';
+import { getStripeForClinic } from '@/lib/stripe/connect';
 import { prisma } from '@/lib/db';
 import { isFeatureEnabled } from '@/lib/features';
 import { logger } from '@/lib/logger';
 import { verifyAuth } from '@/lib/auth/middleware';
+import { StripeCustomerService } from '@/services/stripe/customerService';
 
 const createSubscriptionSchema = z.object({
   priceId: z.string().min(1, 'Price ID is required'),
@@ -35,13 +36,12 @@ export async function POST(req: NextRequest) {
     }
     const { priceId, customerId, patientId } = parseResult.data;
 
-    let stripeCustomerId = customerId;
+    let clinicId: number;
 
-    // If no Stripe customer ID, create a new customer from patient (requires patientId and authz)
-    if (!stripeCustomerId && patientId !== undefined) {
+    if (patientId !== undefined) {
       const patient = await prisma.patient.findUnique({
         where: { id: patientId },
-        select: { id: true, clinicId: true, email: true, firstName: true, lastName: true },
+        select: { id: true, clinicId: true },
       });
 
       if (!patient) {
@@ -59,32 +59,66 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      const stripe = getStripe();
-      const customer = await stripe.customers.create({
-        email: patient.email ?? undefined,
-        name: [patient.firstName, patient.lastName].filter(Boolean).join(' ') || undefined,
-        metadata: {
-          patientId: patient.id.toString(),
-        },
+      clinicId = patient.clinicId;
+    } else if (user.role === 'patient') {
+      if (user.patientId == null) {
+        return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+      }
+      const selfPatient = await prisma.patient.findUnique({
+        where: { id: user.patientId },
+        select: { clinicId: true },
       });
-
-      stripeCustomerId = customer.id;
-    } else if (!stripeCustomerId) {
+      if (!selfPatient) {
+        return NextResponse.json({ error: 'Patient not found' }, { status: 404 });
+      }
+      clinicId = selfPatient.clinicId;
+    } else if (user.role === 'super_admin') {
       return NextResponse.json(
-        { error: 'Either customerId or patientId is required' },
+        { error: 'patientId is required to determine which Stripe account to use' },
         { status: 400 }
       );
+    } else {
+      if (user.clinicId == null) {
+        return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+      }
+      clinicId = user.clinicId;
     }
 
-    const stripe = getStripe();
+    const stripeContext = await getStripeForClinic(clinicId);
+    const stripe = stripeContext.stripe;
+    const connectOpts = stripeContext.stripeAccountId
+      ? { stripeAccount: stripeContext.stripeAccountId }
+      : undefined;
 
-    // Create the subscription
-    const subscription = await stripe.subscriptions.create({
+    let stripeCustomerId = customerId;
+
+    // If no Stripe customer ID, create a new customer from patient (requires patientId and authz)
+    if (!stripeCustomerId) {
+      if (patientId === undefined) {
+        return NextResponse.json(
+          { error: 'Either customerId or patientId is required' },
+          { status: 400 }
+        );
+      }
+
+      const customer = await StripeCustomerService.getOrCreateCustomerForContext(
+        patientId,
+        stripe,
+        connectOpts,
+      );
+      stripeCustomerId = customer.id;
+    }
+
+    const subscriptionCreateParams = {
       customer: stripeCustomerId,
       items: [{ price: priceId }],
-      payment_behavior: 'default_incomplete',
+      payment_behavior: 'default_incomplete' as const,
       expand: ['latest_invoice.payment_intent', 'pending_setup_intent'],
-    });
+    };
+
+    const subscription = connectOpts
+      ? await stripe.subscriptions.create(subscriptionCreateParams, connectOpts)
+      : await stripe.subscriptions.create(subscriptionCreateParams);
 
     // Get the client secret for payment
     let clientSecret = '';

@@ -1,5 +1,5 @@
-import { requireStripeClient } from '@/lib/stripe';
 import { prisma } from '@/lib/db';
+import { getStripeForClinic, stripeRequestOptions, type StripeContext } from '@/lib/stripe/connect';
 import { StripeCustomerService } from './customerService';
 import type Stripe from 'stripe';
 import type { PaymentStatus } from '@prisma/client';
@@ -23,6 +23,17 @@ export interface ProcessPaymentOptions {
  * orphaned Stripe charges and ensure data consistency.
  */
 export class StripePaymentService {
+  private static async getStripeContextForPatient(patientId: number): Promise<StripeContext> {
+    const patient = await prisma.patient.findUnique({
+      where: { id: patientId },
+      select: { clinicId: true },
+    });
+    if (!patient) {
+      throw new Error(`Patient with ID ${patientId} not found`);
+    }
+    return getStripeForClinic(patient.clinicId);
+  }
+
   /**
    * Create a payment intent for immediate payment
    *
@@ -31,11 +42,14 @@ export class StripePaymentService {
    * 2. Call Stripe API with idempotency key
    * 3. Update DB with Stripe ID
    */
-  static async createPaymentIntent(options: ProcessPaymentOptions): Promise<{
+  static async createPaymentIntent(
+    options: ProcessPaymentOptions,
+    preResolvedStripe?: StripeContext
+  ): Promise<{
     payment: any;
     clientSecret: string;
   }> {
-    const stripeClient = requireStripeClient();
+    const stripeContext = preResolvedStripe ?? (await this.getStripeContextForPatient(options.patientId));
 
     // ENTERPRISE: Generate idempotency key for deduplication
     // SOC 2 Compliance: Use crypto.randomUUID() to prevent collision under high concurrency
@@ -67,7 +81,7 @@ export class StripePaymentService {
       // 2. Create payment intent in Stripe with idempotency key
       // SOC 2 Compliance: Wrapped with circuit breaker for availability
       const paymentIntent = await circuitBreakers.stripe.execute(() =>
-        stripeClient.paymentIntents.create(
+        stripeContext.stripe.paymentIntents.create(
           {
             amount: options.amount,
             currency: 'usd',
@@ -87,6 +101,7 @@ export class StripePaymentService {
           },
           {
             idempotencyKey, // Stripe idempotency for duplicate prevention
+            ...(stripeRequestOptions(stripeContext) ?? {}),
           }
         )
       );
@@ -138,21 +153,22 @@ export class StripePaymentService {
    * Process a payment with a saved payment method
    */
   static async processPayment(options: ProcessPaymentOptions): Promise<any> {
-    const stripeClient = requireStripeClient();
-
     if (!options.paymentMethodId) {
       throw new Error('Payment method ID is required');
     }
 
+    const stripeContext = await this.getStripeContextForPatient(options.patientId);
+
     // Create payment intent
-    const { payment, clientSecret } = await this.createPaymentIntent(options);
+    const { payment } = await this.createPaymentIntent(options, stripeContext);
 
     // Confirm the payment
-    const paymentIntent = await stripeClient.paymentIntents.confirm(
+    const paymentIntent = await stripeContext.stripe.paymentIntents.confirm(
       payment.stripePaymentIntentId!,
       {
         payment_method: options.paymentMethodId,
-      }
+      },
+      stripeRequestOptions(stripeContext)
     );
 
     // Update payment status
@@ -229,11 +245,10 @@ export class StripePaymentService {
     amount?: number,
     reason?: string
   ): Promise<Stripe.Refund> {
-    const stripeClient = requireStripeClient();
-
     // Get payment from database
     const payment = await prisma.payment.findUnique({
       where: { id: paymentId },
+      include: { patient: { select: { clinicId: true } } },
     });
 
     if (!payment) {
@@ -243,6 +258,15 @@ export class StripePaymentService {
     if (!payment.stripePaymentIntentId && !payment.stripeChargeId) {
       throw new Error('Payment has no Stripe ID for refund');
     }
+
+    const clinicId = payment.clinicId ?? payment.patient?.clinicId;
+    if (clinicId == null) {
+      throw new Error(
+        'Cannot resolve clinic for this payment; refund requires a linked clinic on the payment or patient.'
+      );
+    }
+
+    const stripeContext = await getStripeForClinic(clinicId);
 
     const refundAmount = amount || payment.amount;
     const isPartialRefund = refundAmount < payment.amount;
@@ -271,16 +295,19 @@ export class StripePaymentService {
 
     try {
       // 2. Create refund in Stripe
-      const refund = await stripeClient.refunds.create({
-        payment_intent: payment.stripePaymentIntentId || undefined,
-        charge: payment.stripeChargeId || undefined,
-        amount: refundAmount,
-        reason: (reason as Stripe.RefundCreateParams.Reason) || 'requested_by_customer',
-        metadata: {
-          paymentId: paymentId.toString(),
-          originalAmount: payment.amount.toString(),
+      const refund = await stripeContext.stripe.refunds.create(
+        {
+          payment_intent: payment.stripePaymentIntentId || undefined,
+          charge: payment.stripeChargeId || undefined,
+          amount: refundAmount,
+          reason: (reason as Stripe.RefundCreateParams.Reason) || 'requested_by_customer',
+          metadata: {
+            paymentId: paymentId.toString(),
+            originalAmount: payment.amount.toString(),
+          },
         },
-      });
+        stripeRequestOptions(stripeContext)
+      );
 
       // 3. Update payment status after successful refund
       await prisma.payment.update({
@@ -333,16 +360,19 @@ export class StripePaymentService {
    * Get payment methods for a patient
    */
   static async getPaymentMethods(patientId: number): Promise<Stripe.PaymentMethod[]> {
-    const stripeClient = requireStripeClient();
+    const stripeContext = await this.getStripeContextForPatient(patientId);
 
     // Get or create customer
     const customer = await StripeCustomerService.getOrCreateCustomer(patientId);
 
     // List payment methods
-    const paymentMethods = await stripeClient.paymentMethods.list({
-      customer: customer.id,
-      type: 'card',
-    });
+    const paymentMethods = await stripeContext.stripe.paymentMethods.list(
+      {
+        customer: customer.id,
+        type: 'card',
+      },
+      stripeRequestOptions(stripeContext)
+    );
 
     return paymentMethods.data;
   }
@@ -354,15 +384,19 @@ export class StripePaymentService {
     patientId: number,
     paymentMethodId: string
   ): Promise<Stripe.PaymentMethod> {
-    const stripeClient = requireStripeClient();
+    const stripeContext = await this.getStripeContextForPatient(patientId);
 
     // Get or create customer
     const customer = await StripeCustomerService.getOrCreateCustomer(patientId);
 
     // Attach payment method to customer
-    const paymentMethod = await stripeClient.paymentMethods.attach(paymentMethodId, {
-      customer: customer.id,
-    });
+    const paymentMethod = await stripeContext.stripe.paymentMethods.attach(
+      paymentMethodId,
+      {
+        customer: customer.id,
+      },
+      stripeRequestOptions(stripeContext)
+    );
 
     logger.debug(`[STRIPE] Attached payment method ${paymentMethodId} to customer ${customer.id}`);
 
@@ -373,9 +407,26 @@ export class StripePaymentService {
    * Remove a payment method
    */
   static async detachPaymentMethod(paymentMethodId: string): Promise<Stripe.PaymentMethod> {
-    const stripeClient = requireStripeClient();
+    const row = await prisma.paymentMethod.findFirst({
+      where: { stripePaymentMethodId: paymentMethodId },
+      select: {
+        clinicId: true,
+        patient: { select: { clinicId: true } },
+      },
+    });
+    const clinicId = row?.clinicId ?? row?.patient?.clinicId;
+    if (clinicId == null) {
+      throw new Error(
+        'Cannot resolve clinic for this payment method; it must be linked to a saved patient payment method in this system.'
+      );
+    }
 
-    const paymentMethod = await stripeClient.paymentMethods.detach(paymentMethodId);
+    const stripeContext = await getStripeForClinic(clinicId);
+
+    const paymentMethod = await stripeContext.stripe.paymentMethods.detach(
+      paymentMethodId,
+      stripeRequestOptions(stripeContext)
+    );
 
     logger.debug(`[STRIPE] Detached payment method ${paymentMethodId}`);
 

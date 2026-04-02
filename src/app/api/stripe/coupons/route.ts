@@ -14,7 +14,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getStripe, formatCurrency } from '@/lib/stripe';
+import { formatCurrency } from '@/lib/stripe';
+import { getStripeContextForRequest, getNotConnectedResponse } from '@/lib/stripe/context';
 import { logger } from '@/lib/logger';
 import { z } from 'zod';
 import Stripe from 'stripe';
@@ -42,7 +43,14 @@ async function getCouponsHandler(request: NextRequest, user: AuthUser) {
       return NextResponse.json({ error: 'Unauthorized - admin access required' }, { status: 403 });
     }
 
-    const stripe = getStripe();
+    const { context, error, notConnected } = await getStripeContextForRequest(request, user);
+    if (error) return error;
+    if (notConnected || !context) {
+      return getNotConnectedResponse(context?.clinicId);
+    }
+
+    const { stripe, stripeAccountId } = context;
+    const stripeOpts = stripeAccountId ? { stripeAccount: stripeAccountId } : undefined;
     const { searchParams } = new URL(request.url);
 
     const limit = Math.min(parseInt(searchParams.get('limit') || '50'), 100);
@@ -50,17 +58,23 @@ async function getCouponsHandler(request: NextRequest, user: AuthUser) {
     const includeExpired = searchParams.get('includeExpired') === 'true';
 
     // Fetch coupons
-    const coupons = await stripe.coupons.list({
-      limit,
-      ...(startingAfter && { starting_after: startingAfter }),
-    });
+    const coupons = await stripe.coupons.list(
+      {
+        limit,
+        ...(startingAfter && { starting_after: startingAfter }),
+      },
+      stripeOpts
+    );
 
     // Fetch promotion codes
-    const promoCodes = await stripe.promotionCodes.list({
-      limit: 100,
-      active: true,
-      expand: ['data.coupon'],
-    });
+    const promoCodes = await stripe.promotionCodes.list(
+      {
+        limit: 100,
+        active: true,
+        expand: ['data.coupon'],
+      },
+      stripeOpts
+    );
 
     // Map promo codes to coupons
     const promoCodesByCoupon: Record<string, Stripe.PromotionCode[]> = {};
@@ -183,7 +197,14 @@ async function createCouponHandler(request: NextRequest, user: AuthUser) {
       return NextResponse.json({ error: 'Unauthorized - admin access required' }, { status: 403 });
     }
 
-    const stripe = getStripe();
+    const { context, error, notConnected } = await getStripeContextForRequest(request, user);
+    if (error) return error;
+    if (notConnected || !context) {
+      return getNotConnectedResponse(context?.clinicId);
+    }
+
+    const { stripe, stripeAccountId } = context;
+    const stripeOpts = stripeAccountId ? { stripeAccount: stripeAccountId } : undefined;
     const body = await request.json();
     const validated = createCouponSchema.parse(body);
 
@@ -223,7 +244,7 @@ async function createCouponHandler(request: NextRequest, user: AuthUser) {
       ...(validated.metadata && { metadata: validated.metadata }),
     };
 
-    const coupon = await stripe.coupons.create(couponParams);
+    const coupon = await stripe.coupons.create(couponParams, stripeOpts);
 
     let promoCode = null;
 
@@ -234,7 +255,7 @@ async function createCouponHandler(request: NextRequest, user: AuthUser) {
         coupon: coupon.id,
         ...(validated.promoCode && { code: validated.promoCode }),
       } as unknown as Parameters<typeof stripe.promotionCodes.create>[0];
-      promoCode = await stripe.promotionCodes.create(promoParams);
+      promoCode = await stripe.promotionCodes.create(promoParams, stripeOpts);
     }
 
     logger.info('[STRIPE COUPONS] Created coupon', {
