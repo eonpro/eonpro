@@ -112,6 +112,7 @@ describe('Stripe Payment Service', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetOrCreateCustomer.mockResolvedValue({ id: 'cus_test123' });
+    mockGetOrCreateCustomerForContext.mockResolvedValue({ id: 'cus_test123' });
     vi.mocked(prisma.patient.findUnique).mockResolvedValue({ clinicId: 1 } as any);
     vi.mocked(prisma.paymentMethod.findFirst).mockResolvedValue({
       clinicId: 1,
