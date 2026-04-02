@@ -79,9 +79,11 @@ vi.mock('@/lib/stripe/connect', () => ({
 
 // Mock customer service
 const mockGetOrCreateCustomer = vi.hoisted(() => vi.fn().mockResolvedValue({ id: 'cus_test123' }));
+const mockGetOrCreateCustomerForContext = vi.hoisted(() => vi.fn().mockResolvedValue({ id: 'cus_test123' }));
 vi.mock('@/services/stripe/customerService', () => ({
   StripeCustomerService: {
     getOrCreateCustomer: mockGetOrCreateCustomer,
+    getOrCreateCustomerForContext: mockGetOrCreateCustomerForContext,
   },
 }));
 

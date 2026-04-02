@@ -75,8 +75,12 @@ export class StripePaymentService {
     );
 
     try {
-      // Get or create Stripe customer
-      const customer = await StripeCustomerService.getOrCreateCustomer(options.patientId);
+      // Get or create Stripe customer on the clinic's Stripe account
+      const customer = await StripeCustomerService.getOrCreateCustomerForContext(
+        options.patientId,
+        stripeContext.stripe,
+        stripeRequestOptions(stripeContext),
+      );
 
       // 2. Create payment intent in Stripe with idempotency key
       // SOC 2 Compliance: Wrapped with circuit breaker for availability
@@ -362,8 +366,11 @@ export class StripePaymentService {
   static async getPaymentMethods(patientId: number): Promise<Stripe.PaymentMethod[]> {
     const stripeContext = await this.getStripeContextForPatient(patientId);
 
-    // Get or create customer
-    const customer = await StripeCustomerService.getOrCreateCustomer(patientId);
+    const customer = await StripeCustomerService.getOrCreateCustomerForContext(
+      patientId,
+      stripeContext.stripe,
+      stripeRequestOptions(stripeContext),
+    );
 
     // List payment methods
     const paymentMethods = await stripeContext.stripe.paymentMethods.list(
@@ -386,8 +393,11 @@ export class StripePaymentService {
   ): Promise<Stripe.PaymentMethod> {
     const stripeContext = await this.getStripeContextForPatient(patientId);
 
-    // Get or create customer
-    const customer = await StripeCustomerService.getOrCreateCustomer(patientId);
+    const customer = await StripeCustomerService.getOrCreateCustomerForContext(
+      patientId,
+      stripeContext.stripe,
+      stripeRequestOptions(stripeContext),
+    );
 
     // Attach payment method to customer
     const paymentMethod = await stripeContext.stripe.paymentMethods.attach(

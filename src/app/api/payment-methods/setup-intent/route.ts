@@ -36,16 +36,16 @@ async function handler(req: NextRequest, user: AuthUser) {
 
     const stripeContext = await getStripeForClinic(patient.clinicId);
     const stripe = stripeContext.stripe;
-
-    let stripeCustomerId = patient.stripeCustomerId;
-    if (!stripeCustomerId) {
-      const customer = await StripeCustomerService.getOrCreateCustomer(patient.id);
-      stripeCustomerId = customer.id;
-    }
-
     const connectOpts = stripeContext.stripeAccountId
       ? { stripeAccount: stripeContext.stripeAccountId }
       : undefined;
+
+    const customer = await StripeCustomerService.getOrCreateCustomerForContext(
+      patient.id,
+      stripe,
+      connectOpts,
+    );
+    const stripeCustomerId = customer.id;
 
     const setupIntent = connectOpts
       ? await stripe.setupIntents.create(

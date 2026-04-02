@@ -256,7 +256,7 @@ export class InvoiceManager {
       );
     }
 
-    return StripeCustomerService.getOrCreateCustomer(patientId);
+    return StripeCustomerService.getOrCreateCustomerForContext(patientId, stripe.client);
   }
 
   // --------------------------------------------------------------------------

@@ -88,6 +88,7 @@ vi.mock('@/lib/logger', () => ({
 vi.mock('@/services/stripe/customerService', () => ({
   StripeCustomerService: {
     getOrCreateCustomer: vi.fn().mockResolvedValue({ id: 'cus_test123' }),
+    getOrCreateCustomerForContext: vi.fn().mockResolvedValue({ id: 'cus_test123' }),
     syncPatientToStripe: vi.fn(),
   },
 }));

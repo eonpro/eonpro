@@ -109,7 +109,10 @@ export class StripeInvoiceService {
         );
       }
     } else {
-      customer = await StripeCustomerService.getOrCreateCustomer(options.patientId);
+      customer = await StripeCustomerService.getOrCreateCustomerForContext(
+        options.patientId,
+        stripeClient,
+      );
     }
 
     // Shipping dedup: strip duplicate shipping for same-day addon orders

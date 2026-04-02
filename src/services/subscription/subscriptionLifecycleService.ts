@@ -213,7 +213,12 @@ export async function createSubscription(
     const stripeContext = await getStripeContextForSubscription(clinicId);
     const { stripe, stripeAccountId } = stripeContext;
 
-    const customer = await StripeCustomerService.getOrCreateCustomer(patientId);
+    const connectOpts = stripeAccountId ? { stripeAccount: stripeAccountId } : undefined;
+    const customer = await StripeCustomerService.getOrCreateCustomerForContext(
+      patientId,
+      stripe,
+      connectOpts,
+    );
     const stripeInterval = mapIntervalToStripe(interval, intervalCount);
 
     const priceData: any = {
