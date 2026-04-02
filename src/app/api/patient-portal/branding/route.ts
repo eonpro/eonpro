@@ -157,14 +157,21 @@ const getBrandingHandler = async (request: NextRequest) => {
       (treatmentSettings.primaryTreatment as PortalTreatmentType) ??
       'weight_loss';
 
+    // Refresh S3 presigned URLs so branding images don't break after expiry
+    const [logoUrl, iconUrl, faviconUrl] = await Promise.all([
+      refreshBrandingUrl(clinic.logoUrl),
+      refreshBrandingUrl(clinic.iconUrl),
+      refreshBrandingUrl(clinic.faviconUrl),
+    ]);
+
     // buttonTextColor defaults to 'auto' until migration is deployed
     const branding = {
       clinicId: clinic.id,
       clinicName: clinic.name,
       subdomain: clinic.subdomain ?? null,
-      logoUrl: clinic.logoUrl,
-      iconUrl: clinic.iconUrl,
-      faviconUrl: clinic.faviconUrl,
+      logoUrl,
+      iconUrl,
+      faviconUrl,
       primaryColor: clinic.primaryColor || '#4fa77e',
       secondaryColor: clinic.secondaryColor || '#3B82F6',
       accentColor: clinic.accentColor || patientPortalSettings.accentColor || '#d3f931',

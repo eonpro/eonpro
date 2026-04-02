@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Eye, EyeOff, X, Mail, ArrowRight, RefreshCw, CheckCircle2, Smartphone } from 'lucide-react';
 import { isBrowser } from '@/lib/utils/ssr-safe';
 import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
+import { EONPRO_LOGO } from '@/lib/constants/brand-assets';
 
 type LoginStep = 'identifier' | 'password' | 'email-otp' | 'forgot' | 'reset' | 'needs-setup';
 
@@ -694,13 +695,13 @@ function PatientLoginPage() {
                 </h1>
               )
             ) : (
-              <img src="/api/assets/eonpro-logo" alt="EONPRO" className="h-10 w-auto" width={160} height={40} />
+              <img src={EONPRO_LOGO} alt="EONPRO" className="h-10 w-auto" width={160} height={40} />
             )}
           </div>
           {branding && !isMainApp && (
             <p className="mt-2 flex items-center justify-center gap-1.5 text-xs text-gray-500 whitespace-nowrap">
               Powered by{' '}
-              <img src="/api/assets/eonpro-logo" alt="EONPRO" className="h-[21px] w-auto" width={84} height={21} />
+              <img src={EONPRO_LOGO} alt="EONPRO" className="h-[21px] w-auto" width={84} height={21} />
             </p>
           )}
         </div>

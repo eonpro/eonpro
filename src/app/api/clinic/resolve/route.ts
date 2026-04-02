@@ -102,7 +102,6 @@ async function refreshBrandingUrl(url: string | null): Promise<string | null> {
 function isMainAppDomain(domain: string): boolean {
   const normalized = domain.split(':')[0].toLowerCase();
   return (
-    normalized.includes('app.eonpro.io') ||
     normalized === 'app.eonpro.io' ||
     normalized === 'localhost' ||
     normalized.startsWith('localhost:') ||

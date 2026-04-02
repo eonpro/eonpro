@@ -1213,7 +1213,7 @@ function LoginContent() {
               )
             ) : (
               <img
-                src="/api/assets/eonpro-logo"
+                src={EONPRO_LOGO}
                 alt="EONPRO"
                 className="h-10 w-auto"
                 width={160}
@@ -1225,7 +1225,7 @@ function LoginContent() {
             <p className="mt-2 flex items-center justify-center gap-1.5 text-xs text-white/80 whitespace-nowrap">
               Powered by{' '}
               <img
-                src="/api/assets/eonpro-logo"
+                src={EONPRO_LOGO}
                 alt="EONPRO"
                 className="h-[21px] w-auto brightness-0 invert"
                 width={84}
@@ -1237,7 +1237,7 @@ function LoginContent() {
             <p className="mt-2 flex items-center justify-center gap-1.5 text-xs text-gray-500 whitespace-nowrap">
               Powered by{' '}
               <img
-                src="/api/assets/eonpro-logo"
+                src={EONPRO_LOGO}
                 alt="EONPRO"
                 className="h-[21px] w-auto"
                 width={84}
