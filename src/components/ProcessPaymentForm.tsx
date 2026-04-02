@@ -13,21 +13,6 @@ import { loadStripe, Stripe, StripeCardElement } from '@stripe/stripe-js';
 
 const stripeCache = new Map<string, Promise<Stripe | null>>();
 
-/**
- * Dedicated Stripe accounts have their own publishable key (NEXT_PUBLIC_{PREFIX}_STRIPE_PUBLISHABLE_KEY).
- * Clinics on the platform account use the default NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY.
- */
-const DEDICATED_CLINIC_PK: Record<string, string | undefined> = {
-  eonmeds: process.env.NEXT_PUBLIC_EONMEDS_STRIPE_PUBLISHABLE_KEY,
-};
-
-function getPublishableKeyForClinic(subdomain?: string | null): string | undefined {
-  if (subdomain && DEDICATED_CLINIC_PK[subdomain]) {
-    return DEDICATED_CLINIC_PK[subdomain];
-  }
-  return process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
-}
-
 function getStripeInstance(
   publishableKey?: string,
   connectedAccountId?: string | null,
@@ -92,13 +77,11 @@ export function ProcessPaymentForm({ patientId, patientName, clinicSubdomain, on
   const stripeElementRef = useRef<StripeCardElement | null>(null);
   const stripeInstanceRef = useRef<Stripe | null>(null);
 
-  // Eagerly load the Stripe instance with the correct publishable key for this clinic
-  const clinicPk = getPublishableKeyForClinic(clinicSubdomain);
-
+  // Eagerly load the Stripe instance (runs once, no DOM dependency)
   useEffect(() => {
     let cancelled = false;
     const init = async () => {
-      const stripeP = getStripeInstance(clinicPk);
+      const stripeP = getStripeInstance();
       if (!stripeP) return;
       const instance = await stripeP;
       if (!cancelled && instance) {
@@ -107,7 +90,7 @@ export function ProcessPaymentForm({ patientId, patientName, clinicSubdomain, on
     };
     init();
     return () => { cancelled = true; };
-  }, [clinicPk]);
+  }, []);
 
   // Mount the CardElement once the container div is actually in the DOM
   useEffect(() => {
@@ -118,7 +101,7 @@ export function ProcessPaymentForm({ patientId, patientName, clinicSubdomain, on
     const mountCard = async () => {
       // Wait for Stripe instance if it hasn't resolved yet
       if (!stripeInstanceRef.current) {
-        const stripeP = getStripeInstance(clinicPk);
+        const stripeP = getStripeInstance();
         if (!stripeP) return;
         const instance = await stripeP;
         if (cancelled || !instance) return;
