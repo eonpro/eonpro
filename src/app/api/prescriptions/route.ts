@@ -2,7 +2,7 @@ import lifefile, { LifefileOrderPayload, getEnvCredentials } from '@/lib/lifefil
 import { getClinicLifefileClient, getClinicLifefileCredentials } from '@/lib/clinic-lifefile';
 import { prescriptionSchema } from '@/lib/validate';
 import { generatePrescriptionPDF } from '@/lib/pdf';
-import { MEDS, GLP1_PRODUCT_IDS, SYRINGE_KIT_PRODUCT_ID } from '@/lib/medications';
+import { MEDS, GLP1_PRODUCT_IDS, SYRINGE_KIT_PRODUCT_ID, ELITE_ADDON_PRODUCT_IDS, ELITE_SYRINGE_KIT_QUANTITY } from '@/lib/medications';
 import { SHIPPING_METHODS } from '@/lib/shipping';
 import { prisma, basePrisma, withRetry } from '@/lib/db';
 import { Prisma } from '@prisma/client';
@@ -401,6 +401,28 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
               medicationKey: String(SYRINGE_KIT_PRODUCT_ID),
               sig: 'Use supplies as directed for subcutaneous injection.',
               quantity: String(glp1VialCount),
+              refills: '0',
+              daysSupply: '30',
+            },
+            med: syringeKitMed,
+          });
+        }
+      }
+
+      // Auto-add 5 syringe kits for Elite Bundle injectables (NAD+, Sermorelin, B12)
+      if (glp1VialCount === 0) {
+        const hasEliteAddonMed = rxsWithMeds.some(
+          ({ med }) => ELITE_ADDON_PRODUCT_IDS.has(med.id)
+        );
+        const alreadyHasSyringeKit = rxsWithMeds.some(
+          ({ med }) => med.id === SYRINGE_KIT_PRODUCT_ID
+        );
+        if (hasEliteAddonMed && !alreadyHasSyringeKit) {
+          rxsWithMeds.push({
+            rx: {
+              medicationKey: String(SYRINGE_KIT_PRODUCT_ID),
+              sig: 'Use supplies as directed for subcutaneous injection.',
+              quantity: String(ELITE_SYRINGE_KIT_QUANTITY),
               refills: '0',
               daysSupply: '30',
             },

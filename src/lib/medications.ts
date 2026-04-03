@@ -541,3 +541,14 @@ export const ADDON_MEDICATION_MAP: Record<string, string> = {
   sermorelin: '203666651',
   b12: '203449111',
 };
+
+/**
+ * Elite Bundle injectable medication Lifefile product IDs (NAD+, Sermorelin, B12).
+ * Used to auto-add syringe kits when these meds are on an order.
+ */
+export const ELITE_ADDON_PRODUCT_IDS = new Set(
+  Object.values(ADDON_MEDICATION_MAP).map(Number)
+);
+
+/** WellMedR Elite Package ships with 5 syringe kits (50 syringes total). */
+export const ELITE_SYRINGE_KIT_QUANTITY = 5;
