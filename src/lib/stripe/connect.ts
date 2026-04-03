@@ -162,13 +162,17 @@ export function getPublishableKeyForContext(
 
   // Platform account uses the Connect platform publishable key
   if (context.isPlatformAccount) {
-    const platformPk = process.env.NEXT_PUBLIC_STRIPE_CONNECT_PLATFORM_PUBLISHABLE_KEY;
+    const platformPk =
+      process.env.NEXT_PUBLIC_STRIPE_CONNECT_PUBLISHABLE_KEY ||
+      process.env.NEXT_PUBLIC_STRIPE_CONNECT_PLATFORM_PUBLISHABLE_KEY;
     if (platformPk) return platformPk;
   }
 
   // Connected accounts use the platform publishable key (with stripeAccount option)
   if (context.stripeAccountId) {
-    const platformPk = process.env.NEXT_PUBLIC_STRIPE_CONNECT_PLATFORM_PUBLISHABLE_KEY;
+    const platformPk =
+      process.env.NEXT_PUBLIC_STRIPE_CONNECT_PUBLISHABLE_KEY ||
+      process.env.NEXT_PUBLIC_STRIPE_CONNECT_PLATFORM_PUBLISHABLE_KEY;
     if (platformPk) return platformPk;
   }
 
