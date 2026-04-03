@@ -94,10 +94,8 @@ export interface StripePaymentData {
 
 let stripeClient: Stripe | null = null;
 
-function getStripeClient(): Stripe | null {
+function getLegacyStripeClient(): Stripe | null {
   if (!stripeClient) {
-    // Main webhook is Eonmeds; reconciliation cron uses getStripe() (Eonmeds). Use same key here
-    // so fetchStripeCustomerData hits the correct Stripe account.
     const secretKey =
       process.env.EONMEDS_STRIPE_SECRET_KEY ||
       process.env.OT_STRIPE_SECRET_KEY ||
@@ -115,6 +113,30 @@ function getStripeClient(): Stripe | null {
 }
 
 /**
+ * Resolve the correct Stripe client for a customer lookup.
+ * Uses the clinic's Stripe account when clinicId is available,
+ * falling back to the legacy EonMeds client.
+ */
+async function getStripeClientForClinic(clinicId?: number): Promise<{
+  stripe: Stripe | null;
+  connectOpts?: { stripeAccount: string };
+}> {
+  if (clinicId) {
+    try {
+      const { getStripeForClinic } = await import('@/lib/stripe/connect');
+      const ctx = await getStripeForClinic(clinicId);
+      const connectOpts = ctx.stripeAccountId
+        ? { stripeAccount: ctx.stripeAccountId }
+        : undefined;
+      return { stripe: ctx.stripe, connectOpts };
+    } catch {
+      // Fall through to legacy
+    }
+  }
+  return { stripe: getLegacyStripeClient() };
+}
+
+/**
  * Fetch complete customer data from Stripe Customer object
  * This is used when billing_details is incomplete
  *
@@ -126,19 +148,24 @@ function getStripeClient(): Stripe | null {
  * - address: Full address object
  * - metadata: Custom fields that might contain name/info
  */
-export async function fetchStripeCustomerData(customerId: string): Promise<{
+export async function fetchStripeCustomerData(
+  customerId: string,
+  clinicId?: number,
+): Promise<{
   email: string | null;
   name: string | null;
   phone: string | null;
   address: StripePaymentData['address'] | null;
 }> {
-  const stripe = getStripeClient();
+  const { stripe, connectOpts } = await getStripeClientForClinic(clinicId);
   if (!stripe) {
     return { email: null, name: null, phone: null, address: null };
   }
 
   try {
-    const customer = await stripe.customers.retrieve(customerId);
+    const customer = connectOpts
+      ? await stripe.customers.retrieve(customerId, connectOpts)
+      : await stripe.customers.retrieve(customerId);
 
     if (customer.deleted) {
       logger.warn('[PaymentMatching] Stripe customer is deleted', { customerId });
@@ -269,7 +296,8 @@ function extractNameFromDescription(description: string | null): string | null {
  * 3. Name extracted from description (e.g., "Invoice 1819 (Heath Horchem)")
  */
 export async function enhancePaymentDataWithCustomerInfo(
-  paymentData: StripePaymentData
+  paymentData: StripePaymentData,
+  clinicId?: number,
 ): Promise<StripePaymentData> {
   let enhanced = { ...paymentData };
 
@@ -292,7 +320,7 @@ export async function enhancePaymentDataWithCustomerInfo(
       hasName: !!paymentData.name,
     });
 
-    const customerData = await fetchStripeCustomerData(paymentData.customerId);
+    const customerData = await fetchStripeCustomerData(paymentData.customerId, clinicId);
 
     // Merge customer data (payment data takes priority)
     enhanced = {
@@ -1097,7 +1125,7 @@ export async function extractPaymentDataFromPaymentIntent(
 
   // If latest_charge is a string ID, retrieve the full Charge object from Stripe
   if (!chargeObj && typeof charge === 'string') {
-    const stripe = getStripeClient();
+    const stripe = getLegacyStripeClient();
     if (stripe) {
       try {
         chargeObj = await stripe.charges.retrieve(charge);
@@ -1346,16 +1374,11 @@ export async function processStripePayment(
       }
     }
 
-    // CRITICAL: Enhance payment data with full Stripe Customer info if billing_details is incomplete
-    // This ensures we have the best possible customer data before matching or creating patients
-    const enhancedPaymentData = await enhancePaymentDataWithCustomerInfo(paymentData);
-
-    // Determine clinic ID: metadata > request clinic context > DEFAULT_CLINIC_ID
-    // The request clinic context (from runWithClinicContext in the webhook handler) is the
-    // most reliable source for Connect events where metadata.clinicId is missing.
+    // Determine clinic ID FIRST so we can use the correct Stripe account for customer lookups.
+    // Priority: metadata > request clinic context > DEFAULT_CLINIC_ID
     let clinicId: number | undefined;
-    if (enhancedPaymentData.metadata.clinicId) {
-      clinicId = parseInt(enhancedPaymentData.metadata.clinicId, 10);
+    if (paymentData.metadata.clinicId) {
+      clinicId = parseInt(paymentData.metadata.clinicId, 10);
     }
     if (!clinicId) {
       const contextClinicId = getClinicContext();
@@ -1364,6 +1387,9 @@ export async function processStripePayment(
         logger.debug('[PaymentMatching] Using clinic context from webhook handler', { clinicId });
       }
     }
+
+    // Enhance payment data with full Stripe Customer info using the correct Stripe account
+    const enhancedPaymentData = await enhancePaymentDataWithCustomerInfo(paymentData, clinicId);
 
     // Try to match existing patient using enhanced data
     const matchResult = await matchPatientFromPayment(enhancedPaymentData, clinicId);
@@ -1710,11 +1736,6 @@ export interface InvoiceSyncResult {
  * Fetches the latest data from Stripe and updates our local record
  */
 export async function syncInvoiceFromStripe(invoiceId: number): Promise<InvoiceSyncResult> {
-  const stripe = getStripeClient();
-  if (!stripe) {
-    return { success: false, updated: false, error: 'Stripe not configured' };
-  }
-
   try {
     // Get our invoice with payment info
     const invoice = await prisma.invoice.findUnique({
@@ -1727,6 +1748,12 @@ export async function syncInvoiceFromStripe(invoiceId: number): Promise<InvoiceS
 
     if (!invoice) {
       return { success: false, updated: false, error: 'Invoice not found' };
+    }
+
+    const invoiceClinicId = invoice.clinicId ?? invoice.patient?.clinicId;
+    const { stripe, connectOpts } = await getStripeClientForClinic(invoiceClinicId ?? undefined);
+    if (!stripe) {
+      return { success: false, updated: false, error: 'Stripe not configured' };
     }
 
     const changes: InvoiceSyncResult['changes'] = {};
@@ -1748,18 +1775,18 @@ export async function syncInvoiceFromStripe(invoiceId: number): Promise<InvoiceS
 
     if (payment.stripeChargeId) {
       try {
-        stripeCharge = await stripe.charges.retrieve(payment.stripeChargeId, {
-          expand: ['refunds'],
-        });
+        stripeCharge = connectOpts
+          ? await stripe.charges.retrieve(payment.stripeChargeId, { expand: ['refunds'] }, connectOpts)
+          : await stripe.charges.retrieve(payment.stripeChargeId, { expand: ['refunds'] });
       } catch {
         // Charge might not exist, try payment intent
       }
     }
 
     if (!stripeCharge && payment.stripePaymentIntentId) {
-      const pi = await stripe.paymentIntents.retrieve(payment.stripePaymentIntentId, {
-        expand: ['latest_charge.refunds'],
-      });
+      const pi = connectOpts
+        ? await stripe.paymentIntents.retrieve(payment.stripePaymentIntentId, { expand: ['latest_charge.refunds'] }, connectOpts)
+        : await stripe.paymentIntents.retrieve(payment.stripePaymentIntentId, { expand: ['latest_charge.refunds'] });
       if (pi.latest_charge && typeof pi.latest_charge === 'object') {
         stripeCharge = pi.latest_charge as Stripe.Charge;
       }
@@ -1805,7 +1832,7 @@ export async function syncInvoiceFromStripe(invoiceId: number): Promise<InvoiceS
           typeof stripeCharge.customer === 'string'
             ? stripeCharge.customer
             : stripeCharge.customer.id;
-        const customerData = await fetchStripeCustomerData(customerId);
+        const customerData = await fetchStripeCustomerData(customerId, invoiceClinicId ?? undefined);
         customerName = customerName || customerData.name;
         customerEmail = customerEmail || customerData.email;
         customerPhone = customerPhone || customerData.phone;

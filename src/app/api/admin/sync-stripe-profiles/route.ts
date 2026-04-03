@@ -119,7 +119,7 @@ async function handlePost(req: NextRequest, user: AuthUser): Promise<NextRespons
 
       try {
         // Fetch customer data from Stripe
-        const customerData = await fetchStripeCustomerData(patient.stripeCustomerId!);
+        const customerData = await fetchStripeCustomerData(patient.stripeCustomerId!, patient.clinicId ?? undefined);
 
         const updates: Record<string, string> = {};
 
