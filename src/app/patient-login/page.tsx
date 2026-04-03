@@ -695,13 +695,13 @@ function PatientLoginPage() {
                 </h1>
               )
             ) : (
-              <img src={EONPRO_LOGO} alt="EONPRO" className="h-10 w-auto" width={160} height={40} />
+              <img src={EONPRO_LOGO} alt="EONPRO" className="h-10 w-auto" width={160} height={40} style={{ maxHeight: 40, width: 'auto' }} />
             )}
           </div>
           {branding && !isMainApp && (
             <p className="mt-2 flex items-center justify-center gap-1.5 text-xs text-gray-500 whitespace-nowrap">
               Powered by{' '}
-              <img src={EONPRO_LOGO} alt="EONPRO" className="h-[21px] w-auto" width={84} height={21} />
+              <img src={EONPRO_LOGO} alt="EONPRO" className="h-[21px] w-auto" width={84} height={21} style={{ maxHeight: 21, width: 'auto' }} />
             </p>
           )}
         </div>

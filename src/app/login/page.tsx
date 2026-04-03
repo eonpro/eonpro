@@ -110,7 +110,7 @@ function LoginFallback() {
     <div
       className="login-gradient-bg flex min-h-[100dvh] flex-col items-center justify-center p-6"
     >
-      <img src={EONPRO_LOGO} alt="EONPRO" className="mb-8 h-10 w-auto opacity-90" width={160} height={40} />
+      <img src={EONPRO_LOGO} alt="EONPRO" className="mb-8 h-10 w-auto opacity-90" width={160} height={40} style={{ maxHeight: 40, width: 'auto' }} />
       <div className="h-8 w-8 animate-spin rounded-full border-2 border-gray-300 border-t-gray-600" />
       <p className="mt-4 text-sm text-gray-500">Loading...</p>
     </div>
@@ -1218,6 +1218,7 @@ function LoginContent() {
                 className="h-10 w-auto"
                 width={160}
                 height={40}
+                style={{ maxHeight: 40, width: 'auto' }}
               />
             )}
           </div>
@@ -1230,6 +1231,7 @@ function LoginContent() {
                 className="h-[21px] w-auto brightness-0 invert"
                 width={84}
                 height={21}
+                style={{ maxHeight: 21, width: 'auto' }}
               />
             </p>
           )}
@@ -1242,6 +1244,7 @@ function LoginContent() {
                 className="h-[21px] w-auto"
                 width={84}
                 height={21}
+                style={{ maxHeight: 21, width: 'auto' }}
               />
             </p>
           )}
