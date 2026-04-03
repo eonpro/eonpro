@@ -1815,7 +1815,7 @@ export default function PrescriptionQueuePage() {
                     Sema ({stats.glp1.sema})
                   </span>
                   <span>
-                    <span className="font-semibold text-[#5a9474]">{stats.glp1.tirzPercent}%</span>{' '}
+                    <span className="font-semibold text-[#6b8ced]">{stats.glp1.tirzPercent}%</span>{' '}
                     Tirz ({stats.glp1.tirz})
                   </span>
                 </div>
@@ -1823,9 +1823,6 @@ export default function PrescriptionQueuePage() {
             ) : (
               <p className="mt-3 text-sm text-gray-500">No GLP‑1 Rx this month yet</p>
             )}
-            <p className="mt-2 text-[11px] leading-snug text-gray-400">
-              US Eastern — not UTC
-            </p>
           </div>
         </div>
         {!statsLoading && stats?.timezone && (
