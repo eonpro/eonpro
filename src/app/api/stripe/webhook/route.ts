@@ -638,121 +638,13 @@ async function processWebhookEvent(
                     });
                   }
                 } else {
-                  logger.warn('[STRIPE WEBHOOK] Addon subscription detected but no patient found — scheduling retry', {
+                  logger.warn('[STRIPE WEBHOOK] Addon subscription detected but no patient found — cron will retry', {
                     stripeSubscriptionId: invoiceSubscriptionId,
                     addonName,
                     priceId,
                     customerId,
                     resolvedClinicId,
                   });
-
-                  const retryDelays = [30_000, 120_000, 300_000];
-                  const retryKey = `addon_retry:${invoice.id}`;
-                  const retryCount = ((globalThis as any)[retryKey] ?? 0) as number;
-
-                  if (retryCount < retryDelays.length) {
-                    (globalThis as any)[retryKey] = retryCount + 1;
-                    const delay = retryDelays[retryCount];
-                    logger.info('[STRIPE WEBHOOK] Addon invoice retry scheduled', {
-                      stripeInvoiceId: invoice.id,
-                      attempt: retryCount + 1,
-                      delayMs: delay,
-                    });
-
-                    setTimeout(async () => {
-                      try {
-                        let retryPatientId: number | undefined;
-                        let retryClinicId: number | undefined;
-
-                        if (customerId) {
-                          const p = await prisma.patient.findFirst({
-                            where: { stripeCustomerId: customerId },
-                            select: { id: true, clinicId: true },
-                          });
-                          if (p?.clinicId) {
-                            retryPatientId = p.id;
-                            retryClinicId = p.clinicId;
-                          }
-                        }
-
-                        if (!retryPatientId && customerId && stripeForAddon) {
-                          try {
-                            const cust = await stripeForAddon.customers.retrieve(customerId, requestOpts);
-                            if (cust && !cust.deleted && 'email' in cust && cust.email) {
-                              const { findPatientByEmail: findByEmail } =
-                                await import('@/services/stripe/paymentMatchingService');
-                              const searchIndex = await prisma.patient.findFirst({
-                                where: {
-                                  searchIndex: { contains: cust.email.trim().toLowerCase(), mode: 'insensitive' as const },
-                                  ...(resolvedClinicId > 0 ? { clinicId: resolvedClinicId } : {}),
-                                },
-                                select: { id: true, clinicId: true },
-                              });
-                              if (searchIndex?.clinicId) {
-                                retryPatientId = searchIndex.id;
-                                retryClinicId = searchIndex.clinicId;
-                              } else {
-                                const found = await findByEmail(cust.email.trim().toLowerCase(), resolvedClinicId > 0 ? resolvedClinicId : undefined);
-                                if (found?.clinicId) {
-                                  retryPatientId = found.id;
-                                  retryClinicId = found.clinicId;
-                                }
-                              }
-                            }
-                          } catch { /* non-fatal */ }
-                        }
-
-                        if (!retryClinicId && resolvedClinicId > 0) retryClinicId = resolvedClinicId;
-
-                        if (retryPatientId && retryClinicId) {
-                          const { isWellMedrAddonPriceId: checkAddon, getAddonPlanByStripePriceId: getPlan } =
-                            await import('@/config/billingPlans');
-                          if (!checkAddon(priceId)) return;
-                          const plan = getPlan(priceId);
-                          const name = plan?.name || 'Add-on';
-                          const ids = plan?.id === 'wm_addon_elite_bundle' ? ['elite_bundle']
-                            : plan?.id === 'wm_addon_nad' ? ['nad_plus']
-                            : plan?.id === 'wm_addon_sermorelin' ? ['sermorelin']
-                            : plan?.id === 'wm_addon_b12' ? ['b12'] : [];
-                          const amt = invoice.amount_paid || plan?.price || 0;
-                          const num = `WM-ADDON-R${Date.now().toString(36).toUpperCase()}`;
-
-                          const existing = await prisma.invoice.findFirst({
-                            where: { patientId: retryPatientId, clinicId: retryClinicId, metadata: { path: ['stripeInvoiceId'], equals: invoice.id } },
-                          });
-                          if (!existing) {
-                            await prisma.invoice.create({
-                              data: {
-                                patientId: retryPatientId, clinicId: retryClinicId, stripeInvoiceId: invoice.id,
-                                amount: amt, amountDue: 0, amountPaid: amt, currency: 'usd', status: 'PAID',
-                                paidAt: new Date(), description: `${name} - Payment received`, dueDate: new Date(),
-                                prescriptionProcessed: false,
-                                lineItems: [{ description: name, quantity: 1, unitPrice: amt, product: name, medicationType: 'add-on', plan: '' }],
-                                metadata: { invoiceNumber: num, source: 'stripe-connect-addon-retry', stripeInvoiceId: invoice.id, stripeSubscriptionId: invoiceSubscriptionId, product: name, medicationType: 'add-on', ...(ids.length > 0 ? { selectedAddons: ids } : {}) },
-                              },
-                            });
-                            logger.info('[STRIPE WEBHOOK] Addon Invoice created on retry', {
-                              attempt: retryCount + 1, patientId: retryPatientId, clinicId: retryClinicId, stripeInvoiceId: invoice.id,
-                            });
-                          }
-                          delete (globalThis as any)[retryKey];
-                        } else if (retryCount + 1 < retryDelays.length) {
-                          logger.warn('[STRIPE WEBHOOK] Addon retry: patient still not found', {
-                            attempt: retryCount + 1, stripeInvoiceId: invoice.id, customerId,
-                          });
-                        } else {
-                          logger.error('[STRIPE WEBHOOK] Addon retry exhausted — patient never found. Run backfill script.', {
-                            stripeInvoiceId: invoice.id, stripeSubscriptionId: invoiceSubscriptionId, customerId,
-                          });
-                          delete (globalThis as any)[retryKey];
-                        }
-                      } catch (retryErr) {
-                        logger.error('[STRIPE WEBHOOK] Addon retry failed', {
-                          attempt: retryCount + 1, error: retryErr instanceof Error ? retryErr.message : 'Unknown',
-                        });
-                      }
-                    }, delay);
-                  }
                 }
               }
             }

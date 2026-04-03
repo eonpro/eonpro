@@ -1786,7 +1786,6 @@ export default function PrescriptionQueuePage() {
                   value ?? '—'
                 )}
               </p>
-              <p className="mt-1 text-[11px] leading-snug text-gray-400">US Eastern — not UTC</p>
             </div>
           ))}
           <div className="col-span-2 rounded-2xl border border-gray-200/80 bg-white p-4 shadow-sm sm:col-span-1">
@@ -1805,7 +1804,7 @@ export default function PrescriptionQueuePage() {
                     title={`Semaglutide ${stats.glp1.semaPercent}%`}
                   />
                   <div
-                    className="bg-[#5a9474] transition-all"
+                    className="bg-[#6b8ced] transition-all"
                     style={{ width: `${stats.glp1.tirzPercent ?? 0}%` }}
                     title={`Tirzepatide ${stats.glp1.tirzPercent}%`}
                   />
