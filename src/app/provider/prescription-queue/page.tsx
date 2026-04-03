@@ -1609,12 +1609,27 @@ export default function PrescriptionQueuePage() {
 
   const formatDob = (dob: string) => {
     if (!dob) return '-';
-    const date = new Date(dob);
-    const age = Math.floor((Date.now() - date.getTime()) / (365.25 * 24 * 60 * 60 * 1000));
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    const year = String(date.getFullYear()).slice(-2);
-    return `${month}/${day}/${year} (${age} yrs)`;
+    const clean = dob.trim();
+    let mm: string, dd: string, yyyy: string;
+    if (clean.includes('/')) {
+      [mm, dd, yyyy] = clean.split('/');
+    } else {
+      const parts = clean.split('-');
+      if (parts.length !== 3) return clean;
+      [yyyy, mm, dd] = parts;
+    }
+    const birthYear = parseInt(yyyy, 10);
+    const birthMonth = parseInt(mm, 10);
+    const birthDay = parseInt(dd, 10);
+    const today = new Date();
+    let age = today.getFullYear() - birthYear;
+    if (
+      today.getMonth() + 1 < birthMonth ||
+      (today.getMonth() + 1 === birthMonth && today.getDate() < birthDay)
+    ) {
+      age--;
+    }
+    return `${mm.padStart(2, '0')}/${dd.padStart(2, '0')}/${String(yyyy).slice(-2)} (${age} yrs)`;
   };
 
   const searchResult = smartSearch(queueItems, searchTerm, (item) => [

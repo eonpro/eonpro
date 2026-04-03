@@ -297,22 +297,22 @@ export default function ProviderPatientsPage() {
   };
 
   const calculateAge = (dob: string) => {
-    if (!dob) {
-      return '-';
+    if (!dob) return '-';
+    if (dob.includes(':') && dob.length > 50) return '-';
+    let year: number, month: number, day: number;
+    if (dob.includes('/')) {
+      const [m, d, y] = dob.split('/').map(Number);
+      month = m; day = d; year = y;
+    } else {
+      const parts = dob.split('-').map(Number);
+      if (parts.length !== 3) return '-';
+      [year, month, day] = parts;
     }
-    // Check if the value looks like encrypted data (contains colons and base64-like characters)
-    if (dob.includes(':') && dob.length > 50) {
-      return '-'; // Encrypted data, can't calculate age
-    }
-    const birthDate = new Date(dob);
-    // Check if date is valid
-    if (isNaN(birthDate.getTime())) {
-      return '-';
-    }
+    if (!year || !month || !day || isNaN(year)) return '-';
     const today = new Date();
-    let age = today.getFullYear() - birthDate.getFullYear();
-    const monthDiff = today.getMonth() - birthDate.getMonth();
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+    let age = today.getFullYear() - year;
+    const monthDiff = (today.getMonth() + 1) - month;
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < day)) {
       age--;
     }
     return age;

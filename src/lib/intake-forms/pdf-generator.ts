@@ -316,7 +316,7 @@ function generateHTML(
             <strong>Phone:</strong> ${patient.phoneNumber || 'Not provided'}
           </div>
           <div class="info-item">
-            <strong>Date of Birth:</strong> ${patient.dateOfBirth ? new Date(patient.dateOfBirth).toLocaleDateString() : 'Not provided'}
+            <strong>Date of Birth:</strong> ${patient.dateOfBirth ? (() => { const d = patient.dateOfBirth!.trim(); if (d.includes('/')) return d; const p = d.split('-'); return p.length === 3 ? `${p[1]}/${p[2]}/${p[0]}` : d; })() : 'Not provided'}
           </div>
         </div>
       </div>

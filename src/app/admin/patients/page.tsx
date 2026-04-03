@@ -673,19 +673,22 @@ export default function AdminPatientsPage() {
                       {(() => {
                         if (!patient.dateOfBirth || isEncryptedData(patient.dateOfBirth))
                           return '-';
-                        // Check for placeholder dates (1900-01-01, 1899-12-31, etc.)
-                        const dob = patient.dateOfBirth;
+                        const dob = patient.dateOfBirth.trim();
                         if (
                           dob.startsWith('1900') ||
                           dob.startsWith('1899') ||
                           dob === '01/01/1900'
                         )
                           return '-';
-                        const dobDate = new Date(dob);
-                        const year = dobDate.getFullYear();
-                        // Hide any DOB before 1920 (unrealistic) or invalid
-                        if (isNaN(year) || year < 1920) return '-';
-                        return dobDate.toLocaleDateString();
+                        if (dob.includes('/')) return dob;
+                        const parts = dob.split('-');
+                        if (parts.length === 3) {
+                          const [yyyy, mm, dd] = parts;
+                          const year = parseInt(yyyy, 10);
+                          if (isNaN(year) || year < 1920) return '-';
+                          return `${mm}/${dd}/${yyyy}`;
+                        }
+                        return '-';
                       })()}
                     </td>
                     <td className="px-6 py-4">

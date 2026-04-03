@@ -124,21 +124,14 @@ const formatValue = (value: string | null | undefined, options?: { type?: 'phone
 
 const formatDate = (dateStr: string | null | undefined): string => {
   if (!dateStr) return '-';
-  try {
-    // Handle ISO date strings
-    const date = new Date(dateStr);
-    if (isNaN(date.getTime())) {
-      // Try parsing as YYYY-MM-DD
-      if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
-        const [year, month, day] = dateStr.split('-');
-        return `${month}/${day}/${year}`;
-      }
-      return dateStr;
-    }
-    return date.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: 'numeric' });
-  } catch {
-    return dateStr;
+  const clean = dateStr.trim();
+  if (clean.includes('/')) return clean;
+  const parts = clean.split('-');
+  if (parts.length === 3) {
+    const [year, month, day] = parts;
+    return `${month}/${day}/${year}`;
   }
+  return clean;
 };
 
 type Step = 'select' | 'preview' | 'confirm';

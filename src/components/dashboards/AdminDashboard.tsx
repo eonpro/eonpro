@@ -115,8 +115,15 @@ export default function AdminDashboard({ userName }: AdminDashboardProps) {
   };
 
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' });
+    if (!dateString) return '-';
+    const clean = dateString.trim();
+    if (clean.includes('/')) return clean;
+    const parts = clean.split('-');
+    if (parts.length === 3) {
+      const [yyyy, mm, dd] = parts;
+      return `${mm.padStart(2, '0')}/${dd.padStart(2, '0')}/${yyyy}`;
+    }
+    return clean;
   };
 
   const formatTime = (dateString: string) => {
