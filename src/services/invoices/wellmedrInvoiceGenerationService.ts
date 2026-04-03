@@ -27,9 +27,9 @@ import {
   getProductPrice,
   isOvernightShipping,
   ADDON_PHARMACY_FEES,
-  getAddonPharmacyFeeCents,
   getAddonPrescriptionUpchargeCents,
   detectAddonKeysFromRxs,
+  shouldEmitAddonPharmacyFee,
   type AddonKey,
 } from '@/lib/invoices/wellmedr-pricing';
 
@@ -422,9 +422,10 @@ export async function generateDailyInvoices(
     }
 
     if (!isCancelled) {
+      const rxMedKeys = order.rxs.map((rx) => rx.medicationKey);
       for (const addonKey of orderAddonKeys) {
         const addonFee = ADDON_PHARMACY_FEES[addonKey];
-        if (addonFee) {
+        if (addonFee && shouldEmitAddonPharmacyFee(addonKey, rxMedKeys)) {
           addonLineItems.push({
             orderId: order.id,
             lifefileOrderId: order.lifefileOrderId,
@@ -482,6 +483,17 @@ export async function generateDailyInvoices(
         .map((rx) => `${rx.medName} ${rx.strength}`)
         .join(', ');
 
+      const addonLabels = orderAddonKeys
+        .map((k) => ADDON_PHARMACY_FEES[k]?.name)
+        .filter((n): n is string => Boolean(n));
+      let medicationsDisplay =
+        medicationsList || order.rxs.map((rx) => `${rx.medName} ${rx.strength}`).join(', ');
+      if (addonLabels.length > 0) {
+        medicationsDisplay = medicationsDisplay
+          ? `${medicationsDisplay} | Add-ons: ${addonLabels.join(', ')}`
+          : `Add-ons: ${addonLabels.join(', ')}`;
+      }
+
       rxServiceLineItems.push({
         orderId: order.id,
         lifefileOrderId: order.lifefileOrderId,
@@ -491,7 +503,7 @@ export async function generateDailyInvoices(
         patientId: order.patientId,
         providerName,
         providerId: order.providerId,
-        medications: medicationsList || order.rxs.map((rx) => `${rx.medName} ${rx.strength}`).join(', '),
+        medications: medicationsDisplay,
         feeCents: rxFee,
         chargeType,
       });
@@ -622,6 +634,29 @@ export function generatePharmacyCSV(invoice: PharmacyInvoice): string {
     }
 
     lines.push(`Shipping Subtotal,,,,,$${centsToDisplay(invoice.subtotalShippingCents)}`);
+  }
+
+  if (invoice.addonLineItems.length > 0) {
+    lines.push('');
+    lines.push('=== ADD-ON PHARMACY FEES (ELITE BUNDLE / SUBSCRIPTION COGS) ===');
+    lines.push(
+      ['Date', 'Order ID', 'LF Order ID', 'Patient', 'Add-on', 'Fee'].map(escapeCSV).join(',')
+    );
+    for (const al of invoice.addonLineItems) {
+      lines.push(
+        [
+          new Date(al.orderDate).toLocaleDateString('en-US'),
+          al.orderId,
+          al.lifefileOrderId ?? '',
+          al.patientName,
+          al.addonName,
+          `$${centsToDisplay(al.feeCents)}`,
+        ]
+          .map(escapeCSV)
+          .join(',')
+      );
+    }
+    lines.push(`Add-ons Subtotal,,,,,$${centsToDisplay(invoice.subtotalAddonsCents)}`);
   }
 
   lines.push('');
@@ -774,6 +809,7 @@ export async function generatePharmacyPDF(invoice: PharmacyInvoice): Promise<Uin
   const green = rgb(G.r, G.g, G.b);
   const greenBg = rgb(0.94, 0.98, 0.96);
   const shipAmber = rgb(0.6, 0.42, 0.05);
+  const addonViolet = rgb(0.42, 0.32, 0.62);
 
   function t(s: string, x: number, f = sofia, sz = 8, c = dark) {
     pg.drawText(sanitizeForPdf(s), { x, y, size: sz, font: f, color: c });
@@ -809,22 +845,47 @@ export async function generatePharmacyPDF(invoice: PharmacyInvoice): Promise<Uin
   t(invoice.clinicName, M, helvB, 11);
   t(fmtPeriod(invoice.periodStart, invoice.periodEnd), PW - M - 260, sofia, 9, mid);
   y -= 14;
-  t(`${invoice.orderCount} orders   |   ${invoice.vialCount} vials   |   ${invoice.shippingLineItems.length} shipping charges`, M, sofia, 8, mid);
+  t(
+    `${invoice.orderCount} orders   |   ${invoice.vialCount} vials   |   ${invoice.shippingLineItems.length} shipping   |   ${invoice.addonLineItems.length} add-on fee(s)`,
+    M,
+    sofia,
+    8,
+    mid,
+  );
   t(`Generated ${new Date().toLocaleString('en-US')}`, PW - M - 260, sofia, 7.5, light);
   y -= 20;
 
   // ── BUILD ORDER GROUPS ──
-  interface OG { id: number; items: PharmacyLineItem[]; ship: ShippingLineItem[]; medCents: number; shipCents: number; total: number; }
+  interface OG {
+    id: number;
+    items: PharmacyLineItem[];
+    ship: ShippingLineItem[];
+    addons: AddonLineItem[];
+    medCents: number;
+    shipCents: number;
+    addonCents: number;
+    total: number;
+  }
   const medMap = new Map<number, PharmacyLineItem[]>();
   for (const li of invoice.lineItems) { const a = medMap.get(li.orderId) ?? []; a.push(li); medMap.set(li.orderId, a); }
   const shipMap = new Map<number, ShippingLineItem[]>();
   for (const sl of invoice.shippingLineItems) { const a = shipMap.get(sl.orderId) ?? []; a.push(sl); shipMap.set(sl.orderId, a); }
+  const addonMap = new Map<number, AddonLineItem[]>();
+  for (const al of invoice.addonLineItems) { const a = addonMap.get(al.orderId) ?? []; a.push(al); addonMap.set(al.orderId, a); }
+  const orderIds: number[] = [];
+  const pushId = (id: number) => { if (!orderIds.includes(id)) orderIds.push(id); };
+  for (const li of invoice.lineItems) pushId(li.orderId);
+  for (const sl of invoice.shippingLineItems) pushId(sl.orderId);
+  for (const al of invoice.addonLineItems) pushId(al.orderId);
   const groups: OG[] = [];
-  for (const [id, items] of medMap) {
+  for (const id of orderIds) {
+    const items = medMap.get(id) ?? [];
     const ship = shipMap.get(id) ?? [];
+    const addons = addonMap.get(id) ?? [];
     const medCents = items.reduce((s, i) => s + i.lineTotalCents, 0);
     const shipCents = ship.reduce((s, i) => s + i.feeCents, 0);
-    groups.push({ id, items, ship, medCents, shipCents, total: medCents + shipCents });
+    const addonCents = addons.reduce((s, a) => s + a.feeCents, 0);
+    groups.push({ id, items, ship, addons, medCents, shipCents, addonCents, total: medCents + shipCents + addonCents });
   }
 
   // Column positions
@@ -833,8 +894,9 @@ export async function generatePharmacyPDF(invoice: PharmacyInvoice): Promise<Uin
   // ── RENDER EACH ORDER ──
   for (let gi = 0; gi < groups.length; gi++) {
     const g = groups[gi];
-    const first = g.items[0];
-    const rowCount = g.items.length + g.ship.length + 1;
+    const first = g.items[0] ?? g.ship[0] ?? g.addons[0];
+    if (!first) continue;
+    const rowCount = g.items.length + g.ship.length + g.addons.length + 1;
     need(R * rowCount + 34);
 
     // Order header bar
@@ -876,6 +938,13 @@ export async function generatePharmacyPDF(invoice: PharmacyInvoice): Promise<Uin
       rect(M, TW, R, rgb(1, 0.98, 0.94));
       t(`Shipping: ${sl.description}`, cx.desc, sofia, 7, shipAmber);
       t($(sl.feeCents), cx.amt, sofia, 7, shipAmber);
+      y -= R;
+    }
+
+    for (const ad of g.addons) {
+      rect(M, TW, R, rgb(0.96, 0.94, 1));
+      t(`Add-on: ${ad.addonName}`, cx.desc, sofia, 7, addonViolet);
+      t($(ad.feeCents), cx.amt, sofia, 7, addonViolet);
       y -= R;
     }
 

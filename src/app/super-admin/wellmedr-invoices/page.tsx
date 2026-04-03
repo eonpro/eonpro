@@ -53,6 +53,18 @@ interface ShippingLineItem {
   feeCents: number;
 }
 
+interface AddonLineItem {
+  orderId: number;
+  lifefileOrderId: string | null;
+  orderDate: string;
+  paidAt: string | null;
+  patientName: string;
+  patientId: number;
+  addonKey: string;
+  addonName: string;
+  feeCents: number;
+}
+
 interface PharmacyInvoice {
   invoiceType: 'pharmacy';
   clinicName: string;
@@ -61,8 +73,10 @@ interface PharmacyInvoice {
   periodEnd: string;
   lineItems: PharmacyLineItem[];
   shippingLineItems: ShippingLineItem[];
+  addonLineItems?: AddonLineItem[];
   subtotalMedicationsCents: number;
   subtotalShippingCents: number;
+  subtotalAddonsCents?: number;
   totalCents: number;
   orderCount: number;
   vialCount: number;
@@ -598,8 +612,10 @@ function PharmacyInvoiceView({ invoice }: { invoice: PharmacyInvoice }) {
     orderId: number;
     items: PharmacyLineItem[];
     shipping: ShippingLineItem[];
+    addons: AddonLineItem[];
     medTotalCents: number;
     shippingTotalCents: number;
+    addonsTotalCents: number;
     orderTotalCents: number;
   }
 
@@ -618,24 +634,47 @@ function PharmacyInvoiceView({ invoice }: { invoice: PharmacyInvoice }) {
       shipMap.set(sl.orderId, arr);
     }
 
+    const addonMap = new Map<number, AddonLineItem[]>();
+    for (const al of invoice.addonLineItems ?? []) {
+      const arr = addonMap.get(al.orderId) ?? [];
+      arr.push(al);
+      addonMap.set(al.orderId, arr);
+    }
+
+    const orderIdOrder: number[] = [];
+    const pushOid = (id: number) => {
+      if (!orderIdOrder.includes(id)) orderIdOrder.push(id);
+    };
+    for (const li of invoice.lineItems) pushOid(li.orderId);
+    for (const sl of invoice.shippingLineItems) pushOid(sl.orderId);
+    for (const al of invoice.addonLineItems ?? []) pushOid(al.orderId);
+
     const groups: OrderGroup[] = [];
-    for (const [orderId, items] of medMap) {
+    for (const orderId of orderIdOrder) {
+      const items = medMap.get(orderId) ?? [];
       const shipping = shipMap.get(orderId) ?? [];
+      const addons = addonMap.get(orderId) ?? [];
       const medTotalCents = items.reduce((s, i) => s + i.lineTotalCents, 0);
       const shippingTotalCents = shipping.reduce((s, i) => s + i.feeCents, 0);
+      const addonsTotalCents = addons.reduce((s, a) => s + a.feeCents, 0);
       groups.push({
         orderId,
         items,
         shipping,
+        addons,
         medTotalCents,
         shippingTotalCents,
-        orderTotalCents: medTotalCents + shippingTotalCents,
+        addonsTotalCents,
+        orderTotalCents: medTotalCents + shippingTotalCents + addonsTotalCents,
       });
     }
     return groups;
-  }, [invoice.lineItems, invoice.shippingLineItems]);
+  }, [invoice.lineItems, invoice.shippingLineItems, invoice.addonLineItems]);
 
-  const hasDetails = (g: OrderGroup) => g.items.length > 1 || g.shipping.length > 0;
+  const hasDetails = (g: OrderGroup) =>
+    g.items.length + g.shipping.length + g.addons.length > 1 ||
+    g.shipping.length > 0 ||
+    g.addons.length > 0;
 
   const toggle = (id: number) => {
     setExpanded((prev) => {
@@ -657,6 +696,8 @@ function PharmacyInvoiceView({ invoice }: { invoice: PharmacyInvoice }) {
               {orderGroups.length} orders &middot; {invoice.lineItems.length} vials
               {invoice.shippingLineItems.length > 0 &&
                 ` · ${invoice.shippingLineItems.length} shipping charges`}
+              {(invoice.addonLineItems?.length ?? 0) > 0 &&
+                ` · ${invoice.addonLineItems?.length ?? 0} add-on fee(s)`}
             </span>
           </h3>
         </div>
@@ -683,7 +724,8 @@ function PharmacyInvoiceView({ invoice }: { invoice: PharmacyInvoice }) {
               {orderGroups.map((group) => {
                 const expandable = hasDetails(group);
                 const isOpen = expanded.has(group.orderId);
-                const first = group.items[0];
+                const first = group.items[0] ?? group.shipping[0] ?? group.addons[0];
+                if (!first) return null;
 
                 // Single vial, no shipping — flat row
                 if (!expandable) {
@@ -703,12 +745,20 @@ function PharmacyInvoiceView({ invoice }: { invoice: PharmacyInvoice }) {
                       <td className="whitespace-nowrap px-4 py-2.5 font-mono text-xs text-gray-400">
                         {first.lifefileOrderId ?? '-'}
                       </td>
-                      <td className="px-4 py-2.5 text-gray-900">{first.medicationName}</td>
-                      <td className="px-4 py-2.5 text-gray-600">{first.strength}</td>
-                      <td className="px-4 py-2.5 text-gray-600">{first.vialSize}</td>
-                      <td className="px-4 py-2.5 text-right text-gray-600">{first.quantity}</td>
+                      <td className="px-4 py-2.5 text-gray-900">
+                        {'medicationName' in first ? first.medicationName : '—'}
+                      </td>
+                      <td className="px-4 py-2.5 text-gray-600">
+                        {'strength' in first ? first.strength : '—'}
+                      </td>
+                      <td className="px-4 py-2.5 text-gray-600">
+                        {'vialSize' in first ? first.vialSize : '—'}
+                      </td>
                       <td className="px-4 py-2.5 text-right text-gray-600">
-                        {centsToDisplay(first.unitPriceCents)}
+                        {'quantity' in first ? first.quantity : '—'}
+                      </td>
+                      <td className="px-4 py-2.5 text-right text-gray-600">
+                        {'unitPriceCents' in first ? centsToDisplay(first.unitPriceCents) : '—'}
                       </td>
                       <td className="px-4 py-2.5 text-right font-semibold text-gray-900">
                         {centsToDisplay(group.orderTotalCents)}
@@ -723,6 +773,12 @@ function PharmacyInvoiceView({ invoice }: { invoice: PharmacyInvoice }) {
                 if (group.shipping.length > 0)
                   badges.push(
                     group.shipping.map((s) => s.description.replace(' surcharge', '')).join(' + ')
+                  );
+                if (group.addons.length > 0)
+                  badges.push(
+                    group.addons.length === 1
+                      ? group.addons[0].addonName
+                      : `${group.addons.length} add-ons`
                   );
 
                 return (
@@ -818,6 +874,28 @@ function PharmacyInvoiceView({ invoice }: { invoice: PharmacyInvoice }) {
                             </td>
                           </tr>
                         ))}
+                        {group.addons.map((ad, idx) => (
+                          <tr
+                            key={`addon-${group.orderId}-${idx}`}
+                            className="border-b border-gray-50 bg-violet-50/50"
+                          >
+                            <td className="px-2 py-2">
+                              <div className="mx-auto h-4 w-px bg-violet-300/50" />
+                            </td>
+                            <td />
+                            <td />
+                            <td />
+                            <td />
+                            <td />
+                            <td className="px-4 py-2 text-violet-800" colSpan={4}>
+                              <Sparkles className="mr-1 inline h-3 w-3" />
+                              Add-on: {ad.addonName}
+                            </td>
+                            <td className="px-4 py-2 text-right font-medium text-violet-800">
+                              {centsToDisplay(ad.feeCents)}
+                            </td>
+                          </tr>
+                        ))}
                       </>
                     )}
                   </React.Fragment>
@@ -855,6 +933,8 @@ function PharmacyInvoiceView({ invoice }: { invoice: PharmacyInvoice }) {
               Medications: {centsToDisplay(invoice.subtotalMedicationsCents)}
               {invoice.subtotalShippingCents > 0 &&
                 ` + Shipping: ${centsToDisplay(invoice.subtotalShippingCents)}`}
+              {(invoice.subtotalAddonsCents ?? 0) > 0 &&
+                ` + Add-ons (Elite Bundle / subscription COGS): ${centsToDisplay(invoice.subtotalAddonsCents ?? 0)}`}
             </p>
           </div>
           <p className="text-3xl font-bold text-[#4fa77e]">{centsToDisplay(invoice.totalCents)}</p>
