@@ -244,9 +244,32 @@ export async function getStripeForClinic(clinicId: number): Promise<StripeContex
     }
   }
 
-  // If clinic is explicitly marked as platform account (e.g., EONmeds)
-  if (clinic.stripePlatformAccount) {
+  // If clinic is marked as platform account OR its stripeAccountId matches
+  // the platform's own account, treat it as the platform (no stripeAccount header).
+  // OT uses the EONpro platform account directly — passing the platform's own
+  // account ID as stripeAccount causes "No such customer" errors.
+  const platformAccountId = process.env.STRIPE_CONNECT_PLATFORM_ACCOUNT_ID;
+  const isOwnPlatformAccount =
+    clinic.stripePlatformAccount ||
+    (platformAccountId && clinic.stripeAccountId === platformAccountId);
+
+  if (isOwnPlatformAccount) {
     const stripe = getPlatformStripe();
+
+    // Self-heal: if the clinic has stripeAccountId set but is actually the platform,
+    // clear it to prevent future confusion.
+    if (clinic.stripeAccountId && clinic.stripePlatformAccount !== true) {
+      prisma.clinic.update({
+        where: { id: clinic.id },
+        data: { stripePlatformAccount: true },
+      }).catch((err: Error) => {
+        logger.warn('[STRIPE CONNECT] Failed to self-heal clinic platform flag', {
+          clinicId: clinic.id,
+          error: err.message,
+        });
+      });
+    }
+
     return {
       stripe,
       isPlatformAccount: true,
