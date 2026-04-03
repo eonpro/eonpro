@@ -76,16 +76,16 @@ export function ProcessPaymentForm({ patientId, patientName, clinicSubdomain, on
   const stripeCardRef = useRef<HTMLDivElement>(null);
   const stripeElementRef = useRef<StripeCardElement | null>(null);
   const stripeInstanceRef = useRef<Stripe | null>(null);
+  const [stripeLoaded, setStripeLoaded] = useState(false);
 
-  // Fetch the correct Stripe publishable key for this patient's clinic,
-  // then eagerly load the Stripe instance. Falls back to the default key
-  // immediately so Stripe is always available (even if the API call fails).
+  // Fetch the correct publishable key, load Stripe, then set stripeLoaded.
+  // The CardElement mount waits for stripeLoaded so both use the same instance.
   useEffect(() => {
     let cancelled = false;
+    setStripeLoaded(false);
+
     const init = async () => {
       let pk: string | undefined;
-
-      // Try to fetch the clinic-specific key (lightweight, no Stripe objects created)
       try {
         const res = await apiFetch(`/api/stripe/publishable-key?patientId=${patientId}`);
         if (res.ok) {
@@ -101,28 +101,21 @@ export function ProcessPaymentForm({ patientId, patientName, clinicSubdomain, on
       const instance = await stripeP;
       if (!cancelled && instance) {
         stripeInstanceRef.current = instance;
+        setStripeLoaded(true);
       }
     };
     init();
     return () => { cancelled = true; };
   }, [patientId]);
 
-  // Mount the CardElement once the container div is actually in the DOM
+  // Mount the CardElement once Stripe is loaded and the container is in the DOM.
+  // Both the card and confirmCardPayment use the same stripeInstanceRef.
   useEffect(() => {
-    if (loadingCards || paymentMode !== 'new') return;
+    if (loadingCards || paymentMode !== 'new' || !stripeLoaded) return;
 
     let cancelled = false;
 
     const mountCard = async () => {
-      // Wait for Stripe instance if it hasn't resolved yet
-      if (!stripeInstanceRef.current) {
-        const stripeP = getStripeInstance();
-        if (!stripeP) return;
-        const instance = await stripeP;
-        if (cancelled || !instance) return;
-        stripeInstanceRef.current = instance;
-      }
-
       const stripe = stripeInstanceRef.current;
       if (!stripe || !stripeCardRef.current) return;
 
@@ -159,7 +152,7 @@ export function ProcessPaymentForm({ patientId, patientName, clinicSubdomain, on
       stripeElementRef.current = null;
       setStripeReady(false);
     };
-  }, [loadingCards, paymentMode]);
+  }, [loadingCards, paymentMode, stripeLoaded]);
 
   useEffect(() => {
     const fetchSavedCards = async () => {

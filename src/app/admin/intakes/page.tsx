@@ -419,9 +419,17 @@ export default function AdminIntakesPage() {
                       <div className="text-sm text-gray-500">{displayContact(patient.phone)}</div>
                     </td>
                     <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-600">
-                      {patient.dateOfBirth && !isEncryptedData(patient.dateOfBirth)
-                        ? new Date(patient.dateOfBirth).toLocaleDateString()
-                        : '-'}
+                      {(() => {
+                        if (!patient.dateOfBirth || isEncryptedData(patient.dateOfBirth)) return '-';
+                        const d = patient.dateOfBirth.trim();
+                        if (d.includes('/')) return d;
+                        const parts = d.split('-');
+                        if (parts.length === 3) {
+                          const [yyyy, mm, dd] = parts;
+                          return `${mm}/${dd}/${yyyy}`;
+                        }
+                        return d;
+                      })()}
                     </td>
                     <td className="whitespace-nowrap px-6 py-4">
                       <span
