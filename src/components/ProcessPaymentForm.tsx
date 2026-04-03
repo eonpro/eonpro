@@ -76,39 +76,27 @@ export function ProcessPaymentForm({ patientId, patientName, clinicSubdomain, on
   const stripeCardRef = useRef<HTMLDivElement>(null);
   const stripeElementRef = useRef<StripeCardElement | null>(null);
   const stripeInstanceRef = useRef<Stripe | null>(null);
-  const [stripePk, setStripePk] = useState<string | null>(null);
 
-  // Fetch the correct Stripe publishable key for this patient's clinic.
-  // The key must be known before mounting the CardElement so that
-  // confirmCardPayment uses the same Stripe instance.
+  // Fetch the correct Stripe publishable key for this patient's clinic,
+  // then eagerly load the Stripe instance. Falls back to the default key
+  // immediately so Stripe is always available (even if the API call fails).
   useEffect(() => {
-    let cancelled = false;
-    const fetchKey = async () => {
-      try {
-        const res = await apiFetch('/api/payment-methods/setup-intent', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ patientId }),
-        });
-        if (!res.ok) return;
-        const data = await res.json();
-        if (!cancelled && data.stripePublishableKey) {
-          setStripePk(data.stripePublishableKey);
-        }
-      } catch {
-        // Fall back to default key
-      }
-    };
-    fetchKey();
-    return () => { cancelled = true; };
-  }, [patientId]);
-
-  // Load the Stripe instance once we know the correct publishable key
-  useEffect(() => {
-    if (!stripePk) return;
     let cancelled = false;
     const init = async () => {
-      const stripeP = getStripeInstance(stripePk);
+      let pk: string | undefined;
+
+      // Try to fetch the clinic-specific key (lightweight, no Stripe objects created)
+      try {
+        const res = await apiFetch(`/api/stripe/publishable-key?patientId=${patientId}`);
+        if (res.ok) {
+          const data = await res.json();
+          pk = data.publishableKey;
+        }
+      } catch {
+        // Fall through to default key
+      }
+
+      const stripeP = getStripeInstance(pk);
       if (!stripeP) return;
       const instance = await stripeP;
       if (!cancelled && instance) {
@@ -117,17 +105,18 @@ export function ProcessPaymentForm({ patientId, patientName, clinicSubdomain, on
     };
     init();
     return () => { cancelled = true; };
-  }, [stripePk]);
+  }, [patientId]);
 
-  // Mount the CardElement once the container div is in the DOM and Stripe is ready
+  // Mount the CardElement once the container div is actually in the DOM
   useEffect(() => {
-    if (loadingCards || paymentMode !== 'new' || !stripePk) return;
+    if (loadingCards || paymentMode !== 'new') return;
 
     let cancelled = false;
 
     const mountCard = async () => {
+      // Wait for Stripe instance if it hasn't resolved yet
       if (!stripeInstanceRef.current) {
-        const stripeP = getStripeInstance(stripePk);
+        const stripeP = getStripeInstance();
         if (!stripeP) return;
         const instance = await stripeP;
         if (cancelled || !instance) return;
@@ -170,7 +159,7 @@ export function ProcessPaymentForm({ patientId, patientName, clinicSubdomain, on
       stripeElementRef.current = null;
       setStripeReady(false);
     };
-  }, [loadingCards, paymentMode, stripePk]);
+  }, [loadingCards, paymentMode]);
 
   useEffect(() => {
     const fetchSavedCards = async () => {

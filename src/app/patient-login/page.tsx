@@ -119,27 +119,10 @@ function PatientLoginPage() {
   const [resetMethod, setResetMethod] = useState<'email' | 'sms'>('email');
   const [patientFirstName, setPatientFirstName] = useState('');
 
-  // White-label branding — restore from cache to avoid CLS on return visits
-  const [branding, setBranding] = useState<ClinicBranding | null>(() => {
-    if (!isBrowser) return null;
-    try {
-      const cached = localStorage.getItem('clinic-branding-cache');
-      if (!cached) return null;
-      const parsed = JSON.parse(cached) as ClinicBranding & { _cachedAt?: number };
-      if (parsed._cachedAt && Date.now() - parsed._cachedAt > 24 * 60 * 60 * 1000) return null;
-      return parsed;
-    } catch { return null; }
-  });
-  const [resolvedClinicId, setResolvedClinicId] = useState<number | null>(() => {
-    if (!isBrowser) return null;
-    try {
-      const cached = localStorage.getItem('clinic-branding-cache');
-      if (!cached) return null;
-      const parsed = JSON.parse(cached) as { clinicId?: number; _cachedAt?: number };
-      if (parsed._cachedAt && Date.now() - parsed._cachedAt > 24 * 60 * 60 * 1000) return null;
-      return parsed.clinicId ?? null;
-    } catch { return null; }
-  });
+  // White-label branding — always start with server-safe defaults to avoid
+  // hydration mismatch (#418). Cache is restored in a post-mount effect below.
+  const [branding, setBranding] = useState<ClinicBranding | null>(null);
+  const [resolvedClinicId, setResolvedClinicId] = useState<number | null>(null);
   const [isMainApp, setIsMainApp] = useState(false);
   const [logoLoadError, setLogoLoadError] = useState(false);
 
@@ -160,6 +143,22 @@ function PatientLoginPage() {
       document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
       document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=.eonpro.io;`;
     });
+  }, []);
+
+  // Restore cached branding from localStorage after mount to reduce CLS on return visits.
+  // Runs once after hydration so the initial server/client render stays in sync.
+  useEffect(() => {
+    try {
+      const cached = localStorage.getItem('clinic-branding-cache');
+      if (!cached) {
+        if (!localStorage.getItem('clinic-branding-is-whitelabel')) setIsMainApp(true);
+        return;
+      }
+      const parsed = JSON.parse(cached) as ClinicBranding & { clinicId?: number; _cachedAt?: number };
+      if (parsed._cachedAt && Date.now() - parsed._cachedAt > 24 * 60 * 60 * 1000) return;
+      setBranding(parsed);
+      if (parsed.clinicId) setResolvedClinicId(parsed.clinicId);
+    } catch { /* corrupt cache — ignore, fresh fetch below will resolve */ }
   }, []);
 
   // Resolve clinic branding

@@ -171,32 +171,11 @@ function LoginContent() {
   const [canResendReset, setCanResendReset] = useState(false);
   const resetCodeRefs = useRef<(HTMLInputElement | null)[]>([]);
 
-  // White-label branding state — restore from cache to avoid CLS on return visits
-  const [branding, setBranding] = useState<ClinicBranding | null>(() => {
-    if (!isBrowser) return null;
-    try {
-      const cached = localStorage.getItem('clinic-branding-cache');
-      if (!cached) return null;
-      const parsed = JSON.parse(cached) as ClinicBranding & { _cachedAt?: number };
-      if (parsed._cachedAt && Date.now() - parsed._cachedAt > 24 * 60 * 60 * 1000) return null;
-      return parsed;
-    } catch { return null; }
-  });
-  const [resolvedClinicId, setResolvedClinicId] = useState<number | null>(() => {
-    if (!isBrowser) return null;
-    try {
-      const cached = localStorage.getItem('clinic-branding-cache');
-      if (!cached) return null;
-      const parsed = JSON.parse(cached) as { clinicId?: number; _cachedAt?: number };
-      if (parsed._cachedAt && Date.now() - parsed._cachedAt > 24 * 60 * 60 * 1000) return null;
-      return parsed.clinicId ?? null;
-    } catch { return null; }
-  });
-  const [isMainApp, setIsMainApp] = useState(() => {
-    if (!isBrowser) return false;
-    const cached = localStorage.getItem('clinic-branding-cache');
-    return cached === null && !localStorage.getItem('clinic-branding-is-whitelabel');
-  });
+  // White-label branding state — always start with server-safe defaults to avoid
+  // hydration mismatch (#418). Cache is restored in a post-mount effect below.
+  const [branding, setBranding] = useState<ClinicBranding | null>(null);
+  const [resolvedClinicId, setResolvedClinicId] = useState<number | null>(null);
+  const [isMainApp, setIsMainApp] = useState(false);
   const [isLogosRxExperience, setIsLogosRxExperience] = useState(false);
 
   // Logo load failure: gracefully fall back to clinic name text
@@ -257,6 +236,22 @@ function LoginContent() {
       clearTimeout(timeoutId);
       controller.abort();
     };
+  }, []);
+
+  // Restore cached branding from localStorage after mount to reduce CLS on return visits.
+  // Runs once after hydration so the initial server/client render stays in sync.
+  useEffect(() => {
+    try {
+      const cached = localStorage.getItem('clinic-branding-cache');
+      if (!cached) {
+        if (!localStorage.getItem('clinic-branding-is-whitelabel')) setIsMainApp(true);
+        return;
+      }
+      const parsed = JSON.parse(cached) as ClinicBranding & { clinicId?: number; _cachedAt?: number };
+      if (parsed._cachedAt && Date.now() - parsed._cachedAt > 24 * 60 * 60 * 1000) return;
+      setBranding(parsed);
+      if (parsed.clinicId) setResolvedClinicId(parsed.clinicId);
+    } catch { /* corrupt cache — ignore, fresh fetch below will resolve */ }
   }, []);
 
   // Resolve clinic from domain and load branding (non-blocking: on failure use default/main app)
