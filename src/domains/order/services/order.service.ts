@@ -156,8 +156,12 @@ export const orderService = {
       filters.patientId = options.patientId;
     }
 
-    // Provider filter
-    if (options.providerId) {
+    // Provider can only see own orders (same pattern as patient above)
+    if (userContext.role === 'provider') {
+      if (userContext.providerId) {
+        filters.providerId = userContext.providerId;
+      }
+    } else if (options.providerId) {
       filters.providerId = options.providerId;
     }
 
