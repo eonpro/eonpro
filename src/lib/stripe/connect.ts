@@ -146,6 +146,35 @@ export function getDedicatedAccountPublishableKey(subdomain: string): string | u
   return process.env[`NEXT_PUBLIC_${config.envPrefix}_STRIPE_PUBLISHABLE_KEY`];
 }
 
+/**
+ * Get the correct client-side publishable key for a StripeContext.
+ * Ensures the client Stripe.js instance matches the server's Stripe account.
+ */
+export function getPublishableKeyForContext(
+  context: StripeContext,
+  clinicSubdomain?: string | null,
+): string {
+  // Dedicated accounts have their own publishable key
+  if (context.isDedicatedAccount && clinicSubdomain) {
+    const pk = getDedicatedAccountPublishableKey(clinicSubdomain);
+    if (pk) return pk;
+  }
+
+  // Platform account uses the Connect platform publishable key
+  if (context.isPlatformAccount) {
+    const platformPk = process.env.NEXT_PUBLIC_STRIPE_CONNECT_PLATFORM_PUBLISHABLE_KEY;
+    if (platformPk) return platformPk;
+  }
+
+  // Connected accounts use the platform publishable key (with stripeAccount option)
+  if (context.stripeAccountId) {
+    const platformPk = process.env.NEXT_PUBLIC_STRIPE_CONNECT_PLATFORM_PUBLISHABLE_KEY;
+    if (platformPk) return platformPk;
+  }
+
+  return process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || '';
+}
+
 // Alias for backward compatibility
 const getPlatformStripe = getConnectPlatformStripe;
 

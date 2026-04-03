@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/db';
-import { getStripeForClinic } from '@/lib/stripe/connect';
+import { getStripeForClinic, getPublishableKeyForContext } from '@/lib/stripe/connect';
 import { StripeCustomerService } from '@/services/stripe/customerService';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
@@ -57,11 +57,18 @@ async function handler(req: NextRequest, user: AuthUser) {
           usage: 'off_session',
         });
 
+    const clinic = await prisma.clinic.findUnique({
+      where: { id: patient.clinicId },
+      select: { subdomain: true },
+    });
+
     logger.info('[SetupIntent] Created for patient', { patientId, setupIntentId: setupIntent.id });
 
     return NextResponse.json({
       clientSecret: setupIntent.client_secret,
       setupIntentId: setupIntent.id,
+      stripePublishableKey: getPublishableKeyForContext(stripeContext, clinic?.subdomain),
+      stripeConnectedAccountId: stripeContext.stripeAccountId || null,
     });
   } catch (error) {
     logger.error('[SetupIntent] Error:', error instanceof Error ? error : new Error(String(error)));

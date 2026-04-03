@@ -6,11 +6,21 @@ import { apiFetch } from '@/lib/api/fetch';
 import { getCardNetworkLogo } from '@/lib/constants/brand-assets';
 import { loadStripe, Stripe, StripeCardElement } from '@stripe/stripe-js';
 
-const stripePublishableKey =
-  process.env.NEXT_PUBLIC_EONMEDS_STRIPE_PUBLISHABLE_KEY ||
-  process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ||
-  '';
-const stripePromise = stripePublishableKey ? loadStripe(stripePublishableKey) : null;
+const stripeCache = new Map<string, Promise<Stripe | null>>();
+
+function getStripeInstance(
+  publishableKey?: string,
+  connectedAccountId?: string | null,
+): Promise<Stripe | null> | null {
+  const pk = publishableKey || process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || '';
+  if (!pk) return null;
+  const cacheKey = connectedAccountId ? `${pk}__${connectedAccountId}` : pk;
+  if (!stripeCache.has(cacheKey)) {
+    const opts = connectedAccountId ? { stripeAccount: connectedAccountId } : undefined;
+    stripeCache.set(cacheKey, loadStripe(pk, opts));
+  }
+  return stripeCache.get(cacheKey)!;
+}
 
 // Icon components
 const CreditCard = ({ className }: { className?: string }) => (
@@ -109,6 +119,12 @@ export default function PatientPaymentMethods({
   const stripeCardRef = useRef<HTMLDivElement>(null);
   const stripeElementRef = useRef<StripeCardElement | null>(null);
   const stripeInstanceRef = useRef<Stripe | null>(null);
+  const [setupData, setSetupData] = useState<{
+    clientSecret: string;
+    stripePublishableKey?: string;
+    stripeConnectedAccountId?: string | null;
+  } | null>(null);
+  const [cardReady, setCardReady] = useState(false);
 
   // Fetch saved cards
   const fetchCards = async () => {
@@ -130,47 +146,76 @@ export default function PatientPaymentMethods({
     fetchCards();
   }, [patientId]);
 
-  // Mount Stripe CardElement when Add Card form is shown
+  // When Add Card form is shown: fetch SetupIntent from server (which tells us the
+  // correct publishable key), init Stripe with that key, then mount the CardElement.
   useEffect(() => {
     if (!showAddCard) return;
 
     let mounted = true;
-    const mountCard = async () => {
-      if (!stripePromise) {
-        logger.error('Stripe publishable key not configured');
-        return;
-      }
-      const stripeInstance = await stripePromise;
-      if (!stripeInstance || !mounted) return;
-      stripeInstanceRef.current = stripeInstance;
+    setCardReady(false);
+    setSetupData(null);
 
-      // Wait for DOM ref
-      await new Promise((r) => setTimeout(r, 50));
-      if (!stripeCardRef.current || !mounted) return;
+    const initCard = async () => {
+      try {
+        // 1. Create SetupIntent on the server — response includes the publishable key
+        const res = await apiFetch('/api/payment-methods/setup-intent', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ patientId }),
+        });
+        const data = await res.json();
+        if (!res.ok || !data.clientSecret) {
+          if (mounted) setError(data.error || 'Failed to initialize card setup');
+          return;
+        }
+        if (!mounted) return;
+        setSetupData(data);
 
-      const elements = stripeInstance.elements();
-      const card = elements.create('card', {
-        style: {
-          base: {
-            fontSize: '16px',
-            color: '#1a1a1a',
-            fontFamily: 'inherit',
-            '::placeholder': { color: '#9ca3af' },
+        // 2. Init Stripe.js with the clinic's publishable key
+        const stripeP = getStripeInstance(
+          data.stripePublishableKey,
+          data.stripeConnectedAccountId,
+        );
+        if (!stripeP) {
+          if (mounted) setError('Stripe is not configured');
+          return;
+        }
+        const stripeInstance = await stripeP;
+        if (!stripeInstance || !mounted) return;
+        stripeInstanceRef.current = stripeInstance;
+
+        // 3. Mount the CardElement
+        await new Promise((r) => setTimeout(r, 50));
+        if (!stripeCardRef.current || !mounted) return;
+
+        const elements = stripeInstance.elements();
+        const card = elements.create('card', {
+          style: {
+            base: {
+              fontSize: '16px',
+              color: '#1a1a1a',
+              fontFamily: 'inherit',
+              '::placeholder': { color: '#9ca3af' },
+            },
+            invalid: { color: '#ef4444' },
           },
-          invalid: { color: '#ef4444' },
-        },
-      });
-      card.mount(stripeCardRef.current);
-      stripeElementRef.current = card;
+        });
+        card.mount(stripeCardRef.current);
+        stripeElementRef.current = card;
+        if (mounted) setCardReady(true);
+      } catch (err) {
+        if (mounted) setError(err instanceof Error ? err.message : 'Failed to initialize card setup');
+      }
     };
-    mountCard();
+    initCard();
 
     return () => {
       mounted = false;
       stripeElementRef.current?.unmount();
       stripeElementRef.current = null;
+      setCardReady(false);
     };
-  }, [showAddCard]);
+  }, [showAddCard, patientId]);
 
   // Add card via Stripe SetupIntent (PCI DSS compliant — no raw card data touches our server)
   const handleAddCard = async (e: React.FormEvent) => {
@@ -178,7 +223,7 @@ export default function PatientPaymentMethods({
     setError(null);
     setSuccessMessage(null);
 
-    if (!stripeInstanceRef.current || !stripeElementRef.current) {
+    if (!stripeInstanceRef.current || !stripeElementRef.current || !setupData?.clientSecret) {
       setError('Payment form not ready. Please try again.');
       return;
     }
@@ -186,19 +231,9 @@ export default function PatientPaymentMethods({
     setSubmitting(true);
 
     try {
-      // Ask server to create a SetupIntent
-      const setupRes = await apiFetch('/api/payment-methods/setup-intent', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ patientId }),
-      });
-
-      const setupData = await setupRes.json();
-      if (!setupRes.ok) {
-        throw new Error(setupData.error || 'Failed to initialize card setup');
-      }
-
-      // Confirm with Stripe.js (card data goes directly to Stripe, never to our server)
+      // Confirm with Stripe.js (card data goes directly to Stripe, never to our server).
+      // The SetupIntent was created during card mount; Stripe.js was initialized with
+      // the matching publishable key so it can find the intent on the correct account.
       const { error: stripeError, setupIntent } = await stripeInstanceRef.current.confirmCardSetup(
         setupData.clientSecret,
         { payment_method: { card: stripeElementRef.current } }

@@ -110,6 +110,7 @@ const mockGetDedicatedAccountPublishableKey = vi.hoisted(() => vi.fn());
 vi.mock('@/lib/stripe/connect', () => ({
   getStripeForClinic: mockGetStripeForClinic,
   getDedicatedAccountPublishableKey: mockGetDedicatedAccountPublishableKey,
+  getPublishableKeyForContext: vi.fn(() => 'pk_test_platform'),
 }));
 
 vi.mock('@/lib/auth/middleware', () => ({

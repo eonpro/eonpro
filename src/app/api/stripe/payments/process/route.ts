@@ -6,7 +6,7 @@ import { processPaymentForCommission } from '@/services/affiliate/affiliateCommi
 import { logger } from '@/lib/logger';
 import { Patient, Provider, Order } from '@/types/models';
 import { handleApiError } from '@/domains/shared/errors';
-import { getStripeForClinic, getDedicatedAccountPublishableKey } from '@/lib/stripe/connect';
+import { getStripeForClinic, getPublishableKeyForContext } from '@/lib/stripe/connect';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { StripeCustomerService } from '@/services/stripe/customerService';
 
@@ -221,16 +221,12 @@ async function handlePost(request: NextRequest, _user: AuthUser) {
           where: { id: patient.clinicId },
           select: { subdomain: true },
         });
-        const clinicPk = clinic?.subdomain
-          ? getDedicatedAccountPublishableKey(clinic.subdomain)
-          : undefined;
-
         return NextResponse.json({
           requiresStripeConfirmation: true,
           clientSecret: intent.client_secret,
           paymentIntentId: intent.id,
           localPaymentMethodId,
-          stripePublishableKey: clinicPk || process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY,
+          stripePublishableKey: getPublishableKeyForContext(stripeContext, clinic?.subdomain),
           stripeConnectedAccountId: stripeContext.stripeAccountId || null,
         });
       }
@@ -559,16 +555,12 @@ async function handlePost(request: NextRequest, _user: AuthUser) {
       where: { id: patient.clinicId },
       select: { subdomain: true },
     });
-    const clinicPk = clinic?.subdomain
-      ? getDedicatedAccountPublishableKey(clinic.subdomain)
-      : undefined;
-
     return NextResponse.json({
       requiresStripeConfirmation: true,
       clientSecret: intent.client_secret,
       paymentIntentId: intent.id,
       localPaymentMethodId: null,
-      stripePublishableKey: clinicPk || process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY,
+      stripePublishableKey: getPublishableKeyForContext(stripeContext, clinic?.subdomain),
       stripeConnectedAccountId: stripeContext.stripeAccountId || null,
     });
   } catch (error: unknown) {
