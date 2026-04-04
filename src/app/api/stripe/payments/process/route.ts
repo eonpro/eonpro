@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { PaymentStatus } from '@prisma/client';
+import { PaymentStatus, Prisma } from '@prisma/client';
 import crypto from 'crypto';
 import { processPaymentForCommission } from '@/services/affiliate/affiliateCommissionService';
 import { logger } from '@/lib/logger';
@@ -48,6 +48,16 @@ function computeNextBillingUnix(interval: string, intervalCount: number): number
 
   // Stripe expects seconds.
   return Math.floor(next.getTime() / 1000);
+}
+
+function isStripePaymentIntentUniqueConstraint(error: unknown): boolean {
+  if (!(error instanceof Prisma.PrismaClientKnownRequestError)) return false;
+  if (error.code !== 'P2002') return false;
+
+  const target = (error.meta as { target?: string[] | string } | undefined)?.target;
+  if (Array.isArray(target)) return target.includes('stripePaymentIntentId');
+  if (typeof target === 'string') return target.includes('stripePaymentIntentId');
+  return false;
 }
 
 /**
@@ -326,69 +336,115 @@ async function handlePost(request: NextRequest, _user: AuthUser) {
 
       // Update payment record, create local + Stripe subscription inside a transaction
       let stripeSubscriptionId: string | null = null;
-      const result = await prisma.$transaction(async (tx) => {
-        let subscriptionId: number | null = null;
-
-        await tx.payment.update({
-          where: { id: pendingPayment.id },
-          data: {
-            status: stripeStatus,
-            stripePaymentIntentId: paymentIntent.id,
-            stripeChargeId: paymentIntent.latest_charge?.toString(),
-          },
-        });
-
-        if (subscription && stripeStatus === PaymentStatus.SUCCEEDED) {
-          const subscriptionInfo = subscription as SubscriptionInfo;
-          const now = new Date();
-          const periodEnd = new Date(now);
-          const totalMonths = subscriptionInfo.intervalCount *
-            (subscriptionInfo.interval === 'year' ? 12 : subscriptionInfo.interval === 'month' ? 1 : 1);
-          periodEnd.setMonth(periodEnd.getMonth() + (totalMonths || 1));
-
-          const createdSubscription = await tx.subscription.create({
-            data: {
-              patientId: patient.id,
-              planId: subscriptionInfo.planId,
-              planName: subscriptionInfo.planName,
-              planDescription: description,
-              amount,
-              interval: subscriptionInfo.interval,
-              intervalCount: subscriptionInfo.intervalCount,
-              startDate: now,
-              currentPeriodStart: now,
-              currentPeriodEnd: periodEnd,
-              nextBillingDate: periodEnd,
-              paymentMethodId: localPaymentMethodId ?? 0,
-            },
-          });
-
-          subscriptionId = createdSubscription.id;
+      let result: { subscriptionId: number | null } = { subscriptionId: null };
+      try {
+        result = await prisma.$transaction(async (tx) => {
+          let subscriptionId: number | null = null;
 
           await tx.payment.update({
             where: { id: pendingPayment.id },
-            data: { subscriptionId },
+            data: {
+              status: stripeStatus,
+              stripePaymentIntentId: paymentIntent.id,
+              stripeChargeId: paymentIntent.latest_charge?.toString(),
+            },
           });
 
-          const currentTags = (patient.tags as string[]) || [];
-          const subscriptionTag = `subscription-${subscriptionInfo.planName.toLowerCase().replace(/\s+/g, '-')}`;
-          if (!currentTags.includes(subscriptionTag)) {
-            await tx.patient.update({
-              where: { id: patient.id },
-              data: { tags: [...currentTags, subscriptionTag, 'active-subscription'] },
+          if (subscription && stripeStatus === PaymentStatus.SUCCEEDED) {
+            const subscriptionInfo = subscription as SubscriptionInfo;
+            const now = new Date();
+            const periodEnd = new Date(now);
+            const totalMonths = subscriptionInfo.intervalCount *
+              (subscriptionInfo.interval === 'year' ? 12 : subscriptionInfo.interval === 'month' ? 1 : 1);
+            periodEnd.setMonth(periodEnd.getMonth() + (totalMonths || 1));
+
+            const createdSubscription = await tx.subscription.create({
+              data: {
+                patientId: patient.id,
+                planId: subscriptionInfo.planId,
+                planName: subscriptionInfo.planName,
+                planDescription: description,
+                amount,
+                interval: subscriptionInfo.interval,
+                intervalCount: subscriptionInfo.intervalCount,
+                startDate: now,
+                currentPeriodStart: now,
+                currentPeriodEnd: periodEnd,
+                nextBillingDate: periodEnd,
+                paymentMethodId: localPaymentMethodId ?? 0,
+              },
+            });
+
+            subscriptionId = createdSubscription.id;
+
+            await tx.payment.update({
+              where: { id: pendingPayment.id },
+              data: { subscriptionId },
+            });
+
+            const currentTags = (patient.tags as string[]) || [];
+            const subscriptionTag = `subscription-${subscriptionInfo.planName.toLowerCase().replace(/\s+/g, '-')}`;
+            if (!currentTags.includes(subscriptionTag)) {
+              await tx.patient.update({
+                where: { id: patient.id },
+                data: { tags: [...currentTags, subscriptionTag, 'active-subscription'] },
+              });
+            }
+          }
+
+          if (localPaymentMethodId) {
+            await tx.paymentMethod.update({
+              where: { id: localPaymentMethodId },
+              data: { lastUsedAt: new Date() },
+            });
+          }
+
+          return { subscriptionId };
+        }, { timeout: 15000 });
+      } catch (txError) {
+        // Webhook can create a payment row for the same Stripe PaymentIntent milliseconds earlier.
+        // Treat that race as idempotent success rather than surfacing a unique-constraint failure.
+        if (isStripePaymentIntentUniqueConstraint(txError)) {
+          const existingPayment = await prisma.payment.findUnique({
+            where: { stripePaymentIntentId: paymentIntent.id },
+          });
+
+          if (existingPayment) {
+            logger.warn('[PaymentProcess] Detected duplicate Stripe PaymentIntent (idempotent race)', {
+              pendingPaymentId: pendingPayment.id,
+              existingPaymentId: existingPayment.id,
+              stripePaymentIntentId: paymentIntent.id,
+              patientId: patient.id,
+            });
+
+            await prisma.payment.update({
+              where: { id: pendingPayment.id },
+              data: {
+                status: PaymentStatus.FAILED,
+                failureReason: `Duplicate Stripe PaymentIntent recorded as payment ${existingPayment.id}`,
+              },
+            });
+
+            if (existingPayment.status === PaymentStatus.FAILED || existingPayment.status === PaymentStatus.CANCELED) {
+              return NextResponse.json(
+                { error: `Payment ${existingPayment.status.toLowerCase()}. Please try again or use a different card.` },
+                { status: 402 }
+              );
+            }
+
+            return NextResponse.json({
+              success: true,
+              payment: existingPayment,
+              paymentMethodSaved: false,
+              subscriptionCreated: false,
+              commissionProcessed: false,
+              deduplicated: true,
             });
           }
         }
 
-        if (localPaymentMethodId) {
-          await tx.paymentMethod.update({
-            where: { id: localPaymentMethodId },
-            data: { lastUsedAt: new Date() },
-          });
-        }
-
-        return { subscriptionId };
-      }, { timeout: 15000 });
+        throw txError;
+      }
 
       // Create a real Stripe Subscription for recurring plans
       if (subscription && stripeStatus === PaymentStatus.SUCCEEDED && stripePaymentMethodId && stripeCustomerId) {

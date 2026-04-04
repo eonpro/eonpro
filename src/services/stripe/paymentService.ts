@@ -2,7 +2,7 @@ import { prisma } from '@/lib/db';
 import { getStripeForClinic, stripeRequestOptions, type StripeContext } from '@/lib/stripe/connect';
 import { StripeCustomerService } from './customerService';
 import type Stripe from 'stripe';
-import type { PaymentStatus } from '@prisma/client';
+import { Prisma, type PaymentStatus } from '@prisma/client';
 import { logger } from '@/lib/logger';
 import { circuitBreakers } from '@/lib/resilience/circuitBreaker';
 import crypto from 'crypto';
@@ -23,6 +23,15 @@ export interface ProcessPaymentOptions {
  * orphaned Stripe charges and ensure data consistency.
  */
 export class StripePaymentService {
+  private static isStripePaymentIntentUniqueConstraint(error: unknown): boolean {
+    if (!(error instanceof Prisma.PrismaClientKnownRequestError)) return false;
+    if (error.code !== 'P2002') return false;
+    const target = (error.meta as { target?: string[] | string } | undefined)?.target;
+    if (Array.isArray(target)) return target.includes('stripePaymentIntentId');
+    if (typeof target === 'string') return target.includes('stripePaymentIntentId');
+    return false;
+  }
+
   private static async getStripeContextForPatient(patientId: number): Promise<StripeContext> {
     const patient = await prisma.patient.findUnique({
       where: { id: patientId },
@@ -186,10 +195,30 @@ export class StripePaymentService {
    * Uses a transaction to ensure payment and invoice updates are atomic
    */
   static async updatePaymentFromIntent(paymentIntent: Stripe.PaymentIntent): Promise<void> {
-    // Find payment in database
-    const payment = await prisma.payment.findUnique({
+    // 1) Primary lookup: canonical Stripe payment intent ID
+    let payment = await prisma.payment.findUnique({
       where: { stripePaymentIntentId: paymentIntent.id },
     });
+
+    // 2) Fallback lookup: metadata.paymentId from DB-first process route
+    // This recovers rows that were created as PENDING but did not yet get
+    // stripePaymentIntentId due to a race/error before DB update.
+    if (!payment) {
+      const rawPaymentId = paymentIntent.metadata?.paymentId;
+      const parsedPaymentId = rawPaymentId ? parseInt(rawPaymentId, 10) : NaN;
+      if (!Number.isNaN(parsedPaymentId) && parsedPaymentId > 0) {
+        const byMetadataId = await prisma.payment.findUnique({
+          where: { id: parsedPaymentId },
+        });
+        if (byMetadataId) {
+          payment = byMetadataId;
+          logger.info('[STRIPE] Recovered payment via metadata.paymentId fallback', {
+            stripePaymentIntentId: paymentIntent.id,
+            paymentId: byMetadataId.id,
+          });
+        }
+      }
+    }
 
     if (!payment) {
       logger.warn(`[STRIPE] Payment intent ${paymentIntent.id} not found in database`);
@@ -200,41 +229,68 @@ export class StripePaymentService {
     const wasAlreadySucceeded = payment.status === 'SUCCEEDED';
 
     // Wrap payment and invoice updates in a transaction for atomicity
-    await prisma.$transaction(async (tx) => {
-      // Update payment
-      await tx.payment.update({
-        where: { id: payment.id },
-        data: {
-          status: newStatus,
-          stripeChargeId: paymentIntent.latest_charge?.toString(),
-          paymentMethod: paymentIntent.payment_method?.toString(),
-          failureReason: paymentIntent.last_payment_error?.message,
-        },
-      });
-
-      // Only increment amountPaid when payment is TRANSITIONING to succeeded,
-      // not when it was already created as SUCCEEDED (e.g. by paymentMatchingService).
-      // This prevents double-counting when processStripePayment() already sets
-      // amountPaid on the invoice and then this method is called from the webhook.
-      if (
-        paymentIntent.status === 'succeeded' &&
-        payment.invoiceId &&
-        !wasAlreadySucceeded
-      ) {
-        await tx.invoice.update({
-          where: { id: payment.invoiceId },
+    try {
+      await prisma.$transaction(async (tx) => {
+        // Update payment
+        await tx.payment.update({
+          where: { id: payment.id },
           data: {
-            amountPaid: {
-              increment: payment.amount,
-            },
-            status: 'PAID',
-            paidAt: new Date(),
+            status: newStatus,
+            stripePaymentIntentId: payment.stripePaymentIntentId ?? paymentIntent.id,
+            stripeChargeId: paymentIntent.latest_charge?.toString(),
+            paymentMethod: paymentIntent.payment_method?.toString(),
+            failureReason: paymentIntent.last_payment_error?.message,
           },
         });
-      } else if (paymentIntent.status === 'succeeded' && payment.invoiceId && wasAlreadySucceeded) {
-        logger.debug(`[STRIPE] Skipping amountPaid increment for ${paymentIntent.id} - payment already SUCCEEDED (idempotent guard)`);
+
+        // Only increment amountPaid when payment is TRANSITIONING to succeeded,
+        // not when it was already created as SUCCEEDED (e.g. by paymentMatchingService).
+        // This prevents double-counting when processStripePayment() already sets
+        // amountPaid on the invoice and then this method is called from the webhook.
+        if (
+          paymentIntent.status === 'succeeded' &&
+          payment.invoiceId &&
+          !wasAlreadySucceeded
+        ) {
+          await tx.invoice.update({
+            where: { id: payment.invoiceId },
+            data: {
+              amountPaid: {
+                increment: payment.amount,
+              },
+              status: 'PAID',
+              paidAt: new Date(),
+            },
+          });
+        } else if (paymentIntent.status === 'succeeded' && payment.invoiceId && wasAlreadySucceeded) {
+          logger.debug(`[STRIPE] Skipping amountPaid increment for ${paymentIntent.id} - payment already SUCCEEDED (idempotent guard)`);
+        }
+      }, { timeout: 15000 });
+    } catch (error: unknown) {
+      // If another row already owns this Stripe intent, mark this fallback row failed.
+      if (this.isStripePaymentIntentUniqueConstraint(error)) {
+        const canonical = await prisma.payment.findUnique({
+          where: { stripePaymentIntentId: paymentIntent.id },
+          select: { id: true, status: true },
+        });
+        if (canonical && canonical.id !== payment.id) {
+          await prisma.payment.update({
+            where: { id: payment.id },
+            data: {
+              status: 'FAILED',
+              failureReason: `Duplicate Stripe PaymentIntent recorded as payment ${canonical.id}`,
+            },
+          });
+          logger.warn('[STRIPE] Duplicate payment intent race in webhook update; canonical payment preserved', {
+            stripePaymentIntentId: paymentIntent.id,
+            supersededPaymentId: payment.id,
+            canonicalPaymentId: canonical.id,
+          });
+          return;
+        }
       }
-    }, { timeout: 15000 });
+      throw error;
+    }
 
     logger.debug(`[STRIPE] Updated payment ${paymentIntent.id} from webhook`);
   }
