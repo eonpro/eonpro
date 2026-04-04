@@ -63,14 +63,6 @@ export interface MetricEvent {
 }
 
 // =============================================================================
-// REDIS CLIENT HELPER
-// =============================================================================
-
-function getRedis() {
-  return cache.getClient();
-}
-
-// =============================================================================
 // METRICS RECORDING
 // =============================================================================
 
@@ -80,27 +72,30 @@ const startTime = Date.now();
  * Record a metric event
  */
 export async function recordMetric(event: Omit<MetricEvent, 'timestamp'>): Promise<void> {
-  const redis = getRedis();
-  if (!redis) return;
-
   const metric: MetricEvent = {
     ...event,
     timestamp: Date.now(),
   };
 
   try {
-    const key = `${METRICS_KEY}:${metric.timestamp}`;
-    await redis.set(key, JSON.stringify(metric), { ex: METRICS_WINDOW_SECONDS });
+    await cache.withClient<void>(
+      'healthMonitor:recordMetric',
+      undefined,
+      async (redis) => {
+        const key = `${METRICS_KEY}:${metric.timestamp}`;
+        await redis.set(key, JSON.stringify(metric), { ex: METRICS_WINDOW_SECONDS });
 
-    const counterKey = `${METRICS_KEY}:counters`;
-    if (metric.success) {
-      await redis.hincrby(counterKey, 'success', 1);
-    } else {
-      await redis.hincrby(counterKey, 'errors', 1);
-    }
-    await redis.hincrby(counterKey, 'total', 1);
-    await redis.hincrby(counterKey, 'latencySum', metric.latencyMs);
-    await redis.expire(counterKey, METRICS_WINDOW_SECONDS);
+        const counterKey = `${METRICS_KEY}:counters`;
+        if (metric.success) {
+          await redis.hincrby(counterKey, 'success', 1);
+        } else {
+          await redis.hincrby(counterKey, 'errors', 1);
+        }
+        await redis.hincrby(counterKey, 'total', 1);
+        await redis.hincrby(counterKey, 'latencySum', metric.latencyMs);
+        await redis.expire(counterKey, METRICS_WINDOW_SECONDS);
+      },
+    );
   } catch {
     // Metrics are best-effort; don't break the caller
   }
@@ -169,7 +164,7 @@ async function checkDatabase(): Promise<ServiceCheck> {
  */
 async function checkRedis(): Promise<ServiceCheck> {
   const start = Date.now();
-  const redis = getRedis();
+  const redis = cache.getClient();
 
   if (!redis) {
     return {
@@ -201,13 +196,15 @@ async function checkRedis(): Promise<ServiceCheck> {
  * Check webhook processing health based on recent metrics
  */
 async function checkWebhook(): Promise<ServiceCheck> {
-  const redis = getRedis();
-  if (!redis) {
-    return { status: 'up', lastCheck: new Date().toISOString() };
-  }
-
   const counterKey = `${METRICS_KEY}:counters`;
-  const counters = await redis.hgetall<Record<string, string>>(counterKey);
+  const counters = await cache.withClient<Record<string, string> | null>(
+    'healthMonitor:checkWebhook',
+    null,
+    async (redis) => {
+      const data = await redis.hgetall<Record<string, string>>(counterKey);
+      return data ?? null;
+    },
+  );
 
   if (!counters || Object.keys(counters).length === 0) {
     return {
@@ -264,16 +261,20 @@ async function getQueueDepth(): Promise<number> {
  * Get metrics from the last hour
  */
 async function getMetrics(): Promise<HealthStatus['metrics']> {
-  const redis = getRedis();
   const stats: Record<string, number> = {};
 
-  if (redis) {
-    const counterKey = `${METRICS_KEY}:counters`;
-    const counters = await redis.hgetall<Record<string, string>>(counterKey);
-    if (counters) {
-      for (const [k, v] of Object.entries(counters)) {
-        stats[k] = parseInt(v, 10) || 0;
-      }
+  const counterKey = `${METRICS_KEY}:counters`;
+  const counters = await cache.withClient<Record<string, string> | null>(
+    'healthMonitor:getMetrics',
+    null,
+    async (redis) => {
+      const data = await redis.hgetall<Record<string, string>>(counterKey);
+      return data ?? null;
+    },
+  );
+  if (counters) {
+    for (const [k, v] of Object.entries(counters)) {
+      stats[k] = parseInt(v, 10) || 0;
     }
   }
 

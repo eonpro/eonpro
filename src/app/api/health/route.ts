@@ -194,7 +194,7 @@ async function checkStripe(): Promise<HealthCheck> {
 
     const { default: Stripe } = await import('stripe');
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-      apiVersion: '2026-01-28.clover',
+      apiVersion: '2026-03-25.dahlia',
     });
 
     // Quick balance check to verify API key

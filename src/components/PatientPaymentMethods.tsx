@@ -1,10 +1,21 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
-import { logger } from '@/lib/logger';
+import {
+  useState,
+  useEffect,
+  useMemo,
+  useCallback,
+  type FormEvent,
+  type ReactNode,
+} from 'react';
+
+import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
+import { loadStripe, type Stripe } from '@stripe/stripe-js';
+
 import { apiFetch } from '@/lib/api/fetch';
 import { getCardNetworkLogo } from '@/lib/constants/brand-assets';
-import { loadStripe, Stripe, StripeCardElement } from '@stripe/stripe-js';
+import { logger } from '@/lib/logger';
+
 
 const stripeCache = new Map<string, Promise<Stripe | null>>();
 
@@ -12,14 +23,17 @@ function getStripeInstance(
   publishableKey?: string,
   connectedAccountId?: string | null,
 ): Promise<Stripe | null> | null {
-  const pk = publishableKey || process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || '';
+  const envPk = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? '';
+  const pk = publishableKey?.trim() ? publishableKey.trim() : envPk;
   if (!pk) return null;
   const cacheKey = connectedAccountId ? `${pk}__${connectedAccountId}` : pk;
-  if (!stripeCache.has(cacheKey)) {
+  let promise = stripeCache.get(cacheKey);
+  if (!promise) {
     const opts = connectedAccountId ? { stripeAccount: connectedAccountId } : undefined;
-    stripeCache.set(cacheKey, loadStripe(pk, opts));
+    promise = loadStripe(pk, opts);
+    stripeCache.set(cacheKey, promise);
   }
-  return stripeCache.get(cacheKey)!;
+  return promise;
 }
 
 // Icon components
@@ -104,124 +118,106 @@ interface PatientPaymentMethodsProps {
   patientName: string;
 }
 
-export default function PatientPaymentMethods({
+interface SetupIntentPayload {
+  clientSecret: string;
+  stripePublishableKey?: string;
+  stripeConnectedAccountId?: string | null;
+}
+
+async function savePaymentMethodAfterSetup(args: {
+  patientId: number;
+  setupIntentId: string;
+  stripePaymentMethodId: string;
+  setAsDefault: boolean;
+}): Promise<void> {
+  const saveRes = await apiFetch('/api/payment-methods/save-stripe', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      patientId: args.patientId,
+      setupIntentId: args.setupIntentId,
+      stripePaymentMethodId: args.stripePaymentMethodId,
+      setAsDefault: args.setAsDefault,
+    }),
+  });
+
+  const saveData: { error?: string } = await saveRes.json();
+  if (!saveRes.ok) {
+    throw new Error(saveData.error ?? 'Failed to save card');
+  }
+}
+
+interface SetupIntentApiJson {
+  clientSecret?: string;
+  stripePublishableKey?: string;
+  stripeConnectedAccountId?: string | null;
+  error?: string;
+}
+
+async function requestPatientSetupIntent(
+  patientId: number,
+): Promise<{ ok: true; data: SetupIntentPayload } | { ok: false; error: string }> {
+  const setupRes = await apiFetch('/api/payment-methods/setup-intent', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ patientId }),
+  });
+  const setupResponse = (await setupRes.json()) as SetupIntentApiJson;
+  if (!setupRes.ok) {
+    return { ok: false, error: setupResponse.error ?? 'Failed to initialize payment setup' };
+  }
+  if (!setupResponse.clientSecret) {
+    return { ok: false, error: 'Invalid setup response from server' };
+  }
+  return {
+    ok: true,
+    data: {
+      clientSecret: setupResponse.clientSecret,
+      stripePublishableKey: setupResponse.stripePublishableKey,
+      stripeConnectedAccountId: setupResponse.stripeConnectedAccountId ?? null,
+    },
+  };
+}
+
+function paymentMethodIdsFromSetupIntent(setupIntent: {
+  id?: string;
+  payment_method?: string | { id?: string };
+}): { setupIntentId: string; stripePaymentMethodId: string } {
+  const pm = setupIntent.payment_method;
+  const stripePaymentMethodId = typeof pm === 'string' ? pm : pm?.id;
+  const setupIntentId = setupIntent.id;
+  if (!stripePaymentMethodId || !setupIntentId) {
+    throw new Error('Missing payment method after confirmation');
+  }
+  return { setupIntentId, stripePaymentMethodId };
+}
+
+function AddCardForm({
   patientId,
-  patientName,
-}: PatientPaymentMethodsProps) {
-  const [cards, setCards] = useState<SavedCard[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [showAddCard, setShowAddCard] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [setAsDefault, setSetAsDefault] = useState(false);
+  cardsLength,
+  setAsDefault,
+  setSetAsDefault,
+  onCancel,
+  onAdded,
+  setError,
+}: {
+  patientId: number;
+  cardsLength: number;
+  setAsDefault: boolean;
+  setSetAsDefault: (v: boolean) => void;
+  onCancel: () => void;
+  onAdded: () => Promise<void>;
+  setError: (msg: string | null) => void;
+}) {
+  const stripe = useStripe();
+  const elements = useElements();
   const [submitting, setSubmitting] = useState(false);
 
-  const stripeCardRef = useRef<HTMLDivElement>(null);
-  const stripeElementRef = useRef<StripeCardElement | null>(null);
-  const stripeInstanceRef = useRef<Stripe | null>(null);
-  const [setupData, setSetupData] = useState<{
-    clientSecret: string;
-    stripePublishableKey?: string;
-    stripeConnectedAccountId?: string | null;
-  } | null>(null);
-  const [cardReady, setCardReady] = useState(false);
-
-  // Fetch saved cards
-  const fetchCards = async () => {
-    try {
-      const response = await apiFetch(`/api/payment-methods?patientId=${patientId}`);
-      if (!response.ok) throw new Error('Failed to fetch cards');
-      const data = await response.json();
-      setCards(data.data || []);
-    } catch (err: unknown) {
-      
-      logger.error('Failed to fetch payment methods:', err);
-      setError('Failed to load payment methods');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchCards();
-  }, [patientId]);
-
-  // When Add Card form is shown: fetch the correct publishable key, init Stripe, mount card.
-  useEffect(() => {
-    if (!showAddCard) return;
-
-    let mounted = true;
-    setCardReady(false);
-    setSetupData(null);
-
-    const initCard = async () => {
-      try {
-        // 1. Fetch the clinic-specific publishable key (lightweight, no Stripe objects)
-        let pk: string | undefined;
-        let connectedAccountId: string | null = null;
-        try {
-          const keyRes = await apiFetch(`/api/stripe/publishable-key?patientId=${patientId}`);
-          if (keyRes.ok) {
-            const keyData = await keyRes.json();
-            pk = keyData.publishableKey;
-            connectedAccountId = keyData.connectedAccountId;
-          }
-        } catch {
-          // Fall through to default key
-        }
-
-        if (!mounted) return;
-
-        // 2. Init Stripe.js with the clinic's publishable key
-        const stripeP = getStripeInstance(pk, connectedAccountId);
-        if (!stripeP) {
-          if (mounted) setError('Stripe is not configured');
-          return;
-        }
-        const stripeInstance = await stripeP;
-        if (!stripeInstance || !mounted) return;
-        stripeInstanceRef.current = stripeInstance;
-
-        // 3. Mount the CardElement
-        await new Promise((r) => setTimeout(r, 50));
-        if (!stripeCardRef.current || !mounted) return;
-
-        const elements = stripeInstance.elements();
-        const card = elements.create('card', {
-          style: {
-            base: {
-              fontSize: '16px',
-              color: '#1a1a1a',
-              fontFamily: 'inherit',
-              '::placeholder': { color: '#9ca3af' },
-            },
-            invalid: { color: '#ef4444' },
-          },
-        });
-        card.mount(stripeCardRef.current);
-        stripeElementRef.current = card;
-        if (mounted) setCardReady(true);
-      } catch (err) {
-        if (mounted) setError(err instanceof Error ? err.message : 'Failed to initialize card setup');
-      }
-    };
-    initCard();
-
-    return () => {
-      mounted = false;
-      stripeElementRef.current?.unmount();
-      stripeElementRef.current = null;
-      setCardReady(false);
-    };
-  }, [showAddCard, patientId]);
-
-  // Add card via Stripe SetupIntent (PCI DSS compliant — no raw card data touches our server)
-  const handleAddCard = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
-    setSuccessMessage(null);
 
-    if (!stripeInstanceRef.current || !stripeElementRef.current) {
+    if (!stripe || !elements) {
       setError('Payment form not ready. Please try again.');
       return;
     }
@@ -229,67 +225,304 @@ export default function PatientPaymentMethods({
     setSubmitting(true);
 
     try {
-      // Create a SetupIntent on submit (not on mount, to avoid unnecessary Stripe objects)
-      const setupRes = await apiFetch('/api/payment-methods/setup-intent', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ patientId }),
+      const { error: stripeError, setupIntent } = await stripe.confirmSetup({
+        elements,
+        confirmParams: { return_url: typeof window !== 'undefined' ? window.location.href : '' },
+        redirect: 'if_required',
       });
-      const setupResponse = await setupRes.json();
-      if (!setupRes.ok) {
-        throw new Error(setupResponse.error || 'Failed to initialize card setup');
-      }
-
-      // Confirm with Stripe.js (card data goes directly to Stripe, never to our server)
-      const { error: stripeError, setupIntent } = await stripeInstanceRef.current.confirmCardSetup(
-        setupResponse.clientSecret,
-        { payment_method: { card: stripeElementRef.current } }
-      );
 
       if (stripeError) {
-        throw new Error(stripeError.message || 'Card verification failed');
+        throw new Error(stripeError.message ?? 'Card verification failed');
       }
 
-      // Tell server the SetupIntent succeeded so it can save the payment method reference
-      const saveRes = await apiFetch('/api/payment-methods/save-stripe', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          patientId,
-          setupIntentId: setupIntent?.id,
-          stripePaymentMethodId: setupIntent?.payment_method,
-          setAsDefault: setAsDefault || cards.length === 0,
-        }),
+      const { setupIntentId, stripePaymentMethodId } = paymentMethodIdsFromSetupIntent(
+        setupIntent ?? {},
+      );
+
+      await savePaymentMethodAfterSetup({
+        patientId,
+        setupIntentId,
+        stripePaymentMethodId,
+        setAsDefault: setAsDefault || cardsLength === 0,
       });
 
-      const saveData = await saveRes.json();
-      if (!saveRes.ok) {
-        throw new Error(saveData.error || 'Failed to save card');
-      }
-
-      await fetchCards();
-      setSetAsDefault(false);
-      setShowAddCard(false);
-      stripeElementRef.current?.clear();
-
-      setSuccessMessage('Payment method added successfully');
-      setTimeout(() => setSuccessMessage(null), 5000);
+      await onAdded();
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-      setError(errorMessage || 'Failed to add payment method');
+      setError(errorMessage !== '' ? errorMessage : 'Failed to add payment method');
     } finally {
       setSubmitting(false);
     }
   };
 
+  return (
+    <form
+      onSubmit={(e) => {
+        void handleSubmit(e);
+      }}
+      className="space-y-4"
+    >
+      <div className="rounded-lg border border-gray-200 bg-gray-50 p-1">
+        <div className="flex items-center gap-2 px-3 pb-1 pt-2">
+          <svg className="h-4 w-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+            />
+          </svg>
+          <span className="text-xs font-medium text-gray-500">Secure payment powered by Stripe</span>
+        </div>
+        <div className="rounded-md bg-white p-3">
+          <PaymentElement />
+        </div>
+      </div>
+
+      {cardsLength > 0 && (
+        <div className="flex items-center">
+          <input
+            type="checkbox"
+            id="setAsDefault"
+            checked={setAsDefault}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSetAsDefault(e.target.checked)}
+            className="h-4 w-4 rounded border-gray-300 text-[#4fa77e] focus:ring-[#4fa77e]"
+          />
+          <label htmlFor="setAsDefault" className="ml-2 text-sm text-gray-700">
+            Set as default payment method
+          </label>
+        </div>
+      )}
+
+      <div className="flex gap-3">
+        <button
+          type="submit"
+          disabled={submitting || !stripe || !elements}
+          className="rounded-lg bg-[#4fa77e] px-4 py-2 text-white transition-colors hover:bg-[#3f8660] disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {submitting ? 'Adding...' : 'Add Card'}
+        </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="rounded-lg border border-gray-300 px-4 py-2 transition-colors hover:bg-gray-50"
+        >
+          Cancel
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function getCardIcon(brand: string): ReactNode {
+  const logo = getCardNetworkLogo(brand);
+  if (logo) {
+    return <img src={logo} alt={brand} className="h-8 w-12 object-contain" />;
+  }
+  return (
+    <svg className="h-6 w-8 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <rect x="1" y="4" width="22" height="16" rx="2" ry="2" strokeWidth="2" />
+      <line x1="1" y1="10" x2="23" y2="10" strokeWidth="2" />
+    </svg>
+  );
+}
+
+function isCardExpired(month: number, year: number): boolean {
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth() + 1;
+  return year < currentYear || (year === currentYear && month < currentMonth);
+}
+
+function SavedCardsBlock({
+  cards,
+  showAddCard,
+  onStartAdd,
+  onSetDefault,
+  onRemove,
+}: {
+  cards: SavedCard[];
+  showAddCard: boolean;
+  onStartAdd: () => void;
+  onSetDefault: (cardId: number) => void;
+  onRemove: (cardId: number) => void;
+}) {
+  if (cards.length === 0 && !showAddCard) {
+    return (
+      <div className="py-8 text-center text-gray-500">
+        <CreditCard className="mx-auto mb-3 h-12 w-12 text-gray-300" />
+        <p>No payment methods saved</p>
+        <button type="button" onClick={onStartAdd} className="mt-3 text-[#4fa77e] hover:underline">
+          Add your first card
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {cards.map((card: SavedCard) => {
+        const isStripeOnly = card.source === 'stripe';
+        return (
+          <div
+            key={card.id}
+            className={`rounded-lg border p-4 ${
+              card.isDefault ? 'border-[#4fa77e] bg-green-50' : 'border-gray-200'
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                {getCardIcon(card.brand)}
+                <div>
+                  <div className="flex items-center gap-2 font-medium">
+                    <span>•••• {card.last4}</span>
+                    {card.isDefault && (
+                      <span className="rounded bg-[#4fa77e] px-2 py-0.5 text-xs text-white">
+                        Default
+                      </span>
+                    )}
+                    {isStripeOnly && (
+                      <span className="rounded bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-700">
+                        Stripe
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-sm text-gray-600">
+                    {card.cardholderName ? `${card.cardholderName} • ` : ''}
+                    Expires {String(card.expiryMonth).padStart(2, '0')}/{card.expiryYear}
+                    {isCardExpired(card.expiryMonth, card.expiryYear) && (
+                      <span className="ml-2 font-medium text-red-600">Expired</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                {!isStripeOnly && !card.isDefault && (
+                  <button
+                    type="button"
+                    onClick={() => void onSetDefault(Number(card.id))}
+                    className="text-sm text-[#4fa77e] hover:underline"
+                  >
+                    Set as default
+                  </button>
+                )}
+                {!isStripeOnly && (
+                  <button
+                    type="button"
+                    onClick={() => void onRemove(Number(card.id))}
+                    className="rounded-lg p-2 text-red-600 transition-colors hover:bg-red-50"
+                    title="Remove card"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+export default function PatientPaymentMethods({ patientId, patientName }: PatientPaymentMethodsProps) {
+  void patientName;
+  const [cards, setCards] = useState<SavedCard[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showAddCard, setShowAddCard] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [setAsDefault, setSetAsDefault] = useState(false);
+
+  const [setupData, setSetupData] = useState<SetupIntentPayload | null>(null);
+  const [setupLoading, setSetupLoading] = useState(false);
+  const [setupFetchError, setSetupFetchError] = useState<string | null>(null);
+
+  // Fetch saved cards
+  const fetchCards = useCallback(async () => {
+    try {
+      const response = await apiFetch(`/api/payment-methods?patientId=${patientId}`);
+      if (!response.ok) throw new Error('Failed to fetch cards');
+      const data = await response.json();
+      setCards(data.data ?? []);
+    } catch (err: unknown) {
+      logger.error('Failed to fetch payment methods:', err);
+      setError('Failed to load payment methods');
+    } finally {
+      setLoading(false);
+    }
+  }, [patientId]);
+
+  useEffect(() => {
+    void fetchCards();
+  }, [fetchCards]);
+
+  // When Add Card is shown: create SetupIntent and load clinic publishable key in one request.
+  useEffect(() => {
+    if (!showAddCard) {
+      setSetupData(null);
+      setSetupFetchError(null);
+      return;
+    }
+
+    let cancelled = false;
+    setSetupLoading(true);
+    setSetupFetchError(null);
+    setSetupData(null);
+
+    void (async () => {
+      try {
+        const result = await requestPatientSetupIntent(patientId);
+        if (cancelled) return;
+        if (!result.ok) {
+          setSetupFetchError(result.error);
+          return;
+        }
+        setSetupData(result.data);
+      } catch (err: unknown) {
+        if (!cancelled) {
+          setSetupFetchError(err instanceof Error ? err.message : 'Failed to initialize payment setup');
+        }
+      } finally {
+        if (!cancelled) setSetupLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [showAddCard, patientId]);
+
+  // eslint-disable-next-line @typescript-eslint/promise-function-async -- sync factory; Stripe Elements expects Promise<Stripe>, not a Promise wrapper
+  const stripePromise = useMemo((): Promise<Stripe | null> | null => {
+    if (!setupData) return null;
+    return getStripeInstance(setupData.stripePublishableKey, setupData.stripeConnectedAccountId);
+  }, [setupData]);
+
+  const handleAddCardCancel = useCallback(() => {
+    setShowAddCard(false);
+    setError(null);
+    setSetupFetchError(null);
+  }, []);
+
+  const handleAddCardSuccess = useCallback(async () => {
+    await fetchCards();
+    setSetAsDefault(false);
+    setShowAddCard(false);
+    setSuccessMessage('Payment method added successfully');
+    setTimeout(() => setSuccessMessage(null), 5000);
+  }, [fetchCards]);
+
   // Remove card
   const handleRemoveCard = async (cardId: number) => {
-    if (!confirm('Are you sure you want to remove this payment method?')) {
+    // eslint-disable-next-line no-alert -- deliberate destructive confirmation
+    if (!window.confirm('Are you sure you want to remove this payment method?')) {
       return;
     }
 
     try {
-        const response = await apiFetch(`/api/payment-methods?id=${cardId}&patientId=${patientId}`, {
+      const response = await apiFetch(`/api/payment-methods?id=${cardId}&patientId=${patientId}`, {
         method: 'DELETE',
       });
 
@@ -300,8 +533,7 @@ export default function PatientPaymentMethods({
       await fetchCards();
       setSuccessMessage('Payment method removed');
       setTimeout(() => setSuccessMessage(null), 5000);
-    } catch (err: unknown) {
-      
+    } catch {
       setError('Failed to remove payment method');
     }
   };
@@ -309,7 +541,7 @@ export default function PatientPaymentMethods({
   // Set default card
   const handleSetDefault = async (cardId: number) => {
     try {
-        const response = await apiFetch('/api/payment-methods/default', {
+      const response = await apiFetch('/api/payment-methods/default', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -325,31 +557,9 @@ export default function PatientPaymentMethods({
       await fetchCards();
       setSuccessMessage('Default payment method updated');
       setTimeout(() => setSuccessMessage(null), 5000);
-    } catch (err: unknown) {
-      
+    } catch {
       setError('Failed to update default payment method');
     }
-  };
-
-  const getCardIcon = (brand: string) => {
-    const logo = getCardNetworkLogo(brand);
-    if (logo) {
-      return <img src={logo} alt={brand} className="h-8 w-12 object-contain" />;
-    }
-    return (
-      <svg className="h-6 w-8 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <rect x="1" y="4" width="22" height="16" rx="2" ry="2" strokeWidth="2" />
-        <line x1="1" y1="10" x2="23" y2="10" strokeWidth="2" />
-      </svg>
-    );
-  };
-
-  // Check if card is expired
-  const isExpired = (month: number, year: number) => {
-    const now = new Date();
-    const currentYear = now.getFullYear();
-    const currentMonth = now.getMonth() + 1;
-    return year < currentYear || (year === currentYear && month < currentMonth);
   };
 
   if (loading) {
@@ -400,137 +610,59 @@ export default function PatientPaymentMethods({
           </div>
         )}
 
-        {/* Saved Cards */}
-        {cards.length === 0 && !showAddCard ? (
-          <div className="py-8 text-center text-gray-500">
-            <CreditCard className="mx-auto mb-3 h-12 w-12 text-gray-300" />
-            <p>No payment methods saved</p>
-            <button
-              onClick={() => setShowAddCard(true)}
-              className="mt-3 text-[#4fa77e] hover:underline"
-            >
-              Add your first card
-            </button>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {cards.map((card: any) => {
-              const isStripeOnly = card.source === 'stripe';
-              return (
-                <div
-                  key={card.id}
-                  className={`rounded-lg border p-4 ${
-                    card.isDefault ? 'border-[#4fa77e] bg-green-50' : 'border-gray-200'
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                      {getCardIcon(card.brand)}
-                      <div>
-                        <div className="flex items-center gap-2 font-medium">
-                          <span>
-                            •••• {card.last4}
-                          </span>
-                          {card.isDefault && (
-                            <span className="rounded bg-[#4fa77e] px-2 py-0.5 text-xs text-white">
-                              Default
-                            </span>
-                          )}
-                          {isStripeOnly && (
-                            <span className="rounded bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-700">
-                              Stripe
-                            </span>
-                          )}
-                        </div>
-                        <div className="text-sm text-gray-600">
-                          {card.cardholderName
-                            ? `${card.cardholderName} • `
-                            : ''}
-                          Expires {String(card.expiryMonth).padStart(2, '0')}/
-                          {card.expiryYear}
-                          {isExpired(card.expiryMonth, card.expiryYear) && (
-                            <span className="ml-2 font-medium text-red-600">Expired</span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
+        <SavedCardsBlock
+          cards={cards}
+          showAddCard={showAddCard}
+          onStartAdd={() => setShowAddCard(true)}
+          onSetDefault={(id) => void handleSetDefault(id)}
+          onRemove={(id) => void handleRemoveCard(id)}
+        />
 
-                    <div className="flex items-center gap-2">
-                      {!isStripeOnly && !card.isDefault && (
-                        <button
-                          onClick={() => handleSetDefault(card.id)}
-                          className="text-sm text-[#4fa77e] hover:underline"
-                        >
-                          Set as default
-                        </button>
-                      )}
-                      {!isStripeOnly && (
-                        <button
-                          onClick={() => handleRemoveCard(card.id)}
-                          className="rounded-lg p-2 text-red-600 transition-colors hover:bg-red-50"
-                          title="Remove card"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        {/* Add Card Form (Stripe Elements - PCI DSS compliant) */}
+        {/* Add Card Form (Stripe Payment Element — PCI DSS compliant) */}
         {showAddCard && (
           <div className="mt-6 border-t pt-6">
             <h3 className="mb-4 text-lg font-medium">Add New Payment Method</h3>
-            <form onSubmit={handleAddCard} className="space-y-4">
-              <div className="rounded-lg border border-gray-200 bg-gray-50 p-1">
-                <div className="flex items-center gap-2 px-3 pb-1 pt-2">
-                  <svg className="h-4 w-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                  </svg>
-                  <span className="text-xs font-medium text-gray-500">Secure card entry powered by Stripe</span>
-                </div>
-                <div ref={stripeCardRef} className="rounded-md bg-white p-3" />
+            {setupLoading && (
+              <div className="rounded-lg border border-gray-200 bg-gray-50 p-6 text-center text-sm text-gray-600">
+                Loading secure payment form…
               </div>
-
-              {cards.length > 0 && (
-                <div className="flex items-center">
-                  <input
-                    type="checkbox"
-                    id="setAsDefault"
-                    checked={setAsDefault}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSetAsDefault(e.target.checked)}
-                    className="h-4 w-4 rounded border-gray-300 text-[#4fa77e] focus:ring-[#4fa77e]"
-                  />
-                  <label htmlFor="setAsDefault" className="ml-2 text-sm text-gray-700">
-                    Set as default payment method
-                  </label>
-                </div>
-              )}
-
-              <div className="flex gap-3">
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="rounded-lg bg-[#4fa77e] px-4 py-2 text-white transition-colors hover:bg-[#3f8660] disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {submitting ? 'Adding...' : 'Add Card'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowAddCard(false);
-                    setError(null);
-                  }}
-                  className="rounded-lg border border-gray-300 px-4 py-2 transition-colors hover:bg-gray-50"
-                >
-                  Cancel
-                </button>
+            )}
+            {setupFetchError && (
+              <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                {setupFetchError}
               </div>
-            </form>
+            )}
+            {!setupLoading && setupData && stripePromise && (
+              <Elements
+                key={setupData.clientSecret}
+                stripe={stripePromise}
+                options={{
+                  clientSecret: setupData.clientSecret,
+                  appearance: {
+                    theme: 'stripe',
+                    variables: {
+                      colorPrimary: '#4fa77e',
+                      fontFamily: 'inherit',
+                    },
+                  },
+                }}
+              >
+                <AddCardForm
+                  patientId={patientId}
+                  cardsLength={cards.length}
+                  setAsDefault={setAsDefault}
+                  setSetAsDefault={setSetAsDefault}
+                  onCancel={handleAddCardCancel}
+                  onAdded={handleAddCardSuccess}
+                  setError={setError}
+                />
+              </Elements>
+            )}
+            {!setupLoading && setupData && !stripePromise && (
+              <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                Stripe is not configured
+              </div>
+            )}
           </div>
         )}
       </div>

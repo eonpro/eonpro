@@ -35,7 +35,7 @@ function getStripeClientForClinic(clinicSubdomain: string | null): Stripe {
     const secretKey = OT_STRIPE_CONFIG.secretKey;
     if (!secretKey) throw new Error('OT_STRIPE_SECRET_KEY not configured');
     return new Stripe(secretKey, {
-      apiVersion: '2026-01-28.clover',
+      apiVersion: '2026-03-25.dahlia',
       typescript: true,
       maxNetworkRetries: 3,
       timeout: 30000,
@@ -47,7 +47,7 @@ function getStripeClientForClinic(clinicSubdomain: string | null): Stripe {
     process.env.STRIPE_SECRET_KEY;
   if (!secretKey) throw new Error('Stripe secret key not configured');
   return new Stripe(secretKey, {
-    apiVersion: '2026-01-28.clover',
+    apiVersion: '2026-03-25.dahlia',
     typescript: true,
     maxNetworkRetries: 3,
     timeout: 30000,

@@ -5,7 +5,7 @@ let _stripe: Stripe | null = null;
 function getStripe(): Stripe {
   if (!_stripe) {
     _stripe = new Stripe(process.env.EONMEDS_STRIPE_SECRET_KEY || '', {
-      apiVersion: '2024-06-20' as Stripe.LatestApiVersion,
+      apiVersion: '2026-03-25.dahlia',
     });
   }
   return _stripe;

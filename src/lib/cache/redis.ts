@@ -30,6 +30,9 @@ interface CacheOptions {
 const REDIS_CALL_TIMEOUT_MS = 2_000;
 const CIRCUIT_BREAKER_THRESHOLD = 5;
 const CIRCUIT_BREAKER_COOLDOWN_MS = 30_000;
+/** SCAN COUNT hint — balances round-trips vs payload size (avoids KEYS O(N) blocking). */
+const SCAN_KEY_BATCH = 500;
+const CACHE_NAMESPACE_TTL_HINTS = ['cache', 'query'];
 
 class CircuitBreaker {
   private failures = 0;
@@ -82,6 +85,7 @@ class RedisCache {
   private client: Redis | null = null;
   private ready = false;
   private breaker = new CircuitBreaker();
+  private missingTtlWarnedNamespaces = new Set<string>();
 
   constructor() {
     this.initializeClient();
@@ -146,6 +150,45 @@ class RedisCache {
     return `${prefix}:t${clinicId}:${key}`;
   }
 
+  private isCacheLikeNamespace(namespace?: string): boolean {
+    if (!namespace) return false;
+    const normalized = namespace.toLowerCase();
+    return CACHE_NAMESPACE_TTL_HINTS.some((hint) => normalized.includes(hint));
+  }
+
+  private warnMissingTtl(namespace: string | undefined, label: string): void {
+    if (!this.isCacheLikeNamespace(namespace)) return;
+    const marker = `${namespace ?? 'none'}:${label}`;
+    if (this.missingTtlWarnedNamespaces.has(marker)) return;
+    this.missingTtlWarnedNamespaces.add(marker);
+    logger.warn('[RedisCache] Cache-like namespace write without TTL', {
+      namespace: namespace ?? 'none',
+      label,
+    });
+  }
+
+  /**
+   * Collect keys matching a pattern using SCAN (incremental), not KEYS.
+   * Same eventual key set as KEYS for a stable database; duplicates are rare and harmless for DEL.
+   */
+  private async scanKeysMatching(matchPattern: string): Promise<string[]> {
+    const collected: string[] = [];
+    let cursor: string | number = 0;
+    do {
+      const [nextCursor, batch] = await this.client!.scan(cursor, {
+        match: matchPattern,
+        count: SCAN_KEY_BATCH,
+      });
+      if (batch.length > 0) {
+        for (const k of batch) {
+          collected.push(String(k));
+        }
+      }
+      cursor = nextCursor;
+    } while (String(cursor) !== '0');
+    return collected;
+  }
+
   async tenantGet<T = unknown>(clinicId: number, key: string, options?: CacheOptions): Promise<T | null> {
     const fullKey = this.getTenantKey(clinicId, key, options?.namespace);
     return this.guardedCall(
@@ -157,6 +200,9 @@ class RedisCache {
 
   async tenantSet(clinicId: number, key: string, value: unknown, options?: CacheOptions): Promise<boolean> {
     const fullKey = this.getTenantKey(clinicId, key, options?.namespace);
+    if (!options?.ttl) {
+      this.warnMissingTtl(options?.namespace, 'tenantSet');
+    }
     return this.guardedCall(
       async () => {
         if (options?.ttl) {
@@ -191,6 +237,9 @@ class RedisCache {
 
   async set(key: string, value: unknown, options?: CacheOptions): Promise<boolean> {
     const fullKey = this.getKey(key, options?.namespace);
+    if (!options?.ttl) {
+      this.warnMissingTtl(options?.namespace, 'set');
+    }
     return this.guardedCall(
       async () => {
         if (options?.ttl) {
@@ -218,7 +267,7 @@ class RedisCache {
     return this.guardedCall(
       async () => {
         const pattern = this.getKey('*', namespace);
-        const keys = await this.client!.keys(pattern);
+        const keys = await this.scanKeysMatching(pattern);
         if (keys.length > 0) {
           const pipeline = this.client!.pipeline();
           for (const k of keys) {
@@ -296,12 +345,28 @@ class RedisCache {
   }
 
   /**
+   * Execute a custom Redis operation with the same timeout + breaker guardrails
+   * as standard RedisCache methods. Returns fallback on failure/unavailable.
+   */
+  async withClient<T>(
+    label: string,
+    fallback: T,
+    operation: (client: Redis) => Promise<T>
+  ): Promise<T> {
+    return this.guardedCall(
+      async () => operation(this.client!),
+      fallback,
+      label,
+    );
+  }
+
+  /**
    * Get all keys matching a pattern.
-   * Warning: Use sparingly — KEYS/SCAN can be slow on large datasets.
+   * Warning: Use sparingly — many matches still mean many SCAN round-trips.
    */
   async keys(pattern: string): Promise<string[]> {
     return this.guardedCall(
-      async () => this.client!.keys(pattern),
+      async () => this.scanKeysMatching(pattern),
       [],
       'keys',
     );

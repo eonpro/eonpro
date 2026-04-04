@@ -69,7 +69,7 @@ function getConnectPlatformStripe(): Stripe {
       );
     }
     connectPlatformStripe = new Stripe(secretKey, {
-      apiVersion: '2026-01-28.clover',
+      apiVersion: '2026-03-25.dahlia',
       typescript: true,
       maxNetworkRetries: 3,
     });
@@ -104,7 +104,7 @@ function getDedicatedAccountStripe(subdomain: string): Stripe | null {
 
   // Create and cache the client
   const stripe = new Stripe(secretKey, {
-    apiVersion: '2026-01-28.clover',
+    apiVersion: '2026-03-25.dahlia',
     typescript: true,
     maxNetworkRetries: 3,
   });
@@ -343,6 +343,10 @@ export function stripeRequestOptions(
 /**
  * Create a Stripe Connect account for a clinic
  *
+ * Creates the account via `stripe.accounts.create` with `controller` (full dashboard, account-paid fees, Stripe
+ * payment losses) instead of the deprecated `type: 'standard'` parameter. This matches Stripe’s v1 migration path;
+ * v2 Core Accounts (`POST /v2/core/accounts`) is not required for this onboarding flow.
+ *
  * @param clinicId - The clinic ID
  * @param options - Account creation options
  * @param options.email - Email for the connected account
@@ -374,19 +378,22 @@ export async function createConnectedAccount(
     throw new Error(`Clinic ${clinicId} already has a connected account`);
   }
 
-  // Create connected account
   const account = await stripe.accounts.create({
-    type: 'standard', // Standard accounts have their own dashboard
     email: options.email,
-    business_type: options.businessType || 'company',
     country: options.country || 'US',
-    metadata: {
-      clinicId: clinicId.toString(),
-      clinicName: clinic.name,
+    business_type: options.businessType || 'company',
+    controller: {
+      stripe_dashboard: { type: 'full' },
+      fees: { payer: 'account' },
+      losses: { payments: 'stripe' },
     },
     capabilities: {
       card_payments: { requested: true },
       transfers: { requested: true },
+    },
+    metadata: {
+      clinicId: clinicId.toString(),
+      clinicName: clinic.name,
     },
   });
 

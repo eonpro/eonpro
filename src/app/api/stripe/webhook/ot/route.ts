@@ -49,7 +49,7 @@ function getOTStripe(): Stripe {
       throw new Error('OT_STRIPE_SECRET_KEY not configured');
     }
     otStripeClient = new Stripe(secretKey, {
-      apiVersion: '2026-01-28.clover',
+      apiVersion: '2026-03-25.dahlia',
       typescript: true,
       maxNetworkRetries: 3,
     });

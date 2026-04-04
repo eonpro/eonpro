@@ -25,7 +25,7 @@ export function getWellMedrConnectStripe(): Stripe {
   }
 
   cachedStripe = new Stripe(key, {
-    apiVersion: '2025-02-24.acacia' as Stripe.LatestApiVersion,
+    apiVersion: '2026-03-25.dahlia',
     typescript: true,
     maxNetworkRetries: 3,
   });

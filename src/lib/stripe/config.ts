@@ -142,7 +142,7 @@ export function getStripeClient(): Stripe | null {
 
   if (!cachedStripeClient) {
     cachedStripeClient = new Stripe(secretKey, {
-      apiVersion: '2026-01-28.clover',
+      apiVersion: '2026-03-25.dahlia',
       typescript: true,
       maxNetworkRetries: 3,
       timeout: 30000, // 30 seconds

@@ -105,7 +105,7 @@ function getLegacyStripeClient(): Stripe | null {
       return null;
     }
     stripeClient = new Stripe(secretKey, {
-      apiVersion: '2026-01-28.clover',
+      apiVersion: '2026-03-25.dahlia',
       typescript: true,
     });
   }

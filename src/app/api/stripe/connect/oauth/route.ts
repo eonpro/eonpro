@@ -27,7 +27,7 @@ function getStripe(): Stripe {
       throw new Error('STRIPE_CONNECT_PLATFORM_SECRET_KEY not configured');
     }
     stripeClient = new Stripe(secretKey, {
-      apiVersion: '2026-01-28.clover',
+      apiVersion: '2026-03-25.dahlia',
     });
   }
   return stripeClient;

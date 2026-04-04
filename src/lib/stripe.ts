@@ -41,7 +41,7 @@ const stripeApiKey = getStripeSecretKey();
 // Legacy stripe instance for backward compatibility
 export const stripe = stripeApiKey
   ? new Stripe(stripeApiKey, {
-      apiVersion: '2026-01-28.clover',
+      apiVersion: '2026-03-25.dahlia',
       typescript: true,
       maxNetworkRetries: 3,
       timeout: 30000,

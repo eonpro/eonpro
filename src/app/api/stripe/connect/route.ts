@@ -73,7 +73,7 @@ async function getConnectHandler(request: NextRequest, user: AuthUser) {
         const url = await getDashboardLink(clinicIdNum);
         return NextResponse.json({ dashboardUrl: url });
       } catch (error: unknown) {
-        // Login links only work for Standard accounts with completed onboarding
+        // Login links require full Stripe Dashboard access and completed onboarding
         return NextResponse.json(
           { error: 'Dashboard access not available. Complete onboarding first.' },
           { status: 400 }

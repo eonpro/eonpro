@@ -1,15 +1,16 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   getGroupedPlans,
   formatPlanPrice,
   getPlanById,
 } from '@/config/billingPlans';
-import { Patient, Provider, Order } from '@/types/models';
 import { apiFetch } from '@/lib/api/fetch';
 import { getCardNetworkLogo } from '@/lib/constants/brand-assets';
-import { loadStripe, Stripe, StripeCardElement } from '@stripe/stripe-js';
+import { loadStripe } from '@stripe/stripe-js';
+import type { Stripe, StripeElementsOptions } from '@stripe/stripe-js';
+import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
 
 const stripeCache = new Map<string, Promise<Stripe | null>>();
 
@@ -48,22 +49,98 @@ interface ProcessPaymentFormProps {
 }
 
 export function ProcessPaymentForm({ patientId, patientName, clinicSubdomain, onSuccess }: ProcessPaymentFormProps) {
+  const [stripePromise, setStripePromise] = useState<Promise<Stripe | null> | null>(null);
+  const [amountInCents, setAmountInCents] = useState(50);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const init = async () => {
+      let pk: string | undefined;
+      let connectedAccountId: string | null = null;
+      try {
+        const res = await apiFetch(`/api/stripe/publishable-key?patientId=${patientId}`);
+        if (res.ok) {
+          const data = await res.json();
+          pk = data.publishableKey;
+          connectedAccountId = data.connectedAccountId || null;
+        }
+      } catch {
+        // Fall through to default key
+      }
+
+      const promise = getStripeInstance(pk, connectedAccountId);
+      if (!cancelled && promise) {
+        setStripePromise(promise);
+      }
+    };
+    init();
+    return () => { cancelled = true; };
+  }, [patientId]);
+
+  const handleAmountUpdate = useCallback((cents: number) => {
+    setAmountInCents(Math.max(cents, 50));
+  }, []);
+
+  const elementsOptions: StripeElementsOptions = {
+    mode: 'payment' as const,
+    amount: amountInCents,
+    currency: 'usd',
+    appearance: {
+      theme: 'stripe',
+      variables: {
+        colorPrimary: '#4fa77e',
+        colorText: '#1a1a1a',
+        colorDanger: '#ef4444',
+        fontFamily: 'inherit',
+        borderRadius: '6px',
+      },
+    },
+  };
+
+  if (!stripePromise) {
+    return (
+      <div className="rounded-lg bg-white p-6 shadow">
+        <h3 className="mb-4 text-xl font-semibold">Process Payment for {patientName}</h3>
+        <p className="text-sm text-gray-400">Loading payment form...</p>
+      </div>
+    );
+  }
+
+  return (
+    <Elements stripe={stripePromise} options={elementsOptions}>
+      <ProcessPaymentFormContent
+        patientId={patientId}
+        patientName={patientName}
+        clinicSubdomain={clinicSubdomain}
+        onSuccess={onSuccess}
+        onAmountChange={handleAmountUpdate}
+      />
+    </Elements>
+  );
+}
+
+interface FormContentProps extends ProcessPaymentFormProps {
+  onAmountChange: (amountInCents: number) => void;
+}
+
+function ProcessPaymentFormContent({ patientId, patientName, clinicSubdomain, onSuccess, onAmountChange }: FormContentProps) {
+  const stripe = useStripe();
+  const elements = useElements();
+
   const [selectedPlanId, setSelectedPlanId] = useState<string>('');
   const [amount, setAmount] = useState<number>(0);
   const [amountInputValue, setAmountInputValue] = useState<string>('');
   const [description, setDescription] = useState<string>('');
   const [isRecurring, setIsRecurring] = useState(false);
 
-  // Payment method selection
   const [paymentMode, setPaymentMode] = useState<'saved' | 'new'>('new');
   const [savedCards, setSavedCards] = useState<SavedCard[]>([]);
   const [selectedCardId, setSelectedCardId] = useState<string | number | null>(null);
   const [loadingCards, setLoadingCards] = useState(true);
 
-  // Stripe Elements for PCI-compliant card entry (no raw card data touches our server)
   const [saveCard, setSaveCard] = useState(true);
 
-  // Other states
   const [notes, setNotes] = useState<string>('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -71,88 +148,12 @@ export function ProcessPaymentForm({ patientId, patientName, clinicSubdomain, on
   const [cardErrors, setCardErrors] = useState<{ [key: string]: string }>({});
   const [formSubmitted, setFormSubmitted] = useState(false);
   const groupedPlans = getGroupedPlans(clinicSubdomain);
-  const [stripeReady, setStripeReady] = useState(false);
 
-  const stripeCardRef = useRef<HTMLDivElement>(null);
-  const stripeElementRef = useRef<StripeCardElement | null>(null);
-  const stripeInstanceRef = useRef<Stripe | null>(null);
-  const [stripeLoaded, setStripeLoaded] = useState(false);
+  const stripeReady = !!stripe && !!elements;
 
-  // Fetch the correct publishable key, load Stripe, then set stripeLoaded.
-  // The CardElement mount waits for stripeLoaded so both use the same instance.
   useEffect(() => {
-    let cancelled = false;
-    setStripeLoaded(false);
-
-    const init = async () => {
-      let pk: string | undefined;
-      try {
-        const res = await apiFetch(`/api/stripe/publishable-key?patientId=${patientId}`);
-        if (res.ok) {
-          const data = await res.json();
-          pk = data.publishableKey;
-        }
-      } catch {
-        // Fall through to default key
-      }
-
-      const stripeP = getStripeInstance(pk);
-      if (!stripeP) return;
-      const instance = await stripeP;
-      if (!cancelled && instance) {
-        stripeInstanceRef.current = instance;
-        setStripeLoaded(true);
-      }
-    };
-    init();
-    return () => { cancelled = true; };
-  }, [patientId]);
-
-  // Mount the CardElement once Stripe is loaded and the container is in the DOM.
-  // Both the card and confirmCardPayment use the same stripeInstanceRef.
-  useEffect(() => {
-    if (loadingCards || paymentMode !== 'new' || !stripeLoaded) return;
-
-    let cancelled = false;
-
-    const mountCard = async () => {
-      const stripe = stripeInstanceRef.current;
-      if (!stripe || !stripeCardRef.current) return;
-
-      if (stripeElementRef.current) {
-        setStripeReady(true);
-        return;
-      }
-
-      const elements = stripe.elements();
-      const card = elements.create('card', {
-        style: {
-          base: {
-            fontSize: '16px',
-            color: '#1a1a1a',
-            fontFamily: 'inherit',
-            '::placeholder': { color: '#9ca3af' },
-          },
-          invalid: { color: '#ef4444' },
-        },
-      });
-
-      if (!cancelled && stripeCardRef.current) {
-        card.mount(stripeCardRef.current);
-        stripeElementRef.current = card;
-        setStripeReady(true);
-      }
-    };
-
-    mountCard();
-
-    return () => {
-      cancelled = true;
-      stripeElementRef.current?.unmount();
-      stripeElementRef.current = null;
-      setStripeReady(false);
-    };
-  }, [loadingCards, paymentMode, stripeLoaded]);
+    onAmountChange(Math.round(amount * 100));
+  }, [amount, onAmountChange]);
 
   useEffect(() => {
     const fetchSavedCards = async () => {
@@ -194,7 +195,6 @@ export function ProcessPaymentForm({ patientId, patientName, clinicSubdomain, on
   }, [selectedPlanId]);
 
   const handleAmountChange = (value: string) => {
-    // Allow typing intermediate values like "8." or "8.0" without normalizing to "8.00"
     const sanitized = value.replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1');
     setAmountInputValue(sanitized);
     const parsed = parseFloat(sanitized);
@@ -246,6 +246,16 @@ export function ProcessPaymentForm({ patientId, patientName, clinicSubdomain, on
     setSubmitting(true);
 
     try {
+      if (paymentMode === 'new') {
+        if (!stripe || !elements) {
+          throw new Error('Payment form not ready. Please refresh and try again.');
+        }
+        const { error: submitError } = await elements.submit();
+        if (submitError) {
+          throw new Error(submitError.message || 'Card validation failed');
+        }
+      }
+
       const payload: Record<string, unknown> = {
         patientId,
         amount: Math.round(amount * 100),
@@ -284,31 +294,65 @@ export function ProcessPaymentForm({ patientId, patientName, clinicSubdomain, on
       }
 
       if (data.requiresStripeConfirmation && data.clientSecret) {
-        if (!stripeInstanceRef.current || !stripeElementRef.current) {
-          throw new Error('Payment form not ready. Please refresh and try again.');
-        }
+        if (paymentMode === 'new') {
+          if (!stripe || !elements) {
+            throw new Error('Payment form not ready. Please refresh and try again.');
+          }
 
-        const { error: stripeError, paymentIntent } = await stripeInstanceRef.current.confirmCardPayment(
-          data.clientSecret,
-          { payment_method: { card: stripeElementRef.current } }
-        );
+          const { error: confirmError, paymentIntent } = await stripe.confirmPayment({
+            elements,
+            clientSecret: data.clientSecret,
+            confirmParams: { return_url: window.location.href },
+            redirect: 'if_required',
+          });
 
-        if (stripeError) {
-          throw new Error(stripeError.message || 'Payment failed');
-        }
+          if (confirmError) {
+            throw new Error(confirmError.message || 'Payment failed');
+          }
 
-        const confirmRes = await apiFetch('/api/stripe/payments/confirm', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            paymentIntentId: data.paymentIntentId,
-            stripePaymentMethodId: paymentIntent?.payment_method,
-          }),
-        });
+          const confirmRes = await apiFetch('/api/stripe/payments/confirm', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              paymentIntentId: data.paymentIntentId,
+              stripePaymentMethodId: paymentIntent?.payment_method,
+            }),
+          });
 
-        const confirmData = await confirmRes.json();
-        if (!confirmRes.ok) {
-          throw new Error(confirmData.error || 'Failed to confirm payment');
+          const confirmData = await confirmRes.json();
+          if (!confirmRes.ok) {
+            throw new Error(confirmData.error || 'Failed to confirm payment');
+          }
+        } else {
+          if (!stripe) {
+            throw new Error('Payment form not ready. Please refresh and try again.');
+          }
+
+          const savedCard = savedCards.find(c => c.id === selectedCardId);
+          const pmId = savedCard?.stripePaymentMethodId || String(selectedCardId);
+
+          const { error: confirmError, paymentIntent } = await stripe.confirmCardPayment(
+            data.clientSecret,
+            { payment_method: pmId }
+          );
+
+          if (confirmError) {
+            throw new Error(confirmError.message || 'Payment failed');
+          }
+
+          const confirmRes = await apiFetch('/api/stripe/payments/confirm', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              paymentIntentId: data.paymentIntentId,
+              stripePaymentMethodId: paymentIntent?.payment_method,
+            }),
+          });
+
+          const confirmData = await confirmRes.json();
+          if (!confirmRes.ok) {
+            throw new Error(confirmData.error || 'Failed to confirm payment');
+          }
         }
       }
 
@@ -349,7 +393,6 @@ export function ProcessPaymentForm({ patientId, patientName, clinicSubdomain, on
     setIsRecurring(false);
     setSaveCard(true);
     setFormSubmitted(false);
-    stripeElementRef.current?.clear();
     if (savedCards.length > 0) {
       setPaymentMode('saved');
       const defaultCard = savedCards.find((c) => c.isDefault) || savedCards[0];
@@ -564,7 +607,7 @@ export function ProcessPaymentForm({ patientId, patientName, clinicSubdomain, on
                 </div>
               )}
 
-              {/* New Card Entry via Stripe Elements (PCI DSS compliant) */}
+              {/* New Card Entry via Stripe PaymentElement (PCI DSS compliant) */}
               {paymentMode === 'new' && (
                 <div className="space-y-4">
                   <div className="rounded-lg border border-gray-200 bg-gray-50 p-1">
@@ -574,7 +617,9 @@ export function ProcessPaymentForm({ patientId, patientName, clinicSubdomain, on
                       </svg>
                       <span className="text-xs font-medium text-gray-500">Secure card entry powered by Stripe</span>
                     </div>
-                    <div ref={stripeCardRef} className="rounded-md bg-white p-3" />
+                    <div className="rounded-md bg-white p-3">
+                      <PaymentElement />
+                    </div>
                   </div>
                   {!stripeReady && (
                     <p className="text-sm text-gray-400">Loading secure payment form...</p>

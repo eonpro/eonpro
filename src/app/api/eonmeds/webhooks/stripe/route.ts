@@ -6,7 +6,7 @@ const webhookSecret = process.env.EONMEDS_STRIPE_WEBHOOK_SECRET || process.env.S
 const stripeSecret = process.env.EONMEDS_STRIPE_SECRET_KEY || process.env.STRIPE_SECRET_KEY;
 
 const stripe = stripeSecret
-  ? new Stripe(stripeSecret, { apiVersion: '2024-06-20' as any })
+  ? new Stripe(stripeSecret, { apiVersion: '2026-03-25.dahlia' })
   : null;
 
 export async function POST(req: NextRequest) {
