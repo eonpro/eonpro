@@ -2,7 +2,7 @@ import { instantToCalendarDate } from '@/lib/utils/platform-calendar';
 import { NextRequest, NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
 import { withPharmacyAccessAuth, type AuthUser } from '@/lib/auth/middleware';
-import { prisma, basePrisma, withoutClinicFilter } from '@/lib/db';
+import { prisma, basePrisma, withoutClinicFilter, getClinicContext } from '@/lib/db';
 import { handleApiError } from '@/domains/shared/errors';
 import { uploadToS3, generateSignedUrl } from '@/lib/integrations/aws/s3Service';
 import { FileCategory, isS3Enabled } from '@/lib/integrations/aws/s3Config';
@@ -41,6 +41,11 @@ async function resolveClinicTimezone(clinicId: number | null | undefined): Promi
   } catch {
     return DEFAULT_TIMEZONE;
   }
+}
+
+function resolveRequestClinicId(user: AuthUser): number | undefined {
+  // Prefer request-scoped active clinic (subdomain/session), then user default clinic.
+  return getClinicContext() ?? user.clinicId;
 }
 
 // ---------------------------------------------------------------------------
@@ -370,16 +375,18 @@ async function getHandler(req: NextRequest, user: AuthUser) {
 
     // Stats mode — aggregate counts for the audit dashboard
     if (url.searchParams.get('stats') === 'true') {
+      const clinicId = resolveRequestClinicId(user);
+      const clinicWhere = clinicId ? { clinicId } : {};
       const tz = await resolveClinicTimezone(user.clinicId);
       const { todayStart, yesterdayStart, weekStart, monthStart } = getTimezoneAwareBoundaries(tz);
 
       const [today, yesterday, thisWeek, thisMonth, matched, total] = await Promise.all([
-        prisma.packagePhoto.count({ where: { createdAt: { gte: todayStart } } }),
-        prisma.packagePhoto.count({ where: { createdAt: { gte: yesterdayStart, lt: todayStart } } }),
-        prisma.packagePhoto.count({ where: { createdAt: { gte: weekStart } } }),
-        prisma.packagePhoto.count({ where: { createdAt: { gte: monthStart } } }),
-        prisma.packagePhoto.count({ where: { matched: true } }),
-        prisma.packagePhoto.count(),
+        prisma.packagePhoto.count({ where: { ...clinicWhere, createdAt: { gte: todayStart } } }),
+        prisma.packagePhoto.count({ where: { ...clinicWhere, createdAt: { gte: yesterdayStart, lt: todayStart } } }),
+        prisma.packagePhoto.count({ where: { ...clinicWhere, createdAt: { gte: weekStart } } }),
+        prisma.packagePhoto.count({ where: { ...clinicWhere, createdAt: { gte: monthStart } } }),
+        prisma.packagePhoto.count({ where: { ...clinicWhere, matched: true } }),
+        prisma.packagePhoto.count({ where: clinicWhere }),
       ]);
 
       return NextResponse.json({
@@ -399,6 +406,9 @@ async function getHandler(req: NextRequest, user: AuthUser) {
 
     // Demographics mode — detailed breakdowns for the analytics dashboard
     if (url.searchParams.get('demographics') === 'true') {
+      const clinicId = resolveRequestClinicId(user);
+      const clinicFilterSql = clinicId ? Prisma.sql`AND "clinicId" = ${clinicId}` : Prisma.empty;
+      const clinicFilterSqlPP = clinicId ? Prisma.sql`AND pp."clinicId" = ${clinicId}` : Prisma.empty;
       const tz = await resolveClinicTimezone(user.clinicId);
       const tzSql = tzLiteral(tz);
       const { todayStart, monthStart, year, month, day } = getTimezoneAwareBoundaries(tz);
@@ -422,6 +432,7 @@ async function getHandler(req: NextRequest, user: AuthUser) {
             COUNT(*) FILTER (WHERE matched = true)::bigint as matched
           FROM "PackagePhoto"
           WHERE "createdAt" >= ${fourteenDaysAgo}
+            ${clinicFilterSql}
           GROUP BY 1
           ORDER BY 1 ASC
         `,
@@ -437,6 +448,7 @@ async function getHandler(req: NextRequest, user: AuthUser) {
           FROM "PackagePhoto" pp
           JOIN "User" u ON u.id = pp."capturedById"
           WHERE pp."createdAt" >= ${monthStart}
+            ${clinicFilterSqlPP}
             ${PHARMACY_ACCESS_ROLES_FILTER}
           GROUP BY pp."capturedById", u."firstName", u."lastName"
           ORDER BY total DESC
@@ -450,15 +462,16 @@ async function getHandler(req: NextRequest, user: AuthUser) {
             COUNT(*)::bigint as total
           FROM "PackagePhoto"
           WHERE "createdAt" >= ${monthStart}
+            ${clinicFilterSql}
           GROUP BY "trackingSource"
           ORDER BY total DESC
         `,
 
         // Matched this month
-        prisma.packagePhoto.count({ where: { createdAt: { gte: monthStart }, matched: true } }),
+        prisma.packagePhoto.count({ where: { ...(clinicId ? { clinicId } : {}), createdAt: { gte: monthStart }, matched: true } }),
 
         // Unmatched this month
-        prisma.packagePhoto.count({ where: { createdAt: { gte: monthStart }, matched: false } }),
+        prisma.packagePhoto.count({ where: { ...(clinicId ? { clinicId } : {}), createdAt: { gte: monthStart }, matched: false } }),
 
         // Hourly distribution (today, clinic-tz aware)
         prisma.$queryRaw<Array<{ hour: number; total: bigint }>>`
@@ -467,6 +480,7 @@ async function getHandler(req: NextRequest, user: AuthUser) {
             COUNT(*)::bigint as total
           FROM "PackagePhoto"
           WHERE "createdAt" >= ${todayStart}
+            ${clinicFilterSql}
           GROUP BY 1
           ORDER BY 1 ASC
         `,
@@ -538,6 +552,9 @@ async function getHandler(req: NextRequest, user: AuthUser) {
 
     // Performance report mode — hourly/daily/weekly granularity with per-rep drill-down
     if (url.searchParams.get('performance-report') === 'true') {
+      const clinicId = resolveRequestClinicId(user);
+      const clinicFilterSql = clinicId ? Prisma.sql`AND "clinicId" = ${clinicId}` : Prisma.empty;
+      const clinicFilterSqlPP = clinicId ? Prisma.sql`AND pp."clinicId" = ${clinicId}` : Prisma.empty;
       const tz = await resolveClinicTimezone(user.clinicId);
       const tzSql = tzLiteral(tz);
       const bounds = getTimezoneAwareBoundaries(tz);
@@ -583,7 +600,9 @@ async function getHandler(req: NextRequest, user: AuthUser) {
               COUNT(*)::bigint as total,
               COUNT(*) FILTER (WHERE matched = true)::bigint as matched
             FROM "PackagePhoto"
-            WHERE "createdAt" >= ${rangeStart} AND "createdAt" < ${rangeEnd} ${repFilterSimple}
+            WHERE "createdAt" >= ${rangeStart} AND "createdAt" < ${rangeEnd}
+              ${clinicFilterSql}
+              ${repFilterSimple}
             GROUP BY 1, 2
             ORDER BY 1 ASC, 2 ASC
           `,
@@ -599,6 +618,7 @@ async function getHandler(req: NextRequest, user: AuthUser) {
             FROM "PackagePhoto" pp
             JOIN "User" u ON u.id = pp."capturedById"
             WHERE pp."createdAt" >= ${rangeStart} AND pp."createdAt" < ${rangeEnd}
+              ${clinicFilterSqlPP}
               ${PHARMACY_ACCESS_ROLES_FILTER} ${repFilter}
             GROUP BY 1, 2, pp."capturedById", u."firstName", u."lastName"
             ORDER BY 1 ASC, 2 ASC, total DESC
@@ -650,7 +670,9 @@ async function getHandler(req: NextRequest, user: AuthUser) {
               COUNT(*)::bigint as total,
               COUNT(*) FILTER (WHERE matched = true)::bigint as matched
             FROM "PackagePhoto"
-            WHERE "createdAt" >= ${rangeStart} AND "createdAt" < ${rangeEnd} ${repFilterSimple}
+            WHERE "createdAt" >= ${rangeStart} AND "createdAt" < ${rangeEnd}
+              ${clinicFilterSql}
+              ${repFilterSimple}
             GROUP BY 1
             ORDER BY 1 ASC
           `,
@@ -665,6 +687,7 @@ async function getHandler(req: NextRequest, user: AuthUser) {
             FROM "PackagePhoto" pp
             JOIN "User" u ON u.id = pp."capturedById"
             WHERE pp."createdAt" >= ${rangeStart} AND pp."createdAt" < ${rangeEnd}
+              ${clinicFilterSqlPP}
               ${PHARMACY_ACCESS_ROLES_FILTER} ${repFilter}
             GROUP BY 1, pp."capturedById", u."firstName", u."lastName"
             ORDER BY 1 ASC, total DESC
@@ -715,7 +738,9 @@ async function getHandler(req: NextRequest, user: AuthUser) {
             COUNT(*)::bigint as total,
             COUNT(*) FILTER (WHERE matched = true)::bigint as matched
           FROM "PackagePhoto"
-          WHERE "createdAt" >= ${rangeStart} AND "createdAt" < ${rangeEnd} ${repFilterSimple}
+          WHERE "createdAt" >= ${rangeStart} AND "createdAt" < ${rangeEnd}
+            ${clinicFilterSql}
+            ${repFilterSimple}
           GROUP BY 1
           ORDER BY 1 ASC
         `,
@@ -730,6 +755,7 @@ async function getHandler(req: NextRequest, user: AuthUser) {
           FROM "PackagePhoto" pp
           JOIN "User" u ON u.id = pp."capturedById"
           WHERE pp."createdAt" >= ${rangeStart} AND pp."createdAt" < ${rangeEnd}
+            ${clinicFilterSqlPP}
             ${PHARMACY_ACCESS_ROLES_FILTER} ${repFilter}
           GROUP BY 1, pp."capturedById", u."firstName", u."lastName"
           ORDER BY 1 ASC, total DESC
@@ -771,6 +797,9 @@ async function getHandler(req: NextRequest, user: AuthUser) {
 
     // Daily report mode — per-day breakdown for a date range with rep details
     if (url.searchParams.get('daily-report') === 'true') {
+      const clinicId = resolveRequestClinicId(user);
+      const clinicFilterSql = clinicId ? Prisma.sql`AND "clinicId" = ${clinicId}` : Prisma.empty;
+      const clinicFilterSqlPP = clinicId ? Prisma.sql`AND pp."clinicId" = ${clinicId}` : Prisma.empty;
       const tz = await resolveClinicTimezone(user.clinicId);
       const tzSql = tzLiteral(tz);
       const bounds = getTimezoneAwareBoundaries(tz);
@@ -813,7 +842,9 @@ async function getHandler(req: NextRequest, user: AuthUser) {
             COUNT(*) FILTER (WHERE matched = true)::bigint as matched,
             COUNT(*) FILTER (WHERE matched = false)::bigint as unmatched
           FROM "PackagePhoto"
-          WHERE "createdAt" >= ${rangeStart} AND "createdAt" < ${rangeEnd} ${repFilterSimple}
+          WHERE "createdAt" >= ${rangeStart} AND "createdAt" < ${rangeEnd}
+            ${clinicFilterSql}
+            ${repFilterSimple}
           GROUP BY 1
           ORDER BY 1 DESC
         `,
@@ -828,6 +859,7 @@ async function getHandler(req: NextRequest, user: AuthUser) {
           FROM "PackagePhoto" pp
           JOIN "User" u ON u.id = pp."capturedById"
           WHERE pp."createdAt" >= ${rangeStart} AND pp."createdAt" < ${rangeEnd}
+            ${clinicFilterSqlPP}
             ${PHARMACY_ACCESS_ROLES_FILTER} ${repFilter}
           GROUP BY 1, pp."capturedById", u."firstName", u."lastName"
           ORDER BY 1 DESC, total DESC
@@ -839,6 +871,7 @@ async function getHandler(req: NextRequest, user: AuthUser) {
                 COUNT(*)::bigint as total
               FROM "PackagePhoto"
               WHERE "createdAt" >= ${rangeStart} AND "createdAt" < ${rangeEnd}
+                ${clinicFilterSql}
                 AND "capturedById" = ${repId}
               GROUP BY 1
               ORDER BY 1 ASC
