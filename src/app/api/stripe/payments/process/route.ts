@@ -9,6 +9,7 @@ import { handleApiError } from '@/domains/shared/errors';
 import { getStripeForClinic, getPublishableKeyForContext } from '@/lib/stripe/connect';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { StripeCustomerService } from '@/services/stripe/customerService';
+import { createInvoiceForProcessedPayment } from '@/services/billing/createInvoiceForPayment';
 
 /** @deprecated Raw card data is no longer accepted. Use Stripe Elements (PCI DSS). */
 interface _LegacyPaymentDetails {
@@ -507,6 +508,19 @@ async function handlePost(request: NextRequest, _user: AuthUser) {
         );
       }
 
+      // Auto-create a PAID invoice so staff can see what the patient paid for (non-blocking)
+      await createInvoiceForProcessedPayment({
+        paymentId: pendingPayment.id,
+        patientId: patient.id,
+        clinicId: patient.clinicId,
+        amount,
+        description,
+        stripePaymentIntentId: paymentIntent.id,
+        stripeChargeId: paymentIntent.latest_charge?.toString(),
+        planId: subscription?.planId,
+        planName: subscription?.planName,
+      });
+
       // Commission processing (non-blocking)
       let commissionProcessed = false;
       try {
@@ -569,7 +583,7 @@ async function handlePost(request: NextRequest, _user: AuthUser) {
       currency: 'usd',
       customer: stripeCustomerId,
       description,
-      setup_future_usage: saveCard || subscription ? 'off_session' : undefined,
+      setup_future_usage: 'off_session',
       metadata: {
         patientId: patient.id.toString(),
         saveCard: saveCard === true ? 'true' : 'false',

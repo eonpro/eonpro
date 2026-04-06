@@ -99,6 +99,16 @@ interface AuditStats {
   total: number;
   matchRate: number;
   unmatched: number;
+  global?: {
+    today: number;
+    yesterday: number;
+    thisWeek: number;
+    thisMonth: number;
+    matched: number;
+    total: number;
+    matchRate: number;
+    unmatched: number;
+  } | null;
 }
 
 interface DailyVolume {
@@ -194,6 +204,7 @@ interface PerformanceReportData {
 }
 
 type Granularity = 'hourly' | 'daily' | 'weekly';
+const ANALYTICS_SCOPE = 'global';
 
 // ---------------------------------------------------------------------------
 // Constants & Helpers
@@ -1334,8 +1345,8 @@ function AuditLog() {
   const fetchStats = useCallback(async () => {
     try {
       const [statsRes, demoRes] = await Promise.all([
-        apiFetch('/api/package-photos?stats=true'),
-        apiFetch('/api/package-photos?demographics=true'),
+        apiFetch(`/api/package-photos?stats=true&scope=${ANALYTICS_SCOPE}`),
+        apiFetch(`/api/package-photos?demographics=true&scope=${ANALYTICS_SCOPE}`),
       ]);
       if (statsRes.ok) {
         const json = await statsRes.json();
@@ -1354,7 +1365,7 @@ function AuditLog() {
   const fetchDailyReport = useCallback(async (from: string, to: string) => {
     setDailyReportLoading(true);
     try {
-      const res = await apiFetch(`/api/package-photos?daily-report=true&from=${from}&to=${to}`);
+      const res = await apiFetch(`/api/package-photos?daily-report=true&from=${from}&to=${to}&scope=${ANALYTICS_SCOPE}`);
       if (res.ok) {
         const json = await res.json();
         setDailyReport(json.data);
@@ -1366,7 +1377,7 @@ function AuditLog() {
   const fetchIndividualReport = useCallback(async (repId: number, from: string, to: string) => {
     setIndividualReportLoading(true);
     try {
-      const res = await apiFetch(`/api/package-photos?daily-report=true&repId=${repId}&from=${from}&to=${to}`);
+      const res = await apiFetch(`/api/package-photos?daily-report=true&repId=${repId}&from=${from}&to=${to}&scope=${ANALYTICS_SCOPE}`);
       if (res.ok) {
         const json = await res.json();
         setIndividualReport(json.data);
@@ -1384,7 +1395,7 @@ function AuditLog() {
       const from = toCalendarDateStringInTz(new Date(now.getFullYear(), now.getMonth(), 1), tz);
       const to = calendarTodayClient();
       const res = await apiFetch(
-        `/api/package-photos?performance-report=true&granularity=daily&from=${from}&to=${to}`,
+        `/api/package-photos?performance-report=true&granularity=daily&from=${from}&to=${to}&scope=${ANALYTICS_SCOPE}`,
       );
       if (res.ok) {
         const json = await res.json();
@@ -1439,6 +1450,7 @@ function AuditLog() {
         params.set('sortOrder', sortOrderVal);
         params.set('page', String(pageVal));
         params.set('limit', '20');
+        params.set('scope', ANALYTICS_SCOPE);
 
         const res = await apiFetch(`/api/package-photos?${params.toString()}`);
         if (res.ok) {
@@ -1485,42 +1497,47 @@ function AuditLog() {
     <div>
       {/* Stats banner */}
       {stats && (
-        <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-          <div className="rounded-xl border border-gray-200 bg-white px-4 py-3">
-            <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
-              <Camera className="h-3.5 w-3.5" /> Today
-            </p>
-            <p className="mt-1 text-2xl font-bold text-gray-900">{stats.today}</p>
-          </div>
-          <div className="rounded-xl border border-gray-200 bg-white px-4 py-3">
-            <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
-              <Clock className="h-3.5 w-3.5" /> Yesterday
-            </p>
-            <p className="mt-1 text-2xl font-bold text-gray-900">{stats.yesterday}</p>
-          </div>
-          <div className="rounded-xl border border-gray-200 bg-white px-4 py-3">
-            <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
-              <Calendar className="h-3.5 w-3.5" /> This Week
-            </p>
-            <p className="mt-1 text-2xl font-bold text-gray-900">{stats.thisWeek}</p>
-          </div>
-          <div className="rounded-xl border border-gray-200 bg-white px-4 py-3">
-            <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
-              <BarChart3 className="h-3.5 w-3.5" /> This Month
-            </p>
-            <p className="mt-1 text-2xl font-bold text-gray-900">{stats.thisMonth}</p>
-          </div>
-          <div className="rounded-xl border border-gray-200 bg-white px-4 py-3">
-            <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
-              <CheckCircle className="h-3.5 w-3.5" /> Match Rate
-            </p>
-            <p className="mt-1 text-2xl font-bold text-emerald-600">{stats.matchRate}%</p>
-          </div>
-          <div className="rounded-xl border border-gray-200 bg-white px-4 py-3">
-            <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
-              <XCircle className="h-3.5 w-3.5" /> Unmatched
-            </p>
-            <p className="mt-1 text-2xl font-bold text-amber-600">{stats.unmatched}</p>
+        <div className="mb-5 space-y-4">
+          <div>
+            <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-gray-400">All Clinics Global</p>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+              <div className="rounded-xl border border-gray-200 bg-white px-4 py-3">
+                <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+                  <Camera className="h-3.5 w-3.5" /> Today
+                </p>
+                <p className="mt-1 text-2xl font-bold text-gray-900">{stats.global?.today ?? stats.today}</p>
+              </div>
+              <div className="rounded-xl border border-gray-200 bg-white px-4 py-3">
+                <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+                  <Clock className="h-3.5 w-3.5" /> Yesterday
+                </p>
+                <p className="mt-1 text-2xl font-bold text-gray-900">{stats.global?.yesterday ?? stats.yesterday}</p>
+              </div>
+              <div className="rounded-xl border border-gray-200 bg-white px-4 py-3">
+                <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+                  <Calendar className="h-3.5 w-3.5" /> This Week
+                </p>
+                <p className="mt-1 text-2xl font-bold text-gray-900">{stats.global?.thisWeek ?? stats.thisWeek}</p>
+              </div>
+              <div className="rounded-xl border border-gray-200 bg-white px-4 py-3">
+                <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+                  <BarChart3 className="h-3.5 w-3.5" /> This Month
+                </p>
+                <p className="mt-1 text-2xl font-bold text-gray-900">{stats.global?.thisMonth ?? stats.thisMonth}</p>
+              </div>
+              <div className="rounded-xl border border-gray-200 bg-white px-4 py-3">
+                <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+                  <CheckCircle className="h-3.5 w-3.5" /> Match Rate
+                </p>
+                <p className="mt-1 text-2xl font-bold text-emerald-600">{stats.global?.matchRate ?? stats.matchRate}%</p>
+              </div>
+              <div className="rounded-xl border border-gray-200 bg-white px-4 py-3">
+                <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+                  <XCircle className="h-3.5 w-3.5" /> Unmatched
+                </p>
+                <p className="mt-1 text-2xl font-bold text-amber-600">{stats.global?.unmatched ?? stats.unmatched}</p>
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -2692,6 +2709,7 @@ function PerformanceReports() {
         granularity: g,
         from,
         to,
+        scope: ANALYTICS_SCOPE,
       });
       if (repId) params.set('repId', String(repId));
 

@@ -49,6 +49,10 @@ function resolveRequestClinicId(user: AuthUser): number | undefined {
   return getClinicContext() ?? user.clinicId;
 }
 
+function isGlobalScope(url: URL): boolean {
+  return (url.searchParams.get('scope') ?? '').toLowerCase() === 'global';
+}
+
 // ---------------------------------------------------------------------------
 // Tracking Resolution — check Order, ShippingUpdate, ShipmentLabel
 // ---------------------------------------------------------------------------
@@ -376,23 +380,20 @@ async function getHandler(req: NextRequest, user: AuthUser) {
 
     // Stats mode — aggregate counts for the audit dashboard
     if (url.searchParams.get('stats') === 'true') {
-      const clinicId = resolveRequestClinicId(user);
+      const clinicId = isGlobalScope(url) ? undefined : resolveRequestClinicId(user);
       const clinicWhere = clinicId ? { clinicId } : {};
-      const tz = await resolveClinicTimezone(user.clinicId);
-      const { todayStart, yesterdayStart, weekStart, monthStart } = getTimezoneAwareBoundaries(tz);
-
-      const [today, yesterday, thisWeek, thisMonth, matched, total] = await Promise.all([
-        prisma.packagePhoto.count({ where: { ...clinicWhere, createdAt: { gte: todayStart } } }),
-        prisma.packagePhoto.count({ where: { ...clinicWhere, createdAt: { gte: yesterdayStart, lt: todayStart } } }),
-        prisma.packagePhoto.count({ where: { ...clinicWhere, createdAt: { gte: weekStart } } }),
-        prisma.packagePhoto.count({ where: { ...clinicWhere, createdAt: { gte: monthStart } } }),
-        prisma.packagePhoto.count({ where: { ...clinicWhere, matched: true } }),
-        prisma.packagePhoto.count({ where: clinicWhere }),
-      ]);
-
-      return NextResponse.json({
-        success: true,
-        data: {
+      const tz = await resolveClinicTimezone(clinicId);
+      const buildStats = async (whereBase: Record<string, unknown>, timezone: string) => {
+        const { todayStart, yesterdayStart, weekStart, monthStart } = getTimezoneAwareBoundaries(timezone);
+        const [today, yesterday, thisWeek, thisMonth, matched, total] = await Promise.all([
+          prisma.packagePhoto.count({ where: { ...whereBase, createdAt: { gte: todayStart } } }),
+          prisma.packagePhoto.count({ where: { ...whereBase, createdAt: { gte: yesterdayStart, lt: todayStart } } }),
+          prisma.packagePhoto.count({ where: { ...whereBase, createdAt: { gte: weekStart } } }),
+          prisma.packagePhoto.count({ where: { ...whereBase, createdAt: { gte: monthStart } } }),
+          prisma.packagePhoto.count({ where: { ...whereBase, matched: true } }),
+          prisma.packagePhoto.count({ where: whereBase }),
+        ]);
+        return {
           today,
           yesterday,
           thisWeek,
@@ -401,18 +402,30 @@ async function getHandler(req: NextRequest, user: AuthUser) {
           total,
           matchRate: total > 0 ? Math.round((matched / total) * 100) : 0,
           unmatched: total - matched,
+        };
+      };
+
+      const scopedStats = await buildStats(clinicWhere, tz);
+      const globalStats = await buildStats({}, await resolveClinicTimezone(undefined));
+
+      return NextResponse.json({
+        success: true,
+        data: {
+          ...scopedStats,
+          global: globalStats,
         },
       });
     }
 
     // Demographics mode — detailed breakdowns for the analytics dashboard
     if (url.searchParams.get('demographics') === 'true') {
-      const clinicId = resolveRequestClinicId(user);
+      const clinicId = isGlobalScope(url) ? undefined : resolveRequestClinicId(user);
       const clinicFilterSql = clinicId ? Prisma.sql`AND "clinicId" = ${clinicId}` : Prisma.empty;
       const clinicFilterSqlPP = clinicId ? Prisma.sql`AND pp."clinicId" = ${clinicId}` : Prisma.empty;
-      const tz = await resolveClinicTimezone(user.clinicId);
+      const tz = await resolveClinicTimezone(clinicId);
       const tzSql = tzLiteral(tz);
       const { todayStart, monthStart, year, month, day } = getTimezoneAwareBoundaries(tz);
+      const now = new Date();
 
       const fourteenDaysAgo = midnightInTz(year, month, day - 13, tz);
 
@@ -481,6 +494,7 @@ async function getHandler(req: NextRequest, user: AuthUser) {
             COUNT(*)::bigint as total
           FROM "PackagePhoto"
           WHERE "createdAt" >= ${todayStart}
+            AND "createdAt" < ${now}
             ${clinicFilterSql}
           GROUP BY 1
           ORDER BY 1 ASC
@@ -553,10 +567,10 @@ async function getHandler(req: NextRequest, user: AuthUser) {
 
     // Performance report mode — hourly/daily/weekly granularity with per-rep drill-down
     if (url.searchParams.get('performance-report') === 'true') {
-      const clinicId = resolveRequestClinicId(user);
+      const clinicId = isGlobalScope(url) ? undefined : resolveRequestClinicId(user);
       const clinicFilterSql = clinicId ? Prisma.sql`AND "clinicId" = ${clinicId}` : Prisma.empty;
       const clinicFilterSqlPP = clinicId ? Prisma.sql`AND pp."clinicId" = ${clinicId}` : Prisma.empty;
-      const tz = await resolveClinicTimezone(user.clinicId);
+      const tz = await resolveClinicTimezone(clinicId);
       const tzSql = tzLiteral(tz);
       const bounds = getTimezoneAwareBoundaries(tz);
 
@@ -798,10 +812,10 @@ async function getHandler(req: NextRequest, user: AuthUser) {
 
     // Daily report mode — per-day breakdown for a date range with rep details
     if (url.searchParams.get('daily-report') === 'true') {
-      const clinicId = resolveRequestClinicId(user);
+      const clinicId = isGlobalScope(url) ? undefined : resolveRequestClinicId(user);
       const clinicFilterSql = clinicId ? Prisma.sql`AND "clinicId" = ${clinicId}` : Prisma.empty;
       const clinicFilterSqlPP = clinicId ? Prisma.sql`AND pp."clinicId" = ${clinicId}` : Prisma.empty;
-      const tz = await resolveClinicTimezone(user.clinicId);
+      const tz = await resolveClinicTimezone(clinicId);
       const tzSql = tzLiteral(tz);
       const bounds = getTimezoneAwareBoundaries(tz);
 
@@ -975,8 +989,12 @@ async function getHandler(req: NextRequest, user: AuthUser) {
 
     const params = searchSchema.parse(Object.fromEntries(url.searchParams));
     const { search, matched, assignedClinicId, assignedFilter, period, from, to, page, limit, sortBy, sortOrder } = params;
+    const clinicId = isGlobalScope(url) ? undefined : resolveRequestClinicId(user);
 
     const where: Record<string, unknown> = {};
+    if (clinicId) {
+      where.clinicId = clinicId;
+    }
 
     if (search) {
       where.OR = [
@@ -1001,7 +1019,7 @@ async function getHandler(req: NextRequest, user: AuthUser) {
     }
 
     if (period !== 'all') {
-      const tz = await resolveClinicTimezone(user.clinicId);
+      const tz = await resolveClinicTimezone(clinicId);
       const bounds = getTimezoneAwareBoundaries(tz);
 
       if (period === 'today') {

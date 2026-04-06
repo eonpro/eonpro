@@ -296,8 +296,8 @@ const ANASTROZOLE_05_TEMPLATES: SigTemplate[] = [
 
 const B12_TEMPLATES: SigTemplate[] = [
   {
-    label: '4x/week · 25 units (morning)',
-    sig: 'Inject 25 units subcutaneously 4 times per week in the morning.',
+    label: '2x/week · 50 units (morning)',
+    sig: 'Inject 50 units subcutaneously 2 times per week in the morning.',
     quantity: '1',
     refills: '0',
     daysSupply: 30,

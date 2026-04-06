@@ -5,6 +5,7 @@ import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { handleApiError } from '@/domains/shared/errors';
 import { getStripeForClinic } from '@/lib/stripe/connect';
 import { processPaymentForCommission } from '@/services/affiliate/affiliateCommissionService';
+import { createInvoiceForProcessedPayment } from '@/services/billing/createInvoiceForPayment';
 import { logger } from '@/lib/logger';
 import type Stripe from 'stripe';
 
@@ -266,6 +267,19 @@ async function handlePost(request: NextRequest, _user: AuthUser) {
         { status: 402 }
       );
     }
+
+    // Auto-create a PAID invoice so staff can see what the patient paid for (non-blocking)
+    await createInvoiceForProcessedPayment({
+      paymentId: pendingPayment.id,
+      patientId: patient.id,
+      clinicId: patient.clinicId,
+      amount: pendingPayment.amount,
+      description: pendingPayment.description || 'Payment',
+      stripePaymentIntentId: paymentIntentId,
+      stripeChargeId: intent.latest_charge?.toString(),
+      planId: subscription?.planId,
+      planName: subscription?.planName,
+    });
 
     // Create real Stripe Subscription for recurring plans
     let stripeSubscriptionId: string | null = null;

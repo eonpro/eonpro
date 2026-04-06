@@ -86,6 +86,7 @@ export function ProcessPaymentForm({ patientId, patientName, clinicSubdomain, on
     mode: 'payment' as const,
     amount: amountInCents,
     currency: 'usd',
+    setupFutureUsage: 'off_session',
     appearance: {
       theme: 'stripe',
       variables: {

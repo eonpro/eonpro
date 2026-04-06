@@ -33,6 +33,7 @@ dotenv.config({ path: '.env' });
 import { prisma, runWithClinicContext } from '../src/lib/db';
 import { getStripeForClinic } from '../src/lib/stripe/connect';
 import { getAddonPlanByStripePriceId } from '../src/config/billingPlans';
+import { computeEmailHash } from '../src/lib/security/phi-encryption';
 import type Stripe from 'stripe';
 
 const WELLMEDR_CLINIC_SUBDOMAIN = 'wellmedr';
@@ -138,6 +139,7 @@ async function main() {
 
       try {
         const result = await runWithClinicContext(clinicId, async () => {
+          const emailHash = computeEmailHash(email);
           let patient = await prisma.patient.findFirst({
             where: { stripeCustomerId: customerId },
             select: { id: true, clinicId: true, firstName: true, lastName: true },
@@ -154,6 +156,15 @@ async function main() {
           if (!patient) {
             patient = await prisma.patient.findFirst({
               where: { email: { equals: email, mode: 'insensitive' }, clinicId },
+              select: { id: true, clinicId: true, firstName: true, lastName: true },
+              orderBy: { createdAt: 'desc' },
+            });
+          }
+
+          // PHI email may be encrypted at rest; emailHash supports deterministic lookup.
+          if (!patient && emailHash) {
+            patient = await prisma.patient.findFirst({
+              where: { emailHash, clinicId },
               select: { id: true, clinicId: true, firstName: true, lastName: true },
               orderBy: { createdAt: 'desc' },
             });

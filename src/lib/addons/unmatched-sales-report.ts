@@ -1,4 +1,5 @@
 import { prisma, runWithClinicContext } from '@/lib/db';
+import { computeEmailHash } from '@/lib/security/phi-encryption';
 import type Stripe from 'stripe';
 
 const ADDON_PRICE_IDS = [
@@ -100,6 +101,7 @@ export async function buildAddonUnmatchedSalesReport(
           typeof customer !== 'string' && customer && 'email' in customer
             ? (customer as { email?: string | null }).email?.trim().toLowerCase() || null
             : null;
+        const emailHash = computeEmailHash(email);
 
         let reason: UnmatchedReason;
         if (!email) {
@@ -117,7 +119,18 @@ export async function buildAddonUnmatchedSalesReport(
               select: { id: true },
               orderBy: { createdAt: 'desc' },
             });
-            return !!bySearchIndex;
+            if (bySearchIndex) return true;
+
+            if (emailHash) {
+              const byEmailHash = await prisma.patient.findFirst({
+                where: { clinicId: options.clinicId, emailHash },
+                select: { id: true },
+                orderBy: { createdAt: 'desc' },
+              });
+              if (byEmailHash) return true;
+            }
+
+            return false;
           });
 
           if (patientMatched) continue;

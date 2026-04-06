@@ -18,6 +18,7 @@ import { verifyCronAuth } from '@/lib/cron/tenant-isolation';
 import { prisma, runWithClinicContext } from '@/lib/db';
 import { handleApiError } from '@/domains/shared/errors';
 import { alertWarning } from '@/lib/observability/slack-alerts';
+import { computeEmailHash } from '@/lib/security/phi-encryption';
 import {
   isWellMedrAddonPriceId,
   getAddonPlanByStripePriceId,
@@ -153,6 +154,7 @@ export async function GET(req: NextRequest) {
 
           try {
             const result = await runWithClinicContext(clinicId, async () => {
+              const emailHash = computeEmailHash(email);
               const existing = await prisma.invoice.findFirst({
                 where: {
                   metadata: { path: ['stripeInvoiceId'], equals: stripeInvoiceId },
@@ -168,6 +170,13 @@ export async function GET(req: NextRequest) {
               if (!patient) {
                 patient = await prisma.patient.findFirst({
                   where: { searchIndex: { contains: email, mode: 'insensitive' }, clinicId },
+                  select: { id: true, clinicId: true },
+                  orderBy: { createdAt: 'desc' },
+                });
+              }
+              if (!patient && emailHash) {
+                patient = await prisma.patient.findFirst({
+                  where: { emailHash, clinicId },
                   select: { id: true, clinicId: true },
                   orderBy: { createdAt: 'desc' },
                 });
