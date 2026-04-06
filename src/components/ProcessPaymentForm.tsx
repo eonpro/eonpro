@@ -195,6 +195,10 @@ function ProcessPaymentFormContent({ patientId, patientName, clinicSubdomain, on
     }
   }, [selectedPlanId]);
 
+  const selectedPlan = selectedPlanId ? getPlanById(selectedPlanId, clinicSubdomain) : null;
+  const planOriginalAmount = selectedPlan ? selectedPlan.price / 100 : null;
+  const amountAdjusted = planOriginalAmount !== null && amount !== planOriginalAmount;
+
   const handleAmountChange = (value: string) => {
     const sanitized = value.replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1');
     setAmountInputValue(sanitized);
@@ -468,7 +472,6 @@ function ProcessPaymentFormContent({ patientId, patientName, clinicSubdomain, on
               value={amountInputValue}
               onChange={(e) => {
                 handleAmountChange(e.target.value);
-                if (selectedPlanId) setSelectedPlanId('');
               }}
               className={`w-full rounded-lg border px-3 py-2 focus:border-[#4fa77e] focus:ring-2 focus:ring-[#4fa77e] ${
                 formSubmitted && cardErrors.amount ? 'border-red-500' : 'border-gray-300'
@@ -478,6 +481,25 @@ function ProcessPaymentFormContent({ patientId, patientName, clinicSubdomain, on
             />
             {formSubmitted && cardErrors.amount && (
               <p className="mt-1 text-sm text-red-600">{cardErrors.amount}</p>
+            )}
+            {amountAdjusted && planOriginalAmount !== null && (
+              <div className="mt-1 flex items-center gap-2">
+                <p className="text-xs text-amber-600">
+                  {amount < planOriginalAmount
+                    ? `Discount of $${(planOriginalAmount - amount).toFixed(2)} applied (plan: $${planOriginalAmount.toFixed(2)})`
+                    : `Adjusted +$${(amount - planOriginalAmount).toFixed(2)} from plan price ($${planOriginalAmount.toFixed(2)})`}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAmount(planOriginalAmount);
+                    setAmountInputValue(planOriginalAmount.toFixed(2));
+                  }}
+                  className="text-xs font-medium text-[#4fa77e] hover:underline"
+                >
+                  Reset
+                </button>
+              </div>
             )}
           </div>
           <div>
@@ -490,7 +512,6 @@ function ProcessPaymentFormContent({ patientId, patientName, clinicSubdomain, on
               value={description}
               onChange={(e: any) => {
                 setDescription(e.target.value);
-                if (selectedPlanId) setSelectedPlanId('');
               }}
               className={`w-full rounded-lg border px-3 py-2 focus:border-[#4fa77e] focus:ring-2 focus:ring-[#4fa77e] ${
                 formSubmitted && cardErrors.description ? 'border-red-500' : 'border-gray-300'
@@ -670,7 +691,12 @@ function ProcessPaymentFormContent({ patientId, patientName, clinicSubdomain, on
           </div>
           <div className="flex justify-between text-sm">
             <span className="text-gray-600">Amount:</span>
-            <span className="font-medium text-[#4fa77e]">${amount.toFixed(2)}</span>
+            <div className="text-right">
+              <span className="font-medium text-[#4fa77e]">${amount.toFixed(2)}</span>
+              {amountAdjusted && planOriginalAmount !== null && (
+                <span className="ml-2 text-xs text-gray-400 line-through">${planOriginalAmount.toFixed(2)}</span>
+              )}
+            </div>
           </div>
           {isRecurring && (
             <div className="flex justify-between text-sm">
