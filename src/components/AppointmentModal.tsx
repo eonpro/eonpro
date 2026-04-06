@@ -160,6 +160,7 @@ export default function AppointmentModal({
         patientLastName: lastName,
         patientEmail: appointment.patientEmail ?? '',
         patientPhone: appointment.patientPhone ?? '',
+        zoomLink: appointment.zoomJoinUrl ?? appointment.videoLink ?? '',
       }));
 
       // Pre-select the patient so step 2 doesn't ask again
@@ -563,14 +564,49 @@ export default function AppointmentModal({
                         />
                       </div>
 
-                      {formData.type === 'telehealth' && (
-                        <div className="rounded-lg border border-blue-200 bg-blue-50 p-3">
-                          <p className="text-sm text-blue-800">
-                            <Video className="mr-2 inline h-4 w-4" />A Zoom meeting link will be
-                            automatically generated and sent to the patient
-                          </p>
-                        </div>
-                      )}
+                      {formData.type === 'telehealth' &&
+                        (formData.zoomLink ? (
+                          <div className="rounded-lg border border-green-200 bg-green-50 p-3">
+                            <p className="mb-2 text-sm text-green-800">
+                              <Video className="mr-2 inline h-4 w-4" />
+                              Zoom link ready to share with patient
+                            </p>
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="text"
+                                value={formData.zoomLink}
+                                readOnly
+                                className="flex-1 rounded border border-green-300 bg-white px-2 py-1 font-mono text-xs"
+                              />
+                              <a
+                                href={formData.zoomLink}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="rounded bg-blue-600 px-2 py-1 text-xs text-white hover:bg-blue-700"
+                              >
+                                Open
+                              </a>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(formData.zoomLink);
+                                  setCopiedLink(true);
+                                  setTimeout(() => setCopiedLink(false), 2000);
+                                }}
+                                className="rounded bg-[#4fa77e] px-2 py-1 text-xs text-white hover:bg-[#3f8660]"
+                              >
+                                {copiedLink ? 'Copied' : 'Copy'}
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="rounded-lg border border-blue-200 bg-blue-50 p-3">
+                            <p className="text-sm text-blue-800">
+                              <Video className="mr-2 inline h-4 w-4" />A Zoom meeting link will be
+                              automatically generated and sent to the patient
+                            </p>
+                          </div>
+                        ))}
 
                       {error && (
                         <div className="rounded-lg border border-red-200 bg-red-50 p-3">

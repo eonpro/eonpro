@@ -888,6 +888,60 @@ export async function generatePharmacyPDF(invoice: PharmacyInvoice): Promise<Uin
     groups.push({ id, items, ship, addons, medCents, shipCents, addonCents, total: medCents + shipCents + addonCents });
   }
 
+  // ── PRODUCT BREAKDOWN CARD ──
+  {
+    const medBuckets = new Map<string, number>();
+    for (const li of invoice.lineItems) {
+      const raw = li.medicationName.trim();
+      const family = (raw.split('/')[0] ?? raw).trim() || raw || 'Other';
+      medBuckets.set(family, (medBuckets.get(family) ?? 0) + li.quantity);
+    }
+    const addonBuckets = new Map<string, number>();
+    for (const al of invoice.addonLineItems) {
+      addonBuckets.set(al.addonName, (addonBuckets.get(al.addonName) ?? 0) + 1);
+    }
+    const entries: { name: string; count: number }[] = [];
+    for (const [name, count] of medBuckets) entries.push({ name, count });
+    for (const [name, count] of addonBuckets) entries.push({ name, count });
+    entries.sort((a, b) => b.count - a.count);
+
+    if (entries.length > 0) {
+      const cardH = 18 + Math.ceil(entries.length / 3) * 16 + 8;
+      need(cardH);
+
+      pg.drawRectangle({ x: M, y: y - cardH + 14, width: TW, height: cardH, color: rgb(0.95, 0.98, 0.96), borderColor: green, borderWidth: 0.6 });
+      t('PRODUCT BREAKDOWN', M + 10, helvB, 8.5, green);
+      const totalItems = entries.reduce((s, e) => s + e.count, 0);
+      const summaryX = M + 180;
+      t(`${totalItems} total items this period`, summaryX, sofia, 7, mid);
+      y -= 18;
+
+      const colW = Math.floor(TW / 3);
+      for (let i = 0; i < entries.length; i++) {
+        const col = i % 3;
+        const ex = M + 12 + col * colW;
+        t(entries[i].name, ex, sofia, 7.5);
+        const countStr = String(entries[i].count);
+        t(countStr, ex + colW - 40, helvB, 8, green);
+        if (col === 2 || i === entries.length - 1) y -= 14;
+      }
+      y -= 8;
+    }
+  }
+
+  // ── INVOICE TOTAL (top of first page) ──
+  need(36);
+  pg.drawRectangle({ x: M, y: y - 10, width: TW, height: 28, color: green });
+  y -= 2;
+  t('INVOICE TOTAL', M + 12, helvB, 11, white);
+  const breakdownParts: string[] = [];
+  breakdownParts.push(`Medications: ${$(invoice.subtotalMedicationsCents)}`);
+  if (invoice.subtotalShippingCents > 0) breakdownParts.push(`Shipping: ${$(invoice.subtotalShippingCents)}`);
+  if (invoice.subtotalAddonsCents > 0) breakdownParts.push(`Add-ons: ${$(invoice.subtotalAddonsCents)}`);
+  t(breakdownParts.join('  +  '), M + 160, sofia, 7.5, rgb(0.85, 1, 0.9));
+  t($(invoice.totalCents), TW + M - 80, helvB, 13, white);
+  y -= 32;
+
   // Column positions
   const cx = { desc: M + 6, strength: M + 200, vial: M + 310, price: M + 380, amt: TW + M - 60 };
 
@@ -1041,6 +1095,63 @@ export async function generatePrescriptionServicesPDF(invoice: PrescriptionServi
   t(rxSummaryParts.join('   |   '), M, sofia, 8, mid);
   t(`Generated ${new Date().toLocaleString('en-US')}`, PW - M - 260, sofia, 7.5, light);
   y -= 22;
+
+  // ── PRODUCT BREAKDOWN CARD ──
+  {
+    const rxBuckets = new Map<string, number>();
+    for (const li of invoice.lineItems) {
+      if (li.chargeType === 'cancelled') continue;
+      const medsStr = li.medications;
+      const mainPart = medsStr.split('|')[0]?.trim() ?? medsStr;
+      const meds = mainPart.split(',').map((m) => m.trim()).filter(Boolean);
+      for (const med of meds) {
+        const family = (med.split('/')[0]?.split(' ')[0] ?? med).trim() || 'Other';
+        rxBuckets.set(family, (rxBuckets.get(family) ?? 0) + 1);
+      }
+    }
+    const entries: { name: string; count: number }[] = [];
+    for (const [name, count] of rxBuckets) entries.push({ name, count });
+    entries.sort((a, b) => b.count - a.count);
+
+    if (entries.length > 0) {
+      const cardH = 18 + Math.ceil(entries.length / 3) * 16 + 8;
+      need(cardH);
+
+      pg.drawRectangle({ x: M, y: y - cardH + 14, width: TW, height: cardH, color: rgb(0.99, 0.97, 0.93), borderColor: amber, borderWidth: 0.6 });
+      t('PRODUCT BREAKDOWN', M + 10, helvB, 8.5, amber);
+      const totalRx = invoice.totalPrescriptions;
+      const summaryX = M + 180;
+      t(`${totalRx} total prescriptions this period`, summaryX, sofia, 7, mid);
+      y -= 18;
+
+      const colW = Math.floor(TW / 3);
+      for (let i = 0; i < entries.length; i++) {
+        const col = i % 3;
+        const ex = M + 12 + col * colW;
+        t(entries[i].name, ex, sofia, 7.5);
+        const countStr = String(entries[i].count);
+        t(countStr, ex + colW - 40, helvB, 8, amber);
+        if (col === 2 || i === entries.length - 1) y -= 14;
+      }
+      y -= 8;
+    }
+  }
+
+  // ── INVOICE TOTAL (top of first page) ──
+  need(36);
+  pg.drawRectangle({ x: M, y: y - 10, width: TW, height: 28, color: amber });
+  y -= 2;
+  t('INVOICE TOTAL', M + 12, helvB, 11, white);
+  const rxBreakdownParts = [
+    `${invoice.newPrescriptionCount} new x ${$(invoice.newFeeCents)}`,
+    `${invoice.refillPrescriptionCount} refill x ${$(invoice.refillFeeCents)}`,
+  ];
+  if (invoice.cancelledPrescriptionCount > 0) {
+    rxBreakdownParts.push(`${invoice.cancelledPrescriptionCount} cancelled`);
+  }
+  t(rxBreakdownParts.join('  +  '), M + 160, sofia, 7.5, rgb(1, 0.97, 0.88));
+  t($(invoice.totalCents), TW + M - 80, helvB, 13, white);
+  y -= 32;
 
   // Column header
   const rc = { paid: M + 6, sent: M + 85, order: M + 155, patient: M + 195, lf: M + 310, meds: M + 400, type: M + 530, fee: TW + M - 60 };

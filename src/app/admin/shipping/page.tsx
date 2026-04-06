@@ -18,6 +18,7 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api/fetch';
+import { prefetchRoute } from '@/lib/navigation/prefetchRoute';
 
 interface ShippingRecord {
   id: number;
@@ -356,6 +357,7 @@ export default function AdminShippingPage() {
                     {rec.patientId ? (
                       <a
                         href={`/admin/patients/${rec.patientId}`}
+                        onMouseEnter={() => prefetchRoute(`/admin/patients/${rec.patientId}`)}
                         className="text-sm font-medium text-gray-900 hover:text-[#4fa77e] hover:underline"
                       >
                         {rec.patientName || `Patient #${rec.patientId}`}
@@ -431,6 +433,7 @@ export default function AdminShippingPage() {
                       {rec.patientId && (
                         <a
                           href={`/admin/patients/${rec.patientId}?tab=prescriptions`}
+                          onMouseEnter={() => prefetchRoute(`/admin/patients/${rec.patientId}?tab=prescriptions`)}
                           title="View patient"
                           className="rounded p-1.5 text-gray-500 transition hover:bg-gray-100 hover:text-gray-700"
                         >

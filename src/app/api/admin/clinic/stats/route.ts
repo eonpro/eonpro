@@ -7,9 +7,11 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma, runWithClinicContext } from '@/lib/db';
+import { runWithClinicContext } from '@/lib/db';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { logger } from '@/lib/logger';
+import { executeDbRead } from '@/lib/database/executeDb';
+import { withReadFallback } from '@/lib/database/read-replica';
 
 /**
  * GET /api/admin/clinic/stats
@@ -29,104 +31,146 @@ export const GET = withAuth(
 
       return await runWithClinicContext(clinicId, async () => {
         try {
-          const now = new Date();
-        const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-        const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          const clinicStatsReadResult = await executeDbRead(
+            () =>
+              withReadFallback(async (db) => {
+                const now = new Date();
+                const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+                const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
-        // Get counts in parallel (prisma applies clinic filter in this context)
-        // Batched in groups of 3 to stay within the 3-connection serverless pool limit.
-        // Previously 15 parallel queries caused P2024 pool exhaustion under load.
-        const [clinic, totalPatients, activePatients] = await Promise.all([
-          prisma.clinic.findUnique({
-            where: { id: clinicId },
-            select: {
-              id: true,
-              name: true,
-              patientLimit: true,
-              providerLimit: true,
-              storageLimit: true,
-              billingPlan: true,
-              createdAt: true,
-            },
-          }),
-          prisma.patient.count({ where: { clinicId } }),
-          prisma.patient.count({
-            where: {
-              clinicId,
-              orders: { some: { createdAt: { gte: thirtyDaysAgo } } },
-            },
-          }),
-        ]);
+                // Batched in groups of 3 to stay within the 3-connection serverless pool limit.
+                const [clinic, totalPatients, activePatients] = await Promise.all([
+                  db.clinic.findUnique({
+                    where: { id: clinicId },
+                    select: {
+                      id: true,
+                      name: true,
+                      patientLimit: true,
+                      providerLimit: true,
+                      storageLimit: true,
+                      billingPlan: true,
+                      createdAt: true,
+                    },
+                  }),
+                  db.patient.count({ where: { clinicId } }),
+                  db.patient.count({
+                    where: {
+                      clinicId,
+                      orders: { some: { createdAt: { gte: thirtyDaysAgo } } },
+                    },
+                  }),
+                ]);
 
-        const [newPatientsThisMonth, totalUsers, activeUsers] = await Promise.all([
-          prisma.patient.count({
-            where: { clinicId, createdAt: { gte: thirtyDaysAgo } },
-          }),
-          prisma.user.count({
-            where: {
-              OR: [{ clinicId }, { userClinics: { some: { clinicId, isActive: true } } }],
-            },
-          }),
-          prisma.user.count({
-            where: {
-              OR: [{ clinicId }, { userClinics: { some: { clinicId, isActive: true } } }],
-              lastLogin: { gte: sevenDaysAgo },
-            },
-          }),
-        ]);
+                const [newPatientsThisMonth, totalUsers, activeUsers] = await Promise.all([
+                  db.patient.count({
+                    where: { clinicId, createdAt: { gte: thirtyDaysAgo } },
+                  }),
+                  db.user.count({
+                    where: {
+                      OR: [{ clinicId }, { userClinics: { some: { clinicId, isActive: true } } }],
+                    },
+                  }),
+                  db.user.count({
+                    where: {
+                      OR: [{ clinicId }, { userClinics: { some: { clinicId, isActive: true } } }],
+                      lastLogin: { gte: sevenDaysAgo },
+                    },
+                  }),
+                ]);
 
-        const [totalProviders, totalOrders, ordersThisMonth] = await Promise.all([
-          prisma.user.count({
-            where: {
-              OR: [
-                { clinicId, role: 'PROVIDER' },
-                { userClinics: { some: { clinicId, isActive: true, role: 'PROVIDER' } } },
-              ],
-            },
-          }),
-          prisma.order.count({ where: { clinicId } }),
-          prisma.order.count({
-            where: { clinicId, createdAt: { gte: thirtyDaysAgo } },
-          }),
-        ]);
+                const [totalProviders, totalOrders, ordersThisMonth] = await Promise.all([
+                  db.user.count({
+                    where: {
+                      OR: [
+                        { clinicId, role: 'PROVIDER' },
+                        { userClinics: { some: { clinicId, isActive: true, role: 'PROVIDER' } } },
+                      ],
+                    },
+                  }),
+                  db.order.count({ where: { clinicId } }),
+                  db.order.count({
+                    where: { clinicId, createdAt: { gte: thirtyDaysAgo } },
+                  }),
+                ]);
 
-        const [pendingOrders, completedOrders, totalTickets] = await Promise.all([
-          prisma.order.count({
-            where: {
-              clinicId,
-              status: { in: ['pending', 'processing', 'awaiting_prescription'] },
-            },
-          }),
-          prisma.order.count({ where: { clinicId, status: 'completed' } }),
-          prisma.ticket.count({ where: { clinicId } }),
-        ]);
+                const [pendingOrders, completedOrders, totalTickets] = await Promise.all([
+                  db.order.count({
+                    where: {
+                      clinicId,
+                      status: { in: ['pending', 'processing', 'awaiting_prescription'] },
+                    },
+                  }),
+                  db.order.count({ where: { clinicId, status: 'completed' } }),
+                  db.ticket.count({ where: { clinicId } }),
+                ]);
 
-        const [openTickets, recentAuditLogs, userActivity] = await Promise.all([
-          prisma.ticket.count({
-            where: {
-              clinicId,
-              status: { in: ['OPEN', 'IN_PROGRESS', 'PENDING'] },
-            },
-          }),
-          prisma.clinicAuditLog.count({
-            where: { clinicId, createdAt: { gte: sevenDaysAgo } },
-          }),
-          prisma.user.findMany({
-            where: {
-              OR: [{ clinicId }, { userClinics: { some: { clinicId, isActive: true } } }],
-              lastLogin: { gte: sevenDaysAgo },
-            },
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-              role: true,
-              lastLogin: true,
-            },
-            orderBy: { lastLogin: 'desc' },
-            take: 10,
-          }),
-        ]);
+                const [openTickets, recentAuditLogs, userActivity] = await Promise.all([
+                  db.ticket.count({
+                    where: {
+                      clinicId,
+                      status: { in: ['OPEN', 'IN_PROGRESS', 'PENDING'] },
+                    },
+                  }),
+                  db.clinicAuditLog.count({
+                    where: { clinicId, createdAt: { gte: sevenDaysAgo } },
+                  }),
+                  db.user.findMany({
+                    where: {
+                      OR: [{ clinicId }, { userClinics: { some: { clinicId, isActive: true } } }],
+                      lastLogin: { gte: sevenDaysAgo },
+                    },
+                    select: {
+                      id: true,
+                      firstName: true,
+                      lastName: true,
+                      role: true,
+                      lastLogin: true,
+                    },
+                    orderBy: { lastLogin: 'desc' },
+                    take: 10,
+                  }),
+                ]);
+
+                return {
+                  clinic,
+                  totalPatients,
+                  activePatients,
+                  newPatientsThisMonth,
+                  totalUsers,
+                  activeUsers,
+                  totalProviders,
+                  totalOrders,
+                  ordersThisMonth,
+                  pendingOrders,
+                  completedOrders,
+                  totalTickets,
+                  openTickets,
+                  recentAuditLogs,
+                  userActivity,
+                };
+              }),
+            'adminClinicStats:allReads',
+          );
+          if (!clinicStatsReadResult.success || !clinicStatsReadResult.data) {
+            throw new Error(clinicStatsReadResult.error?.message ?? 'Failed to load clinic stats');
+          }
+          const {
+            clinic,
+            totalPatients,
+            activePatients,
+            newPatientsThisMonth,
+            totalUsers,
+            activeUsers,
+            totalProviders,
+            totalOrders,
+            ordersThisMonth,
+            pendingOrders,
+            completedOrders,
+            totalTickets,
+            openTickets,
+            recentAuditLogs,
+            userActivity,
+          } = clinicStatsReadResult.data;
 
         if (!clinic) {
           return NextResponse.json({ error: 'Clinic not found' }, { status: 404 });

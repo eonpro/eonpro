@@ -6,6 +6,8 @@ import { decryptPHI } from '@/lib/security/phi-encryption';
 import { logger } from '@/lib/logger';
 import { z } from 'zod';
 import { ShippingStatus, Prisma } from '@prisma/client';
+import { executeDbRead } from '@/lib/database/executeDb';
+import { withReadFallback } from '@/lib/database/read-replica';
 
 function safeDecrypt(val: string | null | undefined): string | null {
   if (!val) return null;
@@ -118,43 +120,81 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       ];
     }
 
-    const [rawShipments, ...rest] = await Promise.all([
-      basePrisma.patientShippingUpdate.findMany({
-        where,
-        distinct: ['trackingNumber'],
-        orderBy: tab === 'issues' ? { updatedAt: 'desc' } : tab === 'delivered' ? { actualDelivery: 'desc' } : { createdAt: 'desc' },
-        select: {
-          id: true, trackingNumber: true, carrier: true, status: true, statusNote: true,
-          lifefileOrderId: true, shippedAt: true, estimatedDelivery: true, actualDelivery: true,
-          source: true, createdAt: true, updatedAt: true, clinicId: true, patientId: true, orderId: true,
-          rawPayload: true,
-          patient: { select: { id: true, firstName: true, lastName: true } },
-          order: { select: { id: true, lifefileOrderId: true } },
-        },
-      }),
-      ...TABS.map((t) =>
-        basePrisma.patientShippingUpdate.groupBy({
-          by: ['trackingNumber'],
-          where: { ...baseFilter, status: { in: TAB_STATUS_MAP[t] } },
-        }).then((groups: any[]) => groups.length)
-      ),
-      basePrisma.$queryRaw<[{ avg_days: number | null; on_time: number | null; on_time_total: number | null; total_delivered: number | null }]>(
-        Prisma.sql`
-          SELECT
-            AVG(EXTRACT(EPOCH FROM ("actualDelivery" - "shippedAt")) / 86400)::numeric(10,1) AS avg_days,
-            SUM(CASE WHEN "estimatedDelivery" IS NOT NULL AND "estimatedDelivery" > "shippedAt" AND "actualDelivery" <= "estimatedDelivery" THEN 1 ELSE 0 END)::int AS on_time,
-            SUM(CASE WHEN "estimatedDelivery" IS NOT NULL AND "estimatedDelivery" > "shippedAt" THEN 1 ELSE 0 END)::int AS on_time_total,
-            COUNT(*)::int AS total_delivered
-          FROM "PatientShippingUpdate"
-          WHERE status = 'DELIVERED' AND "actualDelivery" IS NOT NULL AND "shippedAt" IS NOT NULL
-            ${clinicId ? Prisma.sql`AND "clinicId" = ${clinicId}` : Prisma.empty}
-            ${dateFrom ? Prisma.sql`AND "createdAt" >= ${dateFrom}` : Prisma.empty}
-        `
-      ),
-      basePrisma.patientShippingUpdate.count({
-        where: { ...baseFilter, shippedAt: { gte: new Date(Date.now() - 7 * 86400000) } },
-      }),
-    ]);
+    const shipmentReadResult = await executeDbRead(
+      () =>
+        withReadFallback((db) =>
+          Promise.all([
+            db.patientShippingUpdate.findMany({
+              where,
+              distinct: ['trackingNumber'],
+              orderBy:
+                tab === 'issues'
+                  ? { updatedAt: 'desc' }
+                  : tab === 'delivered'
+                    ? { actualDelivery: 'desc' }
+                    : { createdAt: 'desc' },
+              select: {
+                id: true,
+                trackingNumber: true,
+                carrier: true,
+                status: true,
+                statusNote: true,
+                lifefileOrderId: true,
+                shippedAt: true,
+                estimatedDelivery: true,
+                actualDelivery: true,
+                source: true,
+                createdAt: true,
+                updatedAt: true,
+                clinicId: true,
+                patientId: true,
+                orderId: true,
+                rawPayload: true,
+                patient: { select: { id: true, firstName: true, lastName: true } },
+                order: { select: { id: true, lifefileOrderId: true } },
+              },
+            }),
+            ...TABS.map((t) =>
+              db.patientShippingUpdate
+                .groupBy({
+                  by: ['trackingNumber'],
+                  where: { ...baseFilter, status: { in: TAB_STATUS_MAP[t] } },
+                })
+                .then((groups: any[]) => groups.length),
+            ),
+            db.$queryRaw<
+              [
+                {
+                  avg_days: number | null;
+                  on_time: number | null;
+                  on_time_total: number | null;
+                  total_delivered: number | null;
+                },
+              ]
+            >(
+              Prisma.sql`
+                SELECT
+                  AVG(EXTRACT(EPOCH FROM ("actualDelivery" - "shippedAt")) / 86400)::numeric(10,1) AS avg_days,
+                  SUM(CASE WHEN "estimatedDelivery" IS NOT NULL AND "estimatedDelivery" > "shippedAt" AND "actualDelivery" <= "estimatedDelivery" THEN 1 ELSE 0 END)::int AS on_time,
+                  SUM(CASE WHEN "estimatedDelivery" IS NOT NULL AND "estimatedDelivery" > "shippedAt" THEN 1 ELSE 0 END)::int AS on_time_total,
+                  COUNT(*)::int AS total_delivered
+                FROM "PatientShippingUpdate"
+                WHERE status = 'DELIVERED' AND "actualDelivery" IS NOT NULL AND "shippedAt" IS NOT NULL
+                  ${clinicId ? Prisma.sql`AND "clinicId" = ${clinicId}` : Prisma.empty}
+                  ${dateFrom ? Prisma.sql`AND "createdAt" >= ${dateFrom}` : Prisma.empty}
+              `,
+            ),
+            db.patientShippingUpdate.count({
+              where: { ...baseFilter, shippedAt: { gte: new Date(Date.now() - 7 * 86400000) } },
+            }),
+          ]),
+        ),
+      'adminShipmentMonitor:readDatasets',
+    );
+    if (!shipmentReadResult.success || !shipmentReadResult.data) {
+      throw new Error(shipmentReadResult.error?.message ?? 'Failed to load shipment monitor data');
+    }
+    const [rawShipments, ...rest] = shipmentReadResult.data;
 
     const total = rawShipments.length;
     const shipments = rawShipments.slice(skip, skip + limit);

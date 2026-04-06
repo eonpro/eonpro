@@ -34,6 +34,7 @@
     {"path": "/api/cron/report-delivery", "schedule": "0 * * * *"},
     {"path": "/api/cron/affiliate-payouts", "schedule": "0 6 * * *"},
     {"path": "/api/cron/revenue-recognition", "schedule": "0 2 1 * *"},
-    {"path": "/api/cron/addon-invoice-sync", "schedule": "*/10 * * * *"}
+    {"path": "/api/cron/addon-invoice-sync", "schedule": "*/10 * * * *"},
+    {"path": "/api/cron/addon-unmatched-digest", "schedule": "30 13 * * *"}
   ]
 }

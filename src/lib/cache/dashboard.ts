@@ -17,6 +17,7 @@
 import type { AdminDashboardPayload } from '@/lib/dashboard/admin-dashboard';
 import type { GeoPayload } from '@/app/api/admin/dashboard/geo/route';
 import { logger } from '@/lib/logger';
+import { decodeSensitiveCacheValue, encodeSensitiveCacheValue } from '@/lib/cache/sensitive-cache';
 
 // =============================================================================
 // CONFIGURATION
@@ -27,6 +28,8 @@ const L2_TTL_SECONDS = parseInt(process.env.DASHBOARD_CACHE_TTL_SECONDS ?? '60',
 const GEO_L2_TTL_SECONDS = parseInt(process.env.GEO_CACHE_TTL_SECONDS ?? '120', 10); // Geo data changes less often
 const MAX_L1_ENTRIES = 500;
 const REDIS_NAMESPACE = 'eonpro:cache';
+const ENCRYPT_SENSITIVE_CACHE = process.env.ENCRYPT_SENSITIVE_CACHE === 'true';
+const MINIMIZE_DASHBOARD_CACHE_PAYLOAD = process.env.MINIMIZE_DASHBOARD_CACHE_PAYLOAD === 'true';
 
 // =============================================================================
 // LAZY REDIS
@@ -75,6 +78,23 @@ function l1Set<T>(store: Map<string, L1Entry<T>>, key: string, payload: T): void
   store.set(key, { payload, expiresAt: Date.now() + L1_TTL_MS });
 }
 
+/**
+ * Policy: default cache payload should be ID-first and avoid direct PHI/PII.
+ * This is opt-in to avoid behavior changes until explicitly enabled.
+ */
+function minimizeDashboardPayload(payload: AdminDashboardPayload): AdminDashboardPayload {
+  if (!MINIMIZE_DASHBOARD_CACHE_PAYLOAD) return payload;
+  return {
+    ...payload,
+    recentIntakes: payload.recentIntakes.map((i) => ({
+      ...i,
+      email: undefined,
+      phone: undefined,
+      dateOfBirth: undefined,
+    })),
+  };
+}
+
 // =============================================================================
 // DASHBOARD CACHE — PUBLIC API
 // =============================================================================
@@ -111,9 +131,10 @@ export async function getDashboardCacheAsync(
     if (!redis) return null;
 
     const redisKey = `dashboard:${clinicId ?? 'all'}:${userId}`;
-    const cached = await redis.get<AdminDashboardPayload>(redisKey, {
+    const cachedRaw = await redis.get<unknown>(redisKey, {
       namespace: REDIS_NAMESPACE,
     });
+    const cached = decodeSensitiveCacheValue<AdminDashboardPayload>(cachedRaw);
 
     if (cached) {
       // Promote to L1
@@ -154,7 +175,11 @@ async function setDashboardCacheL2(
     if (!redis) return;
 
     const redisKey = `dashboard:${clinicId ?? 'all'}:${userId}`;
-    await redis.set(redisKey, payload, {
+    const minimized = minimizeDashboardPayload(payload);
+    const payloadForRedis = ENCRYPT_SENSITIVE_CACHE
+      ? encodeSensitiveCacheValue(minimized)
+      : minimized;
+    await redis.set(redisKey, payloadForRedis, {
       ttl: L2_TTL_SECONDS,
       namespace: REDIS_NAMESPACE,
     });

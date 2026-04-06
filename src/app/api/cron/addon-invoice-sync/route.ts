@@ -17,6 +17,7 @@ import { logger } from '@/lib/logger';
 import { verifyCronAuth } from '@/lib/cron/tenant-isolation';
 import { prisma, runWithClinicContext } from '@/lib/db';
 import { handleApiError } from '@/domains/shared/errors';
+import { alertWarning } from '@/lib/observability/slack-alerts';
 import {
   isWellMedrAddonPriceId,
   getAddonPlanByStripePriceId,
@@ -32,6 +33,12 @@ const ADDON_PRICE_IDS = [
   { priceId: 'price_1TEFKJDfH4PWyxxdDZkq3vD5', addonKey: 'sermorelin' },
   { priceId: 'price_1TEFJ8DfH4PWyxxdgUpek4Yt', addonKey: 'b12' },
 ];
+
+// Reconcile only recent paid sales to avoid generating stale historical queue items.
+// This cron runs every 10 minutes, so a 48h window provides ample retry margin
+// for webhook timing gaps without replaying old subscription cycles.
+const RECENT_SALE_WINDOW_MS = 48 * 60 * 60 * 1000;
+const ALERT_SAMPLE_LIMIT = 10;
 
 export async function GET(req: NextRequest) {
   if (!verifyCronAuth(req)) {
@@ -67,6 +74,14 @@ export async function GET(req: NextRequest) {
     let totalCreated = 0;
     let totalSkipped = 0;
     let totalNoPatient = 0;
+    let totalNoCustomerEmail = 0;
+    const unmatchedSaleSamples: Array<{
+      addonKey: string;
+      stripeSubscriptionId: string;
+      stripeInvoiceId: string;
+      paidAt: string;
+      reason: 'no_customer_email' | 'no_patient_match';
+    }> = [];
 
     for (const addon of ADDON_PRICE_IDS) {
       const addonPlan = getAddonPlanByStripePriceId(addon.priceId);
@@ -81,23 +96,67 @@ export async function GET(req: NextRequest) {
           price: addon.priceId,
           status: 'active',
           limit: 100,
-          expand: ['data.customer'],
+          expand: ['data.customer', 'data.latest_invoice'],
           ...(startingAfter ? { starting_after: startingAfter } : {}),
         }, connectOpts);
 
         for (const sub of page.data) {
+          const latestInvoiceRaw = sub.latest_invoice;
+          if (!latestInvoiceRaw || typeof latestInvoiceRaw === 'string') {
+            totalSkipped++;
+            continue;
+          }
+
+          // This cron is a webhook fallback: only create queue items for paid invoices.
+          // If latest invoice is open/draft/unpaid, there was no successful sale to queue.
+          const latestInvoiceStatus = String(latestInvoiceRaw.status || '').toLowerCase();
+          if (latestInvoiceStatus !== 'paid') {
+            totalSkipped++;
+            continue;
+          }
+
+          const paidAtEpochSeconds =
+            latestInvoiceRaw.status_transitions?.paid_at ?? latestInvoiceRaw.created ?? null;
+          if (!paidAtEpochSeconds) {
+            totalSkipped++;
+            continue;
+          }
+
+          const paidAt = new Date(paidAtEpochSeconds * 1000);
+          const invoiceAgeMs = Date.now() - paidAt.getTime();
+          if (!Number.isFinite(invoiceAgeMs) || invoiceAgeMs > RECENT_SALE_WINDOW_MS) {
+            totalSkipped++;
+            continue;
+          }
+
+          const stripeInvoiceId = latestInvoiceRaw.id;
           const customer = sub.customer;
           const customerId = typeof customer === 'string' ? customer : customer?.id;
           const email = (typeof customer !== 'string' && customer && 'email' in customer)
             ? (customer as { email?: string | null }).email?.trim().toLowerCase() || null
             : null;
 
-          if (!email) { totalSkipped++; continue; }
+          if (!email) {
+            totalSkipped++;
+            totalNoCustomerEmail++;
+            if (unmatchedSaleSamples.length < ALERT_SAMPLE_LIMIT) {
+              unmatchedSaleSamples.push({
+                addonKey: addon.addonKey,
+                stripeSubscriptionId: sub.id,
+                stripeInvoiceId,
+                paidAt: paidAt.toISOString(),
+                reason: 'no_customer_email',
+              });
+            }
+            continue;
+          }
 
           try {
             const result = await runWithClinicContext(clinicId, async () => {
               const existing = await prisma.invoice.findFirst({
-                where: { metadata: { path: ['stripeSubscriptionId'], equals: sub.id } },
+                where: {
+                  metadata: { path: ['stripeInvoiceId'], equals: stripeInvoiceId },
+                },
                 select: { id: true },
               });
               if (existing) return 'exists';
@@ -122,20 +181,21 @@ export async function GET(req: NextRequest) {
                 data: {
                   patientId: patient.id,
                   clinicId: patientClinicId,
-                  stripeInvoiceId: null,
+                  stripeInvoiceId,
                   amount: amountCents,
                   amountDue: 0,
                   amountPaid: amountCents,
                   currency: 'usd',
                   status: 'PAID',
-                  paidAt: new Date(sub.created * 1000),
+                  paidAt,
                   description: `${addonName} - Payment received`,
-                  dueDate: new Date(sub.created * 1000),
+                  dueDate: paidAt,
                   prescriptionProcessed: false,
                   lineItems: [{ description: addonName, quantity: 1, unitPrice: amountCents, product: addonName, medicationType: 'add-on', plan: '' }],
                   metadata: {
                     invoiceNumber,
                     source: 'stripe-connect-addon-cron',
+                    stripeInvoiceId,
                     stripeSubscriptionId: sub.id,
                     stripeCustomerId: customerId || '',
                     product: addonName,
@@ -147,9 +207,22 @@ export async function GET(req: NextRequest) {
               return 'created';
             });
 
-            if (result === 'created') totalCreated++;
-            else if (result === 'no_patient') totalNoPatient++;
-            else totalSkipped++;
+            if (result === 'created') {
+              totalCreated++;
+            } else if (result === 'no_patient') {
+              totalNoPatient++;
+              if (unmatchedSaleSamples.length < ALERT_SAMPLE_LIMIT) {
+                unmatchedSaleSamples.push({
+                  addonKey: addon.addonKey,
+                  stripeSubscriptionId: sub.id,
+                  stripeInvoiceId,
+                  paidAt: paidAt.toISOString(),
+                  reason: 'no_patient_match',
+                });
+              }
+            } else {
+              totalSkipped++;
+            }
           } catch {
             totalSkipped++;
           }
@@ -160,13 +233,33 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    logger.info('[CRON] Addon invoice sync complete', { totalCreated, totalSkipped, totalNoPatient });
+    logger.info('[CRON] Addon invoice sync complete', {
+      totalCreated,
+      totalSkipped,
+      totalNoPatient,
+      totalNoCustomerEmail,
+    });
+
+    if (totalNoPatient > 0 || totalNoCustomerEmail > 0) {
+      // Alert on paid sales that could not be queued, so ops can link/create patients.
+      await alertWarning(
+        '[CRON] Addon sales not queued',
+        'Some paid addon sales could not be added to provider Rx queue because patient matching failed.',
+        {
+          totalNoPatient,
+          totalNoCustomerEmail,
+          sampledUnmatchedSales: JSON.stringify(unmatchedSaleSamples),
+        }
+      );
+    }
 
     return NextResponse.json({
       success: true,
       created: totalCreated,
       skipped: totalSkipped,
       noPatient: totalNoPatient,
+      noCustomerEmail: totalNoCustomerEmail,
+      unmatchedSampleCount: unmatchedSaleSamples.length,
     });
   } catch (error) {
     return handleApiError(error, { context: { route: 'GET /api/cron/addon-invoice-sync' } });

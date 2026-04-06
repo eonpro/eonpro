@@ -45,6 +45,7 @@ async function resolveClinicTimezone(clinicId: number | null | undefined): Promi
 
 function resolveRequestClinicId(user: AuthUser): number | undefined {
   // Prefer request-scoped active clinic (subdomain/session), then user default clinic.
+  // This avoids accidentally widening to global datasets when clinic context is absent.
   return getClinicContext() ?? user.clinicId;
 }
 

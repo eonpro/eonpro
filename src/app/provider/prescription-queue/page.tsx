@@ -948,13 +948,30 @@ export default function PrescriptionQueuePage() {
       }
 
       // Handle add-on medications from invoice (NAD+, Sermorelin, B12)
-      // All paid addons (including Elite Bundle) are included inline in the same
-      // prescription. The Elite Package order set is auto-selected to pre-fill
-      // the correct medications alongside the GLP-1 order set.
+      // Elite Bundle is split for non-addon-only invoices:
+      // - main Rx keeps GLP-1/standard meds
+      // - Elite meds are queued as a separate provider-review order after submit
+      // For addon-only invoices, addon meds stay inline on the current order.
       const invoiceMetadata = details.invoice?.metadata as Record<string, unknown> | null;
       const selectedAddons = invoiceMetadata?.selectedAddons;
       const inlineAddonMeds: MedicationItem[] = [];
+      const eliteAddonMedsForSeparateQueue: MedicationItem[] = [];
       let hasEliteBundle = false;
+
+      const pushAddonMed = (target: MedicationItem[], medKey: string) => {
+        // Guard against duplicate meds if metadata contains both elite_bundle and individuals.
+        if (target.some((m) => m.medicationKey === medKey)) return;
+        const med = MEDS[medKey];
+        if (!med) return;
+        target.push({
+          id: crypto.randomUUID(),
+          medicationKey: medKey,
+          sig: med.sigTemplates?.[0]?.sig || med.defaultSig || '',
+          quantity: med.sigTemplates?.[0]?.quantity || med.defaultQuantity || '1',
+          refills: med.sigTemplates?.[0]?.refills || med.defaultRefills || '0',
+          daysSupply: String(med.sigTemplates?.[0]?.daysSupply ?? 30),
+        });
+      };
 
       if (Array.isArray(selectedAddons) && selectedAddons.length > 0) {
         for (const addonId of selectedAddons) {
@@ -962,38 +979,24 @@ export default function PrescriptionQueuePage() {
             hasEliteBundle = true;
             for (const [key, medKey] of Object.entries(ADDON_MEDICATION_MAP)) {
               if (key === addonId) continue;
-              const med = MEDS[medKey];
-              if (med) {
-                inlineAddonMeds.push({
-                  id: crypto.randomUUID(),
-                  medicationKey: medKey,
-                  sig: med.sigTemplates?.[0]?.sig || med.defaultSig || '',
-                  quantity: med.sigTemplates?.[0]?.quantity || med.defaultQuantity || '1',
-                  refills: med.sigTemplates?.[0]?.refills || med.defaultRefills || '0',
-                  daysSupply: String(med.sigTemplates?.[0]?.daysSupply ?? 30),
-                });
+              if (isAddonOnlyInvoice) {
+                pushAddonMed(inlineAddonMeds, medKey);
+              } else {
+                pushAddonMed(eliteAddonMedsForSeparateQueue, medKey);
               }
             }
           } else {
             const medKey = ADDON_MEDICATION_MAP[addonId as string];
             if (medKey) {
-              const med = MEDS[medKey];
-              if (med) {
-                inlineAddonMeds.push({
-                  id: crypto.randomUUID(),
-                  medicationKey: medKey,
-                  sig: med.sigTemplates?.[0]?.sig || med.defaultSig || '',
-                  quantity: med.sigTemplates?.[0]?.quantity || med.defaultQuantity || '1',
-                  refills: med.sigTemplates?.[0]?.refills || med.defaultRefills || '0',
-                  daysSupply: String(med.sigTemplates?.[0]?.daysSupply ?? 30),
-                });
-              }
+              pushAddonMed(inlineAddonMeds, medKey);
             }
           }
         }
       }
 
-      setPendingEliteAddonMeds([]);
+      setPendingEliteAddonMeds(
+        hasEliteBundle && !isAddonOnlyInvoice ? eliteAddonMedsForSeparateQueue : []
+      );
 
       if (hasEliteBundle) {
         try {

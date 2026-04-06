@@ -13,7 +13,8 @@ import { Patient, Provider, Order } from '@/types/models';
 import { NextRequest, NextResponse } from 'next/server';
 import { withClinicalAuth, AuthUser } from '@/lib/auth/middleware';
 import { auditLog, AuditEventType } from '@/lib/audit/hipaa-audit';
-import { markPrescribed, queueForProvider } from '@/services/refill';
+import { prescriptionService, PrescriptionError } from '@/domains/prescription';
+import { markPrescribed } from '@/services/refill';
 import { providerCompensationService } from '@/services/provider';
 import { platformFeeService } from '@/services/billing';
 import { buildPatientSearchIndex } from '@/lib/utils/search';
@@ -77,7 +78,7 @@ function normalizeDob(input: string): string {
  * PROTECTED - Requires provider or admin authentication
  * Creates and submits prescription to Lifefile pharmacy
  */
-async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
+async function createPrescriptionHandlerLegacy(req: NextRequest, user: AuthUser) {
   let invoiceClaimed = false;
   let refillClaimed = false;
   let claimedInvoiceId: number | null = null;
@@ -1354,6 +1355,144 @@ async function createPrescriptionHandler(req: NextRequest, user: AuthUser) {
       { status: 500 }
     );
   }
+}
+
+type PrescriptionCutoverMode = 'legacy' | 'service';
+
+function getPrescriptionCutoverMode(): PrescriptionCutoverMode {
+  const mode = (process.env.PRESCRIPTIONS_CUTOVER_MODE ?? 'legacy').toLowerCase();
+  return mode === 'service' ? 'service' : 'legacy';
+}
+
+function parseCutoverClinicAllowlist(raw: string | undefined): Set<number> {
+  if (!raw) return new Set<number>();
+  const ids = raw
+    .split(',')
+    .map((v) => Number.parseInt(v.trim(), 10))
+    .filter((v) => Number.isFinite(v) && v > 0);
+  return new Set(ids);
+}
+
+function shouldUseServiceMode(user: AuthUser): boolean {
+  if (getPrescriptionCutoverMode() !== 'service') return false;
+
+  const allowlist = parseCutoverClinicAllowlist(
+    process.env.PRESCRIPTIONS_CUTOVER_CLINIC_IDS
+  );
+
+  // No allowlist configured => global service mode (explicit operator choice).
+  if (allowlist.size === 0) return true;
+
+  // Allowlisted clinic only. Missing clinic context fails closed to legacy path.
+  if (!user.clinicId) return false;
+  return allowlist.has(user.clinicId);
+}
+
+function ensurePrescriptionRole(user: AuthUser): Response | null {
+  if (['provider', 'admin', 'super_admin', 'sales_rep'].includes(user.role)) {
+    return null;
+  }
+  logger.security('Unauthorized prescription attempt', { userId: user.id, role: user.role });
+  return NextResponse.json(
+    { error: 'Not authorized to create prescriptions' },
+    { status: 403 }
+  );
+}
+
+function mapServiceError(err: unknown): Response {
+  if (err instanceof PrescriptionError) {
+    return NextResponse.json(
+      { error: err.message, code: err.code },
+      { status: err.statusCode ?? 500 }
+    );
+  }
+
+  const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+  const errObj = err as { code?: string };
+  const isPoolExhausted =
+    errObj.code === 'P2024' ||
+    (typeof errorMessage === 'string' &&
+      (errorMessage.toLowerCase().includes('connection pool') ||
+        errorMessage.includes('pool timeout')));
+  if (isPoolExhausted) {
+    return NextResponse.json(
+      { error: 'Service temporarily busy. Please try again in a moment.', detail: errorMessage },
+      { status: 503, headers: { 'Retry-After': '15' } }
+    );
+  }
+
+  logger.error('[PRESCRIPTIONS/POST] Unexpected error (service mode):', err);
+  return NextResponse.json(
+    { error: 'Unexpected server error', detail: errorMessage },
+    { status: 500 }
+  );
+}
+
+async function parseServiceInput(
+  req: NextRequest,
+  user: AuthUser
+): Promise<Parameters<typeof prescriptionService.createPrescription>[0] | Response> {
+  const body = await req.json();
+  if (!body.providerId && user.providerId) {
+    body.providerId = user.providerId;
+    logger.info(`[PRESCRIPTIONS] Using authenticated user's providerId: ${user.providerId}`);
+  }
+  if (user.role === 'sales_rep') {
+    body.queueForProvider = true;
+  }
+
+  const parsed = prescriptionSchema.safeParse(body);
+  if (!parsed.success) {
+    logger.error('[PRESCRIPTIONS] Validation failed:', { errors: parsed.error.flatten() });
+    return NextResponse.json(
+      {
+        error: 'Validation failed',
+        details: parsed.error.flatten().fieldErrors,
+        formErrors: parsed.error.flatten().formErrors,
+      },
+      { status: 400 }
+    );
+  }
+
+  return parsed.data as Parameters<typeof prescriptionService.createPrescription>[0];
+}
+
+async function createPrescriptionHandlerService(
+  req: NextRequest,
+  user: AuthUser
+): Promise<Response> {
+  try {
+    const roleResponse = ensurePrescriptionRole(user);
+    if (roleResponse) {
+      return roleResponse;
+    }
+
+    const inputOrError = await parseServiceInput(req, user);
+    if (inputOrError instanceof Response) {
+      return inputOrError;
+    }
+
+    const input = inputOrError;
+    const userContext = {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      clinicId: user.clinicId ?? undefined,
+      providerId: user.providerId ?? undefined,
+    };
+
+    const result = await prescriptionService.createPrescription(input, userContext);
+    return NextResponse.json(result);
+  } catch (err: unknown) {
+    return mapServiceError(err);
+  }
+}
+
+async function createPrescriptionHandler(req: NextRequest, user: AuthUser): Promise<Response> {
+  if (shouldUseServiceMode(user)) {
+    return createPrescriptionHandlerService(req, user);
+  }
+  return createPrescriptionHandlerLegacy(req, user);
 }
 
 // Export with authentication - requires provider, admin, or super_admin role

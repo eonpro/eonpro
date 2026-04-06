@@ -25,6 +25,8 @@ import { splitSearchTerms, buildPatientSearchWhere, buildPatientSearchIndex, bui
 import { searchPatientsByTrigram } from '@/lib/utils/trigram-search';
 import { Prisma, PrismaClient } from '@prisma/client';
 import { PERMISSIONS, hasPermission as hasRolePermission } from '@/lib/auth/permissions';
+import { executeDbRead } from '@/lib/database/executeDb';
+import { withReadFallback } from '@/lib/database/read-replica';
 
 const SALES_REP_VIEW_ALL_PATIENTS = PERMISSIONS.SALES_REP_VIEW_ALL_PATIENTS;
 
@@ -67,11 +69,27 @@ async function handleGet(req: NextRequest, user: AuthUser) {
 
     const clinicId = user.role === 'super_admin' ? undefined : user.clinicId;
 
-    // Super admin has no clinic context set by middleware, so the clinic-filtered
-    // `prisma` wrapper throws TenantContextRequiredError for clinic-isolated models.
-    // Use basePrisma for super_admin (patient is in BASE_PRISMA_ALLOWLIST; nested
-    // includes are resolved internally by Prisma, bypassing the guarded proxy).
-    const db = (user.role === 'super_admin' ? basePrisma : prisma) as PrismaClient;
+    // Writes (self-heal updates) stay on primary DB.
+    // Super admin has no clinic context set by middleware, so use basePrisma.
+    const writeDb = (user.role === 'super_admin' ? basePrisma : prisma) as PrismaClient;
+
+    const runRead = async <T>(
+      operationName: string,
+      operation: (db: PrismaClient) => Promise<T>
+    ): Promise<T> => {
+      const result =
+        user.role === 'super_admin'
+          ? await executeDbRead(() => operation(basePrisma as PrismaClient), operationName)
+          : await executeDbRead(
+              () => withReadFallback((readDb) => operation(readDb as PrismaClient)),
+              operationName
+            );
+
+      if (!result.success || result.data === undefined) {
+        throw new Error(result.error?.message ?? `${operationName} failed`);
+      }
+      return result.data;
+    };
 
     // Patients = those with at least one invoice OR at least one order/prescription.
     const whereClause: Prisma.PatientWhereInput = {
@@ -212,14 +230,16 @@ async function handleGet(req: NextRequest, user: AuthUser) {
 
     // Phase 1: Main query using searchIndex (fast path for indexed patients)
     const [indexedPatients, indexedTotal] = await Promise.all([
-      db.patient.findMany({
-        where: whereClause,
-        select: patientSelect,
-        orderBy: { createdAt: 'desc' },
-        take: limit,
-        skip: offset,
-      }),
-      db.patient.count({ where: whereClause }),
+      runRead('adminPatients:indexedList', (db) =>
+        db.patient.findMany({
+          where: whereClause,
+          select: patientSelect,
+          orderBy: { createdAt: 'desc' },
+          take: limit,
+          skip: offset,
+        })
+      ),
+      runRead('adminPatients:indexedTotal', (db) => db.patient.count({ where: whereClause })),
     ]);
 
     // Phase 2: Fallback for patients with NULL/empty/incomplete searchIndex
@@ -236,7 +256,9 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         ...buildIncompleteSearchIndexWhere(),
       };
 
-      const unindexedCount = await db.patient.count({ where: fallbackWhere });
+      const unindexedCount = await runRead('adminPatients:unindexedCount', (db) =>
+        db.patient.count({ where: fallbackWhere })
+      );
 
       if (unindexedCount > 0) {
         const terms = splitSearchTerms(search);
@@ -249,15 +271,17 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         let totalScanned = 0;
 
         while (totalScanned < FALLBACK_MAX_SCAN) {
-          const chunk = await db.patient.findMany({
-            where: {
-              ...fallbackWhere,
-              ...(cursorId !== undefined ? { id: { gt: cursorId } } : {}),
-            },
-            select: patientSelect,
-            orderBy: { id: 'asc' },
-            take: FALLBACK_CHUNK_SIZE,
-          });
+          const chunk = await runRead('adminPatients:fallbackChunk', (db) =>
+            db.patient.findMany({
+              where: {
+                ...fallbackWhere,
+                ...(cursorId !== undefined ? { id: { gt: cursorId } } : {}),
+              },
+              select: patientSelect,
+              orderBy: { id: 'asc' },
+              take: FALLBACK_CHUNK_SIZE,
+            })
+          );
 
           if (chunk.length === 0) break;
           totalScanned += chunk.length;
@@ -318,7 +342,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         if (selfHealUpdates.length > 0) {
           Promise.all(
             selfHealUpdates.map(({ id, searchIndex }) =>
-              db.patient.update({ where: { id }, data: { searchIndex } }).catch((err) => {
+              writeDb.patient.update({ where: { id }, data: { searchIndex } }).catch((err) => {
                 logger.warn('[ADMIN-PATIENTS] Self-heal searchIndex failed', { patientId: id, error: String(err) });
               })
             )
@@ -355,15 +379,17 @@ async function handleGet(req: NextRequest, user: AuthUser) {
         });
         if (trigramMatches.length > 0) {
           const trigramIds = trigramMatches.map((m) => m.id);
-          trigramPatients = await db.patient.findMany({
-            where: {
-              ...baseWhere,
-              id: { in: trigramIds },
-            },
-            select: patientSelect,
-            orderBy: { createdAt: 'desc' },
-            take: limit,
-          });
+          trigramPatients = await runRead('adminPatients:trigramDetails', (db) =>
+            db.patient.findMany({
+              where: {
+                ...baseWhere,
+                id: { in: trigramIds },
+              },
+              select: patientSelect,
+              orderBy: { createdAt: 'desc' },
+              take: limit,
+            })
+          );
           logger.info('[ADMIN-PATIENTS] Trigram fallback found matches', {
             searchQuery: search,
             matchCount: trigramPatients.length,

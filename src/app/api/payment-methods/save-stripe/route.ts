@@ -29,7 +29,7 @@ async function handler(req: NextRequest, user: AuthUser) {
 
     const patient = await prisma.patient.findUnique({
       where: { id: patientId },
-      select: { id: true, clinicId: true },
+      select: { id: true, clinicId: true, stripeCustomerId: true },
     });
 
     if (!patient) {
@@ -109,6 +109,46 @@ async function handler(req: NextRequest, user: AuthUser) {
           expiryYear: reactivated.expiryYear,
           isDefault: reactivated.isDefault,
         },
+      });
+    }
+
+    // If this Stripe PM is already saved on another profile in the same clinic,
+    // do not attempt a duplicate insert (global unique on stripePaymentMethodId).
+    // We return success so callers can continue and fetch it from shared-profile listing.
+    const existingOnOtherProfile = await prisma.paymentMethod.findFirst({
+      where: {
+        stripePaymentMethodId,
+        isActive: true,
+        patientId: { not: patientId },
+        ...(patient.clinicId ? { clinicId: patient.clinicId } : {}),
+      },
+      select: {
+        id: true,
+        cardLast4: true,
+        cardBrand: true,
+        expiryMonth: true,
+        expiryYear: true,
+      },
+    });
+
+    if (existingOnOtherProfile) {
+      logger.info('[SaveStripe] Card already exists on another profile; using shared visibility', {
+        patientId,
+        sharedPaymentMethodId: existingOnOtherProfile.id,
+      });
+
+      return NextResponse.json({
+        success: true,
+        data: {
+          id: `stripe_${stripePaymentMethodId}`,
+          last4: existingOnOtherProfile.cardLast4,
+          brand: existingOnOtherProfile.cardBrand,
+          expiryMonth: existingOnOtherProfile.expiryMonth,
+          expiryYear: existingOnOtherProfile.expiryYear,
+          isDefault: false,
+          sharedAcrossProfiles: true,
+        },
+        message: 'Card is already saved on another profile and is available for shared use.',
       });
     }
 

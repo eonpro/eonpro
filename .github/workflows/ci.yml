@@ -39,6 +39,9 @@ jobs:
         
       - name: Run ESLint
         run: npx eslint . --ext .ts,.tsx --max-warnings 0
+
+      - name: Architecture boundary scan (warn mode)
+        run: npm run check:architecture-boundaries
         
       - name: Run TypeScript type check
         run: npm run type-check

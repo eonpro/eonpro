@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { withApiHandler } from '@/domains/shared/errors';
+import { summarizeRedisTierPolicy } from '@/lib/resilience/redis-dependency-policy';
 
 interface ServiceCheck {
   name: string;
@@ -13,6 +14,35 @@ interface ServiceCheck {
   responseTime?: number;
   error?: string;
 }
+
+function parseRatioEnv(value: string | undefined, fallback: number): number {
+  if (!value) return fallback;
+  const parsed = Number.parseFloat(value);
+  if (!Number.isFinite(parsed)) return fallback;
+  if (parsed < 0) return 0;
+  if (parsed > 1) return 1;
+  return parsed;
+}
+
+function parseIntEnv(value: string | undefined, fallback: number): number {
+  if (!value) return fallback;
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsed) || parsed < 1) return fallback;
+  return parsed;
+}
+
+const REDIS_READY_MAX_FALLBACK_RATE = parseRatioEnv(
+  process.env.REDIS_READY_MAX_FALLBACK_RATE,
+  0.05,
+);
+const REDIS_READY_MAX_TIMEOUT_RATE = parseRatioEnv(
+  process.env.REDIS_READY_MAX_TIMEOUT_RATE,
+  0.01,
+);
+const REDIS_READY_MIN_GUARDED_CALLS = parseIntEnv(
+  process.env.REDIS_READY_MIN_GUARDED_CALLS,
+  20,
+);
 
 /**
  * Check database connectivity
@@ -100,6 +130,25 @@ async function checkRedis(): Promise<ServiceCheck> {
     const value = await redisCache.get(testKey);
     await redisCache.delete(testKey);
 
+    const guardrail = redisCache.getGuardrailStats();
+    const calls = guardrail.totals.calls;
+    const fallbackRate = calls > 0 ? guardrail.totals.fallbacks / calls : 0;
+    const timeoutRate = calls > 0 ? guardrail.totals.timeouts / calls : 0;
+
+    if (
+      calls >= REDIS_READY_MIN_GUARDED_CALLS &&
+      (fallbackRate > REDIS_READY_MAX_FALLBACK_RATE || timeoutRate > REDIS_READY_MAX_TIMEOUT_RATE)
+    ) {
+      return {
+        name: 'redis',
+        status: 'degraded',
+        responseTime: Date.now() - start,
+        error:
+          `SLO gate breach: fallbackRate=${(fallbackRate * 100).toFixed(2)}% ` +
+          `timeoutRate=${(timeoutRate * 100).toFixed(2)}%`,
+      };
+    }
+
     return {
       name: 'redis',
       status: value === 'ok' ? 'operational' : 'degraded',
@@ -170,6 +219,7 @@ async function monitoringReadyHandler(req: NextRequest) {
     status: overallStatus,
     timestamp: new Date().toISOString(),
     responseTime: Date.now() - startTime,
+    redisDependencyPolicy: summarizeRedisTierPolicy(),
     checks: checks.reduce(
       (acc, check) => {
         acc[check.name] = {

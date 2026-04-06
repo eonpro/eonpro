@@ -240,6 +240,32 @@ export default function WellmedrInvoicesPage() {
   const pharmacy = data?.pharmacy;
   const rxServices = data?.prescriptionServices;
 
+  const productBreakdown = useMemo(() => {
+    if (!pharmacy) return null;
+
+    const medBuckets = new Map<string, number>();
+    for (const li of pharmacy.lineItems) {
+      const raw = li.medicationName.trim();
+      const family = (raw.split('/')[0] ?? raw).trim() || raw || 'Other';
+      medBuckets.set(family, (medBuckets.get(family) ?? 0) + li.quantity);
+    }
+
+    const addonBuckets = new Map<string, number>();
+    for (const al of pharmacy.addonLineItems ?? []) {
+      addonBuckets.set(al.addonName, (addonBuckets.get(al.addonName) ?? 0) + 1);
+    }
+
+    const entries: { name: string; count: number; kind: 'med' | 'addon' }[] = [];
+    for (const [name, count] of medBuckets) {
+      entries.push({ name, count, kind: 'med' });
+    }
+    for (const [name, count] of addonBuckets) {
+      entries.push({ name, count, kind: 'addon' });
+    }
+    entries.sort((a, b) => b.count - a.count);
+    return entries;
+  }, [pharmacy]);
+
   const insights = useMemo(() => {
     if (!pharmacy || !rxServices) return null;
 
@@ -403,6 +429,49 @@ export default function WellmedrInvoicesPage() {
               bg="bg-red-50"
             />
           </div>
+
+          {productBreakdown && productBreakdown.length > 0 && (
+            <div className="mb-6 rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+              <div className="mb-3 flex items-center gap-2">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-[#4fa77e]/20 to-emerald-100">
+                  <BarChart3 className="h-4 w-4 text-[#4fa77e]" />
+                </div>
+                <h3 className="text-sm font-semibold text-gray-900">Product Breakdown</h3>
+                <span className="ml-auto text-xs text-gray-400">
+                  {productBreakdown.reduce((s, e) => s + e.count, 0)} total items
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {productBreakdown.map((entry) => (
+                  <div
+                    key={entry.name}
+                    className={`flex items-center gap-2 rounded-xl border px-3 py-2 ${
+                      entry.kind === 'addon'
+                        ? 'border-violet-200 bg-violet-50'
+                        : 'border-emerald-200 bg-emerald-50'
+                    }`}
+                  >
+                    <span
+                      className={`text-sm font-medium ${
+                        entry.kind === 'addon' ? 'text-violet-800' : 'text-emerald-800'
+                      }`}
+                    >
+                      {entry.name}
+                    </span>
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-xs font-bold ${
+                        entry.kind === 'addon'
+                          ? 'bg-violet-200 text-violet-900'
+                          : 'bg-emerald-200 text-emerald-900'
+                      }`}
+                    >
+                      {entry.count}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {insights && (
             <div className="mb-6 grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">

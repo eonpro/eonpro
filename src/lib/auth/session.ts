@@ -31,6 +31,7 @@ export interface UserSession {
 // Session storage namespace
 const SESSION_NAMESPACE = 'sessions';
 const SESSION_TTL = 60 * 60 * 24; // 24 hours in seconds
+const SESSION_INDEX_SET_PREFIX = 'user_sessions_set';
 
 // Create AsyncLocalStorage for user context
 const sessionStorage = new AsyncLocalStorage<UserSession>();
@@ -228,12 +229,69 @@ class SessionStore {
   private localSessions: Map<string, UserSession> = new Map();
   private localUserSessions: Map<number, Set<string>> = new Map();
 
+  private namespacedKey(key: string): string {
+    return `${SESSION_NAMESPACE}:${key}`;
+  }
+
+  private getLegacyUserSessionsKey(userId: number): string {
+    return `user_sessions:${userId}`;
+  }
+
+  private getSetUserSessionsKey(userId: number): string {
+    return `${SESSION_INDEX_SET_PREFIX}:${userId}`;
+  }
+
+  private parseSessionIdArray(raw: unknown): string[] {
+    if (Array.isArray(raw)) {
+      return raw.filter((v): v is string => typeof v === 'string');
+    }
+    if (typeof raw === 'string') {
+      try {
+        const parsed = JSON.parse(raw) as unknown;
+        if (Array.isArray(parsed)) {
+          return parsed.filter((v): v is string => typeof v === 'string');
+        }
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  }
+
+  private async getUserSessionIdsFromRedis(userId: number): Promise<string[]> {
+    const legacyKey = this.namespacedKey(this.getLegacyUserSessionsKey(userId));
+    const setKey = this.namespacedKey(this.getSetUserSessionsKey(userId));
+
+    return cache.withClient<string[]>(
+      'sessionStore:getUserSessionIdsFromRedis',
+      [],
+      async (redis) => {
+        const [legacyRaw, setMembersRaw] = await Promise.all([
+          redis.get<unknown>(legacyKey),
+          redis.smembers<unknown[]>(setKey),
+        ]);
+
+        const combined = new Set<string>();
+        for (const id of this.parseSessionIdArray(legacyRaw)) combined.add(id);
+
+        if (Array.isArray(setMembersRaw)) {
+          for (const id of setMembersRaw) {
+            if (typeof id === 'string') combined.add(id);
+          }
+        }
+
+        return Array.from(combined);
+      },
+    );
+  }
+
   /**
    * Add a session (uses Redis in production)
    */
   async add(session: UserSession): Promise<void> {
     const sessionKey = `session:${session.sessionId}`;
-    const userSessionsKey = `user_sessions:${session.id}`;
+    const userSessionsKey = this.getLegacyUserSessionsKey(session.id);
+    const userSessionsSetKey = this.getSetUserSessionsKey(session.id);
 
     // Try Redis first
     const redisAvailable = cache.isReady();
@@ -245,14 +303,30 @@ class SessionStore {
         namespace: SESSION_NAMESPACE,
       });
 
-      // Track session ID in user's session list
-      const existingSessions =
-        (await cache.get<string[]>(userSessionsKey, { namespace: SESSION_NAMESPACE })) || [];
-      if (!existingSessions.includes(session.sessionId)) {
-        existingSessions.push(session.sessionId);
-        await cache.set(userSessionsKey, existingSessions, {
-          ttl: SESSION_TTL,
-          namespace: SESSION_NAMESPACE,
+      // Track session ID in both new set index and legacy array index.
+      // The dual-write keeps rollback compatibility while eliminating array race conditions.
+      const indexed = await cache.withClient<boolean>(
+        'sessionStore:addSessionIndex',
+        false,
+        async (redis) => {
+          const legacyNsKey = this.namespacedKey(userSessionsKey);
+          const setNsKey = this.namespacedKey(userSessionsSetKey);
+          await redis.sadd(setNsKey, session.sessionId);
+          await redis.expire(setNsKey, SESSION_TTL);
+
+          const legacyRaw = await redis.get<unknown>(legacyNsKey);
+          const existingSessions = this.parseSessionIdArray(legacyRaw);
+          if (!existingSessions.includes(session.sessionId)) {
+            existingSessions.push(session.sessionId);
+          }
+          await redis.set(legacyNsKey, JSON.stringify(existingSessions), { ex: SESSION_TTL });
+          return true;
+        },
+      );
+      if (!indexed) {
+        logger.warn('[SessionStore] Failed to update Redis session indexes', {
+          userId: session.id,
+          sessionId: session.sessionId,
         });
       }
     } else {
@@ -316,19 +390,34 @@ class SessionStore {
       if (session) {
         await cache.delete(sessionKey, { namespace: SESSION_NAMESPACE });
 
-        // Remove from user's session list
-        const userSessionsKey = `user_sessions:${session.id}`;
-        const existingSessions =
-          (await cache.get<string[]>(userSessionsKey, { namespace: SESSION_NAMESPACE })) || [];
-        const filtered = existingSessions.filter((id) => id !== sessionId);
-        if (filtered.length > 0) {
-          await cache.set(userSessionsKey, filtered, {
-            ttl: SESSION_TTL,
-            namespace: SESSION_NAMESPACE,
-          });
-        } else {
-          await cache.delete(userSessionsKey, { namespace: SESSION_NAMESPACE });
-        }
+        // Remove from both set index and legacy array index.
+        const userSessionsKey = this.getLegacyUserSessionsKey(session.id);
+        const userSessionsSetKey = this.getSetUserSessionsKey(session.id);
+        await cache.withClient<void>(
+          'sessionStore:removeSessionIndex',
+          undefined,
+          async (redis) => {
+            const legacyNsKey = this.namespacedKey(userSessionsKey);
+            const setNsKey = this.namespacedKey(userSessionsSetKey);
+
+            await redis.srem(setNsKey, sessionId);
+            const setSize = await redis.scard(setNsKey);
+            if (setSize > 0) {
+              await redis.expire(setNsKey, SESSION_TTL);
+            } else {
+              await redis.del(setNsKey);
+            }
+
+            const legacyRaw = await redis.get<unknown>(legacyNsKey);
+            const existingSessions = this.parseSessionIdArray(legacyRaw);
+            const filtered = existingSessions.filter((id) => id !== sessionId);
+            if (filtered.length > 0) {
+              await redis.set(legacyNsKey, JSON.stringify(filtered), { ex: SESSION_TTL });
+            } else {
+              await redis.del(legacyNsKey);
+            }
+          },
+        );
       }
     } else {
       // Fallback to in-memory
@@ -350,15 +439,22 @@ class SessionStore {
    * Remove all sessions for a user
    */
   async removeUserSessions(userId: number): Promise<void> {
-    const userSessionsKey = `user_sessions:${userId}`;
+    const userSessionsKey = this.getLegacyUserSessionsKey(userId);
+    const userSessionsSetKey = this.getSetUserSessionsKey(userId);
 
     if (cache.isReady()) {
-      const sessionIds =
-        (await cache.get<string[]>(userSessionsKey, { namespace: SESSION_NAMESPACE })) || [];
+      const sessionIds = await this.getUserSessionIdsFromRedis(userId);
       for (const sessionId of sessionIds) {
         await cache.delete(`session:${sessionId}`, { namespace: SESSION_NAMESPACE });
       }
       await cache.delete(userSessionsKey, { namespace: SESSION_NAMESPACE });
+      await cache.withClient<void>(
+        'sessionStore:removeAllSessionIndexes',
+        undefined,
+        async (redis) => {
+          await redis.del(this.namespacedKey(userSessionsSetKey));
+        },
+      );
     } else {
       // Fallback to in-memory
       const sessionIds = this.localUserSessions.get(userId);
@@ -373,11 +469,10 @@ class SessionStore {
    * Get all sessions for a user
    */
   async getUserSessions(userId: number): Promise<UserSession[]> {
-    const userSessionsKey = `user_sessions:${userId}`;
+    const userSessionsKey = this.getLegacyUserSessionsKey(userId);
 
     if (cache.isReady()) {
-      const sessionIds =
-        (await cache.get<string[]>(userSessionsKey, { namespace: SESSION_NAMESPACE })) || [];
+      const sessionIds = await this.getUserSessionIdsFromRedis(userId);
       const sessions: UserSession[] = [];
 
       for (const sessionId of sessionIds) {

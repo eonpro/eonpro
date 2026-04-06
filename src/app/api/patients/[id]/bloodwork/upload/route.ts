@@ -52,8 +52,25 @@ function isPrismaModelMissingError(err: unknown): boolean {
 
 const bloodworkUploadRateLimit = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 10,
+  max: 30,
   message: 'Too many uploads. Please try again in 15 minutes.',
+  keyGenerator: (req: NextRequest) => {
+    const userId = req.headers.get('x-user-id');
+    const clinicId = req.headers.get('x-clinic-id');
+    if (userId) {
+      return clinicId != null && clinicId !== ''
+        ? `ratelimit:bloodwork-upload:clinic:${clinicId}:user:${userId}`
+        : `ratelimit:bloodwork-upload:user:${userId}`;
+    }
+
+    const ip =
+      req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+      req.headers.get('x-real-ip') ||
+      'unknown';
+    return clinicId != null && clinicId !== ''
+      ? `ratelimit:bloodwork-upload:clinic:${clinicId}:ip:${ip}`
+      : `ratelimit:bloodwork-upload:ip:${ip}`;
+  },
 });
 
 type Params = { params: Promise<{ id: string }> };
@@ -178,7 +195,11 @@ async function postHandler(
   }
 }
 
-const authHandler = withAuthParams(postHandler, {
+const authHandler = withAuthParams(async (req, user, context) => {
+  return bloodworkUploadRateLimit((rateLimitedReq: NextRequest) =>
+    postHandler(rateLimitedReq, user, context)
+  )(req);
+}, {
   roles: ['admin', 'provider', 'staff', 'super_admin', 'sales_rep'],
 });
 
@@ -186,5 +207,5 @@ export async function POST(
   req: NextRequest,
   context: { params: Promise<{ id: string }> }
 ): Promise<Response> {
-  return bloodworkUploadRateLimit((r: NextRequest) => authHandler(r, context))(req);
+  return authHandler(req, context);
 }

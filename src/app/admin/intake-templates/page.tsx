@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import Link from 'next/link';
 
 interface TemplateRow {
   id: number;
@@ -81,6 +80,8 @@ export default function IntakeTemplatesPage() {
           },
         };
         setTemplates((prev) => [row, ...prev]);
+        window.location.href = `/admin/intake-builder/${row.id}`;
+        return;
       }
       setShowCreate(false);
       setNewName('');
@@ -211,9 +212,9 @@ export default function IntakeTemplatesPage() {
           </div>
         ) : (
           templates.map((t) => (
-            <Link
+            <a
               key={t.id}
-              href={`/admin/intake-templates/${t.id}`}
+              href={`/admin/intake-builder/${t.id}`}
               className="block rounded-xl border border-gray-100 p-5 hover:border-gray-200 transition-colors bg-white cursor-pointer"
             >
               <div className="flex items-center justify-between">
@@ -251,7 +252,7 @@ export default function IntakeTemplatesPage() {
                   />
                 </svg>
               </div>
-            </Link>
+            </a>
           ))
         )}
       </div>

@@ -352,6 +352,7 @@ export default function IntakeLinksPage() {
                   >
                     <option value="weight-loss">Weight Loss</option>
                     <option value="peptides">Peptides</option>
+                    <option value="trt">TRT</option>
                   </select>
                 </div>
               </div>

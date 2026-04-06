@@ -22,6 +22,18 @@ const METRICS_KEY = 'eonpro:metrics';
 const METRICS_WINDOW_SECONDS = 3600; // 1 hour rolling window
 const ALERT_THRESHOLD_SUCCESS_RATE = 0.95; // Alert if below 95%
 const ALERT_THRESHOLD_LATENCY_MS = 5000; // Alert if above 5s average
+const REDIS_GUARDRAIL_FALLBACK_RATE_THRESHOLD = parseFloat(
+  process.env.REDIS_GUARDRAIL_FALLBACK_RATE_THRESHOLD ?? '0.05',
+);
+const REDIS_GUARDRAIL_MIN_CALLS = parseInt(
+  process.env.REDIS_GUARDRAIL_MIN_CALLS ?? '20',
+  10,
+);
+const REDIS_PREFIX_PATTERNS = ['sessions:*', 'ratelimit:*', 'eonpro:*'];
+const REDIS_PREFIX_COUNT_ALERT_THRESHOLD = parseInt(
+  process.env.REDIS_PREFIX_COUNT_ALERT_THRESHOLD ?? '50000',
+  10,
+);
 
 // =============================================================================
 // TYPES
@@ -43,6 +55,9 @@ export interface HealthStatus {
     requestsLastHour: number;
     errorsLastHour: number;
     queueDepth: number;
+    redisFallbackRate?: number;
+    redisGuardedCalls?: number;
+    redisPrefixCounts?: Record<string, number>;
   };
 }
 
@@ -164,9 +179,7 @@ async function checkDatabase(): Promise<ServiceCheck> {
  */
 async function checkRedis(): Promise<ServiceCheck> {
   const start = Date.now();
-  const redis = cache.getClient();
-
-  if (!redis) {
+  if (!cache.isReady()) {
     return {
       status: 'down',
       lastError: 'Not configured',
@@ -174,22 +187,64 @@ async function checkRedis(): Promise<ServiceCheck> {
     };
   }
 
-  try {
-    const result = await redis.ping();
+  const result = await cache.withClient<string | null>(
+    'healthMonitor:checkRedisPing',
+    null,
+    async (redis) => redis.ping(),
+  );
 
-    return {
-      status: result === 'PONG' ? 'up' : 'degraded',
-      latencyMs: Date.now() - start,
-      lastCheck: new Date().toISOString(),
-    };
-  } catch (err) {
+  if (!result) {
     return {
       status: 'down',
       latencyMs: Date.now() - start,
-      lastError: err instanceof Error ? err.message : 'Unknown error',
+      lastError: 'Ping failed',
       lastCheck: new Date().toISOString(),
     };
   }
+
+  const guardrailStats = cache.getGuardrailStats();
+  const calls = guardrailStats.totals.calls;
+  const fallbackRate = calls > 0 ? guardrailStats.totals.fallbacks / calls : 0;
+
+  if (calls >= REDIS_GUARDRAIL_MIN_CALLS && fallbackRate > REDIS_GUARDRAIL_FALLBACK_RATE_THRESHOLD) {
+    return {
+      status: 'degraded',
+      latencyMs: Date.now() - start,
+      lastError: `Guardrail fallback rate ${(fallbackRate * 100).toFixed(1)}% above threshold`,
+      lastCheck: new Date().toISOString(),
+    };
+  }
+
+  return {
+    status: result === 'PONG' ? 'up' : 'degraded',
+    latencyMs: Date.now() - start,
+    lastCheck: new Date().toISOString(),
+  };
+}
+
+async function getRedisPrefixCounts(): Promise<Record<string, number>> {
+  return cache.withClient<Record<string, number>>(
+    'healthMonitor:getRedisPrefixCounts',
+    {},
+    async (redis) => {
+      const counts: Record<string, number> = {};
+
+      for (const pattern of REDIS_PREFIX_PATTERNS) {
+        let cursor: string | number = 0;
+        let count = 0;
+        do {
+          const [nextCursor, keys] = await redis.scan(cursor, { match: pattern, count: 200 });
+          count += keys.length;
+          cursor = nextCursor;
+          // Keep bounded to avoid expensive scans in health probes.
+          if (count >= REDIS_PREFIX_COUNT_ALERT_THRESHOLD * 2) break;
+        } while (String(cursor) !== '0');
+        counts[pattern] = count;
+      }
+
+      return counts;
+    },
+  );
 }
 
 /**
@@ -281,6 +336,20 @@ async function getMetrics(): Promise<HealthStatus['metrics']> {
   const total = stats.total || 0;
   const errors = stats.errors || 0;
   const queueDepth = await getQueueDepth();
+  const guardrailStats = cache.getGuardrailStats();
+  const redisCalls = guardrailStats.totals.calls;
+  const redisFallbackRate = redisCalls > 0 ? guardrailStats.totals.fallbacks / redisCalls : 0;
+  const redisPrefixCounts = await getRedisPrefixCounts();
+
+  for (const [pattern, count] of Object.entries(redisPrefixCounts)) {
+    if (count > REDIS_PREFIX_COUNT_ALERT_THRESHOLD) {
+      logger.warn('[Health] Redis prefix cardinality above threshold', {
+        pattern,
+        count,
+        threshold: REDIS_PREFIX_COUNT_ALERT_THRESHOLD,
+      });
+    }
+  }
 
   return {
     successRate: total > 0 ? (total - errors) / total : 1,
@@ -288,6 +357,9 @@ async function getMetrics(): Promise<HealthStatus['metrics']> {
     requestsLastHour: total,
     errorsLastHour: errors,
     queueDepth,
+    redisFallbackRate,
+    redisGuardedCalls: redisCalls,
+    redisPrefixCounts,
   };
 }
 

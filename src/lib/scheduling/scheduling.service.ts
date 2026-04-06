@@ -515,18 +515,9 @@ export async function createAppointment(input: CreateAppointmentInput): Promise<
     // Create reminders
     await createAppointmentReminders(appointment.id);
 
-    // Auto-create Zoom meeting for VIDEO appointments
+    // Auto-create Zoom meeting for VIDEO appointments at scheduling time
     let finalAppointment = appointment;
-    let zoomAvailable = isZoomConfigured();
-    if (!zoomAvailable && appointment.clinicId) {
-      try {
-        const { isClinicZoomConfigured } = await import('@/lib/clinic-zoom');
-        zoomAvailable = await isClinicZoomConfigured(appointment.clinicId);
-      } catch {
-        // clinic-zoom check failed, fall through
-      }
-    }
-    if (input.type === AppointmentModeType.VIDEO && zoomAvailable) {
+    if (finalAppointment.type === AppointmentModeType.VIDEO) {
       try {
         const zoomResult = await ensureZoomMeetingForAppointment(appointment.id);
         if (zoomResult.success && zoomResult.session) {
@@ -559,6 +550,11 @@ export async function createAppointment(input: CreateAppointmentInput): Promise<
             appointmentId: appointment.id,
             meetingId: zoomResult.session.meetingId,
           });
+        } else {
+          logger.warn('Zoom meeting not created for appointment', {
+            appointmentId: appointment.id,
+            reason: zoomResult.error || 'Unavailable',
+          });
         }
       } catch (zoomError) {
         // Log but don't fail appointment creation
@@ -577,7 +573,10 @@ export async function createAppointment(input: CreateAppointmentInput): Promise<
       type: input.type,
     });
 
-    if (input.sendNotification !== false) {
+    const hasVideoLink = !!(finalAppointment.zoomJoinUrl || finalAppointment.videoLink);
+    const shouldForceVideoConfirmation =
+      finalAppointment.type === AppointmentModeType.VIDEO && hasVideoLink;
+    if (input.sendNotification !== false || shouldForceVideoConfirmation) {
       sendAppointmentConfirmation(finalAppointment.id).catch((err) => {
         logger.error('Failed to send appointment confirmation (non-blocking)', {
           appointmentId: finalAppointment.id,
@@ -673,7 +672,7 @@ export async function updateAppointment(
       }
     }
 
-    const appointment = await prisma.appointment.update({
+    let appointment = await prisma.appointment.update({
       where: { id: appointmentId },
       data: {
         ...input,
@@ -699,6 +698,113 @@ export async function updateAppointment(
       },
     });
 
+    const nextType = input.type ?? existing.type;
+    const becameVideo =
+      existing.type !== AppointmentModeType.VIDEO && nextType === AppointmentModeType.VIDEO;
+    const switchedAwayFromVideo =
+      existing.type === AppointmentModeType.VIDEO && nextType !== AppointmentModeType.VIDEO;
+    const videoTimeChanged =
+      nextType === AppointmentModeType.VIDEO &&
+      !!input.startTime &&
+      input.startTime.getTime() !== existing.startTime.getTime();
+    const hadVideoLinkBefore = !!(existing.zoomJoinUrl || existing.videoLink);
+
+    // If appointment is no longer VIDEO, cancel any active Zoom session
+    if (switchedAwayFromVideo && existing.zoomMeetingId) {
+      try {
+        await cancelZoomMeetingForAppointment(appointmentId, 'Appointment switched to non-video');
+      } catch (zoomError) {
+        logger.error('Failed to cancel Zoom meeting after appointment type change', {
+          appointmentId,
+          error: zoomError instanceof Error ? zoomError.message : 'Unknown error',
+        });
+      }
+    }
+
+    // If VIDEO appointment time changed, rotate meeting so patient gets an updated invite
+    if (videoTimeChanged && existing.zoomMeetingId) {
+      try {
+        await cancelZoomMeetingForAppointment(appointmentId, 'Appointment time changed');
+      } catch (zoomError) {
+        logger.error('Failed to cancel stale Zoom meeting after appointment time change', {
+          appointmentId,
+          error: zoomError instanceof Error ? zoomError.message : 'Unknown error',
+        });
+      }
+      appointment = await prisma.appointment.update({
+        where: { id: appointmentId },
+        data: {
+          zoomMeetingId: null,
+          zoomJoinUrl: null,
+          videoLink: null,
+        },
+        include: {
+          patient: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+              phone: true,
+            },
+          },
+          provider: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+            },
+          },
+        },
+      });
+    }
+
+    // Ensure VIDEO appointments have a Zoom link immediately after update
+    const needsZoomProvision =
+      nextType === AppointmentModeType.VIDEO &&
+      (!appointment.zoomMeetingId || becameVideo || videoTimeChanged);
+    if (needsZoomProvision) {
+      try {
+        const zoomResult = await ensureZoomMeetingForAppointment(appointmentId);
+        if (zoomResult.success && zoomResult.session) {
+          const refreshed = await prisma.appointment.findUnique({
+            where: { id: appointmentId },
+            include: {
+              patient: {
+                select: {
+                  id: true,
+                  firstName: true,
+                  lastName: true,
+                  email: true,
+                  phone: true,
+                },
+              },
+              provider: {
+                select: {
+                  id: true,
+                  firstName: true,
+                  lastName: true,
+                },
+              },
+            },
+          });
+          if (refreshed) {
+            appointment = refreshed;
+          }
+        } else {
+          logger.warn('Zoom meeting not available after appointment update', {
+            appointmentId,
+            reason: zoomResult.error || 'Unavailable',
+          });
+        }
+      } catch (zoomError) {
+        logger.error('Failed to ensure Zoom meeting after appointment update', {
+          appointmentId,
+          error: zoomError instanceof Error ? zoomError.message : 'Unknown error',
+        });
+      }
+    }
+
     // If status changed to CONFIRMED, send confirmation
     if (
       input.status === AppointmentStatus.CONFIRMED &&
@@ -709,6 +815,20 @@ export async function updateAppointment(
         data: { confirmedAt: new Date() },
       });
       await sendAppointmentConfirmation(appointmentId);
+    }
+
+    const hasVideoLinkNow = !!(appointment.zoomJoinUrl || appointment.videoLink);
+    const shouldSendVideoUpdateConfirmation =
+      nextType === AppointmentModeType.VIDEO &&
+      hasVideoLinkNow &&
+      (!hadVideoLinkBefore || becameVideo || videoTimeChanged);
+    if (shouldSendVideoUpdateConfirmation) {
+      sendAppointmentConfirmation(appointmentId).catch((err) => {
+        logger.error('Failed to send video appointment update confirmation', {
+          appointmentId,
+          error: err instanceof Error ? err.message : 'Unknown',
+        });
+      });
     }
 
     // If time changed, recreate reminders

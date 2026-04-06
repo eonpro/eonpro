@@ -296,8 +296,8 @@ const ANASTROZOLE_05_TEMPLATES: SigTemplate[] = [
 
 const B12_TEMPLATES: SigTemplate[] = [
   {
-    label: '1 mL IM weekly',
-    sig: 'Inject 1 mL (1000 mcg) intramuscularly once weekly.',
+    label: '4x/week · 25 units (morning)',
+    sig: 'Inject 25 units subcutaneously 4 times per week in the morning.',
     quantity: '1',
     refills: '0',
     daysSupply: 30,
@@ -306,8 +306,8 @@ const B12_TEMPLATES: SigTemplate[] = [
 
 const SERMORELIN_TEMPLATES: SigTemplate[] = [
   {
-    label: 'M-F · 25 units at bedtime',
-    sig: 'Inject 25 units subcutaneously Monday through Friday at bedtime on an empty stomach.',
+    label: 'M-F · 20 units before bedtime',
+    sig: 'Inject 20 units subcutaneously once daily before bedtime Monday-Friday.',
     quantity: '1',
     refills: '0',
     daysSupply: 30,
@@ -447,8 +447,8 @@ const SPECIAL_CONFIGS: Record<number, Partial<MedicationConfig>> = {
     strength: '100 mg/mL',
     sigTemplates: [
       {
-        label: 'M-F · 50 units SubQ',
-        sig: 'Inject 50 units (0.5 mL) subcutaneously Monday through Friday.',
+        label: 'M-F · 20 units (20 mg) SubQ',
+        sig: 'Inject 20 units (20 mg) subcutaneously once daily for Monday-Friday.',
         quantity: '1',
         refills: '0',
         daysSupply: 30,

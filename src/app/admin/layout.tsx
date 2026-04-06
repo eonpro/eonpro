@@ -158,6 +158,7 @@ const adminNavIconMap = {
   BarChart3,
   Award,
   ClipboardList,
+  AlertTriangle,
 } as const;
 
 function AdminLayoutInner({ children }: { children: React.ReactNode }) {

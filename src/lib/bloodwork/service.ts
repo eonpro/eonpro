@@ -11,12 +11,17 @@ import { storeFile, isAllowedFileType } from '@/lib/storage/secure-storage';
 import { isS3Enabled, FileCategory } from '@/lib/integrations/aws/s3Config';
 import { uploadToS3 } from '@/lib/integrations/aws/s3Service';
 import { decryptPHI } from '@/lib/security/phi-encryption';
-import { parseQuestBloodworkPdf } from './quest-parser';
 import type { QuestParsedResult } from './quest-parser';
 import { validateQuestParsedResult } from './validation';
 import { logger } from '@/lib/logger';
 import { BadRequestError, ServiceUnavailableError } from '@/domains/shared/errors';
 import crypto from 'crypto';
+import { parseBloodworkPdfAuto } from './auto-parser';
+
+type ParsedDocMeta = {
+  labName: string;
+  parserVersion: string;
+};
 
 export interface CreateBloodworkReportInput {
   patientId: number;
@@ -45,6 +50,48 @@ function normalizeNameForMatch(firstName: string, lastName: string): string {
   return `${last} ${first}`.trim();
 }
 
+async function refreshExistingParsedReport(params: {
+  labReportId: number;
+  parsed: QuestParsedResult;
+  meta: ParsedDocMeta;
+}): Promise<number> {
+  const { labReportId, parsed, meta } = params;
+  const collectedAt = parsed.collectedAt ?? null;
+  const reportedAt = parsed.reportedAt ?? null;
+  const fasting = parsed.fasting ?? null;
+  const specimenId = parsed.specimenId ?? null;
+
+  await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    await tx.labReport.update({
+      where: { id: labReportId },
+      data: {
+        labName: meta.labName,
+        parserVersion: meta.parserVersion,
+        specimenId,
+        collectedAt,
+        reportedAt,
+        fasting,
+      },
+    });
+    await tx.labReportResult.deleteMany({ where: { labReportId } });
+    await tx.labReportResult.createMany({
+      data: parsed.results.map((r, i) => ({
+        labReportId,
+        testName: r.testName,
+        value: r.value,
+        valueNumeric: r.valueNumeric,
+        unit: r.unit,
+        referenceRange: r.referenceRange,
+        flag: r.flag,
+        category: r.category,
+        sortOrder: i,
+      })),
+    });
+  });
+
+  return parsed.results.length;
+}
+
 export async function createBloodworkReportFromPdf(
   input: CreateBloodworkReportInput
 ): Promise<CreateBloodworkReportResult> {
@@ -65,8 +112,14 @@ export async function createBloodworkReportFromPdf(
   }
 
   let parsed: QuestParsedResult;
+  let parsedMeta: ParsedDocMeta;
   try {
-    parsed = await parseQuestBloodworkPdf(pdfBuffer);
+    const parsedDoc = await parseBloodworkPdfAuto(pdfBuffer);
+    parsed = parsedDoc.parsed;
+    parsedMeta = {
+      labName: parsedDoc.labName,
+      parserVersion: parsedDoc.parserVersion,
+    };
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Failed to parse PDF';
     logger.warn('Bloodwork PDF parse failed', { patientId, clinicId, error: msg });
@@ -80,7 +133,7 @@ export async function createBloodworkReportFromPdf(
     throw new BadRequestError(
       msg.includes('PDF') || msg.includes('timed out')
         ? msg
-        : 'Failed to parse lab report. Please use a valid Quest Diagnostics text-based PDF.',
+        : 'Failed to parse lab report. Please use a valid supported lab PDF (Quest, Rythm, or Access).',
       { cause: 'BLOODWORK_PARSE' }
     );
   }
@@ -91,7 +144,7 @@ export async function createBloodworkReportFromPdf(
     if (err instanceof BadRequestError) throw err;
     logger.warn('Bloodwork validation failed', { patientId, clinicId, error: err instanceof Error ? err.message : 'Unknown' });
     throw new BadRequestError(
-      'Lab report validation failed. Please use a valid Quest Diagnostics lab report.',
+      'Lab report validation failed. Please use a valid supported lab report.',
       { cause: 'BLOODWORK_VALIDATION' }
     );
   }
@@ -99,7 +152,7 @@ export async function createBloodworkReportFromPdf(
   if (requireNameMatch) {
     if (!parsed.parsedPatientName) {
       throw new BadRequestError(
-        'Could not find a patient name on this lab report. Please upload a Quest Diagnostics report that clearly shows the patient name (e.g. "Patient Name: Last, First").',
+        'Could not find a patient name on this lab report. Please upload a report that clearly shows patient name.',
         { cause: 'BLOODWORK_NO_NAME' }
       );
     }
@@ -140,10 +193,30 @@ export async function createBloodworkReportFromPdf(
       source: 'bloodwork_upload',
       contentHash,
     },
-    select: { id: true, labReport: { select: { id: true } } },
+    select: { id: true, labReport: { select: { id: true, parserVersion: true } } },
   });
   if (existing?.labReport) {
     const labReport = existing.labReport;
+    if (labReport.parserVersion !== parsedMeta.parserVersion) {
+      const refreshedCount = await refreshExistingParsedReport({
+        labReportId: labReport.id,
+        parsed,
+        meta: parsedMeta,
+      });
+      logger.info('Bloodwork duplicate reprocessed with latest parser', {
+        labReportId: labReport.id,
+        patientId,
+        clinicId,
+        parserVersion: parsedMeta.parserVersion,
+        resultCount: refreshedCount,
+      });
+      return {
+        labReportId: labReport.id,
+        documentId: existing.id,
+        resultCount: refreshedCount,
+      };
+    }
+
     const count = await prisma.labReportResult.count({ where: { labReportId: labReport.id } });
     logger.info('Bloodwork upload duplicate skipped (idempotent)', {
       labReportId: labReport.id,
@@ -213,8 +286,8 @@ export async function createBloodworkReportFromPdf(
             patientId,
             clinicId,
             documentId: document.id,
-            labName: 'Quest Diagnostics',
-            parserVersion: 'quest-2025-02',
+            labName: parsedMeta.labName,
+            parserVersion: parsedMeta.parserVersion,
             specimenId,
             collectedAt,
             reportedAt,
@@ -253,9 +326,28 @@ export async function createBloodworkReportFromPdf(
           source: 'bloodwork_upload',
           contentHash,
         },
-        select: { id: true, labReport: { select: { id: true } } },
+        select: { id: true, labReport: { select: { id: true, parserVersion: true } } },
       });
       if (existing?.labReport) {
+        if (existing.labReport.parserVersion !== parsedMeta.parserVersion) {
+          const refreshedCount = await refreshExistingParsedReport({
+            labReportId: existing.labReport.id,
+            parsed,
+            meta: parsedMeta,
+          });
+          logger.info('Bloodwork duplicate reprocessed after race with latest parser', {
+            labReportId: existing.labReport.id,
+            patientId,
+            clinicId,
+            parserVersion: parsedMeta.parserVersion,
+            resultCount: refreshedCount,
+          });
+          return {
+            labReportId: existing.labReport.id,
+            documentId: existing.id,
+            resultCount: refreshedCount,
+          };
+        }
         const count = await prisma.labReportResult.count({ where: { labReportId: existing.labReport.id } });
         logger.info('Bloodwork upload duplicate skipped (race)', {
           labReportId: existing.labReport.id,

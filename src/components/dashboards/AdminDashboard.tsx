@@ -21,6 +21,7 @@ import {
 import { apiFetch } from '@/lib/api/fetch';
 import { normalizedIncludes } from '@/lib/utils/search';
 import { safeParseJsonString } from '@/lib/utils/safe-json';
+import { prefetchRoute } from '@/lib/navigation/prefetchRoute';
 
 interface PatientIntake {
   id: number;
@@ -289,7 +290,11 @@ export default function AdminDashboard({ userName }: AdminDashboardProps) {
                 </tr>
               ) : (
                 filteredIntakes.map((patient) => (
-                  <tr key={patient.id} className="transition-colors hover:bg-gray-50/50">
+                  <tr
+                    key={patient.id}
+                    className="transition-colors hover:bg-gray-50/50"
+                    onMouseEnter={() => prefetchRoute(`/admin/patients/${patient.id}`)}
+                  >
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
                         <div
@@ -343,6 +348,7 @@ export default function AdminDashboard({ userName }: AdminDashboardProps) {
                       <a
                         href={`/admin/patients/${patient.id}`}
                         className="flex items-center gap-1 text-sm font-medium text-[#4fa77e] hover:text-[#3d8a66]"
+                        onMouseEnter={() => prefetchRoute(`/admin/patients/${patient.id}`)}
                       >
                         View profile
                       </a>

@@ -77,13 +77,12 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
 
 async function checkRateLimit(key: string, config: RateLimitConfig): Promise<RateLimitResult> {
   const now = Math.floor(Date.now() / 1000);
-  const redis = cache.getClient();
-
-  if (redis) {
-    return checkRateLimitRedis(redis, key, config, now);
-  }
-
-  return checkRateLimitMemory(key, config, now);
+  const redisResult = await cache.withClient<RateLimitResult | null>(
+    'rateLimiterRedis:checkRateLimit',
+    null,
+    async (redis) => checkRateLimitRedis(redis, key, config, now),
+  );
+  return redisResult ?? checkRateLimitMemory(key, config, now);
 }
 
 async function checkRateLimitRedis(
@@ -377,11 +376,11 @@ export async function getRateLimitStatus(
   identifier: string,
   key: string
 ): Promise<RateLimitResult | null> {
-  const redis = cache.getClient();
   const now = Math.floor(Date.now() / 1000);
-
-  if (redis) {
-    try {
+  const redisStatus = await cache.withClient<RateLimitResult | null>(
+    'rateLimiterRedis:getRateLimitStatus',
+    null,
+    async (redis) => {
       const windowKey = `ratelimit:${identifier}:${key}`;
       const count = await redis.get<string>(windowKey);
       const ttl = await redis.ttl(windowKey);
@@ -394,10 +393,10 @@ export async function getRateLimitStatus(
         remaining: 0,
         reset: now + (ttl > 0 ? ttl : 0),
       };
-    } catch {
-      return null;
-    }
-  }
+    },
+  );
+  if (redisStatus) return redisStatus;
+  if (cache.isReady()) return null;
 
   const cacheKey = `${identifier}:${key}`;
   const entry = memoryCache.get(cacheKey);
@@ -413,18 +412,18 @@ export async function getRateLimitStatus(
 }
 
 export async function clearRateLimit(identifier: string, key: string): Promise<boolean> {
-  const redis = cache.getClient();
-
-  if (redis) {
-    try {
+  const redisCleared = await cache.withClient<boolean>(
+    'rateLimiterRedis:clearRateLimit',
+    false,
+    async (redis) => {
       const windowKey = `ratelimit:${identifier}:${key}`;
       const blockKey = `ratelimit:block:${identifier}:${key}`;
       await redis.del(windowKey, blockKey);
       return true;
-    } catch {
-      return false;
-    }
-  }
+    },
+  );
+  if (redisCleared) return true;
+  if (cache.isReady()) return false;
 
   const cacheKey = `${identifier}:${key}`;
   memoryCache.delete(cacheKey);

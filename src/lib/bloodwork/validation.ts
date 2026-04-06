@@ -115,7 +115,7 @@ export function validateQuestParsedResult(parsed: unknown): QuestParsedResult {
   }
   if (resultsRaw.length === 0) {
     throw new BadRequestError(
-      'Lab report validation failed: no biomarker results found. Please use a valid Quest Diagnostics lab report.',
+      'Lab report validation failed: no biomarker results found. Please use a valid supported lab report.',
       { cause: 'BLOODWORK_VALIDATION' }
     );
   }

@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
 import {
   ChevronLeft, Plus, Pencil, Trash2, X, Users, Percent,
   Save, Loader2, AlertTriangle,
@@ -34,7 +33,6 @@ function repName(r: Rep) {
 }
 
 export default function OverrideManagersPage() {
-  const router = useRouter();
   const [assignments, setAssignments] = useState<OverrideAssignment[]>([]);
   const [clinics, setClinics] = useState<Clinic[]>([]);
   const [reps, setReps] = useState<Rep[]>([]);
@@ -201,9 +199,9 @@ export default function OverrideManagersPage() {
 
   return (
     <div className="p-6">
-      <button onClick={() => router.push('/super-admin/sales-reps')} className="mb-4 flex items-center gap-1 text-gray-600 hover:text-gray-900">
+      <a href="/super-admin/sales-reps" className="mb-4 flex items-center gap-1 text-gray-600 hover:text-gray-900">
         <ChevronLeft className="h-5 w-5" />Back to Sales Reps
-      </button>
+      </a>
 
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>

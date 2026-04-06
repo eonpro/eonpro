@@ -789,17 +789,17 @@ export const ANASTROZOLE_05_ENHANCED_TEMPLATES: EnhancedSigTemplate[] = [
 
 export const SERMORELIN_ENHANCED_TEMPLATES: EnhancedSigTemplate[] = [
   {
-    label: 'M-F · 25 units at bedtime',
+    label: 'M-F · 20 units before bedtime',
     phase: 'standard',
-    targetDose: '25 units x 5',
-    sig: 'Inject 25 units subcutaneously Monday through Friday at bedtime on an empty stomach.',
+    targetDose: '20 units x 5',
+    sig: 'Inject 20 units subcutaneously once daily before bedtime Monday-Friday.',
     quantity: '1',
     refills: '0',
     daysSupply: 30,
     storage: STORAGE_PRESETS.REFRIGERATED_PEPTIDE,
     administration: {
       ...ADMINISTRATION_PRESETS.SUBCUTANEOUS_PEPTIDE,
-      timing: 'Monday through Friday at bedtime on an empty stomach. Take weekends off for receptor sensitivity.',
+      timing: 'Monday-Friday before bedtime.',
     },
     warnings: {
       ...WARNINGS_PRESETS.PEPTIDE,

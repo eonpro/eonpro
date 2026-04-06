@@ -1,0 +1,190 @@
+{
+  "generatedAt": "2026-04-05T15:02:35.361Z",
+  "baseUrl": "https://app.eonpro.io",
+  "samplesPerEndpoint": 10,
+  "concurrency": 2,
+  "endpoints": [
+    {
+      "endpoint": "/api/health",
+      "name": "health",
+      "totalRequests": 10,
+      "successRate": 100,
+      "errorRate": 0,
+      "p50Ms": 156,
+      "p95Ms": 421,
+      "p99Ms": 421,
+      "avgMs": 211.4,
+      "maxMs": 421,
+      "minMs": 130,
+      "dbCallSites": 9,
+      "statusCodeCounts": {
+        "200": 10
+      },
+      "authFailureRate": 0
+    },
+    {
+      "endpoint": "/api/monitoring/ready",
+      "name": "ready",
+      "totalRequests": 10,
+      "successRate": 100,
+      "errorRate": 0,
+      "p50Ms": 183,
+      "p95Ms": 404,
+      "p99Ms": 404,
+      "avgMs": 216.5,
+      "maxMs": 404,
+      "minMs": 121,
+      "dbCallSites": 0,
+      "statusCodeCounts": {
+        "200": 10
+      },
+      "authFailureRate": 0
+    },
+    {
+      "endpoint": "/api/stripe/publishable-key",
+      "name": "stripePublishableKey",
+      "totalRequests": 10,
+      "successRate": 0,
+      "errorRate": 100,
+      "p50Ms": 205,
+      "p95Ms": 372,
+      "p99Ms": 372,
+      "avgMs": 249,
+      "maxMs": 372,
+      "minMs": 154,
+      "dbCallSites": 2,
+      "statusCodeCounts": {
+        "401": 10
+      },
+      "authFailureRate": 100
+    },
+    {
+      "endpoint": "/api/patient-portal/branding",
+      "name": "patientPortalBranding",
+      "totalRequests": 10,
+      "successRate": 0,
+      "errorRate": 100,
+      "p50Ms": 131,
+      "p95Ms": 538,
+      "p99Ms": 538,
+      "avgMs": 225.1,
+      "maxMs": 538,
+      "minMs": 106,
+      "dbCallSites": 4,
+      "statusCodeCounts": {
+        "400": 10
+      },
+      "authFailureRate": 0
+    },
+    {
+      "endpoint": "/api/admin/webhook-status",
+      "name": "webhookStatus",
+      "totalRequests": 10,
+      "successRate": 0,
+      "errorRate": 100,
+      "p50Ms": 121,
+      "p95Ms": 293,
+      "p99Ms": 293,
+      "avgMs": 158.8,
+      "maxMs": 293,
+      "minMs": 106,
+      "dbCallSites": 8,
+      "statusCodeCounts": {
+        "401": 10
+      },
+      "authFailureRate": 100
+    }
+  ],
+  "topSlowEndpointsByP95": [
+    {
+      "endpoint": "/api/patient-portal/branding",
+      "name": "patientPortalBranding",
+      "totalRequests": 10,
+      "successRate": 0,
+      "errorRate": 100,
+      "p50Ms": 131,
+      "p95Ms": 538,
+      "p99Ms": 538,
+      "avgMs": 225.1,
+      "maxMs": 538,
+      "minMs": 106,
+      "dbCallSites": 4,
+      "statusCodeCounts": {
+        "400": 10
+      },
+      "authFailureRate": 0
+    },
+    {
+      "endpoint": "/api/health",
+      "name": "health",
+      "totalRequests": 10,
+      "successRate": 100,
+      "errorRate": 0,
+      "p50Ms": 156,
+      "p95Ms": 421,
+      "p99Ms": 421,
+      "avgMs": 211.4,
+      "maxMs": 421,
+      "minMs": 130,
+      "dbCallSites": 9,
+      "statusCodeCounts": {
+        "200": 10
+      },
+      "authFailureRate": 0
+    },
+    {
+      "endpoint": "/api/monitoring/ready",
+      "name": "ready",
+      "totalRequests": 10,
+      "successRate": 100,
+      "errorRate": 0,
+      "p50Ms": 183,
+      "p95Ms": 404,
+      "p99Ms": 404,
+      "avgMs": 216.5,
+      "maxMs": 404,
+      "minMs": 121,
+      "dbCallSites": 0,
+      "statusCodeCounts": {
+        "200": 10
+      },
+      "authFailureRate": 0
+    },
+    {
+      "endpoint": "/api/stripe/publishable-key",
+      "name": "stripePublishableKey",
+      "totalRequests": 10,
+      "successRate": 0,
+      "errorRate": 100,
+      "p50Ms": 205,
+      "p95Ms": 372,
+      "p99Ms": 372,
+      "avgMs": 249,
+      "maxMs": 372,
+      "minMs": 154,
+      "dbCallSites": 2,
+      "statusCodeCounts": {
+        "401": 10
+      },
+      "authFailureRate": 100
+    },
+    {
+      "endpoint": "/api/admin/webhook-status",
+      "name": "webhookStatus",
+      "totalRequests": 10,
+      "successRate": 0,
+      "errorRate": 100,
+      "p50Ms": 121,
+      "p95Ms": 293,
+      "p99Ms": 293,
+      "avgMs": 158.8,
+      "maxMs": 293,
+      "minMs": 106,
+      "dbCallSites": 8,
+      "statusCodeCounts": {
+        "401": 10
+      },
+      "authFailureRate": 100
+    }
+  ]
+}

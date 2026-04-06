@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { basePrisma as prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import { withReadFallback } from '@/lib/database/read-replica';
+import { executeDbRead } from '@/lib/database/executeDb';
 
 /**
  * GET /api/admin/webhook-status - Check recent webhook activity for EONMEDS
@@ -18,65 +19,98 @@ export async function GET(req: NextRequest) {
     }
 
     // Find EONMEDS clinic (use select for backwards compatibility)
-    const eonmeds = await prisma.clinic.findFirst({
-      where: {
-        OR: [{ subdomain: 'eonmeds' }, { name: { contains: 'EONMEDS', mode: 'insensitive' } }],
-      },
-      select: { id: true, name: true, subdomain: true },
-    });
+    const clinicResult = await executeDbRead(
+      () =>
+        withReadFallback((db) =>
+          db.clinic.findFirst({
+            where: {
+              OR: [{ subdomain: 'eonmeds' }, { name: { contains: 'EONMEDS', mode: 'insensitive' } }],
+            },
+            select: { id: true, name: true, subdomain: true },
+          }),
+        ),
+      'adminWebhookStatus:findClinic',
+    );
+    if (!clinicResult.success) {
+      throw new Error(clinicResult.error?.message ?? 'Failed to load clinic');
+    }
+    const eonmeds = clinicResult.data;
 
     if (!eonmeds) {
       return NextResponse.json({ error: 'EONMEDS clinic not found' }, { status: 404 });
     }
 
     // Get recent patients in EONMEDS clinic
-    const recentPatients = await prisma.patient.findMany({
-      where: { clinicId: eonmeds.id },
-      orderBy: { createdAt: 'desc' },
-      take: 20,
-      select: {
-        id: true,
-        patientId: true,
-        source: true,
-        createdAt: true,
-        tags: true,
-      },
-    });
+    const [patientsResult, documentsResult, auditLogsResult] = await Promise.all([
+      executeDbRead(
+        () =>
+          withReadFallback((db) =>
+            db.patient.findMany({
+              where: { clinicId: eonmeds.id },
+              orderBy: { createdAt: 'desc' },
+              take: 20,
+              select: {
+                id: true,
+                patientId: true,
+                source: true,
+                createdAt: true,
+                tags: true,
+              },
+            }),
+          ),
+        'adminWebhookStatus:recentPatients',
+      ),
+      executeDbRead(
+        () =>
+          withReadFallback((db) =>
+            db.patientDocument.findMany({
+              where: {
+                clinicId: eonmeds.id,
+                category: 'MEDICAL_INTAKE_FORM',
+              },
+              orderBy: { createdAt: 'desc' },
+              take: 20,
+              select: {
+                id: true,
+                patientId: true,
+                filename: true,
+                source: true,
+                sourceSubmissionId: true,
+                createdAt: true,
+              },
+            }),
+          ),
+        'adminWebhookStatus:recentDocuments',
+      ),
+      executeDbRead(
+        () =>
+          withReadFallback((db) =>
+            db.auditLog.findMany({
+              where: {
+                action: 'PATIENT_INTAKE_RECEIVED',
+              },
+              orderBy: { createdAt: 'desc' },
+              take: 20,
+              select: {
+                id: true,
+                action: true,
+                resourceId: true,
+                details: true,
+                createdAt: true,
+                ipAddress: true,
+              },
+            }),
+          ),
+        'adminWebhookStatus:recentAuditLogs',
+      ),
+    ]);
 
-    // Get recent intake documents
-    const recentDocuments = await prisma.patientDocument.findMany({
-      where: {
-        clinicId: eonmeds.id,
-        category: 'MEDICAL_INTAKE_FORM',
-      },
-      orderBy: { createdAt: 'desc' },
-      take: 20,
-      select: {
-        id: true,
-        patientId: true,
-        filename: true,
-        source: true,
-        sourceSubmissionId: true,
-        createdAt: true,
-      },
-    });
-
-    // Get recent audit logs for intake
-    const recentAuditLogs = await prisma.auditLog.findMany({
-      where: {
-        action: 'PATIENT_INTAKE_RECEIVED',
-      },
-      orderBy: { createdAt: 'desc' },
-      take: 20,
-      select: {
-        id: true,
-        action: true,
-        resourceId: true,
-        details: true,
-        createdAt: true,
-        ipAddress: true,
-      },
-    });
+    if (!patientsResult.success || !documentsResult.success || !auditLogsResult.success) {
+      throw new Error('Failed to load webhook status datasets');
+    }
+    const recentPatients = patientsResult.data ?? [];
+    const recentDocuments = documentsResult.data ?? [];
+    const recentAuditLogs = auditLogsResult.data ?? [];
 
     // Calculate stats
     const today = new Date();

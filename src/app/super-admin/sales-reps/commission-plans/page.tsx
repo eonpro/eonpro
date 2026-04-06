@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
 import {
   ChevronLeft, Plus, Pencil, Trash2, X, DollarSign, Percent,
   BadgeDollarSign, Save, Loader2, RefreshCw, Package, Settings2,
@@ -87,7 +86,6 @@ const defaultForm: FormData = {
 };
 
 export default function CommissionPlansPage() {
-  const router = useRouter();
   const [plans, setPlans] = useState<Plan[]>([]);
   const [clinics, setClinics] = useState<Clinic[]>([]);
   const [loading, setLoading] = useState(true);
@@ -274,9 +272,9 @@ export default function CommissionPlansPage() {
 
   return (
     <div className="p-6">
-      <button onClick={() => router.push('/super-admin/sales-reps')} className="mb-4 flex items-center gap-1 text-gray-600 hover:text-gray-900">
+      <a href="/super-admin/sales-reps" className="mb-4 flex items-center gap-1 text-gray-600 hover:text-gray-900">
         <ChevronLeft className="h-5 w-5" />Back to Sales Reps
-      </button>
+      </a>
 
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>

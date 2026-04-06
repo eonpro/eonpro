@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { basePrisma as prisma } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { withAdminAuth, type AuthUser } from '@/lib/auth/middleware';
+import { withReadFallback } from '@/lib/database/read-replica';
+import { executeDbRead } from '@/lib/database/executeDb';
 
 /**
  * GET /api/admin/lifefile-status
@@ -22,21 +23,31 @@ async function handleGet(req: NextRequest, user: AuthUser) {
     const lookbackDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
 
     // Find clinic
-    const clinic = await prisma.clinic.findFirst({
-      where: {
-        OR: [
-          { subdomain: clinicSubdomain },
-          { name: { contains: clinicSubdomain, mode: 'insensitive' } },
-        ],
-      },
-      select: {
-        id: true,
-        name: true,
-        subdomain: true,
-        lifefileEnabled: true,
-        lifefilePracticeId: true,
-      },
-    });
+    const clinicResult = await executeDbRead(
+      () =>
+        withReadFallback((db) =>
+          db.clinic.findFirst({
+            where: {
+              OR: [
+                { subdomain: clinicSubdomain },
+                { name: { contains: clinicSubdomain, mode: 'insensitive' } },
+              ],
+            },
+            select: {
+              id: true,
+              name: true,
+              subdomain: true,
+              lifefileEnabled: true,
+              lifefilePracticeId: true,
+            },
+          }),
+        ),
+      'adminLifefileStatus:findClinic',
+    );
+    if (!clinicResult.success) {
+      throw new Error(clinicResult.error?.message ?? 'Failed to load clinic');
+    }
+    const clinic = clinicResult.data;
 
     if (!clinic) {
       return NextResponse.json(
@@ -48,25 +59,35 @@ async function handleGet(req: NextRequest, user: AuthUser) {
     }
 
     // Get webhook logs for LifeFile endpoints
-    const webhookLogs = await prisma.webhookLog.findMany({
-      where: {
-        createdAt: { gte: lookbackDate },
-        OR: [{ endpoint: { contains: 'lifefile' } }, { endpoint: { contains: 'wellmedr' } }],
-      },
-      orderBy: { createdAt: 'desc' },
-      take: 50,
-      select: {
-        id: true,
-        endpoint: true,
-        status: true,
-        statusCode: true,
-        createdAt: true,
-        ipAddress: true,
-        processingTimeMs: true,
-        errorMessage: true,
-        clinicId: true,
-      },
-    });
+    const webhookLogsResult = await executeDbRead(
+      () =>
+        withReadFallback((db) =>
+          db.webhookLog.findMany({
+            where: {
+              createdAt: { gte: lookbackDate },
+              OR: [{ endpoint: { contains: 'lifefile' } }, { endpoint: { contains: 'wellmedr' } }],
+            },
+            orderBy: { createdAt: 'desc' },
+            take: 50,
+            select: {
+              id: true,
+              endpoint: true,
+              status: true,
+              statusCode: true,
+              createdAt: true,
+              ipAddress: true,
+              processingTimeMs: true,
+              errorMessage: true,
+              clinicId: true,
+            },
+          }),
+        ),
+      'adminLifefileStatus:webhookLogs',
+    );
+    if (!webhookLogsResult.success) {
+      throw new Error(webhookLogsResult.error?.message ?? 'Failed to load webhook logs');
+    }
+    const webhookLogs = webhookLogsResult.data ?? [];
 
     // Group webhook logs by endpoint
     const webhooksByEndpoint: Record<
@@ -108,53 +129,86 @@ async function handleGet(req: NextRequest, user: AuthUser) {
     }
 
     // Get shipping updates for clinic
-    const shippingUpdates = await prisma.patientShippingUpdate.findMany({
-      where: {
-        clinicId: clinic.id,
-        createdAt: { gte: lookbackDate },
-      },
-      orderBy: { createdAt: 'desc' },
-      take: 20,
-      include: {
-        patient: {
-          select: { firstName: true, lastName: true, patientId: true },
-        },
-      },
-    });
-
-    // Get orders with tracking for clinic
-    const ordersWithTracking = await prisma.order.findMany({
-      where: {
-        clinicId: clinic.id,
-        trackingNumber: { not: null },
-        createdAt: { gte: lookbackDate },
-      },
-      orderBy: { createdAt: 'desc' },
-      take: 20,
-      include: {
-        patient: {
-          select: { firstName: true, lastName: true, patientId: true },
-        },
-      },
-    });
-
-    // Get orders with LifeFile ID
-    const ordersWithLifefileId = await prisma.order.count({
-      where: {
-        clinicId: clinic.id,
-        lifefileOrderId: { not: null },
-      },
-    });
-
-    // Get orders missing tracking
-    const ordersMissingTracking = await prisma.order.count({
-      where: {
-        clinicId: clinic.id,
-        trackingNumber: null,
-        status: { notIn: ['CANCELLED', 'FAILED'] },
-        createdAt: { gte: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000) }, // Last 90 days
-      },
-    });
+    const [shippingUpdatesResult, ordersWithTrackingResult, ordersWithLifefileIdResult, ordersMissingTrackingResult] =
+      await Promise.all([
+        executeDbRead(
+          () =>
+            withReadFallback((db) =>
+              db.patientShippingUpdate.findMany({
+                where: {
+                  clinicId: clinic.id,
+                  createdAt: { gte: lookbackDate },
+                },
+                orderBy: { createdAt: 'desc' },
+                take: 20,
+                include: {
+                  patient: {
+                    select: { firstName: true, lastName: true, patientId: true },
+                  },
+                },
+              }),
+            ),
+          'adminLifefileStatus:shippingUpdates',
+        ),
+        executeDbRead(
+          () =>
+            withReadFallback((db) =>
+              db.order.findMany({
+                where: {
+                  clinicId: clinic.id,
+                  trackingNumber: { not: null },
+                  createdAt: { gte: lookbackDate },
+                },
+                orderBy: { createdAt: 'desc' },
+                take: 20,
+                include: {
+                  patient: {
+                    select: { firstName: true, lastName: true, patientId: true },
+                  },
+                },
+              }),
+            ),
+          'adminLifefileStatus:ordersWithTracking',
+        ),
+        executeDbRead(
+          () =>
+            withReadFallback((db) =>
+              db.order.count({
+                where: {
+                  clinicId: clinic.id,
+                  lifefileOrderId: { not: null },
+                },
+              }),
+            ),
+          'adminLifefileStatus:ordersWithLifefileId',
+        ),
+        executeDbRead(
+          () =>
+            withReadFallback((db) =>
+              db.order.count({
+                where: {
+                  clinicId: clinic.id,
+                  trackingNumber: null,
+                  status: { notIn: ['CANCELLED', 'FAILED'] },
+                  createdAt: { gte: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000) }, // Last 90 days
+                },
+              }),
+            ),
+          'adminLifefileStatus:ordersMissingTracking',
+        ),
+      ]);
+    if (
+      !shippingUpdatesResult.success ||
+      !ordersWithTrackingResult.success ||
+      !ordersWithLifefileIdResult.success ||
+      !ordersMissingTrackingResult.success
+    ) {
+      throw new Error('Failed to load one or more lifefile status datasets');
+    }
+    const shippingUpdates = shippingUpdatesResult.data ?? [];
+    const ordersWithTracking = ordersWithTrackingResult.data ?? [];
+    const ordersWithLifefileId = ordersWithLifefileIdResult.data ?? 0;
+    const ordersMissingTracking = ordersMissingTrackingResult.data ?? 0;
 
     // Calculate summary stats
     const today = new Date();

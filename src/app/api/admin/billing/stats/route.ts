@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/db';
 import { PaymentStatus, SubscriptionStatus } from '@prisma/client';
 import { logger } from '@/lib/logger';
 import { withAdminAuth } from '@/lib/auth/middleware';
+import { executeDbRead } from '@/lib/database/executeDb';
+import { withReadFallback } from '@/lib/database/read-replica';
 
 export const GET = withAdminAuth(async (req: NextRequest, user) => {
   try {
@@ -16,70 +17,115 @@ export const GET = withAdminAuth(async (req: NextRequest, user) => {
         ? { clinicId: user.clinicId }
         : {};
 
-    // Fetch total revenue (all successful payments)
-    const totalRevenueData = await prisma.payment.aggregate({
-      where: {
-        status: PaymentStatus.SUCCEEDED,
-        ...clinicFilter,
-      },
-      _sum: {
-        amount: true,
-      },
-    });
-    const totalRevenue = (totalRevenueData._sum.amount || 0) / 100; // Convert cents to dollars
-
-    // Fetch monthly revenue (current month)
-    const monthlyRevenueData = await prisma.payment.aggregate({
-      where: {
-        status: PaymentStatus.SUCCEEDED,
-        createdAt: {
-          gte: monthStart,
-        },
-        ...clinicFilter,
-      },
-      _sum: {
-        amount: true,
-      },
-    });
-    const monthlyRevenue = (monthlyRevenueData._sum.amount || 0) / 100;
-
-    // Count active subscriptions
-    const activeSubscriptions = await prisma.subscription.count({
-      where: {
-        status: SubscriptionStatus.ACTIVE,
-        ...clinicFilter,
-      },
-    });
-
-    // Count total patients
-    const totalPatients = await prisma.patient.count({
-      where: clinicFilter,
-    });
-
-    // Fetch recent payments with patient info
-    const recentPayments = await prisma.payment.findMany({
-      where: {
-        status: PaymentStatus.SUCCEEDED,
-        ...clinicFilter,
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-      take: 20,
-      include: {
-        invoice: {
-          include: {
-            patient: {
-              select: {
-                id: true,
-                firstName: true,
-                lastName: true,
+    const statsReadResult = await executeDbRead(
+      () =>
+        withReadFallback(async (db) => {
+          const [
+            totalRevenueData,
+            monthlyRevenueData,
+            activeSubscriptions,
+            totalPatients,
+            recentPayments,
+            pendingInvoices,
+          ] = await Promise.all([
+            db.payment.aggregate({
+              where: {
+                status: PaymentStatus.SUCCEEDED,
+                ...clinicFilter,
               },
-            },
-          },
-        },
-      },
-    });
+              _sum: {
+                amount: true,
+              },
+            }),
+            db.payment.aggregate({
+              where: {
+                status: PaymentStatus.SUCCEEDED,
+                createdAt: {
+                  gte: monthStart,
+                },
+                ...clinicFilter,
+              },
+              _sum: {
+                amount: true,
+              },
+            }),
+            db.subscription.count({
+              where: {
+                status: SubscriptionStatus.ACTIVE,
+                ...clinicFilter,
+              },
+            }),
+            db.patient.count({
+              where: clinicFilter,
+            }),
+            db.payment.findMany({
+              where: {
+                status: PaymentStatus.SUCCEEDED,
+                ...clinicFilter,
+              },
+              orderBy: {
+                createdAt: 'desc',
+              },
+              take: 20,
+              include: {
+                invoice: {
+                  include: {
+                    patient: {
+                      select: {
+                        id: true,
+                        firstName: true,
+                        lastName: true,
+                      },
+                    },
+                  },
+                },
+              },
+            }),
+            db.invoice.findMany({
+              where: {
+                status: 'DRAFT', // Assuming DRAFT means pending payment
+                ...clinicFilter,
+              },
+              orderBy: {
+                createdAt: 'desc',
+              },
+              take: 20,
+              include: {
+                patient: {
+                  select: {
+                    id: true,
+                    firstName: true,
+                    lastName: true,
+                  },
+                },
+              },
+            }),
+          ]);
+
+          return {
+            totalRevenueData,
+            monthlyRevenueData,
+            activeSubscriptions,
+            totalPatients,
+            recentPayments,
+            pendingInvoices,
+          };
+        }),
+      'adminBillingStats:allReads',
+    );
+    if (!statsReadResult.success || !statsReadResult.data) {
+      throw new Error(statsReadResult.error?.message ?? 'Failed to load billing statistics');
+    }
+    const {
+      totalRevenueData,
+      monthlyRevenueData,
+      activeSubscriptions,
+      totalPatients,
+      recentPayments,
+      pendingInvoices,
+    } = statsReadResult.data;
+    const totalRevenue = (totalRevenueData._sum.amount || 0) / 100; // Convert cents to dollars
+    const monthlyRevenue = (monthlyRevenueData._sum.amount || 0) / 100;
 
     // Format recent payments
     const formattedPayments = recentPayments.map((payment: (typeof recentPayments)[number]) => ({
@@ -94,27 +140,6 @@ export const GET = withAdminAuth(async (req: NextRequest, user) => {
       paymentMethod: payment.paymentMethod || undefined,
       description: payment.description || undefined,
     }));
-
-    // Fetch pending invoices
-    const pendingInvoices = await prisma.invoice.findMany({
-      where: {
-        status: 'DRAFT', // Assuming DRAFT means pending payment
-        ...clinicFilter,
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-      take: 20,
-      include: {
-        patient: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-          },
-        },
-      },
-    });
 
     // Format pending invoices
     const formattedInvoices = pendingInvoices.map((invoice: (typeof pendingInvoices)[number]) => ({

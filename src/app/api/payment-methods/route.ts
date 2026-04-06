@@ -87,8 +87,84 @@ async function handleGet(request: NextRequest, _user: AuthUser) {
       }
     }
 
+    // Shared cards across profiles:
+    // If multiple local profiles point to the same Stripe customer within this clinic,
+    // surface those active saved cards here as Stripe-only options so staff can reuse
+    // cards across duplicate/sibling profiles without storing duplicate PM rows.
+    let sharedProfileCards: any[] = [];
+    if (patient?.stripeCustomerId && patient?.clinicId) {
+      try {
+        const siblingPatientIds = await prisma.patient.findMany({
+          where: {
+            clinicId: patient.clinicId,
+            stripeCustomerId: patient.stripeCustomerId,
+            id: { not: pid },
+          },
+          select: { id: true },
+        });
+
+        if (siblingPatientIds.length > 0) {
+          const siblingIds = siblingPatientIds.map((p) => p.id);
+          const sharedRows = await prisma.paymentMethod.findMany({
+            where: {
+              clinicId: patient.clinicId,
+              patientId: { in: siblingIds },
+              isActive: true,
+              stripePaymentMethodId: { not: null },
+            },
+            select: {
+              stripePaymentMethodId: true,
+              cardLast4: true,
+              cardBrand: true,
+              expiryMonth: true,
+              expiryYear: true,
+              cardholderName: true,
+              createdAt: true,
+            },
+            orderBy: { createdAt: 'desc' },
+          });
+
+          const seen = new Set<string>();
+          sharedProfileCards = sharedRows
+            .filter((row) => !!row.stripePaymentMethodId)
+            .filter((row) => {
+              const pmid = row.stripePaymentMethodId as string;
+              if (seen.has(pmid)) return false;
+              seen.add(pmid);
+              return true;
+            })
+            .map((row) => ({
+              id: `stripe_${row.stripePaymentMethodId}`,
+              last4: row.cardLast4 || '????',
+              brand: row.cardBrand || 'Unknown',
+              expiryMonth: row.expiryMonth || 0,
+              expiryYear: row.expiryYear || 0,
+              cardholderName: row.cardholderName || '',
+              isDefault: false,
+              createdAt: row.createdAt,
+              source: 'stripe' as const,
+              stripePaymentMethodId: row.stripePaymentMethodId as string,
+            }));
+        }
+      } catch (sharedErr) {
+        logger.warn('[PAYMENT_METHODS] Failed to fetch shared profile cards (non-blocking)', {
+          patientId: pid,
+          error: sharedErr instanceof Error ? sharedErr.message : String(sharedErr),
+        });
+      }
+    }
+
     const localWithSource = localCards.map((c) => ({ ...c, source: 'local' as const }));
-    const merged = [...localWithSource, ...stripeCards];
+    const mergedRaw = [...localWithSource, ...stripeCards, ...sharedProfileCards];
+    const seenMerged = new Set<string>();
+    const merged = mergedRaw.filter((card) => {
+      const key = card.stripePaymentMethodId
+        ? `stripe:${card.stripePaymentMethodId}`
+        : `local:${String(card.id)}`;
+      if (seenMerged.has(key)) return false;
+      seenMerged.add(key);
+      return true;
+    });
 
     return NextResponse.json({
       success: true,

@@ -50,10 +50,11 @@
     "type-check:watch": "tsc --noEmit --watch",
     "validate": "npm run type-check && npm run lint && npm run test:coverage",
     "validate:ci": "npm run type-check && npm run lint:strict && npm run test:coverage",
+    "check:architecture-boundaries": "tsx scripts/check-architecture-boundaries.ts",
     "validate:secrets": "npx tsx scripts/validate-secrets.ts",
     "security:audit": "npm audit --production --audit-level=high",
     "security:check": "npm run security:audit && npm run lint:strict",
-    "prepare": "husky install",
+    "prepare": "node scripts/prepare-husky.js",
     "setup-fonts": "node scripts/setup-sofia-pro.js",
     "docker:build": "docker build -t eonpro:latest .",
     "docker:build:prod": "docker build -f infrastructure/docker/Dockerfile.production -t eonpro:prod .",
@@ -69,13 +70,12 @@
     "prod:reset": "tsx scripts/production-reset.ts",
     "prod:cleanup": "tsx scripts/cleanup-all-data.ts",
     "verify:overtime": "tsx scripts/verify-overtime-setup.ts",
+    "verify:redis-resilience": "tsx scripts/verify-redis-resilience.ts",
+    "perf:baseline": "tsx scripts/performance-baseline.ts",
     "test:overtime-intake": "tsx scripts/test-overtime-intake.ts",
     "sync:overtime": "tsx -e \"fetch('http://localhost:3000/api/integrations/overtime/sync', {method:'POST',headers:{'Authorization':'Bearer '+process.env.OVERTIME_SYNC_API_KEY}}).then(r=>r.json()).then(console.log)\"",
     "backfill:zoom-links": "tsx scripts/backfill-zoom-links.ts",
     "backfill:stale-pending-payments": "tsx scripts/backfill-stale-pending-payments.ts"
-  },
-  "prisma": {
-    "schema": "prisma/schema"
   },
   "lint-staged": {
     "*.{ts,tsx}": [
@@ -125,6 +125,7 @@
     "html2canvas": "^1.4.1",
     "jose": "^6.1.2",
     "js-cookie": "^3.0.5",
+    "jsbarcode": "^3.12.3",
     "jsonwebtoken": "^9.0.2",
     "lru-cache": "^11.2.2",
     "lucide-react": "^0.554.0",

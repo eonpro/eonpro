@@ -300,15 +300,33 @@ function extractUnit(ref: string): string {
   return m ? m[1] : '';
 }
 
+/** Quest may append lab location codes (e.g. QAW, EZ) at end of reference text. */
+function normalizeReferenceRange(ref: string): string {
+  return (ref || '')
+    .replace(/\s+[A-Z]{2,4}\s*$/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 /** Check if token is a known Quest test name (exact or starts with) */
 function isKnownTestName(token: string): boolean {
   const n = normalizeTestName(token);
   if (QUEST_TEST_NAMES.has(n)) return true;
   for (const known of QUEST_TEST_NAMES) {
-    if (n === known || n.startsWith(known + ' ') || (known.length > 4 && n.includes(known)))
-      return true;
+    if (n === known || n.startsWith(known + ' ')) return true;
   }
   return false;
+}
+
+function getKnownTestPrefix(token: string): string | null {
+  const n = normalizeTestName(token);
+  let best: string | null = null;
+  for (const known of QUEST_TEST_NAMES) {
+    if (n === known || n.startsWith(known + ' ')) {
+      if (!best || known.length > best.length) best = known;
+    }
+  }
+  return best;
 }
 
 /**
@@ -466,7 +484,7 @@ export function parseQuestText(fullText: string): QuestParsedResult {
 
       if (valueToken) {
         const { value, valueNumeric, flag } = parseValueAndFlag(valueToken);
-        const referenceRange = refToken ?? '';
+        const referenceRange = normalizeReferenceRange(refToken ?? '');
         const unit = extractUnit(referenceRange);
         result.results.push({
           testName: firstNorm,
@@ -494,7 +512,7 @@ export function parseQuestText(fullText: string): QuestParsedResult {
         .trim();
       if (testName.length < 2) continue;
       const { value, valueNumeric, flag } = parseValueAndFlag(valuePart);
-      const referenceRange = looksLikeReference(secondLast) ? secondLast : '';
+      const referenceRange = normalizeReferenceRange(looksLikeReference(secondLast) ? secondLast : '');
       const unit = extractUnit(referenceRange);
       result.results.push({
         testName: normalizeTestName(testName),
@@ -515,11 +533,32 @@ export function parseQuestText(fullText: string): QuestParsedResult {
     const m = line.match(oneLine);
     if (!m) continue;
     const [, name, valuePart, refPart] = m;
-    const nameNorm = normalizeTestName((name ?? '').trim());
+    let nameNorm = normalizeTestName((name ?? '').trim());
+    let valueCandidate = valuePart.trim();
+    let refCandidate = refPart.trim();
+
+    // Recover rows where extraction glued numeric token into the test name.
+    const knownPrefix = getKnownTestPrefix(nameNorm);
+    if (knownPrefix && knownPrefix !== nameNorm) {
+      const trailing = nameNorm.slice(knownPrefix.length).trim();
+      const valueFromTrailing = trailing.match(/([<>]?\s*\d+(?:\.\d+)?)/)?.[1]?.replace(/\s+/g, '');
+      if (valueFromTrailing && isValueToken(valueFromTrailing)) {
+        const suffix = trailing.replace(/([<>]?\s*\d+(?:\.\d+)?)/, '').trim();
+        valueCandidate = valueFromTrailing;
+        refCandidate = `${suffix} ${valuePart} ${refPart}`.replace(/\s+/g, ' ').trim();
+        nameNorm = knownPrefix;
+      } else if (isValueToken(trailing)) {
+        valueCandidate = trailing;
+        refCandidate = `${valuePart} ${refPart}`.replace(/\s+/g, ' ').trim();
+        nameNorm = knownPrefix;
+      }
+    }
+
     if (nameNorm.length < 2) continue;
-    if (!looksLikeReference(refPart) && !/[\d.<>=\-–]/.test(refPart)) continue;
-    const { value, valueNumeric, flag } = parseValueAndFlag(valuePart);
-    const referenceRange = refPart.trim();
+    if (!looksLikeReference(refCandidate) && !/[\d.<>=\-–]/.test(refCandidate)) continue;
+    if (!isValueToken(valueCandidate)) continue;
+    const { value, valueNumeric, flag } = parseValueAndFlag(valueCandidate);
+    const referenceRange = normalizeReferenceRange(refCandidate);
     const unit = extractUnit(referenceRange);
     const existing = result.results.find((r) => normalizeTestName(r.testName) === nameNorm);
     if (!existing) {
@@ -543,7 +582,10 @@ export function parseQuestText(fullText: string): QuestParsedResult {
     let refStart = -1;
     for (let i = tokens.length - 1; i >= 0; i--) {
       const t = tokens.slice(i).join(' ');
-      if (looksLikeReference(t) || extractUnit(t)) {
+      const hasReferenceShape = looksLikeReference(t) || Boolean(extractUnit(t));
+      if (!hasReferenceShape) continue;
+      const prev = tokens[i - 1];
+      if (prev && isValueToken(prev)) {
         refStart = i;
         break;
       }
@@ -553,13 +595,30 @@ export function parseQuestText(fullText: string): QuestParsedResult {
     const valuePart = tokens[valueIdx];
     if (!isValueToken(valuePart)) continue;
     const namePart = tokens.slice(0, valueIdx).join(' ');
-    const nameNorm = normalizeTestName(namePart);
+    let nameNorm = normalizeTestName(namePart);
+    let valueCandidate = valuePart;
+    let referenceRange = normalizeReferenceRange(tokens.slice(refStart).join(' '));
+
+    const knownPrefix = getKnownTestPrefix(nameNorm);
+    if (knownPrefix && knownPrefix !== nameNorm) {
+      const trailing = nameNorm.slice(knownPrefix.length).trim();
+      const valueFromTrailing = trailing.match(/([<>]?\s*\d+(?:\.\d+)?)/)?.[1]?.replace(/\s+/g, '');
+      if (valueFromTrailing && isValueToken(valueFromTrailing)) {
+        const suffix = trailing.replace(/([<>]?\s*\d+(?:\.\d+)?)/, '').trim();
+        valueCandidate = valueFromTrailing;
+        referenceRange = normalizeReferenceRange(
+          `${suffix} ${valuePart} ${tokens.slice(refStart).join(' ')}`
+        );
+        nameNorm = knownPrefix;
+      }
+    }
+
     if (nameNorm.length < 2) continue;
     const existing = result.results.find((r) => normalizeTestName(r.testName) === nameNorm);
     if (existing) continue;
-    const referenceRange = tokens.slice(refStart).join(' ');
     if (!looksLikeReference(referenceRange) && !extractUnit(referenceRange)) continue;
-    const { value, valueNumeric, flag } = parseValueAndFlag(valuePart);
+    if (!isValueToken(valueCandidate)) continue;
+    const { value, valueNumeric, flag } = parseValueAndFlag(valueCandidate);
     const unit = extractUnit(referenceRange);
     result.results.push({
       testName: nameNorm,
@@ -590,7 +649,7 @@ export function parseQuestText(fullText: string): QuestParsedResult {
     const refToken = nextParts.find((p) => looksLikeReference(p));
     if (valueToken) {
       const { value, valueNumeric, flag } = parseValueAndFlag(valueToken);
-      const referenceRange = refToken ?? '';
+      const referenceRange = normalizeReferenceRange(refToken ?? '');
       const unit = extractUnit(referenceRange);
       result.results.push({
         testName: nameNorm,
@@ -604,14 +663,30 @@ export function parseQuestText(fullText: string): QuestParsedResult {
     }
   }
 
-  // Dedupe by normalized test name (keep first occurrence)
-  const seen = new Set<string>();
-  result.results = result.results.filter((r) => {
-    const key = normalizeTestName(r.testName);
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
+  // Dedupe by canonical test name; keep the highest quality row.
+  const scoreRow = (row: QuestParsedRow): number => {
+    const normalized = normalizeTestName(row.testName);
+    const knownPrefix = getKnownTestPrefix(normalized);
+    let score = 0;
+    if (knownPrefix && knownPrefix === normalized) score += 4;
+    if (knownPrefix && knownPrefix !== normalized) score -= 2;
+    if (row.valueNumeric != null) score += 2;
+    if (row.referenceRange) score += 1;
+    if (extractUnit(row.referenceRange)) score += 2;
+    if (/\s\d+(?:\.\d+)?\s*$/.test(normalized) && !/^T[34],?\s/.test(normalized)) score -= 1;
+    return score;
+  };
+
+  const byCanonical = new Map<string, QuestParsedRow>();
+  for (const row of result.results) {
+    const normalized = normalizeTestName(row.testName);
+    const canonical = getKnownTestPrefix(normalized) ?? normalized;
+    const existing = byCanonical.get(canonical);
+    if (!existing || scoreRow(row) > scoreRow(existing)) {
+      byCanonical.set(canonical, row);
+    }
+  }
+  result.results = Array.from(byCanonical.values());
 
   return result;
 }
@@ -674,7 +749,7 @@ async function extractWithPdfParse(buffer: Buffer, timeout: number): Promise<str
  * Uses unpdf as primary extractor with pdf-parse as fallback.
  * Guardrails: max size, timeout.
  */
-export async function parseQuestBloodworkPdf(buffer: Buffer): Promise<QuestParsedResult> {
+export async function extractBloodworkTextFromPdf(buffer: Buffer): Promise<string> {
   if (buffer.length > MAX_PDF_BYTES) {
     throw new Error('PDF exceeds maximum size. Please use a file under 15MB.');
   }
@@ -708,6 +783,12 @@ export async function parseQuestBloodworkPdf(buffer: Buffer): Promise<QuestParse
       'PDF produced no or too little text. Ensure the file is a Quest Diagnostics lab report (not a scan/image-only PDF).'
     );
   }
+
+  return text;
+}
+
+export async function parseQuestBloodworkPdf(buffer: Buffer): Promise<QuestParsedResult> {
+  const text = await extractBloodworkTextFromPdf(buffer);
 
   try {
     return parseQuestText(text);

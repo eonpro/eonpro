@@ -114,7 +114,13 @@ function PatientPortalLayoutInner({ children }: { children: React.ReactNode }) {
 
   const [userData, setUserData] = useState<{ id?: number; role?: string; patientId?: number; firstName?: string; lastName?: string } | null>(null);
   const [displayName, setDisplayName] = useState<{ firstName: string; lastName: string } | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => {
+    if (!isBrowser) return true;
+    const user = localStorage.getItem('user');
+    const token = localStorage.getItem('auth-token') || localStorage.getItem('patient-token');
+    // If session markers already exist, skip first-frame loading shell to reduce CLS.
+    return !(user && token);
+  });
   const [notifications, setNotifications] = useState(0);
   const [portalMode, setPortalMode] = useState<PortalMode>('patient');
   const [profileCompletionBanner, setProfileCompletionBanner] = useState<{ show: boolean; missingFields: string[] }>({ show: false, missingFields: [] });

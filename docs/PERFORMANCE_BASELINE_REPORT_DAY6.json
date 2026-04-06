@@ -1,0 +1,382 @@
+{
+  "generatedAt": "2026-04-05T19:40:53.574Z",
+  "baseUrl": "https://app.eonpro.io",
+  "samplesPerEndpoint": 15,
+  "concurrency": 3,
+  "endpoints": [
+    {
+      "endpoint": "/api/health",
+      "name": "health",
+      "totalRequests": 15,
+      "successRate": 100,
+      "errorRate": 0,
+      "p50Ms": 173,
+      "p95Ms": 1555,
+      "p99Ms": 1555,
+      "avgMs": 505.2,
+      "maxMs": 1555,
+      "minMs": 129,
+      "dbCallSites": 9,
+      "statusCodeCounts": {
+        "200": 15
+      },
+      "authFailureRate": 0
+    },
+    {
+      "endpoint": "/api/monitoring/ready",
+      "name": "ready",
+      "totalRequests": 15,
+      "successRate": 100,
+      "errorRate": 0,
+      "p50Ms": 219,
+      "p95Ms": 1704,
+      "p99Ms": 1704,
+      "avgMs": 512.13,
+      "maxMs": 1704,
+      "minMs": 165,
+      "dbCallSites": 0,
+      "statusCodeCounts": {
+        "200": 15
+      },
+      "authFailureRate": 0
+    },
+    {
+      "endpoint": "/api/admin/webhook-status",
+      "name": "adminWebhookStatus",
+      "totalRequests": 15,
+      "successRate": 0,
+      "errorRate": 100,
+      "p50Ms": 163,
+      "p95Ms": 2469,
+      "p99Ms": 2469,
+      "avgMs": 426.73,
+      "maxMs": 2469,
+      "minMs": 103,
+      "dbCallSites": 8,
+      "statusCodeCounts": {
+        "401": 15
+      },
+      "authFailureRate": 100
+    },
+    {
+      "endpoint": "/api/admin/lifefile-status",
+      "name": "adminLifefileStatus",
+      "totalRequests": 15,
+      "successRate": 0,
+      "errorRate": 100,
+      "p50Ms": 452,
+      "p95Ms": 1407,
+      "p99Ms": 1407,
+      "avgMs": 616.2,
+      "maxMs": 1407,
+      "minMs": 133,
+      "dbCallSites": 12,
+      "statusCodeCounts": {
+        "401": 6,
+        "429": 9
+      },
+      "authFailureRate": 40
+    },
+    {
+      "endpoint": "/api/admin/clinic/stats",
+      "name": "adminClinicStats",
+      "totalRequests": 15,
+      "successRate": 0,
+      "errorRate": 100,
+      "p50Ms": 239,
+      "p95Ms": 1423,
+      "p99Ms": 1423,
+      "avgMs": 497.47,
+      "maxMs": 1423,
+      "minMs": 135,
+      "dbCallSites": 2,
+      "statusCodeCounts": {
+        "401": 6,
+        "429": 9
+      },
+      "authFailureRate": 40
+    },
+    {
+      "endpoint": "/api/admin/shipment-monitor",
+      "name": "adminShipmentMonitor",
+      "totalRequests": 15,
+      "successRate": 0,
+      "errorRate": 100,
+      "p50Ms": 270,
+      "p95Ms": 2168,
+      "p99Ms": 2168,
+      "avgMs": 406.93,
+      "maxMs": 2168,
+      "minMs": 120,
+      "dbCallSites": 2,
+      "statusCodeCounts": {
+        "401": 5,
+        "429": 10
+      },
+      "authFailureRate": 33.33
+    },
+    {
+      "endpoint": "/api/admin/metrics",
+      "name": "adminMetrics",
+      "totalRequests": 15,
+      "successRate": 0,
+      "errorRate": 100,
+      "p50Ms": 300,
+      "p95Ms": 1597,
+      "p99Ms": 1597,
+      "avgMs": 524.4,
+      "maxMs": 1597,
+      "minMs": 115,
+      "dbCallSites": 2,
+      "statusCodeCounts": {
+        "401": 6,
+        "429": 9
+      },
+      "authFailureRate": 40
+    },
+    {
+      "endpoint": "/api/admin/billing/stats",
+      "name": "adminBillingStats",
+      "totalRequests": 15,
+      "successRate": 0,
+      "errorRate": 100,
+      "p50Ms": 409,
+      "p95Ms": 1317,
+      "p99Ms": 1317,
+      "avgMs": 531.4,
+      "maxMs": 1317,
+      "minMs": 116,
+      "dbCallSites": 2,
+      "statusCodeCounts": {
+        "401": 6,
+        "429": 9
+      },
+      "authFailureRate": 40
+    },
+    {
+      "endpoint": "/api/admin/patients",
+      "name": "adminPatients",
+      "totalRequests": 15,
+      "successRate": 0,
+      "errorRate": 100,
+      "p50Ms": 206,
+      "p95Ms": 1794,
+      "p99Ms": 1794,
+      "avgMs": 431.6,
+      "maxMs": 1794,
+      "minMs": 120,
+      "dbCallSites": 3,
+      "statusCodeCounts": {
+        "401": 6,
+        "429": 9
+      },
+      "authFailureRate": 40
+    },
+    {
+      "endpoint": "/api/patient-portal/branding",
+      "name": "patientPortalBranding",
+      "totalRequests": 15,
+      "successRate": 0,
+      "errorRate": 100,
+      "p50Ms": 180,
+      "p95Ms": 1914,
+      "p99Ms": 1914,
+      "avgMs": 552,
+      "maxMs": 1914,
+      "minMs": 129,
+      "dbCallSites": 4,
+      "statusCodeCounts": {
+        "400": 15
+      },
+      "authFailureRate": 0
+    }
+  ],
+  "topSlowEndpointsByP95": [
+    {
+      "endpoint": "/api/admin/webhook-status",
+      "name": "adminWebhookStatus",
+      "totalRequests": 15,
+      "successRate": 0,
+      "errorRate": 100,
+      "p50Ms": 163,
+      "p95Ms": 2469,
+      "p99Ms": 2469,
+      "avgMs": 426.73,
+      "maxMs": 2469,
+      "minMs": 103,
+      "dbCallSites": 8,
+      "statusCodeCounts": {
+        "401": 15
+      },
+      "authFailureRate": 100
+    },
+    {
+      "endpoint": "/api/admin/shipment-monitor",
+      "name": "adminShipmentMonitor",
+      "totalRequests": 15,
+      "successRate": 0,
+      "errorRate": 100,
+      "p50Ms": 270,
+      "p95Ms": 2168,
+      "p99Ms": 2168,
+      "avgMs": 406.93,
+      "maxMs": 2168,
+      "minMs": 120,
+      "dbCallSites": 2,
+      "statusCodeCounts": {
+        "401": 5,
+        "429": 10
+      },
+      "authFailureRate": 33.33
+    },
+    {
+      "endpoint": "/api/patient-portal/branding",
+      "name": "patientPortalBranding",
+      "totalRequests": 15,
+      "successRate": 0,
+      "errorRate": 100,
+      "p50Ms": 180,
+      "p95Ms": 1914,
+      "p99Ms": 1914,
+      "avgMs": 552,
+      "maxMs": 1914,
+      "minMs": 129,
+      "dbCallSites": 4,
+      "statusCodeCounts": {
+        "400": 15
+      },
+      "authFailureRate": 0
+    },
+    {
+      "endpoint": "/api/admin/patients",
+      "name": "adminPatients",
+      "totalRequests": 15,
+      "successRate": 0,
+      "errorRate": 100,
+      "p50Ms": 206,
+      "p95Ms": 1794,
+      "p99Ms": 1794,
+      "avgMs": 431.6,
+      "maxMs": 1794,
+      "minMs": 120,
+      "dbCallSites": 3,
+      "statusCodeCounts": {
+        "401": 6,
+        "429": 9
+      },
+      "authFailureRate": 40
+    },
+    {
+      "endpoint": "/api/monitoring/ready",
+      "name": "ready",
+      "totalRequests": 15,
+      "successRate": 100,
+      "errorRate": 0,
+      "p50Ms": 219,
+      "p95Ms": 1704,
+      "p99Ms": 1704,
+      "avgMs": 512.13,
+      "maxMs": 1704,
+      "minMs": 165,
+      "dbCallSites": 0,
+      "statusCodeCounts": {
+        "200": 15
+      },
+      "authFailureRate": 0
+    },
+    {
+      "endpoint": "/api/admin/metrics",
+      "name": "adminMetrics",
+      "totalRequests": 15,
+      "successRate": 0,
+      "errorRate": 100,
+      "p50Ms": 300,
+      "p95Ms": 1597,
+      "p99Ms": 1597,
+      "avgMs": 524.4,
+      "maxMs": 1597,
+      "minMs": 115,
+      "dbCallSites": 2,
+      "statusCodeCounts": {
+        "401": 6,
+        "429": 9
+      },
+      "authFailureRate": 40
+    },
+    {
+      "endpoint": "/api/health",
+      "name": "health",
+      "totalRequests": 15,
+      "successRate": 100,
+      "errorRate": 0,
+      "p50Ms": 173,
+      "p95Ms": 1555,
+      "p99Ms": 1555,
+      "avgMs": 505.2,
+      "maxMs": 1555,
+      "minMs": 129,
+      "dbCallSites": 9,
+      "statusCodeCounts": {
+        "200": 15
+      },
+      "authFailureRate": 0
+    },
+    {
+      "endpoint": "/api/admin/clinic/stats",
+      "name": "adminClinicStats",
+      "totalRequests": 15,
+      "successRate": 0,
+      "errorRate": 100,
+      "p50Ms": 239,
+      "p95Ms": 1423,
+      "p99Ms": 1423,
+      "avgMs": 497.47,
+      "maxMs": 1423,
+      "minMs": 135,
+      "dbCallSites": 2,
+      "statusCodeCounts": {
+        "401": 6,
+        "429": 9
+      },
+      "authFailureRate": 40
+    },
+    {
+      "endpoint": "/api/admin/lifefile-status",
+      "name": "adminLifefileStatus",
+      "totalRequests": 15,
+      "successRate": 0,
+      "errorRate": 100,
+      "p50Ms": 452,
+      "p95Ms": 1407,
+      "p99Ms": 1407,
+      "avgMs": 616.2,
+      "maxMs": 1407,
+      "minMs": 133,
+      "dbCallSites": 12,
+      "statusCodeCounts": {
+        "401": 6,
+        "429": 9
+      },
+      "authFailureRate": 40
+    },
+    {
+      "endpoint": "/api/admin/billing/stats",
+      "name": "adminBillingStats",
+      "totalRequests": 15,
+      "successRate": 0,
+      "errorRate": 100,
+      "p50Ms": 409,
+      "p95Ms": 1317,
+      "p99Ms": 1317,
+      "avgMs": 531.4,
+      "maxMs": 1317,
+      "minMs": 116,
+      "dbCallSites": 2,
+      "statusCodeCounts": {
+        "401": 6,
+        "429": 9
+      },
+      "authFailureRate": 40
+    }
+  ]
+}

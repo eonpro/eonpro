@@ -1,9 +1,8 @@
 /**
- * Root middleware - runs on every request (Edge Runtime).
+ * Root proxy - runs on every request (Edge Runtime).
  * Next.js 16 no longer bundles ua-parser in next/server, so standard imports are safe.
  *
- * IMPORTANT: This file MUST live at src/middleware.ts (not project root) when using src/ directory.
- * Next.js 16 only discovers middleware adjacent to the app/ directory.
+ * IMPORTANT: This file MUST live at src/proxy.ts (not project root) when using src/ directory.
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { clinicMiddleware } from './middleware/clinic';
@@ -132,7 +131,7 @@ function isValidJwtFormat(token: string): boolean {
   return parts.every((part) => part.length > 0 && base64urlPattern.test(part));
 }
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // ── Stale affiliate session detection for root page ──────────────────
@@ -156,7 +155,7 @@ export async function middleware(request: NextRequest) {
     if (!hasPrimarySession && hasAffiliateSession) {
       // Stale affiliate session detected: admin session expired, affiliate cookie remains
       console.warn(
-        '[Middleware] Stale affiliate session on root page — redirecting to /login. ' +
+        '[Proxy] Stale affiliate session on root page — redirecting to /login. ' +
         'Admin/provider session expired but 30-day affiliate_session cookie remained.'
       );
 

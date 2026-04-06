@@ -2,7 +2,7 @@
 
 import { calendarTodayServer } from '@/lib/utils/platform-calendar';
 import { useEffect, useState, useCallback, useMemo } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 // Link removed — patient detail pages use plain <a> tags to avoid RSC fetch hangs
 import {
   ChevronLeft, BadgeDollarSign, TrendingUp, DollarSign, MousePointer,
@@ -83,7 +83,6 @@ const statusColor: Record<string, string> = {
 
 export default function SalesRepDetailPage() {
   const params = useParams();
-  const router = useRouter();
   const id = params.id as string;
   const [data, setData] = useState<DetailResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -159,9 +158,9 @@ export default function SalesRepDetailPage() {
   );
   if (!data) return (
     <div className="p-6">
-      <button onClick={() => router.push('/super-admin/sales-reps')} className="mb-4 flex items-center gap-1 text-gray-600 hover:text-gray-900">
+      <a href="/super-admin/sales-reps" className="mb-4 flex items-center gap-1 text-gray-600 hover:text-gray-900">
         <ChevronLeft className="h-5 w-5" />Back
-      </button>
+      </a>
       <div className="py-16 text-center"><p className="text-gray-500">Sales rep not found.</p></div>
     </div>
   );
@@ -176,9 +175,9 @@ export default function SalesRepDetailPage() {
       {/* SECTION 1: Profile Header                                        */}
       {/* ================================================================ */}
       <div className="mb-6">
-        <button onClick={() => router.push('/super-admin/sales-reps')} className="mb-4 flex items-center gap-1 text-gray-600 hover:text-gray-900">
+        <a href="/super-admin/sales-reps" className="mb-4 flex items-center gap-1 text-gray-600 hover:text-gray-900">
           <ChevronLeft className="h-5 w-5" />Back to Sales Reps
-        </button>
+        </a>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <div className="flex items-center gap-3">

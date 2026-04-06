@@ -3,18 +3,15 @@
 import { useEffect, useState } from 'react';
 import { RefreshCw } from 'lucide-react';
 
-const SHOW_RETRY_MS = 12_000;
-const AUTO_RELOAD_MS = 25_000;
+const SHOW_RETRY_MS = 20_000;
 
 export default function PatientDetailLoading() {
   const [showRetry, setShowRetry] = useState(false);
 
   useEffect(() => {
     const retryTimer = setTimeout(() => setShowRetry(true), SHOW_RETRY_MS);
-    const reloadTimer = setTimeout(() => window.location.reload(), AUTO_RELOAD_MS);
     return () => {
       clearTimeout(retryTimer);
-      clearTimeout(reloadTimer);
     };
   }, []);
 

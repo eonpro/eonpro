@@ -104,9 +104,9 @@ const nextConfig = {
     ];
   },
 
-  // Security headers are set in src/middleware.ts (single authoritative source).
-  // Do NOT duplicate them here — next.config.js headers can conflict with middleware
-  // (e.g. middleware sets X-Frame-Options: SAMEORIGIN while config set DENY).
+  // Security headers are set in src/proxy.ts (single authoritative source).
+  // Do NOT duplicate them here — next.config.js headers can conflict with proxy
+  // (e.g. proxy sets X-Frame-Options: SAMEORIGIN while config set DENY).
   
   // Turbopack config (Next.js 16 default build tool)
   turbopack: {},

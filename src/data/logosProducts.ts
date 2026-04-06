@@ -144,6 +144,18 @@ export const LOGOS_PRODUCTS: LogosProduct[] = [
     form: 'Injectable',
     strength: '5MG/20MG/ML',
   },
+  {
+    id: 204426907,
+    name: 'SEMAGLUTIDE 5MG/1.5ML VIAL',
+    form: 'Injectable',
+    strength: '5MG/1.5ML',
+  },
+  {
+    id: 204426906,
+    name: 'SEMAGLUTIDE/GLYCINE 5/20MG/ML (1ML VIAL) SOLUTION',
+    form: 'Injectable',
+    strength: '5MG/20MG/ML',
+  },
   { id: 203419046, name: 'SERMORELIN 2MG/ML STERILE INJECTION', form: 'Injectable', strength: '' },
   {
     id: 203666651,

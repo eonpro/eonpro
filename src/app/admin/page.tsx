@@ -9,6 +9,7 @@ import Link from 'next/link';
 import { formatPatientDisplayId } from '@/lib/utils/formatPatientDisplayId';
 import { isLogosRxHost as checkIsLogosRxHost } from '@/lib/constants/brand-assets';
 import { normalizedIncludes } from '@/lib/utils/search';
+import { prefetchRoute } from '@/lib/navigation/prefetchRoute';
 import {
   Clock,
   UserPlus,
@@ -595,6 +596,7 @@ export default function AdminPage() {
                     <tr
                       key={patient.id}
                       className="cursor-pointer transition-colors hover:bg-gray-50/50"
+                      onMouseEnter={() => prefetchRoute(`/admin/patients/${patient.id}`)}
                       onClick={() => (window.location.href = `/admin/patients/${patient.id}`)}
                     >
                       <td className="px-6 py-4">
@@ -610,6 +612,7 @@ export default function AdminPage() {
                             <Link
                               href={`/admin/patients/${patient.id}`}
                               className="font-medium text-gray-900 hover:text-[#4fa77e]"
+                              onMouseEnter={() => prefetchRoute(`/admin/patients/${patient.id}`)}
                               onClick={(e) => e.stopPropagation()}
                             >
                               {patient.firstName} {patient.lastName}
@@ -638,6 +641,7 @@ export default function AdminPage() {
                         <Link
                           href={`/admin/patients/${patient.id}`}
                           className="text-sm font-medium text-[#4fa77e] hover:text-[#3d8a66]"
+                          onMouseEnter={() => prefetchRoute(`/admin/patients/${patient.id}`)}
                           onClick={(e) => e.stopPropagation()}
                         >
                           View profile

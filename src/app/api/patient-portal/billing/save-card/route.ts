@@ -41,7 +41,7 @@ export const POST = withAuth(async (req: NextRequest, user: AuthUser) => {
 
     const patient = await prisma.patient.findUnique({
       where: { id: user.patientId },
-      select: { id: true, clinicId: true },
+      select: { id: true, clinicId: true, stripeCustomerId: true },
     });
 
     if (!patient) {
@@ -76,6 +76,40 @@ export const POST = withAuth(async (req: NextRequest, user: AuthUser) => {
           expYear: existing.expiryYear,
           isDefault: existing.isDefault,
         },
+      });
+    }
+
+    // Shared-profile guard: if card already exists on another profile in this clinic,
+    // avoid duplicate insert and surface success so it can be reused.
+    const existingOnOtherProfile = await prisma.paymentMethod.findFirst({
+      where: {
+        stripePaymentMethodId,
+        isActive: true,
+        patientId: { not: patient.id },
+        ...(patient.clinicId ? { clinicId: patient.clinicId } : {}),
+      },
+      select: {
+        id: true,
+        cardLast4: true,
+        cardBrand: true,
+        expiryMonth: true,
+        expiryYear: true,
+      },
+    });
+
+    if (existingOnOtherProfile) {
+      return NextResponse.json({
+        success: true,
+        card: {
+          id: `stripe_${stripePaymentMethodId}`,
+          last4: existingOnOtherProfile.cardLast4,
+          brand: existingOnOtherProfile.cardBrand,
+          expMonth: existingOnOtherProfile.expiryMonth,
+          expYear: existingOnOtherProfile.expiryYear,
+          isDefault: false,
+          sharedAcrossProfiles: true,
+        },
+        message: 'Card is already available via another profile in this clinic.',
       });
     }
 

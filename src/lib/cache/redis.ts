@@ -23,6 +23,21 @@ interface CacheOptions {
   namespace?: string;
 }
 
+interface GuardrailLabelStats {
+  calls: number;
+  successes: number;
+  fallbacks: number;
+  failures: number;
+  timeouts: number;
+  circuitOpenFallbacks: number;
+  unavailableFallbacks: number;
+}
+
+interface GuardrailStatsSnapshot {
+  totals: GuardrailLabelStats;
+  byLabel: Record<string, GuardrailLabelStats>;
+}
+
 // ---------------------------------------------------------------------------
 // Timeout + Circuit Breaker Configuration
 // ---------------------------------------------------------------------------
@@ -32,6 +47,7 @@ const CIRCUIT_BREAKER_THRESHOLD = 5;
 const CIRCUIT_BREAKER_COOLDOWN_MS = 30_000;
 /** SCAN COUNT hint — balances round-trips vs payload size (avoids KEYS O(N) blocking). */
 const SCAN_KEY_BATCH = 500;
+const SCAN_MAX_KEYS = parseInt(process.env.REDIS_SCAN_MAX_KEYS ?? '10000', 10);
 const CACHE_NAMESPACE_TTL_HINTS = ['cache', 'query'];
 
 class CircuitBreaker {
@@ -86,6 +102,7 @@ class RedisCache {
   private ready = false;
   private breaker = new CircuitBreaker();
   private missingTtlWarnedNamespaces = new Set<string>();
+  private guardrailStats = new Map<string, GuardrailLabelStats>();
 
   constructor() {
     this.initializeClient();
@@ -124,15 +141,25 @@ class RedisCache {
    * Returns `fallback` when Redis is unavailable, slow, or the circuit is open.
    */
   private async guardedCall<T>(op: () => Promise<T>, fallback: T, label: string): Promise<T> {
-    if (!this.ready || !this.client) return fallback;
-    if (this.breaker.isOpen()) return fallback;
+    this.markGuardrailCall(label);
+    if (!this.ready || !this.client) {
+      this.markGuardrailFallback(label, 'unavailable');
+      return fallback;
+    }
+    if (this.breaker.isOpen()) {
+      this.markGuardrailFallback(label, 'circuit_open');
+      return fallback;
+    }
 
     try {
       const result = await withTimeout(op(), REDIS_CALL_TIMEOUT_MS);
       this.breaker.recordSuccess();
+      this.markGuardrailSuccess(label);
       return result;
     } catch (error) {
       this.breaker.recordFailure();
+      const isTimeout = error instanceof Error && error.message.includes('timed out');
+      this.markGuardrailFallback(label, isTimeout ? 'timeout' : 'failure');
       logger.error(`[RedisCache] ${label} failed`, {
         error: error instanceof Error ? error.message : String(error),
       });
@@ -167,6 +194,42 @@ class RedisCache {
     });
   }
 
+  private getOrCreateGuardrailStats(label: string): GuardrailLabelStats {
+    const existing = this.guardrailStats.get(label);
+    if (existing) return existing;
+    const initial: GuardrailLabelStats = {
+      calls: 0,
+      successes: 0,
+      fallbacks: 0,
+      failures: 0,
+      timeouts: 0,
+      circuitOpenFallbacks: 0,
+      unavailableFallbacks: 0,
+    };
+    this.guardrailStats.set(label, initial);
+    return initial;
+  }
+
+  private markGuardrailCall(label: string): void {
+    this.getOrCreateGuardrailStats(label).calls += 1;
+  }
+
+  private markGuardrailSuccess(label: string): void {
+    this.getOrCreateGuardrailStats(label).successes += 1;
+  }
+
+  private markGuardrailFallback(
+    label: string,
+    reason: 'failure' | 'timeout' | 'circuit_open' | 'unavailable'
+  ): void {
+    const stats = this.getOrCreateGuardrailStats(label);
+    stats.fallbacks += 1;
+    if (reason === 'timeout') stats.timeouts += 1;
+    if (reason === 'circuit_open') stats.circuitOpenFallbacks += 1;
+    if (reason === 'unavailable') stats.unavailableFallbacks += 1;
+    if (reason === 'failure' || reason === 'timeout') stats.failures += 1;
+  }
+
   /**
    * Collect keys matching a pattern using SCAN (incremental), not KEYS.
    * Same eventual key set as KEYS for a stable database; duplicates are rare and harmless for DEL.
@@ -182,6 +245,13 @@ class RedisCache {
       if (batch.length > 0) {
         for (const k of batch) {
           collected.push(String(k));
+          if (collected.length >= SCAN_MAX_KEYS) {
+            logger.warn('[RedisCache] SCAN key cap reached; truncating result set', {
+              matchPattern,
+              scanMaxKeys: SCAN_MAX_KEYS,
+            });
+            return collected;
+          }
         }
       }
       cursor = nextCursor;
@@ -371,6 +441,35 @@ class RedisCache {
       'keys',
     );
   }
+
+  /**
+   * Snapshot guardrail performance to support Redis SLO monitoring.
+   */
+  getGuardrailStats(): GuardrailStatsSnapshot {
+    const totals: GuardrailLabelStats = {
+      calls: 0,
+      successes: 0,
+      fallbacks: 0,
+      failures: 0,
+      timeouts: 0,
+      circuitOpenFallbacks: 0,
+      unavailableFallbacks: 0,
+    };
+    const byLabel: Record<string, GuardrailLabelStats> = {};
+
+    for (const [label, stats] of this.guardrailStats.entries()) {
+      byLabel[label] = { ...stats };
+      totals.calls += stats.calls;
+      totals.successes += stats.successes;
+      totals.fallbacks += stats.fallbacks;
+      totals.failures += stats.failures;
+      totals.timeouts += stats.timeouts;
+      totals.circuitOpenFallbacks += stats.circuitOpenFallbacks;
+      totals.unavailableFallbacks += stats.unavailableFallbacks;
+    }
+
+    return { totals, byLabel };
+  }
 }
 
 // Singleton instance
@@ -378,4 +477,4 @@ const cache = new RedisCache();
 
 export default cache;
 
-export type { CacheOptions };
+export type { CacheOptions, GuardrailLabelStats, GuardrailStatsSnapshot };

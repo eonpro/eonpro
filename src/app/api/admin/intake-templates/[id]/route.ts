@@ -12,14 +12,13 @@ import { handleApiError } from '@/domains/shared/errors';
 import { z } from 'zod';
 
 interface RouteParams {
-  params: Promise<{ id: string }>;
+  params: { id: string };
 }
 
 export const GET = withAuth(
-  async (req: NextRequest, user: AuthUser) => {
+  async (_req: NextRequest, user: AuthUser, { params }: RouteParams) => {
     try {
-      const { id } = await (req as unknown as RouteParams).params;
-      const templateId = parseInt(id, 10);
+      const templateId = parseInt(params.id, 10);
       if (isNaN(templateId)) {
         return NextResponse.json({ error: 'Invalid ID' }, { status: 400 });
       }
@@ -51,11 +50,9 @@ const updateSchema = z.object({
 });
 
 export const PUT = withAuth(
-  async (req: NextRequest, user: AuthUser) => {
+  async (req: NextRequest, user: AuthUser, { params }: RouteParams) => {
     try {
-      const url = new URL(req.url);
-      const segments = url.pathname.split('/');
-      const id = parseInt(segments[segments.length - 1], 10);
+      const id = parseInt(params.id, 10);
       if (isNaN(id)) {
         return NextResponse.json({ error: 'Invalid ID' }, { status: 400 });
       }
@@ -105,11 +102,9 @@ export const PUT = withAuth(
 );
 
 export const DELETE = withAuth(
-  async (req: NextRequest, user: AuthUser) => {
+  async (_req: NextRequest, user: AuthUser, { params }: RouteParams) => {
     try {
-      const url = new URL(req.url);
-      const segments = url.pathname.split('/');
-      const id = parseInt(segments[segments.length - 1], 10);
+      const id = parseInt(params.id, 10);
       if (isNaN(id)) {
         return NextResponse.json({ error: 'Invalid ID' }, { status: 400 });
       }

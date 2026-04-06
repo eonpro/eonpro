@@ -101,9 +101,9 @@ export default function SubscriptionPage() {
       }
       const data = await safeParseJson(res);
 
-      if (data !== null && typeof data === 'object' && 'subscription' in data && (data as { subscription?: unknown }).subscription) {
+      if (data !== null && typeof data === 'object') {
         const dataObj = data as {
-          subscription: {
+          subscription?: {
             id?: string;
             amount?: number;
             planName?: string;
@@ -111,19 +111,33 @@ export default function SubscriptionPage() {
             interval?: string;
             currentPeriodEnd?: string;
             nextBillingDate?: string;
-          };
-          paymentMethods?: { id?: string; brand?: string; last4?: string; expMonth?: number; expYear?: number; isDefault?: boolean }[];
+          } | null;
+          paymentMethods?: {
+            id?: string;
+            brand?: string;
+            last4?: string;
+            expMonth?: number;
+            expYear?: number;
+            isDefault?: boolean;
+          }[];
         };
-        const sub = dataObj.subscription;
-        const amountCents = typeof sub.amount === 'number' ? sub.amount : 0;
-        setSubscription({
-          id: sub.id || '',
-          planName: sub.planName || 'Subscription',
-          status: (sub.status === 'ACTIVE' ? 'active' : sub.status?.toLowerCase() || 'active') as 'active' | 'cancelled' | 'paused',
-          amount: amountCents / 100,
-          interval: (sub.interval === 'year' ? 'year' : 'month') as 'month' | 'year',
-          nextBillingDate: sub.currentPeriodEnd || sub.nextBillingDate || '',
-        });
+
+        if (dataObj.subscription) {
+          const sub = dataObj.subscription;
+          const amountCents = typeof sub.amount === 'number' ? sub.amount : 0;
+          setSubscription({
+            id: sub.id || '',
+            planName: sub.planName || 'Subscription',
+            status: (
+              sub.status === 'ACTIVE' ? 'active' : sub.status?.toLowerCase() || 'active'
+            ) as 'active' | 'cancelled' | 'paused',
+            amount: amountCents / 100,
+            interval: (sub.interval === 'year' ? 'year' : 'month') as 'month' | 'year',
+            nextBillingDate: sub.currentPeriodEnd || sub.nextBillingDate || '',
+          });
+        } else {
+          setSubscription(null);
+        }
 
         if (dataObj.paymentMethods?.length) {
           setPaymentMethods(
@@ -136,9 +150,12 @@ export default function SubscriptionPage() {
               isDefault: pm.isDefault || false,
             }))
           );
+        } else {
+          setPaymentMethods([]);
         }
       } else {
         setSubscription(null);
+        setPaymentMethods([]);
       }
 
       const invList =

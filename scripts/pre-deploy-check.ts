@@ -136,17 +136,22 @@ async function checkMigrationStatus(prisma: PrismaClient) {
       id: string;
       migration_name: string;
       finished_at: Date | null;
+      rolled_back_at: Date | null;
       applied_steps_count: number;
       logs: string | null;
     }>>`
-      SELECT id, migration_name, finished_at, applied_steps_count, logs
+      SELECT id, migration_name, finished_at, rolled_back_at, applied_steps_count, logs
       FROM "_prisma_migrations" 
       ORDER BY started_at DESC 
       LIMIT 20
     `;
     
-    // Check for failed migrations (finished_at is null)
-    const failedMigrations = migrations.filter(m => m.finished_at === null);
+    // Check for unresolved failed migrations:
+    // - finished_at is null (not completed)
+    // - rolled_back_at is null (not explicitly resolved as rolled back)
+    const failedMigrations = migrations.filter(
+      (m) => m.finished_at === null && m.rolled_back_at === null
+    );
     
     if (failedMigrations.length > 0) {
       results.push({
@@ -507,6 +512,7 @@ async function checkDataIntegrity(prisma: PrismaClient) {
 
 async function checkCriticalEndpoints() {
   console.log(`${BLUE}[7/7]${RESET} Checking critical API endpoints...`);
+  const enforceRedisSloGates = process.env.ENFORCE_REDIS_SLO_GATES === 'true';
 
   // Only run if we have an API URL
   const apiUrl = process.env.API_URL || process.env.NEXT_PUBLIC_APP_URL;
@@ -524,12 +530,26 @@ async function checkCriticalEndpoints() {
 
   try {
     const healthResponse = await fetch(`${apiUrl}/api/health`);
+    const readyResponse = await fetch(`${apiUrl}/api/monitoring/ready`);
+    let redisReadyStatus = 'unknown';
+    let redisReadyError = '';
+
+    if (readyResponse.ok) {
+      const readyPayload = await readyResponse.json() as {
+        status?: string;
+        checks?: Record<string, { status?: string; error?: string }>;
+      };
+      redisReadyStatus = readyPayload.checks?.redis?.status ?? 'unknown';
+      redisReadyError = readyPayload.checks?.redis?.error ?? '';
+    }
+
+    const redisGateBreached = redisReadyStatus === 'degraded' || redisReadyStatus === 'down';
     
-    if (healthResponse.ok) {
+    if (healthResponse.ok && (!enforceRedisSloGates || !redisGateBreached)) {
       results.push({
         name: 'API Endpoints',
         passed: true,
-        critical: false,
+        critical: enforceRedisSloGates,
         message: 'Health endpoint responding',
       });
       console.log(`  ${GREEN}✓${RESET} Health endpoint responding`);
@@ -537,10 +557,26 @@ async function checkCriticalEndpoints() {
       results.push({
         name: 'API Endpoints',
         passed: false,
-        critical: false,
-        message: `Health endpoint returned ${healthResponse.status}`,
+        critical: enforceRedisSloGates,
+        message:
+          !healthResponse.ok
+            ? `Health endpoint returned ${healthResponse.status}`
+            : `Redis readiness SLO gate failed (${redisReadyStatus})`,
+        details:
+          redisReadyError && redisGateBreached
+            ? [`redis: ${redisReadyError}`]
+            : undefined,
       });
-      console.log(`  ${YELLOW}⚠${RESET} Health endpoint returned ${healthResponse.status}`);
+      if (!healthResponse.ok) {
+        console.log(`  ${YELLOW}⚠${RESET} Health endpoint returned ${healthResponse.status}`);
+      } else {
+        const sev = enforceRedisSloGates ? RED : YELLOW;
+        const icon = enforceRedisSloGates ? '✗' : '⚠';
+        console.log(`  ${sev}${icon}${RESET} Redis readiness SLO gate failed (${redisReadyStatus})`);
+        if (redisReadyError) {
+          console.log(`    ${sev}→${RESET} ${redisReadyError}`);
+        }
+      }
     }
   } catch (error: any) {
     results.push({

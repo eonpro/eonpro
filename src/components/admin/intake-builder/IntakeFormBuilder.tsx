@@ -39,6 +39,7 @@ interface IntakeFormBuilderProps {
   onSave: (config: FormConfig) => Promise<void>;
   onToggleActive: () => void;
   onBack: () => void;
+  onSendToClient: () => void;
 }
 
 export default function IntakeFormBuilder({
@@ -48,6 +49,7 @@ export default function IntakeFormBuilder({
   onSave,
   onToggleActive,
   onBack,
+  onSendToClient,
 }: IntakeFormBuilderProps) {
   const builder = useFormBuilder({
     templateId,
@@ -186,6 +188,7 @@ export default function IntakeFormBuilder({
           onBack={onBack}
           isActive={isActive}
           onToggleActive={onToggleActive}
+          onSendToClient={onSendToClient}
         />
 
         {/* Main content area */}

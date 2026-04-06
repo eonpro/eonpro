@@ -5,6 +5,7 @@ import {
   Undo2,
   Redo2,
   Save,
+  Send,
   Eye,
   Code2,
   Smartphone,
@@ -38,6 +39,7 @@ interface BuilderToolbarProps {
   onBack: () => void;
   isActive: boolean;
   onToggleActive: () => void;
+  onSendToClient: () => void;
 }
 
 export default function BuilderToolbar({
@@ -59,6 +61,7 @@ export default function BuilderToolbar({
   onBack,
   isActive,
   onToggleActive,
+  onSendToClient,
 }: BuilderToolbarProps) {
   const [editingName, setEditingName] = useState(false);
 
@@ -216,6 +219,18 @@ export default function BuilderToolbar({
           </button>
         ))}
       </div>
+
+      {/* Separator */}
+      <div className="w-px h-6 bg-gray-200" />
+
+      {/* Send to client */}
+      <button
+        onClick={onSendToClient}
+        className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors"
+      >
+        <Send className="w-3.5 h-3.5" />
+        Send to Client
+      </button>
 
       {/* Separator */}
       <div className="w-px h-6 bg-gray-200" />

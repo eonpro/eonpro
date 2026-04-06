@@ -8,6 +8,7 @@ import {
 } from '@/lib/utils/platform-calendar';
 import { toCalendarDateStringInTz } from '@/lib/utils/timezone';
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { prefetchRoute } from '@/lib/navigation/prefetchRoute';
 import {
   Camera,
   Search,
@@ -3363,6 +3364,7 @@ function AuditDetailModal({
             {photo.patient && (
               <a
                 href={`/admin/patients/${photo.patient.id}`}
+                onMouseEnter={() => prefetchRoute(`/admin/patients/${photo.patient.id}`)}
                 className="mt-2 flex items-center justify-center gap-1.5 rounded-xl border border-violet-200 bg-violet-50 py-2.5 text-xs font-semibold text-violet-700 transition-colors hover:bg-violet-100"
               >
                 <ExternalLink className="h-3.5 w-3.5" />

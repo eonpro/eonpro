@@ -444,6 +444,7 @@ export async function sendAppointmentConfirmation(
     const patientEmail = decryptPHI(appointment.patient.email) ?? appointment.patient.email;
     const patientPhone = decryptPHI(appointment.patient.phone) ?? appointment.patient.phone;
     const providerName = `${appointment.provider.firstName} ${appointment.provider.lastName}`;
+    const providerDisplayName = `Dr. ${providerName}`;
 
     const appointmentDateFormatted = new Date(appointment.startTime).toLocaleString('en-US', {
       weekday: 'long',
@@ -467,19 +468,28 @@ export async function sendAppointmentConfirmation(
     let smsResult: { success: boolean; messageId?: string } = { success: false };
     let emailResult: { success: boolean } = { success: false };
 
+    const videoLink = appointment.type === 'VIDEO'
+      ? appointment.zoomJoinUrl || appointment.videoLink || undefined
+      : undefined;
+
     if (patientPhone && isTwilioConfigured()) {
       try {
         const client = getTwilioClient();
         const formattedPhone = patientPhone.startsWith('+')
           ? patientPhone
           : `+1${patientPhone.replace(/\D/g, '')}`;
-
-        const videoLink = appointment.type === 'VIDEO'
-          ? (appointment.videoLink || appointment.zoomJoinUrl || undefined)
-          : undefined;
+        const videoAppointmentDateTime = `${appointmentDateOnly} at ${appointmentTimeOnly}`;
+        const smsBody =
+          appointment.type === 'VIDEO' && videoLink
+            ? `Hi ${patientFirstName}, your telehealth appointment with ${providerDisplayName} is scheduled for ${videoAppointmentDateTime}.\n\nJoin link: ${videoLink}`
+            : SMS_TEMPLATES.APPOINTMENT_CONFIRMATION(
+                patientFirstName,
+                appointmentDateFormatted,
+                videoLink ?? undefined
+              );
 
         const message = await client.messages.create({
-          body: SMS_TEMPLATES.APPOINTMENT_CONFIRMATION(patientFirstName, appointmentDateFormatted, videoLink ?? undefined),
+          body: smsBody,
           from: process.env.TWILIO_PHONE_NUMBER,
           to: formattedPhone,
         });
@@ -498,7 +508,7 @@ export async function sendAppointmentConfirmation(
       try {
         const { sendAppointmentConfirmationEmail } = await import('@/lib/email/automations');
         const location = appointment.type === 'VIDEO'
-          ? `Video Call${appointment.videoLink ? `: ${appointment.videoLink}` : ''}`
+          ? `Video Call${videoLink ? `: ${videoLink}` : ''}`
           : appointment.location || 'TBD';
 
         emailResult = await sendAppointmentConfirmationEmail({
