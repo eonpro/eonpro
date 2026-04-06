@@ -9,8 +9,9 @@ import PatientSidebar from '@/components/PatientSidebar';
 import { auditLog, AuditEventType } from '@/lib/audit/hipaa-audit';
 import { getUserFromCookies } from '@/lib/auth/session';
 import { getClinicFeatureBoolean } from '@/lib/clinic/utils';
+import cache from '@/lib/cache/redis';
 import { queryOptimizer } from '@/lib/database';
-import { basePrisma } from '@/lib/db';
+import { basePrisma, prisma, runWithClinicContext } from '@/lib/db';
 import { isS3Enabled } from '@/lib/integrations/aws/s3Config';
 import { generateSignedUrl } from '@/lib/integrations/aws/s3Service';
 import { logger } from '@/lib/logger';
@@ -53,8 +54,11 @@ export default async function PatientDetailPage({
 }: PageProps) {
   const PATIENTS_LIST_PATH = patientsListPath;
   let patientIdForLog: number | undefined;
+  const routeStartMs = Date.now();
   try {
+    const authStartMs = Date.now();
     const user = await getUserFromCookies();
+    const authDurationMs = Date.now() - authStartMs;
     if (!user) {
       redirect('/login?redirect=' + encodeURIComponent('/patients'));
     }
@@ -102,6 +106,13 @@ export default async function PatientDetailPage({
 
     const cacheKey = `patient:detail:c${clinicId ?? 'all'}:p${id}`;
     const t0 = Date.now();
+    const cacheProbeStartMs = Date.now();
+    const redisReady = cache.isReady();
+    let cacheLikelyHit: boolean | null = null;
+    if (redisReady) {
+      cacheLikelyHit = await cache.exists(cacheKey, { namespace: 'patient' });
+    }
+    const cacheProbeDurationMs = Date.now() - cacheProbeStartMs;
     let patient: any;
 
     try {
@@ -135,10 +146,21 @@ export default async function PatientDetailPage({
           timeout: 8000,
         }
       );
-      logger.info('[PATIENT-DETAIL] Phase 1 (cached):', { patientId: id, durationMs: Date.now() - t0 });
+      logger.info('[PATIENT-DETAIL] Phase 1 (cached)', {
+        patientId: id,
+        clinicId: clinicId ?? null,
+        userId: user.id,
+        userRole: user.role,
+        redisReady,
+        cacheLikelyHit,
+        cacheProbeDurationMs,
+        durationMs: Date.now() - t0,
+        authDurationMs,
+      });
     } catch (dbError) {
       logger.error('Database error fetching patient core:', {
         patientId: id, clinicId, userId: user.id, durationMs: Date.now() - t0,
+        totalDurationMs: Date.now() - routeStartMs,
         error: dbError instanceof Error ? dbError.message : String(dbError),
       });
       return (
@@ -189,16 +211,21 @@ export default async function PatientDetailPage({
     }).catch(() => {});
 
     // Fetch active sales rep assignment (uncached — changes frequently)
+    // Uses tenant-scoped prisma with patient's clinicId to satisfy clinic isolation guard
     let activeSalesRep: { id: number; firstName: string; lastName: string } | null = null;
+    const salesRepStartMs = Date.now();
     try {
-      const assignment = await basePrisma.patientSalesRepAssignment.findFirst({
-        where: { patientId: id, isActive: true },
-        select: { salesRep: { select: { id: true, firstName: true, lastName: true } } },
-      });
+      const assignment = await runWithClinicContext(patient.clinicId, () =>
+        prisma.patientSalesRepAssignment.findFirst({
+          where: { patientId: id, isActive: true },
+          select: { salesRep: { select: { id: true, firstName: true, lastName: true } } },
+        })
+      );
       activeSalesRep = assignment?.salesRep ?? null;
     } catch {
       // Non-critical — sidebar will show "Unassigned"
     }
+    const salesRepDurationMs = Date.now() - salesRepStartMs;
 
     // Decrypt PHI fields
     let patientDecrypted: any;
@@ -218,6 +245,7 @@ export default async function PatientDetailPage({
     // Resolve avatar URL
     let patientAvatarUrl: string | null = null;
     const rawAvatarKey = patientDecrypted.user?.avatarUrl;
+    const avatarStartMs = Date.now();
     if (rawAvatarKey) {
       try {
         if (rawAvatarKey.startsWith('http')) {
@@ -232,6 +260,7 @@ export default async function PatientDetailPage({
         patientAvatarUrl = null;
       }
     }
+    const avatarDurationMs = Date.now() - avatarStartMs;
 
     // Feature flags
     const showLabsTab = getClinicFeatureBoolean(patientDecrypted.clinic?.features, 'BLOODWORK_LABS', true);
@@ -263,6 +292,15 @@ export default async function PatientDetailPage({
 
     const clinicSubdomain = patientDecrypted.clinic?.subdomain;
     const fallbackSubdomain = resolveFallbackSubdomain(clinicSubdomain, patientDecrypted.clinicId);
+    logger.info('[PATIENT-DETAIL] Render ready', {
+      patientId: id,
+      clinicId: clinicId ?? null,
+      userId: user.id,
+      userRole: user.role,
+      salesRepDurationMs,
+      avatarDurationMs,
+      totalDurationMs: Date.now() - routeStartMs,
+    });
 
     // ─── Render: Thin shell — sidebar + client tab router ──────────────
     return (
@@ -343,6 +381,7 @@ export default async function PatientDetailPage({
   } catch (error) {
     logger.error('Unexpected error in PatientDetailPage:', {
       patientId: patientIdForLog,
+      totalDurationMs: Date.now() - routeStartMs,
       error: error instanceof Error ? error.message : String(error),
       stack: error instanceof Error ? error.stack : undefined,
     });
