@@ -1256,12 +1256,16 @@ async function migrateStripePaymentMethods(params: StripeMigrationParams): Promi
         targetPatientId,
       });
       try {
-        await db.paymentMethod.updateMany({
+        await prisma.paymentMethod.updateMany({
           where: { stripePaymentMethodId: pmId, patientId: targetPatientId },
           data: { isActive: false },
         });
-      } catch {
-        // Best-effort deactivation
+      } catch (deactivateErr) {
+        logger.error('Failed to deactivate legacy card_ token after merge', {
+          paymentMethodId: pmId,
+          targetPatientId,
+          error: deactivateErr instanceof Error ? deactivateErr.message : String(deactivateErr),
+        });
       }
       continue;
     }

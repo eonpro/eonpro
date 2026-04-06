@@ -626,45 +626,64 @@ export class StripeInvoiceService {
 
     // Compute refill month number for subscription renewals
     let renewalMonth: number | null = null;
-    if (subscriptionId && stripeInvoice.billing_reason !== 'subscription_create') {
+    let localSubPlanDescription: string | null = null;
+    if (subscriptionId) {
       try {
         const localSub = await prisma.subscription.findUnique({
           where: { stripeSubscriptionId: subscriptionId },
-          select: { startDate: true, interval: true, intervalCount: true },
+          select: { startDate: true, interval: true, intervalCount: true, planDescription: true },
         });
         if (localSub) {
-          const start = new Date(localSub.startDate);
-          const totalMonths = localSub.interval === 'year'
-            ? localSub.intervalCount * 12
-            : localSub.intervalCount;
-          const monthsElapsed =
-            (paidAt.getFullYear() - start.getFullYear()) * 12 +
-            (paidAt.getMonth() - start.getMonth());
-          renewalMonth = Math.max(2, Math.floor(monthsElapsed / totalMonths) + 1);
+          localSubPlanDescription = localSub.planDescription || null;
+
+          if (stripeInvoice.billing_reason !== 'subscription_create') {
+            const start = new Date(localSub.startDate);
+            const totalMonths = localSub.interval === 'year'
+              ? localSub.intervalCount * 12
+              : localSub.intervalCount;
+            const monthsElapsed =
+              (paidAt.getFullYear() - start.getFullYear()) * 12 +
+              (paidAt.getMonth() - start.getMonth());
+            renewalMonth = Math.max(2, Math.floor(monthsElapsed / totalMonths) + 1);
+          }
         }
       } catch (err) {
-        logger.warn('[STRIPE] Could not compute renewal month for subscription invoice', {
+        logger.warn('[STRIPE] Could not compute renewal month / plan description for subscription invoice', {
           stripeInvoiceId: stripeInvoice.id,
           stripeSubscriptionId: subscriptionId,
-          error: err instanceof Error ? (err instanceof Error ? err.message : String(err)) : 'Unknown',
+          error: err instanceof Error ? err.message : String(err),
         });
       }
     }
 
-    // Build description from Stripe line items, enriched with refill month
+    // Build description from Stripe line items, enriched with refill month.
+    // For trial invoices ($0 initial charge), Stripe auto-generates "Free trial for N × Product"
+    // which is misleading — use the local subscription's plan description instead.
     const lines = stripeInvoice.lines?.data || [];
-    const rawDescription = lines.length > 0
-      ? lines.map((l) => l.description || 'Subscription').join(', ')
-      : stripeInvoice.description || 'Subscription renewal';
+    const isTrialInvoice = stripeInvoice.billing_reason === 'subscription_create'
+      && (stripeInvoice.amount_paid === 0 || stripeInvoice.amount_due === 0);
+
+    const rawDescription = (() => {
+      if (isTrialInvoice && localSubPlanDescription) {
+        return localSubPlanDescription;
+      }
+      return lines.length > 0
+        ? lines.map((l) => l.description || 'Subscription').join(', ')
+        : stripeInvoice.description || 'Subscription renewal';
+    })();
 
     const description = renewalMonth
       ? `Subscription billed refill month ${renewalMonth}`
       : rawDescription;
 
+    const lineItemDescription = (() => {
+      if (renewalMonth) return `Subscription billed refill month ${renewalMonth}`;
+      if (isTrialInvoice && localSubPlanDescription) return localSubPlanDescription;
+      return null;
+    })();
+
     const lineItemsJson = lines.map((l) => ({
-      description: renewalMonth
-        ? `Subscription billed refill month ${renewalMonth}`
-        : (l.description || 'Subscription'),
+      description: lineItemDescription || (l.description || 'Subscription'),
       amount: l.amount || 0,
       quantity: l.quantity || 1,
     }));

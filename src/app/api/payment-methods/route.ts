@@ -34,7 +34,7 @@ async function handleGet(request: NextRequest, _user: AuthUser) {
 
     const pid = parseInt(patientId);
 
-    const localCards = await PaymentMethodService.getPaymentMethods(pid);
+    let localCards = await PaymentMethodService.getPaymentMethods(pid);
 
     const patient = await prisma.patient.findUnique({
       where: { id: pid },
@@ -49,6 +49,7 @@ async function handleGet(request: NextRequest, _user: AuthUser) {
     });
 
     let stripeCards: any[] = [];
+    const validStripeIds = new Set<string>();
     if (patient?.stripeCustomerId) {
       try {
         const stripeContext = await getStripeForClinic(patient.clinicId);
@@ -56,6 +57,23 @@ async function handleGet(request: NextRequest, _user: AuthUser) {
           customer: patient.stripeCustomerId,
           type: 'card',
         });
+
+        for (const m of methods.data) {
+          validStripeIds.add(m.id);
+        }
+
+        // Also list legacy card_ sources so we can validate those too
+        try {
+          const sources = await stripeContext.stripe.customers.listSources(
+            patient.stripeCustomerId,
+            { object: 'card', limit: 100 } as any,
+          );
+          for (const src of sources.data) {
+            validStripeIds.add(src.id);
+          }
+        } catch {
+          // Legacy sources API may not be available; pm_ validation still works
+        }
 
         const localStripeIds = new Set(
           (patient.paymentMethods || [])
@@ -83,6 +101,43 @@ async function handleGet(request: NextRequest, _user: AuthUser) {
         logger.warn('[PAYMENT_METHODS] Failed to fetch Stripe cards (falling back to local only)', {
           patientId: pid,
           error: stripeErr instanceof Error ? stripeErr.message : String(stripeErr),
+        });
+      }
+    }
+
+    // Deactivate stale local PMs that belong to a different Stripe customer
+    // (common after patient profile merges where card_ tokens can't be migrated)
+    if (patient?.stripeCustomerId && validStripeIds.size > 0) {
+      try {
+        const stalePMs = await prisma.paymentMethod.findMany({
+          where: {
+            patientId: pid,
+            isActive: true,
+            stripePaymentMethodId: { not: null },
+          },
+          select: { id: true, stripePaymentMethodId: true },
+        });
+
+        const staleIds = stalePMs
+          .filter((pm) => pm.stripePaymentMethodId && !validStripeIds.has(pm.stripePaymentMethodId))
+          .map((pm) => pm.id);
+
+        if (staleIds.length > 0) {
+          logger.info('[PAYMENT_METHODS] Deactivating stale payment methods (post-merge cleanup)', {
+            patientId: pid,
+            staleCount: staleIds.length,
+            staleIds,
+          });
+          await prisma.paymentMethod.updateMany({
+            where: { id: { in: staleIds } },
+            data: { isActive: false },
+          });
+          localCards = await PaymentMethodService.getPaymentMethods(pid);
+        }
+      } catch (cleanupErr) {
+        logger.warn('[PAYMENT_METHODS] Stale PM cleanup failed (non-blocking)', {
+          patientId: pid,
+          error: cleanupErr instanceof Error ? cleanupErr.message : String(cleanupErr),
         });
       }
     }

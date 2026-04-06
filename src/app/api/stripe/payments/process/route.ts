@@ -319,6 +319,27 @@ async function handlePost(request: NextRequest, _user: AuthUser) {
           },
         });
 
+        // Detect stale payment method (common after profile merges where card
+        // belongs to the old Stripe customer). Auto-deactivate and guide user.
+        const isStaleCard = errMsg.includes('does not belong to the Customer');
+        if (isStaleCard && localPaymentMethodId) {
+          logger.warn('[PaymentProcess] Stale payment method detected (post-merge), deactivating', {
+            paymentId: pendingPayment.id,
+            patientId: patient.id,
+            localPaymentMethodId,
+            stripePaymentMethodId,
+          });
+          await prisma.paymentMethod.updateMany({
+            where: { id: localPaymentMethodId, patientId: patient.id },
+            data: { isActive: false },
+          }).catch(() => {});
+
+          return NextResponse.json({
+            error: 'This saved card is no longer valid (it was linked to a previous profile). Please select a different card or enter a new one.',
+            code: 'STALE_PAYMENT_METHOD',
+          }, { status: 400 });
+        }
+
         logger.error('[PaymentProcess] Stripe charge failed for saved card', {
           paymentId: pendingPayment.id,
           patientId: patient.id,
