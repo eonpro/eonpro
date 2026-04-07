@@ -48,13 +48,13 @@ export default function WmBmiCalcStep({ basePath, nextStep, progressPercent }: W
 
   return (
     <div className="min-h-[100dvh] flex flex-col" style={{ backgroundColor: '#F7F7F9' }}>
-      <div className="w-full h-[3px]" style={{ backgroundColor: '#e8e4de' }}>
+      <div className="w-full h-1" style={{ backgroundColor: '#e5e0d8' }}>
         <div className="h-full" style={{ width: `${progressPercent}%`, backgroundColor: '#c3b29e', transition: 'width 0.8s cubic-bezier(0.4,0,0.2,1)' }} />
       </div>
 
       <div className="flex flex-col items-center w-full max-w-[520px] mx-auto px-6 sm:px-8">
         {/* Logo */}
-        <div className="pt-12 sm:pt-16 pb-8 sm:pb-10"
+        <div className="pt-8 sm:pt-12 pb-6 sm:pb-8"
           style={{ opacity: mounted ? 1 : 0, transform: mounted ? 'translateY(0)' : 'translateY(-6px)', transition: 'all 0.5s cubic-bezier(0.4,0,0.2,1)' }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/wellmedr-logo.svg" alt="wellmedr." className="h-7 sm:h-8" />
@@ -115,8 +115,8 @@ export default function WmBmiCalcStep({ basePath, nextStep, progressPercent }: W
         <div className="w-full mt-8 sm:mt-10 pb-8"
           style={{ opacity: mounted ? 1 : 0, transition: 'opacity 0.5s ease 0.3s' }}>
           <button onClick={handleContinue} disabled={!weight || !feet}
-            className="w-full flex items-center justify-center gap-2.5 py-4 sm:py-[18px] text-white font-semibold text-[16px] rounded-full disabled:opacity-30 active:scale-[0.98]"
-            style={{ backgroundColor: '#0C2631', transition: 'all 0.2s ease' }}>
+            className="w-full flex items-center justify-center gap-2.5 py-4 sm:py-[18px] text-white font-semibold text-[16px] rounded-full active:scale-[0.98]"
+            style={{ backgroundColor: !weight || !feet ? '#b0b8be' : '#0C2631', transition: 'all 0.3s cubic-bezier(0.4,0,0.2,1)', cursor: !weight || !feet ? 'not-allowed' : 'pointer' }}>
             Next <span className="text-lg">&rarr;</span>
           </button>
         </div>

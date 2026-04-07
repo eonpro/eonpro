@@ -14,11 +14,20 @@ interface WmContactInfoStepProps {
 export default function WmContactInfoStep({
   basePath,
   nextStep,
+  prevStep,
   progressPercent,
 }: WmContactInfoStepProps) {
   const router = useRouter();
   const responses = useIntakeStore((s) => s.responses);
   const { setResponses, markStepCompleted, setCurrentStep } = useIntakeActions();
+
+  const resolvedNextStep = nextStep || (
+    responses.glp1_history_recent === 'yes' ? 'glp1-type-wm' : 'wellmedr-checkout-redirect'
+  );
+
+  const handleBack = () => {
+    if (prevStep) { setCurrentStep(prevStep); router.push(`${basePath}/${prevStep}`); }
+  };
 
   const firstName = String(responses.firstName || '');
   const [email, setEmail] = useState(String(responses.email || ''));
@@ -46,8 +55,8 @@ export default function WmContactInfoStep({
     if (!validate()) return;
     setResponses({ email, phone, contact_consent: true });
     markStepCompleted('contact-info-wm');
-    setCurrentStep(nextStep);
-    router.push(`${basePath}/${nextStep}`);
+    setCurrentStep(resolvedNextStep);
+    router.push(`${basePath}/${resolvedNextStep}`);
   };
 
   return (
@@ -56,9 +65,17 @@ export default function WmContactInfoStep({
         <div className="h-full transition-all duration-500 ease-out" style={{ width: `${progressPercent}%`, backgroundColor: '#c3b29e' }} />
       </div>
 
+      {prevStep && (
+        <div className="px-5 sm:px-8 pt-4 max-w-[520px] mx-auto w-full">
+          <button onClick={handleBack} className="p-2 -ml-2 rounded-lg hover:bg-black/5 active:scale-95 transition-all" aria-label="Go back">
+            <svg className="w-5 h-5" style={{ color: '#101010' }} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
+          </button>
+        </div>
+      )}
+
       <div className="flex flex-col items-center w-full max-w-[520px] mx-auto px-6 sm:px-8">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/wellmedr-logo.svg" alt="wellmedr." className="h-7 sm:h-8 mt-12 sm:mt-16 mb-8 sm:mb-10" />
+        <img src="/wellmedr-logo.svg" alt="wellmedr." className="h-7 sm:h-8 mt-8 sm:mt-12 mb-6 sm:mb-8" />
 
         <h2 className="text-[1.25rem] sm:text-[1.5rem] font-bold text-center mb-2" style={{ color: '#101010' }}>
           <span className="italic font-normal" style={{ color: '#7B95A9', fontFamily: "'BodoniSvtyTwo', serif" }}>{firstName || 'Friend'}</span>, how can you be reached if necessary?
@@ -70,7 +87,11 @@ export default function WmContactInfoStep({
             <label className="block text-sm font-medium mb-1">Email <span className="text-red-400">*</span></label>
             <div className="relative">
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">&#9993;</span>
-              <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" placeholder="you@email.com" className="w-full h-14 pl-10 pr-4 rounded-2xl border bg-white text-base" style={{ borderColor: errors.email ? '#ef4444' : '#e5e7eb' }} />
+              <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" placeholder="you@email.com"
+                className="w-full h-14 pl-10 pr-4 rounded-2xl border bg-white text-base outline-none"
+                style={{ borderColor: errors.email ? '#ef4444' : 'rgba(0,0,0,0.08)', transition: 'border-color 0.2s, box-shadow 0.2s' }}
+                onFocus={(e) => { e.target.style.borderColor = '#c3b29e'; e.target.style.boxShadow = '0 0 0 3px rgba(195,178,158,0.15)'; }}
+                onBlur={(e) => { e.target.style.borderColor = errors.email ? '#ef4444' : 'rgba(0,0,0,0.08)'; e.target.style.boxShadow = 'none'; }} />
             </div>
             {errors.email && <p className="text-xs text-red-500 mt-1">{errors.email}</p>}
           </div>
@@ -79,7 +100,11 @@ export default function WmContactInfoStep({
             <label className="block text-sm font-medium mb-1">Phone Number <span className="text-red-400">*</span></label>
             <div className="relative">
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">&#9742;</span>
-              <input value={phone} onChange={(e) => setPhone(formatPhone(e.target.value))} type="tel" placeholder="(555) 555-5555" className="w-full h-14 pl-10 pr-4 rounded-2xl border bg-white text-base" style={{ borderColor: errors.phone ? '#ef4444' : '#e5e7eb' }} />
+              <input value={phone} onChange={(e) => setPhone(formatPhone(e.target.value))} type="tel" placeholder="(555) 555-5555"
+                className="w-full h-14 pl-10 pr-4 rounded-2xl border bg-white text-base outline-none"
+                style={{ borderColor: errors.phone ? '#ef4444' : 'rgba(0,0,0,0.08)', transition: 'border-color 0.2s, box-shadow 0.2s' }}
+                onFocus={(e) => { e.target.style.borderColor = '#c3b29e'; e.target.style.boxShadow = '0 0 0 3px rgba(195,178,158,0.15)'; }}
+                onBlur={(e) => { e.target.style.borderColor = errors.phone ? '#ef4444' : 'rgba(0,0,0,0.08)'; e.target.style.boxShadow = 'none'; }} />
             </div>
             {errors.phone && <p className="text-xs text-red-500 mt-1">{errors.phone}</p>}
           </div>
@@ -87,7 +112,7 @@ export default function WmContactInfoStep({
 
         <div className="w-full mb-4">
           <label className="flex items-start gap-3 cursor-pointer">
-            <div onClick={() => setConsent(!consent)} className="w-5 h-5 mt-0.5 rounded border-2 flex items-center justify-center shrink-0" style={{ borderColor: consent ? 'var(--intake-accent)' : '#d1d5db', backgroundColor: consent ? 'var(--intake-accent)' : 'transparent' }}>
+            <div onClick={() => setConsent(!consent)} className="w-5 h-5 mt-0.5 rounded border-2 flex items-center justify-center shrink-0" style={{ borderColor: consent ? '#c3b29e' : '#d1d5db', backgroundColor: consent ? '#c3b29e' : 'transparent', transition: 'all 0.2s ease' }}>
               {consent && <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>}
             </div>
             <span className="text-xs leading-relaxed" style={{ color: '#555' }}>
@@ -104,8 +129,8 @@ export default function WmContactInfoStep({
         <button
           onClick={handleContinue}
           disabled={!consent}
-          className="w-full flex items-center justify-center gap-3 py-4 text-white font-medium text-base rounded-full active:scale-[0.98] transition-all disabled:opacity-40"
-          style={{ backgroundColor: '#0C2631' }}
+          className="w-full flex items-center justify-center gap-3 py-4 text-white font-medium text-base rounded-full active:scale-[0.98]"
+          style={{ backgroundColor: !consent ? '#b0b8be' : '#0C2631', transition: 'all 0.3s cubic-bezier(0.4,0,0.2,1)', cursor: !consent ? 'not-allowed' : 'pointer' }}
         >
           Next <span className="text-lg">&rarr;</span>
         </button>

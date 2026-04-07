@@ -14,8 +14,6 @@ const GlobalFetchInterceptor = dynamic(
   () => import('@/components/GlobalFetchInterceptor'),
   { ssr: false },
 );
-const BeccaAIGlobalChat = dynamic(() => import('@/components/BeccaAIGlobalChat'), { ssr: false });
-
 const PUBLIC_ROUTE_PREFIXES = [
   '/affiliate',
   '/login',
@@ -44,8 +42,6 @@ export default function AppClientEnhancers() {
 
   const shouldMountSessionInterceptors = !isPublicRoute && !isPortalRoute;
   const shouldMountHeader = !isPublicRoute && !isPortalRoute;
-  const shouldMountBecca = !isPublicRoute && !isPortalRoute;
-
   return (
     <>
       <Suspense fallback={null}>
@@ -60,7 +56,7 @@ export default function AppClientEnhancers() {
       ) : null}
 
       {shouldMountHeader ? <ConditionalHeader /> : null}
-      {shouldMountBecca ? <BeccaAIGlobalChat /> : null}
+      {/* Becca AI disabled for now */}
     </>
   );
 }

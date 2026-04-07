@@ -1,17 +1,49 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useCallback } from 'react';
 import { LOGOS_PRODUCTS } from '@/data/logosProducts';
 
 const VIAL_LABEL_SHEET_MAX = 33;
+
+const DEFAULT_YEAR_COLORS: Record<number, string> = {
+  202851329: '#f15a29',
+  204426907: '#5ec3ee',
+  204426906: '#262262',
+  203448971: '#e4647a',
+  203448947: '#6088c6',
+  203449363: '#e4647a',
+  203448972: '#117cc1',
+  203448973: '#88272a',
+  203449364: '#25b0aa',
+  203449500: '#6e459b',
+  203418602: '#df6226',
+  203418861: '#10442f',
+  203666716: '#0ba14b',
+  204754029: '#f9a639',
+  203194055: '#26b7b2',
+  203666651: '#6e459b',
+  203418766: '#1177b9',
+};
 
 type InjectableProduct = {
   id: number;
   label: string;
 };
 
+const EXCLUDED_PRODUCT_IDS = new Set([
+  203419418,
+  203449111,
+  203419417,
+  203449527,
+  203449013,
+  203194057,
+]);
+
 const injectableProducts: InjectableProduct[] = LOGOS_PRODUCTS
-  .filter((product) => /inj|injectable|vial/i.test(product.form) || /vial/i.test(product.name))
+  .filter((product) =>
+    (/inj|injectable|vial/i.test(product.form) || /vial/i.test(product.name)) &&
+    !EXCLUDED_PRODUCT_IDS.has(product.id)
+  )
   .map((product) => ({
     id: product.id,
     label: `${product.name} ${product.strength ? `(${product.strength})` : ''}`.trim(),
@@ -19,14 +51,23 @@ const injectableProducts: InjectableProduct[] = LOGOS_PRODUCTS
   .sort((a, b) => a.label.localeCompare(b.label));
 
 export default function VialLabelsPage() {
-  const [productId, setProductId] = useState<number>(injectableProducts[0]?.id ?? 0);
+  const defaultId = injectableProducts[0]?.id ?? 0;
+  const [productId, setProductId] = useState<number>(defaultId);
   const [batchNumber, setBatchNumber] = useState('');
   const [budIsoDate, setBudIsoDate] = useState('');
   const [quantity, setQuantity] = useState<number>(VIAL_LABEL_SHEET_MAX);
   const [proofMode, setProofMode] = useState(false);
-  const [yearColor, setYearColor] = useState('#137bc1');
+  const [yearColor, setYearColor] = useState(DEFAULT_YEAR_COLORS[defaultId] ?? '#137bc1');
+  const [yearColorManual, setYearColorManual] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const handleProductChange = useCallback((id: number) => {
+    setProductId(id);
+    if (!yearColorManual) {
+      setYearColor(DEFAULT_YEAR_COLORS[id] ?? '#137bc1');
+    }
+  }, [yearColorManual]);
 
   const selectedProductName = useMemo(() => {
     return injectableProducts.find((item) => item.id === productId)?.label ?? 'Selected product';
@@ -96,7 +137,7 @@ export default function VialLabelsPage() {
             <label className="mb-1.5 block text-sm font-medium text-gray-700">Product</label>
             <select
               value={productId}
-              onChange={(event) => setProductId(Number(event.target.value))}
+              onChange={(event) => handleProductChange(Number(event.target.value))}
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none focus:ring-1 focus:ring-gray-500"
             >
               {injectableProducts.map((product) => (
@@ -156,19 +197,28 @@ export default function VialLabelsPage() {
               <input
                 type="color"
                 value={yearColor}
-                onChange={(event) => setYearColor(event.target.value)}
+                onChange={(event) => { setYearColor(event.target.value); setYearColorManual(true); }}
                 className="h-9 w-12 cursor-pointer rounded border border-gray-300"
               />
               <input
                 type="text"
                 value={yearColor}
-                onChange={(event) => setYearColor(event.target.value)}
+                onChange={(event) => { setYearColor(event.target.value); setYearColorManual(true); }}
                 placeholder="#137bc1"
                 className="w-28 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none focus:ring-1 focus:ring-gray-500"
               />
+              {yearColorManual && (
+                <button
+                  type="button"
+                  onClick={() => { setYearColorManual(false); setYearColor(DEFAULT_YEAR_COLORS[productId] ?? '#137bc1'); }}
+                  className="text-xs text-blue-600 hover:underline"
+                >
+                  Reset
+                </button>
+              )}
             </div>
             <p className="mt-1 text-xs text-gray-500">
-              Match the medication name color from the template.
+              Auto-set per product. Edit to override.
             </p>
           </div>
 

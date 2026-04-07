@@ -14,7 +14,7 @@ async function main() {
       name: 'EONPRO Medical',
       subdomain: 'eonpro',
       status: 'ACTIVE',
-      adminEmail: 'admin@eonpro.com',
+      adminEmail: 'admin@eonpro.io',
       phone: '305-555-0100',
       timezone: 'America/New_York',
       primaryColor: '#14b8a6',
@@ -60,10 +60,10 @@ async function main() {
   }
   const hashedPassword = await bcrypt.hash(seedPassword, 12);
   const admin = await prisma.user.upsert({
-    where: { email: 'admin@eonpro.com' },
+    where: { email: 'admin@eonpro.io' },
     update: {},
     create: {
-      email: 'admin@eonpro.com',
+      email: 'admin@eonpro.io',
       passwordHash: hashedPassword,
       firstName: 'Admin',
       lastName: 'User',
@@ -76,7 +76,7 @@ async function main() {
 
   console.log('\n🎉 Production database seeded successfully!');
   console.log('\n📋 Login credentials:');
-  console.log('   Email: admin@eonpro.com');
+  console.log('   Email: admin@eonpro.io');
   console.log('   Password: [provided via SEED_PASSWORD env var]');
 }
 

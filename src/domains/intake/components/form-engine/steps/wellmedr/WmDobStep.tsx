@@ -58,7 +58,7 @@ export default function WmDobStep({ basePath, nextStep, prevStep, progressPercen
 
       {prevStep && (
         <div className="px-5 sm:px-8 pt-4 max-w-md sm:max-w-lg mx-auto w-full">
-          <button onClick={handleBack} className="p-2 -ml-2 rounded-lg hover:bg-black/5 active:scale-95 transition-all">
+          <button onClick={handleBack} className="p-2 -ml-2 rounded-lg hover:bg-black/5 active:scale-95 transition-all" aria-label="Go back">
             <svg className="w-5 h-5" style={{ color: '#101010' }} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
           </button>
         </div>
@@ -66,7 +66,7 @@ export default function WmDobStep({ basePath, nextStep, prevStep, progressPercen
 
       <div className="flex flex-col items-center w-full max-w-[520px] mx-auto px-6 sm:px-8">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/wellmedr-logo.svg" alt="wellmedr." className="h-7 sm:h-8 mt-12 sm:mt-16 mb-8 sm:mb-10" />
+        <img src="/wellmedr-logo.svg" alt="wellmedr." className="h-7 sm:h-8 mt-8 sm:mt-12 mb-6 sm:mb-8" />
 
         <h1 className="text-xl sm:text-[1.75rem] font-bold text-center leading-snug mb-1" style={{ color: '#7B95A9', fontFamily: "'BodoniSvtyTwo', serif" }}>
           Medication can be tailored to <em>your unique needs,</em>
@@ -122,8 +122,8 @@ export default function WmDobStep({ basePath, nextStep, prevStep, progressPercen
         <button
           onClick={handleContinue}
           disabled={!month || !day || !year}
-          className="w-full flex items-center justify-center gap-2.5 py-4 text-white font-medium text-base rounded-full transition-all duration-200 disabled:opacity-30 active:scale-[0.98]"
-          style={{ backgroundColor: '#0C2631' }}
+          className="w-full flex items-center justify-center gap-2.5 py-4 text-white font-medium text-base rounded-full active:scale-[0.98]"
+          style={{ backgroundColor: (!month || !day || !year) ? '#b0b8be' : '#0C2631', transition: 'all 0.3s cubic-bezier(0.4,0,0.2,1)', cursor: (!month || !day || !year) ? 'not-allowed' : 'pointer' }}
         >
           Next <span className="text-lg">&rarr;</span>
         </button>

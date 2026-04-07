@@ -14,11 +14,16 @@ interface WmGlp1TypeStepProps {
 export default function WmGlp1TypeStep({
   basePath,
   nextStep,
+  prevStep,
   progressPercent,
 }: WmGlp1TypeStepProps) {
   const router = useRouter();
   const responses = useIntakeStore((s) => s.responses);
   const { setResponse, markStepCompleted, setCurrentStep } = useIntakeActions();
+
+  const handleBack = () => {
+    if (prevStep) { setCurrentStep(prevStep); router.push(`${basePath}/${prevStep}`); }
+  };
 
   const [selected, setSelected] = useState(String(responses.glp1_type || ''));
   const [otherName, setOtherName] = useState(String(responses.glp1_type_other || ''));
@@ -46,9 +51,17 @@ export default function WmGlp1TypeStep({
         <div className="h-full transition-all duration-500 ease-out" style={{ width: `${progressPercent}%`, backgroundColor: '#c3b29e' }} />
       </div>
 
+      {prevStep && (
+        <div className="px-5 sm:px-8 pt-4 max-w-[520px] mx-auto w-full">
+          <button onClick={handleBack} className="p-2 -ml-2 rounded-lg hover:bg-black/5 active:scale-95 transition-all" aria-label="Go back">
+            <svg className="w-5 h-5" style={{ color: '#101010' }} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
+          </button>
+        </div>
+      )}
+
       <div className="flex flex-col items-center w-full max-w-[520px] mx-auto px-6 sm:px-8">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/wellmedr-logo.svg" alt="wellmedr." className="h-7 sm:h-8 mt-12 sm:mt-16 mb-8 sm:mb-10" />
+        <img src="/wellmedr-logo.svg" alt="wellmedr." className="h-7 sm:h-8 mt-8 sm:mt-12 mb-6 sm:mb-8" />
 
         <h1 className="text-[1.25rem] sm:text-[1.5rem] font-bold text-center mb-2" style={{ color: '#101010' }}>
           Great! You have experience with<br />
@@ -86,7 +99,10 @@ export default function WmGlp1TypeStep({
               value={otherName}
               onChange={(e) => setOtherName(e.target.value)}
               rows={3}
-              className="w-full p-4 rounded-xl border border-gray-200 bg-white resize-y text-base focus:outline-none"
+              className="w-full p-4 rounded-xl border bg-white resize-y text-base focus:outline-none"
+              style={{ borderColor: 'rgba(0,0,0,0.08)', transition: 'border-color 0.2s' }}
+              onFocus={(e) => { e.target.style.borderColor = '#c3b29e'; e.target.style.boxShadow = '0 0 0 3px rgba(195,178,158,0.15)'; }}
+              onBlur={(e) => { e.target.style.borderColor = 'rgba(0,0,0,0.08)'; e.target.style.boxShadow = 'none'; }}
             />
           </div>
         )}
@@ -96,8 +112,8 @@ export default function WmGlp1TypeStep({
         <button
           onClick={handleContinue}
           disabled={!selected || (selected === 'other' && !otherName.trim())}
-          className="w-full flex items-center justify-center gap-3 py-4 text-white font-medium text-base rounded-full active:scale-[0.98] transition-all disabled:opacity-40"
-          style={{ backgroundColor: '#0C2631' }}
+          className="w-full flex items-center justify-center gap-3 py-4 text-white font-medium text-base rounded-full active:scale-[0.98]"
+          style={{ backgroundColor: (!selected || (selected === 'other' && !otherName.trim())) ? '#b0b8be' : '#0C2631', transition: 'all 0.3s cubic-bezier(0.4,0,0.2,1)', cursor: (!selected || (selected === 'other' && !otherName.trim())) ? 'not-allowed' : 'pointer' }}
         >
           Next <span className="text-lg">&rarr;</span>
         </button>

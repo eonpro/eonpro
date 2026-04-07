@@ -65,6 +65,7 @@ interface WmImageCardStepProps {
 export default function WmImageCardStep({
   basePath,
   nextStep,
+  prevStep,
   progressPercent,
   headerText,
   headerItalic,
@@ -81,6 +82,14 @@ export default function WmImageCardStep({
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => { requestAnimationFrame(() => setMounted(true)); }, []);
+
+  const handleBack = () => {
+    if (prevStep) { setCurrentStep(prevStep); router.push(`${basePath}/${prevStep}`); }
+  };
+
+  const resolvedHeaderItalic = headerItalic === 'gender-text'
+    ? (responses.sex === 'female' ? 'Women' : 'Men')
+    : headerItalic;
 
   const [selected, setSelected] = useState<string | string[]>(
     mode === 'multi'
@@ -120,20 +129,28 @@ export default function WmImageCardStep({
         <div className="h-full" style={{ width: `${progressPercent}%`, backgroundColor: '#c3b29e', transition: 'width 0.8s cubic-bezier(0.4,0,0.2,1)' }} />
       </div>
 
-      <div className="flex flex-col items-center w-full max-w-[520px] mx-auto px-6 sm:px-8">
+      {prevStep && (
+        <div className="px-5 sm:px-8 pt-3 max-w-[520px] mx-auto w-full">
+          <button onClick={handleBack} className="p-2 -ml-2 rounded-lg hover:bg-black/5 active:scale-95 transition-all" aria-label="Go back">
+            <svg className="w-5 h-5" style={{ color: '#101010' }} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
+          </button>
+        </div>
+      )}
+
+      <div className="flex-1 flex flex-col items-center justify-center w-full max-w-[520px] mx-auto px-6 sm:px-8 py-4">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src="/wellmedr-logo.svg" alt="wellmedr."
-          className="h-7 sm:h-8"
+          className="h-7 sm:h-8 mt-8 sm:mt-12 mb-6 sm:mb-8"
           style={{ opacity: mounted ? 1 : 0, transform: mounted ? 'translateY(0)' : 'translateY(-8px)', transition: 'all 0.5s cubic-bezier(0.4,0,0.2,1)' }}
         />
 
-        {(headerText || headerItalic) && (
+        {(headerText || resolvedHeaderItalic) && (
           <h1
             className="text-xl sm:text-[2rem] font-bold text-center leading-snug mb-3 sm:mb-4 px-2"
             style={{ color: '#101010', opacity: mounted ? 1 : 0, transform: mounted ? 'translateY(0)' : 'translateY(12px)', transition: 'all 0.6s cubic-bezier(0.4,0,0.2,1) 0.1s' }}
           >
-            {headerItalic && <span className="font-normal italic" style={{ color: '#7B95A9', fontFamily: "'BodoniSvtyTwo', serif" }}>{headerItalic} </span>}
+            {resolvedHeaderItalic && <span className="font-normal italic" style={{ color: '#7B95A9', fontFamily: "'BodoniSvtyTwo', serif" }}>{resolvedHeaderItalic} </span>}
             {headerText}
           </h1>
         )}
@@ -225,11 +242,11 @@ export default function WmImageCardStep({
           <button
             onClick={handleContinue}
             disabled={!Array.isArray(selected) || selected.length === 0}
-            className="w-full flex items-center justify-center gap-2.5 py-4 text-white font-medium text-base rounded-full disabled:opacity-30"
+            className="w-full flex items-center justify-center gap-2.5 py-4 text-white font-medium text-base rounded-full active:scale-[0.98]"
             style={{
-              backgroundColor: '#0C2631',
+              backgroundColor: (!Array.isArray(selected) || selected.length === 0) ? '#b0b8be' : '#0C2631',
               transition: 'all 0.3s cubic-bezier(0.4,0,0.2,1)',
-              transform: (!Array.isArray(selected) || selected.length === 0) ? 'scale(1)' : 'scale(1)',
+              cursor: (!Array.isArray(selected) || selected.length === 0) ? 'not-allowed' : 'pointer',
             }}
           >
             Next <span className="text-lg">&rarr;</span>

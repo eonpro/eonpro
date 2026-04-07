@@ -6,16 +6,49 @@
  */
 
 import OpenAI from 'openai';
+import { toFile } from 'openai';
+import { Readable } from 'stream';
 import { logger } from '@/lib/logger';
 import { prisma } from '@/lib/db';
+
+if (typeof globalThis.File === 'undefined') {
+  try {
+    // Node 18 requires explicit import for File; Node 20+ has it globally
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { File } = require('node:buffer');
+    (globalThis as any).File = File;
+  } catch {
+    // Non-fatal: the SDK's toFile will throw a clear error at call time
+  }
+}
 
 let _openai: OpenAI | null = null;
 function getOpenAI(): OpenAI {
   if (!_openai) {
-    _openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+      throw new Error(
+        'OPENAI_API_KEY is not configured. Set it in the environment to enable AI transcription.'
+      );
+    }
+    _openai = new OpenAI({ apiKey });
   }
   return _openai;
 }
+
+const MIME_TO_EXT: Record<string, string> = {
+  'audio/webm': 'webm',
+  'audio/mp3': 'mp3',
+  'audio/mpeg': 'mp3',
+  'audio/mp4': 'mp4',
+  'audio/m4a': 'm4a',
+  'audio/x-m4a': 'm4a',
+  'audio/ogg': 'ogg',
+  'audio/wav': 'wav',
+  'audio/x-wav': 'wav',
+  'audio/flac': 'flac',
+  'audio/mpga': 'mpga',
+};
 
 // Types
 export interface TranscriptionSegment {
@@ -46,7 +79,7 @@ export interface TranscribeAudioInput {
   audioBuffer: Buffer;
   mimeType: string;
   language?: string;
-  prompt?: string; // Medical context prompt for better accuracy
+  prompt?: string;
 }
 
 export interface TranscribeResult {
@@ -60,7 +93,17 @@ export interface TranscribeResult {
   duration: number;
 }
 
-// Medical terminology prompt for better transcription accuracy
+/**
+ * Fallback for runtimes where globalThis.File is unavailable (Node 18).
+ * Creates a Readable stream with a `path` property that the OpenAI SDK
+ * recognises as an FsReadStream (Uploadable).
+ */
+function createReadableUpload(buffer: Buffer, filename: string) {
+  const stream = Readable.from(buffer) as Readable & { path: string };
+  stream.path = filename;
+  return stream;
+}
+
 const MEDICAL_CONTEXT_PROMPT = `
 Medical consultation transcript. Common terms include:
 - Medications: Semaglutide, Tirzepatide, Ozempic, Wegovy, Mounjaro, Metformin
@@ -71,30 +114,58 @@ Medical consultation transcript. Common terms include:
 `;
 
 /**
- * Transcribe audio using OpenAI Whisper
+ * Transcribe audio using OpenAI Whisper.
+ *
+ * Uses the SDK's toFile() helper for reliable cross-runtime file uploads
+ * (Node 18 does not expose globalThis.File, which causes "File is not defined"
+ * errors when using `new File()` directly in Vercel serverless functions).
  */
 export async function transcribeAudio(input: TranscribeAudioInput): Promise<TranscribeResult> {
+  const startTime = Date.now();
+  const mimeType = input.mimeType || 'audio/webm';
+  const ext = MIME_TO_EXT[mimeType] || 'webm';
+
   try {
-    const startTime = Date.now();
+    const openai = getOpenAI();
 
-    // Create a File object from the buffer
-    const audioFile = new File([new Uint8Array(input.audioBuffer)], 'audio.webm', {
-      type: input.mimeType || 'audio/webm',
-    });
+    let audioFile: Awaited<ReturnType<typeof toFile>> | ReturnType<typeof createReadableUpload>;
+    try {
+      audioFile = await toFile(
+        new Uint8Array(input.audioBuffer),
+        `audio.${ext}`,
+        { type: mimeType },
+      );
+    } catch (fileErr) {
+      logger.warn('toFile failed, falling back to stream upload', {
+        error: fileErr instanceof Error ? fileErr.message : String(fileErr),
+      });
+      audioFile = createReadableUpload(input.audioBuffer, `audio.${ext}`);
+    }
 
-    const response = await getOpenAI().audio.transcriptions.create({
-      file: audioFile,
-      model: 'whisper-1',
-      language: input.language || 'en',
-      prompt: input.prompt || MEDICAL_CONTEXT_PROMPT,
-      response_format: 'verbose_json',
-      timestamp_granularities: ['segment'],
-    });
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 25_000);
 
-    const duration = (Date.now() - startTime) / 1000;
+    let response: OpenAI.Audio.Transcriptions.TranscriptionVerbose;
+    try {
+      response = await openai.audio.transcriptions.create(
+        {
+          file: audioFile,
+          model: 'whisper-1',
+          language: input.language || 'en',
+          prompt: input.prompt || MEDICAL_CONTEXT_PROMPT,
+          response_format: 'verbose_json',
+          timestamp_granularities: ['segment'],
+        },
+        { signal: controller.signal },
+      );
+    } finally {
+      clearTimeout(timeout);
+    }
+
+    const elapsed = (Date.now() - startTime) / 1000;
 
     logger.info('Audio transcribed successfully', {
-      duration: `${duration}s`,
+      duration: `${elapsed}s`,
       textLength: response.text.length,
       language: response.language,
     });
@@ -111,7 +182,26 @@ export async function transcribeAudio(input: TranscribeAudioInput): Promise<Tran
     };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    logger.error('Failed to transcribe audio', { error: errorMessage });
+    const isTimeout = error instanceof Error && error.name === 'AbortError';
+    const isAuthError =
+      error instanceof OpenAI.APIError && (error.status === 401 || error.status === 403);
+
+    logger.error('Failed to transcribe audio', {
+      error: errorMessage,
+      isTimeout,
+      isAuthError,
+      mimeType,
+      bufferSize: input.audioBuffer.length,
+      elapsedMs: Date.now() - startTime,
+    });
+
+    if (isTimeout) {
+      throw new Error('Transcription timed out after 25 seconds. Try a shorter audio clip.');
+    }
+    if (isAuthError) {
+      _openai = null;
+      throw new Error('OpenAI API authentication failed. Check OPENAI_API_KEY configuration.');
+    }
     throw new Error(`Transcription failed: ${errorMessage}`);
   }
 }

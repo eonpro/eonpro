@@ -27,6 +27,7 @@ const PRODUCTS = [
     ],
     gradient: 'from-[#4fa77e] to-[#3d9470]',
     mockup: 'patient-portal',
+    href: '/platform/patient-portal',
   },
   {
     icon: Stethoscope,
@@ -44,6 +45,7 @@ const PRODUCTS = [
     ],
     gradient: 'from-[#3b82f6] to-[#2563eb]',
     mockup: 'provider',
+    href: '/platform/provider-dashboard',
   },
   {
     icon: LayoutDashboard,
@@ -61,6 +63,7 @@ const PRODUCTS = [
     ],
     gradient: 'from-[#8b5cf6] to-[#7c3aed]',
     mockup: 'admin',
+    href: '/platform/clinic-admin',
   },
   {
     icon: Package,
@@ -78,6 +81,7 @@ const PRODUCTS = [
     ],
     gradient: 'from-[#f59e0b] to-[#d97706]',
     mockup: 'pharmacy',
+    href: '/platform/pharmacy-integration',
   },
 ];
 
@@ -295,6 +299,16 @@ function ProductCard({
               </li>
             ))}
           </ul>
+
+          {product.href && (
+            <a
+              href={product.href}
+              className="mt-6 inline-flex items-center gap-1.5 text-sm font-semibold text-[#4fa77e] transition-colors hover:text-[#3d8a65]"
+            >
+              Learn more
+              <ArrowRight className="h-3.5 w-3.5" />
+            </a>
+          )}
         </div>
 
         {/* Real UI mockup */}

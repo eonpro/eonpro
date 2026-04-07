@@ -45,7 +45,7 @@ async function main() {
 
   // Validate environment
   const newPassword = process.env.NEW_ADMIN_PASSWORD;
-  const newEmail = process.env.NEW_ADMIN_EMAIL || 'admin@eonpro.com';
+  const newEmail = process.env.NEW_ADMIN_EMAIL || 'admin@eonpro.io';
 
   if (!newPassword) {
     console.error('❌ ERROR: NEW_ADMIN_PASSWORD environment variable is required');
@@ -179,7 +179,7 @@ async function main() {
       OR: [
         { role: 'SUPER_ADMIN' },
         { role: 'ADMIN' },
-        { email: 'admin@eonpro.com' },
+        { email: 'admin@eonpro.io' },
       ],
     },
   });

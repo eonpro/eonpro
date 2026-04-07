@@ -14,10 +14,15 @@ interface WmMetabolicChartStepProps {
 export default function WmMetabolicChartStep({
   basePath,
   nextStep,
+  prevStep,
   progressPercent,
 }: WmMetabolicChartStepProps) {
   const router = useRouter();
   const { markStepCompleted, setCurrentStep } = useIntakeActions();
+
+  const handleBack = () => {
+    if (prevStep) { setCurrentStep(prevStep); router.push(`${basePath}/${prevStep}`); }
+  };
   const [animDone, setAnimDone] = useState(false);
   const pathRef = useRef<SVGPathElement>(null);
 
@@ -51,9 +56,17 @@ export default function WmMetabolicChartStep({
         <div className="h-full transition-all duration-500 ease-out" style={{ width: `${progressPercent}%`, backgroundColor: '#c3b29e' }} />
       </div>
 
+      {prevStep && (
+        <div className="px-5 sm:px-8 pt-4 max-w-[520px] mx-auto w-full">
+          <button onClick={handleBack} className="p-2 -ml-2 rounded-lg hover:bg-black/5 active:scale-95 transition-all" aria-label="Go back">
+            <svg className="w-5 h-5" style={{ color: '#101010' }} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
+          </button>
+        </div>
+      )}
+
       <div className="flex flex-col items-center w-full max-w-[520px] mx-auto px-6 sm:px-8">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/wellmedr-logo.svg" alt="wellmedr." className="h-7 sm:h-8 mt-12 sm:mt-16 mb-8 sm:mb-10" />
+        <img src="/wellmedr-logo.svg" alt="wellmedr." className="h-7 sm:h-8 mt-8 sm:mt-12 mb-6 sm:mb-8" />
 
         <h1 className="text-[1.5rem] sm:text-[2rem] font-bold text-center leading-tight mb-2" style={{ color: '#101010' }}>
           How will GLP-1{' '}

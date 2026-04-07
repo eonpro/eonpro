@@ -102,10 +102,10 @@ async function main() {
   const hashedPassword = await bcrypt.hash(adminPassword, 12);
   
   const admin = await prisma.user.upsert({
-    where: { email: 'admin@eonpro.com' },
+    where: { email: 'admin@eonpro.io' },
     update: {},
     create: {
-      email: 'admin@eonpro.com',
+      email: 'admin@eonpro.io',
       passwordHash: hashedPassword,
       firstName: 'System',
       lastName: 'Administrator',
@@ -188,7 +188,7 @@ async function main() {
   
   console.log('\n✅ Database seeding complete!');
   console.log('\n📝 Default Credentials:');
-  console.log('Admin: admin@eonpro.com / ' + (process.env.ADMIN_PASSWORD || adminPassword));
+  console.log('Admin: admin@eonpro.io / ' + (process.env.ADMIN_PASSWORD || adminPassword));
   console.log('Provider: provider@eonpro.com / ' + providerPassword);
 }
 

@@ -24,14 +24,14 @@ const CONFIG = {
   clinic: {
     name: 'EON Medical',
     subdomain: 'eonmedical',
-    adminEmail: 'admin@eonmedical.com',
+    adminEmail: 'admin@eonpro.io',
     phone: '(305) 555-0100',
     timezone: 'America/New_York',
   },
   
   // Super Admin Credentials - SECURITY: Load from environment
   admin: {
-    email: process.env.ADMIN_EMAIL || 'admin@eonmedical.com',
+    email: process.env.ADMIN_EMAIL || 'admin@eonpro.io',
     password: process.env.ADMIN_PASSWORD || (() => { 
       console.error('❌ ADMIN_PASSWORD environment variable is required');
       process.exit(1);

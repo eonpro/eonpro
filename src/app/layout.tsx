@@ -4,7 +4,6 @@ import type { Viewport } from 'next';
 import { Suspense } from 'react';
 import Script from 'next/script';
 import ConditionalHeader from '@/components/ConditionalHeader';
-import BeccaAIGlobalChat from '@/components/BeccaAIGlobalChat';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import ConditionalLayout from '@/components/ConditionalLayout';
 import SessionExpirationHandler from '@/components/SessionExpirationHandler';
@@ -66,8 +65,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
               <SessionExpirationHandler />
               <ConditionalHeader />
               <ConditionalLayout>{children}</ConditionalLayout>
-              {/* Becca AI v2 — Streaming + Tool Calling */}
-              <BeccaAIGlobalChat />
+              {/* Becca AI v2 — disabled for now */}
             </ToastProvider>
             </QueryProvider>
           </ClientProviders>

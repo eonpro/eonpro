@@ -139,7 +139,7 @@ export default function HeroSection() {
           style={{ transitionDelay: '350ms' }}
         >
           <a
-            href="mailto:contact@eonpro.io?subject=EonPro%20Demo%20Request"
+            href="/request-demo"
             className="group relative rounded-full bg-[#4fa77e] px-8 py-3.5 text-base font-semibold text-white shadow-lg shadow-[#4fa77e]/25 transition-all hover:bg-[#429b6f] hover:shadow-xl hover:shadow-[#4fa77e]/30 hover:-translate-y-0.5"
           >
             <span className="relative z-10">Request a Demo</span>

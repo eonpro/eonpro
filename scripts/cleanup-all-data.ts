@@ -99,7 +99,7 @@ async function identifyTestData(): Promise<{
             ...TEST_PATTERNS.names.map(p => ({ firstName: { contains: p, mode: 'insensitive' as const } })),
           ]
         },
-        { email: { not: 'admin@eonpro.com' } },
+        { email: { not: 'admin@eonpro.io' } },
         { role: { not: 'SUPER_ADMIN' } }
       ]
     },
@@ -541,7 +541,7 @@ async function main(): Promise<void> {
   
   // Validate password
   const password = process.env.NEW_ADMIN_PASSWORD;
-  const email = process.env.NEW_ADMIN_EMAIL || 'admin@eonpro.com';
+  const email = process.env.NEW_ADMIN_EMAIL || 'admin@eonpro.io';
   
   if (!password) {
     console.error('❌ ERROR: NEW_ADMIN_PASSWORD is required\n');

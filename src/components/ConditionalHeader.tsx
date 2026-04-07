@@ -99,6 +99,7 @@ export default function ConditionalHeader() {
       '/portal', '/provider', '/staff', '/support', '/demo', '/pay/',
       '/admin', '/super-admin', '/patients', '/intake', '/intake-forms',
       '/dashboard', '/checkout', '/wellmedr-checkout', '/tickets',
+      '/request-demo', '/platform',
     ];
     return pathname === '/' || noHeaderPrefixes.some((p) => pathname?.startsWith(p));
   }, [pathname]);

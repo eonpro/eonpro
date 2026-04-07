@@ -24,6 +24,7 @@ export default function ConditionalLayout({ children }: ConditionalLayoutProps) 
       '/tickets', '/orders', '/intake', '/intake-forms',
       '/patient-portal', '/portal', '/dashboard',
       '/checkout', '/wellmedr-checkout',
+      '/request-demo', '/platform',
     ];
     return pathname === '/' || fullWidthPrefixes.some((p) => pathname?.startsWith(p));
   }, [pathname]);

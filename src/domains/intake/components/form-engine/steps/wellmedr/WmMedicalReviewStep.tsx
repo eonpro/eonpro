@@ -14,11 +14,16 @@ interface WmMedicalReviewStepProps {
 export default function WmMedicalReviewStep({
   basePath,
   nextStep,
+  prevStep,
   progressPercent,
 }: WmMedicalReviewStepProps) {
   const router = useRouter();
   const responses = useIntakeStore((s) => s.responses);
   const { setResponse, setResponses, markStepCompleted, setCurrentStep } = useIntakeActions();
+
+  const handleBack = () => {
+    if (prevStep) { setCurrentStep(prevStep); router.push(`${basePath}/${prevStep}`); }
+  };
 
   const weight = Number(responses.current_weight) || 0;
   const goalWeight = Number(responses.ideal_weight) || 0;
@@ -63,9 +68,17 @@ export default function WmMedicalReviewStep({
         <div className="h-full transition-all duration-500 ease-out" style={{ width: `${progressPercent}%`, backgroundColor: '#c3b29e' }} />
       </div>
 
+      {prevStep && (
+        <div className="px-5 sm:px-8 pt-4 max-w-[520px] mx-auto w-full">
+          <button onClick={handleBack} className="p-2 -ml-2 rounded-lg hover:bg-black/5 active:scale-95 transition-all" aria-label="Go back">
+            <svg className="w-5 h-5" style={{ color: '#101010' }} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
+          </button>
+        </div>
+      )}
+
       <div className="flex flex-col items-center w-full max-w-[520px] mx-auto px-6 sm:px-8">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/wellmedr-logo.svg" alt="wellmedr." className="h-7 sm:h-8 mt-12 sm:mt-16 mb-8 sm:mb-10" />
+        <img src="/wellmedr-logo.svg" alt="wellmedr." className="h-7 sm:h-8 mt-8 sm:mt-12 mb-6 sm:mb-8" />
 
         <h2 className="text-[1.5rem] sm:text-[1.75rem] font-bold text-center mb-4" style={{ color: '#101010' }}>Your medical review</h2>
 
@@ -87,19 +100,31 @@ export default function WmMedicalReviewStep({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-sm font-medium mb-1" style={{ color: '#7B95A9' }}>First Name <span className="text-red-400">*</span></label>
-              <input value={firstName} onChange={(e) => setFirstName(e.target.value)} className="w-full h-14 px-4 rounded-2xl border bg-white text-base" style={{ borderColor: errors.firstName ? '#ef4444' : '#e5e7eb' }} />
+              <input value={firstName} onChange={(e) => setFirstName(e.target.value)}
+                className="w-full h-14 px-4 rounded-2xl border bg-white text-base outline-none"
+                style={{ borderColor: errors.firstName ? '#ef4444' : 'rgba(0,0,0,0.08)', transition: 'border-color 0.2s, box-shadow 0.2s' }}
+                onFocus={(e) => { e.target.style.borderColor = '#c3b29e'; e.target.style.boxShadow = '0 0 0 3px rgba(195,178,158,0.15)'; }}
+                onBlur={(e) => { e.target.style.borderColor = errors.firstName ? '#ef4444' : 'rgba(0,0,0,0.08)'; e.target.style.boxShadow = 'none'; }} />
               {errors.firstName && <p className="text-xs text-red-500 mt-1">{errors.firstName}</p>}
             </div>
             <div>
               <label className="block text-sm font-medium mb-1" style={{ color: '#7B95A9' }}>Last Name <span className="text-red-400">*</span></label>
-              <input value={lastName} onChange={(e) => setLastName(e.target.value)} className="w-full h-14 px-4 rounded-2xl border bg-white text-base" style={{ borderColor: errors.lastName ? '#ef4444' : '#e5e7eb' }} />
+              <input value={lastName} onChange={(e) => setLastName(e.target.value)}
+                className="w-full h-14 px-4 rounded-2xl border bg-white text-base outline-none"
+                style={{ borderColor: errors.lastName ? '#ef4444' : 'rgba(0,0,0,0.08)', transition: 'border-color 0.2s, box-shadow 0.2s' }}
+                onFocus={(e) => { e.target.style.borderColor = '#c3b29e'; e.target.style.boxShadow = '0 0 0 3px rgba(195,178,158,0.15)'; }}
+                onBlur={(e) => { e.target.style.borderColor = errors.lastName ? '#ef4444' : 'rgba(0,0,0,0.08)'; e.target.style.boxShadow = 'none'; }} />
               {errors.lastName && <p className="text-xs text-red-500 mt-1">{errors.lastName}</p>}
             </div>
           </div>
 
           <div>
             <label className="block text-sm font-medium mb-1">What state will your medication be shipped to? <span className="text-red-400">*</span></label>
-            <select value={state} onChange={(e) => setState(e.target.value)} className="w-full h-14 px-4 rounded-2xl border bg-white text-base appearance-none" style={{ borderColor: errors.state ? '#ef4444' : '#e5e7eb' }}>
+            <select value={state} onChange={(e) => setState(e.target.value)}
+              className="w-full h-14 px-4 rounded-2xl border bg-white text-base appearance-none outline-none"
+              style={{ borderColor: errors.state ? '#ef4444' : 'rgba(0,0,0,0.08)', transition: 'border-color 0.2s, box-shadow 0.2s', cursor: 'pointer' }}
+              onFocus={(e) => { e.target.style.borderColor = '#c3b29e'; e.target.style.boxShadow = '0 0 0 3px rgba(195,178,158,0.15)'; }}
+              onBlur={(e) => { e.target.style.borderColor = errors.state ? '#ef4444' : 'rgba(0,0,0,0.08)'; e.target.style.boxShadow = 'none'; }}>
               <option value="">Select state</option>
               {US_STATES.map((s) => <option key={s} value={s}>{s}</option>)}
             </select>

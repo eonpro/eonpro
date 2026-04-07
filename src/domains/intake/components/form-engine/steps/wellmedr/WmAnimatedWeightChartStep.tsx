@@ -14,6 +14,7 @@ interface WmAnimatedWeightChartStepProps {
 export default function WmAnimatedWeightChartStep({
   basePath,
   nextStep,
+  prevStep,
   progressPercent,
 }: WmAnimatedWeightChartStepProps) {
   const router = useRouter();
@@ -22,6 +23,7 @@ export default function WmAnimatedWeightChartStep({
   const pathRef = useRef<SVGPathElement>(null);
   const [showBadge, setShowBadge] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [animComplete, setAnimComplete] = useState(false);
 
   const weight = Number(responses.current_weight || responses.currentWeight) || 200;
   const goalWeight = Number(responses.ideal_weight || responses.idealWeight) || 150;
@@ -42,18 +44,18 @@ export default function WmAnimatedWeightChartStep({
     }, 600);
 
     const badge = setTimeout(() => setShowBadge(true), 2400);
-    const autoNav = setTimeout(() => {
-      markStepCompleted('weight-chart');
-      setCurrentStep(nextStep);
-      router.push(`${basePath}/${nextStep}`);
-    }, 3800);
-    return () => { clearTimeout(delay); clearTimeout(badge); clearTimeout(autoNav); };
+    const done = setTimeout(() => setAnimComplete(true), 2800);
+    return () => { clearTimeout(delay); clearTimeout(badge); clearTimeout(done); };
   }, []);
 
   const handleContinue = () => {
     markStepCompleted('weight-chart');
     setCurrentStep(nextStep);
     router.push(`${basePath}/${nextStep}`);
+  };
+
+  const handleBack = () => {
+    if (prevStep) { setCurrentStep(prevStep); router.push(`${basePath}/${prevStep}`); }
   };
 
   const W = 600, H = 320, L = 70, R = 40, T = 50, B = 55;
@@ -94,9 +96,17 @@ export default function WmAnimatedWeightChartStep({
         <div className="h-full" style={{ width: `${progressPercent}%`, backgroundColor: '#c3b29e', transition: 'width 0.8s cubic-bezier(0.4,0,0.2,1)' }} />
       </div>
 
+      {prevStep && (
+        <div className="px-5 sm:px-8 pt-4 max-w-[520px] mx-auto w-full">
+          <button onClick={handleBack} className="p-2 -ml-2 rounded-lg hover:bg-black/5 active:scale-95 transition-all" aria-label="Go back">
+            <svg className="w-5 h-5" style={{ color: '#101010' }} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
+          </button>
+        </div>
+      )}
+
       <div className="flex flex-col items-center w-full max-w-[520px] mx-auto px-6 sm:px-8">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/wellmedr-logo.svg" alt="wellmedr." className="h-7 sm:h-8 mt-12 sm:mt-16 mb-8 sm:mb-10"
+        <img src="/wellmedr-logo.svg" alt="wellmedr." className="h-7 sm:h-8 mt-8 sm:mt-12 mb-6 sm:mb-8"
           style={{ opacity: mounted ? 1 : 0, transition: 'opacity 0.5s ease' }} />
 
         <h1 className="text-xl sm:text-[2rem] font-bold text-center leading-tight mb-4"
@@ -160,7 +170,16 @@ export default function WmAnimatedWeightChartStep({
         </div>
       </div>
 
-      <div className="pb-6" />
+      <div className="w-full max-w-[520px] mx-auto px-6 sm:px-8 mt-8 pb-8"
+        style={{ opacity: animComplete ? 1 : 0, transform: animComplete ? 'translateY(0)' : 'translateY(8px)', transition: 'all 0.5s cubic-bezier(0.4,0,0.2,1)' }}>
+        <button
+          onClick={handleContinue}
+          className="w-full flex items-center justify-center gap-2.5 py-4 text-white font-medium text-base rounded-full active:scale-[0.98]"
+          style={{ backgroundColor: '#0C2631', transition: 'all 0.2s ease' }}
+        >
+          Next <span className="text-lg">&rarr;</span>
+        </button>
+      </div>
     </div>
   );
 }

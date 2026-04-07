@@ -18,7 +18,7 @@ export default function FooterCTA() {
         </p>
         <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
           <a
-            href="mailto:contact@eonpro.io?subject=EonPro%20Demo%20Request"
+            href="/request-demo"
             className="rounded-full bg-[#4fa77e] px-10 py-4 text-base font-semibold text-white shadow-lg shadow-[#4fa77e]/25 transition-all hover:bg-[#429b6f] hover:shadow-xl hover:shadow-[#4fa77e]/30"
           >
             Request a Demo

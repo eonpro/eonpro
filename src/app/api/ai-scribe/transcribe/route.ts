@@ -18,6 +18,8 @@ import {
 import { prisma } from '@/lib/db';
 import { decryptPHI } from '@/lib/security/phi-encryption';
 
+const MAX_AUDIO_SIZE = 25 * 1024 * 1024; // 25 MB — OpenAI Whisper limit
+
 /**
  * POST /api/ai-scribe/transcribe
  * Transcribe audio chunk or complete audio file
@@ -29,25 +31,30 @@ export const POST = withProviderAuth(async (req: NextRequest, user) => {
     // Handle multipart form data (audio file upload)
     if (contentType.includes('multipart/form-data')) {
       const formData = (await req.formData()) as unknown as globalThis.FormData;
-      const audioFile = formData.get('audio') as File;
+      const audioFile = formData.get('audio') as Blob | null;
       const sessionId = formData.get('sessionId') as string;
       const patientId = formData.get('patientId') as string;
       const providerId = formData.get('providerId') as string;
       const isChunk = formData.get('isChunk') === 'true';
 
-      if (!audioFile) {
+      if (!audioFile || !(audioFile instanceof Blob)) {
         return NextResponse.json({ error: 'No audio file provided' }, { status: 400 });
+      }
+
+      if (audioFile.size > MAX_AUDIO_SIZE) {
+        return NextResponse.json(
+          { error: `Audio file too large (${Math.round(audioFile.size / 1024 / 1024)}MB). Max is 25MB.` },
+          { status: 400 },
+        );
       }
 
       if (providerId && Number(providerId) !== (user.providerId ?? user.id)) {
         return NextResponse.json({ error: 'Provider ID mismatch' }, { status: 403 });
       }
 
-      // Convert file to buffer
       const arrayBuffer = await audioFile.arrayBuffer();
       const buffer = Buffer.from(arrayBuffer);
 
-      // Get patient and provider names for speaker detection
       let providerName: string | undefined;
       let patientName: string | undefined;
 
@@ -73,18 +80,15 @@ export const POST = withProviderAuth(async (req: NextRequest, user) => {
         }
       }
 
-      // Transcribe audio
       const result = await transcribeAudio({
         audioBuffer: buffer,
-        mimeType: audioFile.type,
+        mimeType: audioFile.type || 'audio/webm',
       });
 
-      // Detect speakers
       const segments = result.segments
         ? detectSpeakers(result.segments, providerName, patientName)
         : [];
 
-      // If this is part of a session, add to session
       if (sessionId && isChunk) {
         for (const segment of segments) {
           await addSegmentToSession(sessionId, segment);
@@ -113,7 +117,7 @@ export const POST = withProviderAuth(async (req: NextRequest, user) => {
         if (!patientId || !providerId) {
           return NextResponse.json(
             { error: 'patientId and providerId are required' },
-            { status: 400 }
+            { status: 400 },
           );
         }
 
@@ -128,11 +132,10 @@ export const POST = withProviderAuth(async (req: NextRequest, user) => {
               startedAt: session.startedAt,
             },
           },
-          { status: 201 }
+          { status: 201 },
         );
 
       case 'status':
-        // Get session status
         if (!sessionId) {
           return NextResponse.json({ error: 'sessionId is required' }, { status: 400 });
         }
@@ -150,7 +153,6 @@ export const POST = withProviderAuth(async (req: NextRequest, user) => {
         });
 
       case 'complete':
-        // Complete and get full transcript
         if (!sessionId) {
           return NextResponse.json({ error: 'sessionId is required' }, { status: 400 });
         }
@@ -167,15 +169,25 @@ export const POST = withProviderAuth(async (req: NextRequest, user) => {
       default:
         return NextResponse.json(
           { error: 'Invalid action. Use "start", "status", or "complete"' },
-          { status: 400 }
+          { status: 400 },
         );
     }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    logger.error('AI Scribe transcription error', { error: errorMessage });
+
+    const isConfig = errorMessage.includes('OPENAI_API_KEY') || errorMessage.includes('Missing credentials');
+    const isTimeout = errorMessage.includes('timed out');
+    const status = isConfig ? 503 : isTimeout ? 504 : 500;
+
+    logger.error('AI Scribe transcription error', {
+      error: errorMessage,
+      status,
+      userId: user.id,
+    });
+
     return NextResponse.json(
       { error: 'Transcription failed', details: errorMessage },
-      { status: 500 }
+      { status },
     );
   }
 });

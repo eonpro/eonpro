@@ -2,15 +2,17 @@ const EONPRO_LOGO_WHITE = '/images/logos/eonpro-logo-white.svg';
 
 const FOOTER_LINKS = {
   Platform: [
-    { label: 'Patient Portal', href: '#features' },
-    { label: 'Provider Dashboard', href: '#features' },
-    { label: 'Clinic Admin', href: '#features' },
-    { label: 'Pharmacy Integration', href: '#features' },
+    { label: 'Patient Portal', href: '/platform/patient-portal' },
+    { label: 'Provider Dashboard', href: '/platform/provider-dashboard' },
+    { label: 'Clinic Admin', href: '/platform/clinic-admin' },
+    { label: 'Pharmacy Integration', href: '/platform/pharmacy-integration' },
   ],
   Company: [
-    { label: 'About', href: '#platform' },
-    { label: 'Security', href: '#security' },
+    { label: 'About', href: '/#platform' },
+    { label: 'Security', href: '/#security' },
+    { label: 'Request a Demo', href: '/request-demo' },
     { label: 'Contact', href: 'mailto:contact@eonpro.io' },
+    { label: 'Log In', href: 'https://app.eonpro.io' },
   ],
   Legal: [
     { label: 'Terms of Service', href: '/terms-of-service' },
