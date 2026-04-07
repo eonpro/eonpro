@@ -455,6 +455,19 @@ const SPECIAL_CONFIGS: Record<number, Partial<MedicationConfig>> = {
       },
     ],
   },
+  204754029: {
+    name: 'NAD+ 100 mg/mL (5 mL)',
+    strength: '100 mg/mL',
+    sigTemplates: [
+      {
+        label: 'M-F · 20 units (20 mg) SubQ',
+        sig: 'Inject 20 units (20 mg) subcutaneously once daily for Monday-Friday.',
+        quantity: '1',
+        refills: '0',
+        daysSupply: 30,
+      },
+    ],
+  },
   203448971: { sigTemplates: SEMAGLUTIDE_TEMPLATES },
   203448947: { sigTemplates: SEMAGLUTIDE_TEMPLATES },
   203449363: { sigTemplates: SEMAGLUTIDE_TEMPLATES },

@@ -111,6 +111,12 @@ export const LOGOS_PRODUCTS: LogosProduct[] = [
     form: 'Injectable',
     strength: '100MG/ML',
   },
+  {
+    id: 204754029,
+    name: 'NAD + 100MG/ML (5ML VIAL) SOLUTION',
+    form: 'Injectable',
+    strength: '100MG/ML',
+  },
   { id: 203449527, name: 'PREGNYL 10,000IU (HCG)', form: 'Injectable', strength: '10,000IU' },
   { id: 203449425, name: 'ONDASENTRON', form: 'Tablet', strength: '4MG' },
   { id: 203449431, name: 'ONDASENTRON', form: 'Tablet', strength: '8MG' },

@@ -151,6 +151,13 @@ export const OT_PRODUCT_PRICES: OtProductPrice[] = [
     vialSize: '10ML',
     priceCents: 4000,
   },
+  {
+    productId: 204754029,
+    name: 'NAD + 100MG/ML (5ML VIAL) SOLUTION',
+    strength: '100MG/ML',
+    vialSize: '5ML',
+    priceCents: 5000,
+  },
 ];
 
 export const OT_PRICE_MAP = new Map(OT_PRODUCT_PRICES.map((p) => [String(p.productId), p]));

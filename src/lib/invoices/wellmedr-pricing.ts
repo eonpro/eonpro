@@ -54,6 +54,7 @@ export const WELLMEDR_PRODUCT_PRICES: WellmedrProductPrice[] = [
   { productId: 202851329, name: 'SEMAGLUTIDE/GLYCINE', strength: '5/20MG/ML', vialSize: '2ML', priceCents: 5000 },
   // ADD-ON PRODUCTS
   { productId: 203194055, name: 'NAD+', strength: '100mg/mL', vialSize: '10mL', priceCents: 4500 },
+  { productId: 204754029, name: 'NAD+', strength: '100mg/mL', vialSize: '5mL', priceCents: 4500 },
   { productId: 203666651, name: 'SERMORELIN ACETATE', strength: '2MG/ML', vialSize: '5ML', priceCents: 5000 },
   { productId: 203449111, name: 'Cyanocobalamin (B12)', strength: '1000mcg/mL', vialSize: '1mL', priceCents: 2000 },
 ];
@@ -143,6 +144,7 @@ export function getAddonPrescriptionUpchargeCents(addonKeys: AddonKey[]): number
 
 export const ADDON_MEDICATION_KEY_TO_ADDON: Record<string, AddonKey> = {
   '203194055': 'nad_plus',
+  '204754029': 'nad_plus',
   '203666651': 'sermorelin',
   '203449111': 'b12',
 };
