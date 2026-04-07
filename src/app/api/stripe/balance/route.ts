@@ -91,6 +91,7 @@ async function getBalanceHandler(request: NextRequest, user: AuthUser) {
 
     // Get current balance (with connected account if applicable)
     const balance = await stripe.balance.retrieve(
+      {},
       stripeAccountId ? { stripeAccount: stripeAccountId } : undefined
     );
 

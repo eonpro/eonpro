@@ -1,6 +1,6 @@
 /**
  * AUTO-GENERATED — DO NOT EDIT MANUALLY
- * Generated from prisma/schema.prisma on 2026-02-28
+ * Generated from prisma/schema.prisma on 2026-04-07
  * Run: node scripts/generate-prisma-enums.js
  *
  * Client-safe Prisma enum types. Use these in 'use client' components instead of
@@ -173,6 +173,7 @@ export type SOAPSourceType =
   | 'MANUAL'
   | 'MEDLINK_INTAKE'
   | 'AI_GENERATED'
+  | 'TELEHEALTH_SCRIBE'
   | 'IMPORTED'
   | 'INVOICE_METADATA';
 
@@ -180,6 +181,7 @@ export const SOAPSourceType = {
   MANUAL: 'MANUAL' as const,
   MEDLINK_INTAKE: 'MEDLINK_INTAKE' as const,
   AI_GENERATED: 'AI_GENERATED' as const,
+  TELEHEALTH_SCRIBE: 'TELEHEALTH_SCRIBE' as const,
   IMPORTED: 'IMPORTED' as const,
   INVOICE_METADATA: 'INVOICE_METADATA' as const,
 } as const;
@@ -1735,4 +1737,151 @@ export const DraftStatus = {
   COMPLETED: 'COMPLETED' as const,
   EXPIRED: 'EXPIRED' as const,
   ABANDONED: 'ABANDONED' as const,
+} as const;
+
+export type PharmacyInvoiceStatus =
+  | 'PENDING'
+  | 'PARSING'
+  | 'PARSED'
+  | 'MATCHING'
+  | 'RECONCILED'
+  | 'ERROR';
+
+export const PharmacyInvoiceStatus = {
+  PENDING: 'PENDING' as const,
+  PARSING: 'PARSING' as const,
+  PARSED: 'PARSED' as const,
+  MATCHING: 'MATCHING' as const,
+  RECONCILED: 'RECONCILED' as const,
+  ERROR: 'ERROR' as const,
+} as const;
+
+export type PharmacyInvoiceLineType =
+  | 'MEDICATION'
+  | 'SUPPLY'
+  | 'SHIPPING_CARRIER'
+  | 'SHIPPING_FEE';
+
+export const PharmacyInvoiceLineType = {
+  MEDICATION: 'MEDICATION' as const,
+  SUPPLY: 'SUPPLY' as const,
+  SHIPPING_CARRIER: 'SHIPPING_CARRIER' as const,
+  SHIPPING_FEE: 'SHIPPING_FEE' as const,
+} as const;
+
+export type PharmacyPaymentStatus =
+  | 'UNPAID'
+  | 'PARTIAL'
+  | 'PAID';
+
+export const PharmacyPaymentStatus = {
+  UNPAID: 'UNPAID' as const,
+  PARTIAL: 'PARTIAL' as const,
+  PAID: 'PAID' as const,
+} as const;
+
+export type PharmacyInvoiceMatchStatus =
+  | 'PENDING'
+  | 'MATCHED'
+  | 'UNMATCHED'
+  | 'DISCREPANCY'
+  | 'MANUALLY_MATCHED'
+  | 'DISPUTED';
+
+export const PharmacyInvoiceMatchStatus = {
+  PENDING: 'PENDING' as const,
+  MATCHED: 'MATCHED' as const,
+  UNMATCHED: 'UNMATCHED' as const,
+  DISCREPANCY: 'DISCREPANCY' as const,
+  MANUALLY_MATCHED: 'MANUALLY_MATCHED' as const,
+  DISPUTED: 'DISPUTED' as const,
+} as const;
+
+export type CreditNoteStatus =
+  | 'DRAFT'
+  | 'APPLIED'
+  | 'VOIDED';
+
+export const CreditNoteStatus = {
+  DRAFT: 'DRAFT' as const,
+  APPLIED: 'APPLIED' as const,
+  VOIDED: 'VOIDED' as const,
+} as const;
+
+export type DispositionLeadSource =
+  | 'REF_LINK'
+  | 'COLD_CALL'
+  | 'WALK_IN'
+  | 'SOCIAL_MEDIA'
+  | 'TEXT_MESSAGE'
+  | 'EMAIL_CAMPAIGN'
+  | 'WORD_OF_MOUTH'
+  | 'EXISTING_PATIENT'
+  | 'EVENT'
+  | 'OTHER';
+
+export const DispositionLeadSource = {
+  REF_LINK: 'REF_LINK' as const,
+  COLD_CALL: 'COLD_CALL' as const,
+  WALK_IN: 'WALK_IN' as const,
+  SOCIAL_MEDIA: 'SOCIAL_MEDIA' as const,
+  TEXT_MESSAGE: 'TEXT_MESSAGE' as const,
+  EMAIL_CAMPAIGN: 'EMAIL_CAMPAIGN' as const,
+  WORD_OF_MOUTH: 'WORD_OF_MOUTH' as const,
+  EXISTING_PATIENT: 'EXISTING_PATIENT' as const,
+  EVENT: 'EVENT' as const,
+  OTHER: 'OTHER' as const,
+} as const;
+
+export type DispositionContactMethod =
+  | 'PHONE'
+  | 'TEXT'
+  | 'EMAIL'
+  | 'IN_PERSON'
+  | 'VIDEO_CALL'
+  | 'SOCIAL_DM'
+  | 'OTHER';
+
+export const DispositionContactMethod = {
+  PHONE: 'PHONE' as const,
+  TEXT: 'TEXT' as const,
+  EMAIL: 'EMAIL' as const,
+  IN_PERSON: 'IN_PERSON' as const,
+  VIDEO_CALL: 'VIDEO_CALL' as const,
+  SOCIAL_DM: 'SOCIAL_DM' as const,
+  OTHER: 'OTHER' as const,
+} as const;
+
+export type DispositionOutcome =
+  | 'SALE_COMPLETED'
+  | 'INTERESTED'
+  | 'CALLBACK_REQUESTED'
+  | 'NOT_INTERESTED'
+  | 'NO_ANSWER'
+  | 'WRONG_NUMBER'
+  | 'ALREADY_PATIENT'
+  | 'DO_NOT_CONTACT'
+  | 'OTHER';
+
+export const DispositionOutcome = {
+  SALE_COMPLETED: 'SALE_COMPLETED' as const,
+  INTERESTED: 'INTERESTED' as const,
+  CALLBACK_REQUESTED: 'CALLBACK_REQUESTED' as const,
+  NOT_INTERESTED: 'NOT_INTERESTED' as const,
+  NO_ANSWER: 'NO_ANSWER' as const,
+  WRONG_NUMBER: 'WRONG_NUMBER' as const,
+  ALREADY_PATIENT: 'ALREADY_PATIENT' as const,
+  DO_NOT_CONTACT: 'DO_NOT_CONTACT' as const,
+  OTHER: 'OTHER' as const,
+} as const;
+
+export type DispositionStatus =
+  | 'PENDING_REVIEW'
+  | 'APPROVED'
+  | 'REJECTED';
+
+export const DispositionStatus = {
+  PENDING_REVIEW: 'PENDING_REVIEW' as const,
+  APPROVED: 'APPROVED' as const,
+  REJECTED: 'REJECTED' as const,
 } as const;

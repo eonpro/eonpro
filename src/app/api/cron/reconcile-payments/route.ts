@@ -132,8 +132,8 @@ async function runReconcile(req: NextRequest) {
 
           out.stripePaymentCount = allPayments.length;
           if (stripeContext.isPlatformAccount && !stripeContext.isDedicatedAccount) {
-            out.skippedNoClinic = allPayments.filter((pi) => {
-              if (pi.invoice) return false;
+          out.skippedNoClinic = allPayments.filter((pi) => {
+            if ((pi as any).invoice) return false;
               const meta = pi.metadata as Record<string, string | undefined>;
               const metaClinicId = meta.clinic_id ?? meta.clinicId;
               return (
@@ -165,7 +165,7 @@ async function runReconcile(req: NextRequest) {
 
           const missingForClinic = allPayments.filter((pi) => {
             if (processedIds.has(pi.id)) return false;
-            if (pi.invoice) return false;
+            if ((pi as any).invoice) return false;
             // Connect / dedicated accounts: listing is already scoped to this clinic.
             // Platform Stripe (single clinic on Connect platform): require metadata match.
             if (stripeContext.isPlatformAccount && !stripeContext.isDedicatedAccount) {

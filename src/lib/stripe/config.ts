@@ -223,7 +223,7 @@ export async function validateStripeConfig(forceRefresh = false): Promise<Stripe
     const stripe = getStripeClient()!;
 
     // Try to retrieve account info
-    const account = await stripe.accounts.retrieve();
+    const account = await (stripe.accounts.retrieve as any)();
 
     config.isConfigured = true;
     config.accountId = account.id;

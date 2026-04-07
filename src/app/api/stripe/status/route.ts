@@ -66,7 +66,7 @@ async function getStripeStatusHandler(request: NextRequest, user: AuthUser) {
         if (stripeContext.isDedicatedAccount) {
           // Verify the Stripe account is working by fetching account info
           const stripe = stripeContext.stripe;
-          const account = await stripe.accounts.retrieve();
+          const account = await (stripe.accounts.retrieve as Function)();
 
           return NextResponse.json({
             connected: true,

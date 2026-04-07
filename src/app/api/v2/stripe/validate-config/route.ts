@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
       const stripe = getStripe();
 
       // Test the connection by retrieving account info
-      const account = await stripe.accounts.retrieve();
+      const account = await (stripe.accounts.retrieve as Function)();
 
       return NextResponse.json({
         valid: true,

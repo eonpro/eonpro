@@ -44,7 +44,7 @@ async function handler(req: NextRequest, user: AuthUser) {
       : undefined;
 
     const pm = connectOpts
-      ? await stripe.paymentMethods.retrieve(stripePaymentMethodId, connectOpts)
+      ? await stripe.paymentMethods.retrieve(stripePaymentMethodId, {}, connectOpts)
       : await stripe.paymentMethods.retrieve(stripePaymentMethodId);
 
     const brand = pm.card?.brand

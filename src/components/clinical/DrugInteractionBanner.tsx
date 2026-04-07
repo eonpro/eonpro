@@ -31,7 +31,7 @@ export default function DrugInteractionBanner({ medications, allergies }: Props)
   const [loading, setLoading] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [dismissed, setDismissed] = useState(false);
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const lastCheckRef = useRef('');
 
   const checkInteractions = useCallback(async () => {

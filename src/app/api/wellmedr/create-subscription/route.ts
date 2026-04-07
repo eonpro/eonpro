@@ -155,7 +155,7 @@ export async function POST(req: NextRequest) {
         const paymentRecord = invoicePayments.data[0];
         if (paymentRecord.payment?.type === 'payment_intent') {
           const piId = (paymentRecord.payment as { type: 'payment_intent'; payment_intent: string }).payment_intent;
-          const pi = await stripe.paymentIntents.retrieve(piId, connectOpts);
+          const pi = await stripe.paymentIntents.retrieve(piId, {}, connectOpts as any);
           clientSecret = pi.client_secret;
         }
       }

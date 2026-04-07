@@ -116,9 +116,7 @@ async function handlePost(request: NextRequest, _user: AuthUser) {
       ? { stripeAccount: stripeContext.stripeAccountId }
       : undefined;
 
-    const intent = connectOpts
-      ? await stripe.paymentIntents.retrieve(paymentIntentId, connectOpts)
-      : await stripe.paymentIntents.retrieve(paymentIntentId);
+    const intent = await stripe.paymentIntents.retrieve(paymentIntentId, {}, connectOpts as any);
 
     const stripeStatus = intent.status === 'succeeded'
       ? PaymentStatus.SUCCEEDED
@@ -136,9 +134,7 @@ async function handlePost(request: NextRequest, _user: AuthUser) {
     // New-card flow: create local PaymentMethod from Stripe when user chose "save card"
     if (stripePaymentMethodId && saveCard && !parsedLocalPmId) {
       try {
-        const pm = connectOpts
-          ? await stripe.paymentMethods.retrieve(stripePaymentMethodId, connectOpts)
-          : await stripe.paymentMethods.retrieve(stripePaymentMethodId);
+        const pm = await stripe.paymentMethods.retrieve(stripePaymentMethodId, {}, connectOpts as any);
         const last4 = (pm as Stripe.PaymentMethod).card?.last4 ?? '????';
         const brand = (pm as Stripe.PaymentMethod).card?.brand
           ? String((pm as Stripe.PaymentMethod).card?.brand).charAt(0).toUpperCase() +

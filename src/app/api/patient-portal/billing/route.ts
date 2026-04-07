@@ -28,6 +28,7 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
     const patient = await prisma.patient.findUnique({
       where: { id: user.patientId },
       select: {
+        id: true,
         clinicId: true,
         stripeCustomerId: true,
         subscriptions: {
@@ -134,7 +135,7 @@ export const GET = withAuth(async (req: NextRequest, user: AuthUser) => {
           : await stripe.paymentMethods.list({ customer: customerId, type: 'card' });
 
         const customerObj = connectOpts
-          ? await stripe.customers.retrieve(customerId, connectOpts)
+          ? await stripe.customers.retrieve(customerId, {}, connectOpts)
           : await stripe.customers.retrieve(customerId);
         const defaultPaymentMethod =
           typeof customerObj !== 'string' && !customerObj.deleted

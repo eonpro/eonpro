@@ -34,7 +34,7 @@ export async function execute(
 
   if (isEmail) {
     patients = await prisma.patient.findMany({
-      where: { clinicId, email: { contains: q, mode: 'insensitive' } },
+      where: { clinicId, email: { contains: q, mode: 'insensitive' as const } },
       select: patientSelect,
       take: 5,
     });
@@ -62,9 +62,9 @@ export async function execute(
         OR: [
           {
             AND: [
-              { firstName: { contains: firstName, mode: 'insensitive' } },
+              { firstName: { contains: firstName, mode: 'insensitive' as const } },
               ...(lastName
-                ? [{ lastName: { contains: lastName, mode: 'insensitive' } }]
+                ? [{ lastName: { contains: lastName, mode: 'insensitive' as const } }]
                 : []),
             ],
           },
@@ -72,14 +72,14 @@ export async function execute(
             ? [
                 {
                   AND: [
-                    { firstName: { contains: lastName, mode: 'insensitive' } },
-                    { lastName: { contains: firstName, mode: 'insensitive' } },
+                    { firstName: { contains: lastName, mode: 'insensitive' as const } },
+                    { lastName: { contains: firstName, mode: 'insensitive' as const } },
                   ],
                 },
               ]
             : []),
-          { firstName: { contains: q, mode: 'insensitive' } },
-          { lastName: { contains: q, mode: 'insensitive' } },
+          { firstName: { contains: q, mode: 'insensitive' as const } },
+          { lastName: { contains: q, mode: 'insensitive' as const } },
         ],
       },
       select: patientSelect,

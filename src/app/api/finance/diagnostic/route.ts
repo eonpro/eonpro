@@ -11,7 +11,7 @@ import { prisma, getClinicContext } from '@/lib/db';
 import { getAuthUser } from '@/lib/auth';
 import { logger } from '@/lib/logger';
 import { verifyClinicAccess } from '@/lib/auth/clinic-access';
-import { getStripeForClinic, withConnectedAccount } from '@/lib/stripe/connect';
+import { getStripeForClinic, stripeRequestOptions } from '@/lib/stripe/connect';
 import { subDays } from 'date-fns';
 
 export async function GET(request: NextRequest) {
@@ -66,18 +66,20 @@ export async function GET(request: NextRequest) {
     if (stripeContext.stripe) {
       try {
         const list = await stripeContext.stripe.subscriptions.list(
-          withConnectedAccount(stripeContext, { status: 'active', limit: 100 })
+          { status: 'active' as const, limit: 100 },
+          stripeRequestOptions(stripeContext)
         );
         stripeSubscriptionCount = list.data.length;
         if (list.has_more) {
           let startingAfter: string | undefined = list.data[list.data.length - 1]?.id;
           while (list.has_more && startingAfter) {
             const next: typeof list = await stripeContext.stripe!.subscriptions.list(
-              withConnectedAccount(stripeContext, {
-                status: 'active',
+              {
+                status: 'active' as const,
                 limit: 100,
                 starting_after: startingAfter,
-              })
+              },
+              stripeRequestOptions(stripeContext)
             );
             list.data.push(...next.data);
             list.has_more = next.has_more;

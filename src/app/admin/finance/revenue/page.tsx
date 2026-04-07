@@ -924,7 +924,7 @@ export default function RevenuePage() {
                   <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
                   <XAxis dataKey="month" tick={{ fontSize: 12, fill: '#6B7280' }} />
                   <YAxis tick={{ fontSize: 12, fill: '#6B7280' }} tickFormatter={(v) => formatCurrencyCompact(v)} />
-                  <Tooltip formatter={(value: number, name: string) => [formatCurrency(value), name === 'gross' ? 'Gross' : name === 'net' ? 'Net' : name === 'fees' ? 'Fees' : name === 'refunds' ? 'Refunds' : name]} contentStyle={{ borderRadius: '8px', border: '1px solid #E5E7EB' }} />
+                  <Tooltip formatter={((value: number | undefined, name: string) => [formatCurrency(value ?? 0), name === 'gross' ? 'Gross' : name === 'net' ? 'Net' : name === 'fees' ? 'Fees' : name === 'refunds' ? 'Refunds' : name]) as any} contentStyle={{ borderRadius: '8px', border: '1px solid #E5E7EB' }} />
                   <Area type="monotone" dataKey="gross" name="Gross" stroke="#10B981" fill="url(#grossGradient)" strokeWidth={2} />
                   <Area type="monotone" dataKey="net" name="Net" stroke="#3B82F6" fill="url(#netGradient)" strokeWidth={2} />
                   <Line type="monotone" dataKey="fees" name="Fees" stroke="#EF4444" strokeWidth={1.5} strokeDasharray="4 4" dot={false} />
@@ -964,7 +964,7 @@ export default function RevenuePage() {
                     <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
                     <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#6B7280' }} />
                     <YAxis tick={{ fontSize: 11, fill: '#6B7280' }} tickFormatter={(v) => formatCurrencyCompact(v)} />
-                    <Tooltip formatter={(v: number) => formatCurrency(v)} contentStyle={{ borderRadius: '8px', border: '1px solid #E5E7EB' }} />
+                    <Tooltip formatter={(v: number | undefined) => formatCurrency(v ?? 0)} contentStyle={{ borderRadius: '8px', border: '1px solid #E5E7EB' }} />
                     <Area type="monotone" dataKey="mrr" name="MRR" stroke="#10B981" fill="#10B98120" strokeWidth={2} />
                   </AreaChart>
                 </ResponsiveContainer>
@@ -995,7 +995,7 @@ export default function RevenuePage() {
                     <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
                     <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#6B7280' }} />
                     <YAxis tick={{ fontSize: 11, fill: '#6B7280' }} tickFormatter={(v) => `${v}%`} />
-                    <Tooltip formatter={(v: number) => `${v}%`} contentStyle={{ borderRadius: '8px', border: '1px solid #E5E7EB' }} />
+                    <Tooltip formatter={(v: number | undefined) => `${v ?? 0}%`} contentStyle={{ borderRadius: '8px', border: '1px solid #E5E7EB' }} />
                     <Line type="monotone" dataKey="churnRate" name="Churn Rate" stroke="#F59E0B" strokeWidth={2} dot={{ fill: '#F59E0B', r: 3 }} />
                     <Line type="monotone" dataKey="retentionRate" name="Retention Rate" stroke="#10B981" strokeWidth={2} dot={{ fill: '#10B981', r: 3 }} />
                     <Legend />

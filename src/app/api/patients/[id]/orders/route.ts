@@ -3,12 +3,19 @@ import { withClinicalAuth, AuthUser } from '@/lib/auth/middleware';
 import { prisma } from '@/lib/db';
 import { handleApiError } from '@/domains/shared/errors';
 
+interface RouteParams {
+  params: Promise<{ id: string }>;
+}
+
 async function handler(
   req: NextRequest,
   user: AuthUser,
-  { params }: { params: Promise<{ id: string }> }
+  context?: RouteParams,
 ) {
-  const { id: rawId } = await params;
+  if (!context?.params) {
+    return NextResponse.json({ error: 'Missing ID parameter' }, { status: 400 });
+  }
+  const { id: rawId } = await context.params;
   try {
     const patientId = parseInt(rawId, 10);
     if (isNaN(patientId)) {
@@ -66,4 +73,4 @@ async function handler(
   }
 }
 
-export const GET = withClinicalAuth(handler);
+export const GET = withClinicalAuth(handler as any);

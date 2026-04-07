@@ -126,7 +126,7 @@ async function getPayoutsHandler(request: NextRequest, user: AuthUser) {
     // Get account settings for payout schedule
     let payoutSchedule = null;
     try {
-      const account = await stripe.accounts.retrieve();
+      const account = await (stripe.accounts.retrieve as Function)();
       if (account.settings?.payouts?.schedule) {
         payoutSchedule = {
           interval: account.settings.payouts.schedule.interval,

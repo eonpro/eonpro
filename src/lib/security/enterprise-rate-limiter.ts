@@ -778,7 +778,7 @@ export async function emergencyFlushAllAuthRateLimits(): Promise<{ cleared: numb
       let redisDeleted = 0;
       let cursor: string | number = 0;
       do {
-        const result = await redis.scan(cursor, { match: 'auth:*', count: 200 });
+        const result: [string | number, string[]] = await redis.scan(cursor, { match: 'auth:*', count: 200 });
         cursor = result[0];
         const keys = result[1] as string[];
         if (keys.length > 0) {

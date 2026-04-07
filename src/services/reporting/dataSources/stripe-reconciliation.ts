@@ -94,7 +94,7 @@ async function execute(config: ReportConfig): Promise<ReportResult> {
   const createdFilter = { gte: startTs, lte: endTs };
 
   const [balance, balanceTransactions, payouts, charges, refunds] = await Promise.all([
-    stripe.balance.retrieve(context.stripeAccountId ? { stripeAccount: context.stripeAccountId } : undefined),
+    stripe.balance.retrieve({}, context.stripeAccountId ? { stripeAccount: context.stripeAccountId } : undefined),
     stripe.balanceTransactions.list({
       created: createdFilter, limit: 100,
       ...(context.stripeAccountId ? { stripeAccount: context.stripeAccountId } : {}),
@@ -150,7 +150,7 @@ async function execute(config: ReportConfig): Promise<ReportResult> {
     ? rows.filter((r) => categoryFilters.includes(r.category as string))
     : rows;
 
-  const summary = {
+  const summary: Record<string, number> = {
     totalCharges,
     totalRefunds,
     totalFees,
@@ -158,7 +158,7 @@ async function execute(config: ReportConfig): Promise<ReportResult> {
     expectedBalance,
     actualBalance,
     reconciliationDifference: actualBalance - expectedBalance,
-    isReconciled: Math.abs(actualBalance - expectedBalance) < 100,
+    isReconciled: Math.abs(actualBalance - expectedBalance) < 100 ? 1 : 0,
   };
 
   return {

@@ -242,6 +242,8 @@ interface QueueItem {
   glp1Source?: string;
   // Whether patient has ANY previous prescription (renewal vs new detection)
   hasPreviousRx?: boolean;
+  // Whether this queue item is a refill
+  isRefill?: boolean;
   // Previous prescription details for renewals/refills
   lastRxDetails?: {
     medName: string;

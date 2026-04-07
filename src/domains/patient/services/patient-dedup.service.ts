@@ -206,7 +206,7 @@ export function createPatientDeduplicationService(
       });
 
       const phiData = skipEncryption ? data : encryptPatientPHI({ ...data });
-      const hashEnriched = withPatientHashes(phiData, data.email, data.dob);
+      const hashEnriched = withPatientHashes(phiData as unknown as Record<string, unknown>, data.email, data.dob);
 
       const created = await client.patient.create({
         data: {

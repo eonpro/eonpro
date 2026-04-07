@@ -430,7 +430,7 @@ export const POST = withAuth(
       });
 
       // Send welcome notification (non-blocking — user creation already committed)
-      let inviteResult = { emailSent: false, smsSent: false, emailError: undefined as string | undefined, smsError: undefined as string | undefined };
+      let inviteResult: { emailSent: boolean; smsSent: boolean; emailError?: string; smsError?: string } = { emailSent: false, smsSent: false };
       if (sendInvite || body.sendInviteText) {
         const clinic = await prisma.clinic.findUnique({
           where: { id: user.clinicId! },

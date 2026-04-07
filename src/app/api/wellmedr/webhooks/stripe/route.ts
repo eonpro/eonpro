@@ -94,7 +94,7 @@ export async function POST(req: NextRequest) {
           if (order) {
             await updateOrderPaymentStatus(order.id, 'succeeded');
             if (pi.payment_method) {
-              const pm = await stripe.paymentMethods.retrieve(typeof pi.payment_method === 'string' ? pi.payment_method : pi.payment_method.id, connectOpts);
+              const pm = await stripe.paymentMethods.retrieve(typeof pi.payment_method === 'string' ? pi.payment_method : pi.payment_method.id, {}, connectOpts as any);
               await updateOrderPaymentDetails(order.id, {
                 paymentMethodType: pm.type,
                 cardBrand: pm.card?.brand,

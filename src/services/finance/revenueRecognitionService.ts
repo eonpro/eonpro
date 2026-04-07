@@ -328,8 +328,8 @@ export async function syncSubscriptionEntries(clinicId: number) {
     const interval = price.recurring?.interval || 'month';
     const intervalCount = price.recurring?.interval_count || 1;
 
-    const startDate = new Date(sub.current_period_start * 1000);
-    const endDate = new Date(sub.current_period_end * 1000);
+    const startDate = new Date((sub as any).current_period_start * 1000);
+    const endDate = new Date((sub as any).current_period_end * 1000);
 
     await createRecognitionEntry({
       clinicId,

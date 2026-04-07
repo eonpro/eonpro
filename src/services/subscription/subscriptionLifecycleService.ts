@@ -546,6 +546,7 @@ export async function cancelSubscription(
       } else {
         await stripe.subscriptions.cancel(
           subscription.stripeSubscriptionId,
+          {},
           requestOptions
         );
       }

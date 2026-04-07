@@ -8,6 +8,7 @@
  */
 
 import { logger } from '@/lib/logger';
+import { Prisma } from '@prisma/client';
 import cache from '@/lib/cache/redis';
 
 // =============================================================================
@@ -174,17 +175,17 @@ async function createDurableFallbackRecord(submission: QueuedSubmission): Promis
         endpoint: DURABLE_FALLBACK_ENDPOINT,
         method: 'SYSTEM',
         status: 'PROCESSING_ERROR',
-        payload: submission.payload,
+        payload: submission.payload as Prisma.InputJsonValue,
         retryCount: submission.attemptCount,
         lastRetryAt: new Date(submission.lastAttemptAt),
-        metadata: getDurableMetadata(submission),
+        metadata: getDurableMetadata(submission) as Prisma.InputJsonValue,
       },
       update: {
         status: 'PROCESSING_ERROR',
-        payload: submission.payload,
+        payload: submission.payload as Prisma.InputJsonValue,
         retryCount: submission.attemptCount,
         lastRetryAt: new Date(submission.lastAttemptAt),
-        metadata: getDurableMetadata(submission),
+        metadata: getDurableMetadata(submission) as Prisma.InputJsonValue,
       },
     });
   } catch (error) {

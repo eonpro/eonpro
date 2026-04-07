@@ -40,7 +40,7 @@ async function handler(
     const { stripe, stripeAccountId } = context;
     const connectedOpts = stripeAccountId ? { stripeAccount: stripeAccountId } : {};
 
-    const payout = await stripe.payouts.retrieve(payoutId, connectedOpts);
+    const payout = await stripe.payouts.retrieve(payoutId, {}, connectedOpts as any);
 
     const allTransactions: any[] = [];
     let hasMore = true;

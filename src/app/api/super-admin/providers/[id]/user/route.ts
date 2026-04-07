@@ -282,7 +282,7 @@ export const POST = withSuperAdminAuth(
         email: result.email,
       });
 
-      let inviteResult = { emailSent: false, smsSent: false, emailError: undefined as string | undefined, smsError: undefined as string | undefined };
+      let inviteResult: { emailSent: boolean; smsSent: boolean; emailError?: string; smsError?: string } = { emailSent: false, smsSent: false };
       if (sendInvite) {
         const clinic = userClinicId
           ? await prisma.clinic.findUnique({

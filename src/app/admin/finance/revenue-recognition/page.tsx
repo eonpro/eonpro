@@ -219,7 +219,7 @@ export default function RevenueRecognitionPage() {
                   <XAxis dataKey="month" tick={{ fontSize: 12, fill: '#6B7280' }} />
                   <YAxis tick={{ fontSize: 12, fill: '#6B7280' }} tickFormatter={(v) => `$${(v / 100).toFixed(0)}`} />
                   <Tooltip
-                    formatter={(v: number, name: string) => [fmt(v), name === 'recognized' ? 'Recognized' : name === 'deferred' ? 'Deferred' : name]}
+                    formatter={((v: number | undefined, name: string) => [fmt(v ?? 0), name === 'recognized' ? 'Recognized' : name === 'deferred' ? 'Deferred' : name]) as any}
                     contentStyle={{ borderRadius: '8px', border: '1px solid #E5E7EB' }}
                   />
                   <Legend />

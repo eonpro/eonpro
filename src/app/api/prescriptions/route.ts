@@ -93,12 +93,12 @@ async function createPrescriptionHandlerLegacy(req: NextRequest, user: AuthUser)
       );
     }
 
+    const body = await req.json();
+
     // Sales reps MUST queue for provider — they cannot send to pharmacy directly
     if (user.role === 'sales_rep') {
       body.queueForProvider = true;
     }
-
-    const body = await req.json();
 
     // Use authenticated user's providerId as fallback if not specified in request
     if (!body.providerId && user.providerId) {
@@ -1454,7 +1454,7 @@ async function parseServiceInput(
     );
   }
 
-  return parsed.data as Parameters<typeof prescriptionService.createPrescription>[0];
+  return parsed.data as unknown as Parameters<typeof prescriptionService.createPrescription>[0];
 }
 
 async function createPrescriptionHandlerService(

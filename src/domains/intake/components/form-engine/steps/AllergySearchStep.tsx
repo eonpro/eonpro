@@ -43,7 +43,7 @@ export default function AllergySearchStep({
   const [activeIndex, setActiveIndex] = useState(-1);
   const inputRef = useRef<HTMLInputElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   const fetchResults = useCallback(async (q: string) => {
     if (q.length < 2) { setResults([]); return; }

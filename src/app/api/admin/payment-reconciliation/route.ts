@@ -447,6 +447,7 @@ export async function POST(req: NextRequest) {
 
       const paymentIntent = await stripeContext.stripe.paymentIntents.retrieve(
         paymentIntentId,
+        {},
         reqOpts
       );
 

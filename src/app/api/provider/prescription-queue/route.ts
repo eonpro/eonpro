@@ -157,11 +157,11 @@ async function handleGet(req: NextRequest, user: AuthUser) {
     };
     const refillWhere = {
       clinicId: { in: clinicIds },
-      status: { in: ['APPROVED', 'PENDING_PROVIDER', 'ON_HOLD'] as const },
+      status: { in: ['APPROVED', 'PENDING_PROVIDER', 'ON_HOLD'] as any[] },
     };
     const queuedOrderWhere = {
       clinicId: { in: clinicIds },
-      status: { in: ['queued_for_provider', 'needs_info'] as const },
+      status: { in: ['queued_for_provider', 'needs_info'] as string[] },
     };
 
     const [invoices, invoiceCount] = await Promise.all([

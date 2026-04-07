@@ -233,7 +233,7 @@ async function getRedisPrefixCounts(): Promise<Record<string, number>> {
         let cursor: string | number = 0;
         let count = 0;
         do {
-          const [nextCursor, keys] = await redis.scan(cursor, { match: pattern, count: 200 });
+          const [nextCursor, keys]: [string | number, string[]] = await redis.scan(cursor, { match: pattern, count: 200 });
           count += keys.length;
           cursor = nextCursor;
           // Keep bounded to avoid expensive scans in health probes.

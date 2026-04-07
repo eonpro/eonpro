@@ -259,7 +259,7 @@ export async function syncSubscriptionFromStripe(
         const requestOpts: Stripe.RequestOptions | undefined = options?.stripeAccountId
           ? { stripeAccount: options.stripeAccountId }
           : undefined;
-        const customer = await stripe.customers.retrieve(customerId, requestOpts);
+        const customer = await stripe.customers.retrieve(customerId, {}, requestOpts);
         if (customer && !customer.deleted && 'email' in customer && customer.email) {
           const email = customer.email.trim().toLowerCase();
           const patient = await findPatientByEmail(email, resolvedClinicId || undefined);

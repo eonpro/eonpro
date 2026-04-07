@@ -58,7 +58,7 @@ export const POST = withAuth(async (req: NextRequest, user: AuthUser) => {
       : undefined;
 
     const pm = connectOpts
-      ? await stripe.paymentMethods.retrieve(stripePaymentMethodId, connectOpts)
+      ? await stripe.paymentMethods.retrieve(stripePaymentMethodId, {}, connectOpts)
       : await stripe.paymentMethods.retrieve(stripePaymentMethodId);
 
     const existing = await prisma.paymentMethod.findFirst({

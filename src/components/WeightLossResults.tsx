@@ -432,7 +432,7 @@ export default function WeightLossResults({
                         tick={{ fontSize: 12 }}
                       />
                       <Tooltip
-                        formatter={(value: number) => [`${value} lbs`, 'Total Lost']}
+                        formatter={(value: number | undefined) => [`${value ?? 0} lbs`, 'Total Lost']}
                         contentStyle={{
                           borderRadius: '8px',
                           border: '1px solid #e5e7eb',

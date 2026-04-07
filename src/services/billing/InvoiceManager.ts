@@ -277,7 +277,7 @@ export class InvoiceManager {
       options.patientId,
       options.clinicId ?? this.clinicId,
     );
-    options = { ...options, lineItems: dedupedItems as LineItem[] };
+    options = { ...options, lineItems: dedupedItems as unknown as LineItem[] };
 
     // Calculate totals
     const summary = this.calculateInvoiceSummary(
@@ -364,7 +364,7 @@ export class InvoiceManager {
           }, stripe.opts);
         }
 
-        const finalizedInvoice = await stripe.client.invoices.finalizeInvoice(stripeInvoice.id, stripe.opts);
+        const finalizedInvoice = await stripe.client.invoices.finalizeInvoice(stripeInvoice.id, {}, stripe.opts);
 
         stripeInvoiceId = finalizedInvoice.id;
         stripeInvoiceUrl = finalizedInvoice.hosted_invoice_url || undefined;
@@ -372,12 +372,12 @@ export class InvoiceManager {
         stripeInvoice = finalizedInvoice;
 
         if (options.autoSend) {
-          await stripe.client.invoices.sendInvoice(finalizedInvoice.id, stripe.opts);
+          await stripe.client.invoices.sendInvoice(finalizedInvoice.id, {}, stripe.opts);
         }
 
         if (options.autoCharge) {
           try {
-            await stripe.client.invoices.pay(finalizedInvoice.id, stripe.opts);
+            await stripe.client.invoices.pay(finalizedInvoice.id, {}, stripe.opts);
           } catch (payError) {
             logger.warn('Auto-charge failed', { invoiceId: finalizedInvoice.id, error: payError });
           }
@@ -697,7 +697,7 @@ export class InvoiceManager {
     const stripe = await this.resolveStripe();
     if (stripe && invoice.stripeInvoiceId && invoice.status === 'OPEN') {
       try {
-        await stripe.client.invoices.sendInvoice(invoice.stripeInvoiceId, stripe.opts);
+        await stripe.client.invoices.sendInvoice(invoice.stripeInvoiceId, {}, stripe.opts);
         delivery.push({ method: 'stripe_email', success: true });
       } catch (stripeError: unknown) {
         delivery.push({ method: 'stripe_email', success: false, error: stripeError instanceof Error ? stripeError.message : String(stripeError) });
@@ -777,7 +777,7 @@ export class InvoiceManager {
     const stripe = await this.resolveStripe();
     if (stripe && invoice.stripeInvoiceId) {
       try {
-        await stripe.client.invoices.voidInvoice(invoice.stripeInvoiceId, stripe.opts);
+        await stripe.client.invoices.voidInvoice(invoice.stripeInvoiceId, {}, stripe.opts);
       } catch (stripeError: unknown) {
         logger.warn('Stripe void failed', { error: stripeError instanceof Error ? stripeError.message : String(stripeError) });
       }
@@ -813,7 +813,7 @@ export class InvoiceManager {
     const stripe = await this.resolveStripe();
     if (stripe && invoice.stripeInvoiceId && invoice.status !== 'PAID') {
       try {
-        await stripe.client.invoices.voidInvoice(invoice.stripeInvoiceId, stripe.opts);
+        await stripe.client.invoices.voidInvoice(invoice.stripeInvoiceId, {}, stripe.opts);
       } catch (stripeError: unknown) {
         logger.warn('Stripe void failed during cancel', { error: stripeError instanceof Error ? stripeError.message : String(stripeError) });
       }
@@ -849,7 +849,7 @@ export class InvoiceManager {
     const stripe = await this.resolveStripe();
     if (stripe && invoice.stripeInvoiceId) {
       try {
-        await stripe.client.invoices.markUncollectible(invoice.stripeInvoiceId, stripe.opts);
+        await stripe.client.invoices.markUncollectible(invoice.stripeInvoiceId, {}, stripe.opts);
       } catch (stripeError: unknown) {
         logger.warn('Stripe mark uncollectible failed', { error: stripeError instanceof Error ? stripeError.message : String(stripeError) });
       }

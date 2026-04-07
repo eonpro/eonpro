@@ -583,6 +583,7 @@ export async function getClinicBalance(clinicId: number) {
   const context = await getStripeForClinic(clinicId);
 
   const balance = await context.stripe.balance.retrieve(
+    {},
     context.stripeAccountId ? { stripeAccount: context.stripeAccountId } : undefined
   );
 

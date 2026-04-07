@@ -282,7 +282,7 @@ export async function POST(
             if (invoice.status === 'DRAFT') {
               await stripe.invoices.del(invoice.stripeInvoiceId, connectOpts);
             } else {
-              await stripe.invoices.voidInvoice(invoice.stripeInvoiceId, connectOpts);
+              await stripe.invoices.voidInvoice(invoice.stripeInvoiceId, {}, connectOpts as any);
             }
           } catch (stripeErr: unknown) {
             logger.warn('Stripe delete/void failed during invoice delete', {

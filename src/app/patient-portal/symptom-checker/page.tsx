@@ -457,7 +457,7 @@ export default function SymptomCheckerPage() {
                       }`}
                       style={
                         isCompleted || isActive
-                          ? { backgroundColor: primaryColor, ringColor: `${primaryColor}40` }
+                          ? { backgroundColor: primaryColor, '--tw-ring-color': `${primaryColor}40` } as React.CSSProperties
                           : {}
                       }
                     >

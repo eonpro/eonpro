@@ -31,7 +31,7 @@ export default function MedicationAutocomplete({ value, onChange, placeholder }:
   const [activeIndex, setActiveIndex] = useState(-1);
   const inputRef = useRef<HTMLInputElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   const emitChange = useCallback((newItems: string[]) => {
     onChange(newItems.join(', '));

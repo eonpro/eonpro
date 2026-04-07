@@ -52,7 +52,7 @@ export function AddressAutocomplete({ value, onChange, language = 'en' }: Addres
     if (!inputRef.current) return;
 
     // Create autocomplete instance
-    const autocompleteInstance = new google.maps.places.Autocomplete(inputRef.current, {
+    const autocompleteInstance = new (window as any).google.maps.places.Autocomplete(inputRef.current, {
       types: ['address'],
       componentRestrictions: { country: 'us' },
       fields: ['address_components', 'formatted_address']
@@ -72,7 +72,7 @@ export function AddressAutocomplete({ value, onChange, language = 'en' }: Addres
       let country = 'US';
 
       // Parse address components
-      place.address_components.forEach(component => {
+      place.address_components.forEach((component: any) => {
         const types = component.types;
         const value = component.long_name;
 
@@ -104,7 +104,7 @@ export function AddressAutocomplete({ value, onChange, language = 'en' }: Addres
 
     return () => {
       // Cleanup
-      google.maps.event.clearInstanceListeners(autocompleteInstance);
+      (window as any).google.maps.event.clearInstanceListeners(autocompleteInstance);
     };
   }, [onChange, googleLoaded]);
 

@@ -43,7 +43,7 @@ export async function execute(
       orderBy: { createdAt: 'desc' },
       take: 5,
     }),
-    prisma.shippingUpdate.findMany({
+    (prisma as any).shippingUpdate.findMany({
       where: { patientId: params.patientId },
       orderBy: { createdAt: 'desc' },
       take: 10,
@@ -65,7 +65,7 @@ export async function execute(
 
   return {
     found: true,
-    orders: orders.map((o) => ({
+    orders: orders.map((o: any) => ({
       orderId: o.id,
       medication: o.primaryMedName || o.rxs[0]?.medName || 'Unknown',
       status: o.status,
@@ -74,7 +74,7 @@ export async function execute(
       trackingUrl: o.trackingUrl,
       orderDate: o.createdAt.toISOString(),
     })),
-    shippingUpdates: shippingUpdates.map((s) => ({
+    shippingUpdates: shippingUpdates.map((s: any) => ({
       carrier: s.carrier,
       trackingNumber: s.trackingNumber,
       status: s.status,

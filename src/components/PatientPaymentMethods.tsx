@@ -236,7 +236,7 @@ function AddCardForm({
       }
 
       const { setupIntentId, stripePaymentMethodId } = paymentMethodIdsFromSetupIntent(
-        setupIntent ?? {},
+        (setupIntent ?? {}) as { id?: string; payment_method?: string | { id?: string } },
       );
 
       await savePaymentMethodAfterSetup({

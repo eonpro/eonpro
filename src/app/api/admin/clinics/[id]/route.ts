@@ -7,8 +7,11 @@ interface RouteContext {
   params: Promise<{ id: string }>;
 }
 
-async function getHandler(request: NextRequest, user: AuthUser, context: RouteContext) {
+async function getHandler(request: NextRequest, user: AuthUser, context?: RouteContext) {
   try {
+    if (!context?.params) {
+      return NextResponse.json({ error: 'Missing parameters' }, { status: 400 });
+    }
     const resolvedParams = await context.params;
     const clinicId = parseInt(resolvedParams.id);
 
@@ -73,8 +76,11 @@ async function getHandler(request: NextRequest, user: AuthUser, context: RouteCo
   }
 }
 
-async function patchHandler(request: NextRequest, user: AuthUser, context: RouteContext) {
+async function patchHandler(request: NextRequest, user: AuthUser, context?: RouteContext) {
   try {
+    if (!context?.params) {
+      return NextResponse.json({ error: 'Missing parameters' }, { status: 400 });
+    }
     const resolvedParams = await context.params;
     const clinicId = parseInt(resolvedParams.id);
     const body = await request.json();
@@ -206,7 +212,7 @@ async function patchHandler(request: NextRequest, user: AuthUser, context: Route
   }
 }
 
-async function deleteHandler(request: NextRequest, user: AuthUser, context: RouteContext) {
+async function deleteHandler(request: NextRequest, user: AuthUser, context?: RouteContext) {
   try {
     if (user.role !== 'super_admin') {
       return NextResponse.json(
@@ -215,6 +221,9 @@ async function deleteHandler(request: NextRequest, user: AuthUser, context: Rout
       );
     }
 
+    if (!context?.params) {
+      return NextResponse.json({ error: 'Missing parameters' }, { status: 400 });
+    }
     const resolvedParams = await context.params;
     const clinicId = parseInt(resolvedParams.id);
 
@@ -280,8 +289,6 @@ async function deleteHandler(request: NextRequest, user: AuthUser, context: Rout
   }
 }
 
-type RouteHandler = (req: NextRequest, ctx: RouteContext) => Promise<Response>;
-
-export const GET: RouteHandler = withAuth<RouteContext>(getHandler, { roles: ['super_admin', 'admin'] }) as RouteHandler;
-export const PATCH: RouteHandler = withAuth<RouteContext>(patchHandler, { roles: ['super_admin', 'admin'] }) as RouteHandler;
-export const DELETE: RouteHandler = withAuth<RouteContext>(deleteHandler, { roles: ['super_admin', 'admin'] }) as RouteHandler;
+export const GET = withAuth<RouteContext>(getHandler, { roles: ['super_admin', 'admin'] });
+export const PATCH = withAuth<RouteContext>(patchHandler, { roles: ['super_admin', 'admin'] });
+export const DELETE = withAuth<RouteContext>(deleteHandler, { roles: ['super_admin', 'admin'] });

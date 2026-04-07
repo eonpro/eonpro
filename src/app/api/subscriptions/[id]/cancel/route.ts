@@ -69,7 +69,8 @@ async function cancelSubscriptionHandler(
 
           await stripeContext.stripe.subscriptions.cancel(
             subscription.stripeSubscriptionId,
-            requestOptions,
+            {},
+            requestOptions as any,
           );
 
           logger.info('[SUBSCRIPTIONS] Stripe subscription canceled successfully', {

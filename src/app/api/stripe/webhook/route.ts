@@ -545,7 +545,7 @@ async function processWebhookEvent(
 
                 if (!patientId && customerId) {
                   try {
-                    const customer = await stripeForAddon.customers.retrieve(customerId, requestOpts);
+                    const customer = await stripeForAddon.customers.retrieve(customerId, {}, requestOpts as any);
                     if (customer && !customer.deleted && 'email' in customer && customer.email) {
                       const patient = await findPatientByEmail(
                         customer.email.trim().toLowerCase(),

@@ -282,7 +282,7 @@ export default function BeccaAIChat({
     if (embedded) inputRef.current?.focus();
   }, [embedded]);
 
-  const sendMessageRef = useRef<(text?: string) => void>();
+  const sendMessageRef = useRef<(text?: string) => void>(undefined);
 
   const sendMessage = useCallback(
     async (messageText?: string) => {

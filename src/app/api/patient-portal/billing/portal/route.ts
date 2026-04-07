@@ -65,7 +65,7 @@ export const POST = withAuth(async (req: NextRequest, user: AuthUser) => {
         stripeError instanceof Stripe.errors.StripeError ||
         (stripeError instanceof Error && 'type' in stripeError);
       if (isStripeError && stripeError instanceof Error) {
-        const stripeType = (stripeError as Stripe.errors.StripeError).type;
+        const stripeType = (stripeError as InstanceType<typeof Stripe.errors.StripeError>).type;
         if (stripeType === 'StripeInvalidRequestError') {
           return NextResponse.json(
             { error: 'Billing account is not properly configured. Please contact support.', code: 'STRIPE_CONFIG_ERROR' },

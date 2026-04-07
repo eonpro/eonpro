@@ -247,7 +247,7 @@ async function generateSummaryReport(
   ] = await Promise.all([
     fetchAllCharges({ created: { gte: startTimestamp, lte: endTimestamp } }),
     fetchAllRefunds({ created: { gte: startTimestamp, lte: endTimestamp } }),
-    stripe.balance.retrieve(reqOpts),
+    stripe.balance.retrieve({}, reqOpts as any),
     stripe.customers.list({ created: { gte: startTimestamp, lte: endTimestamp }, limit: 100 }, reqOpts),
     fetchAllSubscriptions(),
     stripe.invoices.list({ status: 'open', limit: 100 }, reqOpts),

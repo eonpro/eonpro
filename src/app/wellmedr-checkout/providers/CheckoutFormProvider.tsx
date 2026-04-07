@@ -86,7 +86,7 @@ export default function CheckoutFormProvider({
   const storedData = getStoredFormData();
 
   const methods = useForm<CheckoutFormData>({
-    resolver: zodResolver(checkoutFormSchema),
+    resolver: zodResolver(checkoutFormSchema) as any,
     defaultValues: {
       selectedProduct: storedData?.selectedProduct || null,
       selectedPlan: storedData?.selectedPlan || '',

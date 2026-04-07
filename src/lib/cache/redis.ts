@@ -238,7 +238,7 @@ class RedisCache {
     const collected: string[] = [];
     let cursor: string | number = 0;
     do {
-      const [nextCursor, batch] = await this.client!.scan(cursor, {
+      const [nextCursor, batch]: [string | number, string[]] = await this.client!.scan(cursor, {
         match: matchPattern,
         count: SCAN_KEY_BATCH,
       });

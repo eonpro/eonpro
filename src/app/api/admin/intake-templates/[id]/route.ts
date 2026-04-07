@@ -15,9 +15,13 @@ interface RouteParams {
   params: { id: string };
 }
 
-export const GET = withAuth(
-  async (_req: NextRequest, user: AuthUser, { params }: RouteParams) => {
+export const GET = withAuth<RouteParams>(
+  async (_req: NextRequest, user: AuthUser, context?: RouteParams) => {
     try {
+      const params = context?.params;
+      if (!params?.id) {
+        return NextResponse.json({ error: 'Missing ID parameter' }, { status: 400 });
+      }
       const templateId = parseInt(params.id, 10);
       if (isNaN(templateId)) {
         return NextResponse.json({ error: 'Invalid ID' }, { status: 400 });
@@ -49,9 +53,13 @@ const updateSchema = z.object({
   formConfig: z.record(z.unknown()).optional(),
 });
 
-export const PUT = withAuth(
-  async (req: NextRequest, user: AuthUser, { params }: RouteParams) => {
+export const PUT = withAuth<RouteParams>(
+  async (req: NextRequest, user: AuthUser, context?: RouteParams) => {
     try {
+      const params = context?.params;
+      if (!params?.id) {
+        return NextResponse.json({ error: 'Missing ID parameter' }, { status: 400 });
+      }
       const id = parseInt(params.id, 10);
       if (isNaN(id)) {
         return NextResponse.json({ error: 'Invalid ID' }, { status: 400 });
@@ -101,9 +109,13 @@ export const PUT = withAuth(
   { roles: ['admin', 'super_admin'] },
 );
 
-export const DELETE = withAuth(
-  async (_req: NextRequest, user: AuthUser, { params }: RouteParams) => {
+export const DELETE = withAuth<RouteParams>(
+  async (_req: NextRequest, user: AuthUser, context?: RouteParams) => {
     try {
+      const params = context?.params;
+      if (!params?.id) {
+        return NextResponse.json({ error: 'Missing ID parameter' }, { status: 400 });
+      }
       const id = parseInt(params.id, 10);
       if (isNaN(id)) {
         return NextResponse.json({ error: 'Invalid ID' }, { status: 400 });

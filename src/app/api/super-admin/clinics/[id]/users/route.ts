@@ -613,7 +613,7 @@ export const POST = withSuperAdminAuth(
 
       // Send welcome notification (non-blocking — user creation already committed)
       const { sendInviteText } = body;
-      let inviteResult = { emailSent: false, smsSent: false, emailError: undefined as string | undefined, smsError: undefined as string | undefined };
+      let inviteResult: { emailSent: boolean; smsSent: boolean; emailError?: string; smsError?: string } = { emailSent: false, smsSent: false };
       if (sendInvite || sendInviteText) {
         inviteResult = await sendUserWelcomeNotification({
           userId: newUser.id,

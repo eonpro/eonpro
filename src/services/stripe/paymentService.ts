@@ -491,6 +491,7 @@ export class StripePaymentService {
 
     const paymentMethod = await stripeContext.stripe.paymentMethods.detach(
       paymentMethodId,
+      {},
       stripeRequestOptions(stripeContext)
     );
 

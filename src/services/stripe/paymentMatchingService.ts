@@ -164,7 +164,7 @@ export async function fetchStripeCustomerData(
 
   try {
     const customer = connectOpts
-      ? await stripe.customers.retrieve(customerId, connectOpts)
+      ? await stripe.customers.retrieve(customerId, {}, connectOpts)
       : await stripe.customers.retrieve(customerId);
 
     if (customer.deleted) {

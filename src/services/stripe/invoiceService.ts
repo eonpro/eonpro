@@ -121,7 +121,7 @@ export class StripeInvoiceService {
       options.patientId,
       clinicId,
     );
-    options = { ...options, lineItems: dedupedLineItems as InvoiceLineItem[] };
+    options = { ...options, lineItems: dedupedLineItems as unknown as InvoiceLineItem[] };
 
     const stripeInvoice = await stripeClient.invoices.create({
       customer: customer.id,
@@ -151,10 +151,10 @@ export class StripeInvoiceService {
       }, stripeOpts);
     }
 
-    const finalizedInvoice = await stripeClient.invoices.finalizeInvoice(stripeInvoice.id, stripeOpts);
+    const finalizedInvoice = await stripeClient.invoices.finalizeInvoice(stripeInvoice.id, {}, stripeOpts);
 
     if (options.autoSend) {
-      await stripeClient.invoices.sendInvoice(finalizedInvoice.id, stripeOpts);
+      await stripeClient.invoices.sendInvoice(finalizedInvoice.id, {}, stripeOpts);
     }
 
     const totalAmount = options.lineItems.reduce((sum, item) => sum + item.amount, 0);
@@ -220,7 +220,7 @@ export class StripeInvoiceService {
 
     // Send via Stripe
     const sentInvoice = stripeOpts
-      ? await stripeClient.invoices.sendInvoice(invoice.stripeInvoiceId, stripeOpts)
+      ? await stripeClient.invoices.sendInvoice(invoice.stripeInvoiceId, {}, stripeOpts)
       : await stripeClient.invoices.sendInvoice(invoice.stripeInvoiceId);
 
     logger.debug(`[STRIPE] Sent invoice ${invoice.stripeInvoiceId}`);
@@ -286,7 +286,7 @@ export class StripeInvoiceService {
 
     // Void in Stripe
     if (stripeOpts) {
-      await stripeClient.invoices.voidInvoice(invoice.stripeInvoiceId, stripeOpts);
+      await stripeClient.invoices.voidInvoice(invoice.stripeInvoiceId, {}, stripeOpts);
     } else {
       await stripeClient.invoices.voidInvoice(invoice.stripeInvoiceId);
     }
@@ -332,7 +332,7 @@ export class StripeInvoiceService {
 
     // Mark as uncollectible in Stripe
     if (stripeOpts) {
-      await stripeClient.invoices.markUncollectible(invoice.stripeInvoiceId, stripeOpts);
+      await stripeClient.invoices.markUncollectible(invoice.stripeInvoiceId, {}, stripeOpts);
     } else {
       await stripeClient.invoices.markUncollectible(invoice.stripeInvoiceId);
     }
@@ -578,7 +578,7 @@ export class StripeInvoiceService {
           stripeOpts = undefined;
         }
         const stripeCustomer = stripeOpts
-          ? await stripeClient.customers.retrieve(customerId, stripeOpts)
+          ? await stripeClient.customers.retrieve(customerId, {}, stripeOpts)
           : await stripeClient.customers.retrieve(customerId);
         if (stripeCustomer && !stripeCustomer.deleted && 'email' in stripeCustomer && stripeCustomer.email) {
           patient = await findPatientByEmail(stripeCustomer.email.trim().toLowerCase());

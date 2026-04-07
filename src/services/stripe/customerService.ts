@@ -79,7 +79,7 @@ export class StripeCustomerService {
     if (patient.stripeCustomerId) {
       try {
         const customer = connectOpts
-          ? await stripeClient.customers.retrieve(patient.stripeCustomerId, connectOpts)
+          ? await stripeClient.customers.retrieve(patient.stripeCustomerId, {}, connectOpts)
           : await stripeClient.customers.retrieve(patient.stripeCustomerId);
 
         if (!(customer as Stripe.DeletedCustomer).deleted) {
