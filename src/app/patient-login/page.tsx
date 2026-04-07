@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Eye, EyeOff, X, Mail, ArrowRight, RefreshCw, CheckCircle2, Smartphone } from 'lucide-react';
 import { isBrowser } from '@/lib/utils/ssr-safe';
 import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
-import { EONPRO_LOGO } from '@/lib/constants/brand-assets';
+import { EONPRO_LOGO, EONPRO_LOGO_DARK } from '@/lib/constants/brand-assets';
 
 type LoginStep = 'identifier' | 'password' | 'email-otp' | 'forgot' | 'reset' | 'needs-setup';
 
@@ -34,6 +34,23 @@ function getTextColorForBg(hex: string, mode: 'auto' | 'light' | 'dark'): string
 
   const luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
   return luminance > 0.5 ? '#1f2937' : '#ffffff';
+}
+
+function hexToRgb(hex: string): [number, number, number] {
+  const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  return m ? [parseInt(m[1], 16), parseInt(m[2], 16), parseInt(m[3], 16)] : [16, 185, 129];
+}
+
+function lightenHex(hex: string, amount: number): string {
+  const [r, g, b] = hexToRgb(hex);
+  const lighten = (c: number) => Math.min(255, Math.round(c + (255 - c) * amount));
+  return `#${[lighten(r), lighten(g), lighten(b)].map(c => c.toString(16).padStart(2, '0')).join('')}`;
+}
+
+function darkenHex(hex: string, amount: number): string {
+  const [r, g, b] = hexToRgb(hex);
+  const darken = (c: number) => Math.max(0, Math.round(c * (1 - amount)));
+  return `#${[darken(r), darken(g), darken(b)].map(c => c.toString(16).padStart(2, '0')).join('')}`;
 }
 
 type LoginResponseData = {
@@ -68,7 +85,7 @@ async function parseJsonResponse(response: Response): Promise<LoginResponseData>
 
 export default function PatientLoginPageWrapper() {
   return (
-    <Suspense fallback={<div className="flex min-h-screen items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-emerald-600" /></div>}>
+    <Suspense fallback={<div className="dark-login-bg flex min-h-screen items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-2 border-white/20 border-t-white/70" /></div>}>
       <PatientLoginPage />
     </Suspense>
   );
@@ -123,7 +140,7 @@ function PatientLoginPage() {
   // hydration mismatch (#418). Cache is restored in a post-mount effect below.
   const [branding, setBranding] = useState<ClinicBranding | null>(null);
   const [resolvedClinicId, setResolvedClinicId] = useState<number | null>(null);
-  const [isMainApp, setIsMainApp] = useState(false);
+  const [isMainApp, setIsMainApp] = useState(true);
   const [logoLoadError, setLogoLoadError] = useState(false);
 
   // Proactively clear stale auth cookies
@@ -150,12 +167,10 @@ function PatientLoginPage() {
   useEffect(() => {
     try {
       const cached = localStorage.getItem('clinic-branding-cache');
-      if (!cached) {
-        if (!localStorage.getItem('clinic-branding-is-whitelabel')) setIsMainApp(true);
-        return;
-      }
+      if (!cached) return;
       const parsed = JSON.parse(cached) as ClinicBranding & { clinicId?: number; _cachedAt?: number };
       if (parsed._cachedAt && Date.now() - parsed._cachedAt > 24 * 60 * 60 * 1000) return;
+      setIsMainApp(false);
       setBranding(parsed);
       if (parsed.clinicId) setResolvedClinicId(parsed.clinicId);
     } catch { /* corrupt cache — ignore, fresh fetch below will resolve */ }
@@ -653,25 +668,56 @@ function PatientLoginPage() {
 
   // Branding colors
   const primaryColor = branding?.primaryColor || '#10B981';
-  const secondaryColor = branding?.secondaryColor || '#3B82F6';
-  const accentColor = branding?.accentColor || '#d3f931';
   const buttonTextMode = branding?.buttonTextColor || 'auto';
   const buttonTextColor = getTextColorForBg(primaryColor, buttonTextMode);
 
-  const bgColor = branding ? `${primaryColor}0D` : '#f0fdf4';
+  const [pcR, pcG, pcB] = hexToRgb(primaryColor);
+  const darkAccent = lightenHex(primaryColor, 0.4);
+  const darkButtonGradient = `linear-gradient(135deg, ${darkenHex(primaryColor, 0.25)} 0%, ${primaryColor} 50%, ${lightenHex(primaryColor, 0.3)} 100%)`;
+  const darkFocusRing = `rgba(${pcR},${pcG},${pcB},0.5)`;
+
+  const loginGlowVars: Record<string, string> = {
+    '--login-glow': `rgba(${pcR},${pcG},${pcB},0.10)`,
+    '--login-glow-alt': `rgba(${pcR},${pcG},${pcB},0.06)`,
+    '--login-focus': `rgba(${pcR},${pcG},${pcB},0.5)`,
+    '--login-focus-ring': `rgba(${pcR},${pcG},${pcB},0.25)`,
+  };
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!isBrowser) return;
+    const darkBg = '#020617';
+    const prevBodyBg = document.body.style.backgroundColor;
+    document.body.style.backgroundColor = darkBg;
+
+    let meta = document.querySelector('meta[name="theme-color"]') as HTMLMetaElement | null;
+    const prevThemeColor = meta?.content;
+    if (!meta) {
+      meta = document.createElement('meta');
+      meta.name = 'theme-color';
+      document.head.appendChild(meta);
+    }
+    meta.content = darkBg;
+
+    return () => {
+      document.body.style.backgroundColor = prevBodyBg;
+      if (meta && prevThemeColor !== undefined) meta.content = prevThemeColor;
+    };
+  }, []);
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: bgColor }}>
-      {/* Content */}
+    <div
+      className="dark-login-bg min-h-screen"
+      style={loginGlowVars as React.CSSProperties}
+    >
       <div className="flex min-h-screen flex-col">
-        {/* Header */}
-        <div className="p-6">
+        <div className="p-4 sm:p-6">
           <button
             onClick={() => router.push('/')}
-            className="rounded-full p-2 transition-colors hover:bg-black/5"
+            className="flex min-h-[44px] min-w-[44px] touch-manipulation items-center justify-center rounded-full transition-colors hover:bg-white/10 active:bg-white/20"
             aria-label="Close"
           >
-            <X className="h-6 w-6 text-gray-700" />
+            <X className="h-6 w-6 text-white/90" />
           </button>
         </div>
 
@@ -683,51 +729,48 @@ function PatientLoginPage() {
                 <img
                   src={branding.logoUrl}
                   alt={branding.name}
-                  className="h-12 max-w-[200px] object-contain"
+                  className="h-12 max-w-[200px] object-contain brightness-0 invert"
                   width={200}
                   height={48}
                   onError={() => setLogoLoadError(true)}
                 />
               ) : (
-                <h1 className="text-3xl font-bold" style={{ color: primaryColor }}>
+                <h1 className="text-3xl font-bold text-white">
                   {branding.name}
                 </h1>
               )
             ) : (
-              <img src={EONPRO_LOGO} alt="EONPRO" className="h-10 w-auto" width={160} height={40} style={{ maxHeight: 40, width: 'auto' }} />
+              <img src={EONPRO_LOGO_DARK} alt="EONPRO" className="h-10 w-auto" width={160} height={40} style={{ maxHeight: 40, width: 'auto' }} />
             )}
           </div>
           {branding && !isMainApp && (
-            <p className="mt-2 flex items-center justify-center gap-1.5 text-xs text-gray-500 whitespace-nowrap">
+            <p className="mt-2 flex items-center justify-center gap-1.5 text-xs text-white/50 whitespace-nowrap">
               Powered by{' '}
-              <img src={EONPRO_LOGO} alt="EONPRO" className="h-[21px] w-auto" width={84} height={21} style={{ maxHeight: 21, width: 'auto' }} />
+              <img src={EONPRO_LOGO_DARK} alt="EONPRO" className="h-[21px] w-auto" width={84} height={21} style={{ maxHeight: 21, width: 'auto' }} />
             </p>
           )}
         </div>
 
         {/* Main Content */}
         <div className="flex flex-1 flex-col items-center px-6 pt-8">
-          {/* Welcome */}
-          <h1 className="mb-2 text-4xl font-light tracking-tight text-gray-900 md:text-5xl">
+          <h1 className="mb-3 text-center text-4xl font-light tracking-tight text-white sm:mb-4 sm:text-5xl">
             Patient Portal
           </h1>
-          <p className="mb-10 text-lg text-gray-600">
-            {branding && !isMainApp
-              ? `Sign in to access your health portal`
-              : 'Sign in to access your health portal'}
+          <p className="mb-8 text-center text-base text-white/85 sm:text-lg">
+            Sign in to access your health portal
           </p>
 
           {/* Registration success message */}
           <div
             className={`w-full max-w-md rounded-2xl border transition-all duration-150 ${
-              registeredMessage ? 'mb-6 opacity-100 border-emerald-200 bg-emerald-50 p-4' : 'mb-0 h-0 overflow-hidden border-transparent p-0 opacity-0'
+              registeredMessage ? 'mb-6 opacity-100 border-emerald-500/30 bg-emerald-900/30 backdrop-blur-sm p-4' : 'mb-0 h-0 overflow-hidden border-transparent p-0 opacity-0'
             }`}
             aria-live="polite"
           >
             {registeredMessage && (
               <div className="flex items-center justify-center gap-2">
-                <CheckCircle2 className="h-5 w-5 text-emerald-600" />
-                <p className="text-center text-sm font-medium text-emerald-700">
+                <CheckCircle2 className="h-5 w-5 text-emerald-400" />
+                <p className="text-center text-sm font-medium text-emerald-300">
                   {registeredMessage}
                 </p>
               </div>
@@ -739,8 +782,11 @@ function PatientLoginPage() {
             {/* STEP 1: Email Input */}
             {step === 'identifier' && (
               <form onSubmit={handleIdentifierSubmit} className="space-y-4">
+                <label htmlFor="patient-email" className="block text-xs font-medium uppercase tracking-wider text-white/50">
+                  Email address
+                </label>
                 <div className="relative">
-                  <div className={`absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 transition-opacity duration-200 ${identifier ? 'opacity-0' : 'opacity-100'}`}>
+                  <div className={`pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-white/30 transition-opacity duration-200 ${identifier ? 'opacity-0' : 'opacity-100'}`}>
                     <Mail className="h-5 w-5" />
                   </div>
                   <input
@@ -748,8 +794,8 @@ function PatientLoginPage() {
                     type="email"
                     value={identifier}
                     onChange={(e) => setIdentifier(e.target.value)}
-                    className="w-full rounded-2xl border border-gray-200 bg-white/70 py-4 pl-12 pr-4 text-gray-900 placeholder-gray-400 backdrop-blur-sm transition-all focus:border-transparent focus:bg-white focus:outline-none focus:ring-2"
-                    style={{ '--tw-ring-color': primaryColor } as React.CSSProperties}
+                    className="w-full rounded-2xl border border-white/12 bg-white/[0.06] py-4 pl-12 pr-4 text-white placeholder-white/35 backdrop-blur-sm transition-all focus:border-transparent focus:outline-none focus:ring-2"
+                    style={{ '--tw-ring-color': darkFocusRing } as React.CSSProperties}
                     placeholder="Your email address"
                     required
                     autoComplete="email"
@@ -759,49 +805,49 @@ function PatientLoginPage() {
 
                 <div
                   className={`rounded-2xl border transition-all duration-150 ${
-                    sessionMessage ? 'opacity-100 border-amber-200 bg-amber-50 p-4' : 'h-0 overflow-hidden border-transparent p-0 opacity-0'
+                    sessionMessage ? 'opacity-100 border-amber-500/30 bg-amber-900/30 backdrop-blur-sm p-4' : 'h-0 overflow-hidden border-transparent p-0 opacity-0'
                   }`}
                   aria-live="polite"
                 >
                   {sessionMessage && (
-                    <p className="text-center text-sm text-amber-700">{sessionMessage}</p>
+                    <p className="text-center text-sm text-amber-300">{sessionMessage}</p>
                   )}
                 </div>
 
                 <div
                   className={`rounded-2xl border transition-all duration-150 ${
-                    error ? 'opacity-100 border-red-200 bg-red-50 p-4' : 'h-0 overflow-hidden border-transparent p-0 opacity-0'
+                    error ? 'opacity-100 border-red-500/30 bg-red-900/30 backdrop-blur-sm p-4' : 'h-0 overflow-hidden border-transparent p-0 opacity-0'
                   }`}
                   aria-live="polite"
                 >
                   {error && (
-                    <p className="text-center text-sm text-red-600">{error}</p>
+                    <p className="text-center text-sm text-red-400">{error}</p>
                   )}
                 </div>
 
                 <button
                   type="submit"
                   disabled={loading}
-                  className={`flex w-full items-center justify-center gap-2 rounded-2xl px-6 py-4 font-semibold transition-all ${
-                    loading ? 'cursor-not-allowed opacity-50' : 'hover:opacity-90'
+                  className={`flex min-h-[48px] w-full touch-manipulation items-center justify-center gap-2 rounded-2xl px-6 py-4 text-base font-semibold transition-all ${
+                    loading ? 'cursor-not-allowed opacity-50' : 'hover:opacity-90 active:scale-[0.99]'
                   }`}
                   style={{
                     backgroundColor: loading ? '#9CA3AF' : primaryColor,
-                    color: buttonTextColor,
+                    ...(!loading ? { background: darkButtonGradient } : {}),
+                    color: '#ffffff',
                   }}
                 >
                   Continue
                   <ArrowRight className="h-5 w-5" />
                 </button>
 
-                {/* Register link */}
                 <div className="pt-4">
-                  <p className="text-center text-sm text-gray-600">
+                  <p className="text-center text-sm text-white/60">
                     New patient?{' '}
                     <a
                       href="/register"
                       className="font-medium hover:opacity-80"
-                      style={{ color: primaryColor }}
+                      style={{ color: darkAccent }}
                     >
                       Create an account
                     </a>
@@ -814,29 +860,28 @@ function PatientLoginPage() {
             {step === 'password' && (
               <form onSubmit={handlePasswordLogin} className="space-y-4">
                 {/* Email display */}
-                <div className="flex items-center justify-between rounded-2xl border border-gray-200 bg-white p-4">
+                <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.06] backdrop-blur-sm p-4">
                   <div>
-                    <p className="mb-1 text-xs text-gray-500">Email</p>
-                    <p className="font-medium text-gray-900">{identifier}</p>
+                    <p className="mb-1 text-xs text-white/50">Email</p>
+                    <p className="font-medium text-white">{identifier}</p>
                   </div>
                   <button
                     type="button"
                     onClick={handleBack}
-                    className="font-medium text-gray-600 transition-colors hover:text-gray-900"
+                    className="font-medium text-white/60 transition-colors hover:text-white"
                   >
                     Edit
                   </button>
                 </div>
 
-                {/* Password field */}
                 <div className="relative">
                   <input
                     id="patient-password"
                     type={showPassword ? 'text' : 'password'}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-4 pr-12 text-gray-900 placeholder-gray-400 transition-all focus:border-transparent focus:outline-none focus:ring-2"
-                    style={{ '--tw-ring-color': primaryColor } as React.CSSProperties}
+                    className="w-full rounded-2xl border border-white/12 bg-white/[0.06] px-4 py-4 pr-12 text-white placeholder-white/35 backdrop-blur-sm transition-all focus:border-transparent focus:outline-none focus:ring-2"
+                    style={{ '--tw-ring-color': darkFocusRing } as React.CSSProperties}
                     placeholder="Password"
                     required
                     autoComplete="current-password"
@@ -845,7 +890,7 @@ function PatientLoginPage() {
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 transition-colors hover:text-gray-600"
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-white/40 transition-colors hover:text-white/70"
                   >
                     {showPassword ? (
                       <EyeOff className="h-5 w-5" />
@@ -857,13 +902,13 @@ function PatientLoginPage() {
 
                 <div
                   className={`rounded-2xl border transition-all duration-150 space-y-3 ${
-                    error ? 'opacity-100 border-red-200 bg-red-50 p-4' : 'h-0 overflow-hidden border-transparent p-0 opacity-0'
+                    error ? 'opacity-100 border-red-500/30 bg-red-900/30 backdrop-blur-sm p-4' : 'h-0 overflow-hidden border-transparent p-0 opacity-0'
                   }`}
                   aria-live="polite"
                 >
                   {error && (
                     <>
-                      <p className="text-center text-sm text-red-600">{error}</p>
+                      <p className="text-center text-sm text-red-400">{error}</p>
                       {error.includes('temporarily locked') && (
                       <div className="flex justify-center">
                         <button
@@ -920,7 +965,7 @@ function PatientLoginPage() {
                       <div className="flex justify-center">
                         <a
                           href="/login"
-                          className="inline-flex items-center gap-2 rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 transition-all hover:bg-gray-50"
+                          className="inline-flex items-center gap-2 rounded-xl border border-white/20 bg-white/[0.06] px-4 py-2 text-sm font-semibold text-white/80 backdrop-blur-sm transition-all hover:bg-white/[0.1]"
                         >
                           <ArrowRight className="h-4 w-4" />
                           Go to Provider / Staff Login
@@ -934,12 +979,13 @@ function PatientLoginPage() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className={`flex w-full items-center justify-center gap-2 rounded-2xl px-6 py-4 font-semibold transition-all ${
-                    loading ? 'cursor-not-allowed opacity-50' : 'hover:opacity-90'
+                  className={`flex min-h-[48px] w-full touch-manipulation items-center justify-center gap-2 rounded-2xl px-6 py-4 text-base font-semibold transition-all ${
+                    loading ? 'cursor-not-allowed opacity-50' : 'hover:opacity-90 active:scale-[0.99]'
                   }`}
                   style={{
                     backgroundColor: loading ? '#9CA3AF' : primaryColor,
-                    color: buttonTextColor,
+                    ...(!loading ? { background: darkButtonGradient } : {}),
+                    color: '#ffffff',
                   }}
                 >
                   {loading ? (
@@ -953,38 +999,37 @@ function PatientLoginPage() {
                 </button>
 
                 <div className="flex items-center gap-4 py-2">
-                  <div className="h-px flex-1 bg-gray-200" />
-                  <span className="text-sm text-gray-500">Or</span>
-                  <div className="h-px flex-1 bg-gray-200" />
+                  <div className="h-px flex-1 bg-white/15" />
+                  <span className="text-sm text-white/40">Or</span>
+                  <div className="h-px flex-1 bg-white/15" />
                 </div>
 
                 <button
                   type="button"
                   disabled={loading}
-                  className="w-full rounded-2xl border border-gray-200 bg-white px-6 py-4 font-semibold text-gray-900 transition-all hover:bg-gray-50 disabled:opacity-50"
+                  className="min-h-[48px] w-full touch-manipulation rounded-2xl border border-white/15 bg-white/[0.06] px-6 py-4 text-base font-semibold text-white transition-colors hover:bg-white/[0.1] active:bg-white/[0.14] backdrop-blur-sm disabled:opacity-50"
                   onClick={sendEmailOtp}
                 >
                   Email me a login code
                 </button>
 
-                {/* Forgot password & back */}
                 <div className="flex flex-col items-center gap-3 pt-4">
                   <div className="flex items-center gap-4">
                     <button
                       type="button"
                       onClick={() => handleForgotPassword(false)}
                       disabled={loading}
-                      className="inline-flex items-center gap-1.5 text-sm text-gray-700 underline underline-offset-2 transition-colors hover:text-gray-900 disabled:opacity-50"
+                      className="inline-flex items-center gap-1.5 text-sm text-white/60 underline underline-offset-2 transition-colors hover:text-white disabled:opacity-50"
                     >
                       <Mail className="h-3.5 w-3.5" />
                       Reset via email
                     </button>
-                    <span className="text-gray-300">|</span>
+                    <span className="text-white/20">|</span>
                     <button
                       type="button"
                       onClick={() => handleForgotPassword(true)}
                       disabled={loading}
-                      className="inline-flex items-center gap-1.5 text-sm text-gray-700 underline underline-offset-2 transition-colors hover:text-gray-900 disabled:opacity-50"
+                      className="inline-flex items-center gap-1.5 text-sm text-white/60 underline underline-offset-2 transition-colors hover:text-white disabled:opacity-50"
                     >
                       <Smartphone className="h-3.5 w-3.5" />
                       Reset via text
@@ -993,7 +1038,7 @@ function PatientLoginPage() {
                   <button
                     type="button"
                     onClick={handleBack}
-                    className="text-sm text-gray-700 underline underline-offset-2 transition-colors hover:text-gray-900"
+                    className="text-sm text-white/60 underline underline-offset-2 transition-colors hover:text-white"
                   >
                     Not you? Log in here
                   </button>
@@ -1004,24 +1049,24 @@ function PatientLoginPage() {
             {/* STEP: Email OTP (passwordless login) */}
             {step === 'email-otp' && (
               <div className="space-y-6">
-                <div className="flex items-center justify-between rounded-2xl border border-gray-200 bg-white p-4">
+                <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.06] backdrop-blur-sm p-4">
                   <div>
-                    <p className="mb-1 text-xs text-gray-500">Login code sent to</p>
-                    <p className="font-medium text-gray-900">{identifier}</p>
+                    <p className="mb-1 text-xs text-white/50">Login code sent to</p>
+                    <p className="font-medium text-white">{identifier}</p>
                   </div>
                   <button
                     type="button"
                     onClick={handleBack}
-                    className="font-medium text-gray-600 transition-colors hover:text-gray-900"
+                    className="font-medium text-white/60 transition-colors hover:text-white"
                   >
                     Edit
                   </button>
                 </div>
 
                 <div className="text-center">
-                  <Mail className="mx-auto mb-4 h-12 w-12" style={{ color: primaryColor }} />
-                  <h2 className="mb-2 text-xl font-semibold text-gray-900">Check your email</h2>
-                  <p className="text-gray-600">
+                  <Mail className="mx-auto mb-4 h-12 w-12" style={{ color: darkAccent }} />
+                  <h2 className="mb-2 text-xl font-semibold text-white">Check your email</h2>
+                  <p className="text-white/70">
                     Enter the 6-digit code we sent to log in
                   </p>
                 </div>
@@ -1040,8 +1085,8 @@ function PatientLoginPage() {
                       onChange={(e) => handleEmailOtpChange(index, e.target.value)}
                       onKeyDown={(e) => handleEmailOtpKeyDown(index, e)}
                       onPaste={index === 0 ? handleEmailOtpPaste : undefined}
-                      className="h-14 w-12 rounded-xl border border-gray-200 bg-white text-center text-2xl font-semibold transition-all focus:border-transparent focus:outline-none focus:ring-2"
-                      style={{ '--tw-ring-color': primaryColor } as React.CSSProperties}
+                      className="h-14 w-12 rounded-xl border border-white/15 bg-white/[0.06] text-white text-center text-2xl font-semibold backdrop-blur-sm transition-all focus:border-transparent focus:outline-none focus:ring-2"
+                      style={{ '--tw-ring-color': darkFocusRing } as React.CSSProperties}
                       autoFocus={index === 0}
                     />
                   ))}
@@ -1049,12 +1094,12 @@ function PatientLoginPage() {
 
                 <div
                   className={`rounded-2xl border transition-all duration-150 ${
-                    error ? 'opacity-100 border-red-200 bg-red-50 p-4' : 'h-0 overflow-hidden border-transparent p-0 opacity-0'
+                    error ? 'opacity-100 border-red-500/30 bg-red-900/30 backdrop-blur-sm p-4' : 'h-0 overflow-hidden border-transparent p-0 opacity-0'
                   }`}
                   aria-live="polite"
                 >
                   {error && (
-                    <p className="text-center text-sm text-red-600">{error}</p>
+                    <p className="text-center text-sm text-red-400">{error}</p>
                   )}
                 </div>
 
@@ -1063,7 +1108,7 @@ function PatientLoginPage() {
                     <div
                       className="h-8 w-8 animate-spin rounded-full border-2 border-t-transparent"
                       style={{
-                        borderColor: `${primaryColor} transparent ${primaryColor} ${primaryColor}`,
+                        borderColor: `${darkAccent} transparent ${darkAccent} ${darkAccent}`,
                       }}
                     />
                   </div>
@@ -1075,18 +1120,18 @@ function PatientLoginPage() {
                       type="button"
                       onClick={handleResendEmailOtp}
                       className="inline-flex items-center gap-2 font-medium transition-colors hover:opacity-80"
-                      style={{ color: primaryColor }}
+                      style={{ color: darkAccent }}
                     >
                       <RefreshCw className="h-4 w-4" />
                       Resend code
                     </button>
                   ) : emailOtpCountdown > 0 ? (
-                    <p className="text-sm text-gray-500">Resend code in {emailOtpCountdown}s</p>
+                    <p className="text-sm text-white/40">Resend code in {emailOtpCountdown}s</p>
                   ) : null}
                 </div>
 
                 {/* Help text */}
-                <p className="text-center text-xs text-gray-500">
+                <p className="text-center text-xs text-white/40">
                   Didn&apos;t receive it? Check your spam/junk folder. Make sure you have an account with this email.
                 </p>
 
@@ -1098,14 +1143,14 @@ function PatientLoginPage() {
                       setEmailOtp(['', '', '', '', '', '']);
                       setError('');
                     }}
-                    className="text-sm text-gray-700 underline underline-offset-2 transition-colors hover:text-gray-900"
+                    className="text-sm text-white/60 underline underline-offset-2 transition-colors hover:text-white"
                   >
                     Use password instead
                   </button>
                   <button
                     type="button"
                     onClick={handleBack}
-                    className="text-sm text-gray-700 underline underline-offset-2 transition-colors hover:text-gray-900"
+                    className="text-sm text-white/60 underline underline-offset-2 transition-colors hover:text-white"
                   >
                     Use a different email
                   </button>
@@ -1116,13 +1161,13 @@ function PatientLoginPage() {
             {/* STEP: Forgot Password */}
             {step === 'forgot' && (
               <div className="space-y-6">
-                <div className="flex items-center justify-between rounded-2xl border border-gray-200 bg-white p-4">
+                <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.06] backdrop-blur-sm p-4">
                   <div>
-                    <p className="mb-1 text-xs text-gray-500">
+                    <p className="mb-1 text-xs text-white/50">
                       Reset code sent {resetMethod === 'sms' ? 'via text to phone on file' : 'to'}
                     </p>
                     {resetMethod === 'email' && (
-                      <p className="font-medium text-gray-900">{identifier}</p>
+                      <p className="font-medium text-white">{identifier}</p>
                     )}
                   </div>
                   <button
@@ -1132,7 +1177,7 @@ function PatientLoginPage() {
                       setResetCode(['', '', '', '', '', '']);
                       setResetCodeSent(false);
                     }}
-                    className="font-medium text-gray-600 transition-colors hover:text-gray-900"
+                    className="font-medium text-white/60 transition-colors hover:text-white"
                   >
                     Cancel
                   </button>
@@ -1140,14 +1185,14 @@ function PatientLoginPage() {
 
                 <div className="text-center">
                   {resetMethod === 'sms' ? (
-                    <Smartphone className="mx-auto mb-4 h-12 w-12" style={{ color: primaryColor }} />
+                    <Smartphone className="mx-auto mb-4 h-12 w-12" style={{ color: darkAccent }} />
                   ) : (
-                    <Mail className="mx-auto mb-4 h-12 w-12" style={{ color: primaryColor }} />
+                    <Mail className="mx-auto mb-4 h-12 w-12" style={{ color: darkAccent }} />
                   )}
-                  <h2 className="mb-2 text-xl font-semibold text-gray-900">
+                  <h2 className="mb-2 text-xl font-semibold text-white">
                     {resetMethod === 'sms' ? 'Check your phone' : 'Check your email'}
                   </h2>
-                  <p className="text-gray-600">
+                  <p className="text-white/70">
                     Enter the 6-digit code we sent to reset your password
                   </p>
                 </div>
@@ -1164,8 +1209,8 @@ function PatientLoginPage() {
                       onChange={(e) => handleResetCodeChange(index, e.target.value)}
                       onKeyDown={(e) => handleResetCodeKeyDown(index, e)}
                       onPaste={index === 0 ? handleResetCodePaste : undefined}
-                      className="h-14 w-12 rounded-xl border border-gray-200 bg-white text-center text-2xl font-semibold transition-all focus:border-transparent focus:outline-none focus:ring-2"
-                      style={{ '--tw-ring-color': primaryColor } as React.CSSProperties}
+                      className="h-14 w-12 rounded-xl border border-white/15 bg-white/[0.06] text-white text-center text-2xl font-semibold backdrop-blur-sm transition-all focus:border-transparent focus:outline-none focus:ring-2"
+                      style={{ '--tw-ring-color': darkFocusRing } as React.CSSProperties}
                       autoFocus={index === 0}
                     />
                   ))}
@@ -1173,12 +1218,12 @@ function PatientLoginPage() {
 
                 <div
                   className={`rounded-2xl border transition-all duration-150 ${
-                    error ? 'opacity-100 border-red-200 bg-red-50 p-4' : 'h-0 overflow-hidden border-transparent p-0 opacity-0'
+                    error ? 'opacity-100 border-red-500/30 bg-red-900/30 backdrop-blur-sm p-4' : 'h-0 overflow-hidden border-transparent p-0 opacity-0'
                   }`}
                   aria-live="polite"
                 >
                   {error && (
-                    <p className="text-center text-sm text-red-600">{error}</p>
+                    <p className="text-center text-sm text-red-400">{error}</p>
                   )}
                 </div>
 
@@ -1191,13 +1236,13 @@ function PatientLoginPage() {
                         handleForgotPassword(resetMethod === 'sms');
                       }}
                       className="inline-flex items-center gap-2 font-medium transition-colors hover:opacity-80"
-                      style={{ color: primaryColor }}
+                      style={{ color: darkAccent }}
                     >
                       <RefreshCw className="h-4 w-4" />
                       Resend code
                     </button>
                   ) : resetCountdown > 0 ? (
-                    <p className="text-sm text-gray-500">Resend code in {resetCountdown}s</p>
+                    <p className="text-sm text-white/40">Resend code in {resetCountdown}s</p>
                   ) : null}
                 </div>
 
@@ -1210,7 +1255,7 @@ function PatientLoginPage() {
                       setResetCodeSent(false);
                       setError('');
                     }}
-                    className="text-sm text-gray-700 underline underline-offset-2 transition-colors hover:text-gray-900"
+                    className="text-sm text-white/60 underline underline-offset-2 transition-colors hover:text-white"
                   >
                     Back to login
                   </button>
@@ -1224,16 +1269,16 @@ function PatientLoginPage() {
                 <div className="text-center">
                   <div
                     className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full"
-                    style={{ backgroundColor: `${primaryColor}15` }}
+                    style={{ backgroundColor: `rgba(${pcR},${pcG},${pcB},0.15)` }}
                   >
-                    <CheckCircle2 className="h-8 w-8" style={{ color: primaryColor }} />
+                    <CheckCircle2 className="h-8 w-8" style={{ color: darkAccent }} />
                   </div>
-                  <h2 className="mb-2 text-xl font-semibold text-gray-900">
+                  <h2 className="mb-2 text-xl font-semibold text-white">
                     {patientFirstName
                       ? `Welcome, ${patientFirstName}!`
                       : 'Welcome!'}
                   </h2>
-                  <p className="text-gray-600">
+                  <p className="text-white/70">
                     We found your patient record. To access your portal, you need to create a login.
                     It only takes a minute.
                   </p>
@@ -1242,7 +1287,7 @@ function PatientLoginPage() {
                 <a
                   href={`/register${resolvedClinicId ? '' : ''}`}
                   className="flex w-full items-center justify-center gap-2 rounded-2xl px-6 py-4 font-semibold transition-all hover:opacity-90"
-                  style={{ backgroundColor: primaryColor, color: buttonTextColor }}
+                  style={{ background: darkButtonGradient, color: '#ffffff' }}
                 >
                   <ArrowRight className="h-5 w-5" />
                   Set up your account
@@ -1252,14 +1297,14 @@ function PatientLoginPage() {
                   <button
                     type="button"
                     onClick={() => setStep('password')}
-                    className="text-sm text-gray-700 underline underline-offset-2 transition-colors hover:text-gray-900"
+                    className="text-sm text-white/60 underline underline-offset-2 transition-colors hover:text-white"
                   >
                     I already have a login
                   </button>
                   <button
                     type="button"
                     onClick={handleBack}
-                    className="text-sm text-gray-700 underline underline-offset-2 transition-colors hover:text-gray-900"
+                    className="text-sm text-white/60 underline underline-offset-2 transition-colors hover:text-white"
                   >
                     Use a different email
                   </button>
@@ -1270,16 +1315,16 @@ function PatientLoginPage() {
             {/* STEP: Reset Password */}
             {step === 'reset' && (
               <form onSubmit={handleResetPassword} className="space-y-6">
-                <div className="flex items-center justify-between rounded-2xl border border-gray-200 bg-white p-4">
+                <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.06] backdrop-blur-sm p-4">
                   <div>
-                    <p className="mb-1 text-xs text-gray-500">Resetting password for</p>
-                    <p className="font-medium text-gray-900">{identifier}</p>
+                    <p className="mb-1 text-xs text-white/50">Resetting password for</p>
+                    <p className="font-medium text-white">{identifier}</p>
                   </div>
                 </div>
 
                 <div className="text-center">
-                  <h2 className="mb-2 text-xl font-semibold text-gray-900">Create new password</h2>
-                  <p className="text-gray-600">Enter your new password below</p>
+                  <h2 className="mb-2 text-xl font-semibold text-white">Create new password</h2>
+                  <p className="text-white/70">Enter your new password below</p>
                 </div>
 
                 <div className="relative">
@@ -1287,8 +1332,8 @@ function PatientLoginPage() {
                     type={showNewPassword ? 'text' : 'password'}
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
-                    className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-4 pr-12 transition-all focus:border-transparent focus:outline-none focus:ring-2"
-                    style={{ '--tw-ring-color': primaryColor } as React.CSSProperties}
+                    className="w-full rounded-2xl border border-white/12 bg-white/[0.06] px-4 py-4 pr-12 text-white placeholder-white/35 backdrop-blur-sm transition-all focus:border-transparent focus:outline-none focus:ring-2"
+                    style={{ '--tw-ring-color': darkFocusRing } as React.CSSProperties}
                     placeholder="New password"
                     required
                     minLength={8}
@@ -1297,7 +1342,7 @@ function PatientLoginPage() {
                   <button
                     type="button"
                     onClick={() => setShowNewPassword(!showNewPassword)}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 transition-colors hover:text-gray-600"
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-white/40 transition-colors hover:text-white/70"
                   >
                     {showNewPassword ? (
                       <EyeOff className="h-5 w-5" />
@@ -1312,30 +1357,30 @@ function PatientLoginPage() {
                     type={showNewPassword ? 'text' : 'password'}
                     value={confirmNewPassword}
                     onChange={(e) => setConfirmNewPassword(e.target.value)}
-                    className={`w-full rounded-2xl border bg-white px-4 py-4 transition-all focus:border-transparent focus:outline-none focus:ring-2 ${
+                    className={`w-full rounded-2xl border bg-white/[0.06] px-4 py-4 text-white placeholder-white/35 backdrop-blur-sm transition-all focus:border-transparent focus:outline-none focus:ring-2 ${
                       confirmNewPassword && newPassword !== confirmNewPassword
-                        ? 'border-red-300'
-                        : 'border-gray-200'
+                        ? 'border-red-400/60'
+                        : 'border-white/12'
                     }`}
-                    style={{ '--tw-ring-color': primaryColor } as React.CSSProperties}
+                    style={{ '--tw-ring-color': darkFocusRing } as React.CSSProperties}
                     placeholder="Confirm new password"
                     required
                     minLength={8}
                   />
                 </div>
 
-                <p className="text-center text-xs text-gray-500">
+                <p className="text-center text-xs text-white/40">
                   Password must be at least 8 characters
                 </p>
 
                 <div
                   className={`rounded-2xl border transition-all duration-150 ${
-                    error ? 'opacity-100 border-red-200 bg-red-50 p-4' : 'h-0 overflow-hidden border-transparent p-0 opacity-0'
+                    error ? 'opacity-100 border-red-500/30 bg-red-900/30 backdrop-blur-sm p-4' : 'h-0 overflow-hidden border-transparent p-0 opacity-0'
                   }`}
                   aria-live="polite"
                 >
                   {error && (
-                    <p className="text-center text-sm text-red-600">{error}</p>
+                    <p className="text-center text-sm text-red-400">{error}</p>
                   )}
                 </div>
 
@@ -1347,7 +1392,7 @@ function PatientLoginPage() {
                       ? 'cursor-not-allowed opacity-50'
                       : 'hover:opacity-90'
                   }`}
-                  style={{ backgroundColor: primaryColor, color: buttonTextColor }}
+                  style={{ backgroundColor: primaryColor, background: darkButtonGradient, color: '#ffffff' }}
                 >
                   {loading ? (
                     <>
@@ -1366,7 +1411,7 @@ function PatientLoginPage() {
                       setStep('forgot');
                       setError('');
                     }}
-                    className="text-sm text-gray-700 underline underline-offset-2 transition-colors hover:text-gray-900"
+                    className="text-sm text-white/60 underline underline-offset-2 transition-colors hover:text-white"
                   >
                     Re-enter code
                   </button>
@@ -1376,10 +1421,23 @@ function PatientLoginPage() {
           </div>
         </div>
 
-        {/* Footer */}
-        <div className="p-6 text-center">
-          <p className="text-xs text-gray-500">
-            HIPAA Compliant Healthcare Platform &bull; &copy; 2026 EONPro
+        <div className="mt-auto p-6 text-center">
+          <div className="mb-3 flex items-center justify-center gap-6 text-white/35">
+            <span className="flex items-center gap-1.5 text-xs">
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
+              Encrypted
+            </span>
+            <span className="flex items-center gap-1.5 text-xs">
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></svg>
+              HIPAA Compliant
+            </span>
+            <span className="flex items-center gap-1.5 text-xs">
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>
+              SOC 2
+            </span>
+          </div>
+          <p className="text-xs text-white/30">
+            eonpro.io &nbsp;•&nbsp; © All Rights Reserved 2026 EONPro
           </p>
         </div>
       </div>
