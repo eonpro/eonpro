@@ -1,5 +1,6 @@
 'use client';
 
+import type { CSSProperties } from 'react';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useIntakeActions, useIntakeStore } from '../../../../store/intakeStore';
@@ -20,6 +21,8 @@ export default function WmGlp1TypeStep({
   const router = useRouter();
   const responses = useIntakeStore((s) => s.responses);
   const { setResponse, markStepCompleted, setCurrentStep } = useIntakeActions();
+
+  const fadeStyle: CSSProperties = {};
 
   const handleBack = () => {
     if (prevStep) { setCurrentStep(prevStep); router.push(`${basePath}/${prevStep}`); }
@@ -52,17 +55,19 @@ export default function WmGlp1TypeStep({
       </div>
 
       {prevStep && (
-        <div className="px-5 sm:px-8 pt-4 max-w-[520px] mx-auto w-full">
+        <div className="w-full max-w-[600px] mx-auto px-6 sm:px-8 pt-3">
           <button onClick={handleBack} className="p-2 -ml-2 rounded-lg hover:bg-black/5 active:scale-95 transition-all" aria-label="Go back">
             <svg className="w-5 h-5" style={{ color: '#101010' }} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
           </button>
         </div>
       )}
 
-      <div className="flex flex-col items-center w-full max-w-[520px] mx-auto px-6 sm:px-8">
+      <div className="w-full max-w-[600px] mx-auto px-6 sm:px-8 pt-6">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/wellmedr-logo.svg" alt="wellmedr." className="h-7 sm:h-8 mt-8 sm:mt-12 mb-6 sm:mb-8" />
+        <img src="/wellmedr-logo.svg" alt="wellmedr." className="h-7 sm:h-8" style={fadeStyle} />
+      </div>
 
+      <div className="flex-1 flex flex-col justify-center w-full max-w-[600px] mx-auto px-6 sm:px-8 pb-6">
         <h1 className="text-[1.25rem] sm:text-[1.5rem] font-bold text-center mb-2" style={{ color: '#101010' }}>
           Great! You have experience with<br />
           <span className="font-normal italic" style={{ color: '#7B95A9', fontFamily: "'BodoniSvtyTwo', serif" }}>weight loss medication.</span>
@@ -78,7 +83,7 @@ export default function WmGlp1TypeStep({
             <button
               key={opt.id}
               onClick={() => setSelected(opt.id)}
-              className="w-full flex items-center gap-3 px-5 py-4 rounded-2xl border-2 bg-white transition-all text-left"
+              className="w-full flex items-center gap-3 px-5 py-4 rounded-3xl border-2 bg-white transition-all text-left"
               style={{ borderColor: selected === opt.id ? 'var(--intake-accent, #7B95A9)' : '#e5e7eb' }}
             >
               <div className="w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0" style={{ borderColor: selected === opt.id ? 'var(--intake-accent, #7B95A9)' : '#d1d5db' }}>
@@ -108,14 +113,14 @@ export default function WmGlp1TypeStep({
         )}
       </div>
 
-      <div className="w-full max-w-[520px] mx-auto px-6 sm:px-8 mt-8 pb-8">
+      <div className="w-full max-w-[600px] mx-auto px-6 sm:px-8 pb-8">
         <button
           onClick={handleContinue}
           disabled={!selected || (selected === 'other' && !otherName.trim())}
-          className="w-full flex items-center justify-center gap-3 py-4 text-white font-medium text-base rounded-full active:scale-[0.98]"
+          className="w-full flex items-center justify-center gap-3 py-[18px] text-white font-semibold text-base rounded-full active:scale-[0.98]"
           style={{ backgroundColor: (!selected || (selected === 'other' && !otherName.trim())) ? '#b0b8be' : '#0C2631', transition: 'all 0.3s cubic-bezier(0.4,0,0.2,1)', cursor: (!selected || (selected === 'other' && !otherName.trim())) ? 'not-allowed' : 'pointer' }}
         >
-          Next <span className="text-lg">&rarr;</span>
+          Next <span className="text-base" aria-hidden>&#10132;</span>
         </button>
       </div>
     </div>

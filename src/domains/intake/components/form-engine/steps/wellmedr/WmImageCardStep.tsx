@@ -130,21 +130,23 @@ export default function WmImageCardStep({
       </div>
 
       {prevStep && (
-        <div className="px-5 sm:px-8 pt-3 max-w-[520px] mx-auto w-full">
+        <div className="w-full max-w-[600px] mx-auto px-6 sm:px-8 pt-3">
           <button onClick={handleBack} className="p-2 -ml-2 rounded-lg hover:bg-black/5 active:scale-95 transition-all" aria-label="Go back">
             <svg className="w-5 h-5" style={{ color: '#101010' }} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
           </button>
         </div>
       )}
 
-      <div className="flex-1 flex flex-col items-center justify-center w-full max-w-[520px] mx-auto px-6 sm:px-8 py-4">
+      <div className="w-full max-w-[600px] mx-auto px-6 sm:px-8 pt-6">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src="/wellmedr-logo.svg" alt="wellmedr."
-          className="h-7 sm:h-8 mt-8 sm:mt-12 mb-6 sm:mb-8"
+          className="h-7 sm:h-8"
           style={{ opacity: mounted ? 1 : 0, transform: mounted ? 'translateY(0)' : 'translateY(-8px)', transition: 'all 0.5s cubic-bezier(0.4,0,0.2,1)' }}
         />
+      </div>
 
+      <div className="flex-1 flex flex-col items-center justify-center w-full max-w-[600px] mx-auto px-6 sm:px-8 pb-6">
         {(headerText || resolvedHeaderItalic) && (
           <h1
             className="text-xl sm:text-[2rem] font-bold text-center leading-snug mb-3 sm:mb-4 px-2"
@@ -238,7 +240,7 @@ export default function WmImageCardStep({
       </div>
 
       {mode === 'multi' && (
-        <div className="w-full max-w-[520px] mx-auto px-6 sm:px-8 mt-8 pb-8" style={{ backgroundColor: '#F7F7F9' }}>
+        <div className="w-full max-w-[600px] mx-auto px-6 sm:px-8 mt-8 pb-8" style={{ backgroundColor: '#F7F7F9' }}>
           <button
             onClick={handleContinue}
             disabled={!Array.isArray(selected) || selected.length === 0}

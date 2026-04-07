@@ -1,5 +1,6 @@
 'use client';
 
+import type { CSSProperties } from 'react';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useIntakeActions, useIntakeStore } from '../../../../store/intakeStore';
@@ -19,7 +20,9 @@ export default function WmMedicalReviewStep({
 }: WmMedicalReviewStepProps) {
   const router = useRouter();
   const responses = useIntakeStore((s) => s.responses);
-  const { setResponse, setResponses, markStepCompleted, setCurrentStep } = useIntakeActions();
+  const { setResponses, markStepCompleted, setCurrentStep } = useIntakeActions();
+
+  const fadeStyle: CSSProperties = {};
 
   const handleBack = () => {
     if (prevStep) { setCurrentStep(prevStep); router.push(`${basePath}/${prevStep}`); }
@@ -62,6 +65,14 @@ export default function WmMedicalReviewStep({
     'SC','SD','TN','TX','UT','VT','VA','WA','WV','WI','WY',
   ];
 
+  const inputBaseStyle = (hasError: boolean): CSSProperties => ({
+    height: 60,
+    borderRadius: 24,
+    boxSizing: 'border-box',
+    border: `1px solid ${hasError ? '#ef4444' : '#e8e8e8'}`,
+    transition: 'border-color 0.2s, box-shadow 0.2s',
+  });
+
   return (
     <div className="min-h-[100dvh] flex flex-col" style={{ backgroundColor: '#F7F7F9' }}>
       <div className="w-full h-1" style={{ backgroundColor: '#e5e0d8' }}>
@@ -69,17 +80,19 @@ export default function WmMedicalReviewStep({
       </div>
 
       {prevStep && (
-        <div className="px-5 sm:px-8 pt-4 max-w-[520px] mx-auto w-full">
+        <div className="w-full max-w-[600px] mx-auto px-6 sm:px-8 pt-3">
           <button onClick={handleBack} className="p-2 -ml-2 rounded-lg hover:bg-black/5 active:scale-95 transition-all" aria-label="Go back">
             <svg className="w-5 h-5" style={{ color: '#101010' }} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
           </button>
         </div>
       )}
 
-      <div className="flex flex-col items-center w-full max-w-[520px] mx-auto px-6 sm:px-8">
+      <div className="w-full max-w-[600px] mx-auto px-6 sm:px-8 pt-6">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/wellmedr-logo.svg" alt="wellmedr." className="h-7 sm:h-8 mt-8 sm:mt-12 mb-6 sm:mb-8" />
+        <img src="/wellmedr-logo.svg" alt="wellmedr." className="h-7 sm:h-8" style={fadeStyle} />
+      </div>
 
+      <div className="flex-1 flex flex-col justify-center w-full max-w-[600px] mx-auto px-6 sm:px-8 pb-6">
         <h2 className="text-[1.5rem] sm:text-[1.75rem] font-bold text-center mb-4" style={{ color: '#101010' }}>Your medical review</h2>
 
         <div className="w-full text-left space-y-1 mb-4">
@@ -101,19 +114,19 @@ export default function WmMedicalReviewStep({
             <div>
               <label className="block text-sm font-medium mb-1" style={{ color: '#7B95A9' }}>First Name <span className="text-red-400">*</span></label>
               <input value={firstName} onChange={(e) => setFirstName(e.target.value)}
-                className="w-full h-14 px-4 rounded-2xl border bg-white text-base outline-none"
-                style={{ borderColor: errors.firstName ? '#ef4444' : 'rgba(0,0,0,0.08)', transition: 'border-color 0.2s, box-shadow 0.2s' }}
+                className="w-full px-4 bg-white text-base outline-none"
+                style={inputBaseStyle(!!errors.firstName)}
                 onFocus={(e) => { e.target.style.borderColor = '#c3b29e'; e.target.style.boxShadow = '0 0 0 3px rgba(195,178,158,0.15)'; }}
-                onBlur={(e) => { e.target.style.borderColor = errors.firstName ? '#ef4444' : 'rgba(0,0,0,0.08)'; e.target.style.boxShadow = 'none'; }} />
+                onBlur={(e) => { e.target.style.borderColor = errors.firstName ? '#ef4444' : '#e8e8e8'; e.target.style.boxShadow = 'none'; }} />
               {errors.firstName && <p className="text-xs text-red-500 mt-1">{errors.firstName}</p>}
             </div>
             <div>
               <label className="block text-sm font-medium mb-1" style={{ color: '#7B95A9' }}>Last Name <span className="text-red-400">*</span></label>
               <input value={lastName} onChange={(e) => setLastName(e.target.value)}
-                className="w-full h-14 px-4 rounded-2xl border bg-white text-base outline-none"
-                style={{ borderColor: errors.lastName ? '#ef4444' : 'rgba(0,0,0,0.08)', transition: 'border-color 0.2s, box-shadow 0.2s' }}
+                className="w-full px-4 bg-white text-base outline-none"
+                style={inputBaseStyle(!!errors.lastName)}
                 onFocus={(e) => { e.target.style.borderColor = '#c3b29e'; e.target.style.boxShadow = '0 0 0 3px rgba(195,178,158,0.15)'; }}
-                onBlur={(e) => { e.target.style.borderColor = errors.lastName ? '#ef4444' : 'rgba(0,0,0,0.08)'; e.target.style.boxShadow = 'none'; }} />
+                onBlur={(e) => { e.target.style.borderColor = errors.lastName ? '#ef4444' : '#e8e8e8'; e.target.style.boxShadow = 'none'; }} />
               {errors.lastName && <p className="text-xs text-red-500 mt-1">{errors.lastName}</p>}
             </div>
           </div>
@@ -121,10 +134,17 @@ export default function WmMedicalReviewStep({
           <div>
             <label className="block text-sm font-medium mb-1">What state will your medication be shipped to? <span className="text-red-400">*</span></label>
             <select value={state} onChange={(e) => setState(e.target.value)}
-              className="w-full h-14 px-4 rounded-2xl border bg-white text-base appearance-none outline-none"
-              style={{ borderColor: errors.state ? '#ef4444' : 'rgba(0,0,0,0.08)', transition: 'border-color 0.2s, box-shadow 0.2s', cursor: 'pointer' }}
+              className="w-full px-4 bg-white text-base appearance-none outline-none"
+              style={{
+                height: 60,
+                borderRadius: 24,
+                boxSizing: 'border-box',
+                border: `1px solid ${errors.state ? '#ef4444' : '#e8e8e8'}`,
+                transition: 'border-color 0.2s, box-shadow 0.2s',
+                cursor: 'pointer',
+              }}
               onFocus={(e) => { e.target.style.borderColor = '#c3b29e'; e.target.style.boxShadow = '0 0 0 3px rgba(195,178,158,0.15)'; }}
-              onBlur={(e) => { e.target.style.borderColor = errors.state ? '#ef4444' : 'rgba(0,0,0,0.08)'; e.target.style.boxShadow = 'none'; }}>
+              onBlur={(e) => { e.target.style.borderColor = errors.state ? '#ef4444' : '#e8e8e8'; e.target.style.boxShadow = 'none'; }}>
               <option value="">Select state</option>
               {US_STATES.map((s) => <option key={s} value={s}>{s}</option>)}
             </select>
@@ -135,13 +155,13 @@ export default function WmMedicalReviewStep({
         <p className="text-sm text-center" style={{ color: '#666' }}>Your information is never shared and is protected by HIPAA.</p>
       </div>
 
-      <div className="w-full max-w-[520px] mx-auto px-6 sm:px-8 mt-8 pb-8">
+      <div className="w-full max-w-[600px] mx-auto px-6 sm:px-8 pb-8">
         <button
           onClick={handleContinue}
-          className="w-full flex items-center justify-center gap-3 py-4 text-white font-medium text-base rounded-full active:scale-[0.98]"
+          className="w-full flex items-center justify-center gap-3 py-[18px] text-white font-semibold text-base rounded-full active:scale-[0.98]"
           style={{ backgroundColor: '#0C2631' }}
         >
-          Next <span className="text-lg">&rarr;</span>
+          Next <span className="text-base" aria-hidden>&#10132;</span>
         </button>
       </div>
     </div>

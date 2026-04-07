@@ -30,6 +30,7 @@ export default function WmCheckboxListStep({
   const { setResponse, markStepCompleted, setCurrentStep } = useIntakeActions();
   const [mounted, setMounted] = useState(false);
   useEffect(() => { requestAnimationFrame(() => setMounted(true)); }, []);
+  const fadeInStyle = { opacity: mounted ? 1 : 0, transition: 'opacity 0.5s ease' };
 
   const handleBack = () => {
     if (prevStep) { setCurrentStep(prevStep); router.push(`${basePath}/${prevStep}`); }
@@ -60,18 +61,19 @@ export default function WmCheckboxListStep({
       </div>
 
       {prevStep && (
-        <div className="px-5 sm:px-8 pt-4 max-w-[520px] mx-auto w-full">
+        <div className="w-full max-w-[600px] mx-auto px-6 sm:px-8 pt-3">
           <button onClick={handleBack} className="p-2 -ml-2 rounded-lg hover:bg-black/5 active:scale-95 transition-all" aria-label="Go back">
             <svg className="w-5 h-5" style={{ color: '#101010' }} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
           </button>
         </div>
       )}
 
-      <div className="flex flex-col items-center w-full max-w-[520px] mx-auto px-6 sm:px-8">
+      <div className="w-full max-w-[600px] mx-auto px-6 sm:px-8 pt-6">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/wellmedr-logo.svg" alt="wellmedr." className="h-7 sm:h-8 mt-8 sm:mt-12 mb-6 sm:mb-8"
-          style={{ opacity: mounted ? 1 : 0, transition: 'opacity 0.5s ease' }} />
+        <img src="/wellmedr-logo.svg" alt="wellmedr." className="h-7 sm:h-8" style={fadeInStyle} />
+      </div>
 
+      <div className="flex flex-1 flex-col justify-center w-full max-w-[600px] mx-auto px-6 sm:px-8 pb-6">
         {(headerItalic || headerText) && (
           <div className="text-center mb-3" style={{ opacity: mounted ? 1 : 0, transform: mounted ? 'translateY(0)' : 'translateY(10px)', transition: 'all 0.6s cubic-bezier(0.4,0,0.2,1) 0.05s' }}>
             {headerItalic && <p className="italic text-lg sm:text-xl mb-1" style={{ color: '#7B95A9', fontFamily: "'BodoniSvtyTwo', serif" }}>{headerItalic}</p>}
@@ -111,11 +113,11 @@ export default function WmCheckboxListStep({
         </div>
       </div>
 
-      <div className="w-full max-w-[520px] mx-auto px-6 sm:px-8 mt-8 pb-8" style={{ backgroundColor: '#F7F7F9' }}>
+      <div className="w-full max-w-[600px] mx-auto px-6 sm:px-8 pb-6" style={{ backgroundColor: '#F7F7F9' }}>
         <button onClick={handleContinue} disabled={selected.length === 0}
-          className="w-full flex items-center justify-center gap-2.5 py-4 text-white font-medium text-base rounded-full active:scale-[0.98]"
+          className="w-full flex items-center justify-center gap-2.5 py-[18px] text-white font-semibold text-base rounded-full active:scale-[0.98]"
           style={{ backgroundColor: selected.length === 0 ? '#b0b8be' : '#0C2631', transition: 'all 0.3s cubic-bezier(0.4,0,0.2,1)', cursor: selected.length === 0 ? 'not-allowed' : 'pointer' }}>
-          Next <span className="text-lg">&rarr;</span>
+          Next <span className="text-lg" aria-hidden="true">&#10132;</span>
         </button>
       </div>
     </div>

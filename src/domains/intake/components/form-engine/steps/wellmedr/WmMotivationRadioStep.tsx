@@ -27,6 +27,7 @@ export default function WmMotivationRadioStep({
   const { setResponse, markStepCompleted, setCurrentStep } = useIntakeActions();
   const [mounted, setMounted] = useState(false);
   useEffect(() => { requestAnimationFrame(() => setMounted(true)); }, []);
+  const fadeInStyle = { opacity: mounted ? 1 : 0, transition: 'opacity 0.5s ease' };
 
   const handleBack = () => {
     if (prevStep) { setCurrentStep(prevStep); router.push(`${basePath}/${prevStep}`); }
@@ -48,18 +49,19 @@ export default function WmMotivationRadioStep({
       </div>
 
       {prevStep && (
-        <div className="px-5 sm:px-8 pt-4 max-w-[520px] mx-auto w-full">
+        <div className="w-full max-w-[600px] mx-auto px-6 sm:px-8 pt-3">
           <button onClick={handleBack} className="p-2 -ml-2 rounded-lg hover:bg-black/5 active:scale-95 transition-all" aria-label="Go back">
             <svg className="w-5 h-5" style={{ color: '#101010' }} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
           </button>
         </div>
       )}
 
-      <div className="flex flex-col items-center w-full max-w-[520px] mx-auto px-6 sm:px-8">
+      <div className="w-full max-w-[600px] mx-auto px-6 sm:px-8 pt-6">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/wellmedr-logo.svg" alt="wellmedr." className="h-7 sm:h-8 mt-8 sm:mt-12 mb-6 sm:mb-8"
-          style={{ opacity: mounted ? 1 : 0, transition: 'opacity 0.5s ease' }} />
+        <img src="/wellmedr-logo.svg" alt="wellmedr." className="h-7 sm:h-8" style={fadeInStyle} />
+      </div>
 
+      <div className="flex flex-1 flex-col justify-center w-full max-w-[600px] mx-auto px-6 sm:px-8 pb-6">
         {(headerText || headerItalic) && (
           <h1 className="text-xl sm:text-[1.75rem] font-bold text-center leading-snug mb-4"
             style={{ color: '#101010', opacity: mounted ? 1 : 0, transform: mounted ? 'translateY(0)' : 'translateY(12px)', transition: 'all 0.6s cubic-bezier(0.4,0,0.2,1) 0.05s' }}>
@@ -97,7 +99,6 @@ export default function WmMotivationRadioStep({
           })}
         </div>
       </div>
-      <div className="pb-6" />
     </div>
   );
 }

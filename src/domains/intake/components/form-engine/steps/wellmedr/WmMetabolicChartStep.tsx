@@ -23,8 +23,12 @@ export default function WmMetabolicChartStep({
   const handleBack = () => {
     if (prevStep) { setCurrentStep(prevStep); router.push(`${basePath}/${prevStep}`); }
   };
+  const [mounted, setMounted] = useState(false);
   const [animDone, setAnimDone] = useState(false);
   const pathRef = useRef<SVGPathElement>(null);
+
+  useEffect(() => { requestAnimationFrame(() => setMounted(true)); }, []);
+  const fadeInStyle = { opacity: mounted ? 1 : 0, transition: 'opacity 0.5s ease' };
 
   useEffect(() => {
     const path = pathRef.current;
@@ -57,17 +61,19 @@ export default function WmMetabolicChartStep({
       </div>
 
       {prevStep && (
-        <div className="px-5 sm:px-8 pt-4 max-w-[520px] mx-auto w-full">
+        <div className="w-full max-w-[600px] mx-auto px-6 sm:px-8 pt-3">
           <button onClick={handleBack} className="p-2 -ml-2 rounded-lg hover:bg-black/5 active:scale-95 transition-all" aria-label="Go back">
             <svg className="w-5 h-5" style={{ color: '#101010' }} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
           </button>
         </div>
       )}
 
-      <div className="flex flex-col items-center w-full max-w-[520px] mx-auto px-6 sm:px-8">
+      <div className="w-full max-w-[600px] mx-auto px-6 sm:px-8 pt-6">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/wellmedr-logo.svg" alt="wellmedr." className="h-7 sm:h-8 mt-8 sm:mt-12 mb-6 sm:mb-8" />
+        <img src="/wellmedr-logo.svg" alt="wellmedr." className="h-7 sm:h-8" style={fadeInStyle} />
+      </div>
 
+      <div className="flex flex-1 flex-col justify-center w-full max-w-[600px] mx-auto px-6 sm:px-8 pb-6">
         <h1 className="text-[1.5rem] sm:text-[2rem] font-bold text-center leading-tight mb-2" style={{ color: '#101010' }}>
           How will GLP-1{' '}
           <span className="font-normal italic" style={{ color: '#7B95A9', fontFamily: "'BodoniSvtyTwo', serif" }}>work for you?</span>
@@ -131,13 +137,13 @@ export default function WmMetabolicChartStep({
         </p>
       </div>
 
-      <div className="w-full max-w-[520px] mx-auto px-6 sm:px-8 mt-8 pb-8">
+      <div className="w-full max-w-[600px] mx-auto px-6 sm:px-8 pb-6">
         <button
           onClick={handleContinue}
-          className="w-full flex items-center justify-center gap-3 py-4 text-white font-medium text-base rounded-full active:scale-[0.98]"
+          className="w-full flex items-center justify-center gap-3 py-[18px] text-white font-semibold text-base rounded-full active:scale-[0.98]"
           style={{ backgroundColor: '#0C2631' }}
         >
-          Next <span className="text-lg">&rarr;</span>
+          Next <span className="text-lg" aria-hidden="true">&#10132;</span>
         </button>
       </div>
     </div>

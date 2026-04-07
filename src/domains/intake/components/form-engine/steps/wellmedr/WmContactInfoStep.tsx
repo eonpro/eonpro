@@ -1,5 +1,6 @@
 'use client';
 
+import type { CSSProperties } from 'react';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useIntakeActions, useIntakeStore } from '../../../../store/intakeStore';
@@ -20,6 +21,8 @@ export default function WmContactInfoStep({
   const router = useRouter();
   const responses = useIntakeStore((s) => s.responses);
   const { setResponses, markStepCompleted, setCurrentStep } = useIntakeActions();
+
+  const fadeStyle: CSSProperties = {};
 
   const resolvedNextStep = nextStep || (
     responses.glp1_history_recent === 'yes' ? 'glp1-type-wm' : 'wellmedr-checkout-redirect'
@@ -59,6 +62,14 @@ export default function WmContactInfoStep({
     router.push(`${basePath}/${resolvedNextStep}`);
   };
 
+  const inputBaseStyle = (hasError: boolean): CSSProperties => ({
+    height: 60,
+    borderRadius: 24,
+    boxSizing: 'border-box',
+    border: `1px solid ${hasError ? '#ef4444' : '#e8e8e8'}`,
+    transition: 'border-color 0.2s, box-shadow 0.2s',
+  });
+
   return (
     <div className="min-h-[100dvh] flex flex-col" style={{ backgroundColor: '#F7F7F9' }}>
       <div className="w-full h-1" style={{ backgroundColor: '#e5e0d8' }}>
@@ -66,17 +77,19 @@ export default function WmContactInfoStep({
       </div>
 
       {prevStep && (
-        <div className="px-5 sm:px-8 pt-4 max-w-[520px] mx-auto w-full">
+        <div className="w-full max-w-[600px] mx-auto px-6 sm:px-8 pt-3">
           <button onClick={handleBack} className="p-2 -ml-2 rounded-lg hover:bg-black/5 active:scale-95 transition-all" aria-label="Go back">
             <svg className="w-5 h-5" style={{ color: '#101010' }} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
           </button>
         </div>
       )}
 
-      <div className="flex flex-col items-center w-full max-w-[520px] mx-auto px-6 sm:px-8">
+      <div className="w-full max-w-[600px] mx-auto px-6 sm:px-8 pt-6">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/wellmedr-logo.svg" alt="wellmedr." className="h-7 sm:h-8 mt-8 sm:mt-12 mb-6 sm:mb-8" />
+        <img src="/wellmedr-logo.svg" alt="wellmedr." className="h-7 sm:h-8" style={fadeStyle} />
+      </div>
 
+      <div className="flex-1 flex flex-col justify-center w-full max-w-[600px] mx-auto px-6 sm:px-8 pb-6">
         <h2 className="text-[1.25rem] sm:text-[1.5rem] font-bold text-center mb-2" style={{ color: '#101010' }}>
           <span className="italic font-normal" style={{ color: '#7B95A9', fontFamily: "'BodoniSvtyTwo', serif" }}>{firstName || 'Friend'}</span>, how can you be reached if necessary?
         </h2>
@@ -88,10 +101,10 @@ export default function WmContactInfoStep({
             <div className="relative">
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">&#9993;</span>
               <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" placeholder="you@email.com"
-                className="w-full h-14 pl-10 pr-4 rounded-2xl border bg-white text-base outline-none"
-                style={{ borderColor: errors.email ? '#ef4444' : 'rgba(0,0,0,0.08)', transition: 'border-color 0.2s, box-shadow 0.2s' }}
+                className="w-full pl-10 pr-4 bg-white text-base outline-none"
+                style={inputBaseStyle(!!errors.email)}
                 onFocus={(e) => { e.target.style.borderColor = '#c3b29e'; e.target.style.boxShadow = '0 0 0 3px rgba(195,178,158,0.15)'; }}
-                onBlur={(e) => { e.target.style.borderColor = errors.email ? '#ef4444' : 'rgba(0,0,0,0.08)'; e.target.style.boxShadow = 'none'; }} />
+                onBlur={(e) => { e.target.style.borderColor = errors.email ? '#ef4444' : '#e8e8e8'; e.target.style.boxShadow = 'none'; }} />
             </div>
             {errors.email && <p className="text-xs text-red-500 mt-1">{errors.email}</p>}
           </div>
@@ -101,10 +114,10 @@ export default function WmContactInfoStep({
             <div className="relative">
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">&#9742;</span>
               <input value={phone} onChange={(e) => setPhone(formatPhone(e.target.value))} type="tel" placeholder="(555) 555-5555"
-                className="w-full h-14 pl-10 pr-4 rounded-2xl border bg-white text-base outline-none"
-                style={{ borderColor: errors.phone ? '#ef4444' : 'rgba(0,0,0,0.08)', transition: 'border-color 0.2s, box-shadow 0.2s' }}
+                className="w-full pl-10 pr-4 bg-white text-base outline-none"
+                style={inputBaseStyle(!!errors.phone)}
                 onFocus={(e) => { e.target.style.borderColor = '#c3b29e'; e.target.style.boxShadow = '0 0 0 3px rgba(195,178,158,0.15)'; }}
-                onBlur={(e) => { e.target.style.borderColor = errors.phone ? '#ef4444' : 'rgba(0,0,0,0.08)'; e.target.style.boxShadow = 'none'; }} />
+                onBlur={(e) => { e.target.style.borderColor = errors.phone ? '#ef4444' : '#e8e8e8'; e.target.style.boxShadow = 'none'; }} />
             </div>
             {errors.phone && <p className="text-xs text-red-500 mt-1">{errors.phone}</p>}
           </div>
@@ -125,14 +138,14 @@ export default function WmContactInfoStep({
         </div>
       </div>
 
-      <div className="w-full max-w-[520px] mx-auto px-6 sm:px-8 mt-8 pb-8">
+      <div className="w-full max-w-[600px] mx-auto px-6 sm:px-8 pb-8">
         <button
           onClick={handleContinue}
           disabled={!consent}
-          className="w-full flex items-center justify-center gap-3 py-4 text-white font-medium text-base rounded-full active:scale-[0.98]"
+          className="w-full flex items-center justify-center gap-3 py-[18px] text-white font-semibold text-base rounded-full active:scale-[0.98]"
           style={{ backgroundColor: !consent ? '#b0b8be' : '#0C2631', transition: 'all 0.3s cubic-bezier(0.4,0,0.2,1)', cursor: !consent ? 'not-allowed' : 'pointer' }}
         >
-          Next <span className="text-lg">&rarr;</span>
+          Next <span className="text-base" aria-hidden>&#10132;</span>
         </button>
       </div>
     </div>

@@ -1,5 +1,6 @@
 'use client';
 
+import type { CSSProperties } from 'react';
 import { useRouter } from 'next/navigation';
 import { useIntakeActions, useIntakeStore } from '../../../../store/intakeStore';
 
@@ -19,6 +20,8 @@ export default function WmCongratsStep({
   const router = useRouter();
   const responses = useIntakeStore((s) => s.responses);
   const { markStepCompleted, setCurrentStep } = useIntakeActions();
+
+  const fadeStyle: CSSProperties = {};
 
   const handleBack = () => {
     if (prevStep) { setCurrentStep(prevStep); router.push(`${basePath}/${prevStep}`); }
@@ -47,17 +50,19 @@ export default function WmCongratsStep({
       </div>
 
       {prevStep && (
-        <div className="px-5 sm:px-8 pt-4 max-w-[520px] mx-auto w-full">
+        <div className="w-full max-w-[600px] mx-auto px-6 sm:px-8 pt-3">
           <button onClick={handleBack} className="p-2 -ml-2 rounded-lg hover:bg-black/5 active:scale-95 transition-all" aria-label="Go back">
             <svg className="w-5 h-5" style={{ color: '#101010' }} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
           </button>
         </div>
       )}
 
-      <div className="flex flex-col items-center px-6 lg:px-8 pt-8 pb-6 max-w-md sm:max-w-lg mx-auto w-full">
+      <div className="w-full max-w-[600px] mx-auto px-6 sm:px-8 pt-6">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/wellmedr-logo.svg" alt="wellmedr." className="h-7 sm:h-8 mt-4 sm:mt-8 mb-6 sm:mb-8" />
+        <img src="/wellmedr-logo.svg" alt="wellmedr." className="h-7 sm:h-8" style={fadeStyle} />
+      </div>
 
+      <div className="flex-1 flex flex-col justify-center w-full max-w-[600px] mx-auto px-6 sm:px-8 pb-6">
         <h1 className="text-[2rem] sm:text-[2.5rem] font-bold text-left w-full mb-2">
           <span style={{ color: '#c5a55a' }}>Congrats,</span>{' '}
           <span style={{ color: '#101010' }}>you&apos;re in!</span>
@@ -154,7 +159,7 @@ export default function WmCongratsStep({
         </div>
 
         <p className="text-xl font-bold text-center mb-4">Here&apos;s the best part...</p>
-        <div className="w-20 h-20 mb-4">
+        <div className="w-20 h-20 mb-4 mx-auto">
           <svg viewBox="0 0 80 80" fill="none"><path d="M40 5L50 25H70L54 38L60 58L40 45L20 58L26 38L10 25H30Z" fill="#c5a55a" stroke="#a08830" strokeWidth="1"/><text x="40" y="38" textAnchor="middle" fill="white" fontSize="6" fontWeight="bold">6-MONTH</text><text x="40" y="46" textAnchor="middle" fill="white" fontSize="5">Wellmedr</text><text x="40" y="53" textAnchor="middle" fill="white" fontSize="4">Care Guarantee</text></svg>
         </div>
 
@@ -166,10 +171,10 @@ export default function WmCongratsStep({
         <p className="text-center text-sm mb-2 font-bold">Program structure and care process verified. Individual results may vary.</p>
       </div>
 
-      <div className="w-full max-w-[520px] mx-auto px-6 sm:px-8 mt-8 pb-8">
+      <div className="w-full max-w-[600px] mx-auto px-6 sm:px-8 pb-8">
         <button
           onClick={handleContinue}
-          className="w-full flex items-center justify-center gap-3 py-4 text-white font-medium text-base rounded-full active:scale-[0.98] text-lg"
+          className="w-full flex items-center justify-center gap-3 py-[18px] text-white font-semibold text-base rounded-full active:scale-[0.98]"
           style={{ backgroundColor: '#0C2631' }}
         >
           Continue to Checkout

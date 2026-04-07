@@ -1,5 +1,6 @@
 'use client';
 
+import type { CSSProperties } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useIntakeActions, useIntakeStore } from '../../../../store/intakeStore';
@@ -24,6 +25,8 @@ export default function WmAnimatedWeightChartStep({
   const [showBadge, setShowBadge] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [animComplete, setAnimComplete] = useState(false);
+
+  const fadeStyle: CSSProperties = { opacity: mounted ? 1 : 0, transition: 'opacity 0.5s ease' };
 
   const weight = Number(responses.current_weight || responses.currentWeight) || 200;
   const goalWeight = Number(responses.ideal_weight || responses.idealWeight) || 150;
@@ -97,19 +100,20 @@ export default function WmAnimatedWeightChartStep({
       </div>
 
       {prevStep && (
-        <div className="px-5 sm:px-8 pt-4 max-w-[520px] mx-auto w-full">
+        <div className="w-full max-w-[600px] mx-auto px-6 sm:px-8 pt-3">
           <button onClick={handleBack} className="p-2 -ml-2 rounded-lg hover:bg-black/5 active:scale-95 transition-all" aria-label="Go back">
             <svg className="w-5 h-5" style={{ color: '#101010' }} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
           </button>
         </div>
       )}
 
-      <div className="flex flex-col items-center w-full max-w-[520px] mx-auto px-6 sm:px-8">
+      <div className="w-full max-w-[600px] mx-auto px-6 sm:px-8 pt-6">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/wellmedr-logo.svg" alt="wellmedr." className="h-7 sm:h-8 mt-8 sm:mt-12 mb-6 sm:mb-8"
-          style={{ opacity: mounted ? 1 : 0, transition: 'opacity 0.5s ease' }} />
+        <img src="/wellmedr-logo.svg" alt="wellmedr." className="h-7 sm:h-8" style={fadeStyle} />
+      </div>
 
-        <h1 className="text-xl sm:text-[2rem] font-bold text-center leading-tight mb-4"
+      <div className="flex-1 flex flex-col justify-center w-full max-w-[600px] mx-auto px-6 sm:px-8 pb-6">
+        <h1 className="text-xl sm:text-[2rem] font-bold text-center leading-tight mb-4 w-full"
           style={{ color: '#101010', opacity: mounted ? 1 : 0, transform: mounted ? 'translateY(0)' : 'translateY(12px)', transition: 'all 0.6s cubic-bezier(0.4,0,0.2,1) 0.1s' }}>
           It feels like magic, but it&apos;s{' '}
           <span className="font-normal italic" style={{ color: '#7B95A9', fontFamily: "'BodoniSvtyTwo', serif" }}>metabolic science.</span>
@@ -158,7 +162,7 @@ export default function WmAnimatedWeightChartStep({
           </svg>
         </div>
 
-        <div className="mt-5 text-center space-y-2 px-2"
+        <div className="mt-5 text-center space-y-2 px-2 w-full"
           style={{ opacity: mounted ? 1 : 0, transform: mounted ? 'translateY(0)' : 'translateY(10px)', transition: 'all 0.6s cubic-bezier(0.4,0,0.2,1) 0.4s' }}>
           <p className="text-[15px] sm:text-base" style={{ color: '#101010' }}>
             On average, Wellmedr patients <strong>lose over 22% of their body weight.</strong>
@@ -170,14 +174,14 @@ export default function WmAnimatedWeightChartStep({
         </div>
       </div>
 
-      <div className="w-full max-w-[520px] mx-auto px-6 sm:px-8 mt-8 pb-8"
+      <div className="w-full max-w-[600px] mx-auto px-6 sm:px-8 pb-8"
         style={{ opacity: animComplete ? 1 : 0, transform: animComplete ? 'translateY(0)' : 'translateY(8px)', transition: 'all 0.5s cubic-bezier(0.4,0,0.2,1)' }}>
         <button
           onClick={handleContinue}
-          className="w-full flex items-center justify-center gap-2.5 py-4 text-white font-medium text-base rounded-full active:scale-[0.98]"
+          className="w-full flex items-center justify-center gap-2.5 py-[18px] text-white font-semibold text-base rounded-full active:scale-[0.98]"
           style={{ backgroundColor: '#0C2631', transition: 'all 0.2s ease' }}
         >
-          Next <span className="text-lg">&rarr;</span>
+          Next <span className="text-base" aria-hidden>&#10132;</span>
         </button>
       </div>
     </div>

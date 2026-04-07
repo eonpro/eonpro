@@ -13,6 +13,24 @@ interface WmDobStepProps {
 
 const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 
+const inputStyle: React.CSSProperties = {
+  height: '60px',
+  padding: '0 20px',
+  fontSize: '16px',
+  color: '#101010',
+  backgroundColor: '#fff',
+  border: '1px solid #e8e8e8',
+  borderRadius: '24px',
+  outline: 'none',
+};
+
+const selectStyle: React.CSSProperties = {
+  ...inputStyle,
+  appearance: 'none',
+  paddingRight: 44,
+  cursor: 'pointer',
+};
+
 export default function WmDobStep({ basePath, nextStep, prevStep, progressPercent }: WmDobStepProps) {
   const router = useRouter();
   const responses = useIntakeStore((s) => s.responses);
@@ -40,14 +58,14 @@ export default function WmDobStep({ basePath, nextStep, prevStep, progressPercen
     if (prevStep) { setCurrentStep(prevStep); router.push(`${basePath}/${prevStep}`); }
   };
 
-  const selectStyle: React.CSSProperties = {
-    width: '100%', height: '56px', padding: '0 2.5rem 0 1.25rem',
-    fontSize: '1rem', fontWeight: 500, color: '#101010',
-    backgroundColor: '#fff', border: '1px solid rgba(53,28,12,0.1)',
-    borderRadius: '16px', outline: 'none', appearance: 'none', cursor: 'pointer',
+  const onFocus = (e: React.FocusEvent<HTMLSelectElement>) => {
+    e.target.style.borderColor = '#c3b29e';
+    e.target.style.boxShadow = '0 0 0 3px rgba(195,178,158,0.12)';
   };
-  const onFocus = (e: React.FocusEvent<HTMLSelectElement>) => { e.target.style.borderColor = '#c3b29e'; e.target.style.boxShadow = '0 0 0 3px rgba(195,178,158,0.2)'; };
-  const onBlur = (e: React.FocusEvent<HTMLSelectElement>) => { e.target.style.borderColor = 'rgba(53,28,12,0.1)'; e.target.style.boxShadow = 'none'; };
+  const onBlur = (e: React.FocusEvent<HTMLSelectElement>) => {
+    e.target.style.borderColor = '#e8e8e8';
+    e.target.style.boxShadow = 'none';
+  };
   const chevron = <div className="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none"><svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg></div>;
 
   return (
@@ -57,35 +75,37 @@ export default function WmDobStep({ basePath, nextStep, prevStep, progressPercen
       </div>
 
       {prevStep && (
-        <div className="px-5 sm:px-8 pt-4 max-w-md sm:max-w-lg mx-auto w-full">
-          <button onClick={handleBack} className="p-2 -ml-2 rounded-lg hover:bg-black/5 active:scale-95 transition-all" aria-label="Go back">
+        <div className="px-6 sm:px-8 pt-3 max-w-[600px] mx-auto w-full">
+          <button type="button" onClick={handleBack} className="p-2 -ml-2 rounded-lg hover:bg-black/5 active:scale-95 transition-all" aria-label="Go back">
             <svg className="w-5 h-5" style={{ color: '#101010' }} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
           </button>
         </div>
       )}
 
-      <div className="flex flex-col items-center w-full max-w-[520px] mx-auto px-6 sm:px-8">
+      <div className="max-w-[600px] mx-auto px-6 sm:px-8 pt-6 w-full">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/wellmedr-logo.svg" alt="wellmedr." className="h-7 sm:h-8 mt-8 sm:mt-12 mb-6 sm:mb-8" />
+        <img src="/wellmedr-logo.svg" alt="wellmedr." className="h-7 sm:h-8 block" />
+      </div>
 
-        <h1 className="text-xl sm:text-[1.75rem] font-bold text-center leading-snug mb-1" style={{ color: '#7B95A9', fontFamily: "'BodoniSvtyTwo', serif" }}>
+      <div className="flex-1 flex flex-col justify-center max-w-[600px] mx-auto px-6 sm:px-8 pb-6 w-full space-y-5">
+        <p className="text-[15px] text-center" style={{ color: '#666' }}>
           Medication can be tailored to <em>your unique needs,</em>
-        </h1>
-        <p className="text-lg sm:text-xl font-bold text-center mb-4" style={{ color: '#101010' }}>
+        </p>
+        <p className="text-lg sm:text-xl font-bold text-center" style={{ color: '#101010' }}>
           so let&rsquo;s get to know you a little better.
         </p>
 
-        <h2 className="text-lg sm:text-[1.4rem] font-bold text-center mb-1" style={{ color: '#101010' }}>
+        <h1 className="text-[1.55rem] sm:text-[1.75rem] font-bold text-center" style={{ color: '#101010' }}>
           What is your date of birth?
-        </h2>
-        <p className="text-[13px] sm:text-sm text-center mb-5" style={{ color: '#666' }}>
+        </h1>
+        <p className="text-[15px] text-center" style={{ color: '#666' }}>
           This helps us understand your body complexity and hormones so we can assess you better.
         </p>
 
-        <div className="w-full space-y-3">
+        <div className="w-full space-y-5">
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-semibold mb-1.5" style={{ color: '#101010' }}>Day <span style={{ color: '#c3b29e' }}>*</span></label>
+              <label className="block text-[15px] font-semibold mb-2" style={{ color: '#101010' }}>Day <span style={{ color: '#c3b29e' }}>*</span></label>
               <div className="relative">
                 <select value={day} onChange={(e) => setDay(e.target.value)} style={selectStyle} onFocus={onFocus} onBlur={onBlur}>
                   <option value="" disabled>Day</option>
@@ -95,7 +115,7 @@ export default function WmDobStep({ basePath, nextStep, prevStep, progressPercen
               </div>
             </div>
             <div>
-              <label className="block text-sm font-semibold mb-1.5" style={{ color: '#101010' }}>Month <span style={{ color: '#c3b29e' }}>*</span></label>
+              <label className="block text-[15px] font-semibold mb-2" style={{ color: '#101010' }}>Month <span style={{ color: '#c3b29e' }}>*</span></label>
               <div className="relative">
                 <select value={month} onChange={(e) => setMonth(e.target.value)} style={selectStyle} onFocus={onFocus} onBlur={onBlur}>
                   <option value="" disabled>Month</option>
@@ -106,7 +126,7 @@ export default function WmDobStep({ basePath, nextStep, prevStep, progressPercen
             </div>
           </div>
           <div>
-            <label className="block text-sm font-semibold mb-1.5" style={{ color: '#101010' }}>Year <span style={{ color: '#c3b29e' }}>*</span></label>
+            <label className="block text-[15px] font-semibold mb-2" style={{ color: '#101010' }}>Year <span style={{ color: '#c3b29e' }}>*</span></label>
             <div className="relative">
               <select value={year} onChange={(e) => setYear(e.target.value)} style={selectStyle} onFocus={onFocus} onBlur={onBlur}>
                 <option value="" disabled>Year</option>
@@ -118,14 +138,15 @@ export default function WmDobStep({ basePath, nextStep, prevStep, progressPercen
         </div>
       </div>
 
-      <div className="w-full max-w-[520px] mx-auto px-6 sm:px-8 mt-8 pb-8" style={{ backgroundColor: '#F7F7F9' }}>
+      <div className="w-full max-w-[600px] mx-auto px-6 sm:px-8 mt-8 pb-6" style={{ backgroundColor: '#F7F7F9' }}>
         <button
+          type="button"
           onClick={handleContinue}
           disabled={!month || !day || !year}
-          className="w-full flex items-center justify-center gap-2.5 py-4 text-white font-medium text-base rounded-full active:scale-[0.98]"
+          className="w-full flex items-center justify-center gap-2.5 py-[18px] text-white font-semibold text-base rounded-full active:scale-[0.98]"
           style={{ backgroundColor: (!month || !day || !year) ? '#b0b8be' : '#0C2631', transition: 'all 0.3s cubic-bezier(0.4,0,0.2,1)', cursor: (!month || !day || !year) ? 'not-allowed' : 'pointer' }}
         >
-          Next <span className="text-lg">&rarr;</span>
+          Next <span aria-hidden="true">&#10132;</span>
         </button>
       </div>
     </div>
