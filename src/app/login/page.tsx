@@ -1166,7 +1166,7 @@ function LoginContent() {
   const isClinicDarkLogin = !isMainApp && !isLogosRxExperience && !!branding;
   const isDarkTheme = isLogosRxExperience || isEonproDarkLogin || isProviderDarkLogin || isClinicDarkLogin;
 
-  const themeColor = isProviderDarkLogin ? '#6366F1' : primaryColor;
+  const themeColor = isLogosRxExperience ? LOGOSRX_PRIMARY : isProviderDarkLogin ? '#6366F1' : primaryColor;
   const [pcR, pcG, pcB] = hexToRgb(themeColor);
   const darkAccent = lightenHex(themeColor, 0.4);
   const darkButtonGradient = `linear-gradient(135deg, ${darkenHex(themeColor, 0.25)} 0%, ${themeColor} 50%, ${lightenHex(themeColor, 0.3)} 100%)`;
@@ -1179,15 +1179,11 @@ function LoginContent() {
     '--login-focus-ring': `rgba(${pcR},${pcG},${pcB},0.25)`,
   };
 
-  const bgColor = isLogosRxExperience
-    ? LOGOSRX_BG
-    : isDarkTheme
-      ? undefined
-      : '#f0fdf4';
+  const bgColor = isDarkTheme ? undefined : '#f0fdf4';
 
   // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: runs when dark theme state settles
   useEffect(() => {
-    if (!isDarkTheme || isLogosRxExperience || !isBrowser) return;
+    if (!isDarkTheme || !isBrowser) return;
     const darkBg = '#020617';
     const prevBodyBg = document.body.style.backgroundColor;
     document.body.style.backgroundColor = darkBg;
@@ -1205,14 +1201,14 @@ function LoginContent() {
       document.body.style.backgroundColor = prevBodyBg;
       if (meta && prevThemeColor !== undefined) meta.content = prevThemeColor;
     };
-  }, [isDarkTheme, isLogosRxExperience]);
+  }, [isDarkTheme]);
 
   return (
     <div
-      className={`min-h-[100dvh] ${isDarkTheme && !isLogosRxExperience ? 'dark-login-bg' : ''}`}
+      className={`min-h-[100dvh] ${isDarkTheme ? 'dark-login-bg' : ''}`}
       style={{
         ...(bgColor ? { backgroundColor: bgColor } : {}),
-        ...(isDarkTheme && !isLogosRxExperience ? loginGlowVars as React.CSSProperties : {}),
+        ...(isDarkTheme ? loginGlowVars as React.CSSProperties : {}),
         paddingLeft: 'env(safe-area-inset-left)',
         paddingRight: 'env(safe-area-inset-right)',
         paddingBottom: 'env(safe-area-inset-bottom)',
@@ -1425,7 +1421,7 @@ function LoginContent() {
                   }`}
                   style={{
                     backgroundColor: (loading || systemUnavailable) ? '#9CA3AF' : primaryColor,
-                    ...((isDarkTheme && !isLogosRxExperience) && !(loading || systemUnavailable) ? {
+                    ...(isDarkTheme && !(loading || systemUnavailable) ? {
                       background: darkButtonGradient,
                     } : {}),
                     color: buttonTextColor,
@@ -1625,7 +1621,7 @@ function LoginContent() {
                   style={{
                     backgroundColor:
                       (loading || retryAfterCountdown > 0 || systemUnavailable) ? '#9CA3AF' : primaryColor,
-                    ...((isDarkTheme && !isLogosRxExperience) && !(loading || retryAfterCountdown > 0 || systemUnavailable) ? {
+                    ...(isDarkTheme && !(loading || retryAfterCountdown > 0 || systemUnavailable) ? {
                       background: darkButtonGradient,
                     } : {}),
                     color: buttonTextColor,
@@ -2110,7 +2106,7 @@ function LoginContent() {
                   }`}
                   style={{
                     backgroundColor: primaryColor,
-                    ...((isDarkTheme && !isLogosRxExperience) && !(loading || !newPassword || !confirmNewPassword) ? {
+                    ...(isDarkTheme && !(loading || !newPassword || !confirmNewPassword) ? {
                       background: darkButtonGradient,
                     } : {}),
                     color: buttonTextColor,
