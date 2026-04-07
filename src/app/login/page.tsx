@@ -58,6 +58,23 @@ function getTextColorForBg(hex: string, mode: 'auto' | 'light' | 'dark'): string
   return luminance > 0.5 ? '#1f2937' : '#ffffff';
 }
 
+function hexToRgb(hex: string): [number, number, number] {
+  const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  return m ? [parseInt(m[1], 16), parseInt(m[2], 16), parseInt(m[3], 16)] : [16, 185, 129];
+}
+
+function lightenHex(hex: string, amount: number): string {
+  const [r, g, b] = hexToRgb(hex);
+  const lighten = (c: number) => Math.min(255, Math.round(c + (255 - c) * amount));
+  return `#${[lighten(r), lighten(g), lighten(b)].map(c => c.toString(16).padStart(2, '0')).join('')}`;
+}
+
+function darkenHex(hex: string, amount: number): string {
+  const [r, g, b] = hexToRgb(hex);
+  const darken = (c: number) => Math.max(0, Math.round(c * (1 - amount)));
+  return `#${[darken(r), darken(g), darken(b)].map(c => c.toString(16).padStart(2, '0')).join('')}`;
+}
+
 /** Shape of /api/auth/login response (success or error). */
 type LoginResponseData = {
   error?: string;
@@ -1146,31 +1163,56 @@ function LoginContent() {
 
   const isEonproDarkLogin = isMainApp && !isProviderLogin;
   const isProviderDarkLogin = isMainApp && isProviderLogin;
-  const isDarkTheme = isLogosRxExperience || isEonproDarkLogin || isProviderDarkLogin;
+  const isClinicDarkLogin = !isMainApp && !isLogosRxExperience && !!branding;
+  const isDarkTheme = isLogosRxExperience || isEonproDarkLogin || isProviderDarkLogin || isClinicDarkLogin;
 
-  const darkAccent = isProviderDarkLogin ? '#818CF8' : '#34D399';
-  const darkButtonGradient = isProviderDarkLogin
-    ? 'linear-gradient(135deg, #4338CA 0%, #6366F1 50%, #818CF8 100%)'
-    : 'linear-gradient(135deg, #059669 0%, #10B981 50%, #34D399 100%)';
-  const darkFocusRing = isProviderDarkLogin ? 'rgba(99,102,241,0.5)' : 'rgba(16,185,129,0.5)';
+  const themeColor = isProviderDarkLogin ? '#6366F1' : primaryColor;
+  const [pcR, pcG, pcB] = hexToRgb(themeColor);
+  const darkAccent = lightenHex(themeColor, 0.4);
+  const darkButtonGradient = `linear-gradient(135deg, ${darkenHex(themeColor, 0.25)} 0%, ${themeColor} 50%, ${lightenHex(themeColor, 0.3)} 100%)`;
+  const darkFocusRing = `rgba(${pcR},${pcG},${pcB},0.5)`;
 
-  const bgColor = (isProviderLogin && isMainApp)
-    ? undefined
-    : isProviderLogin
+  const loginGlowVars: Record<string, string> = {
+    '--login-glow': `rgba(${pcR},${pcG},${pcB},0.10)`,
+    '--login-glow-alt': `rgba(${pcR},${pcG},${pcB},0.06)`,
+    '--login-focus': `rgba(${pcR},${pcG},${pcB},0.5)`,
+    '--login-focus-ring': `rgba(${pcR},${pcG},${pcB},0.25)`,
+  };
+
+  const bgColor = isLogosRxExperience
+    ? LOGOSRX_BG
+    : isDarkTheme
       ? undefined
-      : isLogosRxExperience
-        ? LOGOSRX_BG
-        : isEonproDarkLogin
-          ? undefined
-          : branding
-            ? `${primaryColor}0D`
-            : '#f0fdf4';
+      : '#f0fdf4';
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: runs when dark theme state settles
+  useEffect(() => {
+    if (!isDarkTheme || isLogosRxExperience || !isBrowser) return;
+    const darkBg = '#020617';
+    const prevBodyBg = document.body.style.backgroundColor;
+    document.body.style.backgroundColor = darkBg;
+
+    let meta = document.querySelector('meta[name="theme-color"]') as HTMLMetaElement | null;
+    const prevThemeColor = meta?.content;
+    if (!meta) {
+      meta = document.createElement('meta');
+      meta.name = 'theme-color';
+      document.head.appendChild(meta);
+    }
+    meta.content = darkBg;
+
+    return () => {
+      document.body.style.backgroundColor = prevBodyBg;
+      if (meta && prevThemeColor !== undefined) meta.content = prevThemeColor;
+    };
+  }, [isDarkTheme, isLogosRxExperience]);
 
   return (
     <div
-      className={`min-h-[100dvh] ${isProviderLogin && !isProviderDarkLogin ? 'login-gradient-bg' : ''} ${isEonproDarkLogin ? 'eonpro-dark-login-bg' : ''} ${isProviderDarkLogin ? 'eonpro-provider-login-bg' : ''}`}
+      className={`min-h-[100dvh] ${isDarkTheme && !isLogosRxExperience ? 'dark-login-bg' : ''}`}
       style={{
         ...(bgColor ? { backgroundColor: bgColor } : {}),
+        ...(isDarkTheme && !isLogosRxExperience ? loginGlowVars as React.CSSProperties : {}),
         paddingLeft: 'env(safe-area-inset-left)',
         paddingRight: 'env(safe-area-inset-right)',
         paddingBottom: 'env(safe-area-inset-bottom)',
@@ -1208,19 +1250,19 @@ function LoginContent() {
                 <img
                   src={branding.logoUrl}
                   alt={branding.name}
-                  className="h-12 max-w-[200px] object-contain"
+                  className={`h-12 max-w-[200px] object-contain ${isClinicDarkLogin ? 'brightness-0 invert' : ''}`}
                   width={200}
                   height={48}
                   onError={() => setLogoLoadError(true)}
                 />
               ) : (
-                <h1 className="text-3xl font-bold" style={{ color: primaryColor }}>
+                <h1 className="text-3xl font-bold" style={{ color: isClinicDarkLogin ? '#ffffff' : primaryColor }}>
                   {branding.name}
                 </h1>
               )
             ) : (
               <img
-                src={(isEonproDarkLogin || isProviderDarkLogin) ? EONPRO_LOGO_DARK : EONPRO_LOGO}
+                src={isDarkTheme && !isLogosRxExperience ? EONPRO_LOGO_DARK : EONPRO_LOGO}
                 alt="EONPRO"
                 className="h-10 w-auto"
                 width={160}
@@ -1243,10 +1285,10 @@ function LoginContent() {
             </p>
           )}
           {!isLogosRxExperience && branding && !isMainApp && (
-            <p className="mt-2 flex items-center justify-center gap-1.5 text-xs text-gray-500 whitespace-nowrap">
+            <p className={`mt-2 flex items-center justify-center gap-1.5 text-xs whitespace-nowrap ${isClinicDarkLogin ? 'text-white/50' : 'text-gray-500'}`}>
               Powered by{' '}
               <img
-                src={EONPRO_LOGO}
+                src={isClinicDarkLogin ? EONPRO_LOGO_DARK : EONPRO_LOGO}
                 alt="EONPRO"
                 className="h-[21px] w-auto"
                 width={84}
@@ -1303,13 +1345,17 @@ function LoginContent() {
           {branding && !isMainApp && !isProviderLogin && !isLogosRxExperience && step === 'identifier' && (
             <a
               href="/patient-login"
-              className="mb-8 flex w-full max-w-md items-center justify-between rounded-2xl border border-gray-200 bg-white/80 p-4 transition-colors hover:bg-white hover:shadow-md"
+              className={`mb-8 flex w-full max-w-md items-center justify-between rounded-2xl border p-4 transition-colors ${
+                isClinicDarkLogin
+                  ? 'border-white/10 bg-white/[0.06] backdrop-blur-sm hover:bg-white/[0.1]'
+                  : 'border-gray-200 bg-white/80 hover:bg-white hover:shadow-md'
+              }`}
             >
               <div>
-                <p className="text-sm font-semibold text-gray-900">Are you a patient?</p>
-                <p className="text-xs text-gray-500">Use the Patient Portal login instead</p>
+                <p className={`text-sm font-semibold ${isClinicDarkLogin ? 'text-white' : 'text-gray-900'}`}>Are you a patient?</p>
+                <p className={`text-xs ${isClinicDarkLogin ? 'text-white/50' : 'text-gray-500'}`}>Use the Patient Portal login instead</p>
               </div>
-              <ArrowRight className="h-5 w-5 text-gray-400" />
+              <ArrowRight className={`h-5 w-5 ${isClinicDarkLogin ? 'text-white/40' : 'text-gray-400'}`} />
             </a>
           )}
 
@@ -1379,7 +1425,7 @@ function LoginContent() {
                   }`}
                   style={{
                     backgroundColor: (loading || systemUnavailable) ? '#9CA3AF' : primaryColor,
-                    ...((isEonproDarkLogin || isProviderDarkLogin) && !(loading || systemUnavailable) ? {
+                    ...((isDarkTheme && !isLogosRxExperience) && !(loading || systemUnavailable) ? {
                       background: darkButtonGradient,
                     } : {}),
                     color: buttonTextColor,
@@ -1579,7 +1625,7 @@ function LoginContent() {
                   style={{
                     backgroundColor:
                       (loading || retryAfterCountdown > 0 || systemUnavailable) ? '#9CA3AF' : primaryColor,
-                    ...((isEonproDarkLogin || isProviderDarkLogin) && !(loading || retryAfterCountdown > 0 || systemUnavailable) ? {
+                    ...((isDarkTheme && !isLogosRxExperience) && !(loading || retryAfterCountdown > 0 || systemUnavailable) ? {
                       background: darkButtonGradient,
                     } : {}),
                     color: buttonTextColor,
@@ -2064,7 +2110,7 @@ function LoginContent() {
                   }`}
                   style={{
                     backgroundColor: primaryColor,
-                    ...((isEonproDarkLogin || isProviderDarkLogin) && !(loading || !newPassword || !confirmNewPassword) ? {
+                    ...((isDarkTheme && !isLogosRxExperience) && !(loading || !newPassword || !confirmNewPassword) ? {
                       background: darkButtonGradient,
                     } : {}),
                     color: buttonTextColor,
