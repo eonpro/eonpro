@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Eye, EyeOff, X, Mail, Phone, ArrowRight, RefreshCw, Building2, Check } from 'lucide-react';
 import { useAuthStore, type AuthUser, type ClinicInfo } from '@/lib/stores/authStore';
 import { PATIENT_PORTAL_PATH } from '@/lib/config/patient-portal';
-import { EONPRO_LOGO, LOGOSRX } from '@/lib/constants/brand-assets';
+import { EONPRO_LOGO, EONPRO_LOGO_DARK, LOGOSRX } from '@/lib/constants/brand-assets';
 import { isBrowser } from '@/lib/utils/ssr-safe';
 
 type LoginStep = 'identifier' | 'password' | 'otp' | 'email-otp' | 'clinic' | 'forgot' | 'reset';
@@ -107,12 +107,10 @@ function getLoginRoleFromRedirect(
 /** Loading fallback while search params are resolved (avoids error boundary on mobile). */
 function LoginFallback() {
   return (
-    <div
-      className="login-gradient-bg flex min-h-[100dvh] flex-col items-center justify-center p-6"
-    >
-      <img src={EONPRO_LOGO} alt="EONPRO" className="mb-8 h-10 w-auto opacity-90" width={160} height={40} style={{ maxHeight: 40, width: 'auto' }} />
-      <div className="h-8 w-8 animate-spin rounded-full border-2 border-gray-300 border-t-gray-600" />
-      <p className="mt-4 text-sm text-gray-500">Loading...</p>
+    <div className="eonpro-dark-login-bg flex min-h-[100dvh] flex-col items-center justify-center p-6">
+      <img src={EONPRO_LOGO_DARK} alt="EONPRO" className="mb-8 h-10 w-auto opacity-90" width={160} height={40} style={{ maxHeight: 40, width: 'auto' }} />
+      <div className="h-8 w-8 animate-spin rounded-full border-2 border-white/20 border-t-white/70" />
+      <p className="mt-4 text-sm text-white/40">Loading...</p>
     </div>
   );
 }
@@ -175,7 +173,7 @@ function LoginContent() {
   // hydration mismatch (#418). Cache is restored in a post-mount effect below.
   const [branding, setBranding] = useState<ClinicBranding | null>(null);
   const [resolvedClinicId, setResolvedClinicId] = useState<number | null>(null);
-  const [isMainApp, setIsMainApp] = useState(false);
+  const [isMainApp, setIsMainApp] = useState(true);
   const [isLogosRxExperience, setIsLogosRxExperience] = useState(false);
 
   // Logo load failure: gracefully fall back to clinic name text
@@ -244,11 +242,11 @@ function LoginContent() {
     try {
       const cached = localStorage.getItem('clinic-branding-cache');
       if (!cached) {
-        if (!localStorage.getItem('clinic-branding-is-whitelabel')) setIsMainApp(true);
         return;
       }
       const parsed = JSON.parse(cached) as ClinicBranding & { clinicId?: number; _cachedAt?: number };
       if (parsed._cachedAt && Date.now() - parsed._cachedAt > 24 * 60 * 60 * 1000) return;
+      setIsMainApp(false);
       setBranding(parsed);
       if (parsed.clinicId) setResolvedClinicId(parsed.clinicId);
     } catch { /* corrupt cache — ignore, fresh fetch below will resolve */ }
@@ -1146,17 +1144,31 @@ function LoginContent() {
   const isProviderLogin =
     !!redirectParam && redirectParam.toLowerCase().split('?')[0].startsWith('/provider');
 
-  const bgColor = isProviderLogin
+  const isEonproDarkLogin = isMainApp && !isProviderLogin;
+  const isProviderDarkLogin = isMainApp && isProviderLogin;
+  const isDarkTheme = isLogosRxExperience || isEonproDarkLogin || isProviderDarkLogin;
+
+  const darkAccent = isProviderDarkLogin ? '#818CF8' : '#34D399';
+  const darkButtonGradient = isProviderDarkLogin
+    ? 'linear-gradient(135deg, #4338CA 0%, #6366F1 50%, #818CF8 100%)'
+    : 'linear-gradient(135deg, #059669 0%, #10B981 50%, #34D399 100%)';
+  const darkFocusRing = isProviderDarkLogin ? 'rgba(99,102,241,0.5)' : 'rgba(16,185,129,0.5)';
+
+  const bgColor = (isProviderLogin && isMainApp)
     ? undefined
-    : isLogosRxExperience
-      ? LOGOSRX_BG
-      : branding
-      ? `${primaryColor}0D`
-      : '#f0fdf4';
+    : isProviderLogin
+      ? undefined
+      : isLogosRxExperience
+        ? LOGOSRX_BG
+        : isEonproDarkLogin
+          ? undefined
+          : branding
+            ? `${primaryColor}0D`
+            : '#f0fdf4';
 
   return (
     <div
-      className={`min-h-[100dvh] ${isProviderLogin ? 'login-gradient-bg' : ''}`}
+      className={`min-h-[100dvh] ${isProviderLogin && !isProviderDarkLogin ? 'login-gradient-bg' : ''} ${isEonproDarkLogin ? 'eonpro-dark-login-bg' : ''} ${isProviderDarkLogin ? 'eonpro-provider-login-bg' : ''}`}
       style={{
         ...(bgColor ? { backgroundColor: bgColor } : {}),
         paddingLeft: 'env(safe-area-inset-left)',
@@ -1172,11 +1184,11 @@ function LoginContent() {
           <button
             onClick={() => router.push('/dashboard')}
             className={`flex min-h-[44px] min-w-[44px] touch-manipulation items-center justify-center rounded-full transition-colors ${
-              isLogosRxExperience ? 'hover:bg-white/10 active:bg-white/20' : 'hover:bg-black/5 active:bg-black/10'
+              isDarkTheme ? 'hover:bg-white/10 active:bg-white/20' : 'hover:bg-black/5 active:bg-black/10'
             }`}
             aria-label="Close"
           >
-            <X className={`h-6 w-6 ${isLogosRxExperience ? 'text-white/90' : 'text-gray-700'}`} />
+            <X className={`h-6 w-6 ${isDarkTheme ? 'text-white/90' : 'text-gray-700'}`} />
           </button>
         </div>
 
@@ -1208,7 +1220,7 @@ function LoginContent() {
               )
             ) : (
               <img
-                src={EONPRO_LOGO}
+                src={(isEonproDarkLogin || isProviderDarkLogin) ? EONPRO_LOGO_DARK : EONPRO_LOGO}
                 alt="EONPRO"
                 className="h-10 w-auto"
                 width={160}
@@ -1247,13 +1259,14 @@ function LoginContent() {
 
         {/* Main Content */}
         <div className="flex flex-1 flex-col items-center px-4 pt-4 sm:px-6 sm:pt-8">
-          {/* System unavailable banner (only when /api/ready explicitly returns 503) */}
           {systemUnavailable && (
-            <div className="mb-6 w-full max-w-md rounded-2xl border border-amber-200 bg-amber-50 p-4 text-center">
-              <p className="text-sm font-medium text-amber-800">
+            <div className={`mb-6 w-full max-w-md rounded-2xl border p-4 text-center ${
+              isDarkTheme ? 'border-amber-500/30 bg-amber-900/30 backdrop-blur-sm' : 'border-amber-200 bg-amber-50'
+            }`}>
+              <p className={`text-sm font-medium ${isDarkTheme ? 'text-amber-300' : 'text-amber-800'}`}>
                 System temporarily unavailable. We&apos;ll be back shortly.
               </p>
-              <p className="mt-1 text-xs text-amber-700">
+              <p className={`mt-1 text-xs ${isDarkTheme ? 'text-amber-400/70' : 'text-amber-700'}`}>
                 Please try again in a few minutes.
               </p>
             </div>
@@ -1262,14 +1275,14 @@ function LoginContent() {
           {/* Welcome Text - mobile-friendly sizing */}
           <h1
             className={`mb-3 text-center text-4xl font-light tracking-tight sm:mb-4 sm:text-5xl md:text-6xl ${
-              isLogosRxExperience ? 'text-white' : 'text-gray-900'
+              isDarkTheme ? 'text-white' : 'text-gray-900'
             }`}
           >
             Welcome
           </h1>
           <p
             className={`mb-6 text-center text-base sm:mb-8 sm:text-lg ${
-              isLogosRxExperience ? 'text-white/85' : 'text-gray-600'
+              isDarkTheme ? 'text-white/85' : 'text-gray-600'
             }`}
           >
             {isLogosRxExperience
@@ -1281,8 +1294,8 @@ function LoginContent() {
                   : 'Sign in to EONPRO'}
           </p>
           {isProviderLogin && (
-            <p className="mb-4 max-w-sm text-center text-sm text-gray-500 sm:mb-6">
-              Sign in to review and approve prescriptions from the queue—even on the go.
+            <p className={`mb-4 max-w-sm text-center text-sm sm:mb-6 ${isDarkTheme ? 'text-white/50' : 'text-gray-500'}`}>
+              Sign in to review and approve prescriptions from the queue — even on the go.
             </p>
           )}
 
@@ -1305,8 +1318,13 @@ function LoginContent() {
             {/* STEP 1: Email or Phone Input */}
             {step === 'identifier' && (
               <form onSubmit={handleIdentifierSubmit} className="space-y-4">
+                {isDarkTheme && (
+                  <label htmlFor="identifier" className="block text-xs font-medium uppercase tracking-wider text-white/50">
+                    Email address or phone
+                  </label>
+                )}
                 <div className="relative">
-                  <div className={`pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 transition-opacity duration-200 ${identifier ? 'opacity-0' : 'opacity-100'}`}>
+                  <div className={`pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 ${isDarkTheme ? 'text-white/30' : 'text-gray-400'} transition-opacity duration-200 ${identifier ? 'opacity-0' : 'opacity-100'}`}>
                     {isPhoneNumber(identifier) ? (
                       <Phone className="h-5 w-5" />
                     ) : (
@@ -1318,9 +1336,13 @@ function LoginContent() {
                     type="text"
                     value={identifier}
                     onChange={(e) => setIdentifier(e.target.value)}
-                    className="min-h-[48px] w-full touch-manipulation rounded-2xl border border-gray-200 bg-white py-4 pr-4 text-base text-gray-900 placeholder-gray-400 transition-colors focus:border-transparent focus:outline-none focus:ring-2"
-                    style={{ paddingLeft: '3.5rem', '--tw-ring-color': primaryColor } as React.CSSProperties}
-                    placeholder="Email or phone number"
+                    className={`min-h-[48px] w-full touch-manipulation rounded-2xl border py-4 pr-4 text-base transition-colors focus:border-transparent focus:outline-none focus:ring-2 ${
+                      isDarkTheme
+                        ? 'border-white/12 bg-white/[0.06] text-white placeholder-white/35 backdrop-blur-sm'
+                        : 'border-gray-200 bg-white text-gray-900 placeholder-gray-400'
+                    }`}
+                    style={{ paddingLeft: '3.5rem', '--tw-ring-color': isDarkTheme ? darkFocusRing : primaryColor } as React.CSSProperties}
+                    placeholder="Enter email or phone number"
                     required
                     autoComplete="username"
                     autoFocus
@@ -1329,7 +1351,7 @@ function LoginContent() {
 
                 <div
                   className={`rounded-2xl border transition-all duration-150 ${
-                    sessionMessage ? 'opacity-100 border-amber-200 bg-amber-50 p-4' : 'h-0 overflow-hidden border-transparent p-0 opacity-0'
+                    sessionMessage ? `opacity-100 p-4 ${isDarkTheme ? 'border-amber-500/30 bg-amber-900/30 backdrop-blur-sm' : 'border-amber-200 bg-amber-50'}` : 'h-0 overflow-hidden border-transparent p-0 opacity-0'
                   }`}
                   aria-live="polite"
                 >
@@ -1340,7 +1362,7 @@ function LoginContent() {
 
                 <div
                   className={`rounded-2xl border transition-all duration-150 ${
-                    error ? 'opacity-100 border-red-200 bg-red-50 p-4' : 'h-0 overflow-hidden border-transparent p-0 opacity-0'
+                    error ? `opacity-100 p-4 ${isDarkTheme ? 'border-red-500/30 bg-red-900/30 backdrop-blur-sm' : 'border-red-200 bg-red-50'}` : 'h-0 overflow-hidden border-transparent p-0 opacity-0'
                   }`}
                   aria-live="polite"
                 >
@@ -1352,11 +1374,14 @@ function LoginContent() {
                 <button
                   type="submit"
                   disabled={loading || systemUnavailable}
-                  className={`flex min-h-[48px] w-full touch-manipulation items-center justify-center gap-2 rounded-2xl px-6 py-4 text-base font-semibold transition-colors ${
-                    loading || systemUnavailable ? 'cursor-not-allowed opacity-50' : 'hover:opacity-90 active:opacity-95'
+                  className={`flex min-h-[48px] w-full touch-manipulation items-center justify-center gap-2 rounded-2xl px-6 py-4 text-base font-semibold transition-all ${
+                    loading || systemUnavailable ? 'cursor-not-allowed opacity-50' : 'hover:opacity-90 active:scale-[0.99]'
                   }`}
                   style={{
-                    backgroundColor: loading || systemUnavailable ? '#9CA3AF' : primaryColor,
+                    backgroundColor: (loading || systemUnavailable) ? '#9CA3AF' : primaryColor,
+                    ...((isEonproDarkLogin || isProviderDarkLogin) && !(loading || systemUnavailable) ? {
+                      background: darkButtonGradient,
+                    } : {}),
                     color: buttonTextColor,
                   }}
                 >
@@ -1373,27 +1398,26 @@ function LoginContent() {
                   )}
                 </button>
 
-                {/* Patient Portal Links - only show when banner card is NOT visible */}
                 {!(branding && !isMainApp && !isProviderLogin) && (
                   <div className="space-y-2 pt-4">
                     {!isProviderLogin && (
-                      <p className="text-center text-sm text-gray-600">
+                      <p className={`text-center text-sm ${isDarkTheme ? 'text-white/60' : 'text-gray-600'}`}>
                         Patient?{' '}
                         <a
                           href="/patient-login"
                           className="font-medium hover:opacity-80"
-                          style={{ color: primaryColor }}
+                          style={{ color: isDarkTheme ? darkAccent : primaryColor }}
                         >
                           Use Patient Portal Login
                         </a>
                       </p>
                     )}
-                    <p className="text-center text-sm text-gray-600">
+                    <p className={`text-center text-sm ${isDarkTheme ? 'text-white/60' : 'text-gray-600'}`}>
                       New patient?{' '}
                       <a
                         href="/register"
                         className="font-medium hover:opacity-80"
-                        style={{ color: primaryColor }}
+                        style={{ color: isDarkTheme ? darkAccent : primaryColor }}
                       >
                         Create an account
                       </a>
@@ -1406,30 +1430,34 @@ function LoginContent() {
             {/* STEP 2a: Password (for email login) */}
             {step === 'password' && (
               <form onSubmit={handlePasswordLogin} className="space-y-4">
-                {/* Email Display */}
-                <div className="flex items-center justify-between rounded-2xl border border-gray-200 bg-white p-4">
+                <div className={`flex items-center justify-between rounded-2xl border p-4 ${
+                  isDarkTheme ? 'border-white/10 bg-white/[0.06] backdrop-blur-sm' : 'border-gray-200 bg-white'
+                }`}>
                   <div>
-                    <p className="mb-1 text-xs text-gray-500">Email</p>
-                    <p className="font-medium text-gray-900">{identifier}</p>
+                    <p className={`mb-1 text-xs ${isDarkTheme ? 'text-white/50' : 'text-gray-500'}`}>Email</p>
+                    <p className={`font-medium ${isDarkTheme ? 'text-white' : 'text-gray-900'}`}>{identifier}</p>
                   </div>
                   <button
                     type="button"
                     onClick={handleBack}
-                    className="font-medium text-gray-600 transition-colors hover:text-gray-900"
+                    className={`font-medium transition-colors ${isDarkTheme ? 'text-white/60 hover:text-white' : 'text-gray-600 hover:text-gray-900'}`}
                   >
                     Edit
                   </button>
                 </div>
 
-                {/* Password Field */}
                 <div className="relative">
                   <input
                     id="password"
                     type={showPassword ? 'text' : 'password'}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="min-h-[48px] w-full touch-manipulation rounded-2xl border border-gray-200 bg-white px-4 py-4 pr-12 text-base text-gray-900 placeholder-gray-400 transition-colors focus:border-transparent focus:outline-none focus:ring-2"
-                    style={{ '--tw-ring-color': primaryColor } as React.CSSProperties}
+                    className={`min-h-[48px] w-full touch-manipulation rounded-2xl border px-4 py-4 pr-12 text-base transition-colors focus:border-transparent focus:outline-none focus:ring-2 ${
+                      isDarkTheme
+                        ? 'border-white/12 bg-white/[0.06] text-white placeholder-white/35 backdrop-blur-sm'
+                        : 'border-gray-200 bg-white text-gray-900 placeholder-gray-400'
+                    }`}
+                    style={{ '--tw-ring-color': isDarkTheme ? darkFocusRing : primaryColor } as React.CSSProperties}
                     placeholder="Password"
                     required
                     autoComplete="current-password"
@@ -1438,7 +1466,9 @@ function LoginContent() {
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-4 top-1/2 flex min-h-[44px] min-w-[44px] -translate-y-1/2 touch-manipulation items-center justify-center text-gray-400 transition-colors hover:text-gray-600"
+                    className={`absolute right-4 top-1/2 flex min-h-[44px] min-w-[44px] -translate-y-1/2 touch-manipulation items-center justify-center transition-colors ${
+                      isDarkTheme ? 'text-white/40 hover:text-white/70' : 'text-gray-400 hover:text-gray-600'
+                    }`}
                   >
                     {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                   </button>
@@ -1446,7 +1476,7 @@ function LoginContent() {
 
                 <div
                   className={`rounded-2xl border transition-all duration-150 space-y-3 ${
-                    error ? 'opacity-100 border-red-200 bg-red-50 p-4' : 'h-0 overflow-hidden border-transparent p-0 opacity-0'
+                    error ? `opacity-100 p-4 ${isDarkTheme ? 'border-red-500/30 bg-red-900/30 backdrop-blur-sm' : 'border-red-200 bg-red-50'}` : 'h-0 overflow-hidden border-transparent p-0 opacity-0'
                   }`}
                   aria-live="polite"
                 >
@@ -1541,14 +1571,17 @@ function LoginContent() {
                 <button
                   type="submit"
                   disabled={loading || retryAfterCountdown > 0 || systemUnavailable}
-                  className={`flex min-h-[48px] w-full touch-manipulation items-center justify-center gap-2 rounded-2xl px-6 py-4 text-base font-semibold transition-colors ${
+                  className={`flex min-h-[48px] w-full touch-manipulation items-center justify-center gap-2 rounded-2xl px-6 py-4 text-base font-semibold transition-all ${
                     loading || retryAfterCountdown > 0 || systemUnavailable
                       ? 'cursor-not-allowed opacity-50'
-                      : 'hover:opacity-90 active:opacity-95'
+                      : 'hover:opacity-90 active:scale-[0.99]'
                   }`}
                   style={{
                     backgroundColor:
-                      loading || retryAfterCountdown > 0 || systemUnavailable ? '#9CA3AF' : primaryColor,
+                      (loading || retryAfterCountdown > 0 || systemUnavailable) ? '#9CA3AF' : primaryColor,
+                    ...((isEonproDarkLogin || isProviderDarkLogin) && !(loading || retryAfterCountdown > 0 || systemUnavailable) ? {
+                      background: darkButtonGradient,
+                    } : {}),
                     color: buttonTextColor,
                   }}
                 >
@@ -1563,15 +1596,19 @@ function LoginContent() {
                 </button>
 
                 <div className="flex items-center gap-4 py-2">
-                  <div className="h-px flex-1 bg-gray-200" />
-                  <span className="text-sm text-gray-500">Or other log-in options</span>
-                  <div className="h-px flex-1 bg-gray-200" />
+                  <div className={`h-px flex-1 ${isDarkTheme ? 'bg-white/15' : 'bg-gray-200'}`} />
+                  <span className={`text-sm ${isDarkTheme ? 'text-white/40' : 'text-gray-500'}`}>Or other log-in options</span>
+                  <div className={`h-px flex-1 ${isDarkTheme ? 'bg-white/15' : 'bg-gray-200'}`} />
                 </div>
 
                 <button
                   type="button"
                   disabled={loading}
-                  className="min-h-[48px] w-full touch-manipulation rounded-2xl border border-gray-200 bg-white px-6 py-4 text-base font-semibold text-gray-900 transition-colors hover:bg-gray-50 active:bg-gray-100 disabled:opacity-50"
+                  className={`min-h-[48px] w-full touch-manipulation rounded-2xl border px-6 py-4 text-base font-semibold transition-colors disabled:opacity-50 ${
+                    isDarkTheme
+                      ? 'border-white/15 bg-white/[0.06] text-white hover:bg-white/[0.1] active:bg-white/[0.14] backdrop-blur-sm'
+                      : 'border-gray-200 bg-white text-gray-900 hover:bg-gray-50 active:bg-gray-100'
+                  }`}
                   onClick={sendEmailOtp}
                 >
                   Email me a login code
@@ -1583,15 +1620,19 @@ function LoginContent() {
                       type="button"
                       onClick={handleForgotPassword}
                       disabled={loading}
-                      className="text-sm text-gray-700 underline underline-offset-2 transition-colors hover:text-gray-900 disabled:opacity-50"
+                      className={`text-sm underline underline-offset-2 transition-colors disabled:opacity-50 ${
+                        isDarkTheme ? 'text-white/60 hover:text-white' : 'text-gray-700 hover:text-gray-900'
+                      }`}
                     >
                       Forgot password?
                     </button>
-                    <span className="text-gray-300">•</span>
+                    <span className={isDarkTheme ? 'text-white/20' : 'text-gray-300'}>•</span>
                     <button
                       type="button"
                       onClick={handleBack}
-                      className="text-sm text-gray-700 underline underline-offset-2 transition-colors hover:text-gray-900"
+                      className={`text-sm underline underline-offset-2 transition-colors ${
+                        isDarkTheme ? 'text-white/60 hover:text-white' : 'text-gray-700 hover:text-gray-900'
+                      }`}
                     >
                       Not you? Log in here
                     </button>
@@ -1599,7 +1640,9 @@ function LoginContent() {
                   {!isProviderLogin && (
                     <a
                       href="/login?redirect=/provider"
-                      className="text-sm text-gray-600 underline underline-offset-2 transition-colors hover:text-gray-900"
+                      className={`text-sm underline underline-offset-2 transition-colors ${
+                        isDarkTheme ? 'text-white/50 hover:text-white/80' : 'text-gray-600 hover:text-gray-900'
+                      }`}
                     >
                       Provider? Log in as provider
                     </a>
@@ -1611,27 +1654,26 @@ function LoginContent() {
             {/* STEP 2b: OTP (for phone login) */}
             {step === 'otp' && (
               <div className="space-y-6">
-                {/* Phone Display */}
-                <div className="flex items-center justify-between rounded-2xl border border-gray-200 bg-white p-4">
+                <div className={`flex items-center justify-between rounded-2xl border p-4 ${
+                  isDarkTheme ? 'border-white/10 bg-white/[0.06] backdrop-blur-sm' : 'border-gray-200 bg-white'
+                }`}>
                   <div>
-                    <p className="mb-1 text-xs text-gray-500">Phone number</p>
-                    <p className="font-medium text-gray-900">{formatPhoneDisplay(identifier)}</p>
+                    <p className={`mb-1 text-xs ${isDarkTheme ? 'text-white/50' : 'text-gray-500'}`}>Phone number</p>
+                    <p className={`font-medium ${isDarkTheme ? 'text-white' : 'text-gray-900'}`}>{formatPhoneDisplay(identifier)}</p>
                   </div>
                   <button
                     type="button"
                     onClick={handleBack}
-                    className="font-medium text-gray-600 transition-colors hover:text-gray-900"
+                    className={`font-medium transition-colors ${isDarkTheme ? 'text-white/60 hover:text-white' : 'text-gray-600 hover:text-gray-900'}`}
                   >
                     Edit
                   </button>
                 </div>
 
-                {/* OTP Instructions */}
                 <div className="text-center">
-                  <p className="text-gray-600">Enter the 6-digit code sent to your phone</p>
+                  <p className={isDarkTheme ? 'text-white/70' : 'text-gray-600'}>Enter the 6-digit code sent to your phone</p>
                 </div>
 
-                {/* OTP Input */}
                 <div className="flex justify-center gap-3">
                   {otp.map((digit, index) => (
                     <input
@@ -1646,8 +1688,12 @@ function LoginContent() {
                       onChange={(e) => handleOtpChange(index, e.target.value)}
                       onKeyDown={(e) => handleOtpKeyDown(index, e)}
                       onPaste={index === 0 ? handleOtpPaste : undefined}
-                      className="h-14 w-12 rounded-xl border border-gray-200 bg-white text-center text-2xl font-semibold transition-colors focus:border-transparent focus:outline-none focus:ring-2"
-                      style={{ '--tw-ring-color': primaryColor } as React.CSSProperties}
+                      className={`h-14 w-12 rounded-xl border text-center text-2xl font-semibold transition-colors focus:border-transparent focus:outline-none focus:ring-2 ${
+                        isDarkTheme
+                          ? 'border-white/15 bg-white/[0.06] text-white backdrop-blur-sm'
+                          : 'border-gray-200 bg-white'
+                      }`}
+                      style={{ '--tw-ring-color': isDarkTheme ? darkFocusRing : primaryColor } as React.CSSProperties}
                       autoFocus={index === 0}
                     />
                   ))}
@@ -1655,7 +1701,7 @@ function LoginContent() {
 
                 <div
                   className={`rounded-2xl border transition-all duration-150 ${
-                    error ? 'opacity-100 border-red-200 bg-red-50 p-4' : 'h-0 overflow-hidden border-transparent p-0 opacity-0'
+                    error ? `opacity-100 p-4 ${isDarkTheme ? 'border-red-500/30 bg-red-900/30 backdrop-blur-sm' : 'border-red-200 bg-red-50'}` : 'h-0 overflow-hidden border-transparent p-0 opacity-0'
                   }`}
                   aria-live="polite"
                 >
@@ -1669,40 +1715,39 @@ function LoginContent() {
                     <div
                       className="h-8 w-8 animate-spin rounded-full border-2 border-t-transparent"
                       style={{
-                        borderColor: `${primaryColor} transparent ${primaryColor} ${primaryColor}`,
+                        borderColor: `${isDarkTheme ? darkAccent : primaryColor} transparent ${isDarkTheme ? darkAccent : primaryColor} ${isDarkTheme ? darkAccent : primaryColor}`,
                       }}
                     />
                   </div>
                 )}
 
-                {/* Resend OTP */}
                 <div className="text-center">
                   {canResend ? (
                     <button
                       type="button"
                       onClick={handleResendOtp}
                       className="inline-flex items-center gap-2 font-medium transition-colors hover:opacity-80"
-                      style={{ color: primaryColor }}
+                      style={{ color: isDarkTheme ? darkAccent : primaryColor }}
                     >
                       <RefreshCw className="h-4 w-4" />
                       Resend code
                     </button>
                   ) : otpCountdown > 0 ? (
-                    <p className="text-sm text-gray-500">Resend code in {otpCountdown}s</p>
+                    <p className={`text-sm ${isDarkTheme ? 'text-white/40' : 'text-gray-500'}`}>Resend code in {otpCountdown}s</p>
                   ) : null}
                 </div>
 
-                {/* Help text */}
-                <p className="text-center text-xs text-gray-500">
+                <p className={`text-center text-xs ${isDarkTheme ? 'text-white/40' : 'text-gray-500'}`}>
                   Didn&apos;t receive it? Check that you have an account registered with this number, then try resending.
                 </p>
 
-                {/* Bottom Links */}
                 <div className="flex items-center justify-center gap-4 pt-4">
                   <button
                     type="button"
                     onClick={handleBack}
-                    className="text-sm text-gray-700 underline underline-offset-2 transition-colors hover:text-gray-900"
+                    className={`text-sm underline underline-offset-2 transition-colors ${
+                      isDarkTheme ? 'text-white/60 hover:text-white' : 'text-gray-700 hover:text-gray-900'
+                    }`}
                   >
                     Use a different number
                   </button>
@@ -1713,31 +1758,30 @@ function LoginContent() {
             {/* STEP 2c: Email OTP (passwordless email login) */}
             {step === 'email-otp' && (
               <div className="space-y-6">
-                {/* Email Display */}
-                <div className="flex items-center justify-between rounded-2xl border border-gray-200 bg-white p-4">
+                <div className={`flex items-center justify-between rounded-2xl border p-4 ${
+                  isDarkTheme ? 'border-white/10 bg-white/[0.06] backdrop-blur-sm' : 'border-gray-200 bg-white'
+                }`}>
                   <div>
-                    <p className="mb-1 text-xs text-gray-500">Login code sent to</p>
-                    <p className="font-medium text-gray-900">{identifier}</p>
+                    <p className={`mb-1 text-xs ${isDarkTheme ? 'text-white/50' : 'text-gray-500'}`}>Login code sent to</p>
+                    <p className={`font-medium ${isDarkTheme ? 'text-white' : 'text-gray-900'}`}>{identifier}</p>
                   </div>
                   <button
                     type="button"
                     onClick={handleBack}
-                    className="font-medium text-gray-600 transition-colors hover:text-gray-900"
+                    className={`font-medium transition-colors ${isDarkTheme ? 'text-white/60 hover:text-white' : 'text-gray-600 hover:text-gray-900'}`}
                   >
                     Edit
                   </button>
                 </div>
 
-                {/* Instructions */}
                 <div className="text-center">
-                  <Mail className="mx-auto mb-4 h-12 w-12" style={{ color: primaryColor }} />
-                  <h2 className="mb-2 text-xl font-semibold text-gray-900">Check your email</h2>
-                  <p className="text-gray-600">
+                  <Mail className="mx-auto mb-4 h-12 w-12" style={{ color: isDarkTheme ? darkAccent : primaryColor }} />
+                  <h2 className={`mb-2 text-xl font-semibold ${isDarkTheme ? 'text-white' : 'text-gray-900'}`}>Check your email</h2>
+                  <p className={isDarkTheme ? 'text-white/70' : 'text-gray-600'}>
                     Enter the 6-digit code we sent to log in
                   </p>
                 </div>
 
-                {/* Email OTP Input */}
                 <div className="flex justify-center gap-3">
                   {emailOtp.map((digit, index) => (
                     <input
@@ -1752,8 +1796,12 @@ function LoginContent() {
                       onChange={(e) => handleEmailOtpChange(index, e.target.value)}
                       onKeyDown={(e) => handleEmailOtpKeyDown(index, e)}
                       onPaste={index === 0 ? handleEmailOtpPaste : undefined}
-                      className="h-14 w-12 rounded-xl border border-gray-200 bg-white text-center text-2xl font-semibold transition-colors focus:border-transparent focus:outline-none focus:ring-2"
-                      style={{ '--tw-ring-color': primaryColor } as React.CSSProperties}
+                      className={`h-14 w-12 rounded-xl border text-center text-2xl font-semibold transition-colors focus:border-transparent focus:outline-none focus:ring-2 ${
+                        isDarkTheme
+                          ? 'border-white/15 bg-white/[0.06] text-white backdrop-blur-sm'
+                          : 'border-gray-200 bg-white'
+                      }`}
+                      style={{ '--tw-ring-color': isDarkTheme ? darkFocusRing : primaryColor } as React.CSSProperties}
                       autoFocus={index === 0}
                     />
                   ))}
@@ -1761,7 +1809,7 @@ function LoginContent() {
 
                 <div
                   className={`rounded-2xl border transition-all duration-150 ${
-                    error ? 'opacity-100 border-red-200 bg-red-50 p-4' : 'h-0 overflow-hidden border-transparent p-0 opacity-0'
+                    error ? `opacity-100 p-4 ${isDarkTheme ? 'border-red-500/30 bg-red-900/30 backdrop-blur-sm' : 'border-red-200 bg-red-50'}` : 'h-0 overflow-hidden border-transparent p-0 opacity-0'
                   }`}
                   aria-live="polite"
                 >
@@ -1775,35 +1823,32 @@ function LoginContent() {
                     <div
                       className="h-8 w-8 animate-spin rounded-full border-2 border-t-transparent"
                       style={{
-                        borderColor: `${primaryColor} transparent ${primaryColor} ${primaryColor}`,
+                        borderColor: `${isDarkTheme ? darkAccent : primaryColor} transparent ${isDarkTheme ? darkAccent : primaryColor} ${isDarkTheme ? darkAccent : primaryColor}`,
                       }}
                     />
                   </div>
                 )}
 
-                {/* Resend email OTP */}
                 <div className="text-center">
                   {canResendEmailOtp ? (
                     <button
                       type="button"
                       onClick={handleResendEmailOtp}
                       className="inline-flex items-center gap-2 font-medium transition-colors hover:opacity-80"
-                      style={{ color: primaryColor }}
+                      style={{ color: isDarkTheme ? darkAccent : primaryColor }}
                     >
                       <RefreshCw className="h-4 w-4" />
                       Resend code
                     </button>
                   ) : emailOtpCountdown > 0 ? (
-                    <p className="text-sm text-gray-500">Resend code in {emailOtpCountdown}s</p>
+                    <p className={`text-sm ${isDarkTheme ? 'text-white/40' : 'text-gray-500'}`}>Resend code in {emailOtpCountdown}s</p>
                   ) : null}
                 </div>
 
-                {/* Help text */}
-                <p className="text-center text-xs text-gray-500">
+                <p className={`text-center text-xs ${isDarkTheme ? 'text-white/40' : 'text-gray-500'}`}>
                   Didn&apos;t receive it? Check your spam/junk folder. Make sure you have an account with this email.
                 </p>
 
-                {/* Bottom Links */}
                 <div className="flex flex-col items-center gap-3 pt-4">
                   <button
                     type="button"
@@ -1812,14 +1857,18 @@ function LoginContent() {
                       setEmailOtp(['', '', '', '', '', '']);
                       setError('');
                     }}
-                    className="text-sm text-gray-700 underline underline-offset-2 transition-colors hover:text-gray-900"
+                    className={`text-sm underline underline-offset-2 transition-colors ${
+                      isDarkTheme ? 'text-white/60 hover:text-white' : 'text-gray-700 hover:text-gray-900'
+                    }`}
                   >
                     Use password instead
                   </button>
                   <button
                     type="button"
                     onClick={handleBack}
-                    className="text-sm text-gray-700 underline underline-offset-2 transition-colors hover:text-gray-900"
+                    className={`text-sm underline underline-offset-2 transition-colors ${
+                      isDarkTheme ? 'text-white/60 hover:text-white' : 'text-gray-700 hover:text-gray-900'
+                    }`}
                   >
                     Use a different email
                   </button>
@@ -1830,11 +1879,12 @@ function LoginContent() {
             {/* STEP: Forgot Password - Enter Code */}
             {step === 'forgot' && (
               <div className="space-y-6">
-                {/* Email Display */}
-                <div className="flex items-center justify-between rounded-2xl border border-gray-200 bg-white p-4">
+                <div className={`flex items-center justify-between rounded-2xl border p-4 ${
+                  isDarkTheme ? 'border-white/10 bg-white/[0.06] backdrop-blur-sm' : 'border-gray-200 bg-white'
+                }`}>
                   <div>
-                    <p className="mb-1 text-xs text-gray-500">Reset code sent to</p>
-                    <p className="font-medium text-gray-900">{identifier}</p>
+                    <p className={`mb-1 text-xs ${isDarkTheme ? 'text-white/50' : 'text-gray-500'}`}>Reset code sent to</p>
+                    <p className={`font-medium ${isDarkTheme ? 'text-white' : 'text-gray-900'}`}>{identifier}</p>
                   </div>
                   <button
                     type="button"
@@ -1843,22 +1893,20 @@ function LoginContent() {
                       setResetCode(['', '', '', '', '', '']);
                       setResetCodeSent(false);
                     }}
-                    className="font-medium text-gray-600 transition-colors hover:text-gray-900"
+                    className={`font-medium transition-colors ${isDarkTheme ? 'text-white/60 hover:text-white' : 'text-gray-600 hover:text-gray-900'}`}
                   >
                     Cancel
                   </button>
                 </div>
 
-                {/* Instructions */}
                 <div className="text-center">
-                  <Mail className="mx-auto mb-4 h-12 w-12" style={{ color: primaryColor }} />
-                  <h2 className="mb-2 text-xl font-semibold text-gray-900">Check your email</h2>
-                  <p className="text-gray-600">
+                  <Mail className="mx-auto mb-4 h-12 w-12" style={{ color: isDarkTheme ? darkAccent : primaryColor }} />
+                  <h2 className={`mb-2 text-xl font-semibold ${isDarkTheme ? 'text-white' : 'text-gray-900'}`}>Check your email</h2>
+                  <p className={isDarkTheme ? 'text-white/70' : 'text-gray-600'}>
                     Enter the 6-digit code we sent to reset your password
                   </p>
                 </div>
 
-                {/* Reset Code Input */}
                 <div className="flex justify-center gap-3">
                   {resetCode.map((digit, index) => (
                     <input
@@ -1873,8 +1921,12 @@ function LoginContent() {
                       onChange={(e) => handleResetCodeChange(index, e.target.value)}
                       onKeyDown={(e) => handleResetCodeKeyDown(index, e)}
                       onPaste={index === 0 ? handleResetCodePaste : undefined}
-                      className="h-14 w-12 rounded-xl border border-gray-200 bg-white text-center text-2xl font-semibold transition-colors focus:border-transparent focus:outline-none focus:ring-2"
-                      style={{ '--tw-ring-color': primaryColor } as React.CSSProperties}
+                      className={`h-14 w-12 rounded-xl border text-center text-2xl font-semibold transition-colors focus:border-transparent focus:outline-none focus:ring-2 ${
+                        isDarkTheme
+                          ? 'border-white/15 bg-white/[0.06] text-white backdrop-blur-sm'
+                          : 'border-gray-200 bg-white'
+                      }`}
+                      style={{ '--tw-ring-color': isDarkTheme ? darkFocusRing : primaryColor } as React.CSSProperties}
                       autoFocus={index === 0}
                     />
                   ))}
@@ -1882,7 +1934,7 @@ function LoginContent() {
 
                 <div
                   className={`rounded-2xl border transition-all duration-150 ${
-                    error ? 'opacity-100 border-red-200 bg-red-50 p-4' : 'h-0 overflow-hidden border-transparent p-0 opacity-0'
+                    error ? `opacity-100 p-4 ${isDarkTheme ? 'border-red-500/30 bg-red-900/30 backdrop-blur-sm' : 'border-red-200 bg-red-50'}` : 'h-0 overflow-hidden border-transparent p-0 opacity-0'
                   }`}
                   aria-live="polite"
                 >
@@ -1891,24 +1943,22 @@ function LoginContent() {
                   )}
                 </div>
 
-                {/* Resend Code */}
                 <div className="text-center">
                   {canResendReset ? (
                     <button
                       type="button"
                       onClick={handleResendResetCode}
                       className="inline-flex items-center gap-2 font-medium transition-colors hover:opacity-80"
-                      style={{ color: primaryColor }}
+                      style={{ color: isDarkTheme ? darkAccent : primaryColor }}
                     >
                       <RefreshCw className="h-4 w-4" />
                       Resend code
                     </button>
                   ) : resetCountdown > 0 ? (
-                    <p className="text-sm text-gray-500">Resend code in {resetCountdown}s</p>
+                    <p className={`text-sm ${isDarkTheme ? 'text-white/40' : 'text-gray-500'}`}>Resend code in {resetCountdown}s</p>
                   ) : null}
                 </div>
 
-                {/* Back to login */}
                 <div className="flex items-center justify-center pt-4">
                   <button
                     type="button"
@@ -1918,7 +1968,9 @@ function LoginContent() {
                       setResetCodeSent(false);
                       setError('');
                     }}
-                    className="text-sm text-gray-700 underline underline-offset-2 transition-colors hover:text-gray-900"
+                    className={`text-sm underline underline-offset-2 transition-colors ${
+                      isDarkTheme ? 'text-white/60 hover:text-white' : 'text-gray-700 hover:text-gray-900'
+                    }`}
                   >
                     Back to login
                   </button>
@@ -1929,28 +1981,31 @@ function LoginContent() {
             {/* STEP: Reset Password - Enter New Password */}
             {step === 'reset' && (
               <form onSubmit={handleResetPassword} className="space-y-6">
-                {/* Email Display */}
-                <div className="flex items-center justify-between rounded-2xl border border-gray-200 bg-white p-4">
+                <div className={`flex items-center justify-between rounded-2xl border p-4 ${
+                  isDarkTheme ? 'border-white/10 bg-white/[0.06] backdrop-blur-sm' : 'border-gray-200 bg-white'
+                }`}>
                   <div>
-                    <p className="mb-1 text-xs text-gray-500">Resetting password for</p>
-                    <p className="font-medium text-gray-900">{identifier}</p>
+                    <p className={`mb-1 text-xs ${isDarkTheme ? 'text-white/50' : 'text-gray-500'}`}>Resetting password for</p>
+                    <p className={`font-medium ${isDarkTheme ? 'text-white' : 'text-gray-900'}`}>{identifier}</p>
                   </div>
                 </div>
 
-                {/* Instructions */}
                 <div className="text-center">
-                  <h2 className="mb-2 text-xl font-semibold text-gray-900">Create new password</h2>
-                  <p className="text-gray-600">Enter your new password below</p>
+                  <h2 className={`mb-2 text-xl font-semibold ${isDarkTheme ? 'text-white' : 'text-gray-900'}`}>Create new password</h2>
+                  <p className={isDarkTheme ? 'text-white/70' : 'text-gray-600'}>Enter your new password below</p>
                 </div>
 
-                {/* New Password Input */}
                 <div className="relative">
                   <input
                     type={showNewPassword ? 'text' : 'password'}
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
-                    className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-4 pr-12 transition-colors focus:border-transparent focus:outline-none focus:ring-2"
-                    style={{ '--tw-ring-color': primaryColor } as React.CSSProperties}
+                    className={`w-full rounded-2xl border px-4 py-4 pr-12 transition-colors focus:border-transparent focus:outline-none focus:ring-2 ${
+                      isDarkTheme
+                        ? 'border-white/12 bg-white/[0.06] text-white placeholder-white/35 backdrop-blur-sm'
+                        : 'border-gray-200 bg-white'
+                    }`}
+                    style={{ '--tw-ring-color': isDarkTheme ? darkFocusRing : primaryColor } as React.CSSProperties}
                     placeholder="New password"
                     required
                     minLength={8}
@@ -1959,38 +2014,38 @@ function LoginContent() {
                   <button
                     type="button"
                     onClick={() => setShowNewPassword(!showNewPassword)}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 transition-colors hover:text-gray-600"
+                    className={`absolute right-4 top-1/2 -translate-y-1/2 transition-colors ${
+                      isDarkTheme ? 'text-white/40 hover:text-white/70' : 'text-gray-400 hover:text-gray-600'
+                    }`}
                   >
                     {showNewPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                   </button>
                 </div>
 
-                {/* Confirm Password Input */}
                 <div className="relative">
                   <input
                     type={showNewPassword ? 'text' : 'password'}
                     value={confirmNewPassword}
                     onChange={(e) => setConfirmNewPassword(e.target.value)}
-                    className={`w-full rounded-2xl border bg-white px-4 py-4 transition-colors focus:border-transparent focus:outline-none focus:ring-2 ${
-                      confirmNewPassword && newPassword !== confirmNewPassword
-                        ? 'border-red-300'
-                        : 'border-gray-200'
+                    className={`w-full rounded-2xl border px-4 py-4 transition-colors focus:border-transparent focus:outline-none focus:ring-2 ${
+                      isDarkTheme
+                        ? `${confirmNewPassword && newPassword !== confirmNewPassword ? 'border-red-400/60' : 'border-white/12'} bg-white/[0.06] text-white placeholder-white/35 backdrop-blur-sm`
+                        : `${confirmNewPassword && newPassword !== confirmNewPassword ? 'border-red-300' : 'border-gray-200'} bg-white`
                     }`}
-                    style={{ '--tw-ring-color': primaryColor } as React.CSSProperties}
+                    style={{ '--tw-ring-color': isDarkTheme ? darkFocusRing : primaryColor } as React.CSSProperties}
                     placeholder="Confirm new password"
                     required
                     minLength={8}
                   />
                 </div>
 
-                {/* Password requirements hint */}
-                <p className="text-center text-xs text-gray-500">
+                <p className={`text-center text-xs ${isDarkTheme ? 'text-white/40' : 'text-gray-500'}`}>
                   Password must be at least 8 characters
                 </p>
 
                 <div
                   className={`rounded-2xl border transition-all duration-150 ${
-                    error ? 'opacity-100 border-red-200 bg-red-50 p-4' : 'h-0 overflow-hidden border-transparent p-0 opacity-0'
+                    error ? `opacity-100 p-4 ${isDarkTheme ? 'border-red-500/30 bg-red-900/30 backdrop-blur-sm' : 'border-red-200 bg-red-50'}` : 'h-0 overflow-hidden border-transparent p-0 opacity-0'
                   }`}
                   aria-live="polite"
                 >
@@ -2002,13 +2057,16 @@ function LoginContent() {
                 <button
                   type="submit"
                   disabled={loading || !newPassword || !confirmNewPassword}
-                  className={`flex w-full items-center justify-center gap-2 rounded-2xl px-6 py-4 font-semibold transition-colors ${
+                  className={`flex w-full items-center justify-center gap-2 rounded-2xl px-6 py-4 font-semibold transition-all ${
                     loading || !newPassword || !confirmNewPassword
                       ? 'cursor-not-allowed opacity-50'
-                      : 'hover:opacity-90'
+                      : 'hover:opacity-90 active:scale-[0.99]'
                   }`}
                   style={{
                     backgroundColor: primaryColor,
+                    ...((isEonproDarkLogin || isProviderDarkLogin) && !(loading || !newPassword || !confirmNewPassword) ? {
+                      background: darkButtonGradient,
+                    } : {}),
                     color: buttonTextColor,
                   }}
                 >
@@ -2022,7 +2080,6 @@ function LoginContent() {
                   )}
                 </button>
 
-                {/* Back to code entry */}
                 <div className="flex items-center justify-center pt-4">
                   <button
                     type="button"
@@ -2030,7 +2087,9 @@ function LoginContent() {
                       setStep('forgot');
                       setError('');
                     }}
-                    className="text-sm text-gray-700 underline underline-offset-2 transition-colors hover:text-gray-900"
+                    className={`text-sm underline underline-offset-2 transition-colors ${
+                      isDarkTheme ? 'text-white/60 hover:text-white' : 'text-gray-700 hover:text-gray-900'
+                    }`}
                   >
                     Re-enter code
                   </button>
@@ -2041,26 +2100,26 @@ function LoginContent() {
             {/* STEP 3: Clinic Selection (for multi-clinic users) */}
             {step === 'clinic' && (
               <div className="space-y-6">
-                {/* User Display */}
-                <div className="flex items-center justify-between rounded-2xl border border-gray-200 bg-white p-4">
+                <div className={`flex items-center justify-between rounded-2xl border p-4 ${
+                  isDarkTheme ? 'border-white/10 bg-white/[0.06] backdrop-blur-sm' : 'border-gray-200 bg-white'
+                }`}>
                   <div>
-                    <p className="mb-1 text-xs text-gray-500">Logged in as</p>
-                    <p className="font-medium text-gray-900">{identifier}</p>
+                    <p className={`mb-1 text-xs ${isDarkTheme ? 'text-white/50' : 'text-gray-500'}`}>Logged in as</p>
+                    <p className={`font-medium ${isDarkTheme ? 'text-white' : 'text-gray-900'}`}>{identifier}</p>
                   </div>
                   <button
                     type="button"
                     onClick={handleBack}
-                    className="font-medium text-gray-600 transition-colors hover:text-gray-900"
+                    className={`font-medium transition-colors ${isDarkTheme ? 'text-white/60 hover:text-white' : 'text-gray-600 hover:text-gray-900'}`}
                   >
                     Change
                   </button>
                 </div>
 
-                {/* Clinic Selection Instructions */}
                 <div className="text-center">
-                  <Building2 className="mx-auto mb-4 h-12 w-12" style={{ color: primaryColor }} />
-                  <h2 className="mb-2 text-xl font-semibold text-gray-800">Select a Clinic</h2>
-                  <p className="text-gray-600">
+                  <Building2 className="mx-auto mb-4 h-12 w-12" style={{ color: isDarkTheme ? darkAccent : primaryColor }} />
+                  <h2 className={`mb-2 text-xl font-semibold ${isDarkTheme ? 'text-white' : 'text-gray-800'}`}>Select a Clinic</h2>
+                  <p className={isDarkTheme ? 'text-white/70' : 'text-gray-600'}>
                     You have access to multiple clinics. Choose which one to access now.
                   </p>
                 </div>
@@ -2076,11 +2135,14 @@ function LoginContent() {
                         loading || retryAfterCountdown > 0 || systemUnavailable
                           ? 'cursor-not-allowed opacity-50'
                           : ''
-                      }`}
+                      } ${isDarkTheme ? 'backdrop-blur-sm' : ''}`}
                       style={{
-                        borderColor: selectedClinicId === clinic.id ? primaryColor : '#e5e7eb',
-                        backgroundColor:
-                          selectedClinicId === clinic.id ? `${primaryColor}10` : 'white',
+                        borderColor: selectedClinicId === clinic.id
+                          ? (isDarkTheme ? darkAccent : primaryColor)
+                          : (isDarkTheme ? 'rgba(255,255,255,0.1)' : '#e5e7eb'),
+                        backgroundColor: selectedClinicId === clinic.id
+                          ? (isDarkTheme ? 'rgba(16,185,129,0.12)' : `${primaryColor}10`)
+                          : (isDarkTheme ? 'rgba(255,255,255,0.04)' : 'white'),
                       }}
                     >
                       <div className="flex items-center justify-between">
@@ -2110,21 +2172,21 @@ function LoginContent() {
                             <Building2 className="h-5 w-5" style={{ color: primaryColor }} />
                           </div>
                           <div>
-                            <p className="font-medium text-gray-900">{clinic.name}</p>
-                            <p className="text-sm capitalize text-gray-500">{clinic.role}</p>
+                            <p className={`font-medium ${isDarkTheme ? 'text-white' : 'text-gray-900'}`}>{clinic.name}</p>
+                            <p className={`text-sm capitalize ${isDarkTheme ? 'text-white/50' : 'text-gray-500'}`}>{clinic.role}</p>
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
                           {clinic.isPrimary && (
                             <span
                               className="rounded-full px-2 py-1 text-xs"
-                              style={{ backgroundColor: `${primaryColor}20`, color: primaryColor }}
+                              style={{ backgroundColor: `${primaryColor}20`, color: isDarkTheme ? darkAccent : primaryColor }}
                             >
                               Primary
                             </span>
                           )}
                           {selectedClinicId === clinic.id && (
-                            <Check className="h-5 w-5" style={{ color: primaryColor }} />
+                            <Check className="h-5 w-5" style={{ color: isDarkTheme ? darkAccent : primaryColor }} />
                           )}
                         </div>
                       </div>
@@ -2134,7 +2196,7 @@ function LoginContent() {
 
                 <div
                   className={`rounded-2xl border transition-all duration-150 space-y-3 ${
-                    error ? 'opacity-100 border-red-200 bg-red-50 p-4' : 'h-0 overflow-hidden border-transparent p-0 opacity-0'
+                    error ? `opacity-100 p-4 ${isDarkTheme ? 'border-red-500/30 bg-red-900/30 backdrop-blur-sm' : 'border-red-200 bg-red-50'}` : 'h-0 overflow-hidden border-transparent p-0 opacity-0'
                   }`}
                   aria-live="polite"
                 >
@@ -2173,13 +2235,13 @@ function LoginContent() {
                     <div
                       className="h-8 w-8 animate-spin rounded-full border-2 border-t-transparent"
                       style={{
-                        borderColor: `${primaryColor} transparent ${primaryColor} ${primaryColor}`,
+                        borderColor: `${isDarkTheme ? darkAccent : primaryColor} transparent ${isDarkTheme ? darkAccent : primaryColor} ${isDarkTheme ? darkAccent : primaryColor}`,
                       }}
                     />
                   </div>
                 )}
 
-                <p className="text-center text-xs text-gray-500">
+                <p className={`text-center text-xs ${isDarkTheme ? 'text-white/40' : 'text-gray-500'}`}>
                   You can switch clinics anytime from your dashboard
                 </p>
               </div>
@@ -2187,10 +2249,23 @@ function LoginContent() {
           </div>
         </div>
 
-        {/* Footer */}
-        <div className="p-6 text-center">
-          <p className={`text-xs ${isLogosRxExperience ? 'text-white/65' : 'text-gray-500'}`}>
-            HIPAA Compliant Healthcare Platform • © 2026 EONPro
+        <div className="mt-auto p-6 text-center">
+          <div className={`mb-3 flex items-center justify-center gap-6 ${isDarkTheme ? 'text-white/35' : 'text-gray-400'}`}>
+            <span className="flex items-center gap-1.5 text-xs">
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
+              Encrypted
+            </span>
+            <span className="flex items-center gap-1.5 text-xs">
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></svg>
+              HIPAA Compliant
+            </span>
+            <span className="flex items-center gap-1.5 text-xs">
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>
+              SOC 2
+            </span>
+          </div>
+          <p className={`text-xs ${isDarkTheme ? 'text-white/30' : 'text-gray-400'}`}>
+            eonpro.io &nbsp;•&nbsp; © All Rights Reserved 2026 EONPro
           </p>
         </div>
       </div>

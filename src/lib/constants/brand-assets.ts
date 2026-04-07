@@ -7,6 +7,8 @@ export const BRAND = {
   logos: {
     /** Full EONPRO wordmark (SVG) – sidebars, headers, footers */
     eonproLogo: '/images/logos/eonpro-logo.svg',
+    /** EONPRO wordmark for dark backgrounds (green icon + white text) */
+    eonproLogoDark: '/images/logos/eonpro-logo-dark.svg',
     /** Square EONPRO icon (SVG) – collapsed sidebar, favicon-like uses */
     eonproIcon: '/images/logos/EONPro favicon.svg',
     /** High-res logo for PDF generation (intake forms, invoices) */
@@ -45,6 +47,7 @@ export const BRAND = {
 } as const;
 
 export const EONPRO_LOGO = BRAND.logos.eonproLogo;
+export const EONPRO_LOGO_DARK = BRAND.logos.eonproLogoDark;
 export const EONPRO_ICON = BRAND.logos.eonproIcon;
 
 /**
