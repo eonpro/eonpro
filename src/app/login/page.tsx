@@ -2173,7 +2173,7 @@ function LoginContent() {
                           </div>
                           <div>
                             <p className={`font-medium ${isDarkTheme ? 'text-white' : 'text-gray-900'}`}>{clinic.name}</p>
-                            <p className={`text-sm capitalize ${isDarkTheme ? 'text-white/50' : 'text-gray-500'}`}>{clinic.role}</p>
+                            <p className={`text-sm ${isDarkTheme ? 'text-white/50' : 'text-gray-500'}`}>{clinic.role.charAt(0).toUpperCase() + clinic.role.slice(1).toLowerCase()}</p>
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
