@@ -2117,7 +2117,9 @@ function LoginContent() {
                 </div>
 
                 <div className="text-center">
-                  <Building2 className="mx-auto mb-4 h-12 w-12" style={{ color: isDarkTheme ? darkAccent : primaryColor }} />
+                  <div className="mx-auto mb-4 flex h-10 w-10 items-center justify-center rounded-xl" style={{ backgroundColor: isDarkTheme ? `${darkAccent}18` : `${primaryColor}15` }}>
+                    <Building2 className="h-5 w-5" style={{ color: isDarkTheme ? darkAccent : primaryColor }} />
+                  </div>
                   <h2 className={`mb-2 text-xl font-semibold ${isDarkTheme ? 'text-white' : 'text-gray-800'}`}>Select a Clinic</h2>
                   <p className={isDarkTheme ? 'text-white/70' : 'text-gray-600'}>
                     You have access to multiple clinics. Choose which one to access now.
@@ -2151,7 +2153,7 @@ function LoginContent() {
                             <img
                               src={clinic.iconUrl || clinic.faviconUrl || clinic.logoUrl || ''}
                               alt={clinic.name}
-                              className="h-10 w-10 flex-shrink-0 rounded-lg object-contain"
+                              className={`h-10 w-10 flex-shrink-0 rounded-lg object-contain ${isDarkTheme ? 'brightness-0 invert' : ''}`}
                               width={40}
                               height={40}
                               loading="lazy"
