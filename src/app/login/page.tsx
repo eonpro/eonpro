@@ -1271,9 +1271,9 @@ function LoginContent() {
             <p className="mt-2 flex items-center justify-center gap-1.5 text-xs text-white/80 whitespace-nowrap">
               Powered by{' '}
               <img
-                src={EONPRO_LOGO}
+                src={EONPRO_LOGO_DARK}
                 alt="EONPRO"
-                className="h-[21px] w-auto brightness-0 invert"
+                className="h-[21px] w-auto"
                 width={84}
                 height={21}
                 style={{ maxHeight: 21, width: 'auto' }}
