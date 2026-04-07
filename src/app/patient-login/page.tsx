@@ -729,7 +729,7 @@ function PatientLoginPage() {
                 <img
                   src={branding.logoUrl}
                   alt={branding.name}
-                  className="h-12 max-w-[200px] object-contain brightness-0 invert"
+                  className="h-12 max-w-[200px] object-contain"
                   width={200}
                   height={48}
                   onError={() => setLogoLoadError(true)}
