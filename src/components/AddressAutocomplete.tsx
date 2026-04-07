@@ -90,6 +90,7 @@ function isGoogleReady(): boolean {
 
 export function useGooglePlacesReady() {
   const [ready, setReady] = useState(isGoogleReady);
+  const importAttempted = useRef(false);
 
   useEffect(() => {
     if (ready) return;
@@ -97,6 +98,18 @@ export function useGooglePlacesReady() {
       if (isGoogleReady()) {
         setReady(true);
         clearInterval(interval);
+        return;
+      }
+      // If google.maps exists but places doesn't, try importLibrary (loading=async compat)
+      const g = (window as any).google;
+      if (g?.maps?.importLibrary && !g.maps.places?.Autocomplete && !importAttempted.current) {
+        importAttempted.current = true;
+        g.maps.importLibrary('places').then(() => {
+          if (isGoogleReady()) {
+            setReady(true);
+            clearInterval(interval);
+          }
+        }).catch(() => {});
       }
     }, 500);
     const timeout = setTimeout(() => clearInterval(interval), 15_000);

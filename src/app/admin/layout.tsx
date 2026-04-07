@@ -429,7 +429,8 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
       });
 
       if (!verifyResponse.ok) {
-        setSwitchError('Invalid password');
+        const verifyData = await verifyResponse.json().catch(() => ({}));
+        setSwitchError(verifyData.error || 'Invalid password');
         setSwitching(false);
         return;
       }

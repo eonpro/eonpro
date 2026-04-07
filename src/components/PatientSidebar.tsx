@@ -466,7 +466,7 @@ function AffiliateTag({ name, code }: { name?: string; code?: string | null }) {
 }
 
 export default function PatientSidebar({
-  patient,
+  patient: patientProp,
   avatarUrl,
   currentTab: currentTabProp,
   affiliateCode,
@@ -486,6 +486,11 @@ export default function PatientSidebar({
   const currentTab = tabCtx?.currentTab ?? currentTabProp;
   const onTabChange = tabCtx ? tabCtx.setTab : onTabChangeProp;
   const [, startTransition] = useTransition();
+
+  // Local patient state for immediate UI updates after edits.
+  // Syncs from server prop when router.refresh() completes.
+  const [patient, setPatient] = useState(patientProp);
+  useEffect(() => { setPatient(patientProp); }, [patientProp]);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showMergeModal, setShowMergeModal] = useState(false);
@@ -698,6 +703,10 @@ export default function PatientSidebar({
       throw new Error(err.error || err.message || 'Failed to update patient');
     }
 
+    // Optimistic local update so sidebar reflects changes immediately
+    setPatient((prev) => ({ ...prev, ...data }));
+
+    // Background server refresh to fully sync RSC data
     startTransition(() => { router.refresh(); });
   };
 

@@ -74,7 +74,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
               async
               defer
               strategy="afterInteractive"
-              src={`https://maps.googleapis.com/maps/api/js?key=${mapsKey}&libraries=places&loading=async`}
+              src={`https://maps.googleapis.com/maps/api/js?key=${mapsKey}&libraries=places`}
             />
           ) : undefined}
         </ErrorBoundary>

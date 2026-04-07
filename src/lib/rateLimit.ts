@@ -226,6 +226,17 @@ export const strictRateLimit = rateLimit({
 });
 
 /**
+ * Moderate rate limit for password-gated actions (e.g. clinic switching).
+ * Only failed requests count toward the limit so legitimate usage isn't penalised.
+ */
+export const sensitiveActionRateLimit = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 20, // 20 failed attempts per 15 minutes
+  message: 'Too many failed attempts. Please try again in 15 minutes.',
+  skipSuccessfulRequests: true,
+});
+
+/**
  * Standard rate limit for API endpoints
  */
 export const standardRateLimit = rateLimit({

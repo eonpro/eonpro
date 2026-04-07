@@ -8,7 +8,7 @@ import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 import { prisma, withoutClinicFilter } from '@/lib/db';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
-import { strictRateLimit } from '@/lib/rateLimit';
+import { sensitiveActionRateLimit } from '@/lib/rateLimit';
 import { logger } from '@/lib/logger';
 
 const verifyPasswordSchema = z.object({
@@ -64,5 +64,5 @@ async function verifyPasswordHandler(req: NextRequest, user: AuthUser) {
   }); // end withoutClinicFilter
 }
 
-// Apply rate limiting and authentication
-export const POST = strictRateLimit(withAuth(verifyPasswordHandler));
+// Apply rate limiting (only failed attempts count) and authentication
+export const POST = sensitiveActionRateLimit(withAuth(verifyPasswordHandler));

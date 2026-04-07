@@ -454,19 +454,19 @@ function drawLabel({
   });
 
   const bits = getCode128Bits(batchNumber);
-  const barsWidth = Math.min(barcodeWidth - 1, (barcodeWidth - 0.9) * 1.06);
-  const barsHeight = Math.min(contentHeight, ((fullHeight - 1.6) * 0.85) * 1.06);
+  const barsWidth = Math.min(barcodeWidth - 1, (barcodeWidth - 0.9) * 1.14);
+  const barsHeight = Math.min(contentHeight, ((fullHeight - 1.6) * 0.85) * 1.14);
   const barsX = barcodeX + (barcodeWidth - barsWidth) / 2 + 2;
   const barsY = contentBottom + (contentHeight - barsHeight) / 2;
   drawBarcodeBars(page, bits, barsX, barsY, barsWidth, barsHeight);
-  let lgSize = 4.25;
+  let lgSize = 6.75;
   const lgMaxHeight = barsHeight - 2;
   const lgLineLength = fonts.typewriter.widthOfTextAtSize(batchNumber, lgSize);
   if (lgLineLength > lgMaxHeight) {
     lgSize = (lgSize * lgMaxHeight) / lgLineLength;
   }
   const lgWidth = fonts.typewriter.widthOfTextAtSize(batchNumber, lgSize);
-  const lgX = barsX + barsWidth + 5;
+  const lgX = barsX + barsWidth + 8;
   page.drawText(batchNumber, {
     x: lgX,
     y: barsY + (barsHeight - lgWidth) / 2,
@@ -721,20 +721,20 @@ function drawTemplateLabel({
   });
 
   const bits = getCode128Bits(batchNumber);
-  const barsWidth = Math.min(barcodeWidth - 1, (barcodeWidth - 0.9) * 1.12);
-  const barsHeight = Math.min(contentHeight, ((fullHeight - 1.6) * 0.85) * 1.12);
+  const barsWidth = Math.min(barcodeWidth - 1, (barcodeWidth - 0.9) * 1.14);
+  const barsHeight = Math.min(contentHeight, ((fullHeight - 1.6) * 0.85) * 1.14);
   const barsX = barcodeX + (barcodeWidth - barsWidth) / 2 + 2;
   const barsY = contentBottom + (contentHeight - barsHeight) / 2;
   drawBarcodeBars(page, bits, barsX, barsY, barsWidth, barsHeight);
 
-  let lgSize = 4.25;
+  let lgSize = 6.75;
   const lgMaxHeight = barsHeight - 2;
   const lgLineLength = fonts.typewriter.widthOfTextAtSize(batchNumber, lgSize);
   if (lgLineLength > lgMaxHeight) {
     lgSize = (lgSize * lgMaxHeight) / lgLineLength;
   }
   const lgWidth = fonts.typewriter.widthOfTextAtSize(batchNumber, lgSize);
-  const lgX = barsX + barsWidth + 5;
+  const lgX = barsX + barsWidth + 8;
   page.drawText(batchNumber, {
     x: lgX,
     y: barsY + (barsHeight - lgWidth) / 2,

@@ -37,6 +37,11 @@ const EXCLUDED_PRODUCT_IDS = new Set([
   203449527,
   203449013,
   203194057,
+  203449362,
+  203418853,
+  202851334,
+  203666723,
+  203419046,
 ]);
 
 const injectableProducts: InjectableProduct[] = LOGOS_PRODUCTS
