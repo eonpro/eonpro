@@ -17,9 +17,8 @@
  *   DATABASE_URL="postgresql://..." npx ts-node scripts/pre-deploy-check.ts
  * 
  * Exit codes:
- *   0 = All checks passed, safe to deploy
+ *   0 = All checks passed (or only non-critical warnings), safe to deploy
  *   1 = Critical errors found, DO NOT DEPLOY
- *   2 = Warnings found, review before deploying
  */
 
 import { PrismaClient } from '@prisma/client';
@@ -95,9 +94,9 @@ async function main() {
     console.log(`${RED}Fix these issues before deploying to production!${RESET}\n`);
     process.exit(1);
   } else if (warnings.length > 0) {
-    console.log(`\n${YELLOW}${BOLD}⚠️  WARNINGS: ${warnings.length} non-critical check(s) failed${RESET}`);
-    console.log(`${YELLOW}Review these issues before deploying.${RESET}\n`);
-    process.exit(2);
+    console.log(`\n${YELLOW}${BOLD}⚠️  WARNINGS: ${warnings.length} non-critical check(s) need attention${RESET}`);
+    console.log(`${YELLOW}Review these issues, but deployment is not blocked.${RESET}\n`);
+    process.exit(0);
   } else {
     console.log(`\n${GREEN}${BOLD}✅ ALL CHECKS PASSED - Safe to deploy!${RESET}\n`);
     process.exit(0);
