@@ -2199,7 +2199,7 @@ function LoginContent() {
                             <img
                               src={clinic.iconUrl || clinic.faviconUrl || clinic.logoUrl || ''}
                               alt={clinic.name}
-                              className={`h-10 w-10 flex-shrink-0 rounded-lg object-contain ${isDarkTheme ? 'brightness-0 invert' : ''}`}
+                              className="h-10 w-10 flex-shrink-0 rounded-lg object-contain"
                               width={40}
                               height={40}
                               loading="lazy"
