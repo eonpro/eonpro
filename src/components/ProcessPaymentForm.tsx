@@ -134,6 +134,7 @@ function ProcessPaymentFormContent({ patientId, patientName, clinicSubdomain, on
   const [amountInputValue, setAmountInputValue] = useState<string>('');
   const [description, setDescription] = useState<string>('');
   const [isRecurring, setIsRecurring] = useState(false);
+  const [discountMode, setDiscountMode] = useState<'first_only' | 'all_recurring'>('first_only');
 
   const [paymentMode, setPaymentMode] = useState<'saved' | 'new'>('new');
   const [savedCards, setSavedCards] = useState<SavedCard[]>([]);
@@ -188,10 +189,12 @@ function ProcessPaymentFormContent({ patientId, patientName, clinicSubdomain, on
         setAmountInputValue(planAmount.toFixed(2));
         setDescription(plan.description);
         setIsRecurring(!!plan.isRecurring);
+        setDiscountMode('first_only');
         if (plan.isRecurring) setSaveCard(true);
       }
     } else {
       setIsRecurring(false);
+      setDiscountMode('first_only');
     }
   }, [selectedPlanId]);
 
@@ -269,11 +272,16 @@ function ProcessPaymentFormContent({ patientId, patientName, clinicSubdomain, on
           if (!isRecurring) return null;
           const plan = getPlanById(selectedPlanId, clinicSubdomain);
           const months = plan?.months || 1;
+          const isDiscounted = plan && Math.round(amount * 100) !== plan.price;
           return {
             planId: selectedPlanId,
             planName: plan?.name || '',
             interval: 'month',
             intervalCount: months,
+            ...(isDiscounted ? {
+              discountMode,
+              catalogAmountCents: plan!.price,
+            } : {}),
           };
         })(),
         notes,
@@ -372,6 +380,7 @@ function ProcessPaymentFormContent({ patientId, patientName, clinicSubdomain, on
       setDescription('');
       setNotes('');
       setIsRecurring(false);
+      setDiscountMode('first_only');
       setSaveCard(true);
       setCardErrors({});
       setFormSubmitted(false);
@@ -396,6 +405,7 @@ function ProcessPaymentFormContent({ patientId, patientName, clinicSubdomain, on
     setSuccessMessage(null);
     setCardErrors({});
     setIsRecurring(false);
+    setDiscountMode('first_only');
     setSaveCard(true);
     setFormSubmitted(false);
     if (savedCards.length > 0) {
@@ -483,22 +493,67 @@ function ProcessPaymentFormContent({ patientId, patientName, clinicSubdomain, on
               <p className="mt-1 text-sm text-red-600">{cardErrors.amount}</p>
             )}
             {amountAdjusted && planOriginalAmount !== null && (
-              <div className="mt-1 flex items-center gap-2">
-                <p className="text-xs text-amber-600">
-                  {amount < planOriginalAmount
-                    ? `Discount of $${(planOriginalAmount - amount).toFixed(2)} applied (plan: $${planOriginalAmount.toFixed(2)})`
-                    : `Adjusted +$${(amount - planOriginalAmount).toFixed(2)} from plan price ($${planOriginalAmount.toFixed(2)})`}
-                </p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setAmount(planOriginalAmount);
-                    setAmountInputValue(planOriginalAmount.toFixed(2));
-                  }}
-                  className="text-xs font-medium text-[#4fa77e] hover:underline"
-                >
-                  Reset
-                </button>
+              <div className="mt-2 space-y-2">
+                <div className="flex items-center gap-2">
+                  <p className="text-xs text-amber-600">
+                    {amount < planOriginalAmount
+                      ? `Discount of $${(planOriginalAmount - amount).toFixed(2)} applied (plan: $${planOriginalAmount.toFixed(2)})`
+                      : `Adjusted +$${(amount - planOriginalAmount).toFixed(2)} from plan price ($${planOriginalAmount.toFixed(2)})`}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAmount(planOriginalAmount);
+                      setAmountInputValue(planOriginalAmount.toFixed(2));
+                      setDiscountMode('first_only');
+                    }}
+                    className="text-xs font-medium text-[#4fa77e] hover:underline"
+                  >
+                    Reset
+                  </button>
+                </div>
+                {isRecurring && (
+                  <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+                    <p className="mb-2 text-xs font-medium text-amber-800">Apply price change to:</p>
+                    <div className="flex gap-1 rounded-md bg-amber-100 p-0.5">
+                      <button
+                        type="button"
+                        onClick={() => setDiscountMode('first_only')}
+                        className={`flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+                          discountMode === 'first_only'
+                            ? 'bg-white text-amber-900 shadow-sm'
+                            : 'text-amber-700 hover:text-amber-900'
+                        }`}
+                      >
+                        First payment only
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDiscountMode('all_recurring')}
+                        className={`flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+                          discountMode === 'all_recurring'
+                            ? 'bg-white text-amber-900 shadow-sm'
+                            : 'text-amber-700 hover:text-amber-900'
+                        }`}
+                      >
+                        All future charges
+                      </button>
+                    </div>
+                    <p className="mt-2 text-[11px] text-amber-700">
+                      {discountMode === 'first_only'
+                        ? `Subscription will renew at $${planOriginalAmount.toFixed(2)}/${(() => {
+                            const plan = getPlanById(selectedPlanId, clinicSubdomain);
+                            const m = plan?.months || 1;
+                            return m === 1 ? 'mo' : `${m}mo`;
+                          })()}`
+                        : `Subscription will renew at $${amount.toFixed(2)}/${(() => {
+                            const plan = getPlanById(selectedPlanId, clinicSubdomain);
+                            const m = plan?.months || 1;
+                            return m === 1 ? 'mo' : `${m}mo`;
+                          })()}`}
+                    </p>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -699,16 +754,28 @@ function ProcessPaymentFormContent({ patientId, patientName, clinicSubdomain, on
             </div>
           </div>
           {isRecurring && (
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-600">Billing:</span>
-              <span className="font-medium text-amber-600">
-                {(() => {
-                  const plan = getPlanById(selectedPlanId, clinicSubdomain);
-                  const m = plan?.months || 1;
-                  return m === 1 ? 'Monthly Recurring' : `Every ${m} Months Recurring`;
-                })()}
-              </span>
-            </div>
+            <>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600">Billing:</span>
+                <span className="font-medium text-amber-600">
+                  {(() => {
+                    const plan = getPlanById(selectedPlanId, clinicSubdomain);
+                    const m = plan?.months || 1;
+                    return m === 1 ? 'Monthly Recurring' : `Every ${m} Months Recurring`;
+                  })()}
+                </span>
+              </div>
+              {amountAdjusted && planOriginalAmount !== null && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Renews at:</span>
+                  <span className="font-medium">
+                    {discountMode === 'first_only'
+                      ? `$${planOriginalAmount.toFixed(2)}`
+                      : `$${amount.toFixed(2)}`}
+                  </span>
+                </div>
+              )}
+            </>
           )}
           {paymentMode === 'saved' && selectedCardId && (
             <div className="flex justify-between text-sm">

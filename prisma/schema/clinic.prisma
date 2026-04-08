@@ -218,6 +218,7 @@ model Clinic {
   affiliateReferrals   AffiliateReferral[]
   affiliateCommissions AffiliateCommission[]
   retentionOffers      RetentionOffer[]
+  scheduledPayments    ScheduledPayment[]
 
   // New Affiliate Portal System
   affiliates                Affiliate[]

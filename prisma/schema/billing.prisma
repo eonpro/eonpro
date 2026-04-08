@@ -546,3 +546,48 @@ enum PaymentVerificationMethod {
   EXTERNAL_REFERENCE // External payment method (Venmo, check, etc.)
   PAYMENT_SKIPPED // Admin skipped verification (for non-Stripe clinics)
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SCHEDULED PAYMENTS
+// ═══════════════════════════════════════════════════════════════════════════
+
+model ScheduledPayment {
+  id            Int                    @id @default(autoincrement())
+  clinicId      Int
+  patientId     Int
+  planId        String?
+  planName      String?
+  amount        Int
+  description   String?
+  scheduledDate DateTime
+  type          ScheduledPaymentType   @default(AUTO_CHARGE)
+  status        ScheduledPaymentStatus @default(PENDING)
+  createdBy     Int
+  processedAt   DateTime?
+  paymentId     Int?
+  canceledAt    DateTime?
+  canceledBy    Int?
+  notes         String?
+  metadata      Json?
+  createdAt     DateTime               @default(now())
+  updatedAt     DateTime               @updatedAt
+
+  clinic  Clinic  @relation(fields: [clinicId], references: [id])
+  patient Patient @relation(fields: [patientId], references: [id])
+
+  @@index([clinicId, scheduledDate])
+  @@index([patientId])
+  @@index([status, scheduledDate])
+}
+
+enum ScheduledPaymentType {
+  AUTO_CHARGE
+  REMINDER
+}
+
+enum ScheduledPaymentStatus {
+  PENDING
+  PROCESSED
+  FAILED
+  CANCELED
+}

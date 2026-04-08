@@ -87,6 +87,7 @@ model Patient {
   telehealthSessions      TelehealthSession[]
   salesRepAssignments     PatientSalesRepAssignment[]
   salesRepDispositions    SalesRepDisposition[]
+  scheduledPayments       ScheduledPayment[]
 
   // PLATFORM BILLING: Prescription cycle tracking and fee events
   prescriptionCycles PatientPrescriptionCycle[]

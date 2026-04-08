@@ -99,18 +99,37 @@ function handleGenerateHsaLetter(patientId: number, invoiceId: number) {
   window.open(`/api/patients/${patientId}/hsa-letter?invoiceId=${invoiceId}`, '_blank');
 }
 
+interface ActiveSubscription {
+  id: number;
+  planName: string;
+  status: string;
+  amount: number;
+  interval: string;
+  intervalCount: number;
+  nextBillingDate: string | null;
+  stripeSubscriptionId: string | null;
+}
+
 export function PatientBillingView({ patientId, patientName, clinicSubdomain }: PatientBillingViewProps) {
   const [activeTab, setActiveTab] = useState<
     'invoices' | 'payments' | 'subscriptions' | 'process-payment'
   >('invoices');
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
+  const [activeSubscriptions, setActiveSubscriptions] = useState<ActiveSubscription[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showCreateInvoice, setShowCreateInvoice] = useState(false);
   const [showProcessPayment, setShowProcessPayment] = useState(false);
   const [showPaymentLinkModal, setShowPaymentLinkModal] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [cancelSubModal, setCancelSubModal] = useState<{
+    subscriptionId: number;
+    planName: string;
+  } | null>(null);
+  const [cancelSubMode, setCancelSubMode] = useState<'period_end' | 'immediately'>('period_end');
+  const [cancelSubReason, setCancelSubReason] = useState('');
+  const [cancelSubProcessing, setCancelSubProcessing] = useState(false);
   const [refundModal, setRefundModal] = useState<{
     invoiceId: number;
     paymentId?: number;
@@ -180,9 +199,10 @@ export function PatientBillingView({ patientId, patientName, clinicSubdomain }: 
     return invoice.description || 'Medical Services';
   };
 
-  // Fetch invoices and payments
+  // Fetch invoices, payments, and active subscriptions
   useEffect(() => {
     fetchBillingData();
+    fetchActiveSubscriptions();
   }, [patientId]);
 
   const fetchBillingData = async () => {
@@ -205,6 +225,54 @@ export function PatientBillingView({ patientId, patientName, clinicSubdomain }: 
       setError('Failed to load billing information');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchActiveSubscriptions = async () => {
+    try {
+      const res = await apiFetch(`/api/patients/${patientId}/subscriptions`);
+      if (res.ok) {
+        const data = await res.json();
+        const active = (data as ActiveSubscription[]).filter(
+          (s) => s.status === 'ACTIVE' || s.status === 'PAUSED' || s.status === 'PAST_DUE'
+        );
+        setActiveSubscriptions(active);
+      }
+    } catch {
+      // Non-blocking: banner is supplementary
+    }
+  };
+
+  const handleCancelSubscription = async () => {
+    if (!cancelSubModal) return;
+    setCancelSubProcessing(true);
+    try {
+      const res = await apiFetch(`/api/subscriptions/${cancelSubModal.subscriptionId}/cancel`, {
+        method: 'POST',
+        body: JSON.stringify({
+          reason: cancelSubReason || undefined,
+          cancelAtPeriodEnd: cancelSubMode === 'period_end',
+        }),
+      });
+      if (res.ok) {
+        toast.success(
+          cancelSubMode === 'period_end'
+            ? 'Subscription will cancel at end of billing period'
+            : 'Subscription cancelled immediately'
+        );
+        setCancelSubModal(null);
+        setCancelSubReason('');
+        setCancelSubMode('period_end');
+        fetchActiveSubscriptions();
+      } else {
+        const data = await res.json();
+        toast.error(data.error || 'Failed to cancel subscription');
+      }
+    } catch (err: unknown) {
+      logger.error('Error cancelling subscription:', err);
+      toast.error('Failed to cancel subscription');
+    } finally {
+      setCancelSubProcessing(false);
     }
   };
 
@@ -528,6 +596,73 @@ export function PatientBillingView({ patientId, patientName, clinicSubdomain }: 
 
       {activeTab === 'invoices' && (
         <div>
+          {/* Active Subscriptions Banner */}
+          {activeSubscriptions.length > 0 && (
+            <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50 p-4">
+              <div className="mb-2 flex items-center justify-between">
+                <h4 className="flex items-center gap-2 text-sm font-semibold text-blue-900">
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  Active Subscriptions ({activeSubscriptions.length})
+                </h4>
+                <button
+                  onClick={() => setActiveTab('subscriptions')}
+                  className="text-xs font-medium text-blue-700 hover:text-blue-900 hover:underline"
+                >
+                  Manage All
+                </button>
+              </div>
+              <div className="space-y-2">
+                {activeSubscriptions.map((sub) => (
+                  <div
+                    key={sub.id}
+                    className="flex items-center justify-between rounded-md bg-white p-3 shadow-sm"
+                  >
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium text-gray-900">{sub.planName}</span>
+                        <span
+                          className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                            sub.status === 'ACTIVE'
+                              ? 'bg-green-100 text-green-700'
+                              : sub.status === 'PAUSED'
+                                ? 'bg-yellow-100 text-yellow-700'
+                                : 'bg-red-100 text-red-700'
+                          }`}
+                        >
+                          {sub.status}
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-500">
+                        {formatCurrency(sub.amount)}/{sub.intervalCount === 1 ? sub.interval : `${sub.intervalCount} ${sub.interval}s`}
+                        {sub.nextBillingDate && mounted
+                          ? ` · Next: ${new Date(sub.nextBillingDate).toLocaleDateString()}`
+                          : ''}
+                      </p>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setActiveTab('subscriptions')}
+                        className="rounded-md bg-gray-100 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-200"
+                      >
+                        View
+                      </button>
+                      {(sub.status === 'ACTIVE' || sub.status === 'PAUSED') && (
+                        <button
+                          onClick={() => setCancelSubModal({ subscriptionId: sub.id, planName: sub.planName })}
+                          className="rounded-md bg-red-100 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-200"
+                        >
+                          Cancel
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {invoices.length === 0 ? (
             <div className="rounded-xl border border-gray-200 bg-white p-4 text-center text-gray-500 md:p-8">
               <svg
@@ -947,6 +1082,13 @@ export function PatientBillingView({ patientId, patientName, clinicSubdomain }: 
               </div>
             </>
           )}
+
+          {/* Scheduled Payments Section */}
+          <ScheduledPaymentsSection
+            patientId={patientId}
+            clinicSubdomain={clinicSubdomain}
+            mounted={mounted}
+          />
         </div>
       )}
 
@@ -1156,6 +1298,451 @@ export function PatientBillingView({ patientId, patientName, clinicSubdomain }: 
           onClose={() => setShowPaymentLinkModal(false)}
           onInvoiceCreated={() => fetchBillingData()}
         />
+      )}
+
+      {/* Cancel Subscription Modal */}
+      {cancelSubModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
+            <h3 className="mb-1 text-lg font-semibold text-gray-900">Cancel Subscription</h3>
+            <p className="mb-4 text-sm text-gray-600">
+              Cancel <span className="font-medium">{cancelSubModal.planName}</span> for {patientName}
+            </p>
+
+            <div className="mb-4 space-y-2">
+              <label className="flex cursor-pointer items-start gap-3 rounded-lg border-2 p-3 transition-colors has-[:checked]:border-[#4fa77e] has-[:checked]:bg-green-50">
+                <input
+                  type="radio"
+                  name="cancelMode"
+                  checked={cancelSubMode === 'period_end'}
+                  onChange={() => setCancelSubMode('period_end')}
+                  className="mt-0.5 h-4 w-4 border-gray-300 text-[#4fa77e] focus:ring-[#4fa77e]"
+                />
+                <div>
+                  <p className="text-sm font-medium text-gray-900">Cancel at end of period</p>
+                  <p className="text-xs text-gray-500">Patient keeps access until current billing period ends</p>
+                </div>
+              </label>
+              <label className="flex cursor-pointer items-start gap-3 rounded-lg border-2 p-3 transition-colors has-[:checked]:border-red-500 has-[:checked]:bg-red-50">
+                <input
+                  type="radio"
+                  name="cancelMode"
+                  checked={cancelSubMode === 'immediately'}
+                  onChange={() => setCancelSubMode('immediately')}
+                  className="mt-0.5 h-4 w-4 border-gray-300 text-red-600 focus:ring-red-500"
+                />
+                <div>
+                  <p className="text-sm font-medium text-gray-900">Cancel immediately</p>
+                  <p className="text-xs text-gray-500">Stops billing and access right now. Refund must be processed separately.</p>
+                </div>
+              </label>
+            </div>
+
+            <div className="mb-4">
+              <label className="mb-1 block text-sm font-medium text-gray-700">
+                Reason (optional)
+              </label>
+              <textarea
+                value={cancelSubReason}
+                onChange={(e) => setCancelSubReason(e.target.value)}
+                rows={2}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[#4fa77e] focus:ring-1 focus:ring-[#4fa77e]"
+                placeholder="Why is this subscription being cancelled?"
+              />
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setCancelSubModal(null);
+                  setCancelSubReason('');
+                  setCancelSubMode('period_end');
+                }}
+                className="flex-1 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                Keep Subscription
+              </button>
+              <button
+                onClick={handleCancelSubscription}
+                disabled={cancelSubProcessing}
+                className="flex-1 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+              >
+                {cancelSubProcessing ? 'Cancelling...' : 'Confirm Cancel'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Scheduled Payments Section Component
+interface ScheduledPaymentData {
+  id: number;
+  planId: string | null;
+  planName: string | null;
+  amount: number;
+  description: string | null;
+  scheduledDate: string;
+  type: 'AUTO_CHARGE' | 'REMINDER';
+  status: 'PENDING' | 'PROCESSED' | 'FAILED' | 'CANCELED';
+  notes: string | null;
+  createdAt: string;
+}
+
+function ScheduledPaymentsSection({
+  patientId,
+  clinicSubdomain,
+  mounted,
+}: {
+  patientId: number;
+  clinicSubdomain?: string | null;
+  mounted: boolean;
+}) {
+  const [scheduledPayments, setScheduledPayments] = useState<ScheduledPaymentData[]>([]);
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
+  const [scheduleDate, setScheduleDate] = useState('');
+  const [schedulePlanId, setSchedulePlanId] = useState('');
+  const [scheduleAmount, setScheduleAmount] = useState('');
+  const [scheduleDescription, setScheduleDescription] = useState('');
+  const [scheduleType, setScheduleType] = useState<'AUTO_CHARGE' | 'REMINDER'>('AUTO_CHARGE');
+  const [scheduleNotes, setScheduleNotes] = useState('');
+  const [scheduleSubmitting, setScheduleSubmitting] = useState(false);
+  const [actionProcessing, setActionProcessing] = useState<number | null>(null);
+
+  const groupedPlans = getGroupedPlans(clinicSubdomain);
+
+  const fetchScheduled = useCallback(async () => {
+    try {
+      const res = await apiFetch(`/api/v2/scheduled-payments?patientId=${patientId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setScheduledPayments(data.scheduledPayments || []);
+      }
+    } catch {
+      // Non-blocking
+    }
+  }, [patientId]);
+
+  useEffect(() => {
+    fetchScheduled();
+  }, [fetchScheduled]);
+
+  const handlePlanChange = (planId: string) => {
+    setSchedulePlanId(planId);
+    if (planId) {
+      const plan = getPlanById(planId, clinicSubdomain);
+      if (plan) {
+        setScheduleAmount((plan.price / 100).toFixed(2));
+        setScheduleDescription(plan.description);
+      }
+    }
+  };
+
+  const handleCreateScheduled = async () => {
+    if (!scheduleDate || !scheduleAmount) return;
+    setScheduleSubmitting(true);
+    try {
+      const plan = schedulePlanId ? getPlanById(schedulePlanId, clinicSubdomain) : null;
+      const res = await apiFetch('/api/v2/scheduled-payments', {
+        method: 'POST',
+        body: JSON.stringify({
+          patientId,
+          planId: schedulePlanId || undefined,
+          planName: plan?.name || undefined,
+          amount: Math.round(parseFloat(scheduleAmount) * 100),
+          description: scheduleDescription || undefined,
+          scheduledDate: new Date(scheduleDate).toISOString(),
+          type: scheduleType,
+          notes: scheduleNotes || undefined,
+        }),
+      });
+
+      if (res.ok) {
+        toast.success('Payment scheduled successfully');
+        setShowScheduleModal(false);
+        resetScheduleForm();
+        fetchScheduled();
+      } else {
+        const data = await res.json();
+        toast.error(data.error || 'Failed to schedule payment');
+      }
+    } catch {
+      toast.error('Failed to schedule payment');
+    } finally {
+      setScheduleSubmitting(false);
+    }
+  };
+
+  const handleScheduledAction = async (id: number, action: 'cancel' | 'process') => {
+    setActionProcessing(id);
+    try {
+      const res = await apiFetch(`/api/v2/scheduled-payments/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ action }),
+      });
+
+      if (res.ok) {
+        toast.success(action === 'cancel' ? 'Scheduled payment cancelled' : 'Marked as processed');
+        fetchScheduled();
+      } else {
+        const data = await res.json();
+        toast.error(data.error || `Failed to ${action}`);
+      }
+    } catch {
+      toast.error(`Failed to ${action}`);
+    } finally {
+      setActionProcessing(null);
+    }
+  };
+
+  const resetScheduleForm = () => {
+    setScheduleDate('');
+    setSchedulePlanId('');
+    setScheduleAmount('');
+    setScheduleDescription('');
+    setScheduleType('AUTO_CHARGE');
+    setScheduleNotes('');
+  };
+
+  const pendingPayments = scheduledPayments.filter((sp) => sp.status === 'PENDING');
+  const pastPayments = scheduledPayments.filter((sp) => sp.status !== 'PENDING');
+
+  return (
+    <div className="mt-6">
+      <div className="mb-3 flex items-center justify-between">
+        <h4 className="flex items-center gap-2 text-sm font-semibold text-gray-500 uppercase tracking-wider">
+          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+          </svg>
+          Scheduled Payments
+          {pendingPayments.length > 0 && (
+            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-700">
+              {pendingPayments.length} upcoming
+            </span>
+          )}
+        </h4>
+        <button
+          onClick={() => setShowScheduleModal(true)}
+          className="rounded-lg bg-[#4fa77e] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#3f8660]"
+        >
+          + Schedule Payment
+        </button>
+      </div>
+
+      {pendingPayments.length === 0 && pastPayments.length === 0 && (
+        <p className="text-sm text-gray-400">No scheduled payments</p>
+      )}
+
+      {pendingPayments.length > 0 && (
+        <div className="space-y-2">
+          {pendingPayments.map((sp) => (
+            <div key={sp.id} className="flex items-center justify-between rounded-lg border border-amber-200 bg-amber-50 p-3">
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-gray-900">
+                    {sp.planName || sp.description || 'Custom Payment'}
+                  </span>
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                      sp.type === 'AUTO_CHARGE'
+                        ? 'bg-blue-100 text-blue-700'
+                        : 'bg-purple-100 text-purple-700'
+                    }`}
+                  >
+                    {sp.type === 'AUTO_CHARGE' ? 'Auto-charge' : 'Reminder'}
+                  </span>
+                </div>
+                <p className="text-xs text-gray-500">
+                  {formatCurrency(sp.amount)} · {mounted ? new Date(sp.scheduledDate).toLocaleDateString() : '—'}
+                  {sp.notes ? ` · ${sp.notes}` : ''}
+                </p>
+              </div>
+              <div className="flex gap-1.5">
+                <button
+                  onClick={() => handleScheduledAction(sp.id, 'process')}
+                  disabled={actionProcessing === sp.id}
+                  className="rounded-md bg-green-100 px-2.5 py-1 text-xs font-medium text-green-700 hover:bg-green-200 disabled:opacity-50"
+                >
+                  {actionProcessing === sp.id ? '...' : 'Process Now'}
+                </button>
+                <button
+                  onClick={() => handleScheduledAction(sp.id, 'cancel')}
+                  disabled={actionProcessing === sp.id}
+                  className="rounded-md bg-red-100 px-2.5 py-1 text-xs font-medium text-red-700 hover:bg-red-200 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {pastPayments.length > 0 && (
+        <details className="mt-2">
+          <summary className="cursor-pointer text-xs text-gray-400 hover:text-gray-600">
+            Past scheduled payments ({pastPayments.length})
+          </summary>
+          <div className="mt-1 space-y-1">
+            {pastPayments.map((sp) => (
+              <div key={sp.id} className="flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50 p-2">
+                <div>
+                  <span className="text-xs text-gray-600">
+                    {sp.planName || sp.description || 'Custom Payment'} — {formatCurrency(sp.amount)}
+                  </span>
+                  <span className={`ml-2 rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
+                    sp.status === 'PROCESSED' ? 'bg-green-100 text-green-700'
+                    : sp.status === 'FAILED' ? 'bg-red-100 text-red-700'
+                    : 'bg-gray-100 text-gray-500'
+                  }`}>
+                    {sp.status}
+                  </span>
+                </div>
+                <span className="text-[10px] text-gray-400">
+                  {mounted ? new Date(sp.scheduledDate).toLocaleDateString() : '—'}
+                </span>
+              </div>
+            ))}
+          </div>
+        </details>
+      )}
+
+      {/* Schedule Payment Modal */}
+      {showScheduleModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-lg rounded-lg bg-white p-6 shadow-xl">
+            <h3 className="mb-4 text-lg font-semibold text-gray-900">Schedule Payment</h3>
+
+            <div className="space-y-4">
+              {/* Date */}
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Payment Date</label>
+                <input
+                  type="date"
+                  value={scheduleDate}
+                  onChange={(e) => setScheduleDate(e.target.value)}
+                  min={new Date(Date.now() + 86400000).toISOString().split('T')[0]}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[#4fa77e] focus:ring-1 focus:ring-[#4fa77e]"
+                />
+              </div>
+
+              {/* Plan selector */}
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  Plan (optional)
+                </label>
+                <select
+                  value={schedulePlanId}
+                  onChange={(e) => handlePlanChange(e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[#4fa77e] focus:ring-1 focus:ring-[#4fa77e]"
+                >
+                  <option value="">-- Custom Amount --</option>
+                  {Object.entries(groupedPlans).map(([groupName, group]) => (
+                    <optgroup key={groupName} label={group.label}>
+                      {group.plans.map((plan: any) => (
+                        <option key={plan.id} value={plan.id}>
+                          {plan.name} - {formatPlanPrice(plan.price)}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ))}
+                </select>
+              </div>
+
+              {/* Amount and Description */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">Amount ($)</label>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={scheduleAmount}
+                    onChange={(e) => setScheduleAmount(e.target.value.replace(/[^0-9.]/g, ''))}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[#4fa77e] focus:ring-1 focus:ring-[#4fa77e]"
+                    placeholder="0.00"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">Description</label>
+                  <input
+                    type="text"
+                    value={scheduleDescription}
+                    onChange={(e) => setScheduleDescription(e.target.value)}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[#4fa77e] focus:ring-1 focus:ring-[#4fa77e]"
+                    placeholder="Payment description"
+                  />
+                </div>
+              </div>
+
+              {/* Type Toggle */}
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Type</label>
+                <div className="flex gap-1 rounded-lg bg-gray-100 p-0.5">
+                  <button
+                    type="button"
+                    onClick={() => setScheduleType('AUTO_CHARGE')}
+                    className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                      scheduleType === 'AUTO_CHARGE'
+                        ? 'bg-white text-gray-900 shadow-sm'
+                        : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                  >
+                    Auto-charge on date
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setScheduleType('REMINDER')}
+                    className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                      scheduleType === 'REMINDER'
+                        ? 'bg-white text-gray-900 shadow-sm'
+                        : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                  >
+                    Reminder only
+                  </button>
+                </div>
+                <p className="mt-1 text-[11px] text-gray-500">
+                  {scheduleType === 'AUTO_CHARGE'
+                    ? "Patient's saved card will be charged automatically on this date"
+                    : 'A reminder will appear for the rep to manually process the payment'}
+                </p>
+              </div>
+
+              {/* Notes */}
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Notes (optional)</label>
+                <textarea
+                  value={scheduleNotes}
+                  onChange={(e) => setScheduleNotes(e.target.value)}
+                  rows={2}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[#4fa77e] focus:ring-1 focus:ring-[#4fa77e]"
+                  placeholder="Internal notes..."
+                />
+              </div>
+            </div>
+
+            <div className="mt-6 flex gap-3">
+              <button
+                onClick={() => {
+                  setShowScheduleModal(false);
+                  resetScheduleForm();
+                }}
+                className="flex-1 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreateScheduled}
+                disabled={scheduleSubmitting || !scheduleDate || !scheduleAmount}
+                className="flex-1 rounded-lg bg-[#4fa77e] px-4 py-2 text-sm font-medium text-white hover:bg-[#3f8660] disabled:opacity-50"
+              >
+                {scheduleSubmitting ? 'Scheduling...' : 'Schedule Payment'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

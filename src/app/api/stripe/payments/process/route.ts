@@ -22,6 +22,8 @@ interface SubscriptionInfo {
   planName: string;
   interval: string;
   intervalCount: number;
+  discountMode?: 'first_only' | 'all_recurring';
+  catalogAmountCents?: number;
 }
 
 import type Stripe from 'stripe';
@@ -64,6 +66,10 @@ function isStripePaymentIntentUniqueConstraint(error: unknown): boolean {
 /**
  * Finds an existing Stripe Price that matches the plan, or creates a new
  * Product + Price pair. Uses plan ID as lookup key for idempotency.
+ *
+ * When `discountMode === 'all_recurring'` and the amount differs from the
+ * catalog price, a separate Stripe Price is created with a unique lookup key
+ * so it doesn't overwrite the canonical plan price.
  */
 async function getOrCreateStripePrice(
   stripe: Stripe,
@@ -73,8 +79,16 @@ async function getOrCreateStripePrice(
 ) {
   const connectOpts = stripeAccountId ? { stripeAccount: stripeAccountId } : undefined;
 
-  // Try to find existing price by lookup_key (our planId)
-  const listParams = { lookup_keys: [sub.planId], limit: 1 };
+  const isCustomPrice =
+    sub.discountMode === 'all_recurring' &&
+    sub.catalogAmountCents != null &&
+    amountCents !== sub.catalogAmountCents;
+
+  const lookupKey = isCustomPrice
+    ? `${sub.planId}_custom_${amountCents}`
+    : sub.planId;
+
+  const listParams = { lookup_keys: [lookupKey], limit: 1 };
   const existing = connectOpts
     ? await stripe.prices.list(listParams, connectOpts)
     : await stripe.prices.list(listParams);
@@ -83,8 +97,8 @@ async function getOrCreateStripePrice(
 
   // Create a product + price
   const productParams = {
-    name: sub.planName,
-    metadata: { planId: sub.planId },
+    name: isCustomPrice ? `${sub.planName} (Custom)` : sub.planName,
+    metadata: { planId: sub.planId, ...(isCustomPrice ? { customAmount: String(amountCents) } : {}) },
   };
   const product = connectOpts
     ? await stripe.products.create(productParams, connectOpts)
@@ -105,7 +119,7 @@ async function getOrCreateStripePrice(
       interval: intervalMap[sub.interval] || 'month',
       interval_count: sub.intervalCount,
     },
-    lookup_key: sub.planId,
+    lookup_key: lookupKey,
   };
 
   return connectOpts
@@ -380,13 +394,17 @@ async function handlePost(request: NextRequest, _user: AuthUser) {
               (subscriptionInfo.interval === 'year' ? 12 : subscriptionInfo.interval === 'month' ? 1 : 1);
             periodEnd.setMonth(periodEnd.getMonth() + (totalMonths || 1));
 
+            const subscriptionRecurringAmount = subscriptionInfo.discountMode === 'first_only' && subscriptionInfo.catalogAmountCents
+              ? subscriptionInfo.catalogAmountCents
+              : amount;
+
             const createdSubscription = await tx.subscription.create({
               data: {
                 patientId: patient.id,
                 planId: subscriptionInfo.planId,
                 planName: subscriptionInfo.planName,
                 planDescription: description,
-                amount,
+                amount: subscriptionRecurringAmount,
                 interval: subscriptionInfo.interval,
                 intervalCount: subscriptionInfo.intervalCount,
                 startDate: now,
@@ -394,6 +412,13 @@ async function handlePost(request: NextRequest, _user: AuthUser) {
                 currentPeriodEnd: periodEnd,
                 nextBillingDate: periodEnd,
                 paymentMethodId: localPaymentMethodId ?? 0,
+                ...(subscriptionInfo.discountMode && amount !== subscriptionRecurringAmount ? {
+                  metadata: {
+                    discountMode: subscriptionInfo.discountMode,
+                    firstPaymentAmount: amount,
+                    catalogAmount: subscriptionInfo.catalogAmountCents,
+                  },
+                } : {}),
               },
             });
 
@@ -472,10 +497,13 @@ async function handlePost(request: NextRequest, _user: AuthUser) {
       if (subscription && stripeStatus === PaymentStatus.SUCCEEDED && stripePaymentMethodId && stripeCustomerId) {
         try {
           const subscriptionInfo = subscription as SubscriptionInfo;
+          const recurringAmount = subscriptionInfo.discountMode === 'first_only' && subscriptionInfo.catalogAmountCents
+            ? subscriptionInfo.catalogAmountCents
+            : amount;
           const stripePrice = await getOrCreateStripePrice(
             stripe,
             subscriptionInfo,
-            amount,
+            recurringAmount,
             stripeContext.stripeAccountId
           );
 
@@ -636,7 +664,13 @@ async function handlePost(request: NextRequest, _user: AuthUser) {
         stripePaymentIntentId: intent.id,
         metadata: {
           saveCard: saveCard === true,
-          subscription: subscription || null,
+          subscription: subscription
+            ? {
+                ...subscription,
+                discountMode: subscription.discountMode || undefined,
+                catalogAmountCents: subscription.catalogAmountCents || undefined,
+              }
+            : null,
           newCardFlow: true,
         } as any,
       },

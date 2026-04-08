@@ -102,6 +102,7 @@ model Patient {
   refillQueue             RefillQueue[]
   telehealthSessions      TelehealthSession[]
   salesRepAssignments     PatientSalesRepAssignment[]
+  scheduledPayments       ScheduledPayment[]
 
   // PLATFORM BILLING: Prescription cycle tracking and fee events
   prescriptionCycles PatientPrescriptionCycle[]
@@ -2817,6 +2818,7 @@ model Clinic {
   affiliateReferrals   AffiliateReferral[]
   affiliateCommissions AffiliateCommission[]
   retentionOffers      RetentionOffer[]
+  scheduledPayments    ScheduledPayment[]
 
   // New Affiliate Portal System
   affiliates                Affiliate[]
@@ -6485,4 +6487,49 @@ enum PatientPhotoVerificationStatus {
   VERIFIED       // ID verified successfully
   REJECTED       // ID rejected (blurry, wrong document, etc.)
   EXPIRED        // Verification expired, needs re-upload
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SCHEDULED PAYMENTS
+// ═══════════════════════════════════════════════════════════════════════════
+
+model ScheduledPayment {
+  id            Int                    @id @default(autoincrement())
+  clinicId      Int
+  patientId     Int
+  planId        String?
+  planName      String?
+  amount        Int
+  description   String?
+  scheduledDate DateTime
+  type          ScheduledPaymentType   @default(AUTO_CHARGE)
+  status        ScheduledPaymentStatus @default(PENDING)
+  createdBy     Int
+  processedAt   DateTime?
+  paymentId     Int?
+  canceledAt    DateTime?
+  canceledBy    Int?
+  notes         String?
+  metadata      Json?
+  createdAt     DateTime               @default(now())
+  updatedAt     DateTime               @updatedAt
+
+  clinic  Clinic  @relation(fields: [clinicId], references: [id])
+  patient Patient @relation(fields: [patientId], references: [id])
+
+  @@index([clinicId, scheduledDate])
+  @@index([patientId])
+  @@index([status, scheduledDate])
+}
+
+enum ScheduledPaymentType {
+  AUTO_CHARGE
+  REMINDER
+}
+
+enum ScheduledPaymentStatus {
+  PENDING
+  PROCESSED
+  FAILED
+  CANCELED
 }
