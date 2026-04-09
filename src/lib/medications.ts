@@ -550,7 +550,7 @@ export const GLP1_PRODUCT_IDS = new Set([
  * Used to pre-populate the Rx form when a paid invoice includes add-ons.
  */
 export const ADDON_MEDICATION_MAP: Record<string, string> = {
-  nad_plus: '203194055',
+  nad_plus: '204754029',
   sermorelin: '203666651',
   b12: '203449111',
 };

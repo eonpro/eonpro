@@ -150,7 +150,7 @@ export const ADDON_MEDICATION_KEY_TO_ADDON: Record<string, AddonKey> = {
 };
 
 /** Lifefile product IDs for the three Elite Bundle medications (NAD+, Sermorelin, B12). */
-export const ELITE_BUNDLE_PRODUCT_IDS = ['203194055', '203666651', '203449111'] as const;
+export const ELITE_BUNDLE_PRODUCT_IDS = ['204754029', '203666651', '203449111'] as const;
 
 /**
  * Whether to emit a separate add-on pharmacy fee line for this order.
@@ -161,11 +161,11 @@ export function shouldEmitAddonPharmacyFee(addonKey: AddonKey, rxMedicationKeys:
   if (addonKey === 'elite_bundle') {
     return !ELITE_BUNDLE_PRODUCT_IDS.every((id) => keySet.has(id));
   }
-  const productId = Object.entries(ADDON_MEDICATION_KEY_TO_ADDON).find(
-    ([, v]) => v === addonKey,
-  )?.[0];
-  if (productId) {
-    return !keySet.has(productId);
+  const matchingIds = Object.entries(ADDON_MEDICATION_KEY_TO_ADDON)
+    .filter(([, v]) => v === addonKey)
+    .map(([id]) => id);
+  if (matchingIds.length > 0) {
+    return !matchingIds.some((id) => keySet.has(id));
   }
   return true;
 }
