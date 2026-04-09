@@ -4,98 +4,15 @@ import { PaymentStatus } from '@prisma/client';
 import { withAuth, AuthUser } from '@/lib/auth/middleware';
 import { handleApiError } from '@/domains/shared/errors';
 import { getStripeForClinic } from '@/lib/stripe/connect';
+import type Stripe from 'stripe';
 import { processPaymentForCommission } from '@/services/affiliate/affiliateCommissionService';
 import { createInvoiceForProcessedPayment } from '@/services/billing/createInvoiceForPayment';
 import { logger } from '@/lib/logger';
-import type Stripe from 'stripe';
-
-interface SubscriptionInfo {
-  planId: string;
-  planName: string;
-  interval: string;
-  intervalCount: number;
-  discountMode?: 'first_only' | 'all_recurring';
-  catalogAmountCents?: number;
-}
-
-function computeNextBillingUnix(interval: string, intervalCount: number): number {
-  const now = new Date();
-  const next = new Date(now);
-  const safeCount = Math.max(1, intervalCount || 1);
-
-  switch (interval) {
-    case 'year':
-      next.setFullYear(next.getFullYear() + safeCount);
-      break;
-    case 'week':
-      next.setDate(next.getDate() + safeCount * 7);
-      break;
-    case 'day':
-      next.setDate(next.getDate() + safeCount);
-      break;
-    case 'month':
-    default:
-      next.setMonth(next.getMonth() + safeCount);
-      break;
-  }
-
-  return Math.floor(next.getTime() / 1000);
-}
-
-async function getOrCreateStripePrice(
-  stripe: Stripe,
-  sub: SubscriptionInfo,
-  amountCents: number,
-  stripeAccountId?: string | null,
-) {
-  const connectOpts = stripeAccountId ? { stripeAccount: stripeAccountId } : undefined;
-
-  const isCustomPrice =
-    sub.discountMode === 'all_recurring' &&
-    sub.catalogAmountCents != null &&
-    amountCents !== sub.catalogAmountCents;
-
-  const lookupKey = isCustomPrice
-    ? `${sub.planId}_custom_${amountCents}`
-    : sub.planId;
-
-  const listParams = { lookup_keys: [lookupKey], limit: 1 };
-  const existing = connectOpts
-    ? await stripe.prices.list(listParams, connectOpts)
-    : await stripe.prices.list(listParams);
-
-  if (existing.data.length > 0) return existing.data[0];
-
-  const productParams = {
-    name: isCustomPrice ? `${sub.planName} (Custom)` : sub.planName,
-    metadata: { planId: sub.planId, ...(isCustomPrice ? { customAmount: String(amountCents) } : {}) },
-  };
-  const product = connectOpts
-    ? await stripe.products.create(productParams, connectOpts)
-    : await stripe.products.create(productParams);
-
-  const intervalMap: Record<string, Stripe.PriceCreateParams.Recurring.Interval> = {
-    month: 'month',
-    year: 'year',
-    week: 'week',
-    day: 'day',
-  };
-
-  const priceParams: Stripe.PriceCreateParams = {
-    product: product.id,
-    unit_amount: amountCents,
-    currency: 'usd',
-    recurring: {
-      interval: intervalMap[sub.interval] || 'month',
-      interval_count: sub.intervalCount,
-    },
-    lookup_key: lookupKey,
-  };
-
-  return connectOpts
-    ? await stripe.prices.create(priceParams, connectOpts)
-    : await stripe.prices.create(priceParams);
-}
+import {
+  SubscriptionInfo,
+  computeNextBillingUnix,
+  getOrCreateStripePrice,
+} from '@/services/stripe/subscriptionHelpers';
 
 async function handlePost(request: NextRequest, _user: AuthUser) {
   try {
@@ -154,9 +71,14 @@ async function handlePost(request: NextRequest, _user: AuthUser) {
         ? PaymentStatus.PROCESSING
         : PaymentStatus.FAILED;
 
-    // Extract subscription data and line items stored by the process route
     const paymentMeta = (pendingPayment.metadata as Record<string, unknown>) || {};
-    const subscription = paymentMeta.subscription as SubscriptionInfo | null;
+    const rawSubscriptions = paymentMeta.subscriptions as SubscriptionInfo[] | null;
+    const singleSubscription = paymentMeta.subscription as SubscriptionInfo | null;
+    const subscriptions: SubscriptionInfo[] = rawSubscriptions
+      ? rawSubscriptions
+      : singleSubscription
+        ? [singleSubscription]
+        : [];
     const lineItems = paymentMeta.lineItems as Array<{ description: string; amount: number; planId?: string }> | undefined;
 
     let parsedLocalPmId = localPaymentMethodId ? parseInt(String(localPaymentMethodId)) : null;
@@ -246,9 +168,8 @@ async function handlePost(request: NextRequest, _user: AuthUser) {
       }
     }
 
-    // Update payment and create subscription in a transaction
     const result = await prisma.$transaction(async (tx) => {
-      let subscriptionId: number | null = null;
+      const createdSubIds: number[] = [];
 
       const pmForDisplay =
         parsedLocalPmId != null
@@ -269,59 +190,79 @@ async function handlePost(request: NextRequest, _user: AuthUser) {
         },
       });
 
-      if (subscription && stripeStatus === PaymentStatus.SUCCEEDED) {
+      if (subscriptions.length > 0 && stripeStatus === PaymentStatus.SUCCEEDED) {
         const now = new Date();
-        const periodEnd = new Date(now);
-        const totalMonths = subscription.intervalCount *
-          (subscription.interval === 'year' ? 12 : subscription.interval === 'month' ? 1 : 1);
-        periodEnd.setMonth(periodEnd.getMonth() + (totalMonths || 1));
+        const tagsToAdd: string[] = [];
 
-        const subscriptionRecurringAmount = subscription.discountMode === 'first_only' && subscription.catalogAmountCents
-          ? subscription.catalogAmountCents
-          : pendingPayment.amount;
+        for (const sub of subscriptions) {
+          const periodEnd = new Date(now);
+          const totalMonths = sub.intervalCount *
+            (sub.interval === 'year' ? 12 : sub.interval === 'month' ? 1 : 1);
+          periodEnd.setMonth(periodEnd.getMonth() + (totalMonths || 1));
 
-        const createdSubscription = await tx.subscription.create({
-          data: {
-            patientId: patient.id,
-            planId: subscription.planId,
-            planName: subscription.planName,
-            planDescription: pendingPayment.description || '',
-            amount: subscriptionRecurringAmount,
-            interval: subscription.interval,
-            intervalCount: subscription.intervalCount,
-            startDate: now,
-            currentPeriodStart: now,
-            currentPeriodEnd: periodEnd,
-            nextBillingDate: periodEnd,
-            ...(parsedLocalPmId != null ? { paymentMethodId: parsedLocalPmId } : {}),
-            ...(subscription.discountMode && pendingPayment.amount !== subscriptionRecurringAmount ? {
-              metadata: {
-                discountMode: subscription.discountMode,
-                firstPaymentAmount: pendingPayment.amount,
-                catalogAmount: subscription.catalogAmountCents,
-              },
-            } : {}),
-          },
-        });
+          const itemAmount = (sub as any).amountCents || pendingPayment.amount;
+          const subscriptionRecurringAmount = sub.discountMode === 'first_only' && sub.catalogAmountCents
+            ? sub.catalogAmountCents
+            : itemAmount;
 
-        subscriptionId = createdSubscription.id;
+          const createdSubscription = await tx.subscription.create({
+            data: {
+              patientId: patient.id,
+              planId: sub.planId,
+              planName: sub.planName,
+              planDescription: pendingPayment.description || '',
+              amount: subscriptionRecurringAmount,
+              interval: sub.interval,
+              intervalCount: sub.intervalCount,
+              startDate: now,
+              currentPeriodStart: now,
+              currentPeriodEnd: periodEnd,
+              nextBillingDate: periodEnd,
+              ...(parsedLocalPmId != null ? { paymentMethodId: parsedLocalPmId } : {}),
+              ...(sub.discountMode && itemAmount !== subscriptionRecurringAmount ? {
+                metadata: {
+                  discountMode: sub.discountMode,
+                  firstPaymentAmount: itemAmount,
+                  catalogAmount: sub.catalogAmountCents,
+                },
+              } : {}),
+            },
+          });
 
-        await tx.payment.update({
-          where: { id: pendingPayment.id },
-          data: { subscriptionId },
-        });
+          createdSubIds.push(createdSubscription.id);
+          tagsToAdd.push(`subscription-${sub.planName.toLowerCase().replace(/\s+/g, '-')}`);
+        }
+
+        if (createdSubIds.length > 0) {
+          await tx.payment.update({
+            where: { id: pendingPayment.id },
+            data: {
+              subscriptionId: createdSubIds[0],
+              ...(createdSubIds.length > 1 ? {
+                metadata: {
+                  ...(paymentMeta || {}),
+                  allSubscriptionIds: createdSubIds,
+                },
+              } : {}),
+            },
+          });
+        }
 
         const currentTags = (patient.tags as string[]) || [];
-        const subscriptionTag = `subscription-${subscription.planName.toLowerCase().replace(/\s+/g, '-')}`;
-        if (!currentTags.includes(subscriptionTag)) {
+        const newTags = [...currentTags];
+        for (const tag of tagsToAdd) {
+          if (!newTags.includes(tag)) newTags.push(tag);
+        }
+        if (!newTags.includes('active-subscription')) newTags.push('active-subscription');
+        if (newTags.length !== currentTags.length) {
           await tx.patient.update({
             where: { id: patient.id },
-            data: { tags: [...currentTags, subscriptionTag, 'active-subscription'] },
+            data: { tags: newTags },
           });
         }
       }
 
-      return { subscriptionId };
+      return { subscriptionId: createdSubIds[0] || null, allSubscriptionIds: createdSubIds };
     }, { timeout: 15000 });
 
     if (stripeStatus !== PaymentStatus.SUCCEEDED) {
@@ -331,7 +272,6 @@ async function handlePost(request: NextRequest, _user: AuthUser) {
       );
     }
 
-    // Auto-create a PAID invoice so staff can see what the patient paid for (non-blocking)
     await createInvoiceForProcessedPayment({
       paymentId: pendingPayment.id,
       patientId: patient.id,
@@ -340,61 +280,69 @@ async function handlePost(request: NextRequest, _user: AuthUser) {
       description: pendingPayment.description || 'Payment',
       stripePaymentIntentId: paymentIntentId,
       stripeChargeId: intent.latest_charge?.toString(),
-      planId: subscription?.planId,
-      planName: subscription?.planName,
+      planId: subscriptions[0]?.planId,
+      planName: subscriptions[0]?.planName,
       lineItems: lineItems || undefined,
     });
 
-    // Create real Stripe Subscription for recurring plans
-    let stripeSubscriptionId: string | null = null;
-    if (subscription && stripePaymentMethodId && patient.stripeCustomerId) {
-      try {
-        const recurringAmount = subscription.discountMode === 'first_only' && subscription.catalogAmountCents
-          ? subscription.catalogAmountCents
-          : pendingPayment.amount;
-        const stripePrice = await getOrCreateStripePrice(
-          stripe,
-          subscription,
-          recurringAmount,
-          stripeContext.stripeAccountId,
-        );
+    // Create real Stripe Subscriptions for recurring plans
+    const stripeSubscriptionIds: string[] = [];
+    if (subscriptions.length > 0 && stripePaymentMethodId && patient.stripeCustomerId) {
+      for (let i = 0; i < subscriptions.length; i++) {
+        const sub = subscriptions[i];
+        const localSubId = result.allSubscriptionIds[i];
+        try {
+          const itemAmount = (sub as any).amountCents || pendingPayment.amount;
+          const recurringAmount = sub.discountMode === 'first_only' && sub.catalogAmountCents
+            ? sub.catalogAmountCents
+            : itemAmount;
+          const stripePrice = await getOrCreateStripePrice(
+            stripe,
+            sub,
+            recurringAmount,
+            stripeContext.stripeAccountId,
+          );
 
-        const subParams: Record<string, unknown> = {
-          customer: patient.stripeCustomerId,
-          items: [{ price: stripePrice.id }],
-          default_payment_method: stripePaymentMethodId,
-          // Initial charge was already collected by PaymentIntent; defer recurring charge to next cycle.
-          trial_end: computeNextBillingUnix(subscription.interval, subscription.intervalCount),
-          metadata: {
-            patientId: patient.id.toString(),
-            planId: subscription.planId,
-            localSubscriptionId: result.subscriptionId?.toString() || '',
-          },
-        };
+          const subParams: Record<string, unknown> = {
+            customer: patient.stripeCustomerId,
+            items: [{ price: stripePrice.id }],
+            default_payment_method: stripePaymentMethodId,
+            trial_end: computeNextBillingUnix(sub.interval, sub.intervalCount),
+            metadata: {
+              patientId: patient.id.toString(),
+              planId: sub.planId,
+              localSubscriptionId: localSubId?.toString() || '',
+            },
+          };
 
-        const stripeSub = connectOpts
-          ? await stripe.subscriptions.create(subParams as any, connectOpts)
-          : await stripe.subscriptions.create(subParams as any);
+          const stripeSub = connectOpts
+            ? await stripe.subscriptions.create(subParams as any, connectOpts)
+            : await stripe.subscriptions.create(subParams as any);
 
-        stripeSubscriptionId = stripeSub.id;
+          stripeSubscriptionIds.push(stripeSub.id);
 
-        if (result.subscriptionId) {
-          await prisma.subscription.update({
-            where: { id: result.subscriptionId },
-            data: { stripeSubscriptionId: stripeSub.id },
+          if (localSubId) {
+            await prisma.subscription.update({
+              where: { id: localSubId },
+              data: { stripeSubscriptionId: stripeSub.id },
+            });
+          }
+
+          logger.info('[PaymentConfirm] Stripe Subscription created', {
+            stripeSubscriptionId: stripeSub.id,
+            patientId: patient.id,
+            planId: sub.planId,
+            subscriptionIndex: i + 1,
+            totalSubscriptions: subscriptions.length,
+          });
+        } catch (subErr) {
+          logger.error('[PaymentConfirm] Failed to create Stripe Subscription (non-blocking)', {
+            patientId: patient.id,
+            planId: sub.planId,
+            subscriptionIndex: i + 1,
+            error: subErr instanceof Error ? subErr.message : String(subErr),
           });
         }
-
-        logger.info('[PaymentConfirm] Stripe Subscription created', {
-          stripeSubscriptionId: stripeSub.id,
-          patientId: patient.id,
-          planId: subscription.planId,
-        });
-      } catch (subErr) {
-        logger.error('[PaymentConfirm] Failed to create Stripe Subscription (non-blocking)', {
-          patientId: patient.id,
-          error: subErr instanceof Error ? subErr.message : String(subErr),
-        });
       }
     }
 
@@ -417,9 +365,9 @@ async function handlePost(request: NextRequest, _user: AuthUser) {
         amountCents: pendingPayment.amount,
         occurredAt: new Date(),
         isFirstPayment: priorCount === 0,
-        isRecurring: !!subscription,
-        productSku: subscription?.planId,
-        productCategory: subscription?.planName,
+        isRecurring: subscriptions.length > 0,
+        productSku: subscriptions[0]?.planId,
+        productCategory: subscriptions[0]?.planName,
       });
     } catch {
       // non-blocking
@@ -428,8 +376,9 @@ async function handlePost(request: NextRequest, _user: AuthUser) {
     return NextResponse.json({
       success: true,
       payment: { ...pendingPayment, status: stripeStatus },
-      subscriptionCreated: !!result.subscriptionId,
-      stripeSubscriptionId,
+      subscriptionCreated: result.allSubscriptionIds.length > 0,
+      subscriptionsCreated: result.allSubscriptionIds.length,
+      stripeSubscriptionIds,
     });
   } catch (error: unknown) {
     return handleApiError(error, { route: 'POST /api/stripe/payments/confirm' });

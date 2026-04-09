@@ -240,7 +240,7 @@ function ProcessPaymentFormContent({ patientId, patientName, clinicSubdomain, on
           const parsed = typeof value === 'string' ? parseFloat(value) : value;
           return { ...item, amount: Number.isNaN(parsed) ? 0 : parsed };
         }
-        return { ...item, [field]: value };
+        return { ...item, description: String(value) };
       })
     );
   };
@@ -323,24 +323,26 @@ function ProcessPaymentFormContent({ patientId, patientName, clinicSubdomain, on
         ? validItems[0].description
         : `${validItems[0]?.description || 'Payment'} (+${validItems.length - 1} more)`;
 
-      const subscription = (() => {
-        if (!singleRecurring) return null;
-        const plan = singleRecurring.planId ? getPlanById(singleRecurring.planId, clinicSubdomain) : null;
-        const months = plan?.months || singleRecurring.months || 1;
-        const catalogCents = singleRecurring.catalogPriceCents;
-        const currentCents = Math.round(singleRecurring.amount * 100);
+      const subscriptions = recurringItems.map((item) => {
+        const plan = item.planId ? getPlanById(item.planId, clinicSubdomain) : null;
+        const months = plan?.months || item.months || 1;
+        const catalogCents = item.catalogPriceCents;
+        const currentCents = Math.round(item.amount * 100);
         const isDiscounted = catalogCents != null && currentCents !== catalogCents;
         return {
-          planId: singleRecurring.planId || singleRecurring.id,
-          planName: plan?.name || singleRecurring.description,
+          planId: item.planId || item.id,
+          planName: plan?.name || item.description,
           interval: 'month',
           intervalCount: months,
+          amountCents: currentCents,
           ...(isDiscounted ? {
-            discountMode: singleRecurring.discountMode || 'first_only',
+            discountMode: item.discountMode || 'first_only',
             catalogAmountCents: catalogCents,
           } : {}),
         };
-      })();
+      });
+
+      const subscription = subscriptions.length === 1 ? subscriptions[0] : null;
 
       const payload: Record<string, unknown> = {
         patientId,
@@ -348,6 +350,7 @@ function ProcessPaymentFormContent({ patientId, patientName, clinicSubdomain, on
         description: primaryDescription,
         lineItems: allLineItems,
         subscription,
+        subscriptions: subscriptions.length > 0 ? subscriptions : undefined,
         notes,
         saveCard: paymentMode === 'new' ? saveCard : undefined,
       };
@@ -436,8 +439,8 @@ function ProcessPaymentFormContent({ patientId, patientName, clinicSubdomain, on
       }
 
       setSuccessMessage(
-        singleRecurring
-          ? 'Payment processed and recurring subscription set up successfully!'
+        recurringItems.length > 0
+          ? `Payment processed and ${recurringItems.length} recurring subscription${recurringItems.length > 1 ? 's' : ''} set up successfully!`
           : 'Payment processed successfully!'
       );
 
@@ -637,18 +640,22 @@ function ProcessPaymentFormContent({ patientId, patientName, clinicSubdomain, on
           </div>
         )}
 
-        {/* Recurring warning */}
+        {/* Recurring subscription info */}
         {recurringItems.length > 1 && (
-          <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
-            Multiple recurring plans in one transaction — subscriptions will <strong>not</strong> be auto-created. Process recurring plans in separate transactions to set up subscriptions.
+          <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800">
+            <strong>{recurringItems.length} recurring subscriptions</strong> will be created for this transaction.
           </div>
         )}
 
-        {singleRecurring && (
-          <p className="text-sm text-amber-600">
-            A recurring subscription will be created for <strong>{singleRecurring.description}</strong>
-            {' '}({singleRecurring.months === 1 ? 'billed monthly' : `billed every ${singleRecurring.months} months`})
-          </p>
+        {recurringItems.length > 0 && (
+          <div className="space-y-1">
+            {recurringItems.map((item) => (
+              <p key={item.id} className="text-sm text-amber-600">
+                A recurring subscription will be created for <strong>{item.description}</strong>
+                {' '}({item.months === 1 ? 'billed monthly' : `billed every ${item.months} months`})
+              </p>
+            ))}
+          </div>
         )}
 
         {/* Payment Method Selection */}
@@ -795,7 +802,7 @@ function ProcessPaymentFormContent({ patientId, patientName, clinicSubdomain, on
           </button>
           <button type="submit" disabled={submitting || cartItems.length === 0}
             className="rounded-lg bg-[#4fa77e] px-6 py-2 text-white transition-colors hover:bg-[#3f8660] disabled:cursor-not-allowed disabled:opacity-50">
-            {submitting ? 'Processing...' : singleRecurring ? 'Start Subscription' : `Charge $${totalAmount.toFixed(2)}`}
+            {submitting ? 'Processing...' : hasRecurring ? `Start Subscription${recurringItems.length > 1 ? 's' : ''}` : `Charge $${totalAmount.toFixed(2)}`}
           </button>
         </div>
       </form>

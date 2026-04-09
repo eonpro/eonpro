@@ -22,6 +22,7 @@ import { generatePatientId } from '@/lib/patients';
 import { decryptPHI, encryptPatientPHI, computeEmailHash, computeDobHash } from '@/lib/security/phi-encryption';
 import { buildPatientSearchIndex } from '@/lib/utils/search';
 import Stripe from 'stripe';
+import { Prisma } from '@prisma/client';
 import type { Patient, Invoice, InvoiceStatus } from '@prisma/client';
 
 // PHI fields that are encrypted in the patient table
@@ -888,8 +889,15 @@ export async function createPatientFromStripePayment(
 // ============================================================================
 
 /**
- * Create a paid invoice from a Stripe payment
- * Uses a transaction to ensure invoice and payment records are created atomically
+ * Create a paid invoice from a Stripe payment.
+ * Uses a transaction to ensure invoice and payment records are created atomically.
+ *
+ * RACE CONDITION NOTE: The confirm/process route may call createInvoiceForProcessedPayment
+ * for the same PaymentIntent concurrently. Both functions read-then-write, so the race
+ * window exists between the read checks and the transaction. To handle this:
+ *   1. Re-check payment.invoiceId inside the "link" transaction.
+ *   2. Catch P2002 unique constraint violations (on stripePaymentIntentId or invoiceId)
+ *      and treat them as idempotent success by returning the invoice the winner created.
  */
 export async function createPaidInvoiceFromStripe(
   patient: Patient,
@@ -943,36 +951,67 @@ export async function createPaidInvoiceFromStripe(
           }))
         : [{ description: desc, amount: paymentData.amount, quantity: 1 }];
 
-      const linked = await prisma.$transaction(async (tx) => {
-        const inv = await tx.invoice.create({
-          data: {
-            patientId: patient.id,
-            clinicId: patient.clinicId,
-            stripeInvoiceId: paymentData.stripeInvoiceId,
-            description: desc,
-            amount: paymentData.amount,
-            amountDue: 0,
-            amountPaid: paymentData.amount,
-            currency: paymentData.currency || 'usd',
-            status: 'PAID' as InvoiceStatus,
-            paidAt: paymentData.paidAt,
-            lineItems: li as any,
-            metadata: {
-              source: 'stripe_webhook_linked',
-              paymentIntentId: paymentData.paymentIntentId,
-              chargeId: paymentData.chargeId,
-              stripeMetadata: paymentData.metadata,
-            } as any,
-          },
-        });
-        await tx.payment.update({
-          where: { id: existingPayment.id },
-          data: { invoiceId: inv.id },
-        });
-        return inv;
-      }, { timeout: 15000 });
+      try {
+        const linked = await prisma.$transaction(async (tx) => {
+          // Re-check inside the transaction: the confirm route may have linked
+          // an invoice between our outer read and this point.
+          const freshPayment = await tx.payment.findUnique({
+            where: { id: existingPayment.id },
+            select: { invoiceId: true },
+          });
+          if (freshPayment?.invoiceId) {
+            const existingInv = await tx.invoice.findUnique({
+              where: { id: freshPayment.invoiceId },
+            });
+            if (existingInv) return existingInv;
+          }
 
-      return linked;
+          const inv = await tx.invoice.create({
+            data: {
+              patientId: patient.id,
+              clinicId: patient.clinicId,
+              stripeInvoiceId: paymentData.stripeInvoiceId,
+              description: desc,
+              amount: paymentData.amount,
+              amountDue: 0,
+              amountPaid: paymentData.amount,
+              currency: paymentData.currency || 'usd',
+              status: 'PAID' as InvoiceStatus,
+              paidAt: paymentData.paidAt,
+              lineItems: li as any,
+              metadata: {
+                source: 'stripe_webhook_linked',
+                paymentIntentId: paymentData.paymentIntentId,
+                chargeId: paymentData.chargeId,
+                stripeMetadata: paymentData.metadata,
+              } as any,
+            },
+          });
+          await tx.payment.update({
+            where: { id: existingPayment.id },
+            data: { invoiceId: inv.id },
+          });
+          return inv;
+        }, { timeout: 15000 });
+
+        return linked;
+      } catch (txError) {
+        if (txError instanceof Prisma.PrismaClientKnownRequestError && txError.code === 'P2002') {
+          // The confirm route won the race — retrieve the invoice it created.
+          const racePayment = await prisma.payment.findUnique({
+            where: { id: existingPayment.id },
+            include: { invoice: true },
+          });
+          if (racePayment?.invoice) {
+            logger.info('[PaymentMatching] Link race resolved via P2002 — using confirm-route invoice', {
+              paymentId: existingPayment.id,
+              invoiceId: racePayment.invoice.id,
+            });
+            return racePayment.invoice;
+          }
+        }
+        throw txError;
+      }
     }
   }
 
@@ -995,57 +1034,76 @@ export async function createPaidInvoiceFromStripe(
     || null;
 
   // Wrap invoice and payment creation in a transaction for atomicity
-  const invoice = await prisma.$transaction(async (tx) => {
-    // Create the invoice as PAID
-    const newInvoice = await tx.invoice.create({
-      data: {
-        patientId: patient.id,
-        clinicId: patient.clinicId,
-        stripeInvoiceId: paymentData.stripeInvoiceId,
-        description: productName || description,
-        amount: paymentData.amount,
-        amountDue: 0, // Already paid
-        amountPaid: paymentData.amount,
-        currency: paymentData.currency || 'usd',
-        status: 'PAID' as InvoiceStatus,
-        paidAt: paymentData.paidAt,
-        lineItems: lineItemsJson as any,
-        metadata: {
-          source: 'stripe_webhook',
-          paymentIntentId: paymentData.paymentIntentId,
-          chargeId: paymentData.chargeId,
-          ...(productName ? { product: productName } : {}),
-          stripeMetadata: paymentData.metadata,
-        } as any,
-      },
+  try {
+    const invoice = await prisma.$transaction(async (tx) => {
+      const newInvoice = await tx.invoice.create({
+        data: {
+          patientId: patient.id,
+          clinicId: patient.clinicId,
+          stripeInvoiceId: paymentData.stripeInvoiceId,
+          description: productName || description,
+          amount: paymentData.amount,
+          amountDue: 0,
+          amountPaid: paymentData.amount,
+          currency: paymentData.currency || 'usd',
+          status: 'PAID' as InvoiceStatus,
+          paidAt: paymentData.paidAt,
+          lineItems: lineItemsJson as any,
+          metadata: {
+            source: 'stripe_webhook',
+            paymentIntentId: paymentData.paymentIntentId,
+            chargeId: paymentData.chargeId,
+            ...(productName ? { product: productName } : {}),
+            stripeMetadata: paymentData.metadata,
+          } as any,
+        },
+      });
+
+      await tx.payment.create({
+        data: {
+          patientId: patient.id,
+          clinicId: patient.clinicId,
+          invoiceId: newInvoice.id,
+          stripePaymentIntentId: paymentData.paymentIntentId,
+          stripeChargeId: paymentData.chargeId,
+          amount: paymentData.amount,
+          currency: paymentData.currency || 'usd',
+          status: 'SUCCEEDED',
+          paidAt: paymentData.paidAt,
+        },
+      });
+
+      return newInvoice;
+    }, { timeout: 15000 });
+
+    logger.info('[PaymentMatching] Created paid invoice from Stripe payment', {
+      invoiceId: (invoice as any).id,
+      patientId: patient.id,
+      amount: paymentData.amount,
+      paymentIntentId: paymentData.paymentIntentId,
     });
 
-    // Create associated payment record
-    await tx.payment.create({
-      data: {
-        patientId: patient.id,
-        clinicId: patient.clinicId,
-        invoiceId: newInvoice.id,
-        stripePaymentIntentId: paymentData.paymentIntentId,
-        stripeChargeId: paymentData.chargeId,
-        amount: paymentData.amount,
-        currency: paymentData.currency || 'usd',
-        status: 'SUCCEEDED',
-        paidAt: paymentData.paidAt,
-      },
-    });
-
-    return newInvoice;
-  }, { timeout: 15000 });
-
-  logger.info('[PaymentMatching] Created paid invoice from Stripe payment', {
-    invoiceId: (invoice as any).id,
-    patientId: patient.id,
-    amount: paymentData.amount,
-    paymentIntentId: paymentData.paymentIntentId,
-  });
-
-  return invoice as any;
+    return invoice as any;
+  } catch (txError) {
+    // Unique constraint on stripePaymentIntentId means the confirm route already
+    // created a payment+invoice for this PI. Return the existing invoice.
+    if (txError instanceof Prisma.PrismaClientKnownRequestError && txError.code === 'P2002') {
+      if (paymentData.paymentIntentId) {
+        const racePayment = await prisma.payment.findUnique({
+          where: { stripePaymentIntentId: paymentData.paymentIntentId },
+          include: { invoice: true },
+        });
+        if (racePayment?.invoice) {
+          logger.info('[PaymentMatching] Create race resolved via P2002 — using existing invoice', {
+            paymentIntentId: paymentData.paymentIntentId,
+            invoiceId: racePayment.invoice.id,
+          });
+          return racePayment.invoice;
+        }
+      }
+    }
+    throw txError;
+  }
 }
 
 // ============================================================================

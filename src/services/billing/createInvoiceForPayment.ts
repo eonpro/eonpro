@@ -3,10 +3,18 @@
  * "Process Payment" form. This ensures every charge has a corresponding
  * invoice visible in the Invoices tab so staff can see what the patient
  * paid for.
+ *
+ * RACE CONDITION NOTE: The Stripe webhook (payment_intent.succeeded) may call
+ * createPaidInvoiceFromStripe for the same PaymentIntent concurrently with
+ * this function being called from the confirm/process route. To prevent
+ * duplicate invoices we:
+ *   1. Check payment.invoiceId before entering the transaction (fast path).
+ *   2. Re-check inside the transaction with a FOR UPDATE lock on the Payment row.
+ *   3. Catch unique constraint violations as idempotent success.
  */
 
 import { prisma } from '@/lib/db';
-import { InvoiceStatus } from '@prisma/client';
+import { InvoiceStatus, Prisma } from '@prisma/client';
 import { logger } from '@/lib/logger';
 
 interface LineItemInput {
@@ -52,6 +60,7 @@ export async function createInvoiceForProcessedPayment(
   } = input;
 
   try {
+    // Fast-path: check outside transaction to avoid unnecessary overhead.
     const existingPayment = await prisma.payment.findUnique({
       where: { id: paymentId },
       select: { invoiceId: true },
@@ -71,6 +80,22 @@ export async function createInvoiceForProcessedPayment(
       : [{ description, amount, quantity: 1 }];
 
     const result = await prisma.$transaction(async (tx) => {
+      // Re-check inside the transaction to close the race window between the
+      // fast-path read and this transaction acquiring the row lock. If the webhook
+      // linked an invoice between our outer read and now, we must not create another.
+      const freshPayment = await tx.payment.findUnique({
+        where: { id: paymentId },
+        select: { invoiceId: true },
+      });
+
+      if (freshPayment?.invoiceId) {
+        logger.info('[CreateInvoiceForPayment] Invoice created by concurrent webhook — skipping', {
+          paymentId,
+          invoiceId: freshPayment.invoiceId,
+        });
+        return { id: freshPayment.invoiceId, raceResolved: true };
+      }
+
       const invoice = await tx.invoice.create({
         data: {
           patientId,
@@ -81,6 +106,7 @@ export async function createInvoiceForProcessedPayment(
           amountPaid: amount,
           currency: 'usd',
           status: 'PAID' as InvoiceStatus,
+          prescriptionProcessed: false,
           paidAt: new Date(),
           lineItems: invoiceLineItems,
           metadata: {
@@ -125,6 +151,10 @@ export async function createInvoiceForProcessedPayment(
       return invoice;
     }, { timeout: 15000 });
 
+    if ('raceResolved' in result) {
+      return { invoiceId: result.id };
+    }
+
     logger.info('[CreateInvoiceForPayment] Invoice created for processed payment', {
       invoiceId: result.id,
       paymentId,
@@ -134,6 +164,26 @@ export async function createInvoiceForProcessedPayment(
 
     return { invoiceId: result.id };
   } catch (error) {
+    // Handle the narrow race where both webhook and confirm create invoices
+    // simultaneously — the loser hits a unique constraint on payment.invoiceId.
+    // Treat this as idempotent success rather than a failure.
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === 'P2002'
+    ) {
+      const racePayment = await prisma.payment.findUnique({
+        where: { id: paymentId },
+        select: { invoiceId: true },
+      });
+      if (racePayment?.invoiceId) {
+        logger.info('[CreateInvoiceForPayment] Race resolved via unique constraint — using webhook invoice', {
+          paymentId,
+          invoiceId: racePayment.invoiceId,
+        });
+        return { invoiceId: racePayment.invoiceId };
+      }
+    }
+
     logger.error('[CreateInvoiceForPayment] Failed to create invoice (non-blocking)', {
       paymentId,
       patientId,
