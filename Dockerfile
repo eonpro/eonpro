@@ -6,13 +6,10 @@ FROM node:20-alpine AS base
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
-# Dependencies stage – production-only node_modules + generated Prisma client
+# Dependencies stage – production-only node_modules
 FROM base AS deps
 COPY package.json package-lock.json ./
-COPY prisma ./prisma/
-COPY scripts ./scripts/
 RUN npm ci --omit=dev --ignore-scripts --legacy-peer-deps
-RUN npx prisma generate
 
 # Development dependencies stage
 FROM base AS dev-deps
@@ -49,8 +46,8 @@ COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/prisma ./prisma
-COPY --from=deps /app/node_modules/.prisma ./node_modules/.prisma
-COPY --from=deps /app/node_modules/@prisma ./node_modules/@prisma
+COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 
 # Set correct permissions
 RUN chown -R nextjs:nodejs /app
