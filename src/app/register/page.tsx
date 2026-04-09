@@ -601,8 +601,7 @@ export default function RegisterPage() {
                           <img
                             src={clinic.logoUrl}
                             alt={clinic.name}
-                            className="h-10 w-10 rounded-lg object-cover"
-                            width={40}
+                            className="h-10 max-w-[80px] rounded-lg object-contain"
                             height={40}
                           />
                         ) : (
