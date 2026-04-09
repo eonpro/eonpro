@@ -139,7 +139,7 @@ export const AUTH_CONFIG = {
   security: {
     maxLoginAttempts: 3, // Reduced for security
     lockoutDuration: 30 * 60 * 1000, // 30 minutes lockout
-    passwordMinLength: 12, // Increased for HIPAA
+    passwordMinLength: 8,
     requireStrongPassword: true,
     requireMFA: process.env.NODE_ENV === 'production',
     requirePasswordChange: 90 * 24 * 60 * 60 * 1000, // 90 days

@@ -12,9 +12,9 @@ import { sendEmail } from '@/lib/email';
 // Configuration
 const RESET_TOKEN_LENGTH = 32;
 const RESET_TOKEN_EXPIRY_HOURS = 1; // 1 hour expiry
-const MIN_PASSWORD_LENGTH = 12;
+const MIN_PASSWORD_LENGTH = 8;
 const PASSWORD_REQUIREMENTS = {
-  minLength: 12,
+  minLength: 8,
   requireUppercase: true,
   requireLowercase: true,
   requireNumbers: true,

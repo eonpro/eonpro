@@ -47,7 +47,7 @@ interface PasswordCheck {
 }
 
 const PASSWORD_CHECKS: PasswordCheck[] = [
-  { label: 'At least 12 characters', test: (pw) => pw.length >= 12 },
+  { label: 'At least 8 characters', test: (pw) => pw.length >= 8 },
   { label: 'One uppercase letter', test: (pw) => /[A-Z]/.test(pw) },
   { label: 'One lowercase letter', test: (pw) => /[a-z]/.test(pw) },
   { label: 'One number', test: (pw) => /\d/.test(pw) },
@@ -124,6 +124,17 @@ export default function SetupAccountPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!token || submitting) return;
+
+    if (!allChecksPassed) {
+      const unmet = PASSWORD_CHECKS.filter((c) => !c.test(password)).map((c) => c.label);
+      setError(`Password requirements not met: ${unmet.join(', ')}.`);
+      return;
+    }
+
+    if (!passwordsMatch) {
+      setError('Passwords do not match.');
+      return;
+    }
 
     setSubmitting(true);
     setError(null);
@@ -367,9 +378,9 @@ export default function SetupAccountPage() {
             {/* Submit */}
             <button
               type="submit"
-              disabled={!canSubmit}
+              disabled={submitting}
               className="flex w-full items-center justify-center gap-2 rounded-xl px-6 py-3.5 font-semibold text-white transition-all disabled:cursor-not-allowed disabled:opacity-50"
-              style={{ backgroundColor: canSubmit ? primaryColor : '#9CA3AF' }}
+              style={{ backgroundColor: submitting ? '#9CA3AF' : primaryColor }}
             >
               {submitting ? (
                 <Loader2 className="h-5 w-5 animate-spin" />

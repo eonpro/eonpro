@@ -121,7 +121,7 @@ export default function RegisterPage() {
   }, [searchParams]);
 
   const passwordRequirements = useMemo(() => [
-    { label: 'At least 12 characters', met: password.length >= 12 },
+    { label: 'At least 8 characters', met: password.length >= 8 },
     { label: 'One uppercase letter', met: /[A-Z]/.test(password) },
     { label: 'One lowercase letter', met: /[a-z]/.test(password) },
     { label: 'One number', met: /\d/.test(password) },
@@ -173,19 +173,19 @@ export default function RegisterPage() {
     e.preventDefault();
     setError('');
 
-    // Validate form
+    if (!agreedToTerms) {
+      setError('You must agree to the Terms of Service and Privacy Policy to continue.');
+      return;
+    }
+
     if (!isPasswordValid) {
-      setError('Please ensure your password meets all requirements');
+      const unmet = passwordRequirements.filter((r) => !r.met).map((r) => r.label);
+      setError(`Password requirements not met: ${unmet.join(', ')}.`);
       return;
     }
 
     if (!passwordsMatch) {
-      setError('Passwords do not match');
-      return;
-    }
-
-    if (!agreedToTerms) {
-      setError('Please agree to the terms and conditions');
+      setError('Passwords do not match.');
       return;
     }
 
@@ -531,7 +531,7 @@ export default function RegisterPage() {
                 </div>
                 <button
                   type="submit"
-                  disabled={loading || !isPasswordValid || !passwordsMatch || !agreedToTerms}
+                  disabled={loading}
                   className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 px-4 py-3 font-semibold text-white transition-colors hover:from-emerald-700 hover:to-teal-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {loading ? (
@@ -851,7 +851,7 @@ export default function RegisterPage() {
                   )}
                   <button
                     type="submit"
-                    disabled={loading || !isPasswordValid || !passwordsMatch || !agreedToTerms}
+                    disabled={loading}
                     className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 px-4 py-3 font-semibold text-white transition-colors hover:from-emerald-700 hover:to-teal-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {loading ? (
