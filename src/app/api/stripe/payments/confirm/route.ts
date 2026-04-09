@@ -135,10 +135,11 @@ async function handlePost(request: NextRequest, _user: AuthUser) {
         ? PaymentStatus.PROCESSING
         : PaymentStatus.FAILED;
 
-    // Extract subscription data stored by the process route
+    // Extract subscription data and line items stored by the process route
     const paymentMeta = (pendingPayment.metadata as Record<string, unknown>) || {};
     const subscription = paymentMeta.subscription as SubscriptionInfo | null;
     const saveCard = paymentMeta.saveCard === true;
+    const lineItems = paymentMeta.lineItems as Array<{ description: string; amount: number; planId?: string }> | undefined;
 
     let parsedLocalPmId = localPaymentMethodId ? parseInt(String(localPaymentMethodId)) : null;
 
@@ -297,6 +298,7 @@ async function handlePost(request: NextRequest, _user: AuthUser) {
       stripeChargeId: intent.latest_charge?.toString(),
       planId: subscription?.planId,
       planName: subscription?.planName,
+      lineItems: lineItems || undefined,
     });
 
     // Create real Stripe Subscription for recurring plans

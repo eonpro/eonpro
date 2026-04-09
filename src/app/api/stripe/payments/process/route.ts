@@ -130,7 +130,7 @@ async function getOrCreateStripePrice(
 async function handlePost(request: NextRequest, _user: AuthUser) {
   try {
     const body = await request.json();
-    const { patientId, amount, description, paymentMethodId: savedPaymentMethodId, subscription, notes, useStripeElements, saveCard } = body;
+    const { patientId, amount, description, paymentMethodId: savedPaymentMethodId, subscription, notes, useStripeElements, saveCard, lineItems } = body;
 
     if (!patientId || !amount || !description) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
@@ -294,6 +294,7 @@ async function handlePost(request: NextRequest, _user: AuthUser) {
             planId: subscription?.planId,
             usedSavedCard: true,
             idempotencyKey,
+            ...(lineItems ? { lineItems } : {}),
           } as any,
         },
       });
@@ -568,6 +569,7 @@ async function handlePost(request: NextRequest, _user: AuthUser) {
         stripeChargeId: paymentIntent.latest_charge?.toString(),
         planId: subscription?.planId,
         planName: subscription?.planName,
+        lineItems: lineItems || undefined,
       });
 
       // Commission processing (non-blocking)
@@ -672,6 +674,7 @@ async function handlePost(request: NextRequest, _user: AuthUser) {
               }
             : null,
           newCardFlow: true,
+          ...(lineItems ? { lineItems } : {}),
         } as any,
       },
     });

@@ -5,6 +5,7 @@ import {
   getGroupedPlans,
   formatPlanPrice,
   getPlanById,
+  getClinicSurcharge,
 } from '@/config/billingPlans';
 import { apiFetch } from '@/lib/api/fetch';
 import { getCardNetworkLogo } from '@/lib/constants/brand-assets';
@@ -125,16 +126,26 @@ interface FormContentProps extends ProcessPaymentFormProps {
   onAmountChange: (amountInCents: number) => void;
 }
 
+interface CartItem {
+  id: string;
+  planId?: string;
+  description: string;
+  amount: number;
+  isRecurring?: boolean;
+  months?: number;
+  catalogPriceCents?: number;
+  discountMode?: 'first_only' | 'all_recurring';
+}
+
+let _cartIdCounter = 0;
+function nextCartId() { return `cart_${++_cartIdCounter}_${Date.now()}`; }
+
 function ProcessPaymentFormContent({ patientId, patientName, clinicSubdomain, onSuccess, onAmountChange }: FormContentProps) {
   const stripe = useStripe();
   const elements = useElements();
 
-  const [selectedPlanId, setSelectedPlanId] = useState<string>('');
-  const [amount, setAmount] = useState<number>(0);
-  const [amountInputValue, setAmountInputValue] = useState<string>('');
-  const [description, setDescription] = useState<string>('');
-  const [isRecurring, setIsRecurring] = useState(false);
-  const [discountMode, setDiscountMode] = useState<'first_only' | 'all_recurring'>('first_only');
+  const [cartItems, setCartItems] = useState<CartItem[]>([]);
+  const [includeCcFee, setIncludeCcFee] = useState(true);
 
   const [paymentMode, setPaymentMode] = useState<'saved' | 'new'>('new');
   const [savedCards, setSavedCards] = useState<SavedCard[]>([]);
@@ -150,12 +161,23 @@ function ProcessPaymentFormContent({ patientId, patientName, clinicSubdomain, on
   const [cardErrors, setCardErrors] = useState<{ [key: string]: string }>({});
   const [formSubmitted, setFormSubmitted] = useState(false);
   const groupedPlans = getGroupedPlans(clinicSubdomain);
+  const surcharge = getClinicSurcharge(clinicSubdomain);
 
   const stripeReady = !!stripe && !!elements;
 
+  const subtotal = cartItems.reduce((sum, item) => sum + item.amount, 0);
+  const ccFeeAmount = surcharge.ccProcessingFeeRate && includeCcFee
+    ? Math.round(subtotal * surcharge.ccProcessingFeeRate * 100) / 100
+    : 0;
+  const totalAmount = subtotal + ccFeeAmount;
+
+  const recurringItems = cartItems.filter((i) => i.isRecurring);
+  const hasRecurring = recurringItems.length > 0;
+  const singleRecurring = recurringItems.length === 1 ? recurringItems[0] : null;
+
   useEffect(() => {
-    onAmountChange(Math.round(amount * 100));
-  }, [amount, onAmountChange]);
+    onAmountChange(Math.round(totalAmount * 100));
+  }, [totalAmount, onAmountChange]);
 
   useEffect(() => {
     const fetchSavedCards = async () => {
@@ -172,7 +194,7 @@ function ProcessPaymentFormContent({ patientId, patientName, clinicSubdomain, on
           }
         }
       } catch {
-        // Non-blocking: if cards can't be fetched, fall back to new card entry
+        // Non-blocking
       } finally {
         setLoadingCards(false);
       }
@@ -181,32 +203,52 @@ function ProcessPaymentFormContent({ patientId, patientName, clinicSubdomain, on
   }, [patientId]);
 
   useEffect(() => {
-    if (selectedPlanId) {
-      const plan = getPlanById(selectedPlanId, clinicSubdomain);
-      if (plan) {
-        const planAmount = plan.price / 100;
-        setAmount(planAmount);
-        setAmountInputValue(planAmount.toFixed(2));
-        setDescription(plan.description);
-        setIsRecurring(!!plan.isRecurring);
-        setDiscountMode('first_only');
-        if (plan.isRecurring) setSaveCard(true);
-      }
-    } else {
-      setIsRecurring(false);
-      setDiscountMode('first_only');
-    }
-  }, [selectedPlanId]);
+    if (hasRecurring) setSaveCard(true);
+  }, [hasRecurring]);
 
-  const selectedPlan = selectedPlanId ? getPlanById(selectedPlanId, clinicSubdomain) : null;
-  const planOriginalAmount = selectedPlan ? selectedPlan.price / 100 : null;
-  const amountAdjusted = planOriginalAmount !== null && amount !== planOriginalAmount;
+  const handleAddPlan = (planId: string) => {
+    if (!planId) return;
+    const plan = getPlanById(planId, clinicSubdomain);
+    if (!plan) return;
+    setCartItems((prev) => [
+      ...prev,
+      {
+        id: nextCartId(),
+        planId: plan.id,
+        description: plan.description,
+        amount: plan.price / 100,
+        isRecurring: !!plan.isRecurring,
+        months: plan.months,
+        catalogPriceCents: plan.price,
+      },
+    ]);
+  };
 
-  const handleAmountChange = (value: string) => {
-    const sanitized = value.replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1');
-    setAmountInputValue(sanitized);
-    const parsed = parseFloat(sanitized);
-    setAmount(Number.isNaN(parsed) ? 0 : parsed);
+  const handleAddCustomItem = () => {
+    setCartItems((prev) => [...prev, { id: nextCartId(), description: '', amount: 0 }]);
+  };
+
+  const handleRemoveItem = (id: string) => {
+    setCartItems((prev) => prev.filter((i) => i.id !== id));
+  };
+
+  const handleItemChange = (id: string, field: 'description' | 'amount', value: string | number) => {
+    setCartItems((prev) =>
+      prev.map((item) => {
+        if (item.id !== id) return item;
+        if (field === 'amount') {
+          const parsed = typeof value === 'string' ? parseFloat(value) : value;
+          return { ...item, amount: Number.isNaN(parsed) ? 0 : parsed };
+        }
+        return { ...item, [field]: value };
+      })
+    );
+  };
+
+  const handleItemDiscountMode = (id: string, mode: 'first_only' | 'all_recurring') => {
+    setCartItems((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, discountMode: mode } : item))
+    );
   };
 
   const isCardExpired = (month: number, year: number) => {
@@ -228,12 +270,13 @@ function ProcessPaymentFormContent({ patientId, patientName, clinicSubdomain, on
       }
     }
 
-    if (!amount || amount <= 0) {
-      errors.amount = 'Amount must be greater than 0';
+    const validItems = cartItems.filter((i) => i.description && i.amount > 0);
+    if (validItems.length === 0) {
+      errors.cart = 'Add at least one item with a description and amount';
     }
 
-    if (!selectedPlanId && (!description || description.trim().length === 0)) {
-      errors.description = 'Description is required for custom payments';
+    if (totalAmount <= 0) {
+      errors.cart = 'Total amount must be greater than 0';
     }
 
     setCardErrors(errors);
@@ -264,26 +307,47 @@ function ProcessPaymentFormContent({ patientId, patientName, clinicSubdomain, on
         }
       }
 
+      const validItems = cartItems.filter((i) => i.description && i.amount > 0);
+      const allLineItems = [
+        ...validItems.map((i) => ({
+          description: i.description,
+          amount: Math.round(i.amount * 100),
+          planId: i.planId,
+        })),
+        ...(ccFeeAmount > 0
+          ? [{ description: surcharge.ccProcessingFeeLabel, amount: Math.round(ccFeeAmount * 100) }]
+          : []),
+      ];
+
+      const primaryDescription = validItems.length === 1
+        ? validItems[0].description
+        : `${validItems[0]?.description || 'Payment'} (+${validItems.length - 1} more)`;
+
+      const subscription = (() => {
+        if (!singleRecurring) return null;
+        const plan = singleRecurring.planId ? getPlanById(singleRecurring.planId, clinicSubdomain) : null;
+        const months = plan?.months || singleRecurring.months || 1;
+        const catalogCents = singleRecurring.catalogPriceCents;
+        const currentCents = Math.round(singleRecurring.amount * 100);
+        const isDiscounted = catalogCents != null && currentCents !== catalogCents;
+        return {
+          planId: singleRecurring.planId || singleRecurring.id,
+          planName: plan?.name || singleRecurring.description,
+          interval: 'month',
+          intervalCount: months,
+          ...(isDiscounted ? {
+            discountMode: singleRecurring.discountMode || 'first_only',
+            catalogAmountCents: catalogCents,
+          } : {}),
+        };
+      })();
+
       const payload: Record<string, unknown> = {
         patientId,
-        amount: Math.round(amount * 100),
-        description: description || getPlanById(selectedPlanId, clinicSubdomain)?.description || 'Custom Payment',
-        subscription: (() => {
-          if (!isRecurring) return null;
-          const plan = getPlanById(selectedPlanId, clinicSubdomain);
-          const months = plan?.months || 1;
-          const isDiscounted = plan && Math.round(amount * 100) !== plan.price;
-          return {
-            planId: selectedPlanId,
-            planName: plan?.name || '',
-            interval: 'month',
-            intervalCount: months,
-            ...(isDiscounted ? {
-              discountMode,
-              catalogAmountCents: plan!.price,
-            } : {}),
-          };
-        })(),
+        amount: Math.round(totalAmount * 100),
+        description: primaryDescription,
+        lineItems: allLineItems,
+        subscription,
         notes,
         saveCard: paymentMode === 'new' ? saveCard : undefined,
       };
@@ -370,17 +434,14 @@ function ProcessPaymentFormContent({ patientId, patientName, clinicSubdomain, on
       }
 
       setSuccessMessage(
-        isRecurring
+        singleRecurring
           ? 'Payment processed and recurring subscription set up successfully!'
           : 'Payment processed successfully!'
       );
 
-      setSelectedPlanId('');
-      setAmount(0);
-      setDescription('');
+      setCartItems([]);
+      setIncludeCcFee(true);
       setNotes('');
-      setIsRecurring(false);
-      setDiscountMode('first_only');
       setSaveCard(true);
       setCardErrors({});
       setFormSubmitted(false);
@@ -397,15 +458,12 @@ function ProcessPaymentFormContent({ patientId, patientName, clinicSubdomain, on
   };
 
   const handleClear = () => {
-    setSelectedPlanId('');
-    setAmount(0);
-    setDescription('');
+    setCartItems([]);
+    setIncludeCcFee(true);
     setNotes('');
     setError(null);
     setSuccessMessage(null);
     setCardErrors({});
-    setIsRecurring(false);
-    setDiscountMode('first_only');
     setSaveCard(true);
     setFormSubmitted(false);
     if (savedCards.length > 0) {
@@ -434,151 +492,162 @@ function ProcessPaymentFormContent({ patientId, patientName, clinicSubdomain, on
       )}
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Billing Plan Selection */}
+        {/* Add from Plan */}
         <div>
-          <label htmlFor="billingPlan" className="mb-1 block text-sm font-medium text-gray-700">
-            Select Billing Plan (Optional)
+          <label htmlFor="addPlan" className="mb-1 block text-sm font-medium text-gray-700">
+            Add Billing Plan
           </label>
-          <select
-            id="billingPlan"
-            value={selectedPlanId}
-            onChange={(e: any) => setSelectedPlanId(e.target.value)}
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-[#4fa77e] focus:ring-2 focus:ring-[#4fa77e]"
-          >
-            <option value="">-- Custom Payment --</option>
-            {Object.entries(groupedPlans).map(([groupName, group]) => (
-              <optgroup key={groupName} label={group.label}>
-                {group.plans.map((plan: any) => (
-                  <option key={plan.id} value={plan.id}>
-                    {plan.name} - {formatPlanPrice(plan.price)}
-                    {plan.category.includes('monthly') && ' (Recurring Monthly)'}
-                  </option>
-                ))}
-              </optgroup>
-            ))}
-          </select>
-          {isRecurring && (
-            <p className="mt-1 text-sm text-amber-600">
-              ⚡ This will set up a recurring subscription
-              {(() => {
-                const plan = getPlanById(selectedPlanId, clinicSubdomain);
-                const m = plan?.months || 1;
-                return m === 1 ? ' (billed monthly)' : ` (billed every ${m} months)`;
-              })()}
-            </p>
-          )}
+          <div className="flex gap-2">
+            <select
+              id="addPlan"
+              defaultValue=""
+              onChange={(e: any) => {
+                handleAddPlan(e.target.value);
+                e.target.value = '';
+              }}
+              className="flex-1 rounded-lg border border-gray-300 px-3 py-2 focus:border-[#4fa77e] focus:ring-2 focus:ring-[#4fa77e]"
+            >
+              <option value="" disabled>-- Select a plan to add --</option>
+              {Object.entries(groupedPlans).map(([groupName, group]) => (
+                <optgroup key={groupName} label={group.label}>
+                  {group.plans.map((plan: any) => (
+                    <option key={plan.id} value={plan.id}>
+                      {plan.name} - {formatPlanPrice(plan.price)}
+                      {plan.isRecurring ? ' (Recurring)' : ''}
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
+            <button
+              type="button"
+              onClick={handleAddCustomItem}
+              className="whitespace-nowrap rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            >
+              + Custom Item
+            </button>
+          </div>
         </div>
 
-        {/* Amount and Description */}
-        <div className="grid grid-cols-2 gap-4">
+        {/* Cart Items */}
+        {cartItems.length > 0 && (
           <div>
-            <label htmlFor="amount" className="mb-1 block text-sm font-medium text-gray-700">
-              Amount ($)
+            <label className="mb-2 block text-sm font-medium text-gray-700">
+              Items ({cartItems.length})
             </label>
-            <input
-              type="text"
-              inputMode="decimal"
-              id="amount"
-              value={amountInputValue}
-              onChange={(e) => {
-                handleAmountChange(e.target.value);
-              }}
-              className={`w-full rounded-lg border px-3 py-2 focus:border-[#4fa77e] focus:ring-2 focus:ring-[#4fa77e] ${
-                formSubmitted && cardErrors.amount ? 'border-red-500' : 'border-gray-300'
-              }`}
-              placeholder="0.00"
-              required
-            />
-            {formSubmitted && cardErrors.amount && (
-              <p className="mt-1 text-sm text-red-600">{cardErrors.amount}</p>
-            )}
-            {amountAdjusted && planOriginalAmount !== null && (
-              <div className="mt-2 space-y-2">
-                <div className="flex items-center gap-2">
-                  <p className="text-xs text-amber-600">
-                    {amount < planOriginalAmount
-                      ? `Discount of $${(planOriginalAmount - amount).toFixed(2)} applied (plan: $${planOriginalAmount.toFixed(2)})`
-                      : `Adjusted +$${(amount - planOriginalAmount).toFixed(2)} from plan price ($${planOriginalAmount.toFixed(2)})`}
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setAmount(planOriginalAmount);
-                      setAmountInputValue(planOriginalAmount.toFixed(2));
-                      setDiscountMode('first_only');
-                    }}
-                    className="text-xs font-medium text-[#4fa77e] hover:underline"
-                  >
-                    Reset
-                  </button>
-                </div>
-                {isRecurring && (
-                  <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
-                    <p className="mb-2 text-xs font-medium text-amber-800">Apply price change to:</p>
-                    <div className="flex gap-1 rounded-md bg-amber-100 p-0.5">
+            <div className="space-y-2">
+              {cartItems.map((item) => {
+                const catalogDollars = item.catalogPriceCents ? item.catalogPriceCents / 100 : null;
+                const isAdjusted = catalogDollars !== null && item.amount !== catalogDollars;
+                return (
+                  <div key={item.id} className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={item.description}
+                        onChange={(e) => handleItemChange(item.id, 'description', e.target.value)}
+                        className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[#4fa77e] focus:ring-1 focus:ring-[#4fa77e]"
+                        placeholder="Description"
+                      />
+                      <div className="relative w-28">
+                        <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">$</span>
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          value={item.amount || ''}
+                          onChange={(e) => handleItemChange(item.id, 'amount', e.target.value.replace(/[^0-9.]/g, ''))}
+                          className="w-full rounded-lg border border-gray-300 py-2 pl-7 pr-3 text-sm focus:border-[#4fa77e] focus:ring-1 focus:ring-[#4fa77e]"
+                          placeholder="0.00"
+                        />
+                      </div>
                       <button
                         type="button"
-                        onClick={() => setDiscountMode('first_only')}
-                        className={`flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
-                          discountMode === 'first_only'
-                            ? 'bg-white text-amber-900 shadow-sm'
-                            : 'text-amber-700 hover:text-amber-900'
-                        }`}
+                        onClick={() => handleRemoveItem(item.id)}
+                        className="rounded-lg px-2 text-red-500 hover:bg-red-50"
+                        title="Remove"
                       >
-                        First payment only
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setDiscountMode('all_recurring')}
-                        className={`flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
-                          discountMode === 'all_recurring'
-                            ? 'bg-white text-amber-900 shadow-sm'
-                            : 'text-amber-700 hover:text-amber-900'
-                        }`}
-                      >
-                        All future charges
+                        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
                       </button>
                     </div>
-                    <p className="mt-2 text-[11px] text-amber-700">
-                      {discountMode === 'first_only'
-                        ? `Subscription will renew at $${planOriginalAmount.toFixed(2)}/${(() => {
-                            const plan = getPlanById(selectedPlanId, clinicSubdomain);
-                            const m = plan?.months || 1;
-                            return m === 1 ? 'mo' : `${m}mo`;
-                          })()}`
-                        : `Subscription will renew at $${amount.toFixed(2)}/${(() => {
-                            const plan = getPlanById(selectedPlanId, clinicSubdomain);
-                            const m = plan?.months || 1;
-                            return m === 1 ? 'mo' : `${m}mo`;
-                          })()}`}
-                    </p>
+                    {item.isRecurring && (
+                      <p className="mt-1 text-xs text-amber-600">
+                        Recurring every {item.months === 1 ? 'month' : `${item.months} months`}
+                      </p>
+                    )}
+                    {item.isRecurring && isAdjusted && catalogDollars !== null && (
+                      <div className="mt-2 rounded-md border border-amber-200 bg-amber-50 p-2">
+                        <div className="mb-1.5 flex items-center gap-2">
+                          <p className="text-[11px] text-amber-700">
+                            {item.amount < catalogDollars
+                              ? `Discount of $${(catalogDollars - item.amount).toFixed(2)} from $${catalogDollars.toFixed(2)}`
+                              : `+$${(item.amount - catalogDollars).toFixed(2)} from $${catalogDollars.toFixed(2)}`}
+                          </p>
+                          <button type="button" onClick={() => handleItemChange(item.id, 'amount', catalogDollars)} className="text-[11px] font-medium text-[#4fa77e] hover:underline">Reset</button>
+                        </div>
+                        <div className="flex gap-1 rounded bg-amber-100 p-0.5">
+                          <button type="button" onClick={() => handleItemDiscountMode(item.id, 'first_only')}
+                            className={`flex-1 rounded px-2 py-1 text-[11px] font-medium transition-colors ${(item.discountMode || 'first_only') === 'first_only' ? 'bg-white text-amber-900 shadow-sm' : 'text-amber-700'}`}>
+                            First payment only
+                          </button>
+                          <button type="button" onClick={() => handleItemDiscountMode(item.id, 'all_recurring')}
+                            className={`flex-1 rounded px-2 py-1 text-[11px] font-medium transition-colors ${item.discountMode === 'all_recurring' ? 'bg-white text-amber-900 shadow-sm' : 'text-amber-700'}`}>
+                            All future charges
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
+                );
+              })}
+            </div>
+            {formSubmitted && cardErrors.cart && (
+              <p className="mt-1 text-sm text-red-600">{cardErrors.cart}</p>
             )}
           </div>
-          <div>
-            <label htmlFor="description" className="mb-1 block text-sm font-medium text-gray-700">
-              Description
-            </label>
-            <input
-              type="text"
-              id="description"
-              value={description}
-              onChange={(e: any) => {
-                setDescription(e.target.value);
-              }}
-              className={`w-full rounded-lg border px-3 py-2 focus:border-[#4fa77e] focus:ring-2 focus:ring-[#4fa77e] ${
-                formSubmitted && cardErrors.description ? 'border-red-500' : 'border-gray-300'
-              }`}
-              placeholder="Payment description"
-              required
-            />
-            {formSubmitted && cardErrors.description && (
-              <p className="mt-1 text-sm text-red-600">{cardErrors.description}</p>
-            )}
+        )}
+
+        {cartItems.length === 0 && (
+          <div className="rounded-lg border-2 border-dashed border-gray-200 p-8 text-center text-sm text-gray-400">
+            Select a plan or add a custom item to begin
           </div>
-        </div>
+        )}
+
+        {/* CC Processing Fee Toggle */}
+        {surcharge.ccProcessingFeeRate && cartItems.length > 0 && (
+          <div className="flex items-center justify-between rounded-lg border border-gray-200 bg-gray-50 px-4 py-3">
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="ccFeeToggle"
+                checked={includeCcFee}
+                onChange={(e) => setIncludeCcFee(e.target.checked)}
+                className="h-4 w-4 rounded border-gray-300 text-[#4fa77e] focus:ring-[#4fa77e]"
+              />
+              <label htmlFor="ccFeeToggle" className="text-sm text-gray-700">
+                {surcharge.ccProcessingFeeLabel}
+              </label>
+            </div>
+            <span className="text-sm font-medium text-gray-900">
+              {includeCcFee ? `$${ccFeeAmount.toFixed(2)}` : '$0.00'}
+            </span>
+          </div>
+        )}
+
+        {/* Recurring warning */}
+        {recurringItems.length > 1 && (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+            Multiple recurring plans in one transaction — subscriptions will <strong>not</strong> be auto-created. Process recurring plans in separate transactions to set up subscriptions.
+          </div>
+        )}
+
+        {singleRecurring && (
+          <p className="text-sm text-amber-600">
+            A recurring subscription will be created for <strong>{singleRecurring.description}</strong>
+            {' '}({singleRecurring.months === 1 ? 'billed monthly' : `billed every ${singleRecurring.months} months`})
+          </p>
+        )}
 
         {/* Payment Method Selection */}
         <div className="border-t pt-4">
@@ -593,32 +662,17 @@ function ProcessPaymentFormContent({ patientId, patientName, clinicSubdomain, on
             <>
               {savedCards.length > 0 && (
                 <div className="mb-4 flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setPaymentMode('saved')}
-                    className={`flex-1 rounded-lg border-2 px-4 py-2.5 text-sm font-medium transition-colors ${
-                      paymentMode === 'saved'
-                        ? 'border-[#4fa77e] bg-green-50 text-[#4fa77e]'
-                        : 'border-gray-200 text-gray-600 hover:border-gray-300'
-                    }`}
-                  >
+                  <button type="button" onClick={() => setPaymentMode('saved')}
+                    className={`flex-1 rounded-lg border-2 px-4 py-2.5 text-sm font-medium transition-colors ${paymentMode === 'saved' ? 'border-[#4fa77e] bg-green-50 text-[#4fa77e]' : 'border-gray-200 text-gray-600 hover:border-gray-300'}`}>
                     Use Saved Card
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => setPaymentMode('new')}
-                    className={`flex-1 rounded-lg border-2 px-4 py-2.5 text-sm font-medium transition-colors ${
-                      paymentMode === 'new'
-                        ? 'border-[#4fa77e] bg-green-50 text-[#4fa77e]'
-                        : 'border-gray-200 text-gray-600 hover:border-gray-300'
-                    }`}
-                  >
+                  <button type="button" onClick={() => setPaymentMode('new')}
+                    className={`flex-1 rounded-lg border-2 px-4 py-2.5 text-sm font-medium transition-colors ${paymentMode === 'new' ? 'border-[#4fa77e] bg-green-50 text-[#4fa77e]' : 'border-gray-200 text-gray-600 hover:border-gray-300'}`}>
                     Enter New Card
                   </button>
                 </div>
               )}
 
-              {/* Saved Card Selection */}
               {paymentMode === 'saved' && savedCards.length > 0 && (
                 <div className="space-y-2">
                   {formSubmitted && cardErrors.savedCard && (
@@ -628,25 +682,11 @@ function ProcessPaymentFormContent({ patientId, patientName, clinicSubdomain, on
                     const expired = isCardExpired(card.expiryMonth, card.expiryYear);
                     const logo = getCardNetworkLogo(card.brand);
                     return (
-                      <label
-                        key={card.id}
-                        className={`flex cursor-pointer items-center gap-3 rounded-lg border-2 p-3 transition-colors ${
-                          selectedCardId === card.id
-                            ? 'border-[#4fa77e] bg-green-50'
-                            : expired
-                              ? 'border-gray-200 bg-gray-50 opacity-60'
-                              : 'border-gray-200 hover:border-gray-300'
-                        }`}
-                      >
-                        <input
-                          type="radio"
-                          name="savedCard"
-                          value={String(card.id)}
-                          checked={selectedCardId === card.id}
-                          onChange={() => setSelectedCardId(card.id)}
-                          disabled={expired}
-                          className="h-4 w-4 border-gray-300 text-[#4fa77e] focus:ring-[#4fa77e]"
-                        />
+                      <label key={card.id}
+                        className={`flex cursor-pointer items-center gap-3 rounded-lg border-2 p-3 transition-colors ${selectedCardId === card.id ? 'border-[#4fa77e] bg-green-50' : expired ? 'border-gray-200 bg-gray-50 opacity-60' : 'border-gray-200 hover:border-gray-300'}`}>
+                        <input type="radio" name="savedCard" value={String(card.id)} checked={selectedCardId === card.id}
+                          onChange={() => setSelectedCardId(card.id)} disabled={expired}
+                          className="h-4 w-4 border-gray-300 text-[#4fa77e] focus:ring-[#4fa77e]" />
                         <div className="flex h-8 w-12 items-center justify-center rounded bg-gray-100">
                           {logo ? (
                             <img src={logo} alt={card.brand} className="h-6 w-10 object-contain" />
@@ -659,19 +699,9 @@ function ProcessPaymentFormContent({ patientId, patientName, clinicSubdomain, on
                         </div>
                         <div className="flex-1">
                           <div className="flex items-center gap-2">
-                            <span className="text-sm font-medium text-gray-900">
-                              •••• {card.last4}
-                            </span>
-                            {card.isDefault && (
-                              <span className="rounded bg-[#4fa77e] px-1.5 py-0.5 text-[10px] font-medium text-white">
-                                Default
-                              </span>
-                            )}
-                            {expired && (
-                              <span className="rounded bg-red-100 px-1.5 py-0.5 text-[10px] font-medium text-red-700">
-                                Expired
-                              </span>
-                            )}
+                            <span className="text-sm font-medium text-gray-900">•••• {card.last4}</span>
+                            {card.isDefault && <span className="rounded bg-[#4fa77e] px-1.5 py-0.5 text-[10px] font-medium text-white">Default</span>}
+                            {expired && <span className="rounded bg-red-100 px-1.5 py-0.5 text-[10px] font-medium text-red-700">Expired</span>}
                           </div>
                           <span className="text-xs text-gray-500">
                             {card.cardholderName ? `${card.cardholderName} • ` : ''}
@@ -684,7 +714,6 @@ function ProcessPaymentFormContent({ patientId, patientName, clinicSubdomain, on
                 </div>
               )}
 
-              {/* New Card Entry via Stripe PaymentElement (PCI DSS compliant) */}
               {paymentMode === 'new' && (
                 <div className="space-y-4">
                   <div className="rounded-lg border border-gray-200 bg-gray-50 p-1">
@@ -698,25 +727,16 @@ function ProcessPaymentFormContent({ patientId, patientName, clinicSubdomain, on
                       <PaymentElement />
                     </div>
                   </div>
-                  {!stripeReady && (
-                    <p className="text-sm text-gray-400">Loading secure payment form...</p>
-                  )}
-
-                  <div className="mt-2">
-                    <label className="flex items-center">
-                      <input
-                        type="checkbox"
-                        checked={saveCard}
-                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSaveCard(e.target.checked)}
-                        disabled={isRecurring}
-                        className="mr-2 rounded border-gray-300 text-[#4fa77e] focus:ring-[#4fa77e]"
-                      />
-                      <span className="text-sm text-gray-700">
-                        Save card for future payments
-                        {isRecurring && ' (required for recurring subscription)'}
-                      </span>
-                    </label>
-                  </div>
+                  {!stripeReady && <p className="text-sm text-gray-400">Loading secure payment form...</p>}
+                  <label className="mt-2 flex items-center">
+                    <input type="checkbox" checked={saveCard}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSaveCard(e.target.checked)}
+                      disabled={hasRecurring}
+                      className="mr-2 rounded border-gray-300 text-[#4fa77e] focus:ring-[#4fa77e]" />
+                    <span className="text-sm text-gray-700">
+                      Save card for future payments{hasRecurring && ' (required for recurring subscription)'}
+                    </span>
+                  </label>
                 </div>
               )}
             </>
@@ -725,92 +745,55 @@ function ProcessPaymentFormContent({ patientId, patientName, clinicSubdomain, on
 
         {/* Notes */}
         <div>
-          <label htmlFor="notes" className="mb-1 block text-sm font-medium text-gray-700">
-            Notes (Optional)
-          </label>
-          <textarea
-            id="notes"
-            value={notes}
-            onChange={(e: any) => setNotes(e.target.value)}
-            rows={3}
+          <label htmlFor="notes" className="mb-1 block text-sm font-medium text-gray-700">Notes (Optional)</label>
+          <textarea id="notes" value={notes} onChange={(e: any) => setNotes(e.target.value)} rows={2}
             className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-[#4fa77e] focus:ring-2 focus:ring-[#4fa77e]"
-            placeholder="Additional notes about this payment..."
-          />
+            placeholder="Additional notes about this payment..." />
         </div>
 
         {/* Summary */}
-        <div className="space-y-2 rounded-lg bg-gray-50 p-4">
-          <div className="flex justify-between text-sm">
-            <span className="text-gray-600">Patient:</span>
-            <span className="font-medium">{patientName}</span>
-          </div>
-          <div className="flex justify-between text-sm">
-            <span className="text-gray-600">Amount:</span>
-            <div className="text-right">
-              <span className="font-medium text-[#4fa77e]">${amount.toFixed(2)}</span>
-              {amountAdjusted && planOriginalAmount !== null && (
-                <span className="ml-2 text-xs text-gray-400 line-through">${planOriginalAmount.toFixed(2)}</span>
-              )}
+        {cartItems.length > 0 && (
+          <div className="space-y-2 rounded-lg bg-gray-50 p-4">
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-600">Patient:</span>
+              <span className="font-medium">{patientName}</span>
             </div>
-          </div>
-          {isRecurring && (
-            <>
+            {cartItems.map((item) => (
+              <div key={item.id} className="flex justify-between text-sm">
+                <span className="text-gray-500 truncate max-w-[60%]">{item.description || 'Item'}</span>
+                <span className="font-medium">${item.amount.toFixed(2)}</span>
+              </div>
+            ))}
+            {ccFeeAmount > 0 && (
               <div className="flex justify-between text-sm">
-                <span className="text-gray-600">Billing:</span>
-                <span className="font-medium text-amber-600">
-                  {(() => {
-                    const plan = getPlanById(selectedPlanId, clinicSubdomain);
-                    const m = plan?.months || 1;
-                    return m === 1 ? 'Monthly Recurring' : `Every ${m} Months Recurring`;
-                  })()}
+                <span className="text-gray-500">{surcharge.ccProcessingFeeLabel}</span>
+                <span className="font-medium">${ccFeeAmount.toFixed(2)}</span>
+              </div>
+            )}
+            <div className="flex justify-between border-t border-gray-200 pt-2 text-sm font-semibold">
+              <span className="text-gray-900">Total:</span>
+              <span className="text-[#4fa77e]">${totalAmount.toFixed(2)}</span>
+            </div>
+            {paymentMode === 'saved' && selectedCardId && (
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600">Card:</span>
+                <span className="font-medium">
+                  {(() => { const card = savedCards.find((c) => c.id === selectedCardId); return card ? `•••• ${card.last4}` : 'Saved card'; })()}
                 </span>
               </div>
-              {amountAdjusted && planOriginalAmount !== null && (
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Renews at:</span>
-                  <span className="font-medium">
-                    {discountMode === 'first_only'
-                      ? `$${planOriginalAmount.toFixed(2)}`
-                      : `$${amount.toFixed(2)}`}
-                  </span>
-                </div>
-              )}
-            </>
-          )}
-          {paymentMode === 'saved' && selectedCardId && (
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-600">Card:</span>
-              <span className="font-medium">
-                {(() => {
-                  const card = savedCards.find((c) => c.id === selectedCardId);
-                  return card ? `•••• ${card.last4}` : 'Saved card';
-                })()}
-              </span>
-            </div>
-          )}
-          {paymentMode === 'new' && saveCard && !isRecurring && (
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-600">Card:</span>
-              <span className="font-medium">Will be saved</span>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        )}
 
         {/* Actions */}
         <div className="flex justify-end gap-3">
-          <button
-            type="button"
-            onClick={handleClear}
-            className="rounded-lg bg-gray-100 px-4 py-2 text-gray-700 transition-colors hover:bg-gray-200"
-          >
+          <button type="button" onClick={handleClear}
+            className="rounded-lg bg-gray-100 px-4 py-2 text-gray-700 transition-colors hover:bg-gray-200">
             Clear
           </button>
-          <button
-            type="submit"
-            disabled={submitting}
-            className="rounded-lg bg-[#4fa77e] px-6 py-2 text-white transition-colors hover:bg-[#3f8660] disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {submitting ? 'Processing...' : isRecurring ? 'Start Subscription' : 'Process Payment'}
+          <button type="submit" disabled={submitting || cartItems.length === 0}
+            className="rounded-lg bg-[#4fa77e] px-6 py-2 text-white transition-colors hover:bg-[#3f8660] disabled:cursor-not-allowed disabled:opacity-50">
+            {submitting ? 'Processing...' : singleRecurring ? 'Start Subscription' : `Charge $${totalAmount.toFixed(2)}`}
           </button>
         </div>
       </form>

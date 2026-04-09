@@ -730,6 +730,26 @@ export function getPlansForClinic(clinicSubdomain?: string | null): BillingPlan[
   return EONMEDS_BILLING_PLANS;
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// Clinic CC Surcharge Configuration
+// ═══════════════════════════════════════════════════════════════════════════
+
+export interface ClinicSurchargeConfig {
+  ccProcessingFeeRate: number | null;
+  ccProcessingFeeLabel: string;
+}
+
+const CLINIC_SURCHARGE_MAP: Record<string, ClinicSurchargeConfig> = {
+  ot: { ccProcessingFeeRate: 0.04, ccProcessingFeeLabel: 'Credit Card Processing Fee (4%)' },
+};
+
+export function getClinicSurcharge(clinicSubdomain?: string | null): ClinicSurchargeConfig {
+  if (clinicSubdomain && CLINIC_SURCHARGE_MAP[clinicSubdomain.toLowerCase()]) {
+    return CLINIC_SURCHARGE_MAP[clinicSubdomain.toLowerCase()];
+  }
+  return { ccProcessingFeeRate: null, ccProcessingFeeLabel: '' };
+}
+
 // Helper functions
 export function getPlanById(id: string, clinicSubdomain?: string | null): BillingPlan | undefined {
   const plans = getPlansForClinic(clinicSubdomain);

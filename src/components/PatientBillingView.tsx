@@ -8,6 +8,7 @@ import {
   getGroupedPlans,
   formatPlanPrice,
   getPlanById,
+  getClinicSurcharge,
 } from '@/config/billingPlans';
 import { ProcessPaymentForm } from './ProcessPaymentForm';
 import { PatientSubscriptionManager } from './PatientSubscriptionManager';
@@ -2045,7 +2046,14 @@ function CreateInvoiceForm({
   const [autoSend, setAutoSend] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<string>('');
+  const [includeCcFee, setIncludeCcFee] = useState(true);
   const groupedPlans = getGroupedPlans(clinicSubdomain);
+  const surcharge = getClinicSurcharge(clinicSubdomain);
+
+  const lineItemSubtotal = lineItems.reduce((sum, item) => sum + (item.amount || 0), 0);
+  const ccFeeAmountCents = surcharge.ccProcessingFeeRate && includeCcFee
+    ? Math.round(lineItemSubtotal * surcharge.ccProcessingFeeRate)
+    : 0;
 
   // Mark as Paid Externally fields
   const [markAsPaidExternally, setMarkAsPaidExternally] = useState(false);
@@ -2111,9 +2119,13 @@ function CreateInvoiceForm({
 
     setSubmitting(true);
 
+    const allItems = ccFeeAmountCents > 0
+      ? [...validItems, { description: surcharge.ccProcessingFeeLabel, amount: ccFeeAmountCents }]
+      : validItems;
+
     const createPayload = {
       patientId,
-      lineItems: validItems,
+      lineItems: allItems,
       autoSend: markAsPaidExternally ? false : autoSend,
       markAsPaidExternally,
       ...(markAsPaidExternally && {
@@ -2234,6 +2246,27 @@ function CreateInvoiceForm({
             + Add Line Item
           </button>
         </div>
+
+        {/* CC Processing Fee Toggle */}
+        {surcharge.ccProcessingFeeRate && (
+          <div className="flex items-center justify-between rounded-lg border border-gray-200 bg-gray-50 px-4 py-3">
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="invoiceCcFeeToggle"
+                checked={includeCcFee}
+                onChange={(e: any) => setIncludeCcFee(e.target.checked)}
+                className="h-4 w-4 rounded border-gray-300 text-[#4fa77e] focus:ring-[#4fa77e]"
+              />
+              <label htmlFor="invoiceCcFeeToggle" className="text-sm text-gray-700">
+                {surcharge.ccProcessingFeeLabel}
+              </label>
+            </div>
+            <span className="text-sm font-medium text-gray-900">
+              {includeCcFee && ccFeeAmountCents > 0 ? `$${(ccFeeAmountCents / 100).toFixed(2)}` : '$0.00'}
+            </span>
+          </div>
+        )}
 
         <div className="flex items-center">
           <input

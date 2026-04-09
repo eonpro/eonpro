@@ -9,6 +9,12 @@ import { prisma } from '@/lib/db';
 import { InvoiceStatus } from '@prisma/client';
 import { logger } from '@/lib/logger';
 
+interface LineItemInput {
+  description: string;
+  amount: number;
+  planId?: string;
+}
+
 interface CreateInvoiceForPaymentInput {
   paymentId: number;
   patientId: number;
@@ -19,6 +25,7 @@ interface CreateInvoiceForPaymentInput {
   stripeChargeId?: string | null;
   planId?: string | null;
   planName?: string | null;
+  lineItems?: LineItemInput[];
 }
 
 /**
@@ -41,6 +48,7 @@ export async function createInvoiceForProcessedPayment(
     stripeChargeId,
     planId,
     planName,
+    lineItems,
   } = input;
 
   try {
@@ -57,6 +65,11 @@ export async function createInvoiceForProcessedPayment(
       return { invoiceId: existingPayment.invoiceId };
     }
 
+    const hasMultipleLines = lineItems && lineItems.length > 0;
+    const invoiceLineItems = hasMultipleLines
+      ? lineItems.map((li) => ({ description: li.description, amount: li.amount, quantity: 1 }))
+      : [{ description, amount, quantity: 1 }];
+
     const result = await prisma.$transaction(async (tx) => {
       const invoice = await tx.invoice.create({
         data: {
@@ -69,7 +82,7 @@ export async function createInvoiceForProcessedPayment(
           currency: 'usd',
           status: 'PAID' as InvoiceStatus,
           paidAt: new Date(),
-          lineItems: [{ description, amount, quantity: 1 }],
+          lineItems: invoiceLineItems,
           metadata: {
             source: 'process_payment',
             paymentIntentId: stripePaymentIntentId || undefined,
@@ -80,15 +93,29 @@ export async function createInvoiceForProcessedPayment(
         },
       });
 
-      await tx.invoiceItem.create({
-        data: {
-          invoiceId: invoice.id,
-          description,
-          quantity: 1,
-          unitPrice: amount,
-          amount,
-        },
-      });
+      if (hasMultipleLines) {
+        for (const li of lineItems) {
+          await tx.invoiceItem.create({
+            data: {
+              invoiceId: invoice.id,
+              description: li.description,
+              quantity: 1,
+              unitPrice: li.amount,
+              amount: li.amount,
+            },
+          });
+        }
+      } else {
+        await tx.invoiceItem.create({
+          data: {
+            invoiceId: invoice.id,
+            description,
+            quantity: 1,
+            unitPrice: amount,
+            amount,
+          },
+        });
+      }
 
       await tx.payment.update({
         where: { id: paymentId },
