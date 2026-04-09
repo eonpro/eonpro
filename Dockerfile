@@ -6,13 +6,13 @@ FROM node:20-alpine AS base
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
-# Dependencies stage
+# Dependencies stage – production-only node_modules + generated Prisma client
 FROM base AS deps
 COPY package.json package-lock.json ./
 COPY prisma ./prisma/
 COPY scripts ./scripts/
-RUN npm ci --only=production --legacy-peer-deps
-RUN npm install @prisma/client
+RUN npm ci --omit=dev --ignore-scripts --legacy-peer-deps
+RUN npx prisma generate
 
 # Development dependencies stage
 FROM base AS dev-deps

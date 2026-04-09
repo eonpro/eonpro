@@ -176,6 +176,8 @@ export default function ActiveCallView({
           <div className="absolute inset-0 overflow-hidden">
             <ZoomEmbeddedMeeting
               meetingNumber={session.meetingId ?? ''}
+              password={session.password ?? ''}
+              userName={userName}
               joinUrl={session.hostUrl ?? session.joinUrl}
               leaveRef={leaveCallRef}
               onMeetingStart={handleMeetingStart}

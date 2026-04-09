@@ -59,7 +59,7 @@ export default function BookAppointmentScreen() {
 
   const slots = usePortalQuery<{ slots: TimeSlot[] }>(
     ['appointment-slots', String(selectedProvider?.id), selectedDate],
-    `/api/patient-portal/appointments?action=available-slots&providerId=${selectedProvider?.id}&date=${selectedDate}&duration=${selectedType?.duration ?? 30}`,
+    `/api/patient-portal/appointments?action=available-slots&providerId=${selectedProvider?.id}&date=${selectedDate}&duration=${selectedType?.duration ?? 15}`,
     { enabled: !!selectedProvider && (step === 'slot') }
   );
 

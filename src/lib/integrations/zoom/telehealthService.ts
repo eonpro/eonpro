@@ -134,7 +134,7 @@ export async function createTelehealthSession(
     const topic =
       input.topic || `Telehealth Consultation - ${input.scheduledAt.toLocaleDateString()}`;
 
-    const duration = input.duration || 30;
+    const duration = input.duration || 15;
 
     // Create Zoom meeting using clinic-specific or platform credentials
     let meeting: ZoomMeetingResponse;

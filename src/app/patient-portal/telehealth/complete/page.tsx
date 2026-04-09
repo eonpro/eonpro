@@ -50,7 +50,7 @@ function PostCallContent() {
                   ? `${apt.provider.firstName} ${apt.provider.lastName}`
                   : undefined),
               startTime: apt.startTime,
-              duration: apt.duration || 30,
+              duration: apt.duration || 15,
             });
           }
         }

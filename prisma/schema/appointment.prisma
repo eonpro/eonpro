@@ -41,7 +41,7 @@ model AppointmentTypeConfig {
   clinic               Clinic?             @relation(fields: [clinicId], references: [id])
   name                 String
   description          String?
-  duration             Int                 @default(30) // in minutes
+  duration             Int                 @default(15) // in minutes
   color                String              @default("#3B82F6")
   isActive             Boolean             @default(true)
   requiresVideoLink    Boolean             @default(false)
@@ -72,7 +72,7 @@ model Appointment {
   title                  String?
   startTime              DateTime
   endTime                DateTime
-  duration               Int                    @default(30)
+  duration               Int                    @default(15)
   type                   AppointmentModeType    @default(IN_PERSON)
   status                 AppointmentStatus      @default(SCHEDULED)
   reason                 String?
@@ -225,7 +225,7 @@ model TelehealthSession {
   scheduledAt    DateTime
   startedAt      DateTime?
   endedAt        DateTime?
-  duration       Int       @default(30) // scheduled duration in minutes
+  duration       Int       @default(15) // scheduled duration in minutes
   actualDuration Int? // actual duration in minutes
 
   // Status

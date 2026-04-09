@@ -87,7 +87,7 @@ function ProviderCalendarContent() {
         patientEmail: apt.patient?.email || '',
         patientPhone: apt.patient?.phone || '',
         date: new Date(apt.startTime),
-        duration: apt.duration || 30,
+        duration: apt.duration || 15,
         type:
           apt.type === 'VIDEO' ? 'telehealth' : apt.type === 'IN_PERSON' ? 'in-person' : 'phone',
         zoomLink: apt.zoomJoinUrl || apt.videoLink,

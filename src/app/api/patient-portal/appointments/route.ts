@@ -24,7 +24,7 @@ const bookAppointmentSchema = z.object({
   providerId: z.number(),
   appointmentTypeId: z.number().optional(),
   startTime: z.string().datetime(),
-  duration: z.number().min(15).max(120).optional(),
+  duration: z.number().min(10).max(120).optional(),
   type: z.enum(['IN_PERSON', 'VIDEO', 'PHONE']).optional(),
   reason: z.string().max(500).optional(),
   notes: z.string().max(1000).optional(),
@@ -90,7 +90,7 @@ export const GET = withAuth(async (req: NextRequest, user) => {
       const slots = await getAvailableSlots(
         parseInt(providerId),
         new Date(date),
-        duration ? parseInt(duration) : 30,
+        duration ? parseInt(duration) : 15,
         clinicId || undefined
       );
 
@@ -306,7 +306,7 @@ export const POST = withAuth(async (req: NextRequest, user) => {
       providerId: parsed.data.providerId,
       appointmentTypeId: parsed.data.appointmentTypeId,
       startTime: new Date(parsed.data.startTime),
-      duration: parsed.data.duration || 30,
+      duration: parsed.data.duration || 15,
       type: (parsed.data.type as AppointmentModeType) || AppointmentModeType.IN_PERSON,
       reason: parsed.data.reason,
       notes: parsed.data.notes,

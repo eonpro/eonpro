@@ -212,7 +212,7 @@ export async function getZoomMeeting(meetingId: string): Promise<ZoomMeetingResp
   if (!isZoomConfigured()) {
     return createMockMeeting({
       topic: 'Mock Meeting',
-      duration: 30,
+      duration: 15,
       patientId: 1,
       providerId: 1,
     });

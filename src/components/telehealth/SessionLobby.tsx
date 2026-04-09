@@ -67,12 +67,13 @@ export default function SessionLobby({ session, userName, onJoinCall, onBack, on
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ appointmentId: session.appointment.id }),
       });
-      if (res.ok) {
+        if (res.ok) {
         const data = await res.json();
         if (data.appointment?.zoomMeetingId) {
           const newMeetingId = data.appointment.zoomMeetingId;
           const newJoinUrl = data.appointment.zoomJoinUrl || session.joinUrl;
           const newHostUrl = data.appointment.hostUrl;
+          const newPassword = data.appointment.password;
           setLocalMeetingId(newMeetingId);
           setLocalJoinUrl(newJoinUrl);
           setMeetingReady(true);
@@ -80,6 +81,7 @@ export default function SessionLobby({ session, userName, onJoinCall, onBack, on
             meetingId: newMeetingId,
             joinUrl: newJoinUrl,
             ...(newHostUrl ? { hostUrl: newHostUrl } : {}),
+            ...(newPassword ? { password: newPassword } : {}),
           });
         }
       }

@@ -99,7 +99,7 @@ export interface DaySchedule {
 export async function getAvailableSlots(
   providerId: number,
   date: Date,
-  duration: number = 30,
+  duration: number = 15,
   clinicId?: number
 ): Promise<TimeSlot[]> {
   const dateStr = toDateStringET(date);
@@ -439,7 +439,7 @@ export async function createAppointment(input: CreateAppointmentInput): Promise<
   error?: string;
 }> {
   try {
-    const duration = input.duration || 30;
+    const duration = input.duration || 15;
     const endTime = input.endTime || new Date(input.startTime.getTime() + duration * 60 * 1000);
 
     // Validate slot is available

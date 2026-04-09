@@ -15,6 +15,7 @@ import { z } from 'zod';
 
 import { withProviderAuth, type AuthUser } from '@/lib/auth/middleware';
 import { zoomConfig, isZoomConfigured } from '@/lib/integrations/zoom/config';
+import { getZoomAccessToken } from '@/lib/integrations/zoom/meetingService';
 import { logger } from '@/lib/logger';
 import { auditLog, AuditEventType } from '@/lib/audit/hipaa-audit';
 import { prisma } from '@/lib/db';
@@ -23,6 +24,21 @@ const signatureSchema = z.object({
   meetingNumber: z.union([z.string(), z.number()]).transform(String),
   role: z.union([z.literal(0), z.literal(1)]).default(1),
 });
+
+async function fetchZakToken(): Promise<string | null> {
+  try {
+    const accessToken = await getZoomAccessToken();
+    const res = await fetch('https://api.zoom.us/v2/users/me/zak', {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.token ?? null;
+  } catch {
+    return null;
+  }
+}
 
 export const POST = withProviderAuth(async (req: NextRequest, user: AuthUser) => {
   try {
@@ -33,7 +49,8 @@ export const POST = withProviderAuth(async (req: NextRequest, user: AuthUser) =>
       );
     }
 
-    const { sdkKey, sdkSecret } = zoomConfig;
+    const sdkKey = zoomConfig.sdkKey || zoomConfig.clientId;
+    const sdkSecret = zoomConfig.sdkSecret || zoomConfig.clientSecret;
     if (!sdkKey || !sdkSecret) {
       return NextResponse.json(
         { error: 'Zoom SDK credentials not configured' },
@@ -52,7 +69,6 @@ export const POST = withProviderAuth(async (req: NextRequest, user: AuthUser) =>
 
     const { meetingNumber, role } = parsed.data;
 
-    // Validate that this provider is associated with this meeting
     const session = await prisma.telehealthSession.findFirst({
       where: {
         meetingId: meetingNumber,
@@ -73,11 +89,11 @@ export const POST = withProviderAuth(async (req: NextRequest, user: AuthUser) =>
     }
 
     const iat = Math.floor(Date.now() / 1000) - 30;
-    const exp = iat + 60 * 30; // 30 minutes — short-lived for security
+    const exp = iat + 60 * 30;
 
     const secret = new TextEncoder().encode(sdkSecret);
     const signature = await new SignJWT({
-      sdkKey,
+      appKey: sdkKey,
       mn: meetingNumber,
       role,
       iat,
@@ -89,14 +105,19 @@ export const POST = withProviderAuth(async (req: NextRequest, user: AuthUser) =>
       .setExpirationTime(exp)
       .sign(secret);
 
+    let zak: string | null = null;
+    if (role === 1) {
+      zak = await fetchZakToken();
+    }
+
     logger.info('[ZOOM_SDK] Signature generated', {
       userId: user.id,
       clinicId: user.clinicId,
       meetingNumber,
       role,
+      hasZak: !!zak,
     });
 
-    // HIPAA audit: provider joining telehealth session (non-blocking)
     auditLog(req, {
       userId: user.id,
       userRole: user.role,
@@ -114,7 +135,7 @@ export const POST = withProviderAuth(async (req: NextRequest, user: AuthUser) =>
       });
     });
 
-    return NextResponse.json({ signature, sdkKey });
+    return NextResponse.json({ signature, sdkKey, ...(zak ? { zak } : {}) });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('[ZOOM_SDK] Signature generation failed', {

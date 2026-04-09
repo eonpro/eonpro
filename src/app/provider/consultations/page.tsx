@@ -103,7 +103,7 @@ export default function ProviderConsultationsPage() {
             type: apt.type || 'IN_PERSON',
             startTime: apt.startTime,
             endTime: apt.endTime,
-            duration: apt.duration || 30,
+            duration: apt.duration || 15,
             status: apt.status,
             reason: apt.reason || apt.title || 'Consultation',
             notes: apt.notes,

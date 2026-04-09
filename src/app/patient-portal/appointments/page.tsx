@@ -196,7 +196,7 @@ export default function AppointmentsPage() {
 
     setLoadingSlots(true);
     try {
-      const duration = selectedType?.duration || 30;
+      const duration = selectedType?.duration || 15;
       const params = new URLSearchParams({
         action: 'available-slots',
         providerId: selectedProvider.id.toString(),
@@ -241,7 +241,7 @@ export default function AppointmentsPage() {
           providerId: selectedProvider.id,
           appointmentTypeId: selectedType?.id,
           startTime: selectedSlot.startTime,
-          duration: selectedType?.duration || 30,
+          duration: selectedType?.duration || 15,
           type: appointmentMode,
           reason,
         }),
@@ -904,7 +904,7 @@ export default function AppointmentsPage() {
                         <div className="flex justify-between">
                           <span className="text-gray-500">Duration</span>
                           <span className="font-medium text-gray-900">
-                            {selectedType?.duration || 30} minutes
+                            {selectedType?.duration || 15} minutes
                           </span>
                         </div>
                       </div>

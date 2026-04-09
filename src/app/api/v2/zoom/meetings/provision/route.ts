@@ -45,6 +45,15 @@ export const POST = withProviderAuth(async (req: NextRequest, user: AuthUser) =>
     }
 
     if (appointment.zoomMeetingId) {
+      let existingPassword: string | null = null;
+      try {
+        const existingSession = await prisma.telehealthSession.findFirst({
+          where: { meetingId: appointment.zoomMeetingId },
+          select: { password: true, hostUrl: true },
+        });
+        existingPassword = existingSession?.password ?? null;
+      } catch { /* ignore — table may not exist */ }
+
       return NextResponse.json({
         success: true,
         alreadyProvisioned: true,
@@ -53,13 +62,14 @@ export const POST = withProviderAuth(async (req: NextRequest, user: AuthUser) =>
           zoomMeetingId: appointment.zoomMeetingId,
           zoomJoinUrl: appointment.zoomJoinUrl,
           videoLink: appointment.videoLink ?? appointment.zoomJoinUrl,
+          password: existingPassword,
         },
       });
     }
 
     const clinicId = appointment.clinicId;
     const topic = appointment.title || 'Telehealth Consultation';
-    const duration = appointment.duration || 30;
+    const duration = appointment.duration || 15;
     let meetingId = '';
     let joinUrl = '';
     let startUrl = '';
@@ -174,6 +184,7 @@ export const POST = withProviderAuth(async (req: NextRequest, user: AuthUser) =>
         zoomJoinUrl: joinUrl,
         hostUrl: startUrl,
         videoLink: joinUrl,
+        password: password ?? null,
       },
     });
   } catch (error) {

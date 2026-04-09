@@ -57,10 +57,9 @@ export const TELEHEALTH_SETTINGS = {
 
 // Meeting Duration Presets (in minutes)
 export const CONSULTATION_DURATIONS = {
-  QUICK_CHECK: 15,
-  STANDARD: 30,
-  EXTENDED: 45,
-  COMPREHENSIVE: 60,
+  BRIEF: 10,
+  STANDARD: 15,
+  EXTENDED: 30,
 };
 
 // Webhook Event Types

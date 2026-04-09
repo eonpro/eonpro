@@ -103,7 +103,7 @@ export default function StaffAppointmentsPage() {
           ? `${apt.provider.firstName} ${apt.provider.lastName}`
           : 'Unknown',
         date: new Date(apt.startTime),
-        duration: apt.duration || 30,
+        duration: apt.duration || 15,
         type:
           apt.type === 'VIDEO'
             ? 'telehealth'

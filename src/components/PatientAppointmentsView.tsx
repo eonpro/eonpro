@@ -106,7 +106,7 @@ export default function PatientAppointmentsView({
   const [appointmentForm, setAppointmentForm] = useState({
     date: '',
     time: '',
-    duration: '30',
+    duration: '15',
     type: 'VIDEO' as 'VIDEO' | 'IN_PERSON' | 'PHONE',
     providerId: '',
     reason: '',
@@ -200,7 +200,7 @@ export default function PatientAppointmentsView({
               minute: '2-digit',
               hour12: true,
             }),
-            duration: apt.duration || 30,
+            duration: apt.duration || 15,
             type: apt.type,
             status: apt.status,
             provider: {
@@ -324,7 +324,7 @@ export default function PatientAppointmentsView({
       setAppointmentForm({
         date: '',
         time: '',
-        duration: '30',
+        duration: '15',
         type: 'VIDEO',
         providerId: '',
         reason: '',
@@ -662,11 +662,9 @@ export default function PatientAppointmentsView({
                     }
                     className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-transparent focus:ring-2 focus:ring-[#4fa77e]"
                   >
+                    <option value="10">10 minutes</option>
                     <option value="15">15 minutes</option>
                     <option value="30">30 minutes</option>
-                    <option value="45">45 minutes</option>
-                    <option value="60">1 hour</option>
-                    <option value="90">1.5 hours</option>
                   </select>
                 </div>
                 <div>

@@ -253,7 +253,7 @@ export const appointmentCreateSchema = z.object({
   title: z.string().max(200).optional(),
   startTime: dateSchema,
   endTime: dateSchema.optional(),
-  duration: z.coerce.number().int().min(5).max(480).default(30),
+  duration: z.coerce.number().int().min(5).max(480).default(15),
   type: z.enum(['IN_PERSON', 'VIDEO', 'PHONE']).default('VIDEO'),
   reason: z.string().max(500).optional(),
   notes: z.string().max(2000).optional(),

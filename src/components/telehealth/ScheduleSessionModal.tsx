@@ -36,7 +36,7 @@ export default function ScheduleSessionModal({ onClose, onCreated }: ScheduleSes
   const [topic, setTopic] = useState('');
   const [date, setDate] = useState('');
   const [time, setTime] = useState('');
-  const [duration, setDuration] = useState(30);
+  const [duration, setDuration] = useState(15);
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -247,7 +247,7 @@ export default function ScheduleSessionModal({ onClose, onCreated }: ScheduleSes
             {/* Duration */}
             <div>
               <label className="mb-1.5 block text-sm font-medium text-gray-700">Duration</label>
-              <div className="grid grid-cols-4 gap-2">
+              <div className="grid grid-cols-3 gap-2">
                 {Object.entries(CONSULTATION_DURATIONS).map(([key, dur]) => (
                   <button
                     key={key}

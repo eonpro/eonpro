@@ -67,7 +67,7 @@ export default function TelehealthDashboard({
                 id: apt.id,
                 topic: apt.title || apt.reason || 'Video Consultation',
                 scheduledAt: apt.startTime,
-                duration: apt.duration || 30,
+                duration: apt.duration || 15,
                 status: 'COMPLETED',
                 joinUrl: apt.zoomJoinUrl || apt.videoLink || '',
                 patient: apt.patient
@@ -126,7 +126,7 @@ export default function TelehealthDashboard({
                   id: apt.id,
                   topic: apt.title || apt.reason || 'Video Consultation',
                   scheduledAt: apt.startTime,
-                  duration: apt.duration || 30,
+                  duration: apt.duration || 15,
                   status: apt.status === 'CONFIRMED' ? 'SCHEDULED' : apt.status,
                   joinUrl: apt.zoomJoinUrl || apt.videoLink || '',
                   hostUrl: undefined,
@@ -160,6 +160,8 @@ export default function TelehealthDashboard({
               if (provisionData.appointment?.zoomMeetingId) {
                 match.meetingId = provisionData.appointment.zoomMeetingId;
                 match.joinUrl = provisionData.appointment.zoomJoinUrl || match.joinUrl;
+                match.hostUrl = provisionData.appointment.hostUrl || match.hostUrl;
+                match.password = provisionData.appointment.password || match.password;
               }
             }
           } catch {

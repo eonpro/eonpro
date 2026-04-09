@@ -56,7 +56,7 @@ export const GET = withAuth(async (req: NextRequest, user) => {
     const slots = await getAvailableSlots(
       parseInt(providerId),
       parseDateET(date),
-      duration ? parseInt(duration) : 30,
+      duration ? parseInt(duration) : 15,
       resolvedClinicId
     );
 

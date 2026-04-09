@@ -118,7 +118,7 @@ export default function AdminSchedulingPage() {
           dates.map(async (d) => {
             const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
             const res = await apiFetch(
-              `/api/scheduling/availability?providerId=${selectedProviderId}&date=${dateStr}&duration=30`
+              `/api/scheduling/availability?providerId=${selectedProviderId}&date=${dateStr}&duration=15`
             );
             if (res.ok) {
               const data = await res.json();
@@ -190,7 +190,7 @@ export default function AdminSchedulingPage() {
         providerId: apt.providerId,
         providerName: apt.provider ? `${apt.provider.firstName} ${apt.provider.lastName}` : 'Unknown',
         date: new Date(apt.startTime),
-        duration: apt.duration || 30,
+        duration: apt.duration || 15,
         type: apt.type === 'VIDEO' ? 'telehealth' : apt.type === 'IN_PERSON' ? 'in-person' : 'phone',
         status: apt.status?.toLowerCase() || 'scheduled',
         reason: apt.reason,

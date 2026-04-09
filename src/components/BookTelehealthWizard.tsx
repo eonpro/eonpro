@@ -74,6 +74,7 @@ export default function BookTelehealthWizard({
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [selectedDate, setSelectedDate] = useState<string>('');
   const [selectedSlot, setSelectedSlot] = useState<TimeSlot | null>(null);
+  const [selectedDuration, setSelectedDuration] = useState(15);
   const [reason, setReason] = useState('');
   const [notes, setNotes] = useState('');
 
@@ -147,7 +148,7 @@ export default function BookTelehealthWizard({
       setSlotsLoading(true);
       try {
         const res = await apiFetch(
-          `/api/scheduling/availability?providerId=${selectedProvider.id}&date=${selectedDate}&duration=30`
+          `/api/scheduling/availability?providerId=${selectedProvider.id}&date=${selectedDate}&duration=${selectedDuration}`
         );
         if (res.ok) {
           const data = await res.json();
@@ -168,7 +169,7 @@ export default function BookTelehealthWizard({
       }
     };
     fetchSlots();
-  }, [selectedProvider, selectedDate]);
+  }, [selectedProvider, selectedDate, selectedDuration]);
 
   const handleBook = async () => {
     if (!selectedProvider || !selectedPatient || !selectedSlot) return;
@@ -185,7 +186,7 @@ export default function BookTelehealthWizard({
           patientId: selectedPatient.id,
           startTime: selectedSlot.startTime,
           endTime: selectedSlot.endTime,
-          duration: 30,
+          duration: selectedDuration,
           type: 'VIDEO',
           reason: reason || 'Telehealth consultation',
           notes: notes || undefined,
@@ -590,6 +591,27 @@ export default function BookTelehealthWizard({
                 </div>
 
                 <div className="space-y-3">
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-gray-600">
+                      Duration
+                    </label>
+                    <div className="flex gap-2">
+                      {[10, 15, 30].map((dur) => (
+                        <button
+                          key={dur}
+                          type="button"
+                          onClick={() => setSelectedDuration(dur)}
+                          className={`flex-1 rounded-lg border px-3 py-2 text-center text-sm font-medium transition-all ${
+                            selectedDuration === dur
+                              ? 'border-blue-500 bg-blue-50 text-blue-700 ring-1 ring-blue-500'
+                              : 'border-gray-200 text-gray-700 hover:border-blue-300 hover:bg-blue-50/50'
+                          }`}
+                        >
+                          {dur} min
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                   <div>
                     <label className="mb-1 block text-xs font-medium text-gray-600">
                       Reason for visit
