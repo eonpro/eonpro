@@ -74,7 +74,7 @@ export default function AppointmentModal({
   const [formData, setFormData] = useState({
     date: selectedDate || new Date(),
     time: '10:00',
-    duration: '30',
+    duration: '15',
     type: 'telehealth',
     reason: '',
     notes: '',
@@ -152,7 +152,7 @@ export default function AppointmentModal({
           hour: '2-digit',
           minute: '2-digit',
         }),
-        duration: appointment.duration?.toString() ?? '30',
+        duration: appointment.duration?.toString() ?? '15',
         type: appointment.type ?? 'telehealth',
         reason: appointment.reason ?? prev.reason,
         notes: appointment.notes ?? prev.notes,
@@ -160,7 +160,7 @@ export default function AppointmentModal({
         patientLastName: lastName,
         patientEmail: appointment.patientEmail ?? '',
         patientPhone: appointment.patientPhone ?? '',
-        zoomLink: appointment.zoomJoinUrl ?? appointment.videoLink ?? '',
+        zoomLink: appointment.zoomJoinUrl ?? appointment.zoomLink ?? appointment.videoLink ?? '',
       }));
 
       // Pre-select the patient so step 2 doesn't ask again
@@ -517,10 +517,9 @@ export default function AppointmentModal({
                             onChange={(e) => setFormData({ ...formData, duration: e.target.value })}
                             className="w-full rounded border border-gray-300 px-2 py-1.5 text-sm"
                           >
+                            <option value="10">10 minutes</option>
                             <option value="15">15 minutes</option>
                             <option value="30">30 minutes</option>
-                            <option value="45">45 minutes</option>
-                            <option value="60">1 hour</option>
                           </select>
                         </div>
                         <div>
