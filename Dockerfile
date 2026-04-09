@@ -14,17 +14,15 @@ RUN npm ci --omit=dev --ignore-scripts --legacy-peer-deps
 # Development dependencies stage
 FROM base AS dev-deps
 COPY package.json package-lock.json ./
-COPY prisma ./prisma/
-COPY scripts ./scripts/
-RUN npm ci --legacy-peer-deps
+RUN npm ci --ignore-scripts --legacy-peer-deps
 
 # Builder stage
 FROM base AS builder
 COPY --from=dev-deps /app/node_modules ./node_modules
 COPY . .
 
-# Generate Prisma Client
-RUN npx prisma generate
+# Generate Prisma Client and enum types
+RUN npx prisma generate && node scripts/generate-prisma-enums.js
 
 # Set environment variables for build
 ENV NEXT_TELEMETRY_DISABLED=1
