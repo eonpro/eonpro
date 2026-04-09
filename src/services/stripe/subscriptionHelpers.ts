@@ -15,6 +15,8 @@ export interface SubscriptionInfo {
   intervalCount: number;
   discountMode?: 'first_only' | 'all_recurring';
   catalogAmountCents?: number;
+  /** Pre-existing Stripe Price ID from billing plans config. When set, skips product/price creation. */
+  stripePriceId?: string;
 }
 
 /**
@@ -47,8 +49,11 @@ export function computeNextBillingUnix(interval: string, intervalCount: number):
 }
 
 /**
- * Finds an existing Stripe Price that matches the plan, or creates a new
- * Product + Price pair. Uses plan ID as lookup key for idempotency.
+ * Resolves a Stripe Price for the subscription. Priority:
+ *   1. Use `sub.stripePriceId` when the billing plan already has a Stripe Price
+ *      configured (avoids creating duplicate products in the Stripe catalog).
+ *   2. Search by lookup_key (planId) for previously auto-created prices.
+ *   3. Create a new Product + Price pair as a last resort.
  *
  * When `discountMode === 'all_recurring'` and the amount differs from the
  * catalog price, a separate Stripe Price is created with a unique lookup key
@@ -66,6 +71,20 @@ export async function getOrCreateStripePrice(
     sub.discountMode === 'all_recurring' &&
     sub.catalogAmountCents != null &&
     amountCents !== sub.catalogAmountCents;
+
+  // When the billing plan has a pre-configured Stripe Price and we're not
+  // applying a custom discount amount, use it directly. This prevents
+  // duplicate products from appearing in the Stripe catalog.
+  if (sub.stripePriceId && !isCustomPrice) {
+    try {
+      const price = connectOpts
+        ? await stripe.prices.retrieve(sub.stripePriceId, {}, connectOpts)
+        : await stripe.prices.retrieve(sub.stripePriceId);
+      if (price.active) return price;
+    } catch {
+      // Price not found or inactive on this account — fall through to creation
+    }
+  }
 
   const lookupKey = isCustomPrice
     ? `${sub.planId}_custom_${amountCents}`

@@ -809,13 +809,137 @@ async function processOTWebhookEvent(
         const invoice = event.data.object as Stripe.Invoice;
 
         // Find the matching invoice in our database to get the patient
-        const dbInvoice = await prisma.invoice.findUnique({
+        let dbInvoice = await prisma.invoice.findUnique({
           where: { stripeInvoiceId: invoice.id },
           select: { id: true, patientId: true, clinicId: true, status: true },
         });
 
+        // For Stripe Subscription payments, the payment_intent.succeeded handler
+        // skips when the PI has an invoice (to avoid double-processing). That means
+        // processStripePayment is never called for subscription payments. If we don't
+        // have a local invoice yet, extract payment data from the PI and run the
+        // full matching pipeline so the invoice appears in the provider Rx queue.
+        if (!dbInvoice && invoice.status === 'paid') {
+          const piId = typeof invoice.payment_intent === 'string'
+            ? invoice.payment_intent
+            : (invoice.payment_intent as Stripe.PaymentIntent | null)?.id;
+
+          if (piId) {
+            logger.info('[OT STRIPE WEBHOOK] No local invoice for paid Stripe invoice — running processStripePayment via PI', {
+              stripeInvoiceId: invoice.id,
+              paymentIntentId: piId,
+              clinicId,
+            });
+
+            try {
+              const otStripe = getOTStripe();
+              const pi = await otStripe.paymentIntents.retrieve(piId);
+              const piPaymentData = await extractPaymentDataFromPaymentIntent(pi);
+              piPaymentData.stripeInvoiceId = invoice.id;
+              piPaymentData.metadata = {
+                ...piPaymentData.metadata,
+                clinicId: clinicId.toString(),
+              };
+
+              // Enrich description from invoice line items when PI description is generic
+              if (
+                !piPaymentData.description ||
+                piPaymentData.description === 'Payment received via Stripe'
+              ) {
+                const firstLine = invoice.lines?.data?.[0];
+                if (firstLine?.description) {
+                  piPaymentData.description = firstLine.description;
+                }
+              }
+
+              // Enrich line item details from invoice lines
+              if (invoice.lines?.data?.length) {
+                piPaymentData.lineItemDetails = invoice.lines.data.map((li) => ({
+                  description: li.description || 'Line item',
+                  productName: li.description || undefined,
+                  amount: li.amount || 0,
+                  quantity: li.quantity || 1,
+                }));
+              }
+
+              const matchResult = await processStripePayment(piPaymentData, event.id, event.type);
+
+              if (matchResult.invoice) {
+                dbInvoice = {
+                  id: matchResult.invoice.id,
+                  patientId: matchResult.invoice.patientId,
+                  clinicId: matchResult.invoice.clinicId,
+                  status: matchResult.invoice.status,
+                };
+                logger.info('[OT STRIPE WEBHOOK] Created local invoice from subscription payment', {
+                  invoiceId: dbInvoice.id,
+                  patientId: dbInvoice.patientId,
+                  stripeInvoiceId: invoice.id,
+                  paymentIntentId: piId,
+                });
+              }
+
+              // Process commissions and refills for the matched patient
+              if (matchResult.patient?.id) {
+                try {
+                  if (processPaymentForCommission) {
+                    const isFirstPayment = checkIfFirstPayment
+                      ? await checkIfFirstPayment(matchResult.patient.id, piId)
+                      : true;
+                    await processPaymentForCommission({
+                      clinicId,
+                      patientId: matchResult.patient.id,
+                      stripeEventId: event.id,
+                      stripeObjectId: invoice.id,
+                      stripeEventType: event.type,
+                      amountCents: invoice.amount_paid || 0,
+                      occurredAt: invoice.status_transitions?.paid_at
+                        ? new Date(invoice.status_transitions.paid_at * 1000)
+                        : new Date(),
+                      isFirstPayment,
+                      isRecurring: invoice.billing_reason === 'subscription_cycle',
+                    });
+                  }
+                } catch (commErr) {
+                  logger.warn('[OT STRIPE WEBHOOK] Commission failed for subscription invoice', {
+                    error: commErr instanceof Error ? commErr.message : 'Unknown',
+                    patientId: matchResult.patient.id,
+                  });
+                }
+
+                if (autoMatchPendingRefillsForPatient) {
+                  try {
+                    await autoMatchPendingRefillsForPatient(matchResult.patient.id);
+                  } catch {
+                    // non-blocking
+                  }
+                }
+              }
+
+              return {
+                success: true,
+                details: {
+                  invoiceId: invoice.id,
+                  localInvoiceId: dbInvoice?.id,
+                  patientId: matchResult.patient?.id,
+                  patientCreated: matchResult.patientCreated,
+                  clinicId,
+                  createdFromSubscriptionPI: true,
+                },
+              };
+            } catch (processErr) {
+              logger.error('[OT STRIPE WEBHOOK] Failed to process subscription invoice payment', {
+                stripeInvoiceId: invoice.id,
+                paymentIntentId: piId,
+                error: processErr instanceof Error ? processErr.message : 'Unknown',
+              });
+              // Fall through — still return success to Stripe to avoid retries
+            }
+          }
+        }
+
         if (!dbInvoice) {
-          logger.warn('[OT STRIPE WEBHOOK] Invoice not found in database for commission', {
+          logger.warn('[OT STRIPE WEBHOOK] Invoice not found in database and could not be created', {
             stripeInvoiceId: invoice.id,
             clinicId,
           });

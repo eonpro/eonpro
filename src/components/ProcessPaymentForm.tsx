@@ -335,6 +335,7 @@ function ProcessPaymentFormContent({ patientId, patientName, clinicSubdomain, on
           interval: 'month',
           intervalCount: months,
           amountCents: currentCents,
+          ...(plan?.stripePriceId ? { stripePriceId: plan.stripePriceId } : {}),
           ...(isDiscounted ? {
             discountMode: item.discountMode || 'first_only',
             catalogAmountCents: catalogCents,
