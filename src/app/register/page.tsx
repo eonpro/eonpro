@@ -19,6 +19,35 @@ import {
   CheckCircle2,
   AlertCircle,
 } from 'lucide-react';
+import { EONPRO_LOGO_DARK } from '@/lib/constants/brand-assets';
+
+function hexToRgb(hex: string): [number, number, number] {
+  const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  return m ? [parseInt(m[1], 16), parseInt(m[2], 16), parseInt(m[3], 16)] : [16, 185, 129];
+}
+
+function lightenHex(hex: string, amount: number): string {
+  const [r, g, b] = hexToRgb(hex);
+  const lighten = (c: number) => Math.min(255, Math.round(c + (255 - c) * amount));
+  return `#${[lighten(r), lighten(g), lighten(b)].map(c => c.toString(16).padStart(2, '0')).join('')}`;
+}
+
+function darkenHex(hex: string, amount: number): string {
+  const [r, g, b] = hexToRgb(hex);
+  const darken = (c: number) => Math.max(0, Math.round(c * (1 - amount)));
+  return `#${[darken(r), darken(g), darken(b)].map(c => c.toString(16).padStart(2, '0')).join('')}`;
+}
+
+const PRIMARY = '#10B981';
+const [pcR, pcG, pcB] = hexToRgb(PRIMARY);
+const darkAccent = lightenHex(PRIMARY, 0.4);
+const darkButtonGradient = `linear-gradient(135deg, ${darkenHex(PRIMARY, 0.25)} 0%, ${PRIMARY} 50%, ${lightenHex(PRIMARY, 0.3)} 100%)`;
+const loginGlowVars: Record<string, string> = {
+  '--login-glow': `rgba(${pcR},${pcG},${pcB},0.10)`,
+  '--login-glow-alt': `rgba(${pcR},${pcG},${pcB},0.06)`,
+  '--login-focus': `rgba(${pcR},${pcG},${pcB},0.5)`,
+  '--login-focus-ring': `rgba(${pcR},${pcG},${pcB},0.25)`,
+};
 
 type RegistrationStep = 'clinic' | 'details' | 'success';
 
@@ -252,62 +281,76 @@ export default function RegisterPage() {
     }
   };
 
+  useEffect(() => {
+    if (!isBrowser) return;
+    const darkBg = '#020617';
+    const prevBodyBg = document.body.style.backgroundColor;
+    document.body.style.backgroundColor = darkBg;
+    let meta = document.querySelector('meta[name="theme-color"]') as HTMLMetaElement | null;
+    const prevThemeColor = meta?.content;
+    if (!meta) { meta = document.createElement('meta'); meta.name = 'theme-color'; document.head.appendChild(meta); }
+    meta.content = darkBg;
+    return () => {
+      document.body.style.backgroundColor = prevBodyBg;
+      if (meta && prevThemeColor !== undefined) meta.content = prevThemeColor;
+    };
+  }, []);
+
   if (inviteValidating) {
     return (
-      <div className="flex min-h-[100dvh] items-center justify-center bg-[#efece7] p-4">
+      <div className="dark-login-bg flex min-h-[100dvh] items-center justify-center p-4" style={loginGlowVars as React.CSSProperties}>
         <div className="text-center">
-          <div className="inline-block h-10 w-10 animate-spin rounded-full border-2 border-emerald-600 border-t-transparent" />
-          <p className="mt-4 text-gray-600">Validating your invite link…</p>
+          <div className="inline-block h-10 w-10 animate-spin rounded-full border-2 border-white/20 border-t-white/70" />
+          <p className="mt-4 text-white/50">Validating your invite link…</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex min-h-[100dvh] items-center justify-center bg-[#efece7] p-4">
+    <div className="dark-login-bg flex min-h-[100dvh] flex-col items-center justify-center p-4" style={loginGlowVars as React.CSSProperties}>
       <div className="w-full max-w-md">
-        {/* Logo/Header */}
         <div className="mb-8 text-center">
-          <div className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 shadow-lg">
-            <User className="h-8 w-8 text-white" />
-          </div>
-          <h1 className="text-2xl font-bold text-gray-900">Create Your Account</h1>
-          <p className="mt-1 text-gray-600">Patient Registration</p>
+          <img src={EONPRO_LOGO_DARK} alt="EONPRO" className="mx-auto mb-4 h-10 w-auto" width={160} height={40} style={{ maxHeight: 40, width: 'auto' }} />
+          <h1 className="text-2xl font-bold text-white">Create Your Account</h1>
+          <p className="mt-1 text-white/70">Patient Registration</p>
         </div>
 
         {/* Progress Indicator */}
         {step !== 'success' && (
           <div className="mb-8 flex items-center justify-center gap-2">
             <div
-              className={`flex h-8 w-8 items-center justify-center rounded-full ${
-                step === 'clinic' ? 'bg-emerald-600 text-white' : 'bg-emerald-100 text-emerald-600'
+              className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold ${
+                step === 'clinic' ? 'text-white' : 'text-white'
               }`}
+              style={{ background: darkButtonGradient }}
             >
               {step !== 'clinic' ? <Check className="h-4 w-4" /> : '1'}
             </div>
             <div
-              className={`h-1 w-12 rounded ${step === 'details' ? 'bg-emerald-600' : 'bg-gray-200'}`}
+              className={`h-1 w-12 rounded ${step === 'details' ? '' : 'bg-white/15'}`}
+              style={step === 'details' ? { background: darkButtonGradient } : undefined}
             />
             <div
-              className={`flex h-8 w-8 items-center justify-center rounded-full ${
-                step === 'details' ? 'bg-emerald-600 text-white' : 'bg-gray-200 text-gray-500'
+              className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold ${
+                step === 'details' ? 'text-white' : 'bg-white/10 text-white/50'
               }`}
+              style={step === 'details' ? { background: darkButtonGradient } : undefined}
             >
               2
             </div>
           </div>
         )}
 
-        {/* Form Card */}
-        <div className="overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-xl">
-          <div className="p-8">
+        <div>
+          <div>
             {/* STEP 1: Clinic Code */}
             {step === 'clinic' && (
               <form onSubmit={handleClinicCodeSubmit} className="space-y-6">
                 <div className="mb-6 text-center">
-                  <Building2 className="mx-auto mb-4 h-12 w-12 text-emerald-600" />
-                  <h2 className="text-xl font-semibold text-gray-900">Enter Clinic Code</h2>
-                  <p className="mt-1 text-sm text-gray-600">
+                  <Building2 className="mx-auto mb-4 h-12 w-12 text-emerald-400" />
+                  <h2 className="text-xl font-semibold text-white">Enter Clinic Code</h2>
+                  <p className="mt-1 text-sm text-white/70">
                     Enter the registration code provided by your healthcare clinic
                   </p>
                 </div>
@@ -315,7 +358,7 @@ export default function RegisterPage() {
                 <div>
                   <label
                     htmlFor="clinicCode"
-                    className="mb-2 block text-sm font-medium text-gray-700"
+                    className="mb-2 block text-sm font-medium text-white/70"
                   >
                     Clinic Code
                   </label>
@@ -325,7 +368,7 @@ export default function RegisterPage() {
                     value={clinicCode}
                     onChange={(e) => setClinicCode(e.target.value.toUpperCase())}
                     placeholder="e.g., CLINIC123"
-                    className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 font-mono text-lg uppercase tracking-wider transition-colors focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    className="w-full rounded-xl border border-white/12 bg-white/[0.06] px-4 py-3 font-mono text-lg uppercase tracking-wider transition-colors focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
                     autoFocus
                     required
                   />
@@ -333,18 +376,19 @@ export default function RegisterPage() {
 
                 <div
                   className={`flex items-start gap-3 rounded-xl border transition-all duration-150 ${
-                    error ? 'border-red-200 bg-red-50 p-4 opacity-100' : 'h-0 overflow-hidden border-transparent p-0 opacity-0'
+                    error ? 'border-red-500/30 bg-red-900/30 backdrop-blur-sm p-4 opacity-100' : 'h-0 overflow-hidden border-transparent p-0 opacity-0'
                   }`}
                   aria-live="polite"
                 >
                   {error && <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-red-500" />}
-                  {error && <p className="text-sm text-red-600">{error}</p>}
+                  {error && <p className="text-sm text-red-400">{error}</p>}
                 </div>
 
                 <button
                   type="submit"
                   disabled={loading || !clinicCode.trim()}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 px-4 py-3 font-semibold text-white transition-colors hover:from-emerald-700 hover:to-teal-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-3 font-semibold text-white transition-all hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                  style={{ background: darkButtonGradient }}
                 >
                   {loading ? (
                     <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
@@ -356,12 +400,12 @@ export default function RegisterPage() {
                   )}
                 </button>
 
-                <div className="border-t border-gray-100 pt-4 text-center">
-                  <p className="text-sm text-gray-600">
+                <div className="border-t border-white/10 pt-4 text-center">
+                  <p className="text-sm text-white/60">
                     Already have an account?{' '}
                     <Link
                       href="/login"
-                      className="font-medium text-emerald-600 hover:text-emerald-700"
+                      className="font-medium text-emerald-400 hover:text-emerald-300"
                     >
                       Sign in
                     </Link>
@@ -375,7 +419,7 @@ export default function RegisterPage() {
               <form onSubmit={handleRegistrationSubmit} className="space-y-5">
                 {/* Invite flow: clinic + pre-filled identity summary, then password only */}
                 <div className="mb-4 text-center">
-                  <p className="text-sm font-medium text-emerald-600">Invited by</p>
+                  <p className="text-sm font-medium text-emerald-400">Invited by</p>
                   {clinic.logoUrl ? (
                     <img
                       src={clinic.logoUrl}
@@ -385,37 +429,37 @@ export default function RegisterPage() {
                       height={56}
                     />
                   ) : (
-                    <p className="mt-2 font-semibold text-gray-900">{clinic.name}</p>
+                    <p className="mt-2 font-semibold text-white">{clinic.name}</p>
                   )}
                 </div>
-                <div className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-3 text-center">
-                  <p className="text-sm text-gray-600">
-                    Create your password for <strong className="text-gray-900">{firstName} {lastName}</strong>
+                <div className="rounded-xl border border-white/10 bg-white/[0.06] backdrop-blur-sm px-4 py-3 text-center">
+                  <p className="text-sm text-white/70">
+                    Create your password for <strong className="text-white">{firstName} {lastName}</strong>
                   </p>
-                  <p className="mt-1 text-xs text-gray-500">{email}</p>
+                  <p className="mt-1 text-xs text-white/50">{email}</p>
                 </div>
                 {/* Password */}
                 <div>
                   <label
                     htmlFor="password-invite"
-                    className="mb-1 block text-sm font-medium text-gray-700"
+                    className="mb-1 block text-sm font-medium text-white/70"
                   >
                     Password
                   </label>
                   <div className="relative">
-                    <Lock className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+                    <Lock className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-white/40" />
                     <input
                       id="password-invite"
                       type={showPassword ? 'text' : 'password'}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-12 pr-12 transition-colors focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      className="w-full rounded-xl border border-white/12 bg-white/[0.06] py-2.5 pl-12 pr-12 transition-colors focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
                       required
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/70"
                     >
                       {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                     </button>
@@ -426,40 +470,40 @@ export default function RegisterPage() {
                         {req.met ? (
                           <Check className="h-3.5 w-3.5 text-emerald-500" />
                         ) : (
-                          <div className="h-3.5 w-3.5 rounded-full border border-gray-300" />
+                          <div className="h-3.5 w-3.5 rounded-full border border-white/30" />
                         )}
-                        <span className={req.met ? 'text-emerald-600' : 'text-gray-500'}>
+                        <span className={req.met ? 'text-emerald-400' : 'text-white/50'}>
                           {req.label}
                         </span>
                       </div>
                     )) : (
-                      <p className="text-xs text-gray-400">Must be at least 12 characters with uppercase, lowercase, number, and special character</p>
+                      <p className="text-xs text-white/40">Must be at least 12 characters with uppercase, lowercase, number, and special character</p>
                     )}
                   </div>
                 </div>
                 <div>
                   <label
                     htmlFor="confirmPassword-invite"
-                    className="mb-1 block text-sm font-medium text-gray-700"
+                    className="mb-1 block text-sm font-medium text-white/70"
                   >
                     Confirm Password
                   </label>
                   <div className="relative">
-                    <Lock className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+                    <Lock className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-white/40" />
                     <input
                       id="confirmPassword-invite"
                       type={showConfirmPassword ? 'text' : 'password'}
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
-                      className={`w-full rounded-xl border bg-white py-2.5 pl-12 pr-12 transition-colors focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500 ${
-                        confirmPassword && !passwordsMatch ? 'border-red-300' : 'border-gray-200'
+                      className={`w-full rounded-xl border bg-white/[0.06] py-2.5 pl-12 pr-12 transition-colors focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500/50 ${
+                        confirmPassword && !passwordsMatch ? 'border-red-300' : 'border-white/12'
                       }`}
                       required
                     />
                     <button
                       type="button"
                       onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/70"
                     >
                       {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                     </button>
@@ -485,7 +529,7 @@ export default function RegisterPage() {
                       className={`flex h-6 w-6 items-center justify-center rounded border-2 transition-colors ${
                         agreedToTerms
                           ? 'border-emerald-600 bg-emerald-600'
-                          : 'border-gray-300 bg-white'
+                          : 'border-white/30 bg-white/[0.06]'
                       }`}
                     >
                       {agreedToTerms ? <Check className="h-4 w-4 text-white" /> : null}
@@ -493,33 +537,33 @@ export default function RegisterPage() {
                   </label>
                   <label
                     htmlFor="terms-checkbox-invite"
-                    className="cursor-pointer select-none pt-2.5 text-sm leading-relaxed text-gray-600"
+                    className="cursor-pointer select-none pt-2.5 text-sm leading-relaxed text-white/70"
                   >
                     I agree to the{' '}
-                    <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-emerald-600 underline" onClick={(e) => e.stopPropagation()}>
+                    <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-emerald-400 underline" onClick={(e) => e.stopPropagation()}>
                       Terms of Service
                     </a>{' '}
                     and{' '}
-                    <a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-emerald-600 underline" onClick={(e) => e.stopPropagation()}>
+                    <a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-emerald-400 underline" onClick={(e) => e.stopPropagation()}>
                       Privacy Policy
                     </a>
                   </label>
                 </div>
                 <div
                   className={`flex items-start gap-3 rounded-xl border transition-all duration-150 ${
-                    error ? 'border-red-200 bg-red-50 p-4 opacity-100' : 'h-0 overflow-hidden border-transparent p-0 opacity-0'
+                    error ? 'border-red-500/30 bg-red-900/30 backdrop-blur-sm p-4 opacity-100' : 'h-0 overflow-hidden border-transparent p-0 opacity-0'
                   }`}
                   aria-live="polite"
                 >
                   {error && (
                     <>
                       <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-red-500" />
-                      <div className="text-sm text-red-600">
+                      <div className="text-sm text-red-400">
                         <p>{error}</p>
                         {(error.toLowerCase().includes('already exists') || error.toLowerCase().includes('log in')) && (
                           <Link
                             href="/patient-login"
-                            className="mt-2 inline-flex items-center gap-1 font-semibold text-emerald-700 underline underline-offset-2 hover:text-emerald-900"
+                            className="mt-2 inline-flex items-center gap-1 font-semibold text-emerald-300 underline underline-offset-2 hover:text-emerald-200"
                           >
                             <ArrowRight className="h-3.5 w-3.5" />
                             Go to login
@@ -532,7 +576,8 @@ export default function RegisterPage() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 px-4 py-3 font-semibold text-white transition-colors hover:from-emerald-700 hover:to-teal-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-3 font-semibold text-white transition-all hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                  style={{ background: darkButtonGradient }}
                 >
                   {loading ? (
                     <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
@@ -550,7 +595,7 @@ export default function RegisterPage() {
             {step === 'details' && clinic && !inviteToken && (
               <form onSubmit={handleRegistrationSubmit} className="space-y-5">
                 {/* Clinic Display */}
-                <div className="mb-2 flex items-center justify-between rounded-xl border border-emerald-100 bg-emerald-50 p-3">
+                <div className="mb-2 flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.06] backdrop-blur-sm p-3">
                   <div className="flex items-center gap-3">
                         {clinic.logoUrl ? (
                           <img
@@ -561,19 +606,19 @@ export default function RegisterPage() {
                             height={40}
                           />
                         ) : (
-                          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-100">
-                            <Building2 className="h-5 w-5 text-emerald-600" />
+                          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/10">
+                            <Building2 className="h-5 w-5 text-emerald-400" />
                           </div>
                         )}
                         <div>
-                          <p className="text-xs font-medium text-emerald-600">Registering with</p>
-                          <p className="font-semibold text-gray-900">{clinic.name}</p>
+                          <p className="text-xs font-medium text-emerald-400">Registering with</p>
+                          <p className="font-semibold text-white">{clinic.name}</p>
                         </div>
                       </div>
                       <button
                         type="button"
                         onClick={handleBack}
-                        className="text-sm text-gray-500 hover:text-gray-700"
+                        className="text-sm text-white/50 hover:text-white/70"
                       >
                         Change
                       </button>
@@ -584,19 +629,19 @@ export default function RegisterPage() {
                   <div>
                     <label
                       htmlFor="firstName"
-                      className="mb-1 block text-sm font-medium text-gray-700"
+                      className="mb-1 block text-sm font-medium text-white/70"
                     >
                       First Name
                     </label>
                     <div className="relative">
-                      <User className={`absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400 transition-opacity duration-200 ${firstName ? 'opacity-0' : 'opacity-100'}`} />
+                      <User className={`absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-white/40 transition-opacity duration-200 ${firstName ? 'opacity-0' : 'opacity-100'}`} />
                       <input
                         id="firstName"
                         type="text"
                         value={firstName}
                         onChange={inviteToken ? undefined : (e) => setFirstName(e.target.value)}
                         readOnly={!!inviteToken}
-                        className={`w-full rounded-xl border border-gray-200 py-2.5 pl-12 pr-4 transition-colors focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500 ${inviteToken ? 'cursor-not-allowed bg-gray-100' : 'bg-white'}`}
+                        className={`w-full rounded-xl border border-white/12 py-2.5 pl-12 pr-4 transition-colors focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500/50 ${inviteToken ? 'cursor-not-allowed bg-white/[0.03]' : 'bg-white'}`}
                         required
                       />
                     </div>
@@ -604,7 +649,7 @@ export default function RegisterPage() {
                   <div>
                     <label
                       htmlFor="lastName"
-                      className="mb-1 block text-sm font-medium text-gray-700"
+                      className="mb-1 block text-sm font-medium text-white/70"
                     >
                       Last Name
                     </label>
@@ -614,7 +659,7 @@ export default function RegisterPage() {
                       value={lastName}
                       onChange={inviteToken ? undefined : (e) => setLastName(e.target.value)}
                       readOnly={!!inviteToken}
-                      className={`w-full rounded-xl border border-gray-200 px-4 py-2.5 transition-colors focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500 ${inviteToken ? 'cursor-not-allowed bg-gray-100' : 'bg-white'}`}
+                      className={`w-full rounded-xl border border-white/12 px-4 py-2.5 transition-colors focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500/50 ${inviteToken ? 'cursor-not-allowed bg-white/[0.03]' : 'bg-white'}`}
                       required
                     />
                   </div>
@@ -622,18 +667,18 @@ export default function RegisterPage() {
 
                 {/* Email */}
                 <div>
-                  <label htmlFor="email" className="mb-1 block text-sm font-medium text-gray-700">
+                  <label htmlFor="email" className="mb-1 block text-sm font-medium text-white/70">
                     Email Address
                   </label>
                   <div className="relative">
-                    <Mail className={`absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400 transition-opacity duration-200 ${email ? 'opacity-0' : 'opacity-100'}`} />
+                    <Mail className={`absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-white/40 transition-opacity duration-200 ${email ? 'opacity-0' : 'opacity-100'}`} />
                     <input
                       id="email"
                       type="email"
                       value={email}
                       onChange={inviteToken ? undefined : (e) => setEmail(e.target.value)}
                       readOnly={!!inviteToken}
-                      className={`w-full rounded-xl border border-gray-200 py-2.5 pl-12 pr-4 transition-colors focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500 ${inviteToken ? 'cursor-not-allowed bg-gray-100' : 'bg-white'}`}
+                      className={`w-full rounded-xl border border-white/12 py-2.5 pl-12 pr-4 transition-colors focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500/50 ${inviteToken ? 'cursor-not-allowed bg-white/[0.03]' : 'bg-white'}`}
                       required
                     />
                   </div>
@@ -641,11 +686,11 @@ export default function RegisterPage() {
 
                 {/* Phone */}
                 <div>
-                  <label htmlFor="phone" className="mb-1 block text-sm font-medium text-gray-700">
+                  <label htmlFor="phone" className="mb-1 block text-sm font-medium text-white/70">
                     Phone Number
                   </label>
                   <div className="relative">
-                    <Phone className={`absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400 transition-opacity duration-200 ${phone ? 'opacity-0' : 'opacity-100'}`} />
+                    <Phone className={`absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-white/40 transition-opacity duration-200 ${phone ? 'opacity-0' : 'opacity-100'}`} />
                     <input
                       id="phone"
                       type="tel"
@@ -653,7 +698,7 @@ export default function RegisterPage() {
                       onChange={inviteToken ? undefined : handlePhoneChange}
                       placeholder="(555) 555-5555"
                       readOnly={!!inviteToken}
-                      className={`w-full rounded-xl border border-gray-200 py-2.5 pl-12 pr-4 transition-colors focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500 ${inviteToken ? 'cursor-not-allowed bg-gray-100' : 'bg-white'}`}
+                      className={`w-full rounded-xl border border-white/12 py-2.5 pl-12 pr-4 transition-colors focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500/50 ${inviteToken ? 'cursor-not-allowed bg-white/[0.03]' : 'bg-white'}`}
                       required
                     />
                   </div>
@@ -661,18 +706,18 @@ export default function RegisterPage() {
 
                 {/* Date of Birth */}
                 <div>
-                  <label htmlFor="dob" className="mb-1 block text-sm font-medium text-gray-700">
+                  <label htmlFor="dob" className="mb-1 block text-sm font-medium text-white/70">
                     Date of Birth
                   </label>
                   <div className="relative">
-                    <Calendar className={`absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400 transition-opacity duration-200 ${dob ? 'opacity-0' : 'opacity-100'}`} />
+                    <Calendar className={`absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-white/40 transition-opacity duration-200 ${dob ? 'opacity-0' : 'opacity-100'}`} />
                     <input
                       id="dob"
                       type="date"
                       value={dob}
                       onChange={inviteToken ? undefined : (e) => setDob(e.target.value)}
                       readOnly={!!inviteToken}
-                      className={`w-full rounded-xl border border-gray-200 py-2.5 pl-12 pr-4 transition-colors focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500 ${inviteToken ? 'cursor-not-allowed bg-gray-100' : 'bg-white'}`}
+                      className={`w-full rounded-xl border border-white/12 py-2.5 pl-12 pr-4 transition-colors focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500/50 ${inviteToken ? 'cursor-not-allowed bg-white/[0.03]' : 'bg-white'}`}
                       required
                     />
                   </div>
@@ -682,24 +727,24 @@ export default function RegisterPage() {
                 <div>
                   <label
                     htmlFor="password"
-                    className="mb-1 block text-sm font-medium text-gray-700"
+                    className="mb-1 block text-sm font-medium text-white/70"
                   >
                     Password
                   </label>
                   <div className="relative">
-                    <Lock className={`absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400 transition-opacity duration-200 ${password ? 'opacity-0' : 'opacity-100'}`} />
+                    <Lock className={`absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-white/40 transition-opacity duration-200 ${password ? 'opacity-0' : 'opacity-100'}`} />
                     <input
                       id="password"
                       type={showPassword ? 'text' : 'password'}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-12 pr-12 transition-colors focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      className="w-full rounded-xl border border-white/12 bg-white/[0.06] py-2.5 pl-12 pr-12 transition-colors focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
                       required
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/70"
                     >
                       {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                     </button>
@@ -712,14 +757,14 @@ export default function RegisterPage() {
                         {req.met ? (
                           <Check className="h-3.5 w-3.5 text-emerald-500" />
                         ) : (
-                          <div className="h-3.5 w-3.5 rounded-full border border-gray-300" />
+                          <div className="h-3.5 w-3.5 rounded-full border border-white/30" />
                         )}
-                        <span className={req.met ? 'text-emerald-600' : 'text-gray-500'}>
+                        <span className={req.met ? 'text-emerald-400' : 'text-white/50'}>
                           {req.label}
                         </span>
                       </div>
                     )) : (
-                      <p className="text-xs text-gray-400">Must be at least 12 characters with uppercase, lowercase, number, and special character</p>
+                      <p className="text-xs text-white/40">Must be at least 12 characters with uppercase, lowercase, number, and special character</p>
                     )}
                   </div>
                 </div>
@@ -728,26 +773,26 @@ export default function RegisterPage() {
                 <div>
                   <label
                     htmlFor="confirmPassword"
-                    className="mb-1 block text-sm font-medium text-gray-700"
+                    className="mb-1 block text-sm font-medium text-white/70"
                   >
                     Confirm Password
                   </label>
                   <div className="relative">
-                    <Lock className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+                    <Lock className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-white/40" />
                     <input
                       id="confirmPassword"
                       type={showConfirmPassword ? 'text' : 'password'}
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
-                      className={`w-full rounded-xl border bg-white py-2.5 pl-12 pr-12 transition-colors focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500 ${
-                        confirmPassword && !passwordsMatch ? 'border-red-300' : 'border-gray-200'
+                      className={`w-full rounded-xl border bg-white/[0.06] py-2.5 pl-12 pr-12 transition-colors focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500/50 ${
+                        confirmPassword && !passwordsMatch ? 'border-red-300' : 'border-white/12'
                       }`}
                       required
                     />
                     <button
                       type="button"
                       onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/70"
                     >
                       {showConfirmPassword ? (
                         <EyeOff className="h-5 w-5" />
@@ -779,7 +824,7 @@ export default function RegisterPage() {
                       className={`flex h-6 w-6 items-center justify-center rounded border-2 transition-colors ${
                         agreedToTerms
                           ? 'border-emerald-600 bg-emerald-600'
-                          : 'border-gray-300 bg-white'
+                          : 'border-white/30 bg-white/[0.06]'
                       }`}
                     >
                       {agreedToTerms && <Check className="h-4 w-4 text-white" />}
@@ -787,14 +832,14 @@ export default function RegisterPage() {
                   </label>
                   <label
                     htmlFor="terms-checkbox"
-                    className="cursor-pointer select-none pt-2.5 text-sm leading-relaxed text-gray-600"
+                    className="cursor-pointer select-none pt-2.5 text-sm leading-relaxed text-white/70"
                   >
                     I agree to the{' '}
                     <a
                       href="/terms"
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-emerald-600 underline"
+                      className="text-emerald-400 underline"
                       onClick={(e) => e.stopPropagation()}
                     >
                       Terms of Service
@@ -804,7 +849,7 @@ export default function RegisterPage() {
                       href="/privacy"
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-emerald-600 underline"
+                      className="text-emerald-400 underline"
                       onClick={(e) => e.stopPropagation()}
                     >
                       Privacy Policy
@@ -814,20 +859,20 @@ export default function RegisterPage() {
 
                 <div
                   className={`flex items-start gap-3 rounded-xl border transition-all duration-150 ${
-                    error ? 'border-red-200 bg-red-50 p-4 opacity-100' : 'h-0 overflow-hidden border-transparent p-0 opacity-0'
+                    error ? 'border-red-500/30 bg-red-900/30 backdrop-blur-sm p-4 opacity-100' : 'h-0 overflow-hidden border-transparent p-0 opacity-0'
                   }`}
                   aria-live="polite"
                 >
                   {error && (
                     <>
                       <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-red-500" />
-                      <div className="text-sm text-red-600">
+                      <div className="text-sm text-red-400">
                         <p>{error}</p>
                         {(error.toLowerCase().includes('already exists') ||
                           error.toLowerCase().includes('log in')) && (
                           <Link
                             href="/patient-login"
-                            className="mt-2 inline-flex items-center gap-1 font-semibold text-emerald-700 underline underline-offset-2 hover:text-emerald-900"
+                            className="mt-2 inline-flex items-center gap-1 font-semibold text-emerald-300 underline underline-offset-2 hover:text-emerald-200"
                           >
                             <ArrowRight className="h-3.5 w-3.5" />
                             Go to login
@@ -843,7 +888,7 @@ export default function RegisterPage() {
                     <button
                       type="button"
                       onClick={handleBack}
-                      className="flex items-center gap-2 rounded-xl border border-gray-200 px-4 py-3 font-medium text-gray-700 transition-colors hover:bg-gray-50"
+                      className="flex items-center gap-2 rounded-xl border border-white/15 bg-white/[0.06] px-4 py-3 font-medium text-white/70 backdrop-blur-sm transition-colors hover:bg-white/[0.1]"
                     >
                       <ArrowLeft className="h-4 w-4" />
                       Back
@@ -852,7 +897,8 @@ export default function RegisterPage() {
                   <button
                     type="submit"
                     disabled={loading}
-                    className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 px-4 py-3 font-semibold text-white transition-colors hover:from-emerald-700 hover:to-teal-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="flex flex-1 items-center justify-center gap-2 rounded-2xl px-4 py-3 font-semibold text-white transition-all hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                    style={{ background: darkButtonGradient }}
                   >
                     {loading ? (
                       <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
@@ -870,33 +916,33 @@ export default function RegisterPage() {
             {/* STEP 3: Success */}
             {step === 'success' && (
               <div className="space-y-6 py-4 text-center">
-                <div className="inline-flex h-20 w-20 items-center justify-center rounded-full bg-emerald-100">
-                  <CheckCircle2 className="h-10 w-10 text-emerald-600" />
+                <div className="inline-flex h-20 w-20 items-center justify-center rounded-full bg-white/[0.06]">
+                  <CheckCircle2 className="h-10 w-10 text-emerald-400" />
                 </div>
 
                 <div>
-                  <h2 className="mb-2 text-2xl font-bold text-gray-900">Check Your Email</h2>
-                  <p className="text-gray-600">We've sent a verification link to</p>
-                  <p className="mt-1 font-semibold text-emerald-600">{email}</p>
+                  <h2 className="mb-2 text-2xl font-bold text-white">Check Your Email</h2>
+                  <p className="text-white/70">We've sent a verification link to</p>
+                  <p className="mt-1 font-semibold text-emerald-400">{email}</p>
                 </div>
 
-                <div className="rounded-xl bg-gray-50 p-4 text-left">
-                  <h3 className="mb-2 font-medium text-gray-900">Next Steps:</h3>
-                  <ol className="space-y-2 text-sm text-gray-600">
+                <div className="rounded-xl bg-white/[0.06] backdrop-blur-sm border border-white/10 p-4 text-left">
+                  <h3 className="mb-2 font-medium text-white">Next Steps:</h3>
+                  <ol className="space-y-2 text-sm text-white/70">
                     <li className="flex items-start gap-2">
-                      <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-emerald-100 text-xs font-medium text-emerald-600">
+                      <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-white/10 text-xs font-medium text-emerald-400">
                         1
                       </span>
                       Check your email inbox (and spam folder)
                     </li>
                     <li className="flex items-start gap-2">
-                      <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-emerald-100 text-xs font-medium text-emerald-600">
+                      <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-white/10 text-xs font-medium text-emerald-400">
                         2
                       </span>
                       Click the verification link in the email
                     </li>
                     <li className="flex items-start gap-2">
-                      <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-emerald-100 text-xs font-medium text-emerald-600">
+                      <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-white/10 text-xs font-medium text-emerald-400">
                         3
                       </span>
                       Log in to access your patient portal
@@ -904,17 +950,18 @@ export default function RegisterPage() {
                   </ol>
                 </div>
 
-                <p className="text-xs text-gray-500">The verification link expires in 24 hours</p>
+                <p className="text-xs text-white/50">The verification link expires in 24 hours</p>
 
                 <Link
                   href="/login"
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 px-4 py-3 font-semibold text-white transition-colors hover:from-emerald-700 hover:to-teal-700"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-3 font-semibold text-white transition-all hover:opacity-90"
+                  style={{ background: darkButtonGradient }}
                 >
                   Go to Login
                   <ArrowRight className="h-5 w-5" />
                 </Link>
 
-                <p className="text-sm text-gray-600">
+                <p className="text-sm text-white/70">
                   Didn't receive the email?{' '}
                   <button
                     type="button"
@@ -934,7 +981,7 @@ export default function RegisterPage() {
                       }
                     }}
                     disabled={loading}
-                    className="font-medium text-emerald-600 hover:text-emerald-700"
+                    className="font-medium text-emerald-400 hover:text-emerald-300"
                   >
                     Resend verification email
                   </button>
@@ -944,9 +991,24 @@ export default function RegisterPage() {
           </div>
         </div>
 
-        {/* Footer */}
-        <div className="p-6 text-center">
-          <p className="text-xs text-gray-500">HIPAA Compliant Healthcare Platform • © 2026 EONPro</p>
+        <div className="mt-8 p-6 text-center">
+          <div className="mb-3 flex items-center justify-center gap-6 text-white/35">
+            <span className="flex items-center gap-1.5 text-xs">
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
+              Encrypted
+            </span>
+            <span className="flex items-center gap-1.5 text-xs">
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></svg>
+              HIPAA Compliant
+            </span>
+            <span className="flex items-center gap-1.5 text-xs">
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>
+              SOC 2
+            </span>
+          </div>
+          <p className="text-xs text-white/30">
+            eonpro.io &nbsp;•&nbsp; © All Rights Reserved 2026 EONPro
+          </p>
         </div>
       </div>
     </div>
