@@ -393,6 +393,7 @@ function ProcessPaymentFormContent({ patientId, patientName, clinicSubdomain, on
             body: JSON.stringify({
               paymentIntentId: data.paymentIntentId,
               stripePaymentMethodId: paymentIntent?.payment_method,
+              localPaymentMethodId: data.localPaymentMethodId ?? undefined,
             }),
           });
 
@@ -423,6 +424,7 @@ function ProcessPaymentFormContent({ patientId, patientName, clinicSubdomain, on
             body: JSON.stringify({
               paymentIntentId: data.paymentIntentId,
               stripePaymentMethodId: paymentIntent?.payment_method,
+              localPaymentMethodId: data.localPaymentMethodId ?? undefined,
             }),
           });
 

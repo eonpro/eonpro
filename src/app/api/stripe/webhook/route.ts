@@ -779,6 +779,110 @@ async function processWebhookEvent(
           };
         }
 
+        // PaymentIntents created by the Process Payment form (process/confirm routes)
+        // include metadata.paymentId. Those routes handle their own invoice creation,
+        // so the webhook must only update the payment status — calling processStripePayment
+        // would create a duplicate payment + invoice record (race condition).
+        const isProcessFormPayment = !!paymentIntent.metadata?.paymentId;
+        if (isProcessFormPayment) {
+          logger.info('[STRIPE WEBHOOK] PaymentIntent from Process Payment form — updating status only', {
+            eventId: event.id,
+            paymentIntentId: paymentIntent.id,
+            paymentId: paymentIntent.metadata.paymentId,
+          });
+          try {
+            await StripePaymentService.updatePaymentFromIntent(paymentIntent);
+          } catch (updateErr) {
+            logger.error('[STRIPE WEBHOOK] Failed to update process-form payment from intent', {
+              eventId: event.id,
+              paymentIntentId: paymentIntent.id,
+              error: updateErr instanceof Error ? updateErr.message : 'Unknown error',
+            });
+          }
+
+          // Still process commissions for the matched patient
+          let commissionResult = null;
+          const rawPaymentId = parseInt(paymentIntent.metadata.paymentId, 10);
+          const rawPatientId = paymentIntent.metadata.patientId
+            ? parseInt(paymentIntent.metadata.patientId, 10)
+            : NaN;
+          if (!Number.isNaN(rawPatientId) && rawPatientId > 0) {
+            const patientForComm = await prisma.patient.findUnique({
+              where: { id: rawPatientId },
+              select: { id: true, clinicId: true },
+            });
+            if (patientForComm?.clinicId && processPaymentForCommission) {
+              try {
+                const isFirstPayment = checkIfFirstPayment
+                  ? await checkIfFirstPayment(patientForComm.id, paymentIntent.id)
+                  : true;
+                commissionResult = await processPaymentForCommission({
+                  clinicId: patientForComm.clinicId,
+                  patientId: patientForComm.id,
+                  stripeEventId: event.id,
+                  stripeObjectId: paymentIntent.id,
+                  stripeEventType: event.type,
+                  amountCents: paymentIntent.amount,
+                  occurredAt: new Date(paymentIntent.created * 1000),
+                  isFirstPayment,
+                });
+              } catch (e) {
+                logger.warn('[STRIPE WEBHOOK] Failed to process commission for process-form payment', {
+                  error: e instanceof Error ? e.message : 'Unknown error',
+                  patientId: patientForComm.id,
+                });
+              }
+            }
+            if (patientForComm?.clinicId && processPaymentForSalesRepCommission) {
+              try {
+                const isFirst = checkIfFirstPaymentForSalesRep
+                  ? await checkIfFirstPaymentForSalesRep(patientForComm.id, paymentIntent.id)
+                  : true;
+                await processPaymentForSalesRepCommission({
+                  clinicId: patientForComm.clinicId,
+                  patientId: patientForComm.id,
+                  stripeEventId: event.id,
+                  stripeObjectId: paymentIntent.id,
+                  stripeEventType: event.type,
+                  amountCents: paymentIntent.amount,
+                  occurredAt: new Date(paymentIntent.created * 1000),
+                  isFirstPayment: isFirst,
+                });
+              } catch (e) {
+                logger.warn('[STRIPE WEBHOOK] Failed to process sales rep commission for process-form payment', {
+                  error: e instanceof Error ? e.message : 'Unknown error',
+                  patientId: patientForComm.id,
+                });
+              }
+            }
+
+            if (patientForComm?.clinicId && autoMatchPendingRefillsForPatient) {
+              try {
+                await autoMatchPendingRefillsForPatient(
+                  patientForComm.id,
+                  patientForComm.clinicId,
+                  paymentIntent.id,
+                );
+              } catch (e) {
+                logger.warn('[STRIPE WEBHOOK] Failed to auto-match refills for process-form payment', {
+                  error: e instanceof Error ? e.message : 'Unknown error',
+                  patientId: patientForComm.id,
+                });
+              }
+            }
+          }
+
+          return {
+            success: true,
+            details: {
+              paymentIntentId: paymentIntent.id,
+              processFormPayment: true,
+              paymentId: rawPaymentId,
+              commissionCreated: commissionResult?.commissionEventId ? true : false,
+            },
+          };
+        }
+
         const intentPaymentData = await extractPaymentDataFromPaymentIntent(paymentIntent);
         if (resolvedClinicId > 0 && !intentPaymentData.metadata?.clinicId) {
           intentPaymentData.metadata = { ...intentPaymentData.metadata, clinicId: String(resolvedClinicId) };

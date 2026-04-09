@@ -909,7 +909,7 @@ export async function createPaidInvoiceFromStripe(
     }
   }
 
-  // Check if invoice already exists for this payment intent
+  // Check if a payment record already exists for this PaymentIntent
   if (paymentData.paymentIntentId) {
     const existingPayment = await prisma.payment.findUnique({
       where: { stripePaymentIntentId: paymentData.paymentIntentId },
@@ -921,6 +921,58 @@ export async function createPaidInvoiceFromStripe(
         invoiceId: existingPayment.invoice.id,
       });
       return existingPayment.invoice;
+    }
+    if (existingPayment) {
+      // A payment record exists without an invoice — this happens when the Process
+      // Payment form created the PENDING record and the webhook fires before the
+      // invoice is created by createInvoiceForProcessedPayment. Create the invoice
+      // and link it to the existing payment rather than creating a duplicate.
+      logger.info('[PaymentMatching] Payment exists without invoice — creating invoice and linking to existing payment', {
+        paymentId: existingPayment.id,
+        paymentIntentId: paymentData.paymentIntentId,
+        status: existingPayment.status,
+      });
+
+      const desc = paymentData.description || 'Payment received via Stripe';
+      const li = paymentData.lineItemDetails && paymentData.lineItemDetails.length > 0
+        ? paymentData.lineItemDetails.map((l) => ({
+            description: l.description,
+            product: l.productName || l.description,
+            amount: l.amount,
+            quantity: l.quantity,
+          }))
+        : [{ description: desc, amount: paymentData.amount, quantity: 1 }];
+
+      const linked = await prisma.$transaction(async (tx) => {
+        const inv = await tx.invoice.create({
+          data: {
+            patientId: patient.id,
+            clinicId: patient.clinicId,
+            stripeInvoiceId: paymentData.stripeInvoiceId,
+            description: desc,
+            amount: paymentData.amount,
+            amountDue: 0,
+            amountPaid: paymentData.amount,
+            currency: paymentData.currency || 'usd',
+            status: 'PAID' as InvoiceStatus,
+            paidAt: paymentData.paidAt,
+            lineItems: li as any,
+            metadata: {
+              source: 'stripe_webhook_linked',
+              paymentIntentId: paymentData.paymentIntentId,
+              chargeId: paymentData.chargeId,
+              stripeMetadata: paymentData.metadata,
+            } as any,
+          },
+        });
+        await tx.payment.update({
+          where: { id: existingPayment.id },
+          data: { invoiceId: inv.id },
+        });
+        return inv;
+      }, { timeout: 15000 });
+
+      return linked;
     }
   }
 

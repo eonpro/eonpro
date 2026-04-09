@@ -364,6 +364,14 @@ async function handlePost(request: NextRequest, _user: AuthUser) {
         return NextResponse.json({ error: errMsg }, { status: 402 });
       }
 
+      // Link the PaymentIntent to the pending payment immediately so the
+      // Stripe webhook (which may arrive within milliseconds) can find it via
+      // stripePaymentIntentId instead of creating a duplicate payment record.
+      await prisma.payment.update({
+        where: { id: pendingPayment.id },
+        data: { stripePaymentIntentId: paymentIntent.id },
+      });
+
       // Map Stripe status
       const stripeStatus = paymentIntent.status === 'succeeded'
         ? PaymentStatus.SUCCEEDED
@@ -382,7 +390,6 @@ async function handlePost(request: NextRequest, _user: AuthUser) {
             where: { id: pendingPayment.id },
             data: {
               status: stripeStatus,
-              stripePaymentIntentId: paymentIntent.id,
               stripeChargeId: paymentIntent.latest_charge?.toString(),
             },
           });

@@ -105,13 +105,32 @@ async function handlePost(request: NextRequest, _user: AuthUser) {
       return NextResponse.json({ error: 'paymentIntentId is required' }, { status: 400 });
     }
 
-    const pendingPayment = await prisma.payment.findFirst({
-      where: { stripePaymentIntentId: paymentIntentId, status: PaymentStatus.PENDING },
+    const existingPayment = await prisma.payment.findFirst({
+      where: { stripePaymentIntentId: paymentIntentId },
     });
 
-    if (!pendingPayment) {
-      return NextResponse.json({ error: 'Pending payment not found' }, { status: 404 });
+    if (!existingPayment) {
+      return NextResponse.json({ error: 'Payment not found' }, { status: 404 });
     }
+
+    // Idempotent: if the webhook already confirmed this payment, return success
+    if (existingPayment.status === PaymentStatus.SUCCEEDED) {
+      return NextResponse.json({
+        success: true,
+        payment: existingPayment,
+        subscriptionCreated: !!existingPayment.subscriptionId,
+        alreadyConfirmed: true,
+      });
+    }
+
+    if (existingPayment.status !== PaymentStatus.PENDING) {
+      return NextResponse.json(
+        { error: `Payment is ${existingPayment.status.toLowerCase()}, cannot confirm` },
+        { status: 409 },
+      );
+    }
+
+    const pendingPayment = existingPayment;
 
     const patient = await prisma.patient.findUnique({
       where: { id: pendingPayment.patientId },
@@ -138,45 +157,70 @@ async function handlePost(request: NextRequest, _user: AuthUser) {
     // Extract subscription data and line items stored by the process route
     const paymentMeta = (pendingPayment.metadata as Record<string, unknown>) || {};
     const subscription = paymentMeta.subscription as SubscriptionInfo | null;
-    const saveCard = paymentMeta.saveCard === true;
     const lineItems = paymentMeta.lineItems as Array<{ description: string; amount: number; planId?: string }> | undefined;
 
     let parsedLocalPmId = localPaymentMethodId ? parseInt(String(localPaymentMethodId)) : null;
 
-    // New-card flow: create local PaymentMethod from Stripe when user chose "save card"
-    if (stripePaymentMethodId && saveCard && !parsedLocalPmId) {
+    // Always persist card to the local PaymentMethod table when we have a
+    // stripePaymentMethodId and no local record yet. The PaymentIntent is created
+    // with setup_future_usage: 'off_session' so Stripe keeps the card regardless —
+    // we must keep our DB in sync so staff can see/reuse it.
+    if (stripePaymentMethodId && !parsedLocalPmId) {
       try {
-        const pm = await stripe.paymentMethods.retrieve(stripePaymentMethodId, {}, connectOpts as any);
-        const last4 = (pm as Stripe.PaymentMethod).card?.last4 ?? '????';
-        const brand = (pm as Stripe.PaymentMethod).card?.brand
-          ? String((pm as Stripe.PaymentMethod).card?.brand).charAt(0).toUpperCase() +
-            String((pm as Stripe.PaymentMethod).card?.brand).slice(1)
-          : 'Unknown';
-
-        const patientPaymentMethods = await prisma.paymentMethod.count({
-          where: { patientId: patient.id, isActive: true },
+        // Check if this Stripe PM already exists locally (e.g. from webhook race)
+        const existingPm = await prisma.paymentMethod.findFirst({
+          where: { stripePaymentMethodId, patientId: patient.id },
+          select: { id: true, isActive: true },
         });
 
-        const stripePm = pm as Stripe.PaymentMethod;
-        const created = await prisma.paymentMethod.create({
-          data: {
+        if (existingPm) {
+          if (!existingPm.isActive) {
+            await prisma.paymentMethod.update({
+              where: { id: existingPm.id },
+              data: { isActive: true, lastUsedAt: new Date() },
+            });
+          }
+          parsedLocalPmId = existingPm.id;
+        } else {
+          const pm = await stripe.paymentMethods.retrieve(stripePaymentMethodId, {}, connectOpts as any);
+          const last4 = (pm as Stripe.PaymentMethod).card?.last4 ?? '????';
+          const brand = (pm as Stripe.PaymentMethod).card?.brand
+            ? String((pm as Stripe.PaymentMethod).card?.brand).charAt(0).toUpperCase() +
+              String((pm as Stripe.PaymentMethod).card?.brand).slice(1)
+            : 'Unknown';
+
+          const patientPaymentMethods = await prisma.paymentMethod.count({
+            where: { patientId: patient.id, isActive: true },
+          });
+
+          const stripePm = pm as Stripe.PaymentMethod;
+          const created = await prisma.paymentMethod.create({
+            data: {
+              patientId: patient.id,
+              clinicId: patient.clinicId,
+              stripePaymentMethodId,
+              cardLast4: last4,
+              cardBrand: brand,
+              expiryMonth: stripePm.card?.exp_month,
+              expiryYear: stripePm.card?.exp_year,
+              cardholderName: stripePm.billing_details?.name ?? undefined,
+              billingZip: stripePm.billing_details?.address?.postal_code ?? undefined,
+              isDefault: patientPaymentMethods === 0,
+              isActive: true,
+              lastUsedAt: new Date(),
+            },
+          });
+          parsedLocalPmId = created.id;
+
+          logger.info('[PaymentConfirm] Saved card to local PaymentMethod', {
             patientId: patient.id,
-            clinicId: patient.clinicId,
+            paymentMethodId: created.id,
             stripePaymentMethodId,
-            cardLast4: last4,
-            cardBrand: brand,
-            expiryMonth: stripePm.card?.exp_month,
-            expiryYear: stripePm.card?.exp_year,
-            cardholderName: stripePm.billing_details?.name ?? undefined,
-            billingZip: stripePm.billing_details?.address?.postal_code ?? undefined,
-            isDefault: patientPaymentMethods === 0,
-            isActive: true,
-            lastUsedAt: new Date(),
-          },
-        });
-        parsedLocalPmId = created.id;
+          });
+        }
       } catch (createErr) {
-        logger.warn('[PaymentConfirm] Failed to create local PM from Stripe (non-blocking)', {
+        logger.error('[PaymentConfirm] Failed to persist card to PaymentMethod table', {
+          patientId: patient.id,
           stripePaymentMethodId,
           error: createErr instanceof Error ? createErr.message : String(createErr),
         });

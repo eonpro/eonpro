@@ -9,7 +9,7 @@
  *
  * Idempotent: skips subscriptions that already have an Invoice by stripeSubscriptionId.
  *
- * Vercel Cron: every 10 minutes
+ * Vercel Cron: every 3 hours
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -36,7 +36,7 @@ const ADDON_PRICE_IDS = [
 ];
 
 // Reconcile only recent paid sales to avoid generating stale historical queue items.
-// This cron runs every 10 minutes, so a 48h window provides ample retry margin
+// This cron runs every 3 hours, so a 48h window provides ample retry margin
 // for webhook timing gaps without replaying old subscription cycles.
 const RECENT_SALE_WINDOW_MS = 48 * 60 * 60 * 1000;
 const ALERT_SAMPLE_LIMIT = 10;

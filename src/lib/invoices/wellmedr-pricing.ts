@@ -10,17 +10,17 @@
  *  - Overnight shipping:  +$20 (on any order)
  *
  * Prescription medical services:
- *  - New patient cycle: $20 (first Rx or first after 90+ days)
- *  - Refill within 90 days of the last $20: $3
+ *  - New patient cycle: $10 (first Rx or first after 90+ days)
+ *  - Refill within 90 days of the last $10: $3
  */
 
 export const WELLMEDR_CLINIC_SUBDOMAIN = 'wellmedr';
 
-export const PRESCRIPTION_SERVICE_FEE_CENTS = 2000; // $20 per new prescription (cycle start)
+export const PRESCRIPTION_SERVICE_FEE_CENTS = 1000; // $10 per new prescription (cycle start)
 
 export const PRESCRIPTION_SERVICE_REFILL_FEE_CENTS = 300; // $3 per refill within 90-day cycle
 
-export const PRESCRIPTION_SERVICE_CYCLE_DAYS = 90; // Days before a new $20 charge resets
+export const PRESCRIPTION_SERVICE_CYCLE_DAYS = 90; // Days before a new $10 charge resets
 
 export const SINGLE_VIAL_SHIPPING_FEE_CENTS = 1500; // $15 when only 1 vial in the order
 
@@ -43,9 +43,9 @@ export const WELLMEDR_PRODUCT_PRICES: WellmedrProductPrice[] = [
   { productId: 203448972, name: 'TIRZEPATIDE/GLYCINE', strength: '10/20MG/ML', vialSize: '1ML', priceCents: 5200 },
   { productId: 203448973, name: 'TIRZEPATIDE/GLYCINE', strength: '10/20MG/ML', vialSize: '2ML', priceCents: 6200 },
   { productId: 203449364, name: 'TIRZEPATIDE/GLYCINE', strength: '10/20MG/ML', vialSize: '3ML', priceCents: 7000 },
-  { productId: 203449500, name: 'TIRZEPATIDE/GLYCINE', strength: '10/20MG/ML', vialSize: '4ML', priceCents: 8000 },
+  { productId: 203449500, name: 'TIRZEPATIDE/GLYCINE', strength: '10/20MG/ML', vialSize: '4ML', priceCents: 7500 },
   // TIRZEPATIDE/GLYCINE 30/20MG/ML
-  { productId: 203418602, name: 'TIRZEPATIDE/GLYCINE', strength: '30/20MG/ML', vialSize: '2ML', priceCents: 10500 },
+  { productId: 203418602, name: 'TIRZEPATIDE/GLYCINE', strength: '30/20MG/ML', vialSize: '2ML', priceCents: 9000 },
   // SEMAGLUTIDE/GLYCINE 2.5/20MG/ML
   { productId: 203448971, name: 'SEMAGLUTIDE/GLYCINE', strength: '2.5/20MG/ML', vialSize: '1ML', priceCents: 3500 },
   { productId: 203448947, name: 'SEMAGLUTIDE/GLYCINE', strength: '2.5/20MG/ML', vialSize: '2ML', priceCents: 4000 },
@@ -53,9 +53,9 @@ export const WELLMEDR_PRODUCT_PRICES: WellmedrProductPrice[] = [
   // SEMAGLUTIDE/GLYCINE 5/20MG/ML
   { productId: 202851329, name: 'SEMAGLUTIDE/GLYCINE', strength: '5/20MG/ML', vialSize: '2ML', priceCents: 5000 },
   // ADD-ON PRODUCTS
-  { productId: 203194055, name: 'NAD+', strength: '100mg/mL', vialSize: '10mL', priceCents: 4500 },
-  { productId: 204754029, name: 'NAD+', strength: '100mg/mL', vialSize: '5mL', priceCents: 4500 },
-  { productId: 203666651, name: 'SERMORELIN ACETATE', strength: '2MG/ML', vialSize: '5ML', priceCents: 5000 },
+  { productId: 203194055, name: 'NAD+', strength: '100mg/mL', vialSize: '10mL', priceCents: 4000 },
+  { productId: 204754029, name: 'NAD+', strength: '100mg/mL', vialSize: '5mL', priceCents: 4000 },
+  { productId: 203666651, name: 'SERMORELIN ACETATE', strength: '2MG/ML', vialSize: '5ML', priceCents: 4500 },
   { productId: 203449111, name: 'Cyanocobalamin (B12)', strength: '1000mcg/mL', vialSize: '1mL', priceCents: 2000 },
 ];
 
@@ -92,13 +92,13 @@ export const ADDON_PHARMACY_FEES: Record<AddonKey, WellmedrAddonFee> = {
   nad_plus: {
     key: 'nad_plus',
     name: 'NAD+',
-    pharmacyFeeCents: 4500, // $45
+    pharmacyFeeCents: 4000, // $40
     prescriptionUpchargeCents: 500, // $5
   },
   sermorelin: {
     key: 'sermorelin',
     name: 'Sermorelin',
-    pharmacyFeeCents: 5000, // $50
+    pharmacyFeeCents: 4500, // $45
     prescriptionUpchargeCents: 500, // $5
   },
   b12: {
@@ -110,7 +110,7 @@ export const ADDON_PHARMACY_FEES: Record<AddonKey, WellmedrAddonFee> = {
   elite_bundle: {
     key: 'elite_bundle',
     name: 'Elite Bundle (NAD+, Sermorelin, B12)',
-    pharmacyFeeCents: 11500, // $115 ($45 + $50 + $20)
+    pharmacyFeeCents: 10500, // $105 ($40 + $45 + $20)
     prescriptionUpchargeCents: 500, // $5
   },
 };
