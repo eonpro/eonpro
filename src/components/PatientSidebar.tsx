@@ -844,7 +844,7 @@ export default function PatientSidebar({
             )}
           </div>
 
-          {(activeMembership || affiliateAttribution || affiliateCode) && (
+          {(activeMembership || affiliateAttribution || affiliateCode || currentSalesRep) && (
             <div className="flex flex-wrap items-center gap-1.5 border-t border-gray-100 px-3.5 py-2.5">
               {activeMembership && (
                 <span
@@ -860,6 +860,11 @@ export default function PatientSidebar({
               {(affiliateAttribution || affiliateCode) && (
                 <span className="inline-flex items-center rounded-full bg-violet-50 px-2.5 py-1 text-xs font-semibold text-violet-700">
                   Affiliate{affiliateAttribution?.refCode ? `: ${affiliateAttribution.refCode}` : affiliateCode ? `: ${affiliateCode}` : ''}
+                </span>
+              )}
+              {currentSalesRep && (
+                <span className="inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
+                  Rep: {currentSalesRep.firstName} {currentSalesRep.lastName}
                 </span>
               )}
             </div>
