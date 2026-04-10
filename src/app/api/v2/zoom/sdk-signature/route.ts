@@ -10,7 +10,7 @@
 
 import { type NextRequest, NextResponse } from 'next/server';
 
-import { SignJWT } from 'jose';
+import jwt from 'jsonwebtoken';
 import { z } from 'zod';
 
 import { withProviderAuth, type AuthUser } from '@/lib/auth/middleware';
@@ -22,7 +22,7 @@ import { prisma } from '@/lib/db';
 
 const signatureSchema = z.object({
   meetingNumber: z.union([z.string(), z.number()]).transform(String),
-  role: z.union([z.literal(0), z.literal(1)]).default(1),
+  role: z.union([z.literal(0), z.literal(1)]).default(0),
 });
 
 async function fetchZakToken(): Promise<string | null> {
@@ -67,7 +67,7 @@ export const POST = withProviderAuth(async (req: NextRequest, user: AuthUser) =>
       );
     }
 
-    const { meetingNumber, role } = parsed.data;
+    let { meetingNumber, role } = parsed.data;
 
     const session = await prisma.telehealthSession.findFirst({
       where: {
@@ -77,38 +77,38 @@ export const POST = withProviderAuth(async (req: NextRequest, user: AuthUser) =>
       select: { id: true, patientId: true, appointmentId: true },
     });
 
-    if (!session && role === 1) {
-      logger.warn('[ZOOM_SDK] Provider not associated with meeting', {
-        userId: user.id,
-        meetingNumber,
-      });
-      return NextResponse.json(
-        { error: 'You are not the host of this meeting' },
-        { status: 403 }
-      );
-    }
-
-    const iat = Math.floor(Date.now() / 1000) - 30;
-    const exp = iat + 60 * 30;
-
-    const secret = new TextEncoder().encode(sdkSecret);
-    const signature = await new SignJWT({
-      appKey: sdkKey,
-      mn: meetingNumber,
-      role,
-      iat,
-      exp,
-      tokenExp: exp,
-    })
-      .setProtectedHeader({ alg: 'HS256', typ: 'JWT' })
-      .setIssuedAt(iat)
-      .setExpirationTime(exp)
-      .sign(secret);
-
     let zak: string | null = null;
     if (role === 1) {
-      zak = await fetchZakToken();
+      if (!session) {
+        role = 0;
+      } else {
+        zak = await fetchZakToken();
+        if (!zak) {
+          logger.warn('[ZOOM_SDK] ZAK unavailable, falling back to role 0', {
+            userId: user.id,
+            meetingNumber,
+          });
+          role = 0;
+        }
+      }
     }
+
+    const iat = Math.round(Date.now() / 1000) - 30;
+    const exp = iat + 60 * 60 * 2;
+
+    const signature = jwt.sign(
+      {
+        sdkKey,
+        appKey: sdkKey,
+        mn: meetingNumber,
+        role,
+        iat,
+        exp,
+        tokenExp: exp,
+      },
+      sdkSecret,
+      { header: { alg: 'HS256', typ: 'JWT' } },
+    );
 
     logger.info('[ZOOM_SDK] Signature generated', {
       userId: user.id,
@@ -135,7 +135,12 @@ export const POST = withProviderAuth(async (req: NextRequest, user: AuthUser) =>
       });
     });
 
-    return NextResponse.json({ signature, sdkKey, ...(zak ? { zak } : {}) });
+    return NextResponse.json({
+      signature,
+      sdkKey,
+      role,
+      ...(zak ? { zak } : {}),
+    });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('[ZOOM_SDK] Signature generation failed', {

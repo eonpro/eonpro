@@ -74,12 +74,24 @@ export const GET = withAuthParams(async (req: NextRequest, user: any, context: R
       return tenantNotFoundResponse();
     }
 
+    // Deduplicate by tracking number, keeping the most recently updated record
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const deduped = new Map<string, any>();
+    for (const update of shippingUpdates as any[]) {
+      const key = update.trackingNumber;
+      const existing = deduped.get(key);
+      if (!existing || new Date(update.updatedAt) > new Date(existing.updatedAt)) {
+        deduped.set(key, update);
+      }
+    }
+    const uniqueUpdates = Array.from(deduped.values());
+
     return NextResponse.json({
       success: true,
       patientId,
-      count: shippingUpdates.length,
+      count: uniqueUpdates.length,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      shippingUpdates: shippingUpdates.map((update: any) => ({
+      shippingUpdates: uniqueUpdates.map((update: any) => ({
         id: update.id,
         trackingNumber: update.trackingNumber,
         carrier: update.carrier,

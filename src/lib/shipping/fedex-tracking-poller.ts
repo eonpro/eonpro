@@ -67,7 +67,7 @@ export async function pollActiveFedExShipments(): Promise<PollerResult> {
     orderBy: { updatedAt: 'asc' },
   });
 
-  const coveredTrackingNumbers = new Set(activeShipments.map((s) => s.trackingNumber));
+  const activeTrackingNumbers = new Set(activeShipments.map((s) => s.trackingNumber));
 
   // Source 2: Orders with FedEx tracking numbers that have no PatientShippingUpdate
   const ordersWithFedExTracking = await basePrisma.order.findMany({
@@ -87,6 +87,24 @@ export async function pollActiveFedExShipments(): Promise<PollerResult> {
     take: 200,
     orderBy: { updatedAt: 'asc' },
   });
+
+  // Build full coverage set including terminal records to prevent re-backfilling
+  // delivered shipments that the active query excludes
+  const candidateTrackingNumbers = ordersWithFedExTracking
+    .map((o) => o.trackingNumber)
+    .filter((tn): tn is string => tn != null && isFedExTrackingNumber(tn));
+
+  const allExistingRecords = candidateTrackingNumbers.length > 0
+    ? await basePrisma.patientShippingUpdate.findMany({
+        where: { trackingNumber: { in: candidateTrackingNumbers } },
+        select: { trackingNumber: true },
+        distinct: ['trackingNumber'],
+      })
+    : [];
+
+  const coveredTrackingNumbers = new Set(
+    Array.from(activeTrackingNumbers).concat(allExistingRecords.map((r) => r.trackingNumber))
+  );
 
   const bareOrders: BareOrder[] = ordersWithFedExTracking.filter(
     (o) =>
@@ -234,40 +252,61 @@ export async function pollActiveFedExShipments(): Promise<PollerResult> {
       }
     }
 
-    // Backfill PatientShippingUpdate for bare Orders
+    // Backfill PatientShippingUpdate for bare Orders (findFirst to prevent duplicates)
     for (const order of clinicBareOrders) {
       const result = results.get(order.trackingNumber);
       if (!result) continue;
 
       try {
-        await basePrisma.patientShippingUpdate.create({
-          data: {
+        const existing = await basePrisma.patientShippingUpdate.findFirst({
+          where: {
             clinicId,
             patientId: order.patientId,
-            orderId: order.id,
             trackingNumber: order.trackingNumber,
-            carrier: 'FedEx',
-            trackingUrl: `https://www.fedex.com/fedextrack/?trknbr=${order.trackingNumber}`,
-            status: result.status,
-            statusNote: result.statusDetail || result.statusDescription,
-            estimatedDelivery: result.estimatedDelivery,
-            actualDelivery: result.actualDelivery,
-            shippedAt: new Date(),
-            medicationName: order.primaryMedName,
-            medicationStrength: order.primaryMedStrength,
-            source: 'fedex_tracking_sync',
-            matchedAt: new Date(),
-            matchStrategy: 'order_tracking_number',
-            processedAt: new Date(),
           },
+          select: { id: true },
         });
+
+        if (existing) {
+          await basePrisma.patientShippingUpdate.update({
+            where: { id: existing.id },
+            data: {
+              status: result.status,
+              statusNote: result.statusDetail || result.statusDescription,
+              estimatedDelivery: result.estimatedDelivery,
+              actualDelivery: result.actualDelivery,
+            },
+          });
+        } else {
+          await basePrisma.patientShippingUpdate.create({
+            data: {
+              clinicId,
+              patientId: order.patientId,
+              orderId: order.id,
+              trackingNumber: order.trackingNumber,
+              carrier: 'FedEx',
+              trackingUrl: `https://www.fedex.com/fedextrack/?trknbr=${order.trackingNumber}`,
+              status: result.status,
+              statusNote: result.statusDetail || result.statusDescription,
+              estimatedDelivery: result.estimatedDelivery,
+              actualDelivery: result.actualDelivery,
+              shippedAt: new Date(),
+              medicationName: order.primaryMedName,
+              medicationStrength: order.primaryMedStrength,
+              source: 'fedex_tracking_sync',
+              matchedAt: new Date(),
+              matchStrategy: 'order_tracking_number',
+              processedAt: new Date(),
+            },
+          });
+          totalBackfilled++;
+        }
 
         await basePrisma.order.update({
           where: { id: order.id },
           data: { shippingStatus: result.status, lastWebhookAt: new Date() },
         });
 
-        totalBackfilled++;
         totalUpdated++;
         if (result.status === 'DELIVERED') totalDelivered++;
       } catch (err) {

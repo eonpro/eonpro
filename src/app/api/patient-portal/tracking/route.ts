@@ -203,33 +203,55 @@ async function refreshFedExTrackingForPatient(
     }
 
     // For bare Orders (no PatientShippingUpdate yet): create one so the
-    // tracking data is normalized and future refreshes pick it up
+    // tracking data is normalized and future refreshes pick it up.
+    // Uses findFirst to prevent duplicate records.
     for (const order of bareOrders) {
       const result = results.get(order.trackingNumber!);
       if (!result) continue;
 
       try {
-        await basePrisma.patientShippingUpdate.create({
-          data: {
+        const existing = await basePrisma.patientShippingUpdate.findFirst({
+          where: {
             clinicId,
             patientId,
-            orderId: order.id,
             trackingNumber: order.trackingNumber!,
-            carrier: 'FedEx',
-            trackingUrl: `https://www.fedex.com/fedextrack/?trknbr=${order.trackingNumber}`,
-            status: result.status,
-            statusNote: result.statusDetail || result.statusDescription,
-            estimatedDelivery: result.estimatedDelivery,
-            actualDelivery: result.actualDelivery,
-            shippedAt: new Date(),
-            medicationName: order.primaryMedName,
-            medicationStrength: order.primaryMedStrength,
-            source: 'fedex_tracking_sync',
-            matchedAt: new Date(),
-            matchStrategy: 'order_tracking_number',
-            processedAt: new Date(),
           },
+          select: { id: true },
         });
+
+        if (existing) {
+          await basePrisma.patientShippingUpdate.update({
+            where: { id: existing.id },
+            data: {
+              status: result.status,
+              statusNote: result.statusDetail || result.statusDescription,
+              estimatedDelivery: result.estimatedDelivery,
+              actualDelivery: result.actualDelivery,
+            },
+          });
+        } else {
+          await basePrisma.patientShippingUpdate.create({
+            data: {
+              clinicId,
+              patientId,
+              orderId: order.id,
+              trackingNumber: order.trackingNumber!,
+              carrier: 'FedEx',
+              trackingUrl: `https://www.fedex.com/fedextrack/?trknbr=${order.trackingNumber}`,
+              status: result.status,
+              statusNote: result.statusDetail || result.statusDescription,
+              estimatedDelivery: result.estimatedDelivery,
+              actualDelivery: result.actualDelivery,
+              shippedAt: new Date(),
+              medicationName: order.primaryMedName,
+              medicationStrength: order.primaryMedStrength,
+              source: 'fedex_tracking_sync',
+              matchedAt: new Date(),
+              matchStrategy: 'order_tracking_number',
+              processedAt: new Date(),
+            },
+          });
+        }
 
         await basePrisma.order.update({
           where: { id: order.id },

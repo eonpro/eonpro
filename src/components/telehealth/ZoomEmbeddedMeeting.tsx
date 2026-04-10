@@ -201,7 +201,7 @@ export default function ZoomEmbeddedMeeting({
         const sigRes = await apiFetch('/api/v2/zoom/sdk-signature', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ meetingNumber, role: 1 }),
+          body: JSON.stringify({ meetingNumber, role: 0 }),
         });
 
         if (!sigRes.ok) {
@@ -213,11 +213,11 @@ export default function ZoomEmbeddedMeeting({
         if (cancelled || !mountedRef.current) return;
 
         await client.join({
+          sdkKey,
           signature,
           meetingNumber,
           password,
           userName,
-          sdkKey,
           ...(zak ? { zak } : {}),
         });
 

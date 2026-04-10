@@ -229,27 +229,49 @@ async function processShippingUpdate(
     source: 'lifefile-inbound:shipping_update',
   });
 
-  // Create shipping update record (clinicId and carrier required; status must be enum)
+  // Create or update shipping update record (findFirst to prevent duplicates)
   if (order.clinicId != null && trackingNumber) {
     try {
-      await prisma.patientShippingUpdate.create({
-        data: {
-          clinicId: order.clinicId,
-          patientId: order.patientId,
-          orderId: order.id,
-          trackingNumber,
-          carrier: deliveryService && String(deliveryService).trim() ? String(deliveryService) : 'Unknown',
-          status: mapToShippingStatusEnum(status),
-          estimatedDelivery: estimatedDelivery ? new Date(estimatedDelivery) : null,
-          trackingUrl: trackingUrl || null,
-          rawPayload: payload as object,
-          shippedAt: shippedAt ? new Date(shippedAt) : null,
-          actualDelivery: deliveredAt ? new Date(deliveredAt) : null,
-          lifefileOrderId: lifefileOrderId || null,
-        },
-      });
+      const existingShipping = order.patientId
+        ? await prisma.patientShippingUpdate.findFirst({
+            where: {
+              clinicId: order.clinicId,
+              patientId: order.patientId,
+              trackingNumber,
+            },
+            select: { id: true },
+          })
+        : null;
+
+      const shippingData = {
+        carrier: deliveryService && String(deliveryService).trim() ? String(deliveryService) : 'Unknown',
+        status: mapToShippingStatusEnum(status),
+        estimatedDelivery: estimatedDelivery ? new Date(estimatedDelivery) : null,
+        trackingUrl: trackingUrl || null,
+        rawPayload: payload as object,
+        shippedAt: shippedAt ? new Date(shippedAt) : null,
+        actualDelivery: deliveredAt ? new Date(deliveredAt) : null,
+        lifefileOrderId: lifefileOrderId || null,
+      };
+
+      if (existingShipping) {
+        await prisma.patientShippingUpdate.update({
+          where: { id: existingShipping.id },
+          data: shippingData,
+        });
+      } else {
+        await prisma.patientShippingUpdate.create({
+          data: {
+            clinicId: order.clinicId,
+            patientId: order.patientId,
+            orderId: order.id,
+            trackingNumber,
+            ...shippingData,
+          },
+        });
+      }
     } catch (createErr: unknown) {
-      logger.warn('[LIFEFILE INBOUND] Failed to create PatientShippingUpdate (order still updated)', {
+      logger.warn('[LIFEFILE INBOUND] Failed to create/update PatientShippingUpdate (order still updated)', {
         orderId: order.id,
         error: createErr instanceof Error ? createErr.message : String(createErr),
       });
