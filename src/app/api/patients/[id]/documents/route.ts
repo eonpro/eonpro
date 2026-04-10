@@ -170,7 +170,7 @@ export const POST = withAuthParams(
         logger.error('Documents upload: formData parse failed', { userId: user?.id, error: msg });
         return NextResponse.json(
           {
-            error: 'Invalid upload. Try a smaller file or use the Lab tab for Quest PDFs.',
+            error: 'Invalid upload. The file may be too large or in an unsupported format.',
             code: 'BAD_REQUEST',
           },
           { status: 400 }
@@ -344,7 +344,6 @@ export const POST = withAuthParams(
         error: errorMessage,
         ...(process.env.NODE_ENV === 'development' && { stack: error instanceof Error ? error.stack : undefined }),
       });
-      // Storage/S3 failures: return 503 and point users to Lab tab for lab PDFs
       const isStorageError =
         /storage|S3|upload failed|not configured|credentials|bucket|Failed to upload file/i.test(
           errorMessage
@@ -358,7 +357,7 @@ export const POST = withAuthParams(
         awsCode?: string;
       } = {
         error: isStorageError
-          ? 'Document storage is temporarily unavailable. For lab results, use the Lab tab and upload a Quest PDF there.'
+          ? 'Document storage is temporarily unavailable. Please try again later.'
           : 'Upload failed. Please try again.',
       };
       if (isStorageError) {

@@ -144,9 +144,11 @@ export default function PatientDocumentsView({
         const data = await response.json().catch(() => ({}));
         const msg =
           data?.error ||
-          (response.status === 500
-            ? 'Server error. Use the Labs tab for lab PDFs.'
-            : `Upload failed (${response.status})`);
+          (response.status === 413
+            ? 'File is too large. Please try a smaller file (max 4.5 MB).'
+            : response.status === 500
+              ? 'Server error. Please try again.'
+              : `Upload failed (${response.status})`);
         throw new Error(msg);
       }
     } catch (error: unknown) {
@@ -156,11 +158,7 @@ export default function PatientDocumentsView({
       setUploadProgress(0);
       const message =
         error instanceof Error ? error.message : 'Failed to upload documents. Please try again.';
-      const labHint =
-        message.includes('Labs') || message.includes('Lab tab')
-          ? ''
-          : '\n\nFor lab results (Quest PDFs), use the Labs tab in the patient sidebar.';
-      alert(message + labHint);
+      alert(message);
     }
   };
 
@@ -271,12 +269,12 @@ export default function PatientDocumentsView({
   return (
     <div className="space-y-6">
       <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
-        <strong>ID pictures, insurance, consent forms,</strong> and similar documents go here.{' '}
-        <strong>Lab results (Quest PDFs):</strong> Use the{' '}
+        Upload ID pictures, insurance, consent forms, lab results, and other documents here.{' '}
+        <strong>Quest Diagnostics PDFs:</strong> Use the{' '}
         <Link href={`${patientBasePath}/${patientId}?tab=lab`} className="font-medium underline">
           Labs
         </Link>{' '}
-        tab to upload and view parsed bloodwork.
+        tab for auto-parsed bloodwork results.
       </div>
       {/* Upload Section */}
       <div className="rounded-lg bg-white p-6 shadow">
