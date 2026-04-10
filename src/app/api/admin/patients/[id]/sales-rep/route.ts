@@ -434,6 +434,6 @@ async function handleDelete(
   }
 }
 
-export const GET = withAuth(handleGet, { roles: ['super_admin', 'admin', 'sales_rep'] });
-export const POST = withAuth(handlePost, { roles: ['super_admin', 'admin', 'sales_rep'] });
-export const DELETE = withAuth(handleDelete, { roles: ['super_admin', 'admin'] });
+export const GET = withAuth(handleGet, { roles: ['super_admin', 'admin', 'provider', 'sales_rep'] });
+export const POST = withAuth(handlePost, { roles: ['super_admin', 'admin', 'provider', 'sales_rep'] });
+export const DELETE = withAuth(handleDelete, { roles: ['super_admin', 'admin', 'provider'] });

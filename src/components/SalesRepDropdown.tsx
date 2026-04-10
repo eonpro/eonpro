@@ -52,7 +52,7 @@ export default function SalesRepDropdown({
   }, [currentSalesRep?.id]);
 
   const normalizedRole = userRole?.toLowerCase();
-  const canEdit = ['admin', 'super_admin'].includes(normalizedRole);
+  const canEdit = ['admin', 'super_admin', 'provider'].includes(normalizedRole);
   const isSalesRep = normalizedRole === 'sales_rep';
   const isAlreadyAssignedToMe = isSalesRep && currentUserId != null && selectedRep?.id === currentUserId;
   const [selfAssigning, setSelfAssigning] = useState(false);
