@@ -111,7 +111,7 @@ export const ADDON_PHARMACY_FEES: Record<AddonKey, WellmedrAddonFee> = {
     key: 'elite_bundle',
     name: 'Elite Bundle (NAD+, Sermorelin, B12)',
     pharmacyFeeCents: 10500, // $105 ($40 + $45 + $20)
-    prescriptionUpchargeCents: 500, // $5
+    prescriptionUpchargeCents: 0,
   },
 };
 
