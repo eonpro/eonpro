@@ -136,15 +136,20 @@ jobs:
           DIRECT_DATABASE_URL: ${{ secrets.DIRECT_DATABASE_URL }}
         continue-on-error: true
           
-      - name: Resolve failed migrations
+      - name: Rebaseline migration history (one-time)
         run: |
-          echo "Checking for failed migrations..."
-          npx prisma migrate status || true
-          echo "Attempting to resolve any failed migrations..."
-          # Mark failed migrations as applied (they are idempotent)
-          npx prisma migrate resolve --applied "20260129_add_affiliate_competitions" 2>/dev/null || echo "Migration already resolved or does not exist"
-          npx prisma migrate resolve --applied "20260129_add_provider_status" 2>/dev/null || echo "Migration already resolved or does not exist"
-          npx prisma migrate resolve --applied "20260130_add_provider_routing_compensation" 2>/dev/null || echo "Migration already resolved or does not exist"
+          echo "Checking if migration history needs rebaselining..."
+          ROW_COUNT=$(npx prisma migrate status 2>&1 | grep -c "applied" || echo "0")
+          if [ "$ROW_COUNT" -gt 1 ]; then
+            echo "⚠️ Old migration history detected — rebaselining to single 0_baseline"
+            npx prisma db execute --stdin <<'SQL'
+            DELETE FROM "_prisma_migrations";
+SQL
+            npx prisma migrate resolve --applied "0_baseline"
+            echo "✅ Migration history rebaselined"
+          else
+            echo "✅ Migration history already baselined"
+          fi
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           DIRECT_DATABASE_URL: ${{ secrets.DIRECT_DATABASE_URL }}

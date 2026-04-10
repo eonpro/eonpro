@@ -25,7 +25,7 @@ export default [
       'build/**',
       'dist/**',
       '**/*.js',
-      '!eslint.config.mjs',
+      '**/*.mjs',
     ],
   },
 

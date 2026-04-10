@@ -1,1 +1,0 @@
-DROP INDEX IF EXISTS "Patient_clinicId_createdAt_idx"; DROP INDEX IF EXISTS "Patient_doseSpotPatientId_idx"; DROP INDEX IF EXISTS "Provider_doseSpotClinicianId_idx"; DROP INDEX IF EXISTS "Order_doseSpotPrescriptionId_idx";
