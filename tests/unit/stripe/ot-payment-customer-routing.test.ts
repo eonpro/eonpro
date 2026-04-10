@@ -319,8 +319,10 @@ describe('OT Payment Customer Routing', () => {
       );
 
       // All Stripe API calls should include the connectOpts
+      // retrieve() passes an empty params object before connectOpts per Stripe SDK convention
       expect(mockPlatformStripe.customers.retrieve).toHaveBeenCalledWith(
         'cus_eonmeds_old',
+        {},
         connectOpts,
       );
       expect(mockPlatformStripe.customers.search).toHaveBeenCalledWith(
