@@ -928,7 +928,7 @@ export default function PrescriptionQueuePage() {
                   setPrescriptionForm((prev) => ({
                     ...prev,
                     medications: [
-                      ...prev.medications,
+                      ...prev.medications.filter((m) => m.medicationKey),
                       ...fullSet.items.map((os: any) => ({
                         id: crypto.randomUUID(),
                         medicationKey: os.medicationKey,
@@ -4230,7 +4230,7 @@ export default function PrescriptionQueuePage() {
                             setPrescriptionForm((prev) => ({
                               ...prev,
                               medications: [
-                                ...prev.medications,
+                                ...prev.medications.filter((m) => m.medicationKey),
                                 ...medications.map((m) => ({
                                   id: crypto.randomUUID(),
                                   medicationKey: m.medicationKey,
@@ -4244,10 +4244,13 @@ export default function PrescriptionQueuePage() {
                           } else {
                             const removeKeys = new Set(medications.map((m) => m.medicationKey));
                             setAutoSelectedOrderSetIds((prev) => prev.filter((id) => id !== setId));
-                            setPrescriptionForm((prev) => ({
-                              ...prev,
-                              medications: prev.medications.filter((m) => !removeKeys.has(m.medicationKey)),
-                            }));
+                            setPrescriptionForm((prev) => {
+                              const remaining = prev.medications.filter((m) => !removeKeys.has(m.medicationKey));
+                              return {
+                                ...prev,
+                                medications: remaining.length > 0 ? remaining : [createEmptyMedication()],
+                              };
+                            });
                           }
                         }}
                       />

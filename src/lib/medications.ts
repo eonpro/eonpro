@@ -387,8 +387,8 @@ const SPECIAL_CONFIGS: Record<number, Partial<MedicationConfig>> = {
   203418766: {
     sigTemplates: [
       {
-        label: 'MWF · 25 units SubQ',
-        sig: 'Inject 25 units subcutaneously on Monday, Wednesday, and Friday.',
+        label: 'Standard 40 units twice weekly × 12 wk',
+        sig: 'Inject 40 units subcutaneously twice per week preferably in morning for 12 weeks.',
         quantity: '1',
         refills: '0',
       },
