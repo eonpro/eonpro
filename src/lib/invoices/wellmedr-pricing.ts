@@ -93,19 +93,19 @@ export const ADDON_PHARMACY_FEES: Record<AddonKey, WellmedrAddonFee> = {
     key: 'nad_plus',
     name: 'NAD+',
     pharmacyFeeCents: 4000, // $40
-    prescriptionUpchargeCents: 500, // $5
+    prescriptionUpchargeCents: 0,
   },
   sermorelin: {
     key: 'sermorelin',
     name: 'Sermorelin',
     pharmacyFeeCents: 4500, // $45
-    prescriptionUpchargeCents: 500, // $5
+    prescriptionUpchargeCents: 0,
   },
   b12: {
     key: 'b12',
     name: 'Cyanocobalamin (B12)',
     pharmacyFeeCents: 2000, // $20
-    prescriptionUpchargeCents: 500, // $5
+    prescriptionUpchargeCents: 0,
   },
   elite_bundle: {
     key: 'elite_bundle',
