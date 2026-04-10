@@ -170,6 +170,9 @@ interface WellmedrInvoicePayload {
   phoneNumber?: string;
   // Payment date
   payment_date?: string;
+  // GLP-1 history from Airtable (self-reported by patient during checkout)
+  previous_glp1_details?: string;
+  previousGlp1Details?: string;
   // Additional fields that might be sent
   [key: string]: unknown;
 }
@@ -255,6 +258,7 @@ export async function POST(req: NextRequest) {
       method_payment_id: payload.method_payment_id?.substring(0, 10) + '...',
       submission_id: payload.submission_id,
       hasAddress: !!(payload.address || payload.address_line1 || payload.city),
+      hasPreviousGlp1: !!(payload.previous_glp1_details || payload.previousGlp1Details),
     });
   } catch (err) {
     logger.error(`[WELLMEDR-INVOICE ${requestId}] Failed to parse JSON payload`);
@@ -1114,6 +1118,7 @@ export async function POST(req: NextRequest) {
             paymentDate: parsePaymentDate(payload.payment_date).toISOString(),
             paymentMethod: 'stripe-airtable',
             processedAt: new Date().toISOString(),
+            previousGlp1Details: payload.previous_glp1_details || payload.previousGlp1Details || '',
             ...(addonIds.length > 0 ? { selectedAddons: addonIds } : {}),
             summary: {
               subtotal: amountInCents,

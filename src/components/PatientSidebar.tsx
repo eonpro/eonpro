@@ -632,9 +632,10 @@ export default function PatientSidebar({
 
   const formatGender = (g: string | null | undefined) => {
     if (!g) return 'Not set';
-    const gl = g.toLowerCase().trim();
-    if (gl === 'f' || gl === 'female' || gl === 'woman') return 'Female';
-    if (gl === 'm' || gl === 'male' || gl === 'man') return 'Male';
+    const gl = g.replace(/[^a-zA-Z]/g, '').toLowerCase();
+    if (!gl) return 'Not set';
+    if (gl === 'f' || gl === 'female' || gl === 'woman' || gl[0] === 'f') return 'Female';
+    if (gl === 'm' || gl === 'male' || gl === 'man' || gl[0] === 'm') return 'Male';
     return g;
   };
 

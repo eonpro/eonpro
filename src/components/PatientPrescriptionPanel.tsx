@@ -4,9 +4,12 @@ import { useMemo } from 'react';
 import PrescriptionForm from '@/components/PrescriptionForm';
 
 function normalizeGender(raw: string | null | undefined): string {
-  const g = (raw || '').toLowerCase().trim();
+  const g = (raw || '').replace(/[^a-zA-Z]/g, '').toLowerCase();
+  if (!g) return '';
   if (['m', 'male', 'man'].includes(g)) return 'm';
   if (['f', 'female', 'woman'].includes(g)) return 'f';
+  if (g[0] === 'm') return 'm';
+  if (g[0] === 'f') return 'f';
   return '';
 }
 

@@ -308,12 +308,30 @@ function ProcessPaymentFormContent({ patientId, patientName, clinicSubdomain, on
       }
 
       const validItems = cartItems.filter((i) => i.description && i.amount > 0);
+      const itemLineItems: { description: string; amount: number; planId?: string }[] = [];
+      for (const i of validItems) {
+        const currentCents = Math.round(i.amount * 100);
+        const catalogCents = i.catalogPriceCents;
+        if (catalogCents && catalogCents > currentCents) {
+          itemLineItems.push({
+            description: i.description,
+            amount: catalogCents,
+            planId: i.planId,
+          });
+          itemLineItems.push({
+            description: `Discount – ${i.description}`,
+            amount: -(catalogCents - currentCents),
+          });
+        } else {
+          itemLineItems.push({
+            description: i.description,
+            amount: currentCents,
+            planId: i.planId,
+          });
+        }
+      }
       const allLineItems = [
-        ...validItems.map((i) => ({
-          description: i.description,
-          amount: Math.round(i.amount * 100),
-          planId: i.planId,
-        })),
+        ...itemLineItems,
         ...(ccFeeAmount > 0
           ? [{ description: surcharge.ccProcessingFeeLabel, amount: Math.round(ccFeeAmount * 100) }]
           : []),

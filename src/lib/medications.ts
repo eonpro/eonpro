@@ -418,20 +418,8 @@ const SPECIAL_CONFIGS: Record<number, Partial<MedicationConfig>> = {
     strength: '10,000 IU',
     sigTemplates: [
       {
-        label: 'Standard 500 IU twice weekly',
-        sig: 'Inject 500 IU subcutaneously twice weekly.',
-        quantity: '1',
-        refills: '0',
-      },
-      {
-        label: '1,000 IU twice weekly',
-        sig: 'Inject 1,000 IU subcutaneously twice weekly.',
-        quantity: '1',
-        refills: '0',
-      },
-      {
-        label: '250 IU every other day',
-        sig: 'Inject 250 IU subcutaneously every other day.',
+        label: 'Standard 30 units three times weekly',
+        sig: 'Reconstitute vial with 10 mL bacteriostatic water. Inject 30 units subcutaneously three times per week.',
         quantity: '1',
         refills: '0',
       },

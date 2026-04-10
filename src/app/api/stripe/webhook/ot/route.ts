@@ -22,6 +22,7 @@ import Stripe from 'stripe';
 import { logger } from '@/lib/logger';
 import { prisma, runWithClinicContext } from '@/lib/db';
 import { OT_STRIPE_CONFIG } from '@/lib/stripe/config';
+import { StripePaymentService } from '@/services/stripe/paymentService';
 
 // OT clinic subdomain for identification
 const OT_SUBDOMAIN = 'ot';
@@ -277,6 +278,99 @@ async function processOTWebhookEvent(
           };
         }
 
+        // PaymentIntents created by the Process Payment form include metadata.paymentId.
+        // Those routes handle their own invoice creation, so the webhook must only update
+        // the payment status — calling processStripePayment would create a duplicate record.
+        const isProcessFormPayment = !!paymentIntent.metadata?.paymentId;
+        if (isProcessFormPayment) {
+          logger.info('[OT STRIPE WEBHOOK] PaymentIntent from Process Payment form — updating status only', {
+            eventId: event.id,
+            paymentIntentId: paymentIntent.id,
+            paymentId: paymentIntent.metadata.paymentId,
+            clinicId,
+          });
+          try {
+            await StripePaymentService.updatePaymentFromIntent(paymentIntent);
+          } catch (updateErr) {
+            logger.error('[OT STRIPE WEBHOOK] Failed to update process-form payment from intent', {
+              eventId: event.id,
+              paymentIntentId: paymentIntent.id,
+              error: updateErr instanceof Error ? updateErr.message : 'Unknown error',
+            });
+          }
+
+          // Still process commissions for the matched patient
+          const rawPatientId = paymentIntent.metadata.patientId
+            ? parseInt(paymentIntent.metadata.patientId, 10)
+            : NaN;
+          if (!Number.isNaN(rawPatientId) && rawPatientId > 0) {
+            if (processPaymentForCommission) {
+              try {
+                const isFirstPayment = checkIfFirstPayment
+                  ? await checkIfFirstPayment(rawPatientId, paymentIntent.id)
+                  : true;
+                await processPaymentForCommission({
+                  clinicId,
+                  patientId: rawPatientId,
+                  stripeEventId: event.id,
+                  stripeObjectId: paymentIntent.id,
+                  stripeEventType: event.type,
+                  amountCents: paymentIntent.amount,
+                  occurredAt: new Date(paymentIntent.created * 1000),
+                  isFirstPayment,
+                });
+              } catch (e) {
+                logger.warn('[OT STRIPE WEBHOOK] Failed to process commission for process-form payment', {
+                  error: e instanceof Error ? e.message : 'Unknown error',
+                  patientId: rawPatientId,
+                });
+              }
+            }
+            if (processPaymentForSalesRepCommission) {
+              try {
+                const isFirst = checkIfFirstPaymentForSalesRep
+                  ? await checkIfFirstPaymentForSalesRep(rawPatientId, paymentIntent.id)
+                  : true;
+                await processPaymentForSalesRepCommission({
+                  clinicId,
+                  patientId: rawPatientId,
+                  stripeEventId: event.id,
+                  stripeObjectId: paymentIntent.id,
+                  stripeEventType: event.type,
+                  amountCents: paymentIntent.amount,
+                  occurredAt: new Date(paymentIntent.created * 1000),
+                  isFirstPayment: isFirst,
+                });
+              } catch (e) {
+                logger.warn('[OT STRIPE WEBHOOK] Failed to process sales rep commission for process-form payment', {
+                  error: e instanceof Error ? e.message : 'Unknown error',
+                  patientId: rawPatientId,
+                });
+              }
+            }
+            if (autoMatchPendingRefillsForPatient) {
+              try {
+                await autoMatchPendingRefillsForPatient(rawPatientId, clinicId, paymentIntent.id);
+              } catch (e) {
+                logger.warn('[OT STRIPE WEBHOOK] Failed to auto-match refills for process-form payment', {
+                  error: e instanceof Error ? e.message : 'Unknown error',
+                  patientId: rawPatientId,
+                });
+              }
+            }
+          }
+
+          return {
+            success: true,
+            details: {
+              paymentIntentId: paymentIntent.id,
+              processFormPayment: true,
+              paymentId: parseInt(paymentIntent.metadata.paymentId, 10),
+              clinicId,
+            },
+          };
+        }
+
         // Extract payment data and add OT clinic ID
         const intentPaymentData = await extractPaymentDataFromPaymentIntent(paymentIntent);
         intentPaymentData.metadata = {
@@ -341,6 +435,17 @@ async function processOTWebhookEvent(
         }
 
         const result = await processStripePayment(intentPaymentData, event.id, event.type);
+
+        // Also update any existing payment record (e.g. from a payment link checkout
+        // where a Payment row was pre-created, or a race with the process route).
+        try {
+          await StripePaymentService.updatePaymentFromIntent(paymentIntent);
+        } catch (e) {
+          logger.warn('[OT STRIPE WEBHOOK] Failed to update payment record from intent', {
+            error: e instanceof Error ? e.message : 'Unknown error',
+            paymentIntentId: paymentIntent.id,
+          });
+        }
 
         if (!result.success) {
           return {

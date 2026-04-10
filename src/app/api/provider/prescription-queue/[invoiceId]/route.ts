@@ -220,6 +220,7 @@ async function handleGet(req: NextRequest, user: AuthUser, context?: unknown) {
       reproductiveStatus: string | null;
       glp1History: { used: boolean; type: string | null; dose: string | null; sideEffects: string | null };
       preferredMedication: string | null;
+      previousGlp1Details: string | null;
       thyroidIssues: string | null;
       alcoholUse: string | null;
       exerciseFrequency: string | null;
@@ -233,6 +234,7 @@ async function handleGet(req: NextRequest, user: AuthUser, context?: unknown) {
       reproductiveStatus: null,
       glp1History: { used: false, type: null, dose: null, sideEffects: null },
       preferredMedication: null,
+      previousGlp1Details: null,
       thyroidIssues: null,
       alcoholUse: null,
       exerciseFrequency: null,
@@ -481,6 +483,43 @@ async function handleGet(req: NextRequest, user: AuthUser, context?: unknown) {
           if (numericDose && parseFloat(numericDose) > 0) clinicalContext.glp1History.dose = numericDose;
         }
         if (sideEffectsVal) clinicalContext.glp1History.sideEffects = sideEffectsVal;
+      }
+    }
+
+    // PRIORITY OVERRIDE: previousGlp1Details from Airtable checkout
+    // This field is the authoritative source for GLP-1 history — patient self-reports
+    // their current medication and dose during the Airtable order.
+    if (invoice.metadata && typeof invoice.metadata === 'object') {
+      const meta = invoice.metadata as Record<string, unknown>;
+      const rawGlp1Details = (meta.previousGlp1Details || meta.previous_glp1_details) as string | undefined;
+      if (rawGlp1Details && rawGlp1Details.trim()) {
+        clinicalContext.previousGlp1Details = rawGlp1Details.trim();
+        const details = rawGlp1Details.trim().toLowerCase();
+        const noHistoryPhrases = [
+          'none', 'no', 'n/a', 'na', 'not taking', "i'm not taking",
+          "i am not taking", 'never', 'first time', 'new patient',
+        ];
+        const isNoHistory = noHistoryPhrases.some(
+          (p) => details === p || details.startsWith(p)
+        );
+        if (!isNoHistory) {
+          let airtableGlp1Type: string | null = null;
+          if (/tirzepatide|mounjaro|zepbound/i.test(details)) airtableGlp1Type = 'Tirzepatide';
+          else if (/semaglutide|ozempic|wegovy/i.test(details)) airtableGlp1Type = 'Semaglutide';
+
+          let airtableDose: string | null = null;
+          const doseMatch = details.match(/([\d.]+)\s*mg/);
+          if (doseMatch) {
+            const numericDose = parseFloat(doseMatch[1]);
+            if (!isNaN(numericDose) && numericDose > 0) airtableDose = String(numericDose);
+          }
+
+          if (airtableGlp1Type || airtableDose) {
+            clinicalContext.glp1History.used = true;
+            if (airtableGlp1Type) clinicalContext.glp1History.type = airtableGlp1Type;
+            if (airtableDose) clinicalContext.glp1History.dose = airtableDose;
+          }
+        }
       }
     }
 

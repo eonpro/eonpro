@@ -152,9 +152,12 @@ const EMPTY_PATIENT = {
 };
 
 function normalizeGender(raw: string | null | undefined): string {
-  const g = (raw || '').toLowerCase().trim();
+  const g = (raw || '').replace(/[^a-zA-Z]/g, '').toLowerCase();
+  if (!g) return '';
   if (['m', 'male', 'man'].includes(g)) return 'm';
   if (['f', 'female', 'woman'].includes(g)) return 'f';
+  if (g[0] === 'm') return 'm';
+  if (g[0] === 'f') return 'f';
   return '';
 }
 
@@ -431,13 +434,21 @@ export default function PrescriptionForm({
 
   useEffect(() => {
     if (!patientContext) return;
+    const normalizedGender = normalizeGender(patientContext.gender);
+    if (!['m', 'f'].includes(normalizedGender)) {
+      logger.warn('[PrescriptionForm] patientContext gender could not be normalized', {
+        rawGender: patientContext.gender,
+        normalizedGender,
+        charCodes: patientContext.gender ? Array.from(patientContext.gender).map((c: string) => c.charCodeAt(0)) : [],
+      });
+    }
     setForm((f: any) => ({
       ...f,
       patient: {
         firstName: patientContext.firstName,
         lastName: patientContext.lastName,
         dob: patientContext.dob,
-        gender: normalizeGender(patientContext.gender),
+        gender: normalizedGender,
         phone: patientContext.phone,
         email: patientContext.email,
         address1: patientContext.address1,
@@ -537,12 +548,22 @@ export default function PrescriptionForm({
     setSelectedPatientId(patient.id);
   };
 
+  const resolvedGender = normalizeGender(form.patient.gender);
+  const genderMissing = !['m', 'f'].includes(resolvedGender);
+
   async function handlePreviewClick() {
     if (!form.providerId) {
       alert('Please select a provider before submitting.');
       return;
     }
-    if (!['m', 'f'].includes(form.patient.gender)) {
+    const genderCheck = normalizeGender(form.patient.gender);
+    if (!['m', 'f'].includes(genderCheck)) {
+      logger.warn('[PrescriptionForm] Gender validation failed', {
+        rawGender: form.patient.gender,
+        normalizedGender: genderCheck,
+        patientContextGender: patientContext?.gender,
+        charCodes: form.patient.gender ? Array.from(form.patient.gender).map((c: string) => c.charCodeAt(0)) : [],
+      });
       alert('Select patient gender before submitting.');
       return;
     }
@@ -550,6 +571,7 @@ export default function PrescriptionForm({
       alert('Select patient state before submitting.');
       return;
     }
+    updatePatient('gender', genderCheck);
     setShowConfirmation(true);
   }
 
@@ -1094,6 +1116,24 @@ export default function PrescriptionForm({
             )}
           </div>
         </section>
+      )}
+
+      {/* Fallback gender selector when patient context is provided but gender couldn't be resolved */}
+      {patientContext && genderMissing && (
+        <div className="rounded-lg border border-amber-300 bg-amber-50 p-4">
+          <p className="mb-2 text-sm font-medium text-amber-800">
+            Patient gender is required for prescriptions
+          </p>
+          <select
+            className="w-full rounded border border-amber-300 bg-white p-2 text-sm"
+            value={form.patient.gender}
+            onChange={(e: any) => updatePatient('gender', e.target.value)}
+          >
+            <option value="">Select Gender</option>
+            <option value="m">Male</option>
+            <option value="f">Female</option>
+          </select>
+        </div>
       )}
 
       <label className="mb-1 mt-4 block text-sm font-medium">Provider</label>

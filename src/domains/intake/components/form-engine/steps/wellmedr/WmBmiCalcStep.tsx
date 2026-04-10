@@ -35,85 +35,109 @@ export default function WmBmiCalcStep({ basePath, nextStep, progressPercent }: W
     router.push(`${basePath}/${nextStep}`);
   };
 
-  const isDisabled = !weight || !feet;
-
   const inputStyle: React.CSSProperties = {
-    width: '100%', height: 60, padding: '0 20px',
-    fontSize: 16, fontWeight: 400, color: '#101010',
-    backgroundColor: '#fff', border: '1px solid #e8e8e8',
-    borderRadius: 24, outline: 'none',
+    width: '100%',
+    height: 64,
+    padding: '0 2rem',
+    fontSize: '1rem',
+    fontWeight: 500,
+    color: '#101010',
+    backgroundColor: '#fff',
+    border: '1px solid rgba(53, 28, 12, 0.12)',
+    borderRadius: 20,
+    outline: 'none',
+    letterSpacing: '-0.01em',
+    lineHeight: '1.5rem',
     transition: 'border-color 0.2s, box-shadow 0.2s',
   };
 
   const onFocus = (e: React.FocusEvent<HTMLElement>) => {
-    (e.target as HTMLElement).style.borderColor = '#c3b29e';
-    (e.target as HTMLElement).style.boxShadow = '0 0 0 3px rgba(195,178,158,0.12)';
+    (e.target as HTMLElement).style.borderColor = '#7b95a9';
+    (e.target as HTMLElement).style.boxShadow = '0 0 0 2px #7b95a9';
   };
   const onBlur = (e: React.FocusEvent<HTMLElement>) => {
-    (e.target as HTMLElement).style.borderColor = '#e8e8e8';
+    (e.target as HTMLElement).style.borderColor = 'rgba(53, 28, 12, 0.12)';
     (e.target as HTMLElement).style.boxShadow = 'none';
   };
 
   return (
     <div className="min-h-[100dvh] flex flex-col" style={{ backgroundColor: '#F7F7F9' }}>
-      {/* Progress bar */}
-      <div className="w-full h-1" style={{ backgroundColor: '#e5e0d8' }}>
-        <div className="h-full" style={{ width: `${progressPercent}%`, backgroundColor: '#c3b29e', transition: 'width 0.8s cubic-bezier(0.4,0,0.2,1)' }} />
+      <style>{`
+        .wm-input::placeholder {
+          opacity: 0.3;
+          color: #101010;
+          font-weight: 400;
+          font-size: 1rem;
+          line-height: 26px;
+          letter-spacing: -0.01em;
+        }
+        @media (min-width: 640px) {
+          .wm-input { height: 72px !important; font-size: 1.25rem !important; }
+          .wm-input::placeholder { font-size: 1.125rem; line-height: 24px; }
+        }
+      `}</style>
+
+      {/* Progress bar — gradient matching Fillout theme */}
+      <div className="w-full" style={{ padding: '1.5rem 1.5rem 0' }}>
+        <div className="w-full h-2 rounded-full" style={{ backgroundColor: 'rgba(53, 28, 12, 0.06)', maxWidth: '48rem', marginInline: 'auto' }}>
+          <div className="h-full rounded-full" style={{
+            width: `${progressPercent}%`,
+            background: 'linear-gradient(90deg, #41362a, #6a5b4b, #8f7e6a, #c3b29e)',
+            transition: 'width 0.8s cubic-bezier(0.4,0,0.2,1)',
+          }} />
+        </div>
       </div>
 
-      {/* Logo — left-aligned */}
-      <div className="w-full max-w-[600px] mx-auto px-6 sm:px-8 pt-6"
+      {/* Logo — centered */}
+      <div className="w-full max-w-[48rem] mx-auto px-6 pt-4"
         style={{ opacity: mounted ? 1 : 0, transform: mounted ? 'translateY(0)' : 'translateY(-6px)', transition: 'all 0.5s cubic-bezier(0.4,0,0.2,1)' }}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/wellmedr-logo.svg" alt="wellmedr." className="h-7 sm:h-8" />
+        <div className="flex justify-center">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/wellmedr-logo.svg" alt="wellmedr." className="h-6 sm:h-7" />
+        </div>
       </div>
 
-      {/* Content — centered vertically in remaining space */}
-      <div className="flex-1 flex flex-col justify-center w-full max-w-[600px] mx-auto px-6 sm:px-8 pb-6">
+      {/* Content */}
+      <div className="flex-1 flex flex-col justify-center w-full max-w-[640px] mx-auto px-6 sm:px-8 pb-6">
         {/* Title */}
-        <h1 className="text-[1.55rem] sm:text-[1.75rem] font-bold text-center leading-tight mb-3"
-          style={{ color: '#101010', opacity: mounted ? 1 : 0, transform: mounted ? 'translateY(0)' : 'translateY(10px)', transition: 'all 0.6s cubic-bezier(0.4,0,0.2,1) 0.08s' }}>
+        <h1 className="text-[1.25rem] sm:text-[2rem] font-medium text-center leading-[30px] sm:leading-[40px] mb-2"
+          style={{ color: '#101010', letterSpacing: '-0.02em', opacity: mounted ? 1 : 0, transform: mounted ? 'translateY(0)' : 'translateY(10px)', transition: 'all 0.6s cubic-bezier(0.4,0,0.2,1) 0.08s' }}>
           Let&rsquo;s calculate your BMI.
         </h1>
-        <p className="text-center text-[15px] sm:text-base mb-8 leading-relaxed"
-          style={{ color: '#666', opacity: mounted ? 1 : 0, transition: 'opacity 0.5s ease 0.15s' }}>
+        <p className="text-center text-base sm:text-[1.25rem] mb-8 sm:mb-10 leading-relaxed"
+          style={{ color: '#101010', opacity: mounted ? 0.6 : 0, letterSpacing: '-0.01em', transition: 'opacity 0.5s ease 0.15s' }}>
           Body Mass Index (BMI) helps determine eligibility for weight loss medication and assess weight-related health risks.
         </p>
 
-        {/* Fields — stacked vertically, full-width */}
-        <div className="w-full space-y-5"
+        {/* Fields */}
+        <div className="w-full"
           style={{ opacity: mounted ? 1 : 0, transform: mounted ? 'translateY(0)' : 'translateY(8px)', transition: 'all 0.6s cubic-bezier(0.4,0,0.2,1) 0.2s' }}>
-          <div>
-            <label className="block text-[15px] font-semibold mb-2" style={{ color: '#101010' }}>Feet</label>
-            <div className="relative">
-              <select value={feet} onChange={(e) => setFeet(e.target.value)}
-                style={{ ...inputStyle, appearance: 'none', paddingRight: 44, cursor: 'pointer' }}
-                onFocus={onFocus} onBlur={onBlur}>
-                <option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option>
-              </select>
-              <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
-                <svg className="w-4 h-4" style={{ color: '#aaa' }} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
-              </div>
+
+          {/* Feet + Inches — side by side */}
+          <div className="flex gap-4 mb-5">
+            <div className="flex-1 flex flex-col gap-2">
+              <label className="text-base sm:text-[1.125rem] font-medium leading-[26px] sm:leading-6" style={{ color: '#101010', letterSpacing: '-0.01em' }}>Feet</label>
+              <input type="text" inputMode="numeric" pattern="[0-9]*" placeholder="5"
+                className="wm-input"
+                value={feet} onChange={(e) => setFeet(e.target.value.replace(/[^0-9]/g, ''))}
+                style={inputStyle}
+                onFocus={onFocus} onBlur={onBlur} />
+            </div>
+            <div className="flex-1 flex flex-col gap-2">
+              <label className="text-base sm:text-[1.125rem] font-medium leading-[26px] sm:leading-6" style={{ color: '#101010', letterSpacing: '-0.01em' }}>Inches</label>
+              <input type="text" inputMode="numeric" pattern="[0-9]*" placeholder="4"
+                className="wm-input"
+                value={inches} onChange={(e) => setInches(e.target.value.replace(/[^0-9]/g, ''))}
+                style={inputStyle}
+                onFocus={onFocus} onBlur={onBlur} />
             </div>
           </div>
 
-          <div>
-            <label className="block text-[15px] font-semibold mb-2" style={{ color: '#101010' }}>Inches</label>
-            <div className="relative">
-              <select value={inches} onChange={(e) => setInches(e.target.value)}
-                style={{ ...inputStyle, appearance: 'none', paddingRight: 44, cursor: 'pointer' }}
-                onFocus={onFocus} onBlur={onBlur}>
-                {Array.from({ length: 12 }, (_, i) => <option key={i} value={String(i)}>{i}</option>)}
-              </select>
-              <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
-                <svg className="w-4 h-4" style={{ color: '#aaa' }} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
-              </div>
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-[15px] font-semibold mb-2" style={{ color: '#101010' }}>Weight (lbs)</label>
+          {/* Weight */}
+          <div className="flex flex-col gap-2">
+            <label className="text-base sm:text-[1.125rem] font-medium leading-[26px] sm:leading-6" style={{ color: '#101010', letterSpacing: '-0.01em' }}>Weight (lbs)</label>
             <input type="text" inputMode="numeric" pattern="[0-9]*" placeholder="200"
+              className="wm-input"
               value={weight} onChange={(e) => setWeight(e.target.value.replace(/[^0-9]/g, ''))}
               style={inputStyle}
               onFocus={onFocus} onBlur={onBlur} />
@@ -121,12 +145,17 @@ export default function WmBmiCalcStep({ basePath, nextStep, progressPercent }: W
         </div>
 
         {/* Button */}
-        <div className="w-full mt-8"
+        <div className="w-full mt-8 sm:mt-[3.25rem] sm:max-w-[31rem] sm:mx-auto"
           style={{ opacity: mounted ? 1 : 0, transition: 'opacity 0.5s ease 0.3s' }}>
-          <button onClick={handleContinue} disabled={isDisabled}
-            className="w-full flex items-center justify-center gap-2 py-[18px] text-white font-semibold text-base rounded-full active:scale-[0.98]"
-            style={{ backgroundColor: isDisabled ? '#b0b8be' : '#0C2631', transition: 'background-color 0.3s ease', cursor: isDisabled ? 'not-allowed' : 'pointer' }}>
-            Next <span className="text-base">&#10132;</span>
+          <button onClick={handleContinue}
+            className="w-full flex items-center justify-center gap-4 text-white text-base sm:text-[1.125rem] font-normal rounded-full active:scale-[0.98]"
+            style={{
+              height: 56,
+              backgroundColor: '#0C2631',
+              transition: 'opacity 0.3s ease',
+              cursor: 'pointer',
+            }}>
+            Next <span style={{ fontSize: '1em' }}>&#10132;</span>
           </button>
         </div>
       </div>

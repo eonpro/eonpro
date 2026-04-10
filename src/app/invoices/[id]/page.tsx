@@ -318,35 +318,55 @@ export default function InvoicePage({ params }: { params: Promise<{ id: string }
                 </tr>
               </thead>
               <tbody>
-                {lineItems.map((item: any) => (
-                  <tr key={item.id} className="border-b border-gray-100">
-                    <td className="py-4">
-                      <p className="font-medium text-gray-900">{item.description}</p>
-                      {item.product && <p className="text-sm text-gray-500">{item.product.name}</p>}
-                    </td>
-                    <td className="py-4 text-right text-gray-600">{item.quantity}</td>
-                    <td className="py-4 text-right text-gray-600">
-                      {formatCurrency(item.unitPrice)}
-                    </td>
-                    <td className="py-4 text-right font-medium text-gray-900">
-                      {formatCurrency(item.amount)}
-                    </td>
-                  </tr>
-                ))}
+                {lineItems.map((item: any) => {
+                  const isDiscount = item.amount < 0 || item.unitPrice < 0;
+                  return (
+                    <tr key={item.id} className={`border-b border-gray-100 ${isDiscount ? 'text-red-600' : ''}`}>
+                      <td className="py-4">
+                        <p className={`font-medium ${isDiscount ? 'text-red-600 italic' : 'text-gray-900'}`}>{item.description}</p>
+                        {item.product && <p className="text-sm text-gray-500">{item.product.name}</p>}
+                      </td>
+                      <td className="py-4 text-right text-gray-600">{isDiscount ? '' : item.quantity}</td>
+                      <td className="py-4 text-right text-gray-600">
+                        {isDiscount ? '' : formatCurrency(item.unitPrice)}
+                      </td>
+                      <td className={`py-4 text-right font-medium ${isDiscount ? 'text-red-600' : 'text-gray-900'}`}>
+                        {formatCurrency(item.amount)}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
 
             {/* Totals */}
             <div className="flex justify-end">
-              <div className="w-64">
-                <div className="flex justify-between py-2">
-                  <span className="text-gray-600">Subtotal</span>
-                  <span className="font-medium">{formatCurrency(invoice.amountDue)}</span>
-                </div>
+              <div className="w-72">
+                {invoice.metadata?.summary?.discountAmount ? (
+                  <>
+                    <div className="flex justify-between py-2">
+                      <span className="text-gray-600">Subtotal</span>
+                      <span className="font-medium">{formatCurrency(invoice.metadata.summary.subtotal)}</span>
+                    </div>
+                    <div className="flex justify-between py-2 text-red-600">
+                      <span>Discount</span>
+                      <span className="font-medium">-{formatCurrency(invoice.metadata.summary.discountAmount)}</span>
+                    </div>
+                    <div className="flex justify-between border-t border-gray-200 py-2">
+                      <span className="font-semibold text-gray-900">Total</span>
+                      <span className="font-semibold">{formatCurrency(invoice.amount)}</span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex justify-between py-2">
+                    <span className="text-gray-600">Subtotal</span>
+                    <span className="font-medium">{formatCurrency(invoice.amount)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between border-t border-gray-200 py-2">
                   <span className="text-gray-600">Amount Due</span>
                   <span className="text-lg font-bold">
-                    {formatCurrency(invoice.amountDue - invoice.amountPaid)}
+                    {formatCurrency(Math.max(0, invoice.amount - invoice.amountPaid))}
                   </span>
                 </div>
                 {invoice.amountPaid > 0 && (

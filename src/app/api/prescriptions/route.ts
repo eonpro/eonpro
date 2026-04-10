@@ -488,8 +488,12 @@ async function createPrescriptionHandlerLegacy(req: NextRequest, user: AuthUser)
           phone: p.patient.phone,
           email: p.patient.email,
           dob: dobIso,
-          gender:
-            p.patient.gender === 'm' ? 'Male' : p.patient.gender === 'f' ? 'Female' : 'Unknown',
+          gender: (() => {
+            const gRaw = (p.patient.gender || '').replace(/[^a-zA-Z]/g, '').toLowerCase();
+            if (gRaw[0] === 'm') return 'Male';
+            if (gRaw[0] === 'f') return 'Female';
+            return 'Unknown';
+          })(),
           address1: p.patient.address1,
           address2: patientAddressLine2,
           city: p.patient.city,
@@ -528,10 +532,13 @@ async function createPrescriptionHandlerLegacy(req: NextRequest, user: AuthUser)
     // Empty values cause a 422 rejection.
     // Map to Lifefile-compatible value or reject with a clear message.
     const lifefileGender = (() => {
-      const g = (p.patient.gender || '').toLowerCase().trim();
+      const g = (p.patient.gender || '').replace(/[^a-zA-Z]/g, '').toLowerCase();
+      if (!g) return null;
       if (g === 'm' || g === 'male') return 'm';
       if (g === 'f' || g === 'female') return 'f';
-      return null; // Invalid for Lifefile
+      if (g[0] === 'm') return 'm';
+      if (g[0] === 'f') return 'f';
+      return null;
     })();
 
     if (!lifefileGender) {

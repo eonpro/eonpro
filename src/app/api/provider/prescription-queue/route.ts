@@ -544,6 +544,47 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       documentData: Buffer | Uint8Array | null,
       patientName?: string
     ) => {
+      // PRIORITY CHECK: previousGlp1Details from Airtable checkout flow
+      // This is the authoritative source for GLP-1 history — patient self-reports
+      // their current medication and dose during the Airtable order.
+      // Examples: "tirzepatide 12.5 mg per week", "Zepbound 10mg", "Ozempic 2.4"
+      if (metadata) {
+        const rawGlp1Details = metadata.previousGlp1Details || metadata.previous_glp1_details;
+        if (rawGlp1Details && typeof rawGlp1Details === 'string' && rawGlp1Details.trim()) {
+          const details = rawGlp1Details.trim().toLowerCase();
+          const noHistoryPhrases = [
+            'none', 'no', 'n/a', 'na', 'not taking', "i'm not taking",
+            "i am not taking", 'never', 'first time', 'new patient',
+          ];
+          const isNoHistory = noHistoryPhrases.some(
+            (p) => details === p || details.startsWith(p)
+          );
+          if (!isNoHistory) {
+            let glp1Type: string | null = null;
+            if (/tirzepatide|mounjaro|zepbound/i.test(details)) glp1Type = 'Tirzepatide';
+            else if (/semaglutide|ozempic|wegovy/i.test(details)) glp1Type = 'Semaglutide';
+
+            let lastDose: string | null = null;
+            const doseMatch = details.match(/([\d.]+)\s*mg/);
+            if (doseMatch) {
+              const numericDose = parseFloat(doseMatch[1]);
+              if (!isNaN(numericDose) && numericDose > 0) lastDose = String(numericDose);
+            }
+
+            if (glp1Type || lastDose) {
+              return {
+                usedGlp1: true,
+                glp1Type,
+                lastDose,
+                previousGlp1Details: rawGlp1Details.trim(),
+              };
+            }
+          } else {
+            return { usedGlp1: false, glp1Type: null, lastDose: null, previousGlp1Details: rawGlp1Details.trim() };
+          }
+        }
+      }
+
       // Helper to check for exact Airtable field names (with dashes)
       // These are the exact field names from Airtable intake forms
       const checkExactAirtableFields = (obj: Record<string, unknown>) => {
@@ -1319,6 +1360,7 @@ async function handleGet(req: NextRequest, user: AuthUser) {
           usedGlp1: glp1Info.usedGlp1,
           glp1Type: glp1Info.glp1Type,
           lastDose: glp1Info.lastDose,
+          previousGlp1Details: glp1Info.previousGlp1Details || null,
         },
         // CRITICAL: SOAP Note status for clinical documentation compliance
         // Providers should review/approve SOAP notes before prescribing

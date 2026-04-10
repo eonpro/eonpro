@@ -215,6 +215,7 @@ interface QueueItem {
     usedGlp1: boolean;
     glp1Type: string | null;
     lastDose: string | null;
+    previousGlp1Details?: string | null;
   };
   // SOAP Note status - CRITICAL for clinical documentation
   hasSoapNote: boolean;
@@ -320,6 +321,7 @@ interface PatientDetails {
     reproductiveStatus: string | null;
     glp1History: { used: boolean; type: string | null; dose: string | null; sideEffects: string | null };
     preferredMedication: string | null;
+    previousGlp1Details: string | null;
     thyroidIssues: string | null;
     alcoholUse: string | null;
     exerciseFrequency: string | null;
@@ -2286,6 +2288,11 @@ export default function PrescriptionQueuePage() {
                                   <p className="text-[10px] text-gray-500">
                                     {item.glp1Info.lastDose ? `${item.glp1Info.lastDose}mg` : 'Has history'}
                                   </p>
+                                  {item.glp1Info.previousGlp1Details && (
+                                    <p className="truncate text-[10px] text-blue-600" title={item.glp1Info.previousGlp1Details}>
+                                      &ldquo;{item.glp1Info.previousGlp1Details}&rdquo;
+                                    </p>
+                                  )}
                                 </>
                               ) : (
                                 <>
@@ -2691,6 +2698,12 @@ export default function PrescriptionQueuePage() {
                                       <Pill className="h-4 w-4" />
                                       GLP-1 History
                                     </div>
+                                    {patientDetails.clinicalContext.previousGlp1Details && (
+                                      <div className="mb-2 rounded border border-blue-200 bg-blue-50 px-2.5 py-1.5 text-sm text-blue-800">
+                                        <span className="font-semibold">Patient reported:</span>{' '}
+                                        {patientDetails.clinicalContext.previousGlp1Details}
+                                      </div>
+                                    )}
                                     {patientDetails.clinicalContext.glp1History.used ? (
                                       <div className="space-y-1 text-gray-600">
                                         <div>Used in last 30 days: <span className="font-medium">Yes</span></div>
@@ -3942,6 +3955,7 @@ export default function PrescriptionQueuePage() {
                             {(() => {
                               const glp1 = prescriptionPanel.item.glp1Info;
                               const ctx = prescriptionPanel.details.clinicalContext?.glp1History;
+                              const rawDetails = prescriptionPanel.details.clinicalContext?.previousGlp1Details || glp1?.previousGlp1Details;
                               const medType = ctx?.type || glp1?.glp1Type;
                               const dose = ctx?.dose || glp1?.lastDose;
                               const hasHistory = glp1?.usedGlp1 || ctx?.used;
@@ -3955,6 +3969,11 @@ export default function PrescriptionQueuePage() {
                                     <p className="mt-1 text-sm font-semibold text-[#66a682]">
                                       {medType || 'GLP-1 Medication'}
                                     </p>
+                                    {rawDetails && (
+                                      <p className="mt-2 rounded border border-blue-200 bg-blue-50 px-2 py-1 text-xs text-blue-800">
+                                        Patient reported: &ldquo;{rawDetails}&rdquo;
+                                      </p>
+                                    )}
                                     {ctx?.sideEffects && (
                                       <p className="mt-2 text-xs text-gray-500">
                                         Side effects: {ctx.sideEffects}

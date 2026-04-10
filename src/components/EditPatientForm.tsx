@@ -16,9 +16,10 @@ const GENDER_OPTIONS = [
 // Normalize gender from database format to dropdown format
 function normalizeGenderForDropdown(gender: string | null | undefined): string {
   if (!gender) return '';
-  const g = gender.toLowerCase().trim();
-  if (g === 'm' || g === 'male' || g === 'man') return 'Male';
-  if (g === 'f' || g === 'female' || g === 'woman') return 'Female';
+  const g = gender.replace(/[^a-zA-Z]/g, '').toLowerCase();
+  if (!g) return '';
+  if (g === 'm' || g === 'male' || g === 'man' || g[0] === 'm') return 'Male';
+  if (g === 'f' || g === 'female' || g === 'woman' || g[0] === 'f') return 'Female';
   return '';
 }
 

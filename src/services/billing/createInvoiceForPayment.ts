@@ -79,10 +79,14 @@ export async function createInvoiceForProcessedPayment(
       ? lineItems.map((li) => ({ description: li.description, amount: li.amount, quantity: 1 }))
       : [{ description, amount, quantity: 1 }];
 
+    const discountAmount = hasMultipleLines
+      ? lineItems.filter((li) => li.amount < 0).reduce((sum, li) => sum + Math.abs(li.amount), 0)
+      : 0;
+    const subtotalBeforeDiscount = hasMultipleLines
+      ? lineItems.filter((li) => li.amount > 0).reduce((sum, li) => sum + li.amount, 0)
+      : amount;
+
     const result = await prisma.$transaction(async (tx) => {
-      // Re-check inside the transaction to close the race window between the
-      // fast-path read and this transaction acquiring the row lock. If the webhook
-      // linked an invoice between our outer read and now, we must not create another.
       const freshPayment = await tx.payment.findUnique({
         where: { id: paymentId },
         select: { invoiceId: true },
@@ -115,6 +119,16 @@ export async function createInvoiceForProcessedPayment(
             chargeId: stripeChargeId || undefined,
             ...(planId ? { planId } : {}),
             ...(planName ? { planName } : {}),
+            ...(discountAmount > 0 ? {
+              summary: {
+                subtotal: subtotalBeforeDiscount,
+                discountAmount,
+                taxAmount: 0,
+                total: amount,
+                amountPaid: amount,
+                amountDue: 0,
+              },
+            } : {}),
           },
         },
       });

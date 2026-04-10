@@ -879,17 +879,20 @@ export function PatientBillingView({ patientId, patientName, clinicSubdomain }: 
                                 Invoice line items
                               </p>
                               <ul className="space-y-1.5">
-                                {breakdown.map((line, i) => (
-                                  <li
-                                    key={i}
-                                    className="flex justify-between gap-4 text-sm text-gray-800"
-                                  >
-                                    <span className="min-w-0 break-words">{line.description}</span>
-                                    <span className="shrink-0 font-mono tabular-nums text-gray-900">
-                                      {formatCurrency(line.amount)}
-                                    </span>
-                                  </li>
-                                ))}
+                                {breakdown.map((line, i) => {
+                                  const isDiscount = line.amount < 0;
+                                  return (
+                                    <li
+                                      key={i}
+                                      className={`flex justify-between gap-4 text-sm ${isDiscount ? 'text-red-600' : 'text-gray-800'}`}
+                                    >
+                                      <span className={`min-w-0 break-words ${isDiscount ? 'italic' : ''}`}>{line.description}</span>
+                                      <span className={`shrink-0 font-mono tabular-nums ${isDiscount ? 'text-red-600' : 'text-gray-900'}`}>
+                                        {formatCurrency(line.amount)}
+                                      </span>
+                                    </li>
+                                  );
+                                })}
                               </ul>
                             </td>
                           </tr>

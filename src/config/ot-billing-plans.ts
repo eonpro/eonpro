@@ -321,8 +321,8 @@ const PRESCRIPTION_PEPTIDES: BillingPlan[] = [
   // --- Sermorelin ---
   { id: 'ot_sermorelin_1mo', name: 'Sermorelin – 1 Month', category: 'ot_prescription_peptides', price: 24900, description: 'Sermorelin – 1 Month', slug: 'ot_sermorelin_1mo', months: 1, stripeProductId: 'prod_UDO8iz6pwPraIg', stripePriceId: 'price_1TExMeDQIH4O9FhrctoOO9Vy' },
   { id: 'ot_sermorelin_3mo', name: 'Sermorelin – 3 Month', category: 'ot_prescription_peptides', price: 64900, description: 'Sermorelin – 3 Month', slug: 'ot_sermorelin_3mo', months: 3, isRecurring: true, stripeProductId: 'prod_UDO8iz6pwPraIg', stripePriceId: 'price_1TExNPDQIH4O9FhrYDxGPJ0O' },
-  { id: 'ot_sermorelin_6mo', name: 'Sermorelin – 6 Month', category: 'ot_prescription_peptides', price: 127000, description: 'Sermorelin – 6 Month', slug: 'ot_sermorelin_6mo', months: 6, isRecurring: true, stripeProductId: 'prod_UDO8iz6pwPraIg', stripePriceId: 'price_1TExOFDQIH4O9FhrCbcFanE6' },
-  { id: 'ot_sermorelin_12mo', name: 'Sermorelin – 12 Month', category: 'ot_prescription_peptides', price: 240000, description: 'Sermorelin – 12 Month', slug: 'ot_sermorelin_12mo', months: 12, isRecurring: true, stripeProductId: 'prod_UDO8iz6pwPraIg', stripePriceId: 'price_1TExOZDQIH4O9FhrYKdEuN61' },
+  { id: 'ot_sermorelin_6mo', name: 'Sermorelin – 6 Month', category: 'ot_prescription_peptides', price: 125900, description: 'Sermorelin – 6 Month', slug: 'ot_sermorelin_6mo', months: 6, isRecurring: true, stripeProductId: 'prod_UDO8iz6pwPraIg', stripePriceId: 'price_1TExOFDQIH4O9FhrCbcFanE6' },
+  { id: 'ot_sermorelin_12mo', name: 'Sermorelin – 12 Month', category: 'ot_prescription_peptides', price: 250000, description: 'Sermorelin – 12 Month', slug: 'ot_sermorelin_12mo', months: 12, isRecurring: true, stripeProductId: 'prod_UDO8iz6pwPraIg', stripePriceId: 'price_1TExOZDQIH4O9FhrYKdEuN61' },
 ];
 
 // ═══════════════════════════════════════════════════════════════════════════

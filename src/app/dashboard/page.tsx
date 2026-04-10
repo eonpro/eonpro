@@ -70,6 +70,12 @@ interface DashboardStats {
   newPrescriptions: number;
   /** Sales rep only: commissions earned in cents */
   commissionsEarnedCents?: number;
+  /** Sales rep only: revenue generated (attributed) in last 7 days, cents */
+  revenueGenerated7dCents?: number;
+  /** Sales rep only: total revenue generated (attributed), all time, cents */
+  revenueGeneratedCents?: number;
+  /** Sales rep only: override commissions earned in cents */
+  overrideCommissionsEarnedCents?: number;
 }
 
 interface DailyScriptBucket {
@@ -131,6 +137,9 @@ function HomePageInner() {
     recurringRevenue: 0,
     newPrescriptions: 0,
     commissionsEarnedCents: 0,
+    revenueGenerated7dCents: 0,
+    revenueGeneratedCents: 0,
+    overrideCommissionsEarnedCents: 0,
   });
   const [geoData, setGeoData] = useState<{
     stateData: Record<string, { total: number; clinics: Array<{ clinicId: number; clinicName: string; color: string; count: number }> }>;
@@ -373,6 +382,9 @@ function HomePageInner() {
               recurringRevenue: 0,
               newPrescriptions: 0,
               commissionsEarnedCents: statsData.commissionsEarnedCents ?? 0,
+              revenueGenerated7dCents: statsData.revenueGenerated7dCents ?? 0,
+              revenueGeneratedCents: statsData.revenueGeneratedCents ?? 0,
+              overrideCommissionsEarnedCents: statsData.overrideCommissionsEarnedCents ?? 0,
             }));
           }
           if (patientsResponse.ok) {
@@ -742,7 +754,7 @@ function HomePageInner() {
           <div className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
             {userData?.role?.toLowerCase() === 'sales_rep' ? (
               <>
-                {/* Assigned profiles (sales rep only) */}
+                {/* Assigned profiles */}
                 <div className="flex items-center gap-4 rounded-2xl border border-gray-200 bg-white p-5">
                   <div
                     className="flex h-12 w-12 items-center justify-center rounded-xl"
@@ -755,7 +767,22 @@ function HomePageInner() {
                     <p className="text-sm text-gray-500">Assigned profiles</p>
                   </div>
                 </div>
-                {/* Commissions earned (sales rep only) */}
+                {/* My Revenue (7 days) */}
+                <div className="flex items-center gap-4 rounded-2xl border border-gray-200 bg-white p-5">
+                  <div
+                    className="flex h-12 w-12 items-center justify-center rounded-xl"
+                    style={{ backgroundColor: `${primaryColor}15` }}
+                  >
+                    <CreditCard className="h-6 w-6" style={{ color: primaryColor }} />
+                  </div>
+                  <div>
+                    <p className="text-3xl font-bold text-gray-900">
+                      {formatCurrency((stats.revenueGenerated7dCents ?? 0) / 100)}
+                    </p>
+                    <p className="text-sm text-gray-500">My Revenue (7d)</p>
+                  </div>
+                </div>
+                {/* Commissions earned */}
                 <div className="flex items-center gap-4 rounded-2xl border border-gray-200 bg-white p-5">
                   <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-500/10">
                     <DollarSign className="h-6 w-6 text-amber-500" />
@@ -765,6 +792,18 @@ function HomePageInner() {
                       {formatCurrency((stats.commissionsEarnedCents ?? 0) / 100)}
                     </p>
                     <p className="text-sm text-gray-500">Commissions earned</p>
+                  </div>
+                </div>
+                {/* Override Commissions */}
+                <div className="flex items-center gap-4 rounded-2xl border border-gray-200 bg-white p-5">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-500/10">
+                    <TrendingUp className="h-6 w-6 text-emerald-500" />
+                  </div>
+                  <div>
+                    <p className="text-3xl font-bold text-gray-900">
+                      {formatCurrency((stats.overrideCommissionsEarnedCents ?? 0) / 100)}
+                    </p>
+                    <p className="text-sm text-gray-500">Override commissions</p>
                   </div>
                 </div>
               </>

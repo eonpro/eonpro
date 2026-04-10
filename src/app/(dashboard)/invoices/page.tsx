@@ -1136,17 +1136,21 @@ function InvoiceDetailModal({
                 {/* Line items */}
                 {invoice.lineItems && invoice.lineItems.length > 0 && (
                   <div className="space-y-2">
-                    {invoice.lineItems.map((item, i) => (
-                      <div key={i} className="flex justify-between text-sm">
-                        <span className="text-emerald-800">
-                          {item.description}
-                          {item.quantity && item.quantity > 1 && ` (x${item.quantity})`}
-                        </span>
-                        <span className="font-medium text-emerald-900">
-                          {formatCurrency((item.unitPrice || item.amount || 0) * (item.quantity || 1))}
-                        </span>
-                      </div>
-                    ))}
+                    {invoice.lineItems.map((item, i) => {
+                      const lineAmount = (item.unitPrice || item.amount || 0) * (item.quantity || 1);
+                      const isDiscount = lineAmount < 0 || (item.amount != null && item.amount < 0);
+                      return (
+                        <div key={i} className={`flex justify-between text-sm ${isDiscount ? 'text-red-600' : ''}`}>
+                          <span className={isDiscount ? 'italic text-red-600' : 'text-emerald-800'}>
+                            {item.description}
+                            {!isDiscount && item.quantity && item.quantity > 1 && ` (x${item.quantity})`}
+                          </span>
+                          <span className={`font-medium ${isDiscount ? 'text-red-600' : 'text-emerald-900'}`}>
+                            {formatCurrency(lineAmount)}
+                          </span>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>
