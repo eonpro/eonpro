@@ -26,8 +26,8 @@ export default function WmBmiCalcStep({ basePath, nextStep, progressPercent }: W
     return () => window.removeEventListener('keydown', onKey);
   });
 
-  const [feet, setFeet] = useState(String(responses.height_feet || responses.heightFeet || '5'));
-  const [inches, setInches] = useState(String(responses.height_inches ?? responses.heightInches ?? '4'));
+  const [feet, setFeet] = useState(String(responses.height_feet || responses.heightFeet || ''));
+  const [inches, setInches] = useState(String(responses.height_inches || responses.heightInches || ''));
   const [weight, setWeight] = useState(String(responses.current_weight || responses.currentWeight || ''));
 
   const handleContinue = () => {
