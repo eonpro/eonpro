@@ -43,34 +43,30 @@ export default function WmBmiCalcStep({ basePath, nextStep, progressPercent }: W
     router.push(`${basePath}/${nextStep}`);
   };
 
-  const inputStyle: React.CSSProperties = {
-    width: '100%',
-    height: 64,
-    padding: '0 2rem',
-    fontSize: '1rem',
-    fontWeight: 500,
-    color: '#101010',
-    backgroundColor: '#fff',
-    border: '1px solid rgba(53, 28, 12, 0.12)',
-    borderRadius: 20,
-    outline: 'none',
-    letterSpacing: '-0.01em',
-    lineHeight: '1.5rem',
-    transition: 'border-color 0.2s, box-shadow 0.2s',
-  };
-
-  const onFocus = (e: React.FocusEvent<HTMLElement>) => {
-    (e.target as HTMLElement).style.borderColor = '#7b95a9';
-    (e.target as HTMLElement).style.boxShadow = '0 0 0 2px #7b95a9';
-  };
-  const onBlur = (e: React.FocusEvent<HTMLElement>) => {
-    (e.target as HTMLElement).style.borderColor = 'rgba(53, 28, 12, 0.12)';
-    (e.target as HTMLElement).style.boxShadow = 'none';
-  };
+  // Input styles handled via CSS class .wm-input below
 
   return (
     <div className="min-h-[100dvh] flex flex-col" style={{ backgroundColor: '#F7F7F9' }}>
       <style>{`
+        .wm-input {
+          width: 100%;
+          height: 64px;
+          padding: 0 2rem;
+          font-size: 1rem;
+          font-weight: 500;
+          color: #101010;
+          background-color: #fff;
+          border: 1px solid rgba(53, 28, 12, 0.12);
+          border-radius: 20px;
+          outline: none;
+          letter-spacing: -0.01em;
+          line-height: 1.5rem;
+          transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .wm-input:focus {
+          border-color: #7b95a9;
+          box-shadow: 0 0 0 2px #7b95a9;
+        }
         .wm-input::placeholder {
           opacity: 0.3;
           color: #101010;
@@ -80,7 +76,7 @@ export default function WmBmiCalcStep({ basePath, nextStep, progressPercent }: W
           letter-spacing: -0.01em;
         }
         @media (min-width: 640px) {
-          .wm-input { height: 72px !important; font-size: 1.25rem !important; }
+          .wm-input { height: 72px; font-size: 1.25rem; }
           .wm-input::placeholder { font-size: 1.125rem; line-height: 24px; }
         }
       `}</style>
@@ -92,7 +88,7 @@ export default function WmBmiCalcStep({ basePath, nextStep, progressPercent }: W
 
       {/* Logo — centered */}
       <div className="w-full max-w-[48rem] mx-auto px-6 pt-4"
-        style={{ opacity: mounted ? 1 : 0, transform: mounted ? 'translateY(0)' : 'translateY(-6px)', transition: 'all 0.5s cubic-bezier(0.4,0,0.2,1)' }}>
+        style={{ opacity: mounted ? 1 : 0, transition: 'opacity 0.3s ease-out' }}>
         <div className="flex justify-center">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/wellmedr-logo.svg" alt="wellmedr." className="h-6 sm:h-7" />
@@ -103,17 +99,17 @@ export default function WmBmiCalcStep({ basePath, nextStep, progressPercent }: W
       <div className="flex-1 flex flex-col justify-center w-full max-w-[640px] mx-auto px-6 sm:px-8 pb-6">
         {/* Title */}
         <h1 className="text-[1.25rem] sm:text-[2rem] font-medium text-center leading-[30px] sm:leading-[40px] mb-2"
-          style={{ color: '#101010', letterSpacing: '-0.02em', opacity: mounted ? 1 : 0, transform: mounted ? 'translateY(0)' : 'translateY(10px)', transition: 'all 0.6s cubic-bezier(0.4,0,0.2,1) 0.08s' }}>
+          style={{ color: '#101010', letterSpacing: '-0.02em', opacity: mounted ? 1 : 0, transform: mounted ? 'translateY(0)' : 'translateY(6px)', transition: 'all 0.3s ease-out 0.05s' }}>
           Let&rsquo;s calculate your BMI.
         </h1>
         <p className="text-center text-base sm:text-[1.25rem] mb-8 sm:mb-10 leading-relaxed"
-          style={{ color: '#101010', opacity: mounted ? 0.6 : 0, letterSpacing: '-0.01em', transition: 'opacity 0.5s ease 0.15s' }}>
+          style={{ color: '#101010', opacity: mounted ? 0.6 : 0, letterSpacing: '-0.01em', transition: 'opacity 0.3s ease 0.08s' }}>
           Body Mass Index (BMI) helps determine eligibility for weight loss medication and assess weight-related health risks.
         </p>
 
         {/* Fields */}
         <div className="w-full"
-          style={{ opacity: mounted ? 1 : 0, transform: mounted ? 'translateY(0)' : 'translateY(8px)', transition: 'all 0.6s cubic-bezier(0.4,0,0.2,1) 0.2s' }}>
+          style={{ opacity: mounted ? 1 : 0, transform: mounted ? 'translateY(0)' : 'translateY(4px)', transition: 'all 0.3s ease-out 0.1s' }}>
 
           {/* Feet + Inches — side by side */}
           <div className="flex gap-4 mb-5">
@@ -121,17 +117,13 @@ export default function WmBmiCalcStep({ basePath, nextStep, progressPercent }: W
               <label className="text-base sm:text-[1.125rem] font-medium leading-[26px] sm:leading-6" style={{ color: '#101010', letterSpacing: '-0.01em' }}>Feet</label>
               <input type="text" inputMode="numeric" pattern="[0-9]*" placeholder="5"
                 className="wm-input"
-                value={feet} onChange={(e) => setFeet(e.target.value.replace(/[^0-9]/g, ''))}
-                style={inputStyle}
-                onFocus={onFocus} onBlur={onBlur} />
+                value={feet} onChange={(e) => setFeet(e.target.value.replace(/[^0-9]/g, ''))} />
             </div>
             <div className="flex-1 flex flex-col gap-2">
               <label className="text-base sm:text-[1.125rem] font-medium leading-[26px] sm:leading-6" style={{ color: '#101010', letterSpacing: '-0.01em' }}>Inches</label>
               <input type="text" inputMode="numeric" pattern="[0-9]*" placeholder="4"
                 className="wm-input"
-                value={inches} onChange={(e) => setInches(e.target.value.replace(/[^0-9]/g, ''))}
-                style={inputStyle}
-                onFocus={onFocus} onBlur={onBlur} />
+                value={inches} onChange={(e) => setInches(e.target.value.replace(/[^0-9]/g, ''))} />
             </div>
           </div>
 
@@ -140,15 +132,13 @@ export default function WmBmiCalcStep({ basePath, nextStep, progressPercent }: W
             <label className="text-base sm:text-[1.125rem] font-medium leading-[26px] sm:leading-6" style={{ color: '#101010', letterSpacing: '-0.01em' }}>Weight (lbs)</label>
             <input type="text" inputMode="numeric" pattern="[0-9]*" placeholder="200"
               className="wm-input"
-              value={weight} onChange={(e) => setWeight(e.target.value.replace(/[^0-9]/g, ''))}
-              style={inputStyle}
-              onFocus={onFocus} onBlur={onBlur} />
+              value={weight} onChange={(e) => setWeight(e.target.value.replace(/[^0-9]/g, ''))} />
           </div>
         </div>
 
         {/* Button */}
         <div className="w-full mt-8 sm:mt-[3.25rem] sm:max-w-[31rem] sm:mx-auto"
-          style={{ opacity: mounted ? 1 : 0, transition: 'opacity 0.5s ease 0.3s' }}>
+          style={{ opacity: mounted ? 1 : 0, transition: 'opacity 0.3s ease 0.12s' }}>
           <button onClick={handleContinue}
             className="wm-next-btn w-full flex items-center justify-center gap-4 text-white text-base sm:text-[1.125rem] font-normal rounded-full active:scale-[0.98]"
             style={{

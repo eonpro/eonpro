@@ -70,16 +70,35 @@ export default function WmContactInfoStep({
     return () => window.removeEventListener('keydown', onKey);
   });
 
-  const inputBaseStyle = (hasError: boolean): CSSProperties => ({
-    height: 64,
-    borderRadius: 20,
-    boxSizing: 'border-box',
-    border: `1px solid ${hasError ? '#ef4444' : 'rgba(53, 28, 12, 0.12)'}`,
-    transition: 'border-color 0.2s, box-shadow 0.2s',
-  });
-
   return (
     <div className="min-h-[100dvh] flex flex-col" style={{ backgroundColor: '#F7F7F9' }}>
+      <style>{`
+        .wm-input {
+          width: 100%;
+          height: 64px;
+          padding: 0 2rem;
+          font-size: 1rem;
+          font-weight: 500;
+          color: #101010;
+          background-color: #fff;
+          border: 1px solid rgba(53, 28, 12, 0.12);
+          border-radius: 20px;
+          outline: none;
+          letter-spacing: -0.01em;
+          line-height: 1.5rem;
+          transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .wm-input:focus {
+          border-color: #7b95a9;
+          box-shadow: 0 0 0 2px #7b95a9;
+        }
+        .wm-input::placeholder {
+          opacity: 0.3; color: #101010; font-weight: 400;
+        }
+        @media (min-width: 640px) {
+          .wm-input { height: 72px; font-size: 1.25rem; }
+        }
+      `}</style>
       <div className="w-full h-[3px]" style={{ backgroundColor: '#e5e0d8' }}>
         <div className="h-full" style={{ width: `${progressPercent}%`, backgroundColor: '#c3b29e', transition: 'width 0.8s cubic-bezier(0.4,0,0.2,1)' }} />
       </div>
@@ -111,10 +130,7 @@ export default function WmContactInfoStep({
             <div className="relative">
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">&#9993;</span>
               <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" placeholder="you@email.com"
-                className="w-full pl-10 pr-4 bg-white text-base outline-none"
-                style={inputBaseStyle(!!errors.email)}
-                onFocus={(e) => { e.target.style.borderColor = '#7b95a9'; e.target.style.boxShadow = '0 0 0 2px #7b95a9'; }}
-                onBlur={(e) => { e.target.style.borderColor = errors.email ? '#ef4444' : 'rgba(53, 28, 12, 0.12)'; e.target.style.boxShadow = 'none'; }} />
+                className="wm-input" style={{ paddingLeft: '2.5rem', paddingRight: '1rem' }} />
             </div>
             {errors.email && <p className="text-xs text-red-500 mt-1">{errors.email}</p>}
           </div>
@@ -124,10 +140,7 @@ export default function WmContactInfoStep({
             <div className="relative">
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">&#9742;</span>
               <input value={phone} onChange={(e) => setPhone(formatPhone(e.target.value))} type="tel" placeholder="(555) 555-5555"
-                className="w-full pl-10 pr-4 bg-white text-base outline-none"
-                style={inputBaseStyle(!!errors.phone)}
-                onFocus={(e) => { e.target.style.borderColor = '#7b95a9'; e.target.style.boxShadow = '0 0 0 2px #7b95a9'; }}
-                onBlur={(e) => { e.target.style.borderColor = errors.phone ? '#ef4444' : 'rgba(53, 28, 12, 0.12)'; e.target.style.boxShadow = 'none'; }} />
+                className="wm-input" style={{ paddingLeft: '2.5rem', paddingRight: '1rem' }} />
             </div>
             {errors.phone && <p className="text-xs text-red-500 mt-1">{errors.phone}</p>}
           </div>
@@ -135,7 +148,7 @@ export default function WmContactInfoStep({
 
         <div className="w-full mb-4">
           <label className="flex items-start gap-3 cursor-pointer">
-            <div onClick={() => setConsent(!consent)} className="w-5 h-5 mt-0.5 rounded border-2 flex items-center justify-center shrink-0" style={{ borderColor: consent ? '#c3b29e' : '#d1d5db', backgroundColor: consent ? '#c3b29e' : 'transparent', transition: 'all 0.2s ease' }}>
+            <div onClick={() => setConsent(!consent)} className="w-5 h-5 mt-0.5 rounded border-2 flex items-center justify-center shrink-0" style={{ borderColor: consent ? '#c3b29e' : '#d1d5db', backgroundColor: consent ? '#c3b29e' : 'transparent', transition: 'all 0.08s ease' }}>
               {consent && <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>}
             </div>
             <span className="text-xs leading-relaxed" style={{ color: '#555' }}>

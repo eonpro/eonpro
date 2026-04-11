@@ -50,33 +50,6 @@ export default function WmDobStep({ basePath, nextStep, prevStep, progressPercen
     if (prevStep) { setCurrentStep(prevStep); router.push(`${basePath}/${prevStep}`); }
   };
 
-  const selectStyle: React.CSSProperties = {
-    width: '100%',
-    height: 64,
-    padding: '0.75rem 2.5rem 0.75rem 1rem',
-    fontSize: '1rem',
-    fontWeight: 500,
-    color: '#101010',
-    backgroundColor: '#fff',
-    border: '1px solid rgba(53, 28, 12, 0.12)',
-    borderRadius: 20,
-    outline: 'none',
-    appearance: 'none',
-    cursor: 'pointer',
-    letterSpacing: '-0.01em',
-    lineHeight: '1.5rem',
-    transition: 'border-color 0.2s, box-shadow 0.2s',
-  };
-
-  const onFocus = (e: React.FocusEvent<HTMLSelectElement>) => {
-    e.target.style.borderColor = '#7b95a9';
-    e.target.style.boxShadow = '0 0 0 2px #7b95a9';
-  };
-  const onBlur = (e: React.FocusEvent<HTMLSelectElement>) => {
-    e.target.style.borderColor = 'rgba(53, 28, 12, 0.12)';
-    e.target.style.boxShadow = 'none';
-  };
-
   const chevron = (
     <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
       <svg className="w-5 h-5" style={{ color: '#9ca3af' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -88,10 +61,31 @@ export default function WmDobStep({ basePath, nextStep, prevStep, progressPercen
   return (
     <div className="min-h-[100dvh] flex flex-col" style={{ backgroundColor: '#F7F7F9' }}>
       <style>{`
-        .wm-select { width: 100%; }
+        .wm-select {
+          width: 100%;
+          height: 64px;
+          padding: 0.75rem 2.5rem 0.75rem 1rem;
+          font-size: 1rem;
+          font-weight: 500;
+          color: #101010;
+          background-color: #fff;
+          border: 1px solid rgba(53, 28, 12, 0.12);
+          border-radius: 20px;
+          outline: none;
+          appearance: none;
+          -webkit-appearance: none;
+          cursor: pointer;
+          letter-spacing: -0.01em;
+          line-height: 1.5rem;
+          transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .wm-select:focus {
+          border-color: #7b95a9;
+          box-shadow: 0 0 0 2px #7b95a9;
+        }
         .wm-select option[value=""][disabled] { color: rgba(16, 16, 16, 0.3); }
         @media (min-width: 640px) {
-          .wm-select { height: 72px !important; font-size: 1.25rem !important; }
+          .wm-select { height: 72px; font-size: 1.25rem; }
         }
       `}</style>
 
@@ -120,7 +114,7 @@ export default function WmDobStep({ basePath, nextStep, prevStep, progressPercen
 
       {/* Content */}
       <div className="flex-1 flex flex-col justify-center max-w-[716px] mx-auto px-6 sm:px-8 pb-6 w-full"
-        style={{ opacity: mounted ? 1 : 0, transform: mounted ? 'translateY(0)' : 'translateY(8px)', transition: 'all 0.5s cubic-bezier(0.4,0,0.2,1)' }}>
+        style={{ opacity: mounted ? 1 : 0, transform: mounted ? 'translateY(0)' : 'translateY(6px)', transition: 'all 0.3s ease-out' }}>
 
         <p className="text-base sm:text-[1.25rem] text-center mb-1" style={{ color: '#101010', opacity: 0.5, letterSpacing: '-0.01em' }}>
           Medication can be tailored to <em style={{ fontStyle: 'italic', color: '#7b95a9', opacity: 1 }}>your unique needs,</em>
@@ -144,7 +138,7 @@ export default function WmDobStep({ basePath, nextStep, prevStep, progressPercen
                 Day <span style={{ color: '#c3b29e' }}>*</span>
               </label>
               <div className="relative">
-                <select className="wm-select" value={day} onChange={(e) => setDay(e.target.value)} style={selectStyle} onFocus={onFocus} onBlur={onBlur}>
+                <select className="wm-select" value={day} onChange={(e) => setDay(e.target.value)}>
                   <option value="" disabled>Day</option>
                   {Array.from({ length: 31 }, (_, i) => <option key={i + 1} value={String(i + 1)}>{i + 1}</option>)}
                 </select>
@@ -156,7 +150,7 @@ export default function WmDobStep({ basePath, nextStep, prevStep, progressPercen
                 Month <span style={{ color: '#c3b29e' }}>*</span>
               </label>
               <div className="relative">
-                <select className="wm-select" value={month} onChange={(e) => setMonth(e.target.value)} style={selectStyle} onFocus={onFocus} onBlur={onBlur}>
+                <select className="wm-select" value={month} onChange={(e) => setMonth(e.target.value)}>
                   <option value="" disabled>Month</option>
                   {months.map((m, i) => <option key={m} value={String(i + 1)}>{m}</option>)}
                 </select>
@@ -171,7 +165,7 @@ export default function WmDobStep({ basePath, nextStep, prevStep, progressPercen
               Year <span style={{ color: '#c3b29e' }}>*</span>
             </label>
             <div className="relative">
-              <select className="wm-select" value={year} onChange={(e) => setYear(e.target.value)} style={selectStyle} onFocus={onFocus} onBlur={onBlur}>
+              <select className="wm-select" value={year} onChange={(e) => setYear(e.target.value)}>
                 <option value="" disabled>Year</option>
                 {years.map((y) => <option key={y} value={String(y)}>{y}</option>)}
               </select>

@@ -4,22 +4,6 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useIntakeActions, useIntakeStore } from '../../../../store/intakeStore';
 
-const inputStyle: React.CSSProperties = {
-  width: '100%',
-  height: 64,
-  padding: '0 2rem',
-  fontSize: '1rem',
-  fontWeight: 500,
-  color: '#101010',
-  backgroundColor: '#fff',
-  border: '1px solid rgba(53, 28, 12, 0.12)',
-  borderRadius: 20,
-  outline: 'none',
-  letterSpacing: '-0.01em',
-  lineHeight: '1.5rem',
-  transition: 'border-color 0.2s, box-shadow 0.2s',
-};
-
 interface WmGoalWeightStepProps {
   basePath: string;
   nextStep: string;
@@ -61,17 +45,35 @@ export default function WmGoalWeightStep({ basePath, nextStep, prevStep, progres
     if (prevStep) { setCurrentStep(prevStep); router.push(`${basePath}/${prevStep}`); }
   };
 
-  const onInputFocus = (e: React.FocusEvent<HTMLInputElement>) => {
-    e.target.style.borderColor = '#7b95a9';
-    e.target.style.boxShadow = '0 0 0 2px #7b95a9';
-  };
-  const onInputBlur = (e: React.FocusEvent<HTMLInputElement>) => {
-    e.target.style.borderColor = 'rgba(53, 28, 12, 0.12)';
-    e.target.style.boxShadow = 'none';
-  };
-
   return (
     <div className="min-h-[100dvh] flex flex-col" style={{ backgroundColor: '#F7F7F9' }}>
+      <style>{`
+        .wm-input {
+          width: 100%;
+          height: 64px;
+          padding: 0 2rem;
+          font-size: 1rem;
+          font-weight: 500;
+          color: #101010;
+          background-color: #fff;
+          border: 1px solid rgba(53, 28, 12, 0.12);
+          border-radius: 20px;
+          outline: none;
+          letter-spacing: -0.01em;
+          line-height: 1.5rem;
+          transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .wm-input:focus {
+          border-color: #7b95a9;
+          box-shadow: 0 0 0 2px #7b95a9;
+        }
+        .wm-input::placeholder {
+          opacity: 0.3; color: #101010; font-weight: 400;
+        }
+        @media (min-width: 640px) {
+          .wm-input { height: 72px; font-size: 1.25rem; }
+        }
+      `}</style>
       {/* Progress bar */}
       <div className="w-full h-[3px]" style={{ backgroundColor: '#e5e0d8' }}>
         <div className="h-full" style={{ width: `${progressPercent}%`, backgroundColor: '#c3b29e', transition: 'width 0.8s cubic-bezier(0.4,0,0.2,1)' }} />
@@ -122,10 +124,7 @@ export default function WmGoalWeightStep({ basePath, nextStep, prevStep, progres
             placeholder="150"
             value={weight}
             onChange={(e) => setWeight(e.target.value.replace(/[^0-9]/g, ''))}
-            className="w-full"
-            style={inputStyle}
-            onFocus={onInputFocus}
-            onBlur={onInputBlur}
+            className="wm-input"
           />
         </div>
       </div>

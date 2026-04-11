@@ -73,16 +73,58 @@ export default function WmMedicalReviewStep({
     'SC','SD','TN','TX','UT','VT','VA','WA','WV','WI','WY',
   ];
 
-  const inputBaseStyle = (hasError: boolean): CSSProperties => ({
-    height: 64,
-    borderRadius: 20,
-    boxSizing: 'border-box',
-    border: `1px solid ${hasError ? '#ef4444' : 'rgba(53, 28, 12, 0.12)'}`,
-    transition: 'border-color 0.2s, box-shadow 0.2s',
-  });
-
   return (
     <div className="min-h-[100dvh] flex flex-col" style={{ backgroundColor: '#F7F7F9' }}>
+      <style>{`
+        .wm-input {
+          width: 100%;
+          height: 64px;
+          padding: 0 2rem;
+          font-size: 1rem;
+          font-weight: 500;
+          color: #101010;
+          background-color: #fff;
+          border: 1px solid rgba(53, 28, 12, 0.12);
+          border-radius: 20px;
+          outline: none;
+          letter-spacing: -0.01em;
+          line-height: 1.5rem;
+          transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .wm-input:focus {
+          border-color: #7b95a9;
+          box-shadow: 0 0 0 2px #7b95a9;
+        }
+        .wm-input::placeholder {
+          opacity: 0.3; color: #101010; font-weight: 400;
+        }
+        @media (min-width: 640px) {
+          .wm-input { height: 72px; font-size: 1.25rem; }
+        }
+        .wm-select {
+          width: 100%;
+          height: 64px;
+          padding: 0.75rem 2.5rem 0.75rem 1rem;
+          font-size: 1rem;
+          font-weight: 500;
+          color: #101010;
+          background-color: #fff;
+          border: 1px solid rgba(53, 28, 12, 0.12);
+          border-radius: 20px;
+          outline: none;
+          appearance: none;
+          -webkit-appearance: none;
+          cursor: pointer;
+          transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .wm-select:focus {
+          border-color: #7b95a9;
+          box-shadow: 0 0 0 2px #7b95a9;
+        }
+        @media (min-width: 640px) {
+          .wm-select { height: 72px; font-size: 1.25rem; }
+        }
+      `}</style>
       <div className="w-full h-[3px]" style={{ backgroundColor: '#e5e0d8' }}>
         <div className="h-full" style={{ width: `${progressPercent}%`, backgroundColor: '#c3b29e', transition: 'width 0.8s cubic-bezier(0.4,0,0.2,1)' }} />
       </div>
@@ -124,19 +166,13 @@ export default function WmMedicalReviewStep({
             <div>
               <label className="block text-sm font-medium mb-1" style={{ color: '#7B95A9' }}>First Name <span className="text-red-400">*</span></label>
               <input value={firstName} onChange={(e) => setFirstName(e.target.value)}
-                className="w-full px-4 bg-white text-base outline-none"
-                style={inputBaseStyle(!!errors.firstName)}
-                onFocus={(e) => { e.target.style.borderColor = '#7b95a9'; e.target.style.boxShadow = '0 0 0 2px #7b95a9'; }}
-                onBlur={(e) => { e.target.style.borderColor = errors.firstName ? '#ef4444' : 'rgba(53, 28, 12, 0.12)'; e.target.style.boxShadow = 'none'; }} />
+                className="wm-input" />
               {errors.firstName && <p className="text-xs text-red-500 mt-1">{errors.firstName}</p>}
             </div>
             <div>
               <label className="block text-sm font-medium mb-1" style={{ color: '#7B95A9' }}>Last Name <span className="text-red-400">*</span></label>
               <input value={lastName} onChange={(e) => setLastName(e.target.value)}
-                className="w-full px-4 bg-white text-base outline-none"
-                style={inputBaseStyle(!!errors.lastName)}
-                onFocus={(e) => { e.target.style.borderColor = '#7b95a9'; e.target.style.boxShadow = '0 0 0 2px #7b95a9'; }}
-                onBlur={(e) => { e.target.style.borderColor = errors.lastName ? '#ef4444' : 'rgba(53, 28, 12, 0.12)'; e.target.style.boxShadow = 'none'; }} />
+                className="wm-input" />
               {errors.lastName && <p className="text-xs text-red-500 mt-1">{errors.lastName}</p>}
             </div>
           </div>
@@ -144,17 +180,7 @@ export default function WmMedicalReviewStep({
           <div>
             <label className="block text-sm font-medium mb-1">What state will your medication be shipped to? <span className="text-red-400">*</span></label>
             <select value={state} onChange={(e) => setState(e.target.value)}
-              className="w-full px-4 bg-white text-base appearance-none outline-none"
-              style={{
-                height: 64,
-                borderRadius: 20,
-                boxSizing: 'border-box',
-                border: `1px solid ${errors.state ? '#ef4444' : 'rgba(53, 28, 12, 0.12)'}`,
-                transition: 'border-color 0.2s, box-shadow 0.2s',
-                cursor: 'pointer',
-              }}
-              onFocus={(e) => { e.target.style.borderColor = '#7b95a9'; e.target.style.boxShadow = '0 0 0 2px #7b95a9'; }}
-              onBlur={(e) => { e.target.style.borderColor = errors.state ? '#ef4444' : 'rgba(53, 28, 12, 0.12)'; e.target.style.boxShadow = 'none'; }}>
+              className="wm-select">
               <option value="">Select state</option>
               {US_STATES.map((s) => <option key={s} value={s}>{s}</option>)}
             </select>
