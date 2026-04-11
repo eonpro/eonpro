@@ -1,6 +1,5 @@
 'use client';
 
-import type { CSSProperties } from 'react';
 import { useRouter } from 'next/navigation';
 import { useIntakeActions, useIntakeStore } from '../../../../store/intakeStore';
 
@@ -20,8 +19,6 @@ export default function WmCongratsStep({
   const router = useRouter();
   const responses = useIntakeStore((s) => s.responses);
   const { markStepCompleted, setCurrentStep } = useIntakeActions();
-
-  const fadeStyle: CSSProperties = {};
 
   const handleBack = () => {
     if (prevStep) { setCurrentStep(prevStep); router.push(`${basePath}/${prevStep}`); }
@@ -110,13 +107,17 @@ export default function WmCongratsStep({
         </h2>
         <div className="w-full space-y-3 mb-8">
           {[
-            { num: 1, text: 'Pick your medication' },
-            { num: 2, text: 'Get it delivered' },
+            { num: 1, text: 'Pick your medication', image: '/assets/images/testimonials/3996e0e1-bf01-4a29-ab53-e097c5d5bf4e.png' },
+            { num: 2, text: 'Get it delivered', image: '/assets/images/testimonials/3996e0e1-bf01-4a29-ab53-e097c5d5bf4e.png' },
             { num: 3, text: 'Reach your goals' },
           ].map((s) => (
-            <div key={s.num} className="flex items-center gap-4 rounded-2xl px-5 py-4" style={{ backgroundColor: '#d4c49e' }}>
+            <div key={s.num} className="flex items-center gap-4 rounded-2xl px-5 py-4 overflow-hidden" style={{ background: 'linear-gradient(135deg, #d4c49e 0%, #c3b29e 100%)' }}>
               <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0" style={{ backgroundColor: '#a0906e' }}>{s.num}</div>
-              <span className="font-medium text-base" style={{ color: '#101010' }}>{s.text}</span>
+              <span className="font-medium text-base flex-1" style={{ color: '#101010' }}>{s.text}</span>
+              {s.image && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={s.image} alt="" className="w-16 h-16 object-contain shrink-0 opacity-80" />
+              )}
             </div>
           ))}
         </div>
@@ -170,7 +171,35 @@ export default function WmCongratsStep({
           Join patients pursuing medically-guided weight loss with Wellmedr
         </p>
 
-        <p className="text-center text-sm mb-2 font-bold">Program structure and care process verified. Individual results may vary.</p>
+        <p className="text-center text-sm mb-8 font-bold">Program structure and care process verified. Individual results may vary.</p>
+
+        {/* Success Stories Carousel */}
+        <div className="w-full mb-6">
+          <div className="flex gap-4 overflow-x-auto pb-4 -mx-2 px-2 snap-x snap-mandatory" style={{ scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}>
+            <style>{`.hide-scrollbar::-webkit-scrollbar { display: none; }`}</style>
+            {[
+              { src: '/assets/images/testimonials/d5f89c91-b2e1-4941-bec9-81a6145c71bc.jpg', stat: '-31 lbs', time: 'in 5 months' },
+              { src: '/assets/images/testimonials/1e7c5ed9-6cb8-4db4-ad8f-0c23c4cbcd54.jpg', stat: '-38 lbs', time: 'in 5 months' },
+              { src: '/assets/images/testimonials/b417b574-d2ed-4ace-873b-53d5ae7c2f16.jpg', stat: '-18 lbs', time: 'in 3 months' },
+              { src: '/assets/images/testimonials/0b85f8fc-3001-4059-aa86-a4b23a0d59ab.jpg', stat: '-33 lbs', time: 'in 6 months' },
+              { src: '/assets/images/testimonials/a037d37f-c820-46c8-a47f-ed94c0aa34aa.jpg', stat: '-45 lbs', time: 'in 8 months' },
+              { src: '/assets/images/testimonials/f24bbde1-fa6c-4e91-8901-1be97083cc7c.jpg', stat: '-35 lbs', time: 'in 7 months' },
+              { src: '/assets/images/testimonials/20c72c1d-da6f-4a85-80d2-1b90fa8bb499.jpg', stat: '-27 lbs', time: 'in 5 months' },
+              { src: '/assets/images/testimonials/a4759ff2-50f4-4b40-bded-64ada3083e61.jpg', stat: '-58 lbs', time: 'in 12 months' },
+              { src: '/assets/images/testimonials/7d5e1d57-464e-4db2-b187-603d2e992e79.jpg', stat: '-35 lbs', time: 'in 6 months' },
+            ].map((t, i) => (
+              <div key={i} className="flex-shrink-0 w-[260px] snap-start">
+                <div className="rounded-2xl overflow-hidden mb-2">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={t.src} alt={`${t.stat} ${t.time}`} className="w-full h-auto object-cover" />
+                </div>
+                <p className="text-xs text-center" style={{ color: '#666' }}>
+                  Inspired by real patient success stories in similar Telehealth programs. Average weight loss in clinical programs: <strong>25–40 lbs.</strong> Individual results vary.
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
 
       <div className="w-full max-w-[600px] sm:max-w-[31rem] sm:mx-auto mx-auto px-6 sm:px-8 pb-8">
