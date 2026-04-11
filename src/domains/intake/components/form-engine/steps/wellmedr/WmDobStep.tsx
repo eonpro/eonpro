@@ -20,6 +20,14 @@ export default function WmDobStep({ basePath, nextStep, prevStep, progressPercen
   const [mounted, setMounted] = useState(false);
   useEffect(() => { requestAnimationFrame(() => setMounted(true)); }, []);
 
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Enter' && !e.shiftKey) handleContinue();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  });
+
   const existing = String(responses.dob || '');
   const parts = existing.includes('/') ? existing.split('/') : [];
   const [month, setMonth] = useState(parts[0] || '');
@@ -96,7 +104,7 @@ export default function WmDobStep({ basePath, nextStep, prevStep, progressPercen
       <div className="w-full max-w-[48rem] mx-auto px-6 pt-4 grid grid-cols-3 items-center">
         <div>
           {prevStep && (
-            <button type="button" onClick={handleBack} className="p-1 rounded-lg hover:bg-black/5 active:scale-95 transition-all" aria-label="Go back">
+            <button type="button" onClick={handleBack} className="p-2.5 rounded-lg hover:bg-black/5 active:scale-95 transition-all" aria-label="Go back">
               <svg className="w-5 h-5" style={{ color: '#101010' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
               </svg>
@@ -177,7 +185,7 @@ export default function WmDobStep({ basePath, nextStep, prevStep, progressPercen
           <button
             type="button"
             onClick={handleContinue}
-            className="w-full flex items-center justify-center gap-4 text-white text-base sm:text-[1.125rem] font-normal rounded-full active:scale-[0.98]"
+            className="wm-next-btn w-full flex items-center justify-center gap-4 text-white text-base sm:text-[1.125rem] font-normal rounded-full active:scale-[0.98]"
             style={{ height: 56, backgroundColor: '#0C2631', cursor: 'pointer' }}
           >
             Next <span aria-hidden="true">&#10132;</span>

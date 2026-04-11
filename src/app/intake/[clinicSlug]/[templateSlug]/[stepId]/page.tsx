@@ -25,7 +25,7 @@ function IntakeStepContent() {
   const [branding, setBranding] = useState<FormBranding | undefined>();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [transitionClass, setTransitionClass] = useState('intake-step-fade');
+  const [transitionClass, setTransitionClass] = useState('');
   const prevStepRef = useRef<string>(stepId);
   const stepEnterTime = useRef<number>(Date.now());
 
@@ -57,9 +57,11 @@ function IntakeStepContent() {
     };
   }, [clinicSlug]);
 
-  // Transition animation on step change
+  // Transition animation + scroll-to-top on step change
   useEffect(() => {
     if (prevStepRef.current === stepId) return;
+
+    window.scrollTo({ top: 0, behavior: 'instant' });
 
     const allStepIds = formConfig?.steps.map((s) => s.id) || [];
     const prevIdx = allStepIds.indexOf(prevStepRef.current);
@@ -71,7 +73,6 @@ function IntakeStepContent() {
       setTransitionClass(isBack ? 'intake-step-enter-back' : 'intake-step-enter');
     });
 
-    // Track time on previous step
     const timeSpent = Date.now() - stepEnterTime.current;
     trackIntakeEvent('intake_step_completed', {
       stepId: prevStepRef.current,
@@ -81,6 +82,18 @@ function IntakeStepContent() {
     prevStepRef.current = stepId;
     stepEnterTime.current = Date.now();
   }, [stepId, formConfig]);
+
+  // Scroll to top on initial load
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  }, []);
+
+  // Apply fade-in on first render after load completes
+  useEffect(() => {
+    if (!loading && !transitionClass) {
+      requestAnimationFrame(() => setTransitionClass('intake-step-fade'));
+    }
+  }, [loading, transitionClass]);
 
   // Track step view
   useEffect(() => {
@@ -150,7 +163,24 @@ function IntakeStepContent() {
   );
 
   if (loading) {
-    return <div className="min-h-screen" style={{ backgroundColor: clinicSlug === 'wellmedr' ? '#F7F7F9' : '#ffffff' }} />;
+    const isWm = clinicSlug === 'wellmedr';
+    return (
+      <div className="min-h-screen flex flex-col" style={{ backgroundColor: isWm ? '#F7F7F9' : '#ffffff' }}>
+        <div className="w-full h-[3px]" style={{ backgroundColor: isWm ? '#e5e0d8' : '#e5e7eb' }} />
+        <div className="w-full max-w-[48rem] mx-auto px-6 pt-4 flex justify-center">
+          {isWm && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src="/wellmedr-logo.svg" alt="" className="h-6 sm:h-7 opacity-40" />
+          )}
+        </div>
+        <div className="flex-1 flex flex-col items-center justify-center px-6 gap-4 max-w-[480px] mx-auto w-full">
+          <div className="w-3/4 h-8 rounded-2xl animate-pulse" style={{ backgroundColor: isWm ? '#e5e0d8' : '#e5e7eb' }} />
+          <div className="w-full h-5 rounded-xl animate-pulse" style={{ backgroundColor: isWm ? '#e5e0d8' : '#e5e7eb', opacity: 0.6 }} />
+          <div className="w-full h-16 rounded-[20px] animate-pulse mt-4" style={{ backgroundColor: isWm ? '#e5e0d8' : '#e5e7eb', opacity: 0.4 }} />
+          <div className="w-full h-16 rounded-[20px] animate-pulse" style={{ backgroundColor: isWm ? '#e5e0d8' : '#e5e7eb', opacity: 0.4 }} />
+        </div>
+      </div>
+    );
   }
 
   if (error || !formConfig || !stepConfig) return notFound();

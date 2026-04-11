@@ -18,6 +18,14 @@ export default function WmBmiCalcStep({ basePath, nextStep, progressPercent }: W
   const [mounted, setMounted] = useState(false);
   useEffect(() => { requestAnimationFrame(() => setMounted(true)); }, []);
 
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Enter' && !e.shiftKey) handleContinue();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  });
+
   const [feet, setFeet] = useState(String(responses.height_feet || responses.heightFeet || '5'));
   const [inches, setInches] = useState(String(responses.height_inches ?? responses.heightInches ?? '4'));
   const [weight, setWeight] = useState(String(responses.current_weight || responses.currentWeight || ''));
@@ -142,7 +150,7 @@ export default function WmBmiCalcStep({ basePath, nextStep, progressPercent }: W
         <div className="w-full mt-8 sm:mt-[3.25rem] sm:max-w-[31rem] sm:mx-auto"
           style={{ opacity: mounted ? 1 : 0, transition: 'opacity 0.5s ease 0.3s' }}>
           <button onClick={handleContinue}
-            className="w-full flex items-center justify-center gap-4 text-white text-base sm:text-[1.125rem] font-normal rounded-full active:scale-[0.98]"
+            className="wm-next-btn w-full flex items-center justify-center gap-4 text-white text-base sm:text-[1.125rem] font-normal rounded-full active:scale-[0.98]"
             style={{
               height: 56,
               backgroundColor: '#0C2631',

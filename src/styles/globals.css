@@ -265,6 +265,29 @@ input[type="number"] { -moz-appearance: textfield; }
 .intake-stagger > *:nth-child(9) { animation-delay: 0.68s; }
 .intake-stagger > *:nth-child(n+10) { animation-delay: 0.76s; }
 
+/* WellMedR button hover/active polish */
+.wm-next-btn {
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.wm-next-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px -4px rgba(12, 38, 49, 0.35);
+}
+.wm-next-btn:active {
+  transform: scale(0.97);
+  box-shadow: 0 2px 8px rgba(12, 38, 49, 0.2);
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .intake-step-enter,
+  .intake-step-enter-back { animation: intakeFadeIn 0.15s ease both; }
+  .intake-step-fade { animation: intakeFadeIn 0.15s ease both; }
+  .intake-stagger > * { animation: none !important; opacity: 1 !important; transform: none !important; }
+  .wm-next-btn:hover { transform: none; }
+  .wm-next-btn:active { transform: none; }
+}
+
 /* Chat textarea: CSS-based auto-resize to avoid JS DOM mutation CLS */
 .chat-textarea {
   field-sizing: content;

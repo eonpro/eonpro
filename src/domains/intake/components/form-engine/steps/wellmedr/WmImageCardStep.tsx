@@ -100,6 +100,7 @@ export default function WmImageCardStep({
   );
 
   const handleSelect = (id: string) => {
+    navigator.vibrate?.(10);
     if (mode === 'multi') {
       const arr = Array.isArray(selected) ? selected : [];
       setSelected(arr.includes(id) ? arr.filter((v) => v !== id) : [...arr, id]);
@@ -122,6 +123,15 @@ export default function WmImageCardStep({
     router.push(`${basePath}/${nextStep}`);
   };
 
+  useEffect(() => {
+    if (mode !== 'multi') return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Enter' && !e.shiftKey) handleContinue();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  });
+
   const isSelected = (id: string) =>
     mode === 'multi' ? Array.isArray(selected) && selected.includes(id) : selected === id;
 
@@ -134,7 +144,7 @@ export default function WmImageCardStep({
       <div className="w-full max-w-[48rem] mx-auto px-6 pt-4 grid grid-cols-3 items-center">
         <div>
           {prevStep && (
-            <button onClick={handleBack} className="p-1 rounded-lg hover:bg-black/5 active:scale-95 transition-all" aria-label="Go back">
+            <button onClick={handleBack} className="p-2.5 rounded-lg hover:bg-black/5 active:scale-95 transition-all" aria-label="Go back">
               <svg className="w-5 h-5" style={{ color: '#101010' }} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
             </button>
           )}
@@ -240,7 +250,7 @@ export default function WmImageCardStep({
         <div className="w-full max-w-[600px] sm:max-w-[31rem] mx-auto sm:mx-auto px-6 sm:px-8 mt-8 pb-8" style={{ backgroundColor: '#F7F7F9' }}>
           <button
             onClick={handleContinue}
-            className="w-full flex items-center justify-center gap-4 py-4 text-white font-normal text-base sm:text-[1.125rem] rounded-full active:scale-[0.98]"
+            className="w-full wm-next-btn flex items-center justify-center gap-4 py-4 text-white font-normal text-base sm:text-[1.125rem] rounded-full active:scale-[0.98]"
             style={{ height: 56, backgroundColor: '#0C2631', cursor: 'pointer' }}
           >
             Next <span className="text-lg">&rarr;</span>

@@ -36,6 +36,7 @@ export default function WmMotivationRadioStep({
   const [selected, setSelected] = useState<string>(String(responses[storageKey] || ''));
 
   const handleSelect = (id: string) => {
+    navigator.vibrate?.(10);
     setSelected(id);
     setResponse(storageKey, id);
     markStepCompleted(storageKey);
@@ -51,7 +52,7 @@ export default function WmMotivationRadioStep({
       <div className="w-full max-w-[48rem] mx-auto px-6 pt-4 grid grid-cols-3 items-center">
         <div>
           {prevStep && (
-            <button onClick={handleBack} className="p-1 rounded-lg hover:bg-black/5 active:scale-95 transition-all" aria-label="Go back">
+            <button onClick={handleBack} className="p-2.5 rounded-lg hover:bg-black/5 active:scale-95 transition-all" aria-label="Go back">
               <svg className="w-5 h-5" style={{ color: '#101010' }} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
             </button>
           )}
