@@ -63,30 +63,34 @@ export default function WmContactInfoStep({
   };
 
   const inputBaseStyle = (hasError: boolean): CSSProperties => ({
-    height: 60,
-    borderRadius: 24,
+    height: 64,
+    borderRadius: 20,
     boxSizing: 'border-box',
-    border: `1px solid ${hasError ? '#ef4444' : '#e8e8e8'}`,
+    border: `1px solid ${hasError ? '#ef4444' : 'rgba(53, 28, 12, 0.12)'}`,
     transition: 'border-color 0.2s, box-shadow 0.2s',
   });
 
   return (
     <div className="min-h-[100dvh] flex flex-col" style={{ backgroundColor: '#F7F7F9' }}>
-      <div className="w-full h-1" style={{ backgroundColor: '#e5e0d8' }}>
-        <div className="h-full transition-all duration-500 ease-out" style={{ width: `${progressPercent}%`, backgroundColor: '#c3b29e' }} />
+      <div className="w-full" style={{ padding: '1.5rem 1.5rem 0' }}>
+        <div className="w-full h-2 rounded-full" style={{ backgroundColor: 'rgba(53, 28, 12, 0.06)', maxWidth: '48rem', marginInline: 'auto' }}>
+          <div className="h-full rounded-full" style={{ width: `${progressPercent}%`, background: 'linear-gradient(90deg, #41362a, #6a5b4b, #8f7e6a, #c3b29e)', transition: 'width 0.8s cubic-bezier(0.4,0,0.2,1)' }} />
+        </div>
       </div>
 
-      {prevStep && (
-        <div className="w-full max-w-[600px] mx-auto px-6 sm:px-8 pt-3">
-          <button onClick={handleBack} className="p-2 -ml-2 rounded-lg hover:bg-black/5 active:scale-95 transition-all" aria-label="Go back">
-            <svg className="w-5 h-5" style={{ color: '#101010' }} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
-          </button>
+      <div className="w-full max-w-[48rem] mx-auto px-6 pt-4 grid grid-cols-3 items-center">
+        <div>
+          {prevStep && (
+            <button onClick={handleBack} className="p-1 rounded-lg hover:bg-black/5 active:scale-95 transition-all" aria-label="Go back">
+              <svg className="w-5 h-5" style={{ color: '#101010' }} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
+            </button>
+          )}
         </div>
-      )}
-
-      <div className="w-full max-w-[600px] mx-auto px-6 sm:px-8 pt-6">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/wellmedr-logo.svg" alt="wellmedr." className="h-7 sm:h-8" style={fadeStyle} />
+        <div className="flex justify-center">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/wellmedr-logo.svg" alt="wellmedr." className="h-6 sm:h-7" />
+        </div>
+        <div />
       </div>
 
       <div className="flex-1 flex flex-col justify-center w-full max-w-[600px] mx-auto px-6 sm:px-8 pb-6">
@@ -103,8 +107,8 @@ export default function WmContactInfoStep({
               <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" placeholder="you@email.com"
                 className="w-full pl-10 pr-4 bg-white text-base outline-none"
                 style={inputBaseStyle(!!errors.email)}
-                onFocus={(e) => { e.target.style.borderColor = '#c3b29e'; e.target.style.boxShadow = '0 0 0 3px rgba(195,178,158,0.15)'; }}
-                onBlur={(e) => { e.target.style.borderColor = errors.email ? '#ef4444' : '#e8e8e8'; e.target.style.boxShadow = 'none'; }} />
+                onFocus={(e) => { e.target.style.borderColor = '#7b95a9'; e.target.style.boxShadow = '0 0 0 2px #7b95a9'; }}
+                onBlur={(e) => { e.target.style.borderColor = errors.email ? '#ef4444' : 'rgba(53, 28, 12, 0.12)'; e.target.style.boxShadow = 'none'; }} />
             </div>
             {errors.email && <p className="text-xs text-red-500 mt-1">{errors.email}</p>}
           </div>
@@ -116,8 +120,8 @@ export default function WmContactInfoStep({
               <input value={phone} onChange={(e) => setPhone(formatPhone(e.target.value))} type="tel" placeholder="(555) 555-5555"
                 className="w-full pl-10 pr-4 bg-white text-base outline-none"
                 style={inputBaseStyle(!!errors.phone)}
-                onFocus={(e) => { e.target.style.borderColor = '#c3b29e'; e.target.style.boxShadow = '0 0 0 3px rgba(195,178,158,0.15)'; }}
-                onBlur={(e) => { e.target.style.borderColor = errors.phone ? '#ef4444' : '#e8e8e8'; e.target.style.boxShadow = 'none'; }} />
+                onFocus={(e) => { e.target.style.borderColor = '#7b95a9'; e.target.style.boxShadow = '0 0 0 2px #7b95a9'; }}
+                onBlur={(e) => { e.target.style.borderColor = errors.phone ? '#ef4444' : 'rgba(53, 28, 12, 0.12)'; e.target.style.boxShadow = 'none'; }} />
             </div>
             {errors.phone && <p className="text-xs text-red-500 mt-1">{errors.phone}</p>}
           </div>
@@ -138,12 +142,11 @@ export default function WmContactInfoStep({
         </div>
       </div>
 
-      <div className="w-full max-w-[600px] mx-auto px-6 sm:px-8 pb-8">
+      <div className="w-full max-w-[600px] sm:max-w-[31rem] sm:mx-auto mx-auto px-6 sm:px-8 pb-8">
         <button
           onClick={handleContinue}
-          disabled={!consent}
-          className="w-full flex items-center justify-center gap-3 py-[18px] text-white font-semibold text-base rounded-full active:scale-[0.98]"
-          style={{ backgroundColor: !consent ? '#b0b8be' : '#0C2631', transition: 'all 0.3s cubic-bezier(0.4,0,0.2,1)', cursor: !consent ? 'not-allowed' : 'pointer' }}
+          className="w-full flex items-center justify-center gap-4 py-[18px] text-white font-normal text-base sm:text-[1.125rem] rounded-full active:scale-[0.98]"
+          style={{ height: 56, backgroundColor: '#0C2631', cursor: 'pointer' }}
         >
           Next <span className="text-base" aria-hidden>&#10132;</span>
         </button>
