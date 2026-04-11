@@ -11,9 +11,11 @@ interface CardOption {
   iconId?: string;
 }
 
+const iconFilter = 'brightness(0) saturate(100%) invert(64%) sepia(21%) saturate(403%) hue-rotate(164deg) brightness(87%) contrast(89%)';
+
 function CardIcon({ iconId }: { iconId: string }) {
-  const imgStyle = { width: 52, height: 52, objectFit: 'contain' as const };
-  const silStyle = { width: 56, height: 100, objectFit: 'contain' as const, opacity: 0.55 };
+  const imgStyle = { width: 56, height: 56, objectFit: 'contain' as const, filter: iconFilter };
+  const silStyle = { width: 80, height: 140, objectFit: 'contain' as const, filter: iconFilter };
   switch (iconId) {
     case 'male':
       /* eslint-disable-next-line @next/next/no-img-element */
@@ -160,7 +162,6 @@ export default function WmImageCardStep({
           style={{ color: '#101010', opacity: mounted ? 1 : 0, transform: mounted ? 'translateY(0)' : 'translateY(12px)', transition: 'all 0.6s cubic-bezier(0.4,0,0.2,1) 0.15s' }}
         >
           {question}
-          <span className="ml-1" style={{ color: '#c3b29e' }}>*</span>
         </h2>
 
         {subtitle && (
@@ -172,8 +173,9 @@ export default function WmImageCardStep({
           </p>
         )}
 
-        <div className={`grid ${columns === 3 ? 'grid-cols-2 sm:grid-cols-3' : 'grid-cols-2'} gap-3 sm:gap-4 w-full mt-2 sm:mt-4`}>
+        <div className={`grid ${columns === 3 ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-1 sm:grid-cols-2'} gap-4 w-full mt-2 sm:mt-4`}>
           {cards.map((card, i) => {
+            const isSilhouette = card.iconId === 'male' || card.iconId === 'female';
             const sel = isSelected(card.id);
             return (
               <button
@@ -181,8 +183,8 @@ export default function WmImageCardStep({
                 onClick={() => handleSelect(card.id)}
                 className="relative flex flex-col items-center justify-center rounded-[20px] overflow-hidden"
                 style={{
-                  minHeight: card.iconId === 'male' || card.iconId === 'female' ? '160px' : '110px',
-                  padding: '16px 12px',
+                  minHeight: isSilhouette ? '200px' : '120px',
+                  padding: isSilhouette ? '24px 16px' : '16px 12px',
                   backgroundColor: sel ? '#f5f0e8' : '#ffffff',
                   border: `2px solid ${sel ? '#c3b29e' : 'rgba(0,0,0,0.06)'}`,
                   boxShadow: sel ? '0 0 0 2px #c3b29e, 0 4px 12px rgba(195,178,158,0.2)' : '0 1px 4px rgba(0,0,0,0.04)',
@@ -193,18 +195,15 @@ export default function WmImageCardStep({
               >
                 {/* Radio indicator */}
                 <div
-                  className="absolute top-3 right-3 w-[22px] h-[22px] rounded-full flex items-center justify-center"
+                  className="absolute top-3 right-3 w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center"
                   style={{
-                    border: `2px solid ${sel ? '#c3b29e' : '#d1d5db'}`,
-                    backgroundColor: sel ? '#c3b29e' : 'transparent',
+                    border: `2px solid ${sel ? '#7B95A9' : '#d1d5db'}`,
+                    backgroundColor: 'transparent',
                     transition: 'all 0.25s cubic-bezier(0.4,0,0.2,1)',
-                    boxShadow: sel ? '0 0 0 3px rgba(195,178,158,0.15)' : 'none',
                   }}
                 >
                   {sel && (
-                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                      <path d="M2.5 6L5 8.5L9.5 3.5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
+                    <div className="w-2.5 h-2.5 sm:w-3.5 sm:h-3.5 rounded-full" style={{ backgroundColor: '#7B95A9' }} />
                   )}
                 </div>
 
@@ -223,8 +222,8 @@ export default function WmImageCardStep({
 
                 {/* Label */}
                 <span
-                  className="font-semibold text-[13px] sm:text-[15px] text-center leading-tight"
-                  style={{ color: sel ? '#101010' : '#333' }}
+                  className="font-medium text-[15px] sm:text-base text-center leading-tight"
+                  style={{ color: '#101010' }}
                 >
                   {card.label}
                 </span>
