@@ -490,6 +490,16 @@ const DEFAULT_INTAKE_SECTIONS = [
         options: ['Want to Increase', 'Maintain Current', 'Want to Reduce'],
       },
       {
+        id: 'previousGlp1Details',
+        label: 'Previous GLP-1 (Self-Reported at Checkout)',
+        aliases: [
+          'previousglp1details', 'previous_glp1_details',
+          'previous glp-1 details', 'previousglp1',
+        ],
+        inputType: 'text',
+        placeholder: 'e.g., tirzepatide 12.5 mg per week',
+      },
+      {
         id: 'previousSideEffects',
         label: 'Previous Side Effects',
         aliases: [
@@ -926,6 +936,7 @@ export default function PatientIntakeView({
   // Self-fetch when documents are not passed from server
   const [fetchedDocs, setFetchedDocs] = useState<any[] | null>(null);
   const [fetchedSubmissions, setFetchedSubmissions] = useState<any[] | null>(null);
+  const [fetchedPreviousGlp1Details, setFetchedPreviousGlp1Details] = useState<string | null>(null);
   const [fetchLoading, setFetchLoading] = useState(!documentsProp);
   const [fetchError, setFetchError] = useState(false);
 
@@ -939,6 +950,7 @@ export default function PatientIntakeView({
       const data = await res.json();
       setFetchedDocs(data.documents || []);
       setFetchedSubmissions(data.intakeFormSubmissions || []);
+      if (data.previousGlp1Details) setFetchedPreviousGlp1Details(data.previousGlp1Details);
     } catch {
       setFetchError(true);
     } finally {
@@ -1184,8 +1196,14 @@ export default function PatientIntakeView({
       if (cd.userAgent) answerMap.set(normalizeKey('consentUserAgent'), cd.userAgent);
     }
 
+    // Merge previousGlp1Details from invoice metadata (Airtable checkout self-report)
+    if (fetchedPreviousGlp1Details) {
+      answerMap.set(normalizeKey('previousGlp1Details'), fetchedPreviousGlp1Details);
+      answerMap.set(normalizeKey('previous_glp1_details'), fetchedPreviousGlp1Details);
+    }
+
     return answerMap;
-  }, [intakeData, intakeFormSubmissions]);
+  }, [intakeData, intakeFormSubmissions, fetchedPreviousGlp1Details]);
 
   const answerMap = buildAnswerMap();
 

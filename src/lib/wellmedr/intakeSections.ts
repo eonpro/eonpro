@@ -478,6 +478,16 @@ export const WELLMEDR_INTAKE_SECTIONS = [
         placeholder: 'e.g., medication name',
       },
       {
+        id: 'previousGlp1Details',
+        label: 'Previous GLP-1 (Self-Reported at Checkout)',
+        aliases: [
+          'previousglp1details', 'previous_glp1_details',
+          'previous glp-1 details', 'previousglp1',
+        ],
+        inputType: 'text',
+        placeholder: 'e.g., tirzepatide 12.5 mg per week',
+      },
+      {
         id: 'previousSideEffects',
         label: 'Previous Side Effects',
         aliases: ['previoussideeffects', 'sideeffects'],

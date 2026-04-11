@@ -24,7 +24,7 @@ const getIntakeDataHandler = withAuthParams(
 
       const clinicId = user.role === 'super_admin' ? undefined : user.clinicId;
 
-      const [documents, intakeFormSubmissions] = await Promise.all([
+      const [documents, intakeFormSubmissions, latestInvoice] = await Promise.all([
         // withoutClinicFilter: documents with clinicId=null (legacy) must
         // still be found; we scope by patientId which is already verified.
         withoutClinicFilter(() =>
@@ -56,6 +56,15 @@ const getIntakeDataHandler = withAuthParams(
             },
           })
         ),
+        prisma.invoice.findFirst({
+          where: {
+            patientId,
+            status: 'PAID',
+            ...(clinicId ? { clinicId } : {}),
+          },
+          orderBy: { createdAt: 'desc' },
+          select: { metadata: true },
+        }).catch(() => null),
       ]);
 
       // Fetch binary data + S3 key for intake form documents and parse to JSON
@@ -88,9 +97,14 @@ const getIntakeDataHandler = withAuthParams(
         }
       }
 
+      const invoiceMeta = latestInvoice?.metadata as Record<string, unknown> | null;
+      const previousGlp1Details =
+        (invoiceMeta?.previousGlp1Details || invoiceMeta?.previous_glp1_details) as string | undefined;
+
       return NextResponse.json({
         documents: documentsWithData,
         intakeFormSubmissions,
+        ...(previousGlp1Details ? { previousGlp1Details } : {}),
       });
     } catch (error) {
       logger.error('[intake-data] Error:', {
