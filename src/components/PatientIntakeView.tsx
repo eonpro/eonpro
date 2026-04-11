@@ -1805,6 +1805,31 @@ export default function PatientIntakeView({
 
                 {isExpanded && (
                   <div className="border-t border-gray-100">
+                    {section.title === 'GLP-1 Medications' && fetchedPreviousGlp1Details && !isEditing && (
+                      <div className="border-b-2 border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-4">
+                        <div className="flex items-start gap-3">
+                          <div className="mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-blue-600">
+                            <Pill className="h-4 w-4 text-white" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-bold uppercase tracking-wider text-blue-700">
+                                Checkout Self-Report
+                              </span>
+                              <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold text-blue-700">
+                                Airtable
+                              </span>
+                            </div>
+                            <p className="mt-1 text-xl font-bold text-gray-900">
+                              {fetchedPreviousGlp1Details}
+                            </p>
+                            <p className="mt-0.5 text-xs text-blue-600">
+                              Patient-reported GLP-1 history at time of purchase — use for dosage verification
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                     <div className="divide-y divide-gray-100">
                       {section.fields.map((field: any) => {
                         const displayValue = isPatientProfile
@@ -1812,6 +1837,11 @@ export default function PatientIntakeView({
                           : findAnswer(field);
                         const editValue = getFieldValue(field);
                         const hasValue = displayValue !== '—';
+                        const isPreviousGlp1 = field.id === 'previousGlp1Details';
+
+                        if (isPreviousGlp1 && hasValue && !isSectionEditable && fetchedPreviousGlp1Details) {
+                          return null;
+                        }
 
                         return (
                           <div key={field.id} className="flex items-start px-6 py-3">
