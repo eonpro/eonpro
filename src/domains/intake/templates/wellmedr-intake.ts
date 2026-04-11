@@ -338,7 +338,7 @@ const steps: FormStep[] = [
     nextStep: 'testimonial-2', prevStep: 'health-conditions', progressPercent: 51,
   },
 
-  // 18. Testimonial: Man (65lbs)
+  // 18. Testimonial: Kelly (65lbs)
   {
     id: 'testimonial-2', path: 'testimonial-2',
     title: { en: '', es: '' },
@@ -346,10 +346,12 @@ const steps: FormStep[] = [
     fields: [], autoAdvance: false, showContinueButton: false, nextStep: 'testimonial-3', prevStep: 'glp1-history', progressPercent: 54,
     props: {
       quote: 'Nothing has worked like this. I am down 65lbs in 6 months. I have more energy and confidence than I\'ve had in years!',
-      personName: 'Patient',
+      personName: 'Kelly',
       lostAmount: '65lbs in 6 months',
       beforeImage: '/assets/images/testimonials/2-before.webp',
       afterImage: '/assets/images/testimonials/2-after.webp',
+      combinedImage: '/assets/images/testimonials/kelly-before-after.png',
+      descriptionHtml: 'Kelly <strong>dropped</strong> his blood pressure and <em><u>upped</u></em> his confidence in only 5 weeks!',
     },
   },
 

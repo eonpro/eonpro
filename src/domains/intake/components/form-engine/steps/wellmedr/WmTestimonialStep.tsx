@@ -14,6 +14,8 @@ interface WmTestimonialStepProps {
   lostAmount: string;
   beforeImage: string;
   afterImage: string;
+  combinedImage?: string;
+  descriptionHtml?: string;
 }
 
 export default function WmTestimonialStep({
@@ -26,6 +28,8 @@ export default function WmTestimonialStep({
   lostAmount,
   beforeImage,
   afterImage,
+  combinedImage,
+  descriptionHtml,
 }: WmTestimonialStepProps) {
   const router = useRouter();
   const { markStepCompleted, setCurrentStep } = useIntakeActions();
@@ -70,23 +74,34 @@ export default function WmTestimonialStep({
           &ldquo;{quote}&rdquo;
         </h2>
 
-        <div className="grid grid-cols-2 gap-3 w-full mb-4"
-          style={{ opacity: mounted ? 1 : 0, transform: mounted ? 'scale(1)' : 'scale(0.97)', transition: 'all 0.6s cubic-bezier(0.4,0,0.2,1) 0.2s' }}>
-          <div className="relative rounded-xl overflow-hidden aspect-[3/4]">
+        {combinedImage ? (
+          <div className="w-full mb-4 rounded-xl overflow-hidden"
+            style={{ opacity: mounted ? 1 : 0, transform: mounted ? 'scale(1)' : 'scale(0.97)', transition: 'all 0.6s cubic-bezier(0.4,0,0.2,1) 0.2s' }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={beforeImage} alt={`${personName} before`} className="w-full h-full object-cover" />
-            <div className="absolute top-2 left-2 bg-black/60 text-white text-xs font-bold px-2 py-1 rounded">BEFORE</div>
+            <img src={combinedImage} alt={`${personName} before and after`} className="w-full h-auto object-cover rounded-xl" />
           </div>
-          <div className="relative rounded-xl overflow-hidden aspect-[3/4]">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={afterImage} alt={`${personName} after`} className="w-full h-full object-cover" />
-            <div className="absolute top-2 right-2 bg-black/60 text-white text-xs font-bold px-2 py-1 rounded">AFTER</div>
+        ) : (
+          <div className="grid grid-cols-2 gap-3 w-full mb-4"
+            style={{ opacity: mounted ? 1 : 0, transform: mounted ? 'scale(1)' : 'scale(0.97)', transition: 'all 0.6s cubic-bezier(0.4,0,0.2,1) 0.2s' }}>
+            <div className="relative rounded-xl overflow-hidden aspect-[3/4]">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={beforeImage} alt={`${personName} before`} className="w-full h-full object-cover" />
+            </div>
+            <div className="relative rounded-xl overflow-hidden aspect-[3/4]">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={afterImage} alt={`${personName} after`} className="w-full h-full object-cover" />
+            </div>
           </div>
-        </div>
+        )}
 
-        <p className="text-center text-base" style={{ color: '#101010', opacity: mounted ? 1 : 0, transition: 'opacity 0.5s ease 0.3s' }}>
-          {personName} is currently <em>down</em> <strong>{lostAmount}</strong> and feeling <strong>amazing</strong>!
-        </p>
+        {descriptionHtml ? (
+          <p className="text-center text-base" style={{ color: '#101010', opacity: mounted ? 1 : 0, transition: 'opacity 0.5s ease 0.3s' }}
+            dangerouslySetInnerHTML={{ __html: descriptionHtml }} />
+        ) : (
+          <p className="text-center text-base" style={{ color: '#101010', opacity: mounted ? 1 : 0, transition: 'opacity 0.5s ease 0.3s' }}>
+            {personName} is currently <em>down</em> <strong>{lostAmount}</strong> and feeling <strong>amazing</strong>!
+          </p>
+        )}
       </div>
 
       <div className="w-full max-w-[600px] sm:max-w-[31rem] mx-auto sm:mx-auto px-6 sm:px-8 pb-6">
