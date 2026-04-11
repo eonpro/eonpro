@@ -2690,38 +2690,59 @@ export default function PrescriptionQueuePage() {
                                     </div>
                                   </div>
                                 ) : (
-                                  <div className="rounded-lg bg-gray-50 border border-gray-100 p-3">
-                                    <div className="flex items-center gap-2 font-medium text-gray-700 mb-1">
-                                      <Pill className="h-4 w-4" />
-                                      GLP-1 History
-                                    </div>
+                                  <div className="space-y-2">
                                     {patientDetails.clinicalContext.previousGlp1Details && (
-                                      <div className="mb-2 rounded border border-blue-200 bg-blue-50 px-2.5 py-1.5 text-sm text-blue-800">
-                                        <span className="font-semibold">Patient reported:</span>{' '}
-                                        {patientDetails.clinicalContext.previousGlp1Details}
+                                      <div className="rounded-xl border-2 border-blue-300 bg-gradient-to-r from-blue-50 to-indigo-50 px-4 py-3">
+                                        <div className="flex items-start gap-3">
+                                          <div className="mt-0.5 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-blue-600">
+                                            <Pill className="h-3.5 w-3.5 text-white" />
+                                          </div>
+                                          <div className="min-w-0 flex-1">
+                                            <div className="flex items-center gap-2">
+                                              <span className="text-[10px] font-bold uppercase tracking-wider text-blue-700">
+                                                Checkout Self-Report
+                                              </span>
+                                              <span className="rounded-full bg-blue-100 px-1.5 py-0.5 text-[9px] font-semibold text-blue-700">
+                                                Airtable
+                                              </span>
+                                            </div>
+                                            <p className="mt-0.5 text-base font-bold text-gray-900">
+                                              {patientDetails.clinicalContext.previousGlp1Details}
+                                            </p>
+                                            <p className="mt-0.5 text-[10px] text-blue-600">
+                                              Patient-reported GLP-1 history at purchase — use for dosage verification
+                                            </p>
+                                          </div>
+                                        </div>
                                       </div>
                                     )}
-                                    {patientDetails.clinicalContext.glp1History.used ? (
-                                      <div className="space-y-1 text-gray-600">
-                                        <div>Used in last 30 days: <span className="font-medium">Yes</span></div>
-                                        {patientDetails.clinicalContext.glp1History.type && (
-                                          <div>Type: <span className="font-medium">{patientDetails.clinicalContext.glp1History.type}</span></div>
-                                        )}
-                                        {patientDetails.clinicalContext.glp1History.dose && (
-                                          <div>Last Dose: <span className="font-medium">{patientDetails.clinicalContext.glp1History.dose}mg</span></div>
-                                        )}
-                                        {patientDetails.clinicalContext.glp1History.sideEffects && (
-                                          <div>Side Effects: <span className="font-medium">{patientDetails.clinicalContext.glp1History.sideEffects}</span></div>
-                                        )}
+                                    <div className="rounded-lg bg-gray-50 border border-gray-100 p-3">
+                                      <div className="flex items-center gap-2 font-medium text-gray-700 mb-1">
+                                        <Pill className="h-4 w-4" />
+                                        GLP-1 History
                                       </div>
-                                    ) : (
-                                      <div className="text-gray-600">No prior GLP-1 use (new patient)</div>
-                                    )}
-                                    {patientDetails.clinicalContext.preferredMedication && (
-                                      <div className="mt-1 text-gray-600">
-                                        Preferred: <span className="font-medium">{patientDetails.clinicalContext.preferredMedication}</span>
-                                      </div>
-                                    )}
+                                      {patientDetails.clinicalContext.glp1History.used ? (
+                                        <div className="space-y-1 text-gray-600">
+                                          <div>Used in last 30 days: <span className="font-medium">Yes</span></div>
+                                          {patientDetails.clinicalContext.glp1History.type && (
+                                            <div>Type: <span className="font-medium">{patientDetails.clinicalContext.glp1History.type}</span></div>
+                                          )}
+                                          {patientDetails.clinicalContext.glp1History.dose && (
+                                            <div>Last Dose: <span className="font-medium">{patientDetails.clinicalContext.glp1History.dose}mg</span></div>
+                                          )}
+                                          {patientDetails.clinicalContext.glp1History.sideEffects && (
+                                            <div>Side Effects: <span className="font-medium">{patientDetails.clinicalContext.glp1History.sideEffects}</span></div>
+                                          )}
+                                        </div>
+                                      ) : (
+                                        <div className="text-gray-600">No prior GLP-1 use (new patient)</div>
+                                      )}
+                                      {patientDetails.clinicalContext.preferredMedication && (
+                                        <div className="mt-1 text-gray-600">
+                                          Preferred: <span className="font-medium">{patientDetails.clinicalContext.preferredMedication}</span>
+                                        </div>
+                                      )}
+                                    </div>
                                   </div>
                                 )}
 
@@ -3941,6 +3962,41 @@ export default function PrescriptionQueuePage() {
                             </div>
                           </div>
                         ) : (
+                          <div className="space-y-3">
+                            {(() => {
+                              const glp1 = prescriptionPanel.item.glp1Info;
+                              const rawDetails = prescriptionPanel.details.clinicalContext?.previousGlp1Details || glp1?.previousGlp1Details;
+                              if (rawDetails) {
+                                return (
+                                  <div className="overflow-hidden rounded-xl border-2 border-blue-300 bg-gradient-to-r from-blue-50 to-indigo-50 shadow-sm">
+                                    <div className="px-4 py-3">
+                                      <div className="flex items-start gap-3">
+                                        <div className="mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-blue-600">
+                                          <Pill className="h-4 w-4 text-white" />
+                                        </div>
+                                        <div className="min-w-0 flex-1">
+                                          <div className="flex items-center gap-2">
+                                            <span className="text-[10px] font-bold uppercase tracking-wider text-blue-700">
+                                              Checkout Self-Report
+                                            </span>
+                                            <span className="rounded-full bg-blue-100 px-1.5 py-0.5 text-[9px] font-semibold text-blue-700">
+                                              Airtable
+                                            </span>
+                                          </div>
+                                          <p className="mt-1 text-xl font-bold text-gray-900">
+                                            {rawDetails}
+                                          </p>
+                                          <p className="mt-0.5 text-[10px] text-blue-600">
+                                            Patient-reported GLP-1 history at purchase — use for dosage verification
+                                          </p>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              }
+                              return null;
+                            })()}
                           <div className="overflow-hidden rounded-xl border border-[#66a682]/25 bg-[#66a682]/5 shadow-sm">
                             <div className="border-b border-[#66a682]/15 bg-[#66a682]/10 px-4 py-2.5">
                               <h3 className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#3d6b50]">
@@ -3952,7 +4008,6 @@ export default function PrescriptionQueuePage() {
                             {(() => {
                               const glp1 = prescriptionPanel.item.glp1Info;
                               const ctx = prescriptionPanel.details.clinicalContext?.glp1History;
-                              const rawDetails = prescriptionPanel.details.clinicalContext?.previousGlp1Details || glp1?.previousGlp1Details;
                               const medType = ctx?.type || glp1?.glp1Type;
                               const dose = ctx?.dose || glp1?.lastDose;
                               const hasHistory = glp1?.usedGlp1 || ctx?.used;
@@ -3966,11 +4021,6 @@ export default function PrescriptionQueuePage() {
                                     <p className="mt-1 text-sm font-semibold text-[#66a682]">
                                       {medType || 'GLP-1 Medication'}
                                     </p>
-                                    {rawDetails && (
-                                      <p className="mt-2 rounded border border-blue-200 bg-blue-50 px-2 py-1 text-xs text-blue-800">
-                                        Patient reported: &ldquo;{rawDetails}&rdquo;
-                                      </p>
-                                    )}
                                     {ctx?.sideEffects && (
                                       <p className="mt-2 text-xs text-gray-500">
                                         Side effects: {ctx.sideEffects}
@@ -3986,6 +4036,7 @@ export default function PrescriptionQueuePage() {
                               );
                             })()}
                             </div>
+                          </div>
                           </div>
                         )}
 
@@ -4686,6 +4737,34 @@ export default function PrescriptionQueuePage() {
                         </div>
                       </div>
                     ) : (
+                      <div className="space-y-3">
+                        {(prescriptionPanel.details.clinicalContext?.previousGlp1Details || prescriptionPanel.item.glp1Info?.previousGlp1Details) && (
+                          <div className="overflow-hidden rounded-xl border-2 border-blue-300 bg-gradient-to-r from-blue-50 to-indigo-50 shadow-sm">
+                            <div className="px-4 py-3">
+                              <div className="flex items-start gap-3">
+                                <div className="mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-blue-600">
+                                  <Pill className="h-4 w-4 text-white" />
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-[10px] font-bold uppercase tracking-wider text-blue-700">
+                                      Checkout Self-Report
+                                    </span>
+                                    <span className="rounded-full bg-blue-100 px-1.5 py-0.5 text-[9px] font-semibold text-blue-700">
+                                      Airtable
+                                    </span>
+                                  </div>
+                                  <p className="mt-1 text-xl font-bold text-gray-900">
+                                    {prescriptionPanel.details.clinicalContext?.previousGlp1Details || prescriptionPanel.item.glp1Info?.previousGlp1Details}
+                                  </p>
+                                  <p className="mt-0.5 text-[10px] text-blue-600">
+                                    Patient-reported GLP-1 history at purchase — use for dosage verification
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
                       <div className="overflow-hidden rounded-xl border border-gray-200 bg-gray-50">
                         <div className="flex items-center gap-2 border-b border-gray-200 bg-gray-100/60 px-4 py-2.5">
                           <Activity className="h-4 w-4 text-gray-600" />
@@ -4724,6 +4803,7 @@ export default function PrescriptionQueuePage() {
                             </div>
                           )}
                         </div>
+                      </div>
                       </div>
                     )}
 
