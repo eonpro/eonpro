@@ -1805,31 +1805,6 @@ export default function PatientIntakeView({
 
                 {isExpanded && (
                   <div className="border-t border-gray-100">
-                    {section.title === 'GLP-1 Medications' && fetchedPreviousGlp1Details && !isEditing && (
-                      <div className="border-b-2 border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-4">
-                        <div className="flex items-start gap-3">
-                          <div className="mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-blue-600">
-                            <Pill className="h-4 w-4 text-white" />
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs font-bold uppercase tracking-wider text-blue-700">
-                                Checkout Self-Report
-                              </span>
-                              <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold text-blue-700">
-                                Airtable
-                              </span>
-                            </div>
-                            <p className="mt-1 text-xl font-bold text-gray-900">
-                              {fetchedPreviousGlp1Details}
-                            </p>
-                            <p className="mt-0.5 text-xs text-blue-600">
-                              Patient-reported GLP-1 history at time of purchase — use for dosage verification
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    )}
                     <div className="divide-y divide-gray-100">
                       {section.fields.map((field: any) => {
                         const displayValue = isPatientProfile
@@ -1839,8 +1814,36 @@ export default function PatientIntakeView({
                         const hasValue = displayValue !== '—';
                         const isPreviousGlp1 = field.id === 'previousGlp1Details';
 
-                        if (isPreviousGlp1 && hasValue && !isSectionEditable && fetchedPreviousGlp1Details) {
-                          return null;
+                        if (isPreviousGlp1 && !isSectionEditable) {
+                          return (
+                            <div key={field.id} className="px-4 py-3">
+                              <div className={`rounded-xl border-2 px-5 py-4 ${hasValue ? 'border-blue-300 bg-gradient-to-r from-blue-50 to-indigo-50' : 'border-dashed border-gray-300 bg-gray-50'}`}>
+                                <div className="flex items-start gap-3">
+                                  <div className={`mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full ${hasValue ? 'bg-blue-600' : 'bg-gray-300'}`}>
+                                    <Pill className="h-4 w-4 text-white" />
+                                  </div>
+                                  <div className="min-w-0 flex-1">
+                                    <div className="flex items-center gap-2">
+                                      <span className={`text-[11px] font-bold uppercase tracking-wider ${hasValue ? 'text-blue-700' : 'text-gray-500'}`}>
+                                        Checkout Self-Report
+                                      </span>
+                                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${hasValue ? 'bg-blue-100 text-blue-700' : 'bg-gray-200 text-gray-500'}`}>
+                                        Airtable
+                                      </span>
+                                    </div>
+                                    {hasValue ? (
+                                      <p className="mt-1 text-xl font-bold text-gray-900">{displayValue}</p>
+                                    ) : (
+                                      <p className="mt-1 text-sm font-medium text-gray-400 italic">No self-report submitted at checkout</p>
+                                    )}
+                                    <p className={`mt-0.5 text-xs ${hasValue ? 'text-blue-600' : 'text-gray-400'}`}>
+                                      Patient-reported GLP-1 history at time of purchase — use for dosage verification
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          );
                         }
 
                         return (
