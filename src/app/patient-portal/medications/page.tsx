@@ -709,6 +709,20 @@ END:VCALENDAR`;
     (d) => now >= d.periodStart && now < d.periodEnd
   );
 
+  const primaryGlp1Medication = useMemo(() => {
+    const sorted = [...prescriptions].sort(
+      (a, b) => new Date(b.prescribedDate).getTime() - new Date(a.prescribedDate).getTime()
+    );
+    for (const rx of sorted) {
+      for (const med of rx.medications ?? []) {
+        const n = (med.name || '').toLowerCase();
+        if (n.includes('tirzepatide')) return 'tirzepatide';
+        if (n.includes('semaglutide')) return 'semaglutide';
+      }
+    }
+    return 'semaglutide';
+  }, [prescriptions]);
+
   if (loading) {
     return <MedicationsPageSkeleton />;
   }
@@ -1387,7 +1401,7 @@ END:VCALENDAR`;
       {/* Quick Actions */}
       <div className="grid gap-4 sm:grid-cols-2">
         <Link
-          href={`${PATIENT_PORTAL_PATH}/calculators/semaglutide`}
+          href={`${PATIENT_PORTAL_PATH}/calculators/${primaryGlp1Medication}`}
           className="group overflow-hidden rounded-3xl bg-white p-6 shadow-xl shadow-gray-200/50 transition-all hover:shadow-2xl"
         >
           <div className="flex items-center justify-between">

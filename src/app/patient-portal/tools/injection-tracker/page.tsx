@@ -439,7 +439,7 @@ export default function InjectionTrackerPage() {
 
           {/* Link to Dose Calculator */}
           <Link
-            href={`${PATIENT_PORTAL_PATH}/calculators/semaglutide`}
+            href={`${PATIENT_PORTAL_PATH}/calculators`}
             className="block rounded-2xl bg-white p-5 shadow-lg shadow-gray-100 transition-shadow hover:shadow-xl"
           >
             <div className="flex items-center gap-4">
