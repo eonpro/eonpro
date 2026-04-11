@@ -241,6 +241,8 @@ const steps: FormStep[] = [
       lostAmount: '80lbs',
       beforeImage: '/assets/images/testimonials/1-before.webp',
       afterImage: '/assets/images/testimonials/1-after.webp',
+      combinedImage: '/assets/images/testimonials/IMG_2962.JPG',
+      descriptionHtml: 'Leilani went from <strong>beautiful</strong> to <strong>stunning</strong> and is currently <em><u>down</u></em> 80lbs!',
     },
   },
 
@@ -355,18 +357,19 @@ const steps: FormStep[] = [
     },
   },
 
-  // 19. Testimonial: Woman (25lbs)
+  // 19. Testimonial: Woman (26lbs in 3 months)
   {
     id: 'testimonial-3', path: 'testimonial-3',
     title: { en: '', es: '' },
     type: 'custom', component: 'WmTestimonialStep',
     fields: [], autoAdvance: false, showContinueButton: false, nextStep: 'opioids', prevStep: 'testimonial-2', progressPercent: 57,
     props: {
-      quote: "Nothing has worked like this. I am down 25lbs in 5 weeks. I've never experienced anything like it. I have more energy and confidence than I've had in years!",
+      quote: "Nothing has worked like this. I am down 26lbs in 3 months. I've never experienced anything like it. I have more energy and confidence than I've had in years!",
       personName: 'Patient',
-      lostAmount: '25lbs in 5 weeks',
+      lostAmount: '26lbs in 3 months',
       beforeImage: '/assets/images/testimonials/1-before.webp',
       afterImage: '/assets/images/testimonials/1-after.webp',
+      combinedImage: '/assets/images/testimonials/5b403111-fa42-4b2b-8fc4-54cd1bfa7d4e.jpg',
     },
   },
 
