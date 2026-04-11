@@ -367,9 +367,6 @@ interface PatientDetails {
 interface QueueResponse {
   items: QueueItem[];
   total: number;
-  limit: number;
-  offset: number;
-  hasMore: boolean;
 }
 
 // Single medication item

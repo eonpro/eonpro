@@ -96,28 +96,16 @@ type RefillWithRelations = RefillQueue & {
 
 /**
  * GET /api/provider/prescription-queue
- * Get list of patients in the prescription processing queue
- *
- * Query params:
- * - limit: number of records (default 100, max 200)
- * - offset: pagination offset (default 0)
+ * Get ALL patients pending a prescription in the provider queue.
+ * No pagination — providers must see every pending item.
  */
 async function handleGet(req: NextRequest, user: AuthUser) {
   try {
-    const { searchParams } = new URL(req.url);
-    const requestedLimit = Number.parseInt(searchParams.get('limit') || '100', 10);
-    const requestedOffset = Number.parseInt(searchParams.get('offset') || '0', 10);
-    const limit = Number.isFinite(requestedLimit) ? Math.min(Math.max(requestedLimit, 1), 200) : 100;
-    const offset = Number.isFinite(requestedOffset) ? Math.max(requestedOffset, 0) : 0;
-
     logger.info('[PRESCRIPTION-QUEUE] GET request', {
       userId: user.id,
       userEmail: user.email,
       providerId: user.providerId,
       clinicId: user.clinicId,
-      requestedLimit: searchParams.get('limit'),
-      effectiveLimit: limit,
-      offset,
     });
 
     // Use the current session's clinic context — providers must only see
@@ -211,8 +199,6 @@ async function handleGet(req: NextRequest, user: AuthUser) {
           },
         },
         orderBy: { paidAt: 'asc' },
-        take: limit,
-        skip: offset,
       }),
       prisma.invoice.count({ where: invoiceWhere }),
     ]);
@@ -276,8 +262,6 @@ async function handleGet(req: NextRequest, user: AuthUser) {
           orderBy: {
             providerQueuedAt: 'asc',
           },
-          take: limit,
-          skip: offset,
         }),
         prisma.refillQueue.count({ where: refillWhere }),
     ]);
@@ -322,8 +306,6 @@ async function handleGet(req: NextRequest, user: AuthUser) {
             rxs: true,
           },
           orderBy: { queuedForProviderAt: 'asc' },
-          take: limit,
-          skip: offset,
         }),
         prisma.order.count({ where: queuedOrderWhere }),
     ]);
@@ -1725,9 +1707,6 @@ async function handleGet(req: NextRequest, user: AuthUser) {
       invoiceCount,
       refillCount,
       queuedOrderCount,
-      limit,
-      offset,
-      hasMore: offset + queueItems.length < totalCount,
     });
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
