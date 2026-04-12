@@ -148,8 +148,8 @@ export default function WmImageCardStep({
             grid-template-columns: repeat(${cards.length}, 1fr);
           }
           .wm-card-grid > button {
-            min-height: 180px;
-            padding: 2rem 1rem 1.5rem;
+            min-height: 240px;
+            padding: 2.5rem 1rem 1.5rem;
           }
         }
       `}</style>
