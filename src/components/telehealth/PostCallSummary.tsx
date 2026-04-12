@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 
 import {
+  AlertTriangle,
   CheckCircle,
   Clock,
   Users,
@@ -47,6 +48,7 @@ export default function PostCallSummary({ data, onBackToQueue, onSelectNextPatie
     }
   );
   const [isGenerating, setIsGenerating] = useState(false);
+  const [generateError, setGenerateError] = useState<string | null>(null);
   const [isSigned, setIsSigned] = useState(false);
   const [providerId, setProviderId] = useState<number | undefined>();
   const [nextSession, setNextSession] = useState<any>(null);
@@ -97,6 +99,7 @@ export default function PostCallSummary({ data, onBackToQueue, onSelectNextPatie
       || `Telehealth consultation with ${data.session.patient.firstName} ${data.session.patient.lastName}. Duration: ${Math.ceil(data.duration / 60)} minutes. Reason: ${data.session.appointment?.reason || data.session.topic || 'Follow-up consultation'}.`;
 
     setIsGenerating(true);
+    setGenerateError(null);
     try {
       const res = await apiFetch('/api/ai-scribe/generate-soap', {
         method: 'POST',
@@ -123,9 +126,11 @@ export default function PostCallSummary({ data, onBackToQueue, onSelectNextPatie
             status: result.soapNote.status ?? 'DRAFT',
           });
         }
+      } else {
+        setGenerateError('SOAP generation failed. You can retry or write manually.');
       }
     } catch {
-      // User can create manually
+      setGenerateError('Network error generating SOAP note. You can retry or write manually.');
     } finally {
       setIsGenerating(false);
     }
@@ -171,8 +176,8 @@ export default function PostCallSummary({ data, onBackToQueue, onSelectNextPatie
           </div>
         </div>
 
-        <div className="grid grid-cols-3 divide-x divide-gray-100 px-6 py-4">
-          <div className="pr-6">
+        <div className="grid grid-cols-1 divide-y divide-gray-100 px-6 py-4 sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+          <div className="pb-3 sm:pb-0 sm:pr-6">
             <div className="flex items-center gap-2 text-xs font-medium text-gray-400">
               <Clock className="h-3.5 w-3.5" />
               Duration
@@ -181,7 +186,7 @@ export default function PostCallSummary({ data, onBackToQueue, onSelectNextPatie
               {formatDuration(data.duration)}
             </p>
           </div>
-          <div className="px-6">
+          <div className="py-3 sm:py-0 sm:px-6">
             <div className="flex items-center gap-2 text-xs font-medium text-gray-400">
               <Users className="h-3.5 w-3.5" />
               Patient
@@ -190,7 +195,7 @@ export default function PostCallSummary({ data, onBackToQueue, onSelectNextPatie
               {data.session.patient.firstName} {data.session.patient.lastName}
             </p>
           </div>
-          <div className="pl-6">
+          <div className="pt-3 sm:pt-0 sm:pl-6">
             <div className="flex items-center gap-2 text-xs font-medium text-gray-400">
               <FileText className="h-3.5 w-3.5" />
               SOAP Note
@@ -212,12 +217,29 @@ export default function PostCallSummary({ data, onBackToQueue, onSelectNextPatie
                     </span>
                   );
                 }
-                return <span className="text-gray-400">Pending</span>;
+                return generateError
+                  ? <span className="text-red-500">Failed</span>
+                  : <span className="text-gray-400">Pending</span>;
               })()}
             </p>
           </div>
         </div>
       </div>
+
+      {/* SOAP Generation Error */}
+      {generateError && (
+        <div className="flex items-center gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3">
+          <AlertTriangle className="h-5 w-5 shrink-0 text-red-500" />
+          <p className="flex-1 text-sm text-red-700">{generateError}</p>
+          <button
+            onClick={() => void generateSOAP()}
+            className="flex shrink-0 items-center gap-1.5 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-red-700"
+          >
+            <Sparkles className="h-3.5 w-3.5" />
+            Retry
+          </button>
+        </div>
+      )}
 
       {/* SOAP Note Editor */}
       <div className="rounded-2xl border border-gray-200 bg-white p-6">

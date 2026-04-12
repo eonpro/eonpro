@@ -188,7 +188,7 @@ export default function ActiveCallView({
 
         {/* Scribe Sidebar */}
         {scribeEnabled && (
-          <div className="hidden md:flex">
+          <div className="hidden sm:flex">
             <ScribePanel
               appointmentId={session.appointment?.id}
               patientId={session.patient.id}

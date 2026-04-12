@@ -4,7 +4,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 
 import { AnimatePresence, motion } from 'framer-motion';
-import { Loader2 } from 'lucide-react';
+import { Loader2, AlertTriangle, LinkIcon } from 'lucide-react';
 
 import { apiFetch } from '@/lib/api/fetch';
 import ActiveCallView from './ActiveCallView';
@@ -39,6 +39,8 @@ export default function TelehealthDashboard({
   const [refreshKey, setRefreshKey] = useState(0);
   const [scribeEnabled, setScribeEnabled] = useState(true);
   const [provisioningDeepLink, setProvisioningDeepLink] = useState(false);
+  const [joinError, setJoinError] = useState<string | null>(null);
+  const [provisioningInline, setProvisioningInline] = useState(false);
 
   // Handle ?postCall=true&appointmentId=X (returning from ended page)
   useEffect(() => {
@@ -193,19 +195,73 @@ export default function TelehealthDashboard({
   const handleSelectSession = useCallback(
     (session: TelehealthSessionData) => {
       setSelectedSession(session);
+      setJoinError(null);
+
+      // Quick-join: skip lobby if meeting is ready and provider has consented today
+      const hasMeeting = !!(session.meetingId && session.joinUrl);
+      if (hasMeeting) {
+        try {
+          const raw = localStorage.getItem('telehealth_scribe_consent');
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (parsed?.date === new Date().toISOString().slice(0, 10)) {
+              setScribeEnabled(parsed.choice === 'enabled');
+              changePhase('call');
+              return;
+            }
+          }
+        } catch { /* fall through to lobby */ }
+      }
+
       changePhase('lobby');
     },
     [changePhase]
   );
 
+  const handleProvisionAndJoin = useCallback(async () => {
+    if (!selectedSession?.appointment?.id) return;
+    setProvisioningInline(true);
+    setJoinError(null);
+    try {
+      const res = await apiFetch('/api/v2/zoom/meetings/provision', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ appointmentId: selectedSession.appointment.id }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.appointment?.zoomMeetingId) {
+          setSelectedSession((prev) =>
+            prev ? {
+              ...prev,
+              meetingId: data.appointment.zoomMeetingId,
+              joinUrl: data.appointment.zoomJoinUrl || prev.joinUrl,
+              hostUrl: data.appointment.hostUrl || prev.hostUrl,
+              password: data.appointment.password || prev.password,
+            } : prev
+          );
+          setJoinError(null);
+          return;
+        }
+      }
+      setJoinError('Failed to generate video link. Please try again.');
+    } catch {
+      setJoinError('Network error. Please check your connection and try again.');
+    } finally {
+      setProvisioningInline(false);
+    }
+  }, [selectedSession]);
+
   const handleJoinCall = useCallback((enableScribe: boolean) => {
     if (!selectedSession?.meetingId || !selectedSession?.joinUrl) {
-      alert('Video link is not ready yet. Please generate the link first.');
+      setJoinError('Video link is not ready yet. Generating it now...');
+      void handleProvisionAndJoin();
       return;
     }
+    setJoinError(null);
     setScribeEnabled(enableScribe);
     changePhase('call');
-  }, [changePhase, selectedSession]);
+  }, [changePhase, selectedSession, handleProvisionAndJoin]);
 
   const handleCallEnd = useCallback(
     (data: PostCallData) => {
@@ -253,6 +309,25 @@ export default function TelehealthDashboard({
 
           {phase === 'lobby' && selectedSession && (
             <motion.div key="lobby" {...(pageVariants as any)}>
+              {/* Inline error/provision banner */}
+              {joinError && (
+                <div className="mb-4 flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+                  <AlertTriangle className="h-5 w-5 shrink-0 text-amber-600" />
+                  <p className="flex-1 text-sm text-amber-800">{joinError}</p>
+                  {!provisioningInline && selectedSession.appointment?.id && (
+                    <button
+                      onClick={() => void handleProvisionAndJoin()}
+                      className="flex shrink-0 items-center gap-1.5 rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-amber-700"
+                    >
+                      <LinkIcon className="h-3.5 w-3.5" />
+                      Generate Link
+                    </button>
+                  )}
+                  {provisioningInline && (
+                    <Loader2 className="h-5 w-5 shrink-0 animate-spin text-amber-600" />
+                  )}
+                </div>
+              )}
               {provisioningDeepLink ? (
                 <div className="flex h-[60vh] items-center justify-center">
                   <div className="text-center">

@@ -28,10 +28,11 @@ export default function ZoomEmbeddedMeeting({
   onMeetingStart,
   onMeetingEnd,
 }: ZoomEmbeddedMeetingProps) {
-  const [status, setStatus] = useState<'ready' | 'active' | 'blocked' | 'ended' | 'closed'>('ready');
+  const [status, setStatus] = useState<'launching' | 'active' | 'blocked' | 'ended' | 'closed'>('launching');
   const popupRef = useRef<Window | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const mountedRef = useRef(true);
+  const launchedRef = useRef(false);
 
   const stopPolling = useCallback(() => {
     if (pollRef.current) {
@@ -106,30 +107,21 @@ export default function ZoomEmbeddedMeeting({
     };
   }, [stopPolling]);
 
-  if (status === 'ready') {
+  // Auto-launch Zoom immediately on mount
+  useEffect(() => {
+    if (launchedRef.current || !joinUrl) return;
+    launchedRef.current = true;
+    launchZoom();
+  }, [joinUrl, launchZoom]);
+
+  if (status === 'launching') {
     return (
       <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-900 p-8">
-        <div className="mb-8 flex flex-col items-center">
-          <div className="mb-6 flex h-24 w-24 items-center justify-center rounded-full bg-blue-600/20">
-            <Video className="h-12 w-12 text-blue-400" />
-          </div>
-          <p className="mb-1 text-lg font-semibold text-white">Ready to Join</p>
-          <p className="mb-1 text-sm text-gray-400">
-            Meeting #{meetingNumber}
-          </p>
+        <div className="mb-6 flex h-24 w-24 items-center justify-center rounded-full bg-blue-600/20">
+          <Video className="h-12 w-12 animate-pulse text-blue-400" />
         </div>
-        {joinUrl ? (
-          <button
-            onClick={launchZoom}
-            className="flex items-center gap-3 rounded-xl bg-blue-600 px-8 py-4 text-base font-semibold text-white shadow-lg transition-all hover:bg-blue-700 hover:shadow-xl active:scale-[0.98]"
-          >
-            <Video className="h-5 w-5" />
-            Open Zoom Meeting
-            <ExternalLink className="h-4 w-4 opacity-60" />
-          </button>
-        ) : (
-          <p className="text-sm text-red-400">No meeting link available</p>
-        )}
+        <p className="mb-1 text-lg font-semibold text-white">Opening Zoom...</p>
+        <p className="text-sm text-gray-400">Meeting #{meetingNumber}</p>
       </div>
     );
   }

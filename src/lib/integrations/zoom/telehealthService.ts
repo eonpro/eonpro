@@ -124,9 +124,9 @@ export async function createTelehealthSession(
     // Determine clinic ID for Zoom credentials
     const clinicId = input.clinicId || patient.clinicId;
 
-    // Check if clinic has Zoom configured
-    const hasZoom = clinicId ? await isClinicZoomConfigured(clinicId) : isZoomConfigured();
-    if (!hasZoom) {
+    const hasClinicZoom = clinicId ? await isClinicZoomConfigured(clinicId) : false;
+    const hasPlatformZoom = isZoomConfigured();
+    if (!hasClinicZoom && !hasPlatformZoom) {
       return { success: false, error: 'Zoom not configured for this clinic' };
     }
 

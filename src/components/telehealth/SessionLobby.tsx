@@ -227,7 +227,34 @@ export default function SessionLobby({ session, userName, onJoinCall, onBack, on
     }
   };
 
+  const getSavedConsentChoice = (): 'enabled' | 'disabled' | null => {
+    try {
+      const raw = localStorage.getItem('telehealth_scribe_consent');
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (parsed?.date === new Date().toISOString().slice(0, 10)) {
+        return parsed.choice;
+      }
+    } catch { /* ignore */ }
+    return null;
+  };
+
+  const saveConsentChoice = (choice: 'enabled' | 'disabled') => {
+    try {
+      localStorage.setItem('telehealth_scribe_consent', JSON.stringify({
+        choice,
+        date: new Date().toISOString().slice(0, 10),
+      }));
+    } catch { /* ignore */ }
+  };
+
   const handleJoinClick = () => {
+    const saved = getSavedConsentChoice();
+    if (saved) {
+      stopStream();
+      onJoinCall(saved === 'enabled');
+      return;
+    }
     setShowConsentModal(true);
   };
 
@@ -238,12 +265,14 @@ export default function SessionLobby({ session, userName, onJoinCall, onBack, on
 
   const handleConsentGiven = () => {
     setShowConsentModal(false);
+    saveConsentChoice('enabled');
     stopStream();
     onJoinCall(true);
   };
 
   const handleConsentDeclined = () => {
     setShowConsentModal(false);
+    saveConsentChoice('disabled');
     stopStream();
     onJoinCall(false);
   };

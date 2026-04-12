@@ -42,6 +42,8 @@ export default function SessionQueue({ onSelectSession, onScheduleNew }: Session
   const [loading, setLoading] = useState(true);
   const [copiedId, setCopiedId] = useState<number | null>(null);
   const [provisioningId, setProvisioningId] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [provisionError, setProvisionError] = useState<number | null>(null);
 
   const fetchSessions = useCallback(async () => {
     try {
@@ -49,9 +51,12 @@ export default function SessionQueue({ onSelectSession, onScheduleNew }: Session
       if (res.ok) {
         const data = await res.json();
         setSessions(data.sessions ?? []);
+        setError(null);
+      } else {
+        setError('Failed to load sessions. Please try refreshing.');
       }
     } catch {
-      // silently fail; sessions remain empty
+      setError('Unable to connect. Please check your internet connection.');
     } finally {
       setLoading(false);
     }
@@ -101,6 +106,7 @@ export default function SessionQueue({ onSelectSession, onScheduleNew }: Session
   const provisionMeeting = async (session: TelehealthSessionData) => {
     if (!session.appointment?.id) return;
     setProvisioningId(session.id);
+    setProvisionError(null);
     try {
       const res = await apiFetch('/api/v2/zoom/meetings/provision', {
         method: 'POST',
@@ -109,9 +115,11 @@ export default function SessionQueue({ onSelectSession, onScheduleNew }: Session
       });
       if (res.ok) {
         void fetchSessions();
+      } else {
+        setProvisionError(session.id);
       }
     } catch {
-      // handled by refresh
+      setProvisionError(session.id);
     } finally {
       setProvisioningId(null);
     }
@@ -162,6 +170,21 @@ export default function SessionQueue({ onSelectSession, onScheduleNew }: Session
         </div>
       </div>
 
+      {/* Fetch Error Banner */}
+      {error && (
+        <div className="flex items-center gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3">
+          <AlertCircle className="h-5 w-5 shrink-0 text-red-500" />
+          <p className="flex-1 text-sm text-red-700">{error}</p>
+          <button
+            onClick={() => { setError(null); void fetchSessions(); }}
+            className="flex shrink-0 items-center gap-1.5 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-red-700"
+          >
+            <RefreshCw className="h-3.5 w-3.5" />
+            Retry
+          </button>
+        </div>
+      )}
+
       {/* Patients Waiting Alert */}
       {waitingSessions.length > 0 && (
         <div className="overflow-hidden rounded-xl border border-amber-200 bg-gradient-to-r from-amber-50 to-orange-50">
@@ -187,6 +210,7 @@ export default function SessionQueue({ onSelectSession, onScheduleNew }: Session
                 onProvision={provisionMeeting}
                 copiedId={copiedId}
                 provisioningId={provisioningId}
+                provisionError={provisionError}
                 highlight
               />
             ))}
@@ -211,6 +235,7 @@ export default function SessionQueue({ onSelectSession, onScheduleNew }: Session
                 onProvision={provisionMeeting}
                 copiedId={copiedId}
                 provisioningId={provisioningId}
+                provisionError={provisionError}
               />
             ))}
           </div>
@@ -249,6 +274,7 @@ export default function SessionQueue({ onSelectSession, onScheduleNew }: Session
                 onProvision={provisionMeeting}
                 copiedId={copiedId}
                 provisioningId={provisioningId}
+                provisionError={provisionError}
               />
             ))}
           </div>
@@ -257,7 +283,7 @@ export default function SessionQueue({ onSelectSession, onScheduleNew }: Session
 
       {/* Quick Stats */}
       {sessions.length > 0 && (
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <div className="rounded-xl border border-gray-200 bg-white p-4">
             <div className="text-2xl font-bold text-blue-600">
               {upcomingSessions.length + waitingSessions.length}
@@ -288,6 +314,7 @@ function SessionCard({
   onProvision,
   copiedId,
   provisioningId,
+  provisionError,
   highlight = false,
 }: {
   session: TelehealthSessionData;
@@ -297,6 +324,7 @@ function SessionCard({
   onProvision: (s: TelehealthSessionData) => void;
   copiedId: number | null;
   provisioningId: number | null;
+  provisionError: number | null;
   highlight?: boolean;
 }) {
   const badge = STATUS_CONFIG[session.status] ?? STATUS_CONFIG.SCHEDULED;
@@ -396,18 +424,27 @@ function SessionCard({
                   </button>
                 </>
               ) : session.appointment ? (
-                <button
-                  onClick={(e) => { e.stopPropagation(); void onProvision(session); }}
-                  disabled={isProvisioning}
-                  className="flex items-center gap-1.5 rounded-lg border border-orange-300 bg-orange-50 px-4 py-2 text-xs font-semibold text-orange-700 shadow-sm transition-all hover:bg-orange-100 disabled:opacity-60"
-                >
-                  {isProvisioning ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    <LinkIcon className="h-3.5 w-3.5" />
+                <div className="flex items-center gap-2">
+                  {provisionError === session.id && (
+                    <span className="text-[11px] font-medium text-red-600">Failed</span>
                   )}
-                  {isProvisioning ? 'Generating...' : 'Generate Link'}
-                </button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); void onProvision(session); }}
+                    disabled={isProvisioning}
+                    className={`flex items-center gap-1.5 rounded-lg border px-4 py-2 text-xs font-semibold shadow-sm transition-all disabled:opacity-60 ${
+                      provisionError === session.id
+                        ? 'border-red-300 bg-red-50 text-red-700 hover:bg-red-100'
+                        : 'border-orange-300 bg-orange-50 text-orange-700 hover:bg-orange-100'
+                    }`}
+                  >
+                    {isProvisioning ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <LinkIcon className="h-3.5 w-3.5" />
+                    )}
+                    {isProvisioning ? 'Generating...' : provisionError === session.id ? 'Retry' : 'Generate Link'}
+                  </button>
+                </div>
               ) : null}
             </>
           )}
