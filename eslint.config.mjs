@@ -25,6 +25,8 @@ export default [
       'build/**',
       'dist/**',
       'mobile/**',
+      'scripts/**',
+      'playwright.config.ts',
       '**/*.js',
       '**/*.mjs',
     ],
