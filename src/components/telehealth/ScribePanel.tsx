@@ -122,75 +122,81 @@ export default function ScribePanel({
       }
       setSessionId(sid);
 
-      const recorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
+      const streamRef = stream;
+      const mimeType = 'audio/webm;codecs=opus';
+
+      function createRecorder(): MediaRecorder {
+        const rec = new MediaRecorder(streamRef, { mimeType });
+        rec.ondataavailable = (e) => {
+          if (e.data.size > 0) chunksRef.current.push(e.data);
+        };
+        return rec;
+      }
+
+      const recorder = createRecorder();
       mediaRecorderRef.current = recorder;
-      initSegmentRef.current = null;
-
-      recorder.ondataavailable = (e) => {
-        if (e.data.size > 0) {
-          if (!initSegmentRef.current) {
-            initSegmentRef.current = e.data;
-          }
-          chunksRef.current.push(e.data);
-        }
-      };
-
-      recorder.onstop = () => {
-        stream.getTracks().forEach((t) => t.stop());
-      };
-
-      recorder.start(10000);
+      recorder.start();
       setRecording(true);
 
       const sendInterval = setInterval(() => {
-        if (chunksRef.current.length === 0) return;
+        const currentRec = mediaRecorderRef.current;
+        if (!currentRec || currentRec.state !== 'recording') return;
 
-        const parts = initSegmentRef.current && chunksRef.current[0] !== initSegmentRef.current
-          ? [initSegmentRef.current, ...chunksRef.current]
-          : chunksRef.current;
-        const blob = new Blob(parts, { type: 'audio/webm' });
-        chunksRef.current = [];
+        currentRec.stop();
 
-        const formData = new FormData();
-        formData.append('audio', blob, 'chunk.webm');
-        formData.append('sessionId', sid);
-        formData.append('patientId', patientId.toString());
-        formData.append('providerId', providerId.toString());
-        formData.append('isChunk', 'true');
+        setTimeout(() => {
+          const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
+          chunksRef.current = [];
 
-        void apiFetch('/api/ai-scribe/transcribe', {
-          method: 'POST',
-          body: formData,
-        }).then(async (res) => {
-          if (!res.ok) {
+          if (streamRef.active) {
+            const newRec = createRecorder();
+            mediaRecorderRef.current = newRec;
+            newRec.start();
+          }
+
+          if (blob.size === 0) return;
+
+          const formData = new FormData();
+          formData.append('audio', blob, 'chunk.webm');
+          formData.append('sessionId', sid);
+          formData.append('patientId', patientId.toString());
+          formData.append('providerId', providerId.toString());
+          formData.append('isChunk', 'true');
+
+          void apiFetch('/api/ai-scribe/transcribe', {
+            method: 'POST',
+            body: formData,
+          }).then(async (res) => {
+            if (!res.ok) {
+              chunkErrorCountRef.current += 1;
+              if (chunkErrorCountRef.current >= 3) {
+                setError('Transcription service unavailable. Recording continues — SOAP note can be written manually.');
+              }
+              return;
+            }
+            chunkErrorCountRef.current = 0;
+            return res.json();
+          }).then((data) => {
+            if (data?.text) {
+              const newSegment: TranscriptSegment = {
+                speaker: data.speaker ?? 'unknown',
+                text: data.text,
+                timestamp: Date.now(),
+              };
+              setSegments((prev) => {
+                const next = [...prev, newSegment];
+                const fullTranscript = next.map((s) => s.text).join(' ');
+                onTranscriptUpdate?.(fullTranscript);
+                return next;
+              });
+            }
+          }).catch(() => {
             chunkErrorCountRef.current += 1;
             if (chunkErrorCountRef.current >= 3) {
               setError('Transcription service unavailable. Recording continues — SOAP note can be written manually.');
             }
-            return;
-          }
-          chunkErrorCountRef.current = 0;
-          return res.json();
-        }).then((data) => {
-          if (data?.text) {
-            const newSegment: TranscriptSegment = {
-              speaker: data.speaker ?? 'unknown',
-              text: data.text,
-              timestamp: Date.now(),
-            };
-            setSegments((prev) => {
-              const next = [...prev, newSegment];
-              const fullTranscript = next.map((s) => s.text).join(' ');
-              onTranscriptUpdate?.(fullTranscript);
-              return next;
-            });
-          }
-        }).catch(() => {
-          chunkErrorCountRef.current += 1;
-          if (chunkErrorCountRef.current >= 3) {
-            setError('Transcription service unavailable. Recording continues — SOAP note can be written manually.');
-          }
-        });
+          });
+        }, 100);
       }, 12000);
 
       sendIntervalRef.current = sendInterval;
