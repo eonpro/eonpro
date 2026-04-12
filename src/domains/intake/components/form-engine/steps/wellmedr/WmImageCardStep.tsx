@@ -148,8 +148,12 @@ export default function WmImageCardStep({
             grid-template-columns: repeat(${cards.length}, 1fr);
           }
           .wm-card-grid > button {
-            min-height: 240px;
-            padding: 2.5rem 1rem 1.5rem;
+            min-height: 280px;
+            padding: 3rem 1rem 2rem;
+          }
+          .wm-card-grid .wm-card-icon img {
+            width: 80px !important;
+            height: 80px !important;
           }
         }
       `}</style>
@@ -236,7 +240,7 @@ export default function WmImageCardStep({
                 {/* Icon */}
                 {card.iconId && (
                   <div
-                    className="mb-2 flex items-center justify-center"
+                    className="wm-card-icon mb-3 flex items-center justify-center"
                     style={{
                       transform: sel ? 'scale(1.05)' : 'scale(1)',
                       transition: 'transform 0.3s cubic-bezier(0.4,0,0.2,1)',
