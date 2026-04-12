@@ -741,26 +741,17 @@ export function withAuth<T = unknown>(
         // Silently ignore errors - this is non-critical
       });
 
-      // Inject user info into request headers (use effectiveClinicId so routes see subdomain clinic when overridden)
-      // NOTE: Do not propagate PHI (email) in headers — use user ID instead
-      const headers = new Headers(req.headers);
-      headers.set('x-user-id', user.id.toString());
-      headers.set('x-user-role', user.role);
-      headers.set('x-request-id', requestId);
+      // Attach metadata headers to the ORIGINAL request instead of reconstructing it.
+      // Creating a new NextRequest(url, { body: req.body }) breaks multipart/form-data
+      // parsing because ReadableStream body transfer corrupts the multipart boundary.
+      // The original req preserves the body stream intact.
+      req.headers.set('x-user-id', user.id.toString());
+      req.headers.set('x-user-role', user.role);
+      req.headers.set('x-request-id', requestId);
       if (effectiveClinicId != null) {
-        headers.set('x-clinic-id', effectiveClinicId.toString());
+        req.headers.set('x-clinic-id', effectiveClinicId.toString());
       }
-
-      // Create a new NextRequest with the modified headers.
-      // duplex: 'half' is required for streaming/multipart bodies (audio uploads, etc.)
-      const modifiedReq = new NextRequest(req.url, {
-        method: req.method,
-        headers,
-        body: req.body,
-        // @ts-expect-error — duplex is required by the Fetch spec for ReadableStream bodies
-        //                     but not yet in the NextRequest type definitions
-        duplex: 'half',
-      });
+      const modifiedReq = req;
 
       // Pass user with effective clinic so handlers see subdomain clinic when overridden
       let userForHandler: AuthUser =
