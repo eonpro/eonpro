@@ -44,6 +44,12 @@ function CardIcon({ iconId }: { iconId: string }) {
     case 'gain_muscle':
       /* eslint-disable-next-line @next/next/no-img-element */
       return <img src="/assets/icons/wellmedr/gain-muscle.svg" alt="Gain muscle" style={imgStyle} />;
+    case 'faster':
+      /* eslint-disable-next-line @next/next/no-img-element */
+      return <img src="/assets/icons/wellmedr/faster.svg" alt="Faster" style={imgStyle} />;
+    case 'steady':
+      /* eslint-disable-next-line @next/next/no-img-element */
+      return <img src="/assets/icons/wellmedr/steady.svg" alt="Steady" style={imgStyle} />;
     default:
       return null;
   }

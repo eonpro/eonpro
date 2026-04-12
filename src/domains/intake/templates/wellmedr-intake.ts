@@ -156,7 +156,7 @@ const steps: FormStep[] = [
     id: 'metabolic-chart', path: 'metabolic-chart',
     title: { en: 'How will GLP-1 work for you?', es: '' },
     type: 'custom', component: 'WmMetabolicChartStep',
-    fields: [], autoAdvance: false, showContinueButton: false, nextStep: 'safety-pregnancy', prevStep: 'weight-chart-testimonial', progressPercent: 23,
+    fields: [], autoAdvance: false, showContinueButton: false, nextStep: 'weight-pace', prevStep: 'weight-chart-testimonial', progressPercent: 23,
   },
 
   // 8. Safety / Pregnancy
@@ -164,7 +164,7 @@ const steps: FormStep[] = [
     id: 'safety-pregnancy', path: 'safety-pregnancy',
     title: { en: 'Do any of these apply to you?', es: '' },
     type: 'custom', component: 'WmCheckboxListStep',
-    fields: [], autoAdvance: false, showContinueButton: false, nextStep: 'motivation-reason', prevStep: 'metabolic-chart', progressPercent: 24,
+    fields: [], autoAdvance: false, showContinueButton: false, nextStep: 'pattern-info', prevStep: 'motivation-reason', progressPercent: 30,
     props: {
       headerItalic: 'Safety, first.',
       question: 'Do any of these apply to you?',
@@ -184,7 +184,7 @@ const steps: FormStep[] = [
     id: 'motivation-reason', path: 'motivation-reason',
     title: { en: 'What is your primary reason for taking weight loss seriously?', es: '' },
     type: 'custom', component: 'WmMotivationRadioStep',
-    fields: [], autoAdvance: false, showContinueButton: false, nextStep: 'pattern-info', prevStep: 'weight-pace', progressPercent: 33,
+    fields: [], autoAdvance: false, showContinueButton: false, nextStep: 'safety-pregnancy', prevStep: 'weight-pace', progressPercent: 28,
     props: {
       headerText: 'Improving your life requires',
       headerItalic: 'motivation.',
@@ -204,16 +204,16 @@ const steps: FormStep[] = [
     id: 'weight-pace', path: 'weight-pace',
     title: { en: 'How is that pace for you?', es: '' },
     type: 'custom', component: 'WmImageCardStep',
-    fields: [], autoAdvance: false, showContinueButton: false, nextStep: 'motivation-reason', prevStep: 'safety-pregnancy', progressPercent: 30,
+    fields: [], autoAdvance: false, showContinueButton: false, nextStep: 'motivation-reason', prevStep: 'metabolic-chart', progressPercent: 27,
     props: {
       headerText: "With medication, you'll lose 3.75 to 5 pounds per week.",
       question: 'How is that pace for you?',
       storageKey: 'weight_pace',
       columns: 2, mode: 'single',
       cards: [
-        { id: 'works_for_me', label: 'That works for me' },
-        { id: 'want_faster', label: 'I want it faster' },
-        { id: 'too_fast', label: "That's too fast" },
+        { id: 'works_for_me', label: 'That works for me', iconId: 'ok_hand' },
+        { id: 'want_faster', label: 'I want it faster', iconId: 'faster' },
+        { id: 'too_fast', label: "That's too fast", iconId: 'steady' },
       ],
     },
   },
@@ -223,7 +223,7 @@ const steps: FormStep[] = [
     id: 'pattern-info', path: 'pattern-info',
     title: { en: 'Losing weight is easier than you think.', es: '' },
     type: 'custom', component: 'WmPatternInfoStep',
-    fields: [], autoAdvance: false, showContinueButton: false, nextStep: 'sleep-quality', prevStep: 'motivation-reason', progressPercent: 36,
+    fields: [], autoAdvance: false, showContinueButton: false, nextStep: 'sleep-quality', prevStep: 'safety-pregnancy', progressPercent: 36,
   },
 
   // 13. Sleep Quality (image cards)
