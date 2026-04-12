@@ -109,6 +109,7 @@ export const CLINIC_ISOLATED_MODELS: readonly string[] = [
   'rxorderset',
   'retentionoffer',
   'savedreport',
+  'scheduledpayment',
   'scheduledemail',
   'slapolicyconfig',
   'smslog',

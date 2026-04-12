@@ -12,6 +12,7 @@ coverage/
 out/
 build/
 dist/
+.eslintcache
 
 # Production
 *.production

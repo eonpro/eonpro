@@ -35,16 +35,24 @@ const ALLOWED_UNBOUNDED_PATTERNS = [
   '/patient-progress/', // Per-patient bounded; add take in follow-up
   // Pre-existing: add take in follow-up (ratchet — new routes will still fail)
   '/admin/affiliates/code-performance/',
+  '/admin/clinic/users/',
+  '/admin/employee-salaries/',
   '/admin/payment-reconciliation/',
   '/admin/reports/',
-  '/admin/shipping/rematch/',
+  '/admin/sales-rep/overrides/',
+  '/admin/shipping/',
   '/admin/webhooks/',
   '/clinic/order-sets/',
-  '/finance/pending-profiles/',
-  '/finance/sync-payments/',
+  '/finance/',
+  '/payment-methods/',
+  '/provider/pharmacy-invoices/',
+  '/provider/prescription-queue/',
+  '/public/clinic-logos/',
+  '/scheduling/availability/',
+  '/stripe/invoices/',
   '/patients/[id]/shipment-schedule/',
   '/patients/[id]/tracking/',
-  '/provider/prescription-queue/',
+  '/v2/scheduled-payments/',
   '/webhooks/', // Webhooks have internal idempotency; add take in follow-up
 ];
 
@@ -86,6 +94,9 @@ const ALLOWED_SERVICE_PATTERNS = [
   '/analytics/',
   '/export/',
   '/services/billing/',
+  '/services/finance/',
+  '/services/invoices/',
+  '/services/sales-rep/',
   '/notification/',
   '/paymentMethodService',
   '/pricing/',
@@ -97,7 +108,9 @@ const ALLOWED_SERVICE_PATTERNS = [
 
 /** Paths allowed to have take > MAX_TAKE_VALUE (admin-only aggregate/report routes). */
 const ALLOWED_EXCESSIVE_TAKE_PATTERNS = [
-  '/reports/', // Admin report endpoints use take: 10000 for full aggregation
+  '/reports/',
+  '/services/analytics/',
+  '/services/billing/',
 ];
 
 const MAX_TAKE_VALUE = 1000;

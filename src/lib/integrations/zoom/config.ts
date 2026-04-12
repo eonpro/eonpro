@@ -46,7 +46,7 @@ export const TELEHEALTH_SETTINGS = {
   audioOption: 'both',
   joinBeforeHost: true,
   muteUponEntry: true,
-  waitingRoom: false,
+  waitingRoom: true,
   enforceLogin: false,
   meeting_authentication: false,
   autoRecording: 'cloud',

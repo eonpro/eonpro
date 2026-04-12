@@ -448,13 +448,11 @@ export async function createClinicZoomMeeting(
           settings: {
             host_video: true,
             participant_video: true,
-            join_before_host: false,
+            join_before_host: true,
             mute_upon_entry: true,
-            waiting_room: credentials.waitingRoomEnabled,
+            waiting_room: true,
             auto_recording: credentials.recordingEnabled ? 'cloud' : 'none',
-            encryption_type: credentials.hipaaCompliant
-              ? 'enhanced_encryption'
-              : 'enhanced_encryption',
+            encryption_type: 'enhanced_encryption',
             watermark: true,
             audio: 'both',
           },

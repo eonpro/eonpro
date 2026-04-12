@@ -49,6 +49,32 @@ vi.mock('@/lib/logger', () => ({
   },
 }));
 
+vi.mock('@/lib/auth/patient-access', () => ({
+  canAccessPatientWithClinic: vi.fn(async (user: any, requestedPatientId: number) => {
+    if (!user) return false;
+    if (user.role === 'patient' && user.patientId !== requestedPatientId) return false;
+    return true;
+  }),
+}));
+
+vi.mock('@/lib/database/intake-data-loader', () => ({
+  loadPatientIntakeData: vi.fn().mockResolvedValue({}),
+}));
+
+vi.mock('@/lib/security/rate-limiter', () => ({
+  withRateLimit: (handler: any, _config: unknown) => handler,
+  RATE_LIMIT_CONFIGS: { phiAccess: {}, PATIENT_PORTAL_WRITE: {} },
+}));
+
+vi.mock('@/lib/audit/hipaa-audit', () => ({
+  logPHIAccess: vi.fn().mockResolvedValue(undefined),
+  logPHICreate: vi.fn().mockResolvedValue(undefined),
+  logPHIDelete: vi.fn().mockResolvedValue(undefined),
+  logPHIUpdate: vi.fn().mockResolvedValue(undefined),
+  auditPhiAccess: vi.fn().mockResolvedValue(undefined),
+  buildAuditPhiOptions: vi.fn(() => ({})),
+}));
+
 let currentMockUser: { id: number; role: string; patientId: number } | null = null;
 
 vi.mock('@/lib/auth/middleware', () => ({

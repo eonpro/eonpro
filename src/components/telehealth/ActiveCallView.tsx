@@ -47,6 +47,7 @@ export default function ActiveCallView({
       if (user) {
         const parsed = safeParseJsonString<Record<string, unknown>>(user);
         if (parsed?.providerId) setProviderId(Number(parsed.providerId));
+        else if (parsed?.id) setProviderId(Number(parsed.id));
       }
     } catch { /* ignore */ }
   }, []);
@@ -179,6 +180,7 @@ export default function ActiveCallView({
               password={session.password ?? ''}
               userName={userName}
               joinUrl={session.hostUrl ?? session.joinUrl}
+              sessionId={session.id}
               leaveRef={leaveCallRef}
               onMeetingStart={handleMeetingStart}
               onMeetingEnd={handleMeetingEnd}

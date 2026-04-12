@@ -166,6 +166,12 @@ vi.mock('@prisma/client', () => {
       PrismaClientValidationError: class PrismaClientValidationError extends Error {
         constructor(message: string) { super(message); this.name = 'PrismaClientValidationError'; }
       },
+      PrismaClientInitializationError: class PrismaClientInitializationError extends Error {
+        constructor(message: string) { super(message); this.name = 'PrismaClientInitializationError'; }
+      },
+      PrismaClientRustPanicError: class PrismaClientRustPanicError extends Error {
+        constructor(message: string) { super(message); this.name = 'PrismaClientRustPanicError'; }
+      },
       sql: (strings: TemplateStringsArray, ...values: unknown[]) => ({ strings, values }),
       join: (arr: unknown[], sep?: string) => ({ arr, sep }),
       raw: (s: string) => s,

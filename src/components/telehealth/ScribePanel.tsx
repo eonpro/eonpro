@@ -61,13 +61,36 @@ export default function ScribePanel({
   const scrollRef = useRef<HTMLDivElement>(null);
   const chunksRef = useRef<Blob[]>([]);
 
+  const chunkErrorCountRef = useRef(0);
+
   const startRecording = useCallback(async () => {
     if (!appointmentId || !patientId || !providerId) return;
 
     setInitializing(true);
     setError(null);
+    chunkErrorCountRef.current = 0;
 
     try {
+      // Request mic permission FIRST so the prompt appears while user is on this tab,
+      // before Zoom steals focus. Also applies a timeout so we don't hang forever
+      // if the permission dialog is ignored.
+      let stream: MediaStream;
+      try {
+        const micPromise = navigator.mediaDevices.getUserMedia({ audio: true });
+        const timeoutPromise = new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('Microphone permission timed out. Please allow microphone access and try again.')), 15_000)
+        );
+        stream = await Promise.race([micPromise, timeoutPromise]);
+      } catch (micErr) {
+        const micMsg = micErr instanceof Error ? micErr.message : 'Microphone access denied';
+        throw new Error(
+          micMsg.includes('timed out') ? micMsg
+            : micMsg.includes('denied') || micMsg.includes('NotAllowedError')
+              ? 'Microphone access was denied. Please allow microphone access in your browser settings and try again.'
+              : `Microphone error: ${micMsg}`
+        );
+      }
+
       const startRes = await apiFetch('/api/ai-scribe/transcribe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -79,13 +102,18 @@ export default function ScribePanel({
         }),
       });
 
-      if (!startRes.ok) throw new Error('Failed to start scribe session');
+      if (!startRes.ok) {
+        stream.getTracks().forEach((t) => t.stop());
+        throw new Error('Failed to start scribe session');
+      }
       const startData = await startRes.json();
       const sid = startData.sessionId ?? startData.session?.id;
-      if (!sid) throw new Error('No session ID returned from scribe service');
+      if (!sid) {
+        stream.getTracks().forEach((t) => t.stop());
+        throw new Error('No session ID returned from scribe service');
+      }
       setSessionId(sid);
 
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const recorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
       mediaRecorderRef.current = recorder;
 
@@ -97,10 +125,9 @@ export default function ScribePanel({
         stream.getTracks().forEach((t) => t.stop());
       };
 
-      recorder.start(10000); // 10-second chunks
+      recorder.start(10000);
       setRecording(true);
 
-      // Send chunks periodically
       const sendInterval = setInterval(() => {
         if (chunksRef.current.length === 0) return;
 
@@ -118,7 +145,14 @@ export default function ScribePanel({
           method: 'POST',
           body: formData,
         }).then(async (res) => {
-          if (!res.ok) return;
+          if (!res.ok) {
+            chunkErrorCountRef.current += 1;
+            if (chunkErrorCountRef.current >= 3) {
+              setError('Transcription service unavailable. Recording continues — SOAP note can be written manually.');
+            }
+            return;
+          }
+          chunkErrorCountRef.current = 0;
           return res.json();
         }).then((data) => {
           if (data?.text) {
@@ -135,7 +169,10 @@ export default function ScribePanel({
             });
           }
         }).catch(() => {
-          // Non-blocking — scribe failure shouldn't interrupt the call
+          chunkErrorCountRef.current += 1;
+          if (chunkErrorCountRef.current >= 3) {
+            setError('Transcription service unavailable. Recording continues — SOAP note can be written manually.');
+          }
         });
       }, 12000);
 

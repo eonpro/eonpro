@@ -137,6 +137,18 @@ export default function WmImageCardStep({
 
   return (
     <div className="min-h-[100dvh] flex flex-col" style={{ backgroundColor: '#F7F7F9' }}>
+      <style>{`
+        .wm-card-grid {
+          display: grid;
+          grid-template-columns: repeat(1, 1fr);
+        }
+        @media (min-width: 640px) {
+          .wm-card-grid {
+            grid-template-columns: repeat(auto-fit, minmax(0, 200px));
+            justify-content: center;
+          }
+        }
+      `}</style>
       <div className="w-full h-[3px]" style={{ backgroundColor: '#e5e0d8' }}>
         <div className="h-full" style={{ width: `${progressPercent}%`, backgroundColor: '#c3b29e', transition: 'width 0.8s cubic-bezier(0.4,0,0.2,1)' }} />
       </div>
@@ -183,7 +195,7 @@ export default function WmImageCardStep({
           </p>
         )}
 
-        <div className={`grid ${columns === 3 ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-1 sm:grid-cols-2'} gap-4 w-full mt-2 sm:mt-4`}>
+        <div className="wm-card-grid gap-4 w-full mt-2 sm:mt-4">
           {cards.map((card, i) => {
             const isSilhouette = card.iconId === 'male' || card.iconId === 'female';
             const sel = isSelected(card.id);

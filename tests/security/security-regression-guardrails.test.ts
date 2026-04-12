@@ -26,9 +26,23 @@ const BASE_PRISMA_ALLOWLIST = new Set([
   'hipaaauditentry',
   'affiliate',
   'affiliateapplication',
+  'affiliatecommissionevent',
   'affiliatecommissionplan',
   'affiliateplanassignment',
+  'affiliatetouch',
+  'affiliaterefcode',
   'platformfeeevent',
+  'clinicplatforminvoice',
+  'clinicplatformfeeconfig',
+  'invoice',
+  'payment',
+  'paymentreconciliation',
+  'salesrepcommissionevent',
+  'scheduledemail',
+  'internalmessage',
+  'salesreprefcode',
+  'salesrepcommissionplan',
+  'salesrepplanassignment',
 ].map((s) => s.toLowerCase()));
 
 /** Path substrings where basePrisma is acceptable for cron/webhooks/super-admin (allowlist). */
@@ -39,10 +53,14 @@ const ALLOWED_BASE_PRISMA_PATTERNS = [
   '/super-admin/',
   '/internal/',
   '/init-database/',
-  '/patient-portal/', // resolve clinic
-  '/admin/sales-rep/', // admin manages commission plans cross-clinic
-  '/sales-rep/track/', // sales-rep attribution needs cross-clinic ref code lookup
-  '/v2/twilio/', // webhook resolves clinic context from phone number
+  '/patient-portal/',
+  '/admin/sales-rep/',
+  '/admin/shipment-monitor/',
+  '/sales-rep/track/',
+  '/v2/twilio/',
+  '/dosespot/',
+  '/patient-photos/',
+  '/shipping/fedex/',
 ];
 
 function pathIsAllowedForBasePrisma(fullPath: string): boolean {

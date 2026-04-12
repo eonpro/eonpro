@@ -38,9 +38,9 @@ jobs:
         run: npm ci --legacy-peer-deps
         
       - name: Run ESLint
-        run: npx eslint . --max-warnings 0
+        run: npx eslint . --max-warnings 0 --cache --cache-location .eslintcache
         env:
-          NODE_OPTIONS: '--max-old-space-size=8192'
+          NODE_OPTIONS: '--max-old-space-size=12288'
 
       - name: Architecture boundary scan (warn mode)
         run: npm run check:architecture-boundaries

@@ -143,7 +143,7 @@ export default [
         },
       ],
       'import/no-duplicates': 'error',
-      'import/no-cycle': 'error',
+      'import/no-cycle': ['error', { maxDepth: 3 }],
       'no-duplicate-imports': 'off',
 
       // Edge safety

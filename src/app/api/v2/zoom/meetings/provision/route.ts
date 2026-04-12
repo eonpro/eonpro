@@ -46,13 +46,45 @@ export const POST = withProviderAuth(async (req: NextRequest, user: AuthUser) =>
 
     if (appointment.zoomMeetingId) {
       let existingPassword: string | null = null;
+      let hostUrl: string | null = null;
       try {
         const existingSession = await prisma.telehealthSession.findFirst({
           where: { meetingId: appointment.zoomMeetingId },
-          select: { password: true, hostUrl: true },
+          select: { password: true, hostUrl: true, clinicId: true },
         });
         existingPassword = existingSession?.password ?? null;
-      } catch { /* ignore — table may not exist */ }
+        hostUrl = existingSession?.hostUrl ?? null;
+
+        // Fetch a fresh start_url so the provider joins as host
+        let accessToken: string | null = null;
+        if (existingSession?.clinicId) {
+          const { getClinicZoomAccessToken: getToken } = await import('@/lib/clinic-zoom');
+          accessToken = await getToken(existingSession.clinicId);
+        }
+        if (!accessToken && isZoomConfigured()) {
+          const { getZoomAccessToken: getPlatformToken } = await import('@/lib/integrations/zoom/meetingService');
+          accessToken = await getPlatformToken();
+        }
+        if (accessToken) {
+          const meetingRes = await fetch(
+            `https://api.zoom.us/v2/meetings/${appointment.zoomMeetingId}`,
+            {
+              headers: { Authorization: `Bearer ${accessToken}` },
+              signal: AbortSignal.timeout(10_000),
+            }
+          );
+          if (meetingRes.ok) {
+            const meetingData = await meetingRes.json();
+            hostUrl = meetingData.start_url ?? hostUrl;
+            if (existingSession && meetingData.start_url) {
+              await prisma.telehealthSession.updateMany({
+                where: { meetingId: appointment.zoomMeetingId },
+                data: { hostUrl: meetingData.start_url },
+              });
+            }
+          }
+        }
+      } catch { /* non-blocking — fall back to stored URLs */ }
 
       return NextResponse.json({
         success: true,
@@ -61,6 +93,7 @@ export const POST = withProviderAuth(async (req: NextRequest, user: AuthUser) =>
           id: appointmentId,
           zoomMeetingId: appointment.zoomMeetingId,
           zoomJoinUrl: appointment.zoomJoinUrl,
+          hostUrl,
           videoLink: appointment.videoLink ?? appointment.zoomJoinUrl,
           password: existingPassword,
         },

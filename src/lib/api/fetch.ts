@@ -287,6 +287,7 @@ async function handleResponseError(response: Response): Promise<Response> {
       errorMessage.toLowerCase().includes('permission denied') ||
       errorMessage.toLowerCase().includes('insufficient permissions') ||
       errorMessage.toLowerCase().includes('not authorized') ||
+      errorMessage.toLowerCase().includes('id mismatch') ||
       (response.status === 403 && errorMessage.toLowerCase().includes('only providers'));
 
     if (isPermissionError) {

@@ -38,6 +38,7 @@ const EXEMPTIONS = [
   '/admin/patients/route.ts', // Capped at MAX_FALLBACK=500 with warning log
   '/admin/backfill-search-index/', // One-time backfill operation
   '/orders/list/route.ts', // Shipping updates: decrypts patient name only (2 fields), capped at take:1000
+  '/services/analytics/patientAnalytics.ts', // At-risk patients: decrypts name/email only (3 fields), capped at take:5000; batch pagination follow-up
 ];
 
 function isExempt(filePath: string): boolean {

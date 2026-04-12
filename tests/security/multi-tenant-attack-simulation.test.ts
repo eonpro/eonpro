@@ -49,7 +49,7 @@ vi.mock('@/lib/db', () => ({
 }));
 
 vi.mock('@/lib/logger', () => ({
-  logger: { info: vi.fn(), error: vi.fn(), warn: vi.fn(), debug: vi.fn(), api: vi.fn(), requestSummary: vi.fn() },
+  logger: { info: vi.fn(), error: vi.fn(), warn: vi.fn(), debug: vi.fn(), api: vi.fn(), requestSummary: vi.fn(), security: vi.fn() },
 }));
 
 vi.mock('@/lib/audit/hipaa-audit', () => ({
@@ -63,6 +63,19 @@ vi.mock('@/lib/rateLimit', () => ({
   standardRateLimit: (h: unknown) => h,
 }));
 
+vi.mock('@/lib/stripe/config', () => ({
+  isStripeConfigured: vi.fn(() => true),
+}));
+
+vi.mock('@/lib/stripe/connect', () => ({
+  getStripeForClinic: vi.fn(async () => ({
+    stripe: { invoices: { retrieve: vi.fn() } },
+    stripeAccountId: undefined,
+    isPlatformAccount: true,
+  })),
+  stripeRequestOptions: vi.fn(() => undefined),
+}));
+
 vi.mock('@/lib/security/phi-encryption', () => ({
   encryptPatientPHI: vi.fn((d: Record<string, unknown>) => d),
   decryptPatientPHI: vi.fn((d: Record<string, unknown>) => d),
@@ -73,6 +86,30 @@ let mockUser: { id: number; role: string; clinicId: number; email: string } | nu
 vi.mock('@/lib/auth', () => ({
   getAuthUser: vi.fn().mockImplementation(() => Promise.resolve(mockUser)),
   requireAuth: vi.fn().mockImplementation(() => Promise.resolve(mockUser)),
+}));
+
+vi.mock('@/lib/auth/middleware', () => ({
+  verifyAuth: vi.fn().mockImplementation(async () => ({ success: !!mockUser, user: mockUser })),
+  withAuth: (handler: any, _opts?: any) =>
+    async (req: NextRequest, ctx?: any) => {
+      if (!mockUser) {
+        return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+          status: 401,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+      return handler(req, mockUser, ctx);
+    },
+  withAdminAuth: (handler: any, _opts?: any) =>
+    async (req: NextRequest, ctx?: any) => {
+      if (!mockUser) {
+        return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+          status: 401,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+      return handler(req, mockUser, ctx);
+    },
 }));
 
 vi.mock('@/lib/auth/middleware-with-params', () => ({
