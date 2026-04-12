@@ -106,7 +106,12 @@ export default function ScribePanel({
 
       if (!startRes.ok) {
         stream.getTracks().forEach((t) => t.stop());
-        throw new Error('Failed to start scribe session');
+        let serverMsg = `Server returned ${startRes.status}`;
+        try {
+          const errBody = await startRes.json();
+          serverMsg = errBody.details || errBody.error || serverMsg;
+        } catch { /* response not JSON */ }
+        throw new Error(serverMsg);
       }
       const startData = await startRes.json();
       const sid = startData.sessionId ?? startData.session?.id;
