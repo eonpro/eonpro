@@ -24,6 +24,7 @@ export default [
       'coverage/**',
       'build/**',
       'dist/**',
+      'mobile/**',
       '**/*.js',
       '**/*.mjs',
     ],
