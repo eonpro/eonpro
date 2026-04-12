@@ -50,6 +50,15 @@ function CardIcon({ iconId }: { iconId: string }) {
     case 'steady':
       /* eslint-disable-next-line @next/next/no-img-element */
       return <img src="/assets/icons/wellmedr/steady.svg" alt="Steady" style={imgStyle} />;
+    case 'good_sleep':
+      /* eslint-disable-next-line @next/next/no-img-element */
+      return <img src="/assets/icons/wellmedr/good-sleep.svg" alt="Pretty good" style={imgStyle} />;
+    case 'bit_restless':
+      /* eslint-disable-next-line @next/next/no-img-element */
+      return <img src="/assets/icons/wellmedr/bit-restless-sleep.svg" alt="A bit restless" style={imgStyle} />;
+    case 'bad_sleep':
+      /* eslint-disable-next-line @next/next/no-img-element */
+      return <img src="/assets/icons/wellmedr/bad-sleep.svg" alt="I don't sleep well" style={imgStyle} />;
     default:
       return null;
   }

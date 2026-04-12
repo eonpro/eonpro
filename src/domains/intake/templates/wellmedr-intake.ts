@@ -239,9 +239,9 @@ const steps: FormStep[] = [
       storageKey: 'sleep_quality',
       columns: 2, mode: 'single',
       cards: [
-        { id: 'pretty_good', label: 'Pretty good' },
-        { id: 'restless', label: 'A bit restless' },
-        { id: 'dont_sleep_well', label: "I don't sleep well" },
+        { id: 'pretty_good', label: 'Pretty good', iconId: 'good_sleep' },
+        { id: 'restless', label: 'A bit restless', iconId: 'bit_restless' },
+        { id: 'dont_sleep_well', label: "I don't sleep well", iconId: 'bad_sleep' },
       ],
     },
   },
