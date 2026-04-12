@@ -58,26 +58,31 @@ export const POST = withProviderAuth(async (req: NextRequest, user) => {
       let providerName: string | undefined;
       let patientName: string | undefined;
 
-      if (providerId) {
-        const provider = await prisma.provider.findUnique({
-          where: { id: parseInt(providerId) },
-          select: { firstName: true, lastName: true },
-        });
-        if (provider) {
-          providerName = `${provider.firstName} ${provider.lastName}`;
+      try {
+        if (providerId) {
+          const provider = await prisma.provider.findUnique({
+            where: { id: parseInt(providerId) },
+            select: { firstName: true, lastName: true },
+          });
+          if (provider) {
+            providerName = `${provider.firstName} ${provider.lastName}`;
+          }
         }
-      }
 
-      if (patientId) {
-        const patient = await prisma.patient.findUnique({
-          where: { id: parseInt(patientId) },
-          select: { firstName: true, lastName: true },
-        });
-        if (patient) {
-          const firstName = decryptPHI(patient.firstName) ?? patient.firstName;
-          const lastName = decryptPHI(patient.lastName) ?? patient.lastName;
-          patientName = `${firstName} ${lastName}`;
+        if (patientId) {
+          const patient = await prisma.patient.findUnique({
+            where: { id: parseInt(patientId) },
+            select: { firstName: true, lastName: true },
+          });
+          if (patient) {
+            const firstName = decryptPHI(patient.firstName) ?? patient.firstName;
+            const lastName = decryptPHI(patient.lastName) ?? patient.lastName;
+            patientName = `${firstName} ${lastName}`;
+          }
         }
+      } catch {
+        // Name lookups are optional hints for speaker diarization —
+        // transcription works fine without them.
       }
 
       const result = await transcribeAudio({
