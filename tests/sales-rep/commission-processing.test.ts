@@ -221,7 +221,7 @@ describe('processPaymentForSalesRepCommission', () => {
       const result = await processPaymentForSalesRepCommission(makePaymentEvent());
 
       expect(result.skipped).toBe(true);
-      expect(result.skipReason).toBe('Sales rep not active');
+      expect(result.skipReason).toBe('Assigned employee not active or not eligible for commission');
     });
 
     it('skips when no active commission plan exists', async () => {

@@ -245,7 +245,7 @@ describe('Auth Middleware Characterization Tests', () => {
   });
 
   describe('Clinic Context Setting', () => {
-    it('BEHAVIOR: Sets clinic context for non-super-admin users', async () => {
+    it('BEHAVIOR: verifyAuth does NOT call setClinicContext (context set by withAuth via runWithClinicContext)', async () => {
       const token = await createTestToken({
         id: 1,
         email: 'provider@clinic.com',
@@ -259,15 +259,15 @@ describe('Auth Middleware Characterization Tests', () => {
 
       await verifyAuth(req);
 
-      expect(setClinicContext).toHaveBeenCalledWith(5);
+      expect(setClinicContext).not.toHaveBeenCalled();
     });
 
-    it('BEHAVIOR: Does NOT set clinic context for super_admin', async () => {
+    it('BEHAVIOR: verifyAuth does NOT call setClinicContext for super_admin', async () => {
       const token = await createTestToken({
         id: 1,
         email: 'super@platform.com',
         role: 'super_admin',
-        clinicId: 5, // Even if super_admin has clinicId, should not set context
+        clinicId: 5,
       });
 
       const req = createMockRequest({
@@ -276,16 +276,14 @@ describe('Auth Middleware Characterization Tests', () => {
 
       await verifyAuth(req);
 
-      // Super admin should have undefined clinic context
-      expect(setClinicContext).toHaveBeenCalledWith(undefined);
+      expect(setClinicContext).not.toHaveBeenCalled();
     });
 
-    it('BEHAVIOR: Sets undefined clinic context when user has no clinicId', async () => {
+    it('BEHAVIOR: verifyAuth does NOT call setClinicContext when user has no clinicId', async () => {
       const token = await createTestToken({
         id: 1,
         email: 'user@platform.com',
         role: 'staff',
-        // No clinicId
       });
 
       const req = createMockRequest({
@@ -294,7 +292,7 @@ describe('Auth Middleware Characterization Tests', () => {
 
       await verifyAuth(req);
 
-      expect(setClinicContext).toHaveBeenCalledWith(undefined);
+      expect(setClinicContext).not.toHaveBeenCalled();
     });
   });
 

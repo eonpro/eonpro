@@ -441,6 +441,11 @@ export async function sendAppointmentConfirmation(
             lastName: true,
           },
         },
+        clinic: {
+          select: {
+            name: true,
+          },
+        },
       },
     });
 
@@ -453,6 +458,7 @@ export async function sendAppointmentConfirmation(
     const patientPhone = decryptPHI(appointment.patient.phone) ?? appointment.patient.phone;
     const providerName = `${appointment.provider.firstName} ${appointment.provider.lastName}`;
     const providerDisplayName = `Dr. ${providerName}`;
+    const clinicName = appointment.clinic?.name || '';
 
     const appointmentDateFormatted = new Date(appointment.startTime).toLocaleString('en-US', {
       weekday: 'long',
@@ -505,14 +511,11 @@ export async function sendAppointmentConfirmation(
           ? patientPhone
           : `+1${patientPhone.replace(/\D/g, '')}`;
         const videoAppointmentDateTime = `${appointmentDateOnly} at ${appointmentTimeOnly}`;
+        const clinicLine = clinicName ? `\n${clinicName}` : '';
         const smsBody =
           appointment.type === 'VIDEO' && videoLink
-            ? `Hi ${patientFirstName}, your telehealth appointment with ${providerDisplayName} is scheduled for ${videoAppointmentDateTime}.\n\nJoin link: ${videoLink}`
-            : SMS_TEMPLATES.APPOINTMENT_CONFIRMATION(
-                patientFirstName,
-                appointmentDateFormatted,
-                videoLink ?? undefined
-              );
+            ? `Hi ${patientFirstName}, your telehealth appointment with ${providerDisplayName} is scheduled for ${videoAppointmentDateTime}.${clinicLine}\n\nJoin your video call here:\n${videoLink}\n\nPlease test your camera and microphone before the appointment.`
+            : `Hi ${patientFirstName}, your appointment with ${providerDisplayName} on ${appointmentDateFormatted} has been confirmed.${clinicLine}\n\nWe look forward to seeing you!`;
 
         const message = await client.messages.create({
           body: smsBody,
@@ -544,6 +547,7 @@ export async function sendAppointmentConfirmation(
           appointmentDate: appointmentDateOnly,
           appointmentTime: appointmentTimeOnly,
           location,
+          ...(clinicName ? { clinicName } : {}),
         });
 
         if (emailResult.success) {

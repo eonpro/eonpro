@@ -11,18 +11,20 @@ vi.mock('@/lib/db', () => ({
     patient: {
       findMany: vi.fn(),
       findFirst: vi.fn(),
+      count: vi.fn(),
     },
     payment: {
       findMany: vi.fn(),
       aggregate: vi.fn(),
       count: vi.fn(),
+      groupBy: vi.fn(),
     },
     subscription: {
       findFirst: vi.fn(),
       count: vi.fn(),
     },
   },
-  withClinicContext: vi.fn((clinicId, callback) => callback()),
+  withClinicContext: vi.fn((_clinicId: number, callback: () => unknown) => callback()),
   getClinicContext: vi.fn(() => 1),
 }));
 
@@ -73,12 +75,13 @@ describe('PatientAnalyticsService', () => {
   describe('getPatientSegments', () => {
     it('should segment patients by revenue', async () => {
       const { prisma } = await import('@/lib/db');
-      
-      (prisma.patient.findMany as any).mockResolvedValue([
-        { id: 1, payments: [{ amount: 150000 }] }, // VIP
-        { id: 2, payments: [{ amount: 50000 }] },  // Regular
-        { id: 3, payments: [{ amount: 10000 }] },  // Occasional
-        { id: 4, payments: [{ amount: 2000 }] },   // New
+
+      (prisma.patient.count as any).mockResolvedValue(4);
+      (prisma.payment.groupBy as any).mockResolvedValue([
+        { patientId: 1, _sum: { amount: 150000 } },
+        { patientId: 2, _sum: { amount: 50000 } },
+        { patientId: 3, _sum: { amount: 10000 } },
+        { patientId: 4, _sum: { amount: 2000 } },
       ]);
 
       const result = await PatientAnalyticsService.getPatientSegments(1);
@@ -94,7 +97,7 @@ describe('PatientAnalyticsService', () => {
   describe('getAtRiskPatients', () => {
     it('should identify at-risk patients', async () => {
       const { prisma } = await import('@/lib/db');
-      
+
       const sixtyDaysAgo = new Date();
       sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
 
@@ -105,15 +108,14 @@ describe('PatientAnalyticsService', () => {
           lastName: 'Risk',
           email: 'atrisk@example.com',
           createdAt: new Date('2024-01-01'),
-          payments: [{ createdAt: sixtyDaysAgo }],
-          subscriptions: [{ status: 'PAST_DUE' }],
+          payments: [{ createdAt: sixtyDaysAgo, amount: 5000 }],
+          subscriptions: [{ status: 'PAST_DUE', canceledAt: null }],
         },
       ]);
 
-      (prisma.payment.count as any).mockResolvedValue(2);
-      (prisma.payment.aggregate as any).mockResolvedValue({
-        _sum: { amount: 50000 },
-      });
+      (prisma.payment.groupBy as any)
+        .mockResolvedValueOnce([{ patientId: 1, _count: 2 }])
+        .mockResolvedValueOnce([{ patientId: 1, _sum: { amount: 50000 } }]);
 
       const result = await PatientAnalyticsService.getAtRiskPatients(1, 10);
 
@@ -185,16 +187,15 @@ describe('PatientAnalyticsService', () => {
   describe('getPatientMetrics', () => {
     it('should return aggregate patient metrics', async () => {
       const { prisma } = await import('@/lib/db');
-      
-      (prisma.patient.findMany as any).mockResolvedValue([
-        { id: 1, payments: [{ amount: 50000 }] },
-        { id: 2, payments: [{ amount: 30000 }] },
-        { id: 3, payments: [] },
-      ]);
 
+      (prisma.patient.count as any).mockResolvedValue(3);
+      (prisma.payment.groupBy as any).mockResolvedValue([
+        { patientId: 1, _sum: { amount: 50000 } },
+        { patientId: 2, _sum: { amount: 30000 } },
+      ]);
       (prisma.subscription.count as any)
-        .mockResolvedValueOnce(2) // active
-        .mockResolvedValueOnce(1); // churned
+        .mockResolvedValueOnce(2)
+        .mockResolvedValueOnce(1);
 
       const result = await PatientAnalyticsService.getPatientMetrics(1);
 

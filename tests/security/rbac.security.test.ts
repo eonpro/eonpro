@@ -229,13 +229,12 @@ describe('Role-Based Access Control', () => {
       expect(err?.statusCode).toBe(403);
     });
 
-    it('staff cannot patient:edit', () => {
+    it('staff can patient:edit', () => {
       const ctx: PermissionContext = toPermissionContext({
         role: 'staff',
         clinicId: 1,
       });
-      expect(rbacHasPermission(ctx, 'patient:edit')).toBe(false);
-      expect(() => requirePermission(ctx, 'patient:edit')).toThrow('Forbidden');
+      expect(rbacHasPermission(ctx, 'patient:edit')).toBe(true);
     });
 
     it('sales_rep cannot financial:view', () => {

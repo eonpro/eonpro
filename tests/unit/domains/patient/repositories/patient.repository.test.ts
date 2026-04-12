@@ -12,6 +12,8 @@ vi.mock('@/lib/security/phi-encryption', () => ({
   encryptPatientPHI: vi.fn((data: Record<string, unknown>) => data),
   decryptPatientPHI: vi.fn((data: Record<string, unknown>) => data),
   decryptPHI: vi.fn((value: string) => value),
+  computeEmailHash: vi.fn((email: string | null) => email ? `hash_${email}` : null),
+  computeDobHash: vi.fn((dob: string | null) => dob ? `hash_${dob}` : null),
 }));
 
 // Mock logger

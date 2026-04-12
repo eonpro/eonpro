@@ -553,7 +553,7 @@ describe('Stripe Payment Service', () => {
       const result = await StripePaymentService.detachPaymentMethod('pm_remove');
 
       expect(result.id).toBe('pm_detached');
-      expect(mockStripeClient.paymentMethods.detach).toHaveBeenCalledWith('pm_remove', undefined);
+      expect(mockStripeClient.paymentMethods.detach).toHaveBeenCalledWith('pm_remove', {}, undefined);
     });
   });
 

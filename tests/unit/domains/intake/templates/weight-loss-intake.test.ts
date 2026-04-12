@@ -9,7 +9,7 @@ describe('weightLossIntakeConfig', () => {
 
   it('has a valid startStep', () => {
     expect(stepMap.has(startStep)).toBe(true);
-    expect(startStep).toBe('intro');
+    expect(startStep).toBe('language');
   });
 
   it('has bilingual titles for every step', () => {
@@ -95,7 +95,7 @@ describe('weightLossIntakeConfig', () => {
     it('intro leads to goals', () => {
       const step = stepMap.get('intro')!;
       expect(resolveNextStep(step, {})).toBe('goals');
-      expect(step.prevStep).toBeNull();
+      expect(step.prevStep).toBe('language');
     });
 
     it('goals goes back to intro', () => {

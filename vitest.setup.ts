@@ -150,6 +150,22 @@ vi.mock('@prisma/client', () => {
     PrismaClient: MockPrismaClient,
     Prisma: {
       TransactionIsolationLevel: { Serializable: 'Serializable', ReadCommitted: 'ReadCommitted' },
+      PrismaClientKnownRequestError: class PrismaClientKnownRequestError extends Error {
+        code: string;
+        meta?: Record<string, unknown>;
+        constructor(message: string, { code, meta }: { code: string; meta?: Record<string, unknown> }) {
+          super(message);
+          this.name = 'PrismaClientKnownRequestError';
+          this.code = code;
+          this.meta = meta;
+        }
+      },
+      PrismaClientUnknownRequestError: class PrismaClientUnknownRequestError extends Error {
+        constructor(message: string) { super(message); this.name = 'PrismaClientUnknownRequestError'; }
+      },
+      PrismaClientValidationError: class PrismaClientValidationError extends Error {
+        constructor(message: string) { super(message); this.name = 'PrismaClientValidationError'; }
+      },
       sql: (strings: TemplateStringsArray, ...values: unknown[]) => ({ strings, values }),
       join: (arr: unknown[], sep?: string) => ({ arr, sep }),
       raw: (s: string) => s,

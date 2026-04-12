@@ -47,9 +47,9 @@ import type { ReportConfig } from '@/services/reporting/types';
 // ============================================================================
 
 describe('Report Engine: Data Source Registration', () => {
-  it('registers all 7 data sources', () => {
+  it('registers all 11 data sources', () => {
     const sources = getDataSources();
-    expect(sources).toHaveLength(7);
+    expect(sources).toHaveLength(11);
     const ids = sources.map((s) => s.id);
     expect(ids).toContain('revenue');
     expect(ids).toContain('commissions');
@@ -58,6 +58,10 @@ describe('Report Engine: Data Source Registration', () => {
     expect(ids).toContain('provider');
     expect(ids).toContain('affiliates');
     expect(ids).toContain('subscriptions');
+    expect(ids).toContain('stripe-balance');
+    expect(ids).toContain('stripe-transactions');
+    expect(ids).toContain('stripe-payouts');
+    expect(ids).toContain('stripe-reconciliation');
   });
 
   it('each data source has required structure', () => {

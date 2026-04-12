@@ -38,6 +38,17 @@ vi.mock('@/lib/db', () => {
     },
     basePrisma: {
       provider: providerDelegate,
+      $transaction: vi.fn((fn: any) => fn({
+        provider: {
+          findUnique: vi.fn(),
+          create: vi.fn(),
+          update: vi.fn(),
+          delete: vi.fn(),
+        },
+        providerAudit: {
+          create: vi.fn(),
+        },
+      })),
     },
   };
 });
@@ -138,7 +149,7 @@ describe('ProviderRepository', () => {
             OR: expect.arrayContaining([
               { id: 5 },
               { email: 'test@example.com' },
-              { clinicId: null },
+              expect.objectContaining({ clinicId: null }),
             ]),
           },
           orderBy: { createdAt: 'desc' },
@@ -219,7 +230,8 @@ describe('ProviderRepository', () => {
         clinic: { id: 1, name: 'Test Clinic' },
       };
 
-      vi.mocked(prisma.$transaction).mockImplementation(async (fn: any) => {
+      const { basePrisma } = await import('@/lib/db');
+      vi.mocked((basePrisma as any).$transaction).mockImplementation(async (fn: any) => {
         const tx = {
           provider: {
             create: vi.fn().mockResolvedValue(mockCreatedProvider),
