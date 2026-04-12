@@ -28,69 +28,23 @@ export default function ZoomEmbeddedMeeting({
   onMeetingStart,
   onMeetingEnd,
 }: ZoomEmbeddedMeetingProps) {
-  const [status, setStatus] = useState<'ready' | 'active' | 'blocked' | 'ended' | 'closed'>('ready');
-  const popupRef = useRef<Window | null>(null);
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [status, setStatus] = useState<'ready' | 'active' | 'ended' | 'closed'>('ready');
   const mountedRef = useRef(true);
-  const joinBtnRef = useRef<HTMLButtonElement>(null);
-
-  const stopPolling = useCallback(() => {
-    if (pollRef.current) {
-      clearInterval(pollRef.current);
-      pollRef.current = null;
-    }
-  }, []);
+  const joinBtnRef = useRef<HTMLAnchorElement>(null);
 
   const endMeeting = useCallback(
     (reason?: string) => {
       if (!mountedRef.current) return;
-      stopPolling();
-      if (popupRef.current && !popupRef.current.closed) {
-        popupRef.current.close();
-      }
-      popupRef.current = null;
       setStatus('ended');
       onMeetingEnd?.(reason);
     },
-    [onMeetingEnd, stopPolling]
+    [onMeetingEnd]
   );
 
-  const launchZoom = useCallback(() => {
-    if (!joinUrl) return;
-
-    const zoomWindow = window.open(joinUrl, 'zoom_meeting');
-
-    if (!zoomWindow || zoomWindow.closed) {
-      setStatus('blocked');
-      return;
-    }
-
-    popupRef.current = zoomWindow;
+  const handleJoinClick = useCallback(() => {
     setStatus('active');
     onMeetingStart?.();
-
-    pollRef.current = setInterval(() => {
-      try {
-        if (zoomWindow.closed) {
-          stopPolling();
-          popupRef.current = null;
-          if (mountedRef.current) {
-            setStatus('closed');
-          }
-        }
-      } catch {
-        // Cross-origin — window is still open
-      }
-    }, 2000);
-  }, [joinUrl, onMeetingStart, stopPolling]);
-
-  const focusZoomWindow = useCallback(() => {
-    if (popupRef.current && !popupRef.current.closed) {
-      popupRef.current.focus();
-    } else {
-      launchZoom();
-    }
-  }, [launchZoom]);
+  }, [onMeetingStart]);
 
   useEffect(() => {
     if (leaveRef) leaveRef.current = () => endMeeting('provider_ended');
@@ -101,13 +55,10 @@ export default function ZoomEmbeddedMeeting({
 
   useEffect(() => {
     mountedRef.current = true;
-    return () => {
-      mountedRef.current = false;
-      stopPolling();
-    };
-  }, [stopPolling]);
+    return () => { mountedRef.current = false; };
+  }, []);
 
-  // Auto-focus the join button so provider can just press Enter
+  // Auto-focus the join link so provider can press Enter
   useEffect(() => {
     if (status === 'ready' && joinBtnRef.current) {
       joinBtnRef.current.focus();
@@ -118,9 +69,12 @@ export default function ZoomEmbeddedMeeting({
     return (
       <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-900 p-8">
         {joinUrl ? (
-          <button
+          <a
             ref={joinBtnRef}
-            onClick={launchZoom}
+            href={joinUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={handleJoinClick}
             className="group flex flex-col items-center gap-6 rounded-3xl bg-blue-600 px-16 py-10 shadow-2xl transition-all hover:bg-blue-700 hover:shadow-blue-900/30 active:scale-[0.97] focus:outline-none focus:ring-4 focus:ring-blue-400/50"
           >
             <div className="flex h-20 w-20 items-center justify-center rounded-full bg-white/20 transition-transform group-hover:scale-110">
@@ -130,10 +84,10 @@ export default function ZoomEmbeddedMeeting({
               <p className="text-xl font-bold text-white">Join Zoom Call</p>
               <p className="mt-1 text-sm text-blue-200">Meeting #{meetingNumber}</p>
             </div>
-          </button>
+          </a>
         ) : (
           <div className="text-center">
-            <div className="mb-4 flex h-20 w-20 mx-auto items-center justify-center rounded-full bg-red-600/20">
+            <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-red-600/20">
               <AlertTriangle className="h-10 w-10 text-red-400" />
             </div>
             <p className="text-lg font-semibold text-white">No meeting link available</p>
@@ -144,24 +98,11 @@ export default function ZoomEmbeddedMeeting({
     );
   }
 
-  if (status === 'blocked') {
+  if (status === 'ended') {
     return (
       <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-900 p-8">
-        <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-amber-600/20">
-          <AlertTriangle className="h-10 w-10 text-amber-400" />
-        </div>
-        <p className="mb-2 text-lg font-semibold text-white">Pop-up Blocked</p>
-        <p className="mb-6 max-w-sm text-center text-sm text-gray-400">
-          Your browser blocked the Zoom window. Click the button below to open it,
-          or allow pop-ups for this site.
-        </p>
-        <button
-          onClick={launchZoom}
-          className="flex items-center gap-2 rounded-lg bg-blue-600 px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-blue-700"
-        >
-          <ExternalLink className="h-4 w-4" />
-          Open Zoom Meeting
-        </button>
+        <VideoOff className="mb-4 h-12 w-12 text-gray-400" />
+        <p className="text-lg font-semibold text-white">Meeting Ended</p>
       </div>
     );
   }
@@ -177,16 +118,18 @@ export default function ZoomEmbeddedMeeting({
           The Zoom window was closed. The meeting may still be active.
         </p>
         <div className="flex flex-col items-center gap-3">
-          <button
-            onClick={() => {
-              setStatus('active');
-              launchZoom();
-            }}
-            className="flex items-center gap-2 rounded-lg bg-blue-600 px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-blue-700"
-          >
-            <ExternalLink className="h-4 w-4" />
-            Rejoin Meeting
-          </button>
+          {joinUrl && (
+            <a
+              href={joinUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => setStatus('active')}
+              className="flex items-center gap-2 rounded-lg bg-blue-600 px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-blue-700"
+            >
+              <ExternalLink className="h-4 w-4" />
+              Rejoin Meeting
+            </a>
+          )}
           <button
             onClick={() => endMeeting('provider_ended')}
             className="flex items-center gap-2 rounded-lg bg-red-600/20 px-6 py-2.5 text-sm font-medium text-red-400 transition-colors hover:bg-red-600/30"
@@ -195,15 +138,6 @@ export default function ZoomEmbeddedMeeting({
             End Call
           </button>
         </div>
-      </div>
-    );
-  }
-
-  if (status === 'ended') {
-    return (
-      <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-900 p-8">
-        <VideoOff className="mb-4 h-12 w-12 text-gray-400" />
-        <p className="text-lg font-semibold text-white">Meeting Ended</p>
       </div>
     );
   }
@@ -234,13 +168,17 @@ export default function ZoomEmbeddedMeeting({
       </div>
 
       <div className="flex flex-col items-center gap-3">
-        <button
-          onClick={focusZoomWindow}
-          className="flex items-center gap-2 rounded-lg bg-blue-600 px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-blue-700"
-        >
-          <ExternalLink className="h-4 w-4" />
-          Open Zoom Window
-        </button>
+        {joinUrl && (
+          <a
+            href={joinUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 rounded-lg bg-blue-600 px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-blue-700"
+          >
+            <ExternalLink className="h-4 w-4" />
+            Open Zoom Window
+          </a>
+        )}
         <button
           onClick={() => endMeeting('provider_ended')}
           className="flex items-center gap-2 rounded-lg bg-red-600/20 px-6 py-2.5 text-sm font-medium text-red-400 transition-colors hover:bg-red-600/30"
