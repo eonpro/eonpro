@@ -42,11 +42,9 @@ const mockUser = {
   clinicId: 1,
 };
 
-vi.mock('@/lib/auth/middleware', () => ({
-  verifyAuth: vi.fn().mockResolvedValue({ success: true, user: mockUser }),
-  withAuth: (handler: any, options?: any) => {
+vi.mock('@/lib/auth/middleware', () => {
+  const authHandler = (handler: any, options?: any) => {
     return async (request: NextRequest) => {
-      // Check if user has required role
       const requiredRoles = options?.roles || [];
       if (requiredRoles.length > 0 && !requiredRoles.includes(mockUser.role)) {
         const { NextResponse } = await import('next/server');
@@ -54,8 +52,14 @@ vi.mock('@/lib/auth/middleware', () => ({
       }
       return handler(request, mockUser);
     };
-  },
-}));
+  };
+  return {
+    verifyAuth: vi.fn().mockResolvedValue({ success: true, user: mockUser }),
+    withAuth: authHandler,
+    withAdminAuth: authHandler,
+    withClinicalAuth: authHandler,
+  };
+});
 
 // ============================================================================
 // TEST DATA

@@ -148,6 +148,14 @@ vi.mock('@prisma/client', () => {
 
   return {
     PrismaClient: MockPrismaClient,
+    Prisma: {
+      TransactionIsolationLevel: { Serializable: 'Serializable', ReadCommitted: 'ReadCommitted' },
+      sql: (strings: TemplateStringsArray, ...values: unknown[]) => ({ strings, values }),
+      join: (arr: unknown[], sep?: string) => ({ arr, sep }),
+      raw: (s: string) => s,
+      SortOrder: { asc: 'asc', desc: 'desc' },
+      QueryMode: { insensitive: 'insensitive', default: 'default' },
+    },
   };
 });
 

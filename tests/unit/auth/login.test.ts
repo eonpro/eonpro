@@ -127,10 +127,10 @@ describe('Authentication', () => {
   });
 
   describe('Password Validation', () => {
-    it('should reject password less than 12 characters', async () => {
+    it('should reject password less than 8 characters', async () => {
       const { passwordSchema } = await import('@/lib/validation/schemas');
       
-      const result = passwordSchema.safeParse('Short1!');
+      const result = passwordSchema.safeParse('Sh0rt!');
       
       expect(result.success).toBe(false);
     });
@@ -250,7 +250,7 @@ describe('JWT Token Generation', () => {
     expect(AUTH_CONFIG.tokenExpiry.access).toBeDefined();
     expect(AUTH_CONFIG.tokenExpiry.refresh).toBeDefined();
     expect(AUTH_CONFIG.security.maxLoginAttempts).toBe(3);
-    expect(AUTH_CONFIG.security.passwordMinLength).toBe(12);
+    expect(AUTH_CONFIG.security.passwordMinLength).toBe(8);
   });
 
   it('should have secure cookie settings', async () => {

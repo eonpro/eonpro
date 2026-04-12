@@ -44,6 +44,7 @@ interface AppointmentForReminder {
   type: string;
   location?: string | null;
   videoLink?: string | null;
+  zoomJoinUrl?: string | null;
 }
 
 /**
@@ -163,10 +164,13 @@ async function sendSMSReminder(
     if (template === 'APPOINTMENT_REMINDER_24H') {
       messageBody = SMS_TEMPLATES.APPOINTMENT_REMINDER(patientName, appointmentDate, doctorName);
     } else if (template === 'APPOINTMENT_REMINDER_2H') {
-      // Build a more urgent 2-hour reminder
       let locationInfo = '';
-      if (appointment.type === 'VIDEO' && appointment.videoLink) {
-        locationInfo = `\n\nJoin video call: ${appointment.videoLink}`;
+      const joinLink = appointment.zoomJoinUrl || appointment.videoLink;
+      if (appointment.type === 'VIDEO' && joinLink) {
+        locationInfo = `\n\nJoin video call: ${joinLink}`;
+      } else if (appointment.type === 'VIDEO') {
+        const portalBase = process.env.NEXT_PUBLIC_APP_URL || 'https://app.eonpro.io';
+        locationInfo = `\n\nJoin video call: ${portalBase}/portal/telehealth?appointmentId=${appointment.id}`;
       } else if (appointment.location) {
         locationInfo = `\n\nLocation: ${appointment.location}`;
       }
@@ -229,10 +233,13 @@ async function sendEmailReminder(
 
     const providerName = `Dr. ${appointment.provider.firstName} ${appointment.provider.lastName}`;
 
-    // Build location info
     let location = 'TBD';
-    if (appointment.type === 'VIDEO' && appointment.videoLink) {
-      location = `Video Call: ${appointment.videoLink}`;
+    const emailJoinLink = appointment.zoomJoinUrl || appointment.videoLink;
+    if (appointment.type === 'VIDEO' && emailJoinLink) {
+      location = `Video Call: ${emailJoinLink}`;
+    } else if (appointment.type === 'VIDEO') {
+      const portalBase = process.env.NEXT_PUBLIC_APP_URL || 'https://app.eonpro.io';
+      location = `Video Call: ${portalBase}/portal/telehealth?appointmentId=${appointment.id}`;
     } else if (appointment.location) {
       location = appointment.location;
     }
@@ -389,6 +396,7 @@ export async function processPendingReminders(): Promise<{
             type: reminder.appointment.type,
             location: reminder.appointment.location,
             videoLink: reminder.appointment.videoLink,
+            zoomJoinUrl: (reminder.appointment as any).zoomJoinUrl,
           },
         });
         stats.successful++;
@@ -468,9 +476,27 @@ export async function sendAppointmentConfirmation(
     let smsResult: { success: boolean; messageId?: string } = { success: false };
     let emailResult: { success: boolean } = { success: false };
 
-    const videoLink = appointment.type === 'VIDEO'
+    let videoLink = appointment.type === 'VIDEO'
       ? appointment.zoomJoinUrl || appointment.videoLink || undefined
       : undefined;
+
+    // For VIDEO appointments, re-fetch if the link wasn't available yet (Zoom may
+    // have been provisioned after the initial appointment load)
+    if (appointment.type === 'VIDEO' && !videoLink) {
+      try {
+        const refreshed = await prisma.appointment.findUnique({
+          where: { id: appointmentId },
+          select: { zoomJoinUrl: true, videoLink: true },
+        });
+        videoLink = refreshed?.zoomJoinUrl || refreshed?.videoLink || undefined;
+      } catch { /* non-blocking */ }
+    }
+
+    // Fallback: patient portal lobby loads the Zoom link dynamically
+    const portalBase = process.env.NEXT_PUBLIC_APP_URL || 'https://app.eonpro.io';
+    if (appointment.type === 'VIDEO' && !videoLink) {
+      videoLink = `${portalBase}/portal/telehealth?appointmentId=${appointmentId}`;
+    }
 
     if (patientPhone && isTwilioConfigured()) {
       try {
