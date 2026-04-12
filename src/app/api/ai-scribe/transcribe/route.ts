@@ -27,6 +27,7 @@ const MAX_AUDIO_SIZE = 25 * 1024 * 1024; // 25 MB — OpenAI Whisper limit
 export const POST = withProviderAuth(async (req: NextRequest, user) => {
   try {
     const contentType = req.headers.get('content-type') || '';
+    console.error('[SCRIBE] handler hit', contentType.slice(0, 50));
 
     // Handle multipart form data (audio file upload)
     if (contentType.includes('multipart/form-data')) {
@@ -186,6 +187,7 @@ export const POST = withProviderAuth(async (req: NextRequest, user) => {
     const isTimeout = errorMessage.includes('timed out');
     const status = isConfig ? 503 : isTimeout ? 504 : 500;
 
+    console.error('[SCRIBE] ERROR:', errorName, errorMessage);
     logger.error('AI Scribe transcription error', {
       error: errorMessage,
       errorName,

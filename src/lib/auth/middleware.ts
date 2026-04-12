@@ -822,10 +822,10 @@ export function withAuth<T = unknown>(
 
       return finalResponse;
     } catch (error) {
-      // TEMPORARY DIAGNOSTIC: Capture exact error for debugging systemic 500s
       const errMsg = error instanceof Error ? error.message : String(error);
       const errName = error instanceof Error ? error.constructor.name : 'Unknown';
       const errStack = error instanceof Error ? error.stack?.split('\n').slice(0, 5).join(' | ') : '';
+      console.error('[AUTH_MW_CATCH]', errName, errMsg, new URL(req.url).pathname);
       logger.error('AUTH_MIDDLEWARE_CATCH', {
         requestId,
         errorName: errName,
