@@ -94,19 +94,23 @@ export const POST = withProviderAuth(async (req: NextRequest, user) => {
         // transcription works fine without them.
       }
 
+      console.error('[SCRIBE_DIAG] calling transcribeAudio', { bufferSize: buffer.length, mimeType: audioFile.type || 'audio/webm' });
       const result = await transcribeAudio({
         audioBuffer: buffer,
         mimeType: audioFile.type || 'audio/webm',
       });
+      console.error('[SCRIBE_DIAG] transcribeAudio OK', { textLen: result.text?.length, segCount: result.segments?.length });
 
       const segments = result.segments
         ? detectSpeakers(result.segments, providerName, patientName)
         : [];
 
       if (sessionId && isChunk) {
+        console.error('[SCRIBE_DIAG] saving segments', { sessionId, count: segments.length });
         for (const segment of segments) {
           await addSegmentToSession(sessionId, segment);
         }
+        console.error('[SCRIBE_DIAG] segments saved OK');
       }
 
       return NextResponse.json({
