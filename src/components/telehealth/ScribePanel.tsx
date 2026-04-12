@@ -59,10 +59,8 @@ export default function ScribePanel({
   const [startFailed, setStartFailed] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const sendIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const chunksRef = useRef<Blob[]>([]);
-  const initSegmentRef = useRef<Blob | null>(null);
-
   const chunkErrorCountRef = useRef(0);
 
   const startRecording = useCallback(async () => {
@@ -122,8 +120,11 @@ export default function ScribePanel({
       }
       setSessionId(sid);
 
-      const streamRef = stream;
-      const mimeType = 'audio/webm;codecs=opus';
+      streamRef.current = stream;
+      const mimeType = MediaRecorder.isTypeSupported('audio/ogg;codecs=opus')
+        ? 'audio/ogg;codecs=opus'
+        : 'audio/webm;codecs=opus';
+      const blobType = mimeType.split(';')[0]; // 'audio/ogg' or 'audio/webm'
 
       function stopAndCollect(rec: MediaRecorder): Promise<Blob> {
         return new Promise((resolve) => {
@@ -131,12 +132,12 @@ export default function ScribePanel({
           rec.ondataavailable = (e) => {
             if (e.data.size > 0) parts.push(e.data);
           };
-          rec.onstop = () => resolve(new Blob(parts, { type: 'audio/webm' }));
+          rec.onstop = () => resolve(new Blob(parts, { type: blobType }));
           rec.stop();
         });
       }
 
-      const recorder = new MediaRecorder(streamRef, { mimeType });
+      const recorder = new MediaRecorder(stream, { mimeType });
       mediaRecorderRef.current = recorder;
       recorder.ondataavailable = () => {};
       recorder.start();
@@ -144,13 +145,13 @@ export default function ScribePanel({
 
       const sendInterval = setInterval(() => {
         const currentRec = mediaRecorderRef.current;
-        if (!currentRec || currentRec.state !== 'recording' || !streamRef.active) return;
+        if (!currentRec || currentRec.state !== 'recording' || !stream.active) return;
 
         void (async () => {
           const blob = await stopAndCollect(currentRec);
 
-          if (streamRef.active) {
-            const newRec = new MediaRecorder(streamRef, { mimeType });
+          if (stream.active) {
+            const newRec = new MediaRecorder(stream, { mimeType });
             newRec.ondataavailable = () => {};
             mediaRecorderRef.current = newRec;
             newRec.start();
@@ -224,6 +225,10 @@ export default function ScribePanel({
       mediaRecorderRef.current.stop();
     }
     mediaRecorderRef.current = null;
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+    }
     setRecording(false);
   }, []);
 
@@ -381,7 +386,7 @@ export default function ScribePanel({
               </button>
             ) : (
               <button
-                onClick={() => void startRecording()}
+                onClick={() => { setStartFailed(false); setError(null); void startRecording(); }}
                 disabled={initializing}
                 className="flex items-center gap-1.5 rounded-lg bg-blue-100 px-3 py-1.5 text-xs font-medium text-blue-700 transition-colors hover:bg-blue-200 disabled:opacity-50"
               >

@@ -131,7 +131,7 @@ export async function transcribeAudio(input: TranscribeAudioInput): Promise<Tran
     let audioFile: Awaited<ReturnType<typeof toFile>> | ReturnType<typeof createReadableUpload>;
     try {
       audioFile = await toFile(
-        new Uint8Array(input.audioBuffer),
+        input.audioBuffer,
         `audio.${ext}`,
         { type: mimeType },
       );
