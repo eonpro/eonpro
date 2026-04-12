@@ -131,15 +131,23 @@ const steps: FormStep[] = [
     id: 'weight-chart', path: 'weight-chart',
     title: { en: "It feels like magic, but it's metabolic science.", es: '' },
     type: 'custom', component: 'WmAnimatedWeightChartStep',
-    fields: [], autoAdvance: false, showContinueButton: false, nextStep: 'weight-chart-testimonial', prevStep: 'goals-priority', progressPercent: 21,
+    fields: [], autoAdvance: false, showContinueButton: false, nextStep: 'metabolic-chart', prevStep: 'goals-priority', progressPercent: 21,
   },
 
-  // 7b. Testimonial after weight chart (Kelly)
+  // 7b. GLP-1 Metabolic Rate Chart
+  {
+    id: 'metabolic-chart', path: 'metabolic-chart',
+    title: { en: 'How will GLP-1 work for you?', es: '' },
+    type: 'custom', component: 'WmMetabolicChartStep',
+    fields: [], autoAdvance: false, showContinueButton: false, nextStep: 'weight-chart-testimonial', prevStep: 'weight-chart', progressPercent: 22,
+  },
+
+  // 7c. Testimonial after charts (Kelly)
   {
     id: 'weight-chart-testimonial', path: 'weight-chart-testimonial',
     title: { en: '', es: '' },
     type: 'custom', component: 'WmTestimonialStep',
-    fields: [], autoAdvance: false, showContinueButton: false, nextStep: 'safety-pregnancy', prevStep: 'weight-chart', progressPercent: 22,
+    fields: [], autoAdvance: false, showContinueButton: false, nextStep: 'safety-pregnancy', prevStep: 'metabolic-chart', progressPercent: 23,
     props: {
       quote: 'Nothing has worked like this. I am down 65lbs in 6 months. I have more energy and confidence than I\'ve had in years!',
       personName: 'Kelly',
@@ -156,7 +164,7 @@ const steps: FormStep[] = [
     id: 'safety-pregnancy', path: 'safety-pregnancy',
     title: { en: 'Do any of these apply to you?', es: '' },
     type: 'custom', component: 'WmCheckboxListStep',
-    fields: [], autoAdvance: false, showContinueButton: false, nextStep: 'metabolic-chart', prevStep: 'weight-chart-testimonial', progressPercent: 24,
+    fields: [], autoAdvance: false, showContinueButton: false, nextStep: 'motivation-reason', prevStep: 'weight-chart-testimonial', progressPercent: 24,
     props: {
       headerItalic: 'Safety, first.',
       question: 'Do any of these apply to you?',
@@ -171,20 +179,12 @@ const steps: FormStep[] = [
     },
   },
 
-  // 9. GLP-1 Metabolic Rate Chart
-  {
-    id: 'metabolic-chart', path: 'metabolic-chart',
-    title: { en: 'How will GLP-1 work for you?', es: '' },
-    type: 'custom', component: 'WmMetabolicChartStep',
-    fields: [], autoAdvance: false, showContinueButton: false, nextStep: 'motivation-reason', prevStep: 'safety-pregnancy', progressPercent: 27,
-  },
-
   // 10. Motivation / Primary Reason
   {
     id: 'motivation-reason', path: 'motivation-reason',
     title: { en: 'What is your primary reason for taking weight loss seriously?', es: '' },
     type: 'custom', component: 'WmMotivationRadioStep',
-    fields: [], autoAdvance: false, showContinueButton: false, nextStep: 'weight-pace', prevStep: 'metabolic-chart', progressPercent: 30,
+    fields: [], autoAdvance: false, showContinueButton: false, nextStep: 'weight-pace', prevStep: 'safety-pregnancy', progressPercent: 30,
     props: {
       headerText: 'Improving your life requires',
       headerItalic: 'motivation.',
