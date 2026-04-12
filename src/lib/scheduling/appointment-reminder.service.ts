@@ -45,6 +45,7 @@ interface AppointmentForReminder {
   location?: string | null;
   videoLink?: string | null;
   zoomJoinUrl?: string | null;
+  clinicTimezone?: string | null;
 }
 
 /**
@@ -148,7 +149,9 @@ async function sendSMSReminder(
 
   try {
     const client = getTwilioClient();
+    const reminderTz = appointment.clinicTimezone || 'America/New_York';
     const appointmentDate = new Date(appointment.startTime).toLocaleString('en-US', {
+      timeZone: reminderTz,
       weekday: 'long',
       month: 'long',
       day: 'numeric',
@@ -375,6 +378,11 @@ export async function processPendingReminders(): Promise<{
                 lastName: true,
               },
             },
+            clinic: {
+              select: {
+                timezone: true,
+              },
+            },
           },
         },
       },
@@ -397,6 +405,7 @@ export async function processPendingReminders(): Promise<{
             location: reminder.appointment.location,
             videoLink: reminder.appointment.videoLink,
             zoomJoinUrl: (reminder.appointment as any).zoomJoinUrl,
+            clinicTimezone: (reminder.appointment as any).clinic?.timezone,
           },
         });
         stats.successful++;
@@ -444,6 +453,7 @@ export async function sendAppointmentConfirmation(
         clinic: {
           select: {
             name: true,
+            timezone: true,
           },
         },
       },
@@ -459,8 +469,10 @@ export async function sendAppointmentConfirmation(
     const providerName = `${appointment.provider.firstName} ${appointment.provider.lastName}`;
     const providerDisplayName = `Dr. ${providerName}`;
     const clinicName = appointment.clinic?.name || '';
+    const tz = appointment.clinic?.timezone || 'America/New_York';
 
     const appointmentDateFormatted = new Date(appointment.startTime).toLocaleString('en-US', {
+      timeZone: tz,
       weekday: 'long',
       month: 'long',
       day: 'numeric',
@@ -469,12 +481,14 @@ export async function sendAppointmentConfirmation(
     });
 
     const appointmentDateOnly = new Date(appointment.startTime).toLocaleDateString('en-US', {
+      timeZone: tz,
       weekday: 'long',
       month: 'long',
       day: 'numeric',
     });
 
     const appointmentTimeOnly = new Date(appointment.startTime).toLocaleTimeString('en-US', {
+      timeZone: tz,
       hour: 'numeric',
       minute: '2-digit',
     });
