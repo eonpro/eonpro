@@ -168,7 +168,7 @@ export default function WmImageCardStep({
         <div />
       </div>
 
-      <div className="flex-1 flex flex-col items-center justify-center w-full max-w-[600px] mx-auto px-6 sm:px-8 pb-6">
+      <div className="flex-1 flex flex-col items-center justify-center w-full max-w-[600px] sm:max-w-[1100px] mx-auto px-6 sm:px-8 pb-6">
         {(headerText || resolvedHeaderItalic) && (
           <h1
             className="text-xl sm:text-[2rem] font-bold text-center leading-snug mb-3 sm:mb-4 px-2"
