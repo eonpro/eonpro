@@ -125,31 +125,33 @@ export default function ScribePanel({
       const streamRef = stream;
       const mimeType = 'audio/webm;codecs=opus';
 
-      function createRecorder(): MediaRecorder {
-        const rec = new MediaRecorder(streamRef, { mimeType });
-        rec.ondataavailable = (e) => {
-          if (e.data.size > 0) chunksRef.current.push(e.data);
-        };
-        return rec;
+      function stopAndCollect(rec: MediaRecorder): Promise<Blob> {
+        return new Promise((resolve) => {
+          const parts: Blob[] = [];
+          rec.ondataavailable = (e) => {
+            if (e.data.size > 0) parts.push(e.data);
+          };
+          rec.onstop = () => resolve(new Blob(parts, { type: 'audio/webm' }));
+          rec.stop();
+        });
       }
 
-      const recorder = createRecorder();
+      const recorder = new MediaRecorder(streamRef, { mimeType });
       mediaRecorderRef.current = recorder;
+      recorder.ondataavailable = () => {};
       recorder.start();
       setRecording(true);
 
       const sendInterval = setInterval(() => {
         const currentRec = mediaRecorderRef.current;
-        if (!currentRec || currentRec.state !== 'recording') return;
+        if (!currentRec || currentRec.state !== 'recording' || !streamRef.active) return;
 
-        currentRec.stop();
-
-        setTimeout(() => {
-          const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
-          chunksRef.current = [];
+        void (async () => {
+          const blob = await stopAndCollect(currentRec);
 
           if (streamRef.active) {
-            const newRec = createRecorder();
+            const newRec = new MediaRecorder(streamRef, { mimeType });
+            newRec.ondataavailable = () => {};
             mediaRecorderRef.current = newRec;
             newRec.start();
           }
@@ -163,10 +165,11 @@ export default function ScribePanel({
           formData.append('providerId', providerId.toString());
           formData.append('isChunk', 'true');
 
-          void apiFetch('/api/ai-scribe/transcribe', {
-            method: 'POST',
-            body: formData,
-          }).then(async (res) => {
+          try {
+            const res = await apiFetch('/api/ai-scribe/transcribe', {
+              method: 'POST',
+              body: formData,
+            });
             if (!res.ok) {
               chunkErrorCountRef.current += 1;
               if (chunkErrorCountRef.current >= 3) {
@@ -175,8 +178,7 @@ export default function ScribePanel({
               return;
             }
             chunkErrorCountRef.current = 0;
-            return res.json();
-          }).then((data) => {
+            const data = await res.json();
             if (data?.text) {
               const newSegment: TranscriptSegment = {
                 speaker: data.speaker ?? 'unknown',
@@ -190,13 +192,13 @@ export default function ScribePanel({
                 return next;
               });
             }
-          }).catch(() => {
+          } catch {
             chunkErrorCountRef.current += 1;
             if (chunkErrorCountRef.current >= 3) {
               setError('Transcription service unavailable. Recording continues — SOAP note can be written manually.');
             }
-          });
-        }, 100);
+          }
+        })();
       }, 12000);
 
       sendIntervalRef.current = sendInterval;
