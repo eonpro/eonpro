@@ -61,6 +61,7 @@ export default function ScribePanel({
   const sendIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const chunksRef = useRef<Blob[]>([]);
+  const initSegmentRef = useRef<Blob | null>(null);
 
   const chunkErrorCountRef = useRef(0);
 
@@ -123,9 +124,15 @@ export default function ScribePanel({
 
       const recorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
       mediaRecorderRef.current = recorder;
+      initSegmentRef.current = null;
 
       recorder.ondataavailable = (e) => {
-        if (e.data.size > 0) chunksRef.current.push(e.data);
+        if (e.data.size > 0) {
+          if (!initSegmentRef.current) {
+            initSegmentRef.current = e.data;
+          }
+          chunksRef.current.push(e.data);
+        }
       };
 
       recorder.onstop = () => {
@@ -138,7 +145,10 @@ export default function ScribePanel({
       const sendInterval = setInterval(() => {
         if (chunksRef.current.length === 0) return;
 
-        const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
+        const parts = initSegmentRef.current && chunksRef.current[0] !== initSegmentRef.current
+          ? [initSegmentRef.current, ...chunksRef.current]
+          : chunksRef.current;
+        const blob = new Blob(parts, { type: 'audio/webm' });
         chunksRef.current = [];
 
         const formData = new FormData();
