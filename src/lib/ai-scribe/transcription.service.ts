@@ -6,8 +6,6 @@
  */
 
 import OpenAI from 'openai';
-import { toFile } from 'openai';
-import { Readable } from 'stream';
 import { logger } from '@/lib/logger';
 import { prisma } from '@/lib/db';
 
@@ -93,17 +91,6 @@ export interface TranscribeResult {
   duration: number;
 }
 
-/**
- * Fallback for runtimes where globalThis.File is unavailable (Node 18).
- * Creates a Readable stream with a `path` property that the OpenAI SDK
- * recognises as an FsReadStream (Uploadable).
- */
-function createReadableUpload(buffer: Buffer, filename: string) {
-  const stream = Readable.from(buffer) as Readable & { path: string };
-  stream.path = filename;
-  return stream;
-}
-
 const MEDICAL_CONTEXT_PROMPT = `
 Medical consultation transcript. Common terms include:
 - Medications: Semaglutide, Tirzepatide, Ozempic, Wegovy, Mounjaro, Metformin
@@ -115,10 +102,6 @@ Medical consultation transcript. Common terms include:
 
 /**
  * Transcribe audio using OpenAI Whisper.
- *
- * Uses the SDK's toFile() helper for reliable cross-runtime file uploads
- * (Node 18 does not expose globalThis.File, which causes "File is not defined"
- * errors when using `new File()` directly in Vercel serverless functions).
  */
 export async function transcribeAudio(input: TranscribeAudioInput): Promise<TranscribeResult> {
   const startTime = Date.now();
@@ -128,19 +111,7 @@ export async function transcribeAudio(input: TranscribeAudioInput): Promise<Tran
   try {
     const openai = getOpenAI();
 
-    let audioFile: Awaited<ReturnType<typeof toFile>> | ReturnType<typeof createReadableUpload>;
-    try {
-      audioFile = await toFile(
-        input.audioBuffer,
-        `audio.${ext}`,
-        { type: mimeType },
-      );
-    } catch (fileErr) {
-      logger.warn('toFile failed, falling back to stream upload', {
-        error: fileErr instanceof Error ? fileErr.message : String(fileErr),
-      });
-      audioFile = createReadableUpload(input.audioBuffer, `audio.${ext}`);
-    }
+    const audioFile = new File([input.audioBuffer], `audio.${ext}`, { type: mimeType });
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 25_000);
