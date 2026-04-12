@@ -45,8 +45,10 @@ export const POST = withProviderAuth(async (req: NextRequest, user) => {
       const patientId = formData.get('patientId') as string;
       const providerId = formData.get('providerId') as string;
       const isChunk = formData.get('isChunk') === 'true';
+      console.error('[SCRIBE_DIAG] fields extracted', { hasAudio: !!audioFile, isBlob: audioFile instanceof Blob, audioSize: audioFile?.size, sessionId: sessionId?.slice(0, 20), providerId, isChunk });
 
       if (!audioFile || !(audioFile instanceof Blob)) {
+        console.error('[SCRIBE_DIAG] REJECTED: no audio blob');
         return NextResponse.json({ error: 'No audio file provided' }, { status: 400 });
       }
 
@@ -58,11 +60,14 @@ export const POST = withProviderAuth(async (req: NextRequest, user) => {
       }
 
       if (providerId && Number(providerId) !== (user.providerId ?? user.id)) {
+        console.error('[SCRIBE_DIAG] REJECTED: provider mismatch', { sent: providerId, expected: user.providerId ?? user.id });
         return NextResponse.json({ error: 'Provider ID mismatch' }, { status: 403 });
       }
 
+      console.error('[SCRIBE_DIAG] converting arrayBuffer...');
       const arrayBuffer = await audioFile.arrayBuffer();
       const buffer = Buffer.from(arrayBuffer);
+      console.error('[SCRIBE_DIAG] buffer ready', { bufferLen: buffer.length });
 
       let providerName: string | undefined;
       let patientName: string | undefined;
@@ -193,6 +198,7 @@ export const POST = withProviderAuth(async (req: NextRequest, user) => {
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     const errorName = error instanceof Error ? error.constructor.name : 'Unknown';
+    console.error('[SCRIBE_DIAG] CATCH BLOCK HIT', { errorName, errorMessage, stack: error instanceof Error ? error.stack?.split('\n').slice(0, 5).join(' → ') : undefined });
 
     const isConfig = errorMessage.includes('OPENAI_API_KEY') || errorMessage.includes('Missing credentials');
     const isTenant = errorMessage.includes('Tenant context');
