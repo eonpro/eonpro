@@ -294,7 +294,7 @@ const steps: FormStep[] = [
     id: 'health-conditions', path: 'health-conditions',
     title: { en: 'Do any of these apply to you?', es: '' },
     type: 'custom', component: 'WmCheckboxListStep',
-    fields: [], autoAdvance: false, showContinueButton: false, nextStep: 'opioids', prevStep: 'testimonial-2', progressPercent: 56,
+    fields: [], autoAdvance: false, showContinueButton: false, nextStep: 'glp1-history', prevStep: 'testimonial-2', progressPercent: 56,
     props: {
       headerItalic: 'A few more health questions.',
       question: 'Do any of these apply to you?',
@@ -354,7 +354,11 @@ const steps: FormStep[] = [
       ],
     }],
     autoAdvance: true, showContinueButton: false,
-    nextStep: 'testimonial-2', prevStep: 'health-conditions', progressPercent: 51,
+    nextStep: [
+      { conditions: [{ field: 'glp1_history_recent', operator: 'equals', value: 'yes' }], target: 'glp1-type-wm' },
+      { conditions: [{ field: 'glp1_history_recent', operator: 'equals', value: 'no' }], target: 'opioids' },
+    ],
+    prevStep: 'health-conditions', progressPercent: 58,
   },
 
   // 18. Testimonial: Kelly (65lbs)
@@ -395,7 +399,7 @@ const steps: FormStep[] = [
     id: 'opioids', path: 'opioids',
     title: { en: 'Have you taken any opioid pain meds or street drugs in the last 3 months?', es: '' },
     type: 'custom', component: 'WmYesNoDetailStep',
-    fields: [], autoAdvance: false, showContinueButton: false, nextStep: 'surgeries', prevStep: 'health-conditions', progressPercent: 60,
+    fields: [], autoAdvance: false, showContinueButton: false, nextStep: 'surgeries', prevStep: 'glp1-history', progressPercent: 62,
     props: {
       question: 'Have you taken any opioid pain meds or street drugs in the last 3 months?',
       detailPrompt: 'Please provide brief details.',
@@ -546,10 +550,7 @@ const steps: FormStep[] = [
     title: { en: 'How can you be reached?', es: '' },
     type: 'custom', component: 'WmContactInfoStep',
     fields: [], autoAdvance: false, showContinueButton: false,
-    nextStep: [
-      { conditions: [{ field: 'glp1_history_recent', operator: 'equals', value: 'yes' }], target: 'glp1-type-wm' },
-      { conditions: [{ field: 'glp1_history_recent', operator: 'equals', value: 'no' }], target: 'wellmedr-checkout-redirect' },
-    ],
+    nextStep: 'wellmedr-checkout-redirect',
     prevStep: 'medical-review', progressPercent: 95,
   },
 
@@ -558,7 +559,7 @@ const steps: FormStep[] = [
     id: 'glp1-type-wm', path: 'glp1-type-wm',
     title: { en: 'Which weight loss medication have you taken?', es: '' },
     type: 'custom', component: 'WmGlp1TypeStep',
-    fields: [], autoAdvance: false, showContinueButton: false, nextStep: 'wellmedr-checkout-redirect', prevStep: 'contact-info-wm', progressPercent: 98,
+    fields: [], autoAdvance: false, showContinueButton: false, nextStep: 'opioids', prevStep: 'glp1-history', progressPercent: 59,
   },
 
   // 36. Redirect to checkout
