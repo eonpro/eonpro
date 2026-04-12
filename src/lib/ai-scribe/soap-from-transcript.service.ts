@@ -171,7 +171,7 @@ ${input.patientContext.recentVitals ? `- Recent Vitals: Weight ${input.patientCo
 TRANSCRIPT:
 ${input.transcript}`;
 
-    const modelToUse = process.env.OPENAI_MODEL || 'gpt-4-turbo-preview';
+    const modelToUse = process.env.OPENAI_MODEL || 'gpt-4o';
     const response = await getOpenAI().chat.completions.create({
       model: modelToUse,
       messages: [
@@ -302,7 +302,7 @@ export async function generateConversationSummary(transcript: string): Promise<{
   concerns: string[];
 }> {
   try {
-    const modelToUse = process.env.OPENAI_MODEL || 'gpt-4-turbo-preview';
+    const modelToUse = process.env.OPENAI_MODEL || 'gpt-4o';
     const response = await getOpenAI().chat.completions.create({
       model: modelToUse,
       messages: [
@@ -349,7 +349,7 @@ export async function extractMedicationChanges(transcript: string): Promise<{
   refills: string[];
 }> {
   try {
-    const modelToUse = process.env.OPENAI_MODEL || 'gpt-4-turbo-preview';
+    const modelToUse = process.env.OPENAI_MODEL || 'gpt-4o';
     const response = await getOpenAI().chat.completions.create({
       model: modelToUse,
       messages: [
@@ -404,7 +404,7 @@ export async function checkForRedFlags(transcript: string): Promise<{
   recommendation: string;
 }> {
   try {
-    const modelToUse = process.env.OPENAI_MODEL || 'gpt-4-turbo-preview';
+    const modelToUse = process.env.OPENAI_MODEL || 'gpt-4o';
     const response = await getOpenAI().chat.completions.create({
       model: modelToUse,
       messages: [
