@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useIntakeActions, useIntakeStore } from '../../../../store/intakeStore';
 
@@ -11,7 +11,72 @@ interface WmDobStepProps {
   progressPercent: number;
 }
 
-const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+interface DropdownProps {
+  label: string;
+  placeholder: string;
+  value: string;
+  displayValue: string;
+  options: { value: string; label: string }[];
+  onSelect: (value: string) => void;
+}
+
+function Dropdown({ label, placeholder, value, displayValue, options, onSelect }: DropdownProps) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onClick = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', onClick);
+    return () => document.removeEventListener('mousedown', onClick);
+  }, [open]);
+
+  return (
+    <div className="flex-1 flex flex-col gap-2" ref={ref}>
+      <label className="text-base sm:text-[1.125rem] font-medium" style={{ color: '#101010', letterSpacing: '-0.01em' }}>
+        {label} <span style={{ color: '#c3b29e' }}>*</span>
+      </label>
+      <div className="relative">
+        <button
+          type="button"
+          onClick={() => setOpen(!open)}
+          className="wm-dropdown-btn"
+          style={{ color: value ? '#101010' : 'rgba(16,16,16,0.3)' }}
+        >
+          {value ? displayValue : placeholder}
+          <svg className="w-5 h-5 shrink-0" style={{ color: '#9ca3af', transition: 'transform 0.2s', transform: open ? 'rotate(180deg)' : 'none' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+        {open && (
+          <div className="absolute z-50 top-full mt-1 left-0 right-0 bg-white rounded-2xl shadow-lg border overflow-hidden" style={{ borderColor: 'rgba(53,28,12,0.12)', maxHeight: 240 }}>
+            <div className="overflow-y-auto" style={{ maxHeight: 240, WebkitOverflowScrolling: 'touch' }}>
+              {options.map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => { onSelect(opt.value); setOpen(false); }}
+                  className="w-full text-left px-5 py-3 text-base transition-colors"
+                  style={{
+                    backgroundColor: value === opt.value ? '#f5f0e8' : 'transparent',
+                    fontWeight: value === opt.value ? 600 : 400,
+                    color: '#101010',
+                  }}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export default function WmDobStep({ basePath, nextStep, prevStep, progressPercent }: WmDobStepProps) {
   const router = useRouter();
@@ -19,14 +84,6 @@ export default function WmDobStep({ basePath, nextStep, prevStep, progressPercen
   const { setResponse, markStepCompleted, setCurrentStep } = useIntakeActions();
   const [mounted, setMounted] = useState(false);
   useEffect(() => { requestAnimationFrame(() => setMounted(true)); }, []);
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Enter' && !e.shiftKey) handleContinue();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  });
 
   const existing = String(responses.dob || '');
   const parts = existing.includes('/') ? existing.split('/') : [];
@@ -37,55 +94,53 @@ export default function WmDobStep({ basePath, nextStep, prevStep, progressPercen
   const currentYear = new Date().getFullYear();
   const years = Array.from({ length: 80 }, (_, i) => currentYear - 18 - i);
 
-  const handleContinue = () => {
+  const handleContinue = useCallback(() => {
     if (!month || !day || !year) return;
     const dob = `${month.padStart(2, '0')}/${day.padStart(2, '0')}/${year}`;
     setResponse('dob', dob);
     markStepCompleted('dob');
     setCurrentStep(nextStep);
     router.push(`${basePath}/${nextStep}`);
-  };
+  }, [month, day, year, setResponse, markStepCompleted, setCurrentStep, nextStep, router, basePath]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Enter' && !e.shiftKey) handleContinue();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [handleContinue]);
 
   const handleBack = () => {
     if (prevStep) { setCurrentStep(prevStep); router.push(`${basePath}/${prevStep}`); }
   };
 
-  const chevron = (
-    <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
-      <svg className="w-5 h-5" style={{ color: '#9ca3af' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
-      </svg>
-    </div>
-  );
+  const dayOptions = Array.from({ length: 31 }, (_, i) => ({ value: String(i + 1), label: String(i + 1) }));
+  const monthOptions = monthNames.map((m, i) => ({ value: String(i + 1), label: m }));
+  const yearOptions = years.map((y) => ({ value: String(y), label: String(y) }));
 
   return (
     <div className="min-h-[100dvh] flex flex-col" style={{ backgroundColor: '#F7F7F9' }}>
       <style>{`
-        .wm-select {
+        .wm-dropdown-btn {
           width: 100%;
           height: 64px;
-          padding: 0.75rem 2.5rem 0.75rem 1rem;
+          padding: 0 1rem;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
           font-size: 1rem;
           font-weight: 500;
-          color: #101010;
           background-color: #fff;
           border: 1px solid rgba(53, 28, 12, 0.12);
           border-radius: 20px;
-          outline: none;
-          appearance: none;
-          -webkit-appearance: none;
           cursor: pointer;
-          letter-spacing: -0.01em;
-          line-height: 1.5rem;
-          transition: border-color 0.2s, box-shadow 0.2s;
+          transition: border-color 0.2s;
+          text-align: left;
         }
-        .wm-select:focus {
-          border-color: #7b95a9;
-          box-shadow: 0 0 0 2px #7b95a9;
-        }
-        .wm-select option[value=""][disabled] { color: rgba(16, 16, 16, 0.3); }
+        .wm-dropdown-btn:active { border-color: #7b95a9; }
         @media (min-width: 640px) {
-          .wm-select { height: 72px; font-size: 1.25rem; }
+          .wm-dropdown-btn { height: 72px; font-size: 1.25rem; }
         }
       `}</style>
 
@@ -131,47 +186,11 @@ export default function WmDobStep({ basePath, nextStep, prevStep, progressPercen
         </p>
 
         <div className="w-full max-w-[716px] mx-auto">
-          {/* Day + Month side by side */}
           <div className="flex flex-col sm:flex-row gap-4 mb-4">
-            <div className="flex-1 flex flex-col gap-2">
-              <label className="text-base sm:text-[1.125rem] font-medium" style={{ color: '#101010', letterSpacing: '-0.01em' }}>
-                Day <span style={{ color: '#c3b29e' }}>*</span>
-              </label>
-              <div className="relative">
-                <select className="wm-select" value={day} onChange={(e) => setDay(e.target.value)}>
-                  <option value="" disabled>Day</option>
-                  {Array.from({ length: 31 }, (_, i) => <option key={i + 1} value={String(i + 1)}>{i + 1}</option>)}
-                </select>
-                {chevron}
-              </div>
-            </div>
-            <div className="flex-1 flex flex-col gap-2">
-              <label className="text-base sm:text-[1.125rem] font-medium" style={{ color: '#101010', letterSpacing: '-0.01em' }}>
-                Month <span style={{ color: '#c3b29e' }}>*</span>
-              </label>
-              <div className="relative">
-                <select className="wm-select" value={month} onChange={(e) => setMonth(e.target.value)}>
-                  <option value="" disabled>Month</option>
-                  {months.map((m, i) => <option key={m} value={String(i + 1)}>{m}</option>)}
-                </select>
-                {chevron}
-              </div>
-            </div>
+            <Dropdown label="Day" placeholder="Day" value={day} displayValue={day} options={dayOptions} onSelect={setDay} />
+            <Dropdown label="Month" placeholder="Month" value={month} displayValue={month ? monthNames[Number(month) - 1] : ''} options={monthOptions} onSelect={setMonth} />
           </div>
-
-          {/* Year full-width */}
-          <div className="flex flex-col gap-2">
-            <label className="text-base sm:text-[1.125rem] font-medium" style={{ color: '#101010', letterSpacing: '-0.01em' }}>
-              Year <span style={{ color: '#c3b29e' }}>*</span>
-            </label>
-            <div className="relative">
-              <select className="wm-select" value={year} onChange={(e) => setYear(e.target.value)}>
-                <option value="" disabled>Year</option>
-                {years.map((y) => <option key={y} value={String(y)}>{y}</option>)}
-              </select>
-              {chevron}
-            </div>
-          </div>
+          <Dropdown label="Year" placeholder="Year" value={year} displayValue={year} options={yearOptions} onSelect={setYear} />
         </div>
 
         {/* Button */}
