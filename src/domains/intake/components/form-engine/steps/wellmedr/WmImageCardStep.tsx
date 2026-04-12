@@ -14,7 +14,7 @@ interface CardOption {
 const iconFilter = 'brightness(0) saturate(100%) invert(64%) sepia(21%) saturate(403%) hue-rotate(164deg) brightness(87%) contrast(89%)';
 
 function CardIcon({ iconId }: { iconId: string }) {
-  const imgStyle = { width: 56, height: 56, objectFit: 'contain' as const, filter: iconFilter };
+  const imgStyle = { width: 64, height: 64, objectFit: 'contain' as const, filter: iconFilter };
   const silStyle = { width: 80, height: 140, objectFit: 'contain' as const, filter: iconFilter };
   switch (iconId) {
     case 'male':
@@ -141,11 +141,15 @@ export default function WmImageCardStep({
         .wm-card-grid {
           display: grid;
           grid-template-columns: repeat(1, 1fr);
+          gap: 1rem;
         }
         @media (min-width: 640px) {
           .wm-card-grid {
-            grid-template-columns: repeat(auto-fit, minmax(0, 200px));
-            justify-content: center;
+            grid-template-columns: repeat(${cards.length}, 1fr);
+          }
+          .wm-card-grid > button {
+            min-height: 180px;
+            padding: 2rem 1rem 1.5rem;
           }
         }
       `}</style>
@@ -205,8 +209,8 @@ export default function WmImageCardStep({
                 onClick={() => handleSelect(card.id)}
                 className="relative flex flex-col items-center justify-center rounded-[20px] overflow-hidden"
                 style={{
-                  minHeight: isSilhouette ? '200px' : '120px',
-                  padding: isSilhouette ? '24px 16px' : '16px 12px',
+                  minHeight: isSilhouette ? '200px' : '110px',
+                  padding: isSilhouette ? '24px 16px' : '14px 12px',
                   backgroundColor: sel ? '#f5f0e8' : '#ffffff',
                   border: `2px solid ${sel ? '#c3b29e' : 'rgba(0,0,0,0.06)'}`,
                   boxShadow: sel ? '0 0 0 2px #c3b29e, 0 4px 12px rgba(195,178,158,0.2)' : '0 1px 4px rgba(0,0,0,0.04)',
