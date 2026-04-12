@@ -48,6 +48,7 @@ export const TELEHEALTH_SETTINGS = {
   muteUponEntry: true,
   waitingRoom: false,
   enforceLogin: false,
+  meeting_authentication: false,
   autoRecording: 'cloud',
   encryptionType: 'enhanced_encryption',
   watermark: true,
