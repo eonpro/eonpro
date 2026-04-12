@@ -131,23 +131,15 @@ const steps: FormStep[] = [
     id: 'weight-chart', path: 'weight-chart',
     title: { en: "It feels like magic, but it's metabolic science.", es: '' },
     type: 'custom', component: 'WmAnimatedWeightChartStep',
-    fields: [], autoAdvance: false, showContinueButton: false, nextStep: 'metabolic-chart', prevStep: 'goals-priority', progressPercent: 21,
+    fields: [], autoAdvance: false, showContinueButton: false, nextStep: 'weight-chart-testimonial', prevStep: 'goals-priority', progressPercent: 21,
   },
 
-  // 7b. GLP-1 Metabolic Rate Chart
-  {
-    id: 'metabolic-chart', path: 'metabolic-chart',
-    title: { en: 'How will GLP-1 work for you?', es: '' },
-    type: 'custom', component: 'WmMetabolicChartStep',
-    fields: [], autoAdvance: false, showContinueButton: false, nextStep: 'weight-chart-testimonial', prevStep: 'weight-chart', progressPercent: 22,
-  },
-
-  // 7c. Testimonial after charts (Kelly)
+  // 7b. Testimonial (Kelly)
   {
     id: 'weight-chart-testimonial', path: 'weight-chart-testimonial',
     title: { en: '', es: '' },
     type: 'custom', component: 'WmTestimonialStep',
-    fields: [], autoAdvance: false, showContinueButton: false, nextStep: 'safety-pregnancy', prevStep: 'metabolic-chart', progressPercent: 23,
+    fields: [], autoAdvance: false, showContinueButton: false, nextStep: 'metabolic-chart', prevStep: 'weight-chart', progressPercent: 22,
     props: {
       quote: 'Nothing has worked like this. I am down 65lbs in 6 months. I have more energy and confidence than I\'ve had in years!',
       personName: 'Kelly',
@@ -159,12 +151,20 @@ const steps: FormStep[] = [
     },
   },
 
+  // 7c. GLP-1 Metabolic Rate Chart
+  {
+    id: 'metabolic-chart', path: 'metabolic-chart',
+    title: { en: 'How will GLP-1 work for you?', es: '' },
+    type: 'custom', component: 'WmMetabolicChartStep',
+    fields: [], autoAdvance: false, showContinueButton: false, nextStep: 'safety-pregnancy', prevStep: 'weight-chart-testimonial', progressPercent: 23,
+  },
+
   // 8. Safety / Pregnancy
   {
     id: 'safety-pregnancy', path: 'safety-pregnancy',
     title: { en: 'Do any of these apply to you?', es: '' },
     type: 'custom', component: 'WmCheckboxListStep',
-    fields: [], autoAdvance: false, showContinueButton: false, nextStep: 'motivation-reason', prevStep: 'weight-chart-testimonial', progressPercent: 24,
+    fields: [], autoAdvance: false, showContinueButton: false, nextStep: 'motivation-reason', prevStep: 'metabolic-chart', progressPercent: 24,
     props: {
       headerItalic: 'Safety, first.',
       question: 'Do any of these apply to you?',
