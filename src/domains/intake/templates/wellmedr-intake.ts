@@ -362,7 +362,7 @@ const steps: FormStep[] = [
     id: 'testimonial-2', path: 'testimonial-2',
     title: { en: '', es: '' },
     type: 'custom', component: 'WmTestimonialStep',
-    fields: [], autoAdvance: false, showContinueButton: false, nextStep: 'testimonial-3', prevStep: 'glp1-history', progressPercent: 54,
+    fields: [], autoAdvance: false, showContinueButton: false, nextStep: 'opioids', prevStep: 'glp1-history', progressPercent: 54,
     props: {
       quote: 'I am so shocked that this actually works! Nothing I have ever tried worked for me. I am so happy thanks to Wellmedr.',
       personName: 'Leilani',
@@ -395,7 +395,7 @@ const steps: FormStep[] = [
     id: 'opioids', path: 'opioids',
     title: { en: 'Have you taken any opioid pain meds or street drugs in the last 3 months?', es: '' },
     type: 'custom', component: 'WmYesNoDetailStep',
-    fields: [], autoAdvance: false, showContinueButton: false, nextStep: 'surgeries', prevStep: 'testimonial-3', progressPercent: 60,
+    fields: [], autoAdvance: false, showContinueButton: false, nextStep: 'surgeries', prevStep: 'testimonial-2', progressPercent: 60,
     props: {
       question: 'Have you taken any opioid pain meds or street drugs in the last 3 months?',
       detailPrompt: 'Please provide brief details.',
