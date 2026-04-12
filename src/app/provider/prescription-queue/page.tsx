@@ -182,6 +182,40 @@ interface PrescriptionQueueStats {
   };
 }
 
+interface AddonActivityResponse {
+  clinicId: number | null;
+  windowDays: number;
+  asOf?: string;
+  pending: {
+    total: number;
+    elite: number;
+    byProduct: Record<string, number>;
+    items: Array<{
+      invoiceId: number;
+      patientId: string | null;
+      paidAt: string | null;
+      processedAt: string | null;
+      product: string | null;
+      source: string | null;
+      stripeSubscriptionId: string | null;
+    }>;
+  };
+  processedRecent: {
+    total: number;
+    elite: number;
+    byProduct: Record<string, number>;
+    items: Array<{
+      invoiceId: number;
+      patientId: string | null;
+      paidAt: string | null;
+      processedAt: string | null;
+      product: string | null;
+      source: string | null;
+      stripeSubscriptionId: string | null;
+    }>;
+  };
+}
+
 interface QueueItem {
   queueType?: 'invoice' | 'refill' | 'queued_order';
   invoiceId: number | null;
@@ -419,6 +453,8 @@ export default function PrescriptionQueuePage() {
   const [total, setTotal] = useState(0);
   const [stats, setStats] = useState<PrescriptionQueueStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(true);
+  const [addonActivity, setAddonActivity] = useState<AddonActivityResponse | null>(null);
+  const [addonActivityLoading, setAddonActivityLoading] = useState(true);
 
   // Expanded patient details
   const [expandedItem, setExpandedItem] = useState<number | null>(null);
@@ -535,6 +571,26 @@ export default function PrescriptionQueuePage() {
     }
   }, []);
 
+  const fetchAddonActivity = useCallback(async () => {
+    try {
+      setAddonActivityLoading(true);
+      const response = await apiFetch('/api/provider/prescription-queue/addon-activity?days=7&limit=100', {
+        cache: 'no-store',
+        headers: { Authorization: `Bearer ${getAuthToken()}` },
+      });
+      if (response.ok) {
+        const data: AddonActivityResponse = await response.json();
+        setAddonActivity(data);
+      } else {
+        setAddonActivity(null);
+      }
+    } catch {
+      setAddonActivity(null);
+    } finally {
+      setAddonActivityLoading(false);
+    }
+  }, []);
+
   const fetchQueue = useCallback(async (retryAttempt = 0) => {
     const MAX_RETRIES = 2;
     try {
@@ -582,7 +638,8 @@ export default function PrescriptionQueuePage() {
   useEffect(() => {
     fetchQueue();
     fetchStats();
-  }, [fetchQueue, fetchStats]);
+    fetchAddonActivity();
+  }, [fetchQueue, fetchStats, fetchAddonActivity]);
 
   const fetchPatientDetails = async (invoiceId: number) => {
     setLoadingDetails(true);
@@ -1850,6 +1907,61 @@ export default function PrescriptionQueuePage() {
             (handles EST / EDT)
           </p>
         )}
+
+        <div className="rounded-2xl border border-gray-200/80 bg-white p-4 shadow-sm">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="flex items-center gap-2 text-sm font-semibold text-gray-900">
+                <Activity className="h-4 w-4 text-gray-500" />
+                Add-on Activity (Elite/NAD+/Sermorelin/B12)
+              </p>
+              <p className="mt-1 text-xs text-gray-500">
+                Live verification of pending and recently processed add-on queue activity.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={fetchAddonActivity}
+              className="inline-flex items-center gap-1 rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${addonActivityLoading ? 'animate-spin' : ''}`} />
+              Refresh
+            </button>
+          </div>
+
+          <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div className="rounded-xl bg-gray-50 p-3">
+              <p className="text-[11px] font-medium uppercase tracking-wide text-gray-500">Pending Add-ons</p>
+              <p className="mt-1 text-xl font-bold text-gray-900">
+                {addonActivityLoading ? '—' : addonActivity?.pending.total ?? 0}
+              </p>
+            </div>
+            <div className="rounded-xl bg-[#66a682]/10 p-3">
+              <p className="text-[11px] font-medium uppercase tracking-wide text-[#3d6b50]">Pending Elite</p>
+              <p className="mt-1 text-xl font-bold text-[#3d6b50]">
+                {addonActivityLoading ? '—' : addonActivity?.pending.elite ?? 0}
+              </p>
+            </div>
+            <div className="rounded-xl bg-gray-50 p-3">
+              <p className="text-[11px] font-medium uppercase tracking-wide text-gray-500">Processed (7d)</p>
+              <p className="mt-1 text-xl font-bold text-gray-900">
+                {addonActivityLoading ? '—' : addonActivity?.processedRecent.total ?? 0}
+              </p>
+            </div>
+            <div className="rounded-xl bg-[#6b8ced]/10 p-3">
+              <p className="text-[11px] font-medium uppercase tracking-wide text-[#3559c7]">Elite Processed (7d)</p>
+              <p className="mt-1 text-xl font-bold text-[#3559c7]">
+                {addonActivityLoading ? '—' : addonActivity?.processedRecent.elite ?? 0}
+              </p>
+            </div>
+          </div>
+
+          {!addonActivityLoading && addonActivity && (
+            <p className="mt-3 text-xs text-gray-500">
+              As of {addonActivity.asOf ? new Date(addonActivity.asOf).toLocaleString() : 'now'}.
+            </p>
+          )}
+        </div>
 
         {/* Search - touch-friendly height on mobile */}
         <div className="relative">
