@@ -164,7 +164,7 @@ const steps: FormStep[] = [
     id: 'safety-pregnancy', path: 'safety-pregnancy',
     title: { en: 'Do any of these apply to you?', es: '' },
     type: 'custom', component: 'WmCheckboxListStep',
-    fields: [], autoAdvance: false, showContinueButton: false, nextStep: 'pattern-info', prevStep: 'motivation-reason', progressPercent: 30,
+    fields: [], autoAdvance: false, showContinueButton: false, nextStep: 'motivation-reason', prevStep: 'contraindications', progressPercent: 47,
     props: {
       headerItalic: 'Safety, first.',
       question: 'Do any of these apply to you?',
@@ -184,7 +184,7 @@ const steps: FormStep[] = [
     id: 'motivation-reason', path: 'motivation-reason',
     title: { en: 'What is your primary reason for taking weight loss seriously?', es: '' },
     type: 'custom', component: 'WmMotivationRadioStep',
-    fields: [], autoAdvance: false, showContinueButton: false, nextStep: 'safety-pregnancy', prevStep: 'weight-pace', progressPercent: 28,
+    fields: [], autoAdvance: false, showContinueButton: false, nextStep: 'health-conditions', prevStep: 'safety-pregnancy', progressPercent: 49,
     props: {
       headerText: 'Improving your life requires',
       headerItalic: 'motivation.',
@@ -204,7 +204,7 @@ const steps: FormStep[] = [
     id: 'weight-pace', path: 'weight-pace',
     title: { en: 'How is that pace for you?', es: '' },
     type: 'custom', component: 'WmImageCardStep',
-    fields: [], autoAdvance: false, showContinueButton: false, nextStep: 'motivation-reason', prevStep: 'metabolic-chart', progressPercent: 27,
+    fields: [], autoAdvance: false, showContinueButton: false, nextStep: 'pattern-info', prevStep: 'metabolic-chart', progressPercent: 27,
     props: {
       headerText: "With medication, you'll lose 3.75 to 5 pounds per week.",
       question: 'How is that pace for you?',
@@ -223,7 +223,7 @@ const steps: FormStep[] = [
     id: 'pattern-info', path: 'pattern-info',
     title: { en: 'Losing weight is easier than you think.', es: '' },
     type: 'custom', component: 'WmPatternInfoStep',
-    fields: [], autoAdvance: false, showContinueButton: false, nextStep: 'sleep-quality', prevStep: 'safety-pregnancy', progressPercent: 36,
+    fields: [], autoAdvance: false, showContinueButton: false, nextStep: 'sleep-quality', prevStep: 'weight-pace', progressPercent: 30,
   },
 
   // 13. Sleep Quality (image cards)
@@ -268,7 +268,7 @@ const steps: FormStep[] = [
     id: 'contraindications', path: 'contraindications',
     title: { en: 'Do you have any conditions that may prevent GLP-1 use?', es: '' },
     type: 'custom', component: 'WmCheckboxListStep',
-    fields: [], autoAdvance: false, showContinueButton: false, nextStep: 'health-conditions', prevStep: 'testimonial-1', progressPercent: 45,
+    fields: [], autoAdvance: false, showContinueButton: false, nextStep: 'safety-pregnancy', prevStep: 'testimonial-1', progressPercent: 45,
     props: {
       headerItalic: 'GLP-1 is safe,',
       headerText: 'but these health conditions might prevent you from being prescribed.',
@@ -294,7 +294,7 @@ const steps: FormStep[] = [
     id: 'health-conditions', path: 'health-conditions',
     title: { en: 'Do any of these apply to you?', es: '' },
     type: 'custom', component: 'WmCheckboxListStep',
-    fields: [], autoAdvance: false, showContinueButton: false, nextStep: 'glp1-history', prevStep: 'testimonial-2', progressPercent: 56,
+    fields: [], autoAdvance: false, showContinueButton: false, nextStep: 'glp1-history', prevStep: 'motivation-reason', progressPercent: 51,
     props: {
       headerItalic: 'A few more health questions.',
       question: 'Do any of these apply to you?',
