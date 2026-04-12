@@ -172,14 +172,14 @@ export default function WmAnimatedWeightChartStep({
           </svg>
         </div>
 
-        <div className="mt-5 text-center space-y-2 px-2 w-full"
+        <div className="mt-6 text-left space-y-3 w-full"
           style={{ opacity: mounted ? 1 : 0, transform: mounted ? 'translateY(0)' : 'translateY(10px)', transition: 'all 0.6s cubic-bezier(0.4,0,0.2,1) 0.4s' }}>
-          <p className="text-[15px] sm:text-base" style={{ color: '#101010' }}>
+          <p className="text-base sm:text-lg" style={{ color: '#101010' }}>
             On average, Wellmedr patients <strong>lose over 22% of their body weight.</strong>
           </p>
-          <p className="text-[15px] sm:text-base" style={{ color: '#101010' }}>
+          <p className="text-base sm:text-lg" style={{ color: '#101010' }}>
             GLP-1 medications are <strong>extremely effective</strong> &ndash; offering you a strong path toward your{' '}
-            <span className="font-bold" style={{ color: '#7B95A9' }}>{goalWeight} pound</span> goal weight.
+            {goalWeight} pound goal weight.
           </p>
         </div>
       </div>

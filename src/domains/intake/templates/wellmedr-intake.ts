@@ -131,7 +131,24 @@ const steps: FormStep[] = [
     id: 'weight-chart', path: 'weight-chart',
     title: { en: "It feels like magic, but it's metabolic science.", es: '' },
     type: 'custom', component: 'WmAnimatedWeightChartStep',
-    fields: [], autoAdvance: false, showContinueButton: false, nextStep: 'safety-pregnancy', prevStep: 'goals-priority', progressPercent: 21,
+    fields: [], autoAdvance: false, showContinueButton: false, nextStep: 'weight-chart-testimonial', prevStep: 'goals-priority', progressPercent: 21,
+  },
+
+  // 7b. Testimonial after weight chart (Kelly)
+  {
+    id: 'weight-chart-testimonial', path: 'weight-chart-testimonial',
+    title: { en: '', es: '' },
+    type: 'custom', component: 'WmTestimonialStep',
+    fields: [], autoAdvance: false, showContinueButton: false, nextStep: 'safety-pregnancy', prevStep: 'weight-chart', progressPercent: 22,
+    props: {
+      quote: 'Nothing has worked like this. I am down 65lbs in 6 months. I have more energy and confidence than I\'ve had in years!',
+      personName: 'Kelly',
+      lostAmount: '65lbs in 6 months',
+      beforeImage: '/assets/images/testimonials/2-before.webp',
+      afterImage: '/assets/images/testimonials/2-after.webp',
+      combinedImage: '/assets/images/testimonials/kelly-before-after.png',
+      descriptionHtml: 'Kelly <strong>dropped</strong> his blood pressure and <em><u>upped</u></em> his confidence in only 5 weeks!',
+    },
   },
 
   // 8. Safety / Pregnancy
@@ -139,7 +156,7 @@ const steps: FormStep[] = [
     id: 'safety-pregnancy', path: 'safety-pregnancy',
     title: { en: 'Do any of these apply to you?', es: '' },
     type: 'custom', component: 'WmCheckboxListStep',
-    fields: [], autoAdvance: false, showContinueButton: false, nextStep: 'metabolic-chart', prevStep: 'weight-chart', progressPercent: 24,
+    fields: [], autoAdvance: false, showContinueButton: false, nextStep: 'metabolic-chart', prevStep: 'weight-chart-testimonial', progressPercent: 24,
     props: {
       headerItalic: 'Safety, first.',
       question: 'Do any of these apply to you?',
