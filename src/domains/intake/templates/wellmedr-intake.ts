@@ -184,7 +184,7 @@ const steps: FormStep[] = [
     id: 'motivation-reason', path: 'motivation-reason',
     title: { en: 'What is your primary reason for taking weight loss seriously?', es: '' },
     type: 'custom', component: 'WmMotivationRadioStep',
-    fields: [], autoAdvance: false, showContinueButton: false, nextStep: 'weight-pace', prevStep: 'safety-pregnancy', progressPercent: 30,
+    fields: [], autoAdvance: false, showContinueButton: false, nextStep: 'pattern-info', prevStep: 'weight-pace', progressPercent: 33,
     props: {
       headerText: 'Improving your life requires',
       headerItalic: 'motivation.',
@@ -204,7 +204,7 @@ const steps: FormStep[] = [
     id: 'weight-pace', path: 'weight-pace',
     title: { en: 'How is that pace for you?', es: '' },
     type: 'custom', component: 'WmImageCardStep',
-    fields: [], autoAdvance: false, showContinueButton: false, nextStep: 'pattern-info', prevStep: 'motivation-reason', progressPercent: 33,
+    fields: [], autoAdvance: false, showContinueButton: false, nextStep: 'motivation-reason', prevStep: 'safety-pregnancy', progressPercent: 30,
     props: {
       headerText: "With medication, you'll lose 3.75 to 5 pounds per week.",
       question: 'How is that pace for you?',
@@ -223,7 +223,7 @@ const steps: FormStep[] = [
     id: 'pattern-info', path: 'pattern-info',
     title: { en: 'Losing weight is easier than you think.', es: '' },
     type: 'custom', component: 'WmPatternInfoStep',
-    fields: [], autoAdvance: false, showContinueButton: false, nextStep: 'sleep-quality', prevStep: 'weight-pace', progressPercent: 36,
+    fields: [], autoAdvance: false, showContinueButton: false, nextStep: 'sleep-quality', prevStep: 'motivation-reason', progressPercent: 36,
   },
 
   // 13. Sleep Quality (image cards)
