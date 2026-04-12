@@ -103,10 +103,10 @@ export default function WmTestimonialStep({
         )}
 
         {descriptionHtml ? (
-          <p className="text-center text-base" style={{ color: '#101010', opacity: mounted ? 1 : 0, transition: 'opacity 0.5s ease 0.3s' }}
+          <p className="text-left text-lg sm:text-xl w-full" style={{ color: '#101010', opacity: mounted ? 1 : 0, transition: 'opacity 0.5s ease 0.3s' }}
             dangerouslySetInnerHTML={{ __html: descriptionHtml }} />
         ) : (
-          <p className="text-center text-base" style={{ color: '#101010', opacity: mounted ? 1 : 0, transition: 'opacity 0.5s ease 0.3s' }}>
+          <p className="text-left text-lg sm:text-xl w-full" style={{ color: '#101010', opacity: mounted ? 1 : 0, transition: 'opacity 0.5s ease 0.3s' }}>
             {personName} is currently <em>down</em> <strong>{lostAmount}</strong> and feeling <strong>amazing</strong>!
           </p>
         )}
