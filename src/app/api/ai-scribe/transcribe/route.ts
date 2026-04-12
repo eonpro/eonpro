@@ -27,10 +27,19 @@ const MAX_AUDIO_SIZE = 25 * 1024 * 1024; // 25 MB — OpenAI Whisper limit
 export const POST = withProviderAuth(async (req: NextRequest, user) => {
   try {
     const contentType = req.headers.get('content-type') || '';
+    console.error('[SCRIBE_DIAG] handler entered', { contentType: contentType.slice(0, 60), userId: user.id, method: req.method });
 
     // Handle multipart form data (audio file upload)
     if (contentType.includes('multipart/form-data')) {
-      const formData = (await req.formData()) as unknown as globalThis.FormData;
+      console.error('[SCRIBE_DIAG] parsing formData...');
+      let formData: globalThis.FormData;
+      try {
+        formData = (await req.formData()) as unknown as globalThis.FormData;
+        console.error('[SCRIBE_DIAG] formData parsed OK');
+      } catch (parseErr) {
+        console.error('[SCRIBE_DIAG] formData FAILED', { error: parseErr instanceof Error ? parseErr.message : String(parseErr) });
+        return NextResponse.json({ error: 'Failed to parse audio upload', details: parseErr instanceof Error ? parseErr.message : String(parseErr) }, { status: 500 });
+      }
       const audioFile = formData.get('audio') as Blob | null;
       const sessionId = formData.get('sessionId') as string;
       const patientId = formData.get('patientId') as string;
