@@ -298,7 +298,8 @@ export function detectSpeakers(
 export async function createTranscriptionSession(
   appointmentId: number | undefined,
   patientId: number,
-  providerId: number
+  providerId: number,
+  clinicId?: number
 ): Promise<TranscriptionSession> {
   const sessionId = `scribe-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
@@ -312,12 +313,11 @@ export async function createTranscriptionSession(
     segments: [],
   };
 
-  // Store session in database
-  // For now, we'll use a simple approach - could be moved to Redis for real-time
   await prisma.aIConversation.create({
     data: {
       sessionId,
       patientId,
+      ...(clinicId ? { clinicId } : {}),
       userEmail: `provider-${providerId}`,
       isActive: true,
       lastMessageAt: new Date(),
@@ -329,6 +329,7 @@ export async function createTranscriptionSession(
     patientId,
     providerId,
     appointmentId,
+    clinicId,
   });
 
   return session;

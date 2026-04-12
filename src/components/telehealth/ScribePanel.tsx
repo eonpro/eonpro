@@ -56,6 +56,7 @@ export default function ScribePanel({
   const [, setSessionId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [initializing, setInitializing] = useState(false);
+  const [startFailed, setStartFailed] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const sendIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -68,6 +69,7 @@ export default function ScribePanel({
 
     setInitializing(true);
     setError(null);
+    setStartFailed(false);
     chunkErrorCountRef.current = 0;
 
     try {
@@ -184,6 +186,7 @@ export default function ScribePanel({
       }
       const msg = err instanceof Error ? err.message : 'Failed to start recording';
       setError(msg);
+      setStartFailed(true);
     } finally {
       setInitializing(false);
     }
@@ -202,14 +205,14 @@ export default function ScribePanel({
   }, []);
 
   useEffect(() => {
-    if (isCallActive && !recording && !initializing && appointmentId && patientId && providerId) {
+    if (isCallActive && !recording && !initializing && !startFailed && appointmentId && patientId && providerId) {
       void startRecording();
     }
 
     if (!isCallActive && recording) {
       stopRecording();
     }
-  }, [isCallActive, recording, initializing, appointmentId, patientId, providerId, startRecording, stopRecording]);
+  }, [isCallActive, recording, initializing, startFailed, appointmentId, patientId, providerId, startRecording, stopRecording]);
 
   useEffect(() => {
     return () => {
@@ -269,9 +272,20 @@ export default function ScribePanel({
       {/* Transcript */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-3">
         {error && (
-          <div className="mb-3 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-2.5">
-            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-600" />
-            <p className="text-xs text-amber-700">{error}</p>
+          <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 p-2.5">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-600" />
+              <p className="text-xs text-amber-700">{error}</p>
+            </div>
+            {startFailed && isCallActive && (
+              <button
+                onClick={() => { setStartFailed(false); setError(null); void startRecording(); }}
+                className="mt-2 flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-blue-700"
+              >
+                <Mic className="h-3.5 w-3.5" />
+                Retry AI Scribe
+              </button>
+            )}
           </div>
         )}
 

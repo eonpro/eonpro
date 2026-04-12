@@ -121,7 +121,7 @@ export const POST = withProviderAuth(async (req: NextRequest, user) => {
           );
         }
 
-        const session = await createTranscriptionSession(appointmentId, patientId, providerId);
+        const session = await createTranscriptionSession(appointmentId, patientId, providerId, user.clinicId ?? undefined);
 
         return NextResponse.json(
           {
@@ -174,15 +174,20 @@ export const POST = withProviderAuth(async (req: NextRequest, user) => {
     }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errorName = error instanceof Error ? error.constructor.name : 'Unknown';
 
     const isConfig = errorMessage.includes('OPENAI_API_KEY') || errorMessage.includes('Missing credentials');
+    const isTenant = errorMessage.includes('Tenant context');
     const isTimeout = errorMessage.includes('timed out');
     const status = isConfig ? 503 : isTimeout ? 504 : 500;
 
     logger.error('AI Scribe transcription error', {
       error: errorMessage,
+      errorName,
       status,
       userId: user.id,
+      isTenantError: isTenant,
+      stack: error instanceof Error ? error.stack?.split('\n').slice(0, 4).join(' | ') : undefined,
     });
 
     return NextResponse.json(
