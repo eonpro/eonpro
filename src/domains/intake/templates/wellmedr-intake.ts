@@ -294,7 +294,7 @@ const steps: FormStep[] = [
     id: 'health-conditions', path: 'health-conditions',
     title: { en: 'Do any of these apply to you?', es: '' },
     type: 'custom', component: 'WmCheckboxListStep',
-    fields: [], autoAdvance: false, showContinueButton: false, nextStep: 'glp1-history', prevStep: 'contraindications', progressPercent: 48,
+    fields: [], autoAdvance: false, showContinueButton: false, nextStep: 'opioids', prevStep: 'testimonial-2', progressPercent: 56,
     props: {
       headerItalic: 'A few more health questions.',
       question: 'Do any of these apply to you?',
@@ -362,7 +362,7 @@ const steps: FormStep[] = [
     id: 'testimonial-2', path: 'testimonial-2',
     title: { en: '', es: '' },
     type: 'custom', component: 'WmTestimonialStep',
-    fields: [], autoAdvance: false, showContinueButton: false, nextStep: 'opioids', prevStep: 'glp1-history', progressPercent: 54,
+    fields: [], autoAdvance: false, showContinueButton: false, nextStep: 'health-conditions', prevStep: 'glp1-history', progressPercent: 54,
     props: {
       quote: 'I am so shocked that this actually works! Nothing I have ever tried worked for me. I am so happy thanks to Wellmedr.',
       personName: 'Leilani',
@@ -395,7 +395,7 @@ const steps: FormStep[] = [
     id: 'opioids', path: 'opioids',
     title: { en: 'Have you taken any opioid pain meds or street drugs in the last 3 months?', es: '' },
     type: 'custom', component: 'WmYesNoDetailStep',
-    fields: [], autoAdvance: false, showContinueButton: false, nextStep: 'surgeries', prevStep: 'testimonial-2', progressPercent: 60,
+    fields: [], autoAdvance: false, showContinueButton: false, nextStep: 'surgeries', prevStep: 'health-conditions', progressPercent: 60,
     props: {
       question: 'Have you taken any opioid pain meds or street drugs in the last 3 months?',
       detailPrompt: 'Please provide brief details.',
