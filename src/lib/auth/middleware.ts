@@ -751,11 +751,15 @@ export function withAuth<T = unknown>(
         headers.set('x-clinic-id', effectiveClinicId.toString());
       }
 
-      // Create a new NextRequest with the modified headers
+      // Create a new NextRequest with the modified headers.
+      // duplex: 'half' is required for streaming/multipart bodies (audio uploads, etc.)
       const modifiedReq = new NextRequest(req.url, {
         method: req.method,
         headers,
         body: req.body,
+        // @ts-expect-error — duplex is required by the Fetch spec for ReadableStream bodies
+        //                     but not yet in the NextRequest type definitions
+        duplex: 'half',
       });
 
       // Pass user with effective clinic so handlers see subdomain clinic when overridden
