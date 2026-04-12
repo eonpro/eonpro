@@ -741,10 +741,20 @@ export function withAuth<T = unknown>(
         // Silently ignore errors - this is non-critical
       });
 
-      // Pass the original request unchanged. Reconstructing via new NextRequest()
-      // corrupts multipart body streams, and mutating headers throws in production.
-      // Handlers receive all context via the `user` parameter instead of headers.
-      const modifiedReq = req;
+      // Inject user info into request headers for downstream logging/routing
+      const headers = new Headers(req.headers);
+      headers.set('x-user-id', user.id.toString());
+      headers.set('x-user-role', user.role);
+      headers.set('x-request-id', requestId);
+      if (effectiveClinicId != null) {
+        headers.set('x-clinic-id', effectiveClinicId.toString());
+      }
+
+      const modifiedReq = new NextRequest(req.url, {
+        method: req.method,
+        headers,
+        body: req.body,
+      });
 
       // Pass user with effective clinic so handlers see subdomain clinic when overridden
       let userForHandler: AuthUser =
