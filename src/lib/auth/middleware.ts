@@ -741,16 +741,9 @@ export function withAuth<T = unknown>(
         // Silently ignore errors - this is non-critical
       });
 
-      // Attach metadata headers to the ORIGINAL request instead of reconstructing it.
-      // Creating a new NextRequest(url, { body: req.body }) breaks multipart/form-data
-      // parsing because ReadableStream body transfer corrupts the multipart boundary.
-      // The original req preserves the body stream intact.
-      req.headers.set('x-user-id', user.id.toString());
-      req.headers.set('x-user-role', user.role);
-      req.headers.set('x-request-id', requestId);
-      if (effectiveClinicId != null) {
-        req.headers.set('x-clinic-id', effectiveClinicId.toString());
-      }
+      // Pass the original request unchanged. Reconstructing via new NextRequest()
+      // corrupts multipart body streams, and mutating headers throws in production.
+      // Handlers receive all context via the `user` parameter instead of headers.
       const modifiedReq = req;
 
       // Pass user with effective clinic so handlers see subdomain clinic when overridden
