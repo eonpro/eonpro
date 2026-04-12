@@ -28,11 +28,11 @@ export default function ZoomEmbeddedMeeting({
   onMeetingStart,
   onMeetingEnd,
 }: ZoomEmbeddedMeetingProps) {
-  const [status, setStatus] = useState<'launching' | 'active' | 'blocked' | 'ended' | 'closed'>('launching');
+  const [status, setStatus] = useState<'ready' | 'active' | 'blocked' | 'ended' | 'closed'>('ready');
   const popupRef = useRef<Window | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const mountedRef = useRef(true);
-  const launchedRef = useRef(false);
+  const joinBtnRef = useRef<HTMLButtonElement>(null);
 
   const stopPolling = useCallback(() => {
     if (pollRef.current) {
@@ -79,7 +79,7 @@ export default function ZoomEmbeddedMeeting({
           }
         }
       } catch {
-        // Cross-origin access error — window is still open
+        // Cross-origin — window is still open
       }
     }, 2000);
   }, [joinUrl, onMeetingStart, stopPolling]);
@@ -107,21 +107,39 @@ export default function ZoomEmbeddedMeeting({
     };
   }, [stopPolling]);
 
-  // Auto-launch Zoom immediately on mount
+  // Auto-focus the join button so provider can just press Enter
   useEffect(() => {
-    if (launchedRef.current || !joinUrl) return;
-    launchedRef.current = true;
-    launchZoom();
-  }, [joinUrl, launchZoom]);
+    if (status === 'ready' && joinBtnRef.current) {
+      joinBtnRef.current.focus();
+    }
+  }, [status]);
 
-  if (status === 'launching') {
+  if (status === 'ready') {
     return (
       <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-900 p-8">
-        <div className="mb-6 flex h-24 w-24 items-center justify-center rounded-full bg-blue-600/20">
-          <Video className="h-12 w-12 animate-pulse text-blue-400" />
-        </div>
-        <p className="mb-1 text-lg font-semibold text-white">Opening Zoom...</p>
-        <p className="text-sm text-gray-400">Meeting #{meetingNumber}</p>
+        {joinUrl ? (
+          <button
+            ref={joinBtnRef}
+            onClick={launchZoom}
+            className="group flex flex-col items-center gap-6 rounded-3xl bg-blue-600 px-16 py-10 shadow-2xl transition-all hover:bg-blue-700 hover:shadow-blue-900/30 active:scale-[0.97] focus:outline-none focus:ring-4 focus:ring-blue-400/50"
+          >
+            <div className="flex h-20 w-20 items-center justify-center rounded-full bg-white/20 transition-transform group-hover:scale-110">
+              <Video className="h-10 w-10 text-white" />
+            </div>
+            <div className="text-center">
+              <p className="text-xl font-bold text-white">Join Zoom Call</p>
+              <p className="mt-1 text-sm text-blue-200">Meeting #{meetingNumber}</p>
+            </div>
+          </button>
+        ) : (
+          <div className="text-center">
+            <div className="mb-4 flex h-20 w-20 mx-auto items-center justify-center rounded-full bg-red-600/20">
+              <AlertTriangle className="h-10 w-10 text-red-400" />
+            </div>
+            <p className="text-lg font-semibold text-white">No meeting link available</p>
+            <p className="mt-1 text-sm text-gray-400">Go back and generate the video link first</p>
+          </div>
+        )}
       </div>
     );
   }
