@@ -184,7 +184,7 @@ const steps: FormStep[] = [
     id: 'motivation-reason', path: 'motivation-reason',
     title: { en: 'What is your primary reason for taking weight loss seriously?', es: '' },
     type: 'custom', component: 'WmMotivationRadioStep',
-    fields: [], autoAdvance: false, showContinueButton: false, nextStep: 'testimonial-2', prevStep: 'safety-pregnancy', progressPercent: 46,
+    fields: [], autoAdvance: false, showContinueButton: false, nextStep: 'contraindications', prevStep: 'safety-pregnancy', progressPercent: 46,
     props: {
       headerText: 'Improving your life requires',
       headerItalic: 'motivation.',
@@ -268,7 +268,7 @@ const steps: FormStep[] = [
     id: 'contraindications', path: 'contraindications',
     title: { en: 'Do you have any conditions that may prevent GLP-1 use?', es: '' },
     type: 'custom', component: 'WmCheckboxListStep',
-    fields: [], autoAdvance: false, showContinueButton: false, nextStep: 'health-conditions', prevStep: 'testimonial-2', progressPercent: 55,
+    fields: [], autoAdvance: false, showContinueButton: false, nextStep: 'health-conditions', prevStep: 'motivation-reason', progressPercent: 48,
     props: {
       headerItalic: 'GLP-1 is safe,',
       headerText: 'but these health conditions might prevent you from being prescribed.',
