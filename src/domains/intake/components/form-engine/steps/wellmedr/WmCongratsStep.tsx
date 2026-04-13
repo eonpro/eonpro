@@ -500,6 +500,47 @@ export default function WmCongratsStep({
           </div>
         </div>
 
+        {/* Marquee Row 1 — slides left */}
+        <div className="wm-marquee mb-3 w-full">
+          <div className="wm-marquee-track">
+            {doubledTestimonials.map((t, i) => (
+              <div key={`r1-${i}`} className="w-[200px] flex-shrink-0 sm:w-[240px]">
+                <div className="overflow-hidden rounded-2xl">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={t.src}
+                    alt={`${t.stat} ${t.time}`}
+                    className="h-auto w-full object-cover"
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Marquee Row 2 — slides right */}
+        <div className="wm-marquee mb-4 w-full">
+          <div className="wm-marquee-track-reverse">
+            {[...doubledTestimonials].reverse().map((t, i) => (
+              <div key={`r2-${i}`} className="w-[200px] flex-shrink-0 sm:w-[240px]">
+                <div className="overflow-hidden rounded-2xl">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={t.src}
+                    alt={`${t.stat} ${t.time}`}
+                    className="h-auto w-full object-cover"
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <p className="mb-8 text-center text-xs" style={{ color: '#666' }}>
+          Inspired by real patient success stories in similar Telehealth programs. Average weight
+          loss in clinical programs: <strong>25–40 lbs.</strong> Individual results vary.
+        </p>
+
         <p className="mb-4 text-center text-xl font-bold">Here&apos;s the best part...</p>
         <div className="mx-auto mb-4 w-32 sm:w-40">
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -557,47 +598,6 @@ export default function WmCongratsStep({
 
         <p className="mb-8 text-center text-sm font-bold">
           Program structure and care process verified. Individual results may vary.
-        </p>
-
-        {/* Marquee Row 1 — slides left */}
-        <div className="wm-marquee mb-3 w-full">
-          <div className="wm-marquee-track">
-            {doubledTestimonials.map((t, i) => (
-              <div key={`r1-${i}`} className="w-[200px] flex-shrink-0 sm:w-[240px]">
-                <div className="overflow-hidden rounded-2xl">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={t.src}
-                    alt={`${t.stat} ${t.time}`}
-                    className="h-auto w-full object-cover"
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Marquee Row 2 — slides right */}
-        <div className="wm-marquee mb-4 w-full">
-          <div className="wm-marquee-track-reverse">
-            {[...doubledTestimonials].reverse().map((t, i) => (
-              <div key={`r2-${i}`} className="w-[200px] flex-shrink-0 sm:w-[240px]">
-                <div className="overflow-hidden rounded-2xl">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={t.src}
-                    alt={`${t.stat} ${t.time}`}
-                    className="h-auto w-full object-cover"
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <p className="mb-6 text-center text-xs" style={{ color: '#666' }}>
-          Inspired by real patient success stories in similar Telehealth programs. Average weight
-          loss in clinical programs: <strong>25–40 lbs.</strong> Individual results vary.
         </p>
       </div>
 
