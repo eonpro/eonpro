@@ -49,6 +49,16 @@ function GoldCheck() {
   );
 }
 
+function GreenCheck() {
+  return (
+    <span className="inline-flex items-center justify-center w-6 h-6 rounded-full shrink-0" style={{ backgroundColor: '#10b981' }}>
+      <svg width="14" height="14" viewBox="0 0 12 12" fill="none">
+        <path d="M2.5 6L5 8.5L9.5 3.5" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    </span>
+  );
+}
+
 export default function WmCongratsStep({
   basePath,
   nextStep,
@@ -234,12 +244,12 @@ export default function WmCongratsStep({
             { num: 2, text: 'Get it delivered', image: '/assets/images/products/image-310.png' },
             { num: 3, text: 'Reach your goals', image: '/assets/images/products/Gemini-Generated-Image-qrkq7iqrkq7iqrkq-2.png' },
           ].map((s) => (
-            <div key={s.num} className="flex items-center gap-4 rounded-2xl px-5 py-4 overflow-hidden" style={{ background: `linear-gradient(135deg, ${NAVY} 0%, #163a47 100%)` }}>
-              <div className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0" style={{ backgroundColor: GOLD }}>{s.num}</div>
-              <span className="font-medium text-base flex-1 text-white">{s.text}</span>
+            <div key={s.num} className="flex items-center gap-4 rounded-2xl px-5 py-5 overflow-hidden" style={{ background: 'linear-gradient(135deg, #d4c49e 0%, #c3b29e 100%)' }}>
+              <div className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0" style={{ backgroundColor: '#a0906e' }}>{s.num}</div>
+              <span className="font-medium text-base flex-1" style={{ color: '#101010' }}>{s.text}</span>
               {s.image && (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={s.image} alt="" className="w-16 h-16 object-contain shrink-0 opacity-90" />
+                <img src={s.image} alt="" className="w-20 h-20 object-contain shrink-0" />
               )}
             </div>
           ))}
@@ -247,16 +257,16 @@ export default function WmCongratsStep({
 
         {/* Support */}
         <h2 className="text-xl sm:text-2xl font-bold text-center mb-3" style={{ color: '#101010' }}>
-          Your <span style={{ color: GOLD }}>Wellmedr +</span><br />Complete Support
+          Your <span style={{ color: '#b0a08a' }}>Wellmedr +</span><br />Complete Support
         </h2>
         <div className="w-full flex justify-center mb-4">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/assets/images/products/image-310.png" alt="Wellmedr delivery" className="w-48 sm:w-56 h-auto object-contain" />
         </div>
         <div className="flex gap-4 justify-center mb-10 text-sm font-medium" style={{ color: '#101010' }}>
-          <span className="flex items-center gap-1.5"><GoldCheck /> All-in-one</span>
-          <span className="flex items-center gap-1.5"><GoldCheck /> 48-hour delivery</span>
-          <span className="flex items-center gap-1.5"><GoldCheck /> Always Free</span>
+          <span className="flex items-center gap-1.5"><GreenCheck /> All-in-one</span>
+          <span className="flex items-center gap-1.5"><GreenCheck /> 48-hour delivery</span>
+          <span className="flex items-center gap-1.5"><GreenCheck /> Always Free</span>
         </div>
 
         {/* Why switching */}
