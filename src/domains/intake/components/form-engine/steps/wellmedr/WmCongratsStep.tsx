@@ -116,9 +116,9 @@ export default function WmCongratsStep({
         </h2>
         <div className="w-full space-y-3 mb-8">
           {[
-            { num: 1, text: 'Pick your medication', image: '/assets/images/testimonials/3996e0e1-bf01-4a29-ab53-e097c5d5bf4e.png' },
-            { num: 2, text: 'Get it delivered', image: '/assets/images/testimonials/3996e0e1-bf01-4a29-ab53-e097c5d5bf4e.png' },
-            { num: 3, text: 'Reach your goals' },
+            { num: 1, text: 'Pick your medication', image: '/assets/images/products/image-6.png' },
+            { num: 2, text: 'Get it delivered', image: '/assets/images/products/image-310.png' },
+            { num: 3, text: 'Reach your goals', image: '/assets/images/products/Gemini-Generated-Image-qrkq7iqrkq7iqrkq-2.png' },
           ].map((s) => (
             <div key={s.num} className="flex items-center gap-4 rounded-2xl px-5 py-4 overflow-hidden" style={{ background: 'linear-gradient(135deg, #d4c49e 0%, #c3b29e 100%)' }}>
               <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0" style={{ backgroundColor: '#a0906e' }}>{s.num}</div>
@@ -137,7 +137,7 @@ export default function WmCongratsStep({
         </h2>
         <div className="w-full flex justify-center mb-4">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/assets/images/testimonials/3996e0e1-bf01-4a29-ab53-e097c5d5bf4e.png" alt="Wellmedr delivery" className="w-48 sm:w-56 h-auto object-contain" />
+          <img src="/assets/images/products/image-310.png" alt="Wellmedr delivery" className="w-48 sm:w-56 h-auto object-contain" />
         </div>
         <div className="flex gap-4 justify-center mb-8 text-sm">
           <span className="flex items-center gap-1"><span className="text-[#c3b29e]">&#10004;</span> All-in-one</span>
@@ -175,8 +175,9 @@ export default function WmCongratsStep({
         </div>
 
         <p className="text-xl font-bold text-center mb-4">Here&apos;s the best part...</p>
-        <div className="w-20 h-20 mb-4 mx-auto">
-          <svg viewBox="0 0 80 80" fill="none"><path d="M40 5L50 25H70L54 38L60 58L40 45L20 58L26 38L10 25H30Z" fill="#c5a55a" stroke="#a08830" strokeWidth="1"/><text x="40" y="38" textAnchor="middle" fill="white" fontSize="6" fontWeight="bold">6-MONTH</text><text x="40" y="46" textAnchor="middle" fill="white" fontSize="5">Wellmedr</text><text x="40" y="53" textAnchor="middle" fill="white" fontSize="4">Care Guarantee</text></svg>
+        <div className="w-32 sm:w-40 mb-4 mx-auto">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/assets/images/products/c9eaaa59-008d-4430-816e-7501a58aec6b.png" alt="6-Month Wellmedr Care Guarantee" className="w-full h-auto" />
         </div>
 
         <p className="text-center text-base mb-6" style={{ color: '#101010' }}>
