@@ -65,6 +65,15 @@ function CardIcon({ iconId }: { iconId: string }) {
     case 'potency':
       /* eslint-disable-next-line @next/next/no-img-element */
       return <img src="/assets/icons/wellmedr/potency.svg" alt="Potency" style={imgStyle} />;
+    case 'ready':
+      /* eslint-disable-next-line @next/next/no-img-element */
+      return <img src="/assets/icons/wellmedr/ready.svg" alt="I'm ready!" style={imgStyle} />;
+    case 'hopeful':
+      /* eslint-disable-next-line @next/next/no-img-element */
+      return <img src="/assets/icons/wellmedr/hopeful.svg" alt="I'm feeling hopeful" style={imgStyle} />;
+    case 'cautious':
+      /* eslint-disable-next-line @next/next/no-img-element */
+      return <img src="/assets/icons/wellmedr/cautious.svg" alt="I'm cautious" style={imgStyle} />;
     default:
       return null;
   }

@@ -506,9 +506,9 @@ const steps: FormStep[] = [
       storageKey: 'motivation_level',
       columns: 2, mode: 'single',
       cards: [
-        { id: 'ready', label: "I'm ready!" },
-        { id: 'hopeful', label: "I'm feeling hopeful" },
-        { id: 'cautious', label: "I'm cautious" },
+        { id: 'ready', label: "I'm ready!", iconId: 'ready' },
+        { id: 'hopeful', label: "I'm feeling hopeful", iconId: 'hopeful' },
+        { id: 'cautious', label: "I'm cautious", iconId: 'cautious' },
       ],
     },
   },
