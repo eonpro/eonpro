@@ -59,6 +59,12 @@ function CardIcon({ iconId }: { iconId: string }) {
     case 'bad_sleep':
       /* eslint-disable-next-line @next/next/no-img-element */
       return <img src="/assets/icons/wellmedr/bad-sleep.svg" alt="I don't sleep well" style={imgStyle} />;
+    case 'affordability':
+      /* eslint-disable-next-line @next/next/no-img-element */
+      return <img src="/assets/icons/wellmedr/affordability.svg" alt="Affordability" style={imgStyle} />;
+    case 'potency':
+      /* eslint-disable-next-line @next/next/no-img-element */
+      return <img src="/assets/icons/wellmedr/potency.svg" alt="Potency" style={imgStyle} />;
     default:
       return null;
   }

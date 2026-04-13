@@ -473,8 +473,8 @@ const steps: FormStep[] = [
       storageKey: 'med_priority',
       columns: 2, mode: 'single',
       cards: [
-        { id: 'affordability', label: 'Affordability', subtitle: 'Lowest price' },
-        { id: 'potency', label: 'Potency', subtitle: 'Stronger dose' },
+        { id: 'affordability', label: 'Affordability', subtitle: 'Lowest price', iconId: 'affordability' },
+        { id: 'potency', label: 'Potency', subtitle: 'Stronger dose', iconId: 'potency' },
       ],
     },
   },
