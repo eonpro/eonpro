@@ -167,7 +167,7 @@ export default function WmContactInfoStep({
           className="wm-next-btn w-full flex items-center justify-center gap-4 py-[18px] text-white font-normal text-base sm:text-[1.125rem] rounded-full active:scale-[0.98]"
           style={{ height: 56, backgroundColor: '#0C2631', cursor: 'pointer' }}
         >
-          Next <span className="text-base" aria-hidden>&#10132;</span>
+          Submit
         </button>
       </div>
     </div>
