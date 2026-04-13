@@ -61,6 +61,11 @@ const INTAKE_FIELD_MAP: Record<string, string> = {
 };
 
 /**
+ * Airtable number fields — these need numeric values, not strings.
+ */
+const NUMBER_FIELDS = new Set(['feet', 'inches', 'weight', 'bmi', 'goal-weight']);
+
+/**
  * Convert intake responses to Airtable-compatible fields.
  */
 export function mapIntakeToAirtable(responses: Record<string, unknown>): Record<string, unknown> {
@@ -74,6 +79,9 @@ export function mapIntakeToAirtable(responses: Record<string, unknown>): Record<
       fields[airtableField] = value.join(', ');
     } else if (typeof value === 'boolean') {
       fields[airtableField] = value ? 'Yes' : 'No';
+    } else if (NUMBER_FIELDS.has(airtableField)) {
+      const num = Number(value);
+      if (!isNaN(num)) fields[airtableField] = num;
     } else {
       fields[airtableField] = String(value);
     }
@@ -85,7 +93,7 @@ export function mapIntakeToAirtable(responses: Record<string, unknown>): Record<
   const inches = Number(responses.height_inches || responses.heightInches || 0);
   if (weight > 0 && feet > 0) {
     const totalInches = feet * 12 + inches;
-    const bmi = ((weight / (totalInches * totalInches)) * 703).toFixed(2);
+    const bmi = parseFloat(((weight / (totalInches * totalInches)) * 703).toFixed(2));
     fields['bmi'] = bmi;
   }
 
@@ -100,9 +108,12 @@ export async function createAirtableRecord(
 ): Promise<string | null> {
   const apiKey = getApiKey();
   if (!apiKey) {
-    console.warn('[WellMedR-Airtable] No AIRTABLE_API_KEY configured, skipping sync');
+    console.error('[WellMedR-Airtable] AIRTABLE_API_KEY is empty or not set!');
     return null;
   }
+
+  const payload = { fields };
+  console.log('[WellMedR-Airtable] Creating record with', Object.keys(fields).length, 'fields:', Object.keys(fields).join(', '));
 
   try {
     const res = await fetch(AIRTABLE_API_URL, {
@@ -111,16 +122,18 @@ export async function createAirtableRecord(
         Authorization: `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ fields }),
+      body: JSON.stringify(payload),
     });
 
+    const responseText = await res.text();
+
     if (!res.ok) {
-      const err = await res.text();
-      console.error('[WellMedR-Airtable] Create failed:', res.status, err);
+      console.error('[WellMedR-Airtable] Create failed:', res.status, responseText);
       return null;
     }
 
-    const data = await res.json();
+    const data = JSON.parse(responseText);
+    console.log('[WellMedR-Airtable] Record created:', data.id);
     return data.id || null;
   } catch (err) {
     console.error('[WellMedR-Airtable] Create error:', err);
