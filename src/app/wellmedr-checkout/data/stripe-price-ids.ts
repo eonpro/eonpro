@@ -9,30 +9,30 @@ const STRIPE_PRICE_IDS: Record<
 > = {
   semaglutide: {
     injections: {
-      monthly: 'price_1StAGYDfH4PWyxxdePAervoq',
-      quarterly: 'price_1StAGXDfH4PWyxxdiDPj5YCT',
-      sixMonth: 'price_1StAIqDfH4PWyxxdpKvzMVhV',
-      annual: process.env.NEXT_PUBLIC_STRIPE_SEMA_INJ_ANNUAL || 'price_sema_inj_annual_placeholder',
+      monthly: 'price_1T1ACMDfH4PWyxxd9epL77td',
+      quarterly: 'price_1TFyg5DfH4PWyxxdpaD3QOOx',
+      sixMonth: 'price_1TFyenDfH4PWyxxdKVUMqqIB',
+      annual: 'price_1TFyeHDfH4PWyxxdFvA6Z2so',
     },
     tablets: {
-      monthly: 'price_1StAIVDfH4PWyxxdiKKHocUW',
-      quarterly: 'price_1StAIUDfH4PWyxxdBr3ZAK50',
-      sixMonth: 'price_1StAITDfH4PWyxxd0kpTnor1',
-      annual: process.env.NEXT_PUBLIC_STRIPE_SEMA_TAB_ANNUAL || 'price_sema_tab_annual_placeholder',
+      monthly: 'price_1T1ACMDfH4PWyxxd9epL77td',
+      quarterly: 'price_1TFyg5DfH4PWyxxdpaD3QOOx',
+      sixMonth: 'price_1TFyenDfH4PWyxxdKVUMqqIB',
+      annual: 'price_1TFyeHDfH4PWyxxdFvA6Z2so',
     },
   },
   tirzepatide: {
     injections: {
-      monthly: 'price_1StAGdDfH4PWyxxdguJ3dcVa',
-      quarterly: 'price_1StAGbDfH4PWyxxdYqbwetNF',
-      sixMonth: 'price_1StAGaDfH4PWyxxdSvHqicEH',
-      annual: process.env.NEXT_PUBLIC_STRIPE_TIRZ_INJ_ANNUAL || 'price_tirz_inj_annual_placeholder',
+      monthly: 'price_1T1AChDfH4PWyxxd0yWUKCVf',
+      quarterly: 'price_1TFyfKDfH4PWyxxdT5t6CoQH',
+      sixMonth: 'price_1TFydzDfH4PWyxxdGAVQR6HY',
+      annual: 'price_1TFydaDfH4PWyxxdfrvVPVva',
     },
     tablets: {
-      monthly: 'price_1StAGSDfH4PWyxxdcq4U4LIn',
-      quarterly: 'price_1StAGQDfH4PWyxxdwUgpcciy',
-      sixMonth: 'price_1StAGODfH4PWyxxduoLJXLd0',
-      annual: process.env.NEXT_PUBLIC_STRIPE_TIRZ_TAB_ANNUAL || 'price_tirz_tab_annual_placeholder',
+      monthly: 'price_1T1AChDfH4PWyxxd0yWUKCVf',
+      quarterly: 'price_1TFyfKDfH4PWyxxdT5t6CoQH',
+      sixMonth: 'price_1TFydzDfH4PWyxxdGAVQR6HY',
+      annual: 'price_1TFydaDfH4PWyxxdfrvVPVva',
     },
   },
 };
@@ -43,10 +43,10 @@ const STRIPE_PRICE_IDS: Record<
  * Create these as one-time prices in WellMedR's Stripe connected account.
  */
 const ADDON_STRIPE_PRICE_IDS: Record<AddonId, string> = {
-  nad_plus: process.env.NEXT_PUBLIC_STRIPE_ADDON_NAD_PRICE || 'price_1TEFJTDfH4PWyxxdJY3Ngi7T',
-  sermorelin: process.env.NEXT_PUBLIC_STRIPE_ADDON_SERM_PRICE || 'price_1TEFKJDfH4PWyxxdDZkq3vD5',
-  b12: process.env.NEXT_PUBLIC_STRIPE_ADDON_B12_PRICE || 'price_1TEFJ8DfH4PWyxxdgUpek4Yt',
-  elite_bundle: process.env.NEXT_PUBLIC_STRIPE_ADDON_ELITE_PRICE || 'price_1TEFKjDfH4PWyxxd4roD32Ae',
+  nad_plus: 'price_1TEFJTDfH4PWyxxdJY3Ngi7T',
+  sermorelin: 'price_1TEFKJDfH4PWyxxdDZkq3vD5',
+  b12: 'price_1TEFJ8DfH4PWyxxdgUpek4Yt',
+  elite_bundle: 'price_1TEFKjDfH4PWyxxd4roD32Ae',
 };
 
 export const getStripePriceId = (

@@ -12,12 +12,12 @@ interface PriceConfig {
 
 const PRICES: Record<ProductNameType, { injections: PriceConfig; tablets: PriceConfig }> = {
   semaglutide: {
-    injections: { monthly: 149, quarterly: 435, sixMonth: 720, twelveMonth: 1140 },
-    tablets: { monthly: 199, quarterly: 537, sixMonth: 894, twelveMonth: 1428 },
+    injections: { monthly: 149, quarterly: 535, sixMonth: 920, twelveMonth: 1390 },
+    tablets: { monthly: 149, quarterly: 535, sixMonth: 920, twelveMonth: 1390 },
   },
   tirzepatide: {
-    injections: { monthly: 249, quarterly: 627, sixMonth: 1134, twelveMonth: 1980 },
-    tablets: { monthly: 299, quarterly: 717, sixMonth: 1314, twelveMonth: 2268 },
+    injections: { monthly: 249, quarterly: 727, sixMonth: 1334, twelveMonth: 2230 },
+    tablets: { monthly: 249, quarterly: 727, sixMonth: 1334, twelveMonth: 2230 },
   },
 };
 
