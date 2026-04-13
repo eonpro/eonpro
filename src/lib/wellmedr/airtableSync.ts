@@ -61,12 +61,16 @@ const INTAKE_FIELD_MAP: Record<string, string> = {
 };
 
 /**
- * Airtable number fields — these need numeric values, not strings.
+ * Airtable field type classification from schema screenshots.
  */
 const NUMBER_FIELDS = new Set(['feet', 'inches', 'weight', 'bmi', 'goal-weight']);
+const MULTIPLE_SELECT_FIELDS = new Set([
+  'health-conditions', 'health-conditions-2', 'weight-related-symptoms', 'reproductive-status',
+]);
+const CHECKBOX_FIELDS = new Set(['hipaa-agreement']);
 
 /**
- * Convert intake responses to Airtable-compatible fields.
+ * Convert intake responses to Airtable-compatible fields with correct types.
  */
 export function mapIntakeToAirtable(responses: Record<string, unknown>): Record<string, unknown> {
   const fields: Record<string, unknown> = {};
@@ -75,13 +79,19 @@ export function mapIntakeToAirtable(responses: Record<string, unknown>): Record<
     const airtableField = INTAKE_FIELD_MAP[key];
     if (!airtableField || value === undefined || value === null || value === '') continue;
 
-    if (Array.isArray(value)) {
-      fields[airtableField] = value.join(', ');
-    } else if (typeof value === 'boolean') {
-      fields[airtableField] = value ? 'Yes' : 'No';
+    if (CHECKBOX_FIELDS.has(airtableField)) {
+      fields[airtableField] = value === true || value === 'true' || value === 'Yes';
     } else if (NUMBER_FIELDS.has(airtableField)) {
       const num = Number(value);
       if (!isNaN(num)) fields[airtableField] = num;
+    } else if (MULTIPLE_SELECT_FIELDS.has(airtableField)) {
+      if (Array.isArray(value)) {
+        fields[airtableField] = value.map(String);
+      } else {
+        fields[airtableField] = [String(value)];
+      }
+    } else if (Array.isArray(value)) {
+      fields[airtableField] = value.join(', ');
     } else {
       fields[airtableField] = String(value);
     }
@@ -200,10 +210,11 @@ export async function updateCheckoutFields(
     orderStatus?: string;
   },
 ): Promise<boolean> {
+  const today = new Date().toISOString().split('T')[0];
   const fields: Record<string, unknown> = {
     'Checkout Completed': 'Yes',
-    'submission-date': new Date().toISOString(),
-    'created_at': new Date().toISOString(),
+    'submission-date': today,
+    'created_at': today,
   };
 
   if (checkoutData.stripeCustomerId) fields['stripe_customer_id'] = checkoutData.stripeCustomerId;

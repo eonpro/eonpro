@@ -38,6 +38,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ recordId: recordId || null });
     }
 
+    // Primary field: "Submission id" (Airtable primary field name with space + capital S)
+    if (sessionId) {
+      fields['Submission id'] = sessionId;
+    }
+
     if (recordId) {
       console.log('[airtable-sync] Updating existing record:', recordId);
       const ok = await updateAirtableRecord(recordId, fields);
