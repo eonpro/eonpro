@@ -331,7 +331,7 @@ async function handlePost(request: NextRequest, _user: AuthUser) {
                   currentPeriodStart: now,
                   currentPeriodEnd: periodEnd,
                   nextBillingDate: periodEnd,
-                  paymentMethodId: localPaymentMethodId ?? 0,
+                  paymentMethodId: localPaymentMethodId,
                   ...(subscriptionInfo.discountMode && itemAmount !== subscriptionRecurringAmount ? {
                     metadata: {
                       discountMode: subscriptionInfo.discountMode,
