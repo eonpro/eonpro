@@ -164,7 +164,7 @@ const steps: FormStep[] = [
     id: 'safety-pregnancy', path: 'safety-pregnancy',
     title: { en: 'Do any of these apply to you?', es: '' },
     type: 'custom', component: 'WmCheckboxListStep',
-    fields: [], autoAdvance: false, showContinueButton: false, nextStep: 'motivation-reason', prevStep: 'contraindications', progressPercent: 47,
+    fields: [], autoAdvance: false, showContinueButton: false, nextStep: 'motivation-reason', prevStep: 'testimonial-1', progressPercent: 44,
     props: {
       headerItalic: 'Safety, first.',
       question: 'Do any of these apply to you?',
@@ -184,7 +184,7 @@ const steps: FormStep[] = [
     id: 'motivation-reason', path: 'motivation-reason',
     title: { en: 'What is your primary reason for taking weight loss seriously?', es: '' },
     type: 'custom', component: 'WmMotivationRadioStep',
-    fields: [], autoAdvance: false, showContinueButton: false, nextStep: 'health-conditions', prevStep: 'safety-pregnancy', progressPercent: 49,
+    fields: [], autoAdvance: false, showContinueButton: false, nextStep: 'glp1-history', prevStep: 'safety-pregnancy', progressPercent: 46,
     props: {
       headerText: 'Improving your life requires',
       headerItalic: 'motivation.',
@@ -251,7 +251,7 @@ const steps: FormStep[] = [
     id: 'testimonial-1', path: 'testimonial-1',
     title: { en: '', es: '' },
     type: 'custom', component: 'WmTestimonialStep',
-    fields: [], autoAdvance: false, showContinueButton: false, nextStep: 'contraindications', prevStep: 'sleep-quality', progressPercent: 42,
+    fields: [], autoAdvance: false, showContinueButton: false, nextStep: 'safety-pregnancy', prevStep: 'sleep-quality', progressPercent: 42,
     props: {
       quote: 'I am so shocked that this actually works! Nothing I have ever tried worked for me. I am so happy thanks to Wellmedr.',
       personName: 'Leilani',
@@ -268,7 +268,7 @@ const steps: FormStep[] = [
     id: 'contraindications', path: 'contraindications',
     title: { en: 'Do you have any conditions that may prevent GLP-1 use?', es: '' },
     type: 'custom', component: 'WmCheckboxListStep',
-    fields: [], autoAdvance: false, showContinueButton: false, nextStep: 'safety-pregnancy', prevStep: 'testimonial-1', progressPercent: 45,
+    fields: [], autoAdvance: false, showContinueButton: false, nextStep: 'health-conditions', prevStep: 'testimonial-2', progressPercent: 55,
     props: {
       headerItalic: 'GLP-1 is safe,',
       headerText: 'but these health conditions might prevent you from being prescribed.',
@@ -294,7 +294,7 @@ const steps: FormStep[] = [
     id: 'health-conditions', path: 'health-conditions',
     title: { en: 'Do any of these apply to you?', es: '' },
     type: 'custom', component: 'WmCheckboxListStep',
-    fields: [], autoAdvance: false, showContinueButton: false, nextStep: 'glp1-history', prevStep: 'motivation-reason', progressPercent: 51,
+    fields: [], autoAdvance: false, showContinueButton: false, nextStep: 'opioids', prevStep: 'contraindications', progressPercent: 57,
     props: {
       headerItalic: 'A few more health questions.',
       question: 'Do any of these apply to you?',
@@ -356,9 +356,9 @@ const steps: FormStep[] = [
     autoAdvance: true, showContinueButton: false,
     nextStep: [
       { conditions: [{ field: 'glp1_history_recent', operator: 'equals', value: 'yes' }], target: 'glp1-type-wm' },
-      { conditions: [{ field: 'glp1_history_recent', operator: 'equals', value: 'no' }], target: 'opioids' },
+      { conditions: [{ field: 'glp1_history_recent', operator: 'equals', value: 'no' }], target: 'testimonial-2' },
     ],
-    prevStep: 'health-conditions', progressPercent: 58,
+    prevStep: 'motivation-reason', progressPercent: 48,
   },
 
   // 18. Testimonial: Kelly (65lbs)
@@ -366,7 +366,7 @@ const steps: FormStep[] = [
     id: 'testimonial-2', path: 'testimonial-2',
     title: { en: '', es: '' },
     type: 'custom', component: 'WmTestimonialStep',
-    fields: [], autoAdvance: false, showContinueButton: false, nextStep: 'health-conditions', prevStep: 'glp1-history', progressPercent: 54,
+    fields: [], autoAdvance: false, showContinueButton: false, nextStep: 'contraindications', prevStep: 'glp1-history', progressPercent: 54,
     props: {
       quote: 'I am so shocked that this actually works! Nothing I have ever tried worked for me. I am so happy thanks to Wellmedr.',
       personName: 'Leilani',
@@ -399,7 +399,7 @@ const steps: FormStep[] = [
     id: 'opioids', path: 'opioids',
     title: { en: 'Have you taken any opioid pain meds or street drugs in the last 3 months?', es: '' },
     type: 'custom', component: 'WmYesNoDetailStep',
-    fields: [], autoAdvance: false, showContinueButton: false, nextStep: 'surgeries', prevStep: 'glp1-history', progressPercent: 62,
+    fields: [], autoAdvance: false, showContinueButton: false, nextStep: 'surgeries', prevStep: 'health-conditions', progressPercent: 60,
     props: {
       question: 'Have you taken any opioid pain meds or street drugs in the last 3 months?',
       detailPrompt: 'Please provide brief details.',
@@ -559,7 +559,7 @@ const steps: FormStep[] = [
     id: 'glp1-type-wm', path: 'glp1-type-wm',
     title: { en: 'Which weight loss medication have you taken?', es: '' },
     type: 'custom', component: 'WmGlp1TypeStep',
-    fields: [], autoAdvance: false, showContinueButton: false, nextStep: 'opioids', prevStep: 'glp1-history', progressPercent: 59,
+    fields: [], autoAdvance: false, showContinueButton: false, nextStep: 'testimonial-2', prevStep: 'glp1-history', progressPercent: 50,
   },
 
   // 36. Redirect to checkout
