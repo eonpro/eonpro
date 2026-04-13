@@ -266,7 +266,8 @@ export default function WmCongratsStep({
               <img
                 src="/assets/images/products/f94b3019-214c-4704-9fb5-e220fe7386dc.png"
                 alt=""
-                className="h-32 w-16 object-contain opacity-50 sm:h-40 sm:w-20"
+                className="h-32 w-16 object-contain sm:h-40 sm:w-20"
+                style={{ filter: 'brightness(0) invert(1)', opacity: 0.5 }}
               />
             </div>
             <div className="space-y-2">
