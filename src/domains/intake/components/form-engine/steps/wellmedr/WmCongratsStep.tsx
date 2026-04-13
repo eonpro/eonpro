@@ -11,7 +11,7 @@ interface WmCongratsStepProps {
   progressPercent: number;
 }
 
-const GREEN = '#10b981';
+const GOLD = '#c5a55a';
 const NAVY = '#0C2631';
 
 const avatarPhotos = [
@@ -39,9 +39,9 @@ const testimonials = [
   { src: '/assets/images/testimonials/7d5e1d57-464e-4db2-b187-603d2e992e79.jpg', stat: '-35 lbs', time: 'in 6 months' },
 ];
 
-function GreenCheck() {
+function GoldCheck() {
   return (
-    <span className="inline-flex items-center justify-center w-5 h-5 rounded-full shrink-0" style={{ backgroundColor: GREEN }}>
+    <span className="inline-flex items-center justify-center w-5 h-5 rounded-full shrink-0" style={{ backgroundColor: GOLD }}>
       <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
         <path d="M2.5 6L5 8.5L9.5 3.5" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
@@ -125,7 +125,7 @@ export default function WmCongratsStep({
 
       {/* Progress bar */}
       <div className="w-full h-[3px]" style={{ backgroundColor: '#e5e7eb' }}>
-        <div className="h-full" style={{ width: `${progressPercent}%`, backgroundColor: GREEN, transition: 'width 0.8s cubic-bezier(0.4,0,0.2,1)' }} />
+        <div className="h-full" style={{ width: `${progressPercent}%`, backgroundColor: '#c3b29e', transition: 'width 0.8s cubic-bezier(0.4,0,0.2,1)' }} />
       </div>
 
       {/* Header */}
@@ -148,11 +148,11 @@ export default function WmCongratsStep({
       <div className="flex-1 flex flex-col w-full max-w-[600px] mx-auto px-6 sm:px-8 pb-6 pt-6">
         {/* Hero heading */}
         <h1 className="text-[2rem] sm:text-[2.5rem] font-bold text-left w-full mb-2 leading-tight">
-          <span style={{ color: GREEN }}>Congrats,</span>{' '}
+          <span style={{ color: GOLD }}>Congrats,</span>{' '}
           <span style={{ color: '#101010' }}>you&apos;re in!</span>
         </h1>
 
-        <p className="text-lg sm:text-xl font-bold text-left w-full mb-1" style={{ color: '#7B95A9' }}>
+        <p className="text-lg sm:text-xl font-bold text-left w-full mb-1" style={{ color: GOLD }}>
           America&apos;s #1 GLP-1 Weight Loss Program is ready for you.
         </p>
         <p className="text-base text-left w-full mb-8" style={{ color: '#101010' }}>
@@ -162,7 +162,7 @@ export default function WmCongratsStep({
         {/* Comparison cards — larger */}
         <div className="grid grid-cols-2 gap-3 w-full mb-10">
           {/* Today card */}
-          <div className="rounded-2xl p-5" style={{ backgroundColor: '#f3f4f6' }}>
+          <div className="rounded-2xl p-5" style={{ backgroundColor: '#f0dfa8' }}>
             <p className="text-xs font-semibold uppercase tracking-wide mb-3" style={{ color: '#6b7280' }}>Today</p>
             <div className="flex flex-col items-center mb-4">
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -185,8 +185,8 @@ export default function WmCongratsStep({
           </div>
 
           {/* Future card */}
-          <div className="rounded-2xl p-5" style={{ backgroundColor: '#ecfdf5' }}>
-            <p className="text-xs font-semibold uppercase tracking-wide mb-3" style={{ color: GREEN }}>
+          <div className="rounded-2xl p-5" style={{ backgroundColor: '#faf5e8' }}>
+            <p className="text-xs font-semibold uppercase tracking-wide mb-3" style={{ color: GOLD }}>
               You, in {monthsToGoal} month{monthsToGoal !== 1 ? 's' : ''}
             </p>
             <div className="flex flex-col items-center mb-4">
@@ -196,15 +196,15 @@ export default function WmCongratsStep({
             <div className="space-y-2">
               <div className="rounded-xl px-3 py-2 bg-white">
                 <p className="text-[10px] uppercase tracking-wide" style={{ color: '#9ca3af' }}>Weight</p>
-                <p className="text-base sm:text-lg font-bold" style={{ color: GREEN }}>{goalWeight} Lbs</p>
+                <p className="text-base sm:text-lg font-bold" style={{ color: GOLD }}>{goalWeight} Lbs</p>
               </div>
               <div className="rounded-xl px-3 py-2 bg-white">
                 <p className="text-[10px] uppercase tracking-wide" style={{ color: '#9ca3af' }}>BMI</p>
-                <p className="text-base sm:text-lg font-bold" style={{ color: GREEN }}>{projectedBmi}</p>
+                <p className="text-base sm:text-lg font-bold" style={{ color: GOLD }}>{projectedBmi}</p>
               </div>
               <div className="rounded-xl px-3 py-2 bg-white">
                 <p className="text-[10px] uppercase tracking-wide" style={{ color: '#9ca3af' }}>Cravings</p>
-                <p className="text-base sm:text-lg font-bold" style={{ color: GREEN }}>Reduced</p>
+                <p className="text-base sm:text-lg font-bold" style={{ color: GOLD }}>Reduced</p>
               </div>
             </div>
           </div>
@@ -212,7 +212,7 @@ export default function WmCongratsStep({
 
         {/* Next Steps */}
         <h2 className="text-xl sm:text-2xl font-bold text-center mb-4" style={{ color: '#101010' }}>
-          Your <span style={{ color: GREEN }}>Next Steps.</span>
+          Your <span style={{ color: GOLD }}>Next Steps.</span>
         </h2>
         <div className="w-full space-y-3 mb-10">
           {[
@@ -221,7 +221,7 @@ export default function WmCongratsStep({
             { num: 3, text: 'Reach your goals', image: '/assets/images/products/Gemini-Generated-Image-qrkq7iqrkq7iqrkq-2.png' },
           ].map((s) => (
             <div key={s.num} className="flex items-center gap-4 rounded-2xl px-5 py-4 overflow-hidden" style={{ background: `linear-gradient(135deg, ${NAVY} 0%, #163a47 100%)` }}>
-              <div className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0" style={{ backgroundColor: GREEN }}>{s.num}</div>
+              <div className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0" style={{ backgroundColor: GOLD }}>{s.num}</div>
               <span className="font-medium text-base flex-1 text-white">{s.text}</span>
               {s.image && (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -233,31 +233,31 @@ export default function WmCongratsStep({
 
         {/* Support */}
         <h2 className="text-xl sm:text-2xl font-bold text-center mb-3" style={{ color: '#101010' }}>
-          Your <span style={{ color: GREEN }}>Wellmedr +</span><br />Complete Support
+          Your <span style={{ color: GOLD }}>Wellmedr +</span><br />Complete Support
         </h2>
         <div className="w-full flex justify-center mb-4">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/assets/images/products/image-310.png" alt="Wellmedr delivery" className="w-48 sm:w-56 h-auto object-contain" />
         </div>
         <div className="flex gap-4 justify-center mb-10 text-sm font-medium" style={{ color: '#101010' }}>
-          <span className="flex items-center gap-1.5"><GreenCheck /> All-in-one</span>
-          <span className="flex items-center gap-1.5"><GreenCheck /> 48-hour delivery</span>
-          <span className="flex items-center gap-1.5"><GreenCheck /> Always Free</span>
+          <span className="flex items-center gap-1.5"><GoldCheck /> All-in-one</span>
+          <span className="flex items-center gap-1.5"><GoldCheck /> 48-hour delivery</span>
+          <span className="flex items-center gap-1.5"><GoldCheck /> Always Free</span>
         </div>
 
         {/* Why switching */}
         <h2 className="text-xl sm:text-2xl font-bold text-center mb-2" style={{ color: '#101010' }}>
-          Why is everyone switching to<br /><span style={{ color: GREEN }}>Wellmedr</span>?
+          Why is everyone switching to<br /><span style={{ color: GOLD }}>Wellmedr</span>?
         </h2>
-        <p className="text-center font-bold mb-1" style={{ color: '#101010' }}>Our members hit their goals <span className="italic" style={{ color: GREEN, fontFamily: "'BodoniSvtyTwo', serif" }}>faster.</span></p>
-        <p className="text-center mb-5" style={{ color: '#101010' }}>And <span className="italic" style={{ color: GREEN, fontFamily: "'BodoniSvtyTwo', serif" }}>you will too.</span></p>
+        <p className="text-center font-bold mb-1" style={{ color: '#101010' }}>Our members hit their goals <span className="italic" style={{ color: GOLD, fontFamily: "'BodoniSvtyTwo', serif" }}>faster.</span></p>
+        <p className="text-center mb-5" style={{ color: '#101010' }}>And <span className="italic" style={{ color: GOLD, fontFamily: "'BodoniSvtyTwo', serif" }}>you will too.</span></p>
 
-        <div className="w-full rounded-2xl p-5 mb-8" style={{ backgroundColor: '#f0fdf4' }}>
+        <div className="w-full rounded-2xl p-5 mb-8" style={{ backgroundColor: '#faf5e8' }}>
           <div className="space-y-3">
-            <p className="flex items-center gap-3 text-[15px]"><GreenCheck /> Starting Weight: <span style={{ color: GREEN }} className="font-bold">{weight} lbs</span></p>
-            <p className="flex items-center gap-3 text-[15px]"><GreenCheck /> Goal Weight: <span style={{ color: GREEN }} className="font-bold">{goalWeight} lbs</span></p>
-            <p className="flex items-center gap-3 text-[15px]"><GreenCheck /> Lose <span style={{ color: GREEN }} className="font-bold">{lbsToLose} lbs</span> in {weeksToGoal} weeks</p>
-            <p className="flex items-center gap-3 text-[15px]"><GreenCheck /> Minimize side effects</p>
+            <p className="flex items-center gap-3 text-[15px]"><GoldCheck /> Starting Weight: <span style={{ color: GOLD }} className="font-bold">{weight} lbs</span></p>
+            <p className="flex items-center gap-3 text-[15px]"><GoldCheck /> Goal Weight: <span style={{ color: GOLD }} className="font-bold">{goalWeight} lbs</span></p>
+            <p className="flex items-center gap-3 text-[15px]"><GoldCheck /> Lose <span style={{ color: GOLD }} className="font-bold">{lbsToLose} lbs</span> in {weeksToGoal} weeks</p>
+            <p className="flex items-center gap-3 text-[15px]"><GoldCheck /> Minimize side effects</p>
           </div>
         </div>
 
@@ -265,12 +265,12 @@ export default function WmCongratsStep({
         <h2 className="text-xl font-bold text-left w-full mb-1">Start Today With<br />Everything You Need.</h2>
         <p className="text-left w-full mb-4" style={{ color: '#555' }}>We&apos;re committed. Our guarantee proves it.</p>
 
-        <div className="w-full rounded-2xl p-5 mb-8" style={{ backgroundColor: '#f0fdf4' }}>
+        <div className="w-full rounded-2xl p-5 mb-8" style={{ backgroundColor: '#faf5e8' }}>
           <div className="space-y-3">
-            <p className="flex items-center gap-3 text-[15px]"><GreenCheck /> GLP-1 Prescription</p>
-            <p className="flex items-center gap-3 text-[15px]"><GreenCheck /> Clinical Support</p>
-            <p className="flex items-center gap-3 text-[15px]"><GreenCheck /> Delivered to your door</p>
-            <p className="flex items-center gap-3 text-[15px]"><GreenCheck /> Results guaranteed</p>
+            <p className="flex items-center gap-3 text-[15px]"><GoldCheck /> GLP-1 Prescription</p>
+            <p className="flex items-center gap-3 text-[15px]"><GoldCheck /> Clinical Support</p>
+            <p className="flex items-center gap-3 text-[15px]"><GoldCheck /> Delivered to your door</p>
+            <p className="flex items-center gap-3 text-[15px]"><GoldCheck /> Results guaranteed</p>
           </div>
         </div>
 
@@ -281,7 +281,7 @@ export default function WmCongratsStep({
         </div>
 
         <p className="text-center text-base mb-6" style={{ color: '#101010' }}>
-          If you don&apos;t lose <span style={{ color: GREEN }} className="font-bold">weight</span> in <span style={{ color: GREEN }} className="font-bold">6 months</span>, you get 100% of your money back.<br />
+          If you don&apos;t lose <span style={{ color: GOLD }} className="font-bold">weight</span> in <span style={{ color: GOLD }} className="font-bold">6 months</span>, you get 100% of your money back.<br />
           Join patients pursuing medically-guided weight loss with Wellmedr
         </p>
 
@@ -301,7 +301,7 @@ export default function WmCongratsStep({
           </div>
           <span
             className="inline-flex items-center gap-1 text-xs font-semibold px-3 py-1 rounded-full text-white"
-            style={{ backgroundColor: GREEN }}
+            style={{ backgroundColor: GOLD }}
           >
             <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
               <path d="M2.5 6L5 8.5L9.5 3.5" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
