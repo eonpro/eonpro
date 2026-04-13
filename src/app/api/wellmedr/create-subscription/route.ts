@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { createOrder } from '@/app/wellmedr-checkout/lib/order-store';
+import { updateCheckoutFields } from '@/lib/wellmedr/airtableSync';
 import {
   getWellMedrConnectStripe,
   getWellMedrConnectOpts,
@@ -175,6 +176,27 @@ export async function POST(req: NextRequest) {
       billingAddress: billingAddress || {},
       selectedAddons: addons,
     }).catch(() => {});
+
+    // Sync checkout data to Airtable (fire-and-forget)
+    const airtableRecordId = body.airtableRecordId;
+    if (airtableRecordId) {
+      updateCheckoutFields(airtableRecordId, {
+        stripeCustomerId: customer.id,
+        stripeSubscriptionId: subscription.id,
+        subscriptionStatus: subscription.status,
+        product: productName,
+        medicationType,
+        plan: planType,
+        price: amount,
+        customerEmail,
+        customerName: cardholderName || customerName,
+        cardholderName,
+        shippingAddress: shippingAddress ? JSON.stringify(shippingAddress) : undefined,
+        billingAddress: billingAddress ? JSON.stringify(billingAddress) : undefined,
+        paymentStatus: 'pending',
+        orderStatus: 'created',
+      }).catch((err) => console.error('[wellmedr/create-subscription] Airtable sync error:', err));
+    }
 
     return NextResponse.json({
       subscriptionId: subscription.id,

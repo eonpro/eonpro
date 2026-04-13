@@ -94,6 +94,7 @@ export const useIntakeStore = create<IntakeStore>()(
             lastUpdatedAt: new Date().toISOString(),
           });
           scheduleDraftSync(get);
+          scheduleAirtableSync(get);
         }
       },
 
@@ -112,6 +113,7 @@ export const useIntakeStore = create<IntakeStore>()(
           lastUpdatedAt: new Date().toISOString(),
         }));
         scheduleDraftSync(get);
+        scheduleAirtableSync(get);
       },
 
       setResponses: (newResponses: Record<string, unknown>) => {
@@ -120,6 +122,7 @@ export const useIntakeStore = create<IntakeStore>()(
           lastUpdatedAt: new Date().toISOString(),
         }));
         scheduleDraftSync(get);
+        scheduleAirtableSync(get);
       },
 
       setQualified: (qualified: boolean, reason?: string) => {
@@ -261,6 +264,40 @@ function scheduleDraftSync(getState: () => IntakeStore) {
       }
     }
   }, 2000);
+}
+
+// ---------------------------------------------------------------------------
+// Airtable sync (debounced, fire-and-forget)
+// ---------------------------------------------------------------------------
+
+let airtableSyncTimeout: ReturnType<typeof setTimeout> | null = null;
+let airtableRecordId: string | null = null;
+
+function scheduleAirtableSync(getState: () => IntakeStore) {
+  if (airtableSyncTimeout) clearTimeout(airtableSyncTimeout);
+
+  airtableSyncTimeout = setTimeout(async () => {
+    const state = getState();
+    if (!state.sessionId || state.clinicSlug !== 'wellmedr') return;
+
+    try {
+      const res = await fetch('/api/wellmedr/airtable-sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionId: state.sessionId,
+          recordId: airtableRecordId,
+          responses: state.responses,
+        }),
+      });
+      const data = await res.json();
+      if (data.recordId) {
+        airtableRecordId = data.recordId;
+      }
+    } catch {
+      // Non-blocking — errors don't affect the intake flow
+    }
+  }, 500);
 }
 
 // ---------------------------------------------------------------------------
