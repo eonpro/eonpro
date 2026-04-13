@@ -7,16 +7,17 @@ interface PriceConfig {
   monthly: number;
   quarterly: number;
   sixMonth: number;
+  twelveMonth: number;
 }
 
 const PRICES: Record<ProductNameType, { injections: PriceConfig; tablets: PriceConfig }> = {
   semaglutide: {
-    injections: { monthly: 199, quarterly: 507, sixMonth: 894 },
-    tablets: { monthly: 279, quarterly: 587, sixMonth: 974 },
+    injections: { monthly: 149, quarterly: 435, sixMonth: 720, twelveMonth: 1140 },
+    tablets: { monthly: 199, quarterly: 537, sixMonth: 894, twelveMonth: 1428 },
   },
   tirzepatide: {
-    injections: { monthly: 299, quarterly: 777, sixMonth: 1434 },
-    tablets: { monthly: 379, quarterly: 857, sixMonth: 1514 },
+    injections: { monthly: 249, quarterly: 627, sixMonth: 1134, twelveMonth: 1980 },
+    tablets: { monthly: 299, quarterly: 717, sixMonth: 1314, twelveMonth: 2268 },
   },
 };
 
@@ -27,6 +28,7 @@ export const products: Record<ProductNameType, ProductType> = {
         monthlyPrice: PRICES.semaglutide.injections.monthly,
         quarterlyPrice: PRICES.semaglutide.injections.quarterly,
         sixMonthPrice: PRICES.semaglutide.injections.sixMonth,
+        annualPrice: PRICES.semaglutide.injections.twelveMonth,
         image: PRODUCT_IMAGE,
         noBgImage: PRODUCT_NOBG_IMAGE,
         rotatedImage: PRODUCT_NOBG_IMAGE,
@@ -35,13 +37,17 @@ export const products: Record<ProductNameType, ProductType> = {
         monthlyPrice: PRICES.semaglutide.tablets.monthly,
         quarterlyPrice: PRICES.semaglutide.tablets.quarterly,
         sixMonthPrice: PRICES.semaglutide.tablets.sixMonth,
+        annualPrice: PRICES.semaglutide.tablets.twelveMonth,
         image: PRODUCT_IMAGE,
         noBgImage: PRODUCT_NOBG_IMAGE,
         rotatedImage: PRODUCT_NOBG_IMAGE,
       },
     },
-    badgeText: 'Most Affordable',
-    additionalFeatures: ['Most popular, most affordable GLP-1 weight loss medication'],
+    badgeText: 'Proven & Steady',
+    additionalFeatures: [
+      'Proven GLP-1 appetite control',
+      'Lower starting cost',
+    ],
   },
   tirzepatide: {
     pricing: {
@@ -49,6 +55,7 @@ export const products: Record<ProductNameType, ProductType> = {
         monthlyPrice: PRICES.tirzepatide.injections.monthly,
         quarterlyPrice: PRICES.tirzepatide.injections.quarterly,
         sixMonthPrice: PRICES.tirzepatide.injections.sixMonth,
+        annualPrice: PRICES.tirzepatide.injections.twelveMonth,
         image: PRODUCT_IMAGE,
         noBgImage: PRODUCT_NOBG_IMAGE,
         rotatedImage: PRODUCT_NOBG_IMAGE,
@@ -57,11 +64,16 @@ export const products: Record<ProductNameType, ProductType> = {
         monthlyPrice: PRICES.tirzepatide.tablets.monthly,
         quarterlyPrice: PRICES.tirzepatide.tablets.quarterly,
         sixMonthPrice: PRICES.tirzepatide.tablets.sixMonth,
+        annualPrice: PRICES.tirzepatide.tablets.twelveMonth,
         image: PRODUCT_IMAGE,
         noBgImage: PRODUCT_NOBG_IMAGE,
         rotatedImage: PRODUCT_NOBG_IMAGE,
       },
     },
-    badgeText: 'Most Potent',
+    badgeText: 'Most Powerful Option',
+    additionalFeatures: [
+      'Strongest appetite suppression',
+      'Fastest results',
+    ],
   },
 };

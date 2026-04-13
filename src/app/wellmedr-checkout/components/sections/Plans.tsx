@@ -26,7 +26,7 @@ const Plans = () => {
     <section className="flex flex-col gap-6 sm:gap-8 w-full">
       <PlansHeader />
 
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(max(calc(50%-0.5rem),280px),1fr))] gap-4 [&>*:last-child:nth-child(odd)]:col-span-full">
+      <div className="flex flex-col gap-4 w-full">
         {plans.map((plan: Plan) => (
           <PlanCard
             key={plan.id}

@@ -60,62 +60,61 @@ export function useCheckout(): UseCheckoutReturn {
     const monthlyPrice = product.pricing[medicationType].monthlyPrice;
     const quarterlyPrice = product.pricing[medicationType].quarterlyPrice;
 
+    const sixMonthPrice = product.pricing[medicationType].sixMonthPrice || 0;
+    const annualPrice = product.pricing[medicationType].annualPrice || 0;
+
     const basePrice = monthlyPrice + 100;
     const savingsQuarterly = basePrice * 3 - quarterlyPrice;
-    const savingsSixMonth =
-      basePrice * 6 - (product.pricing[medicationType].sixMonthPrice || 0);
+    const savingsSixMonth = basePrice * 6 - sixMonthPrice;
+    const savingsAnnual = basePrice * 12 - annualPrice;
 
-    // Get Stripe Price IDs from context (dynamic or fallback)
-    const stripeMonthlyId = getStripePriceId(
-      medicationName,
-      medicationType,
-      'monthly',
-    );
-    const stripeQuarterlyId = getStripePriceId(
-      medicationName,
-      medicationType,
-      'quarterly',
-    );
-    const stripeSixMonthId = getStripePriceId(
-      medicationName,
-      medicationType,
-      'sixMonth',
-    );
+    const stripeMonthlyId = getStripePriceId(medicationName, medicationType, 'monthly');
+    const stripeQuarterlyId = getStripePriceId(medicationName, medicationType, 'quarterly');
+    const stripeSixMonthId = getStripePriceId(medicationName, medicationType, 'sixMonth');
+    const stripeAnnualId = getStripePriceId(medicationName, medicationType, 'annual');
 
     const generatedPlans: Plan[] = [];
 
-    // Add monthly plan (always available)
     generatedPlans.push({
       id: stripeMonthlyId,
       plan_type: 'monthly',
-      title: 'Month-to-month',
+      title: 'MONTHLY PLAN',
       totalPayToday: monthlyPrice,
       monthlyPrice,
     });
 
-    // Add quarterly plan (always available)
     generatedPlans.push({
       id: stripeQuarterlyId,
       plan_type: 'quarterly',
-      title: '3 Months',
+      title: '3-MONTH PLAN',
       totalPayToday: quarterlyPrice,
       monthlyPrice: Math.floor(quarterlyPrice / 3),
       originalPrice: basePrice,
       savings: savingsQuarterly,
     });
 
-    // Add 6 months plan if available
-    if (product.pricing[medicationType].sixMonthPrice) {
+    if (sixMonthPrice) {
       generatedPlans.push({
         id: stripeSixMonthId,
         plan_type: 'sixMonth',
-        title: '6 Months',
-        totalPayToday: product.pricing[medicationType].sixMonthPrice,
-        monthlyPrice: Math.floor(
-          product.pricing[medicationType].sixMonthPrice / 6,
-        ),
+        title: '6-MONTH PLAN',
+        totalPayToday: sixMonthPrice,
+        monthlyPrice: Math.floor(sixMonthPrice / 6),
         originalPrice: basePrice,
         savings: savingsSixMonth,
+      });
+    }
+
+    if (annualPrice) {
+      generatedPlans.push({
+        id: stripeAnnualId,
+        plan_type: 'annual',
+        title: '12-MONTH PLAN',
+        totalPayToday: annualPrice,
+        monthlyPrice: Math.floor(annualPrice / 12),
+        originalPrice: basePrice,
+        savings: savingsAnnual,
+        isBestValue: true,
       });
     }
 

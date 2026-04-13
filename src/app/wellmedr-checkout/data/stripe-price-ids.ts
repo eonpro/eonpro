@@ -12,11 +12,13 @@ const STRIPE_PRICE_IDS: Record<
       monthly: 'price_1StAGYDfH4PWyxxdePAervoq',
       quarterly: 'price_1StAGXDfH4PWyxxdiDPj5YCT',
       sixMonth: 'price_1StAIqDfH4PWyxxdpKvzMVhV',
+      annual: process.env.NEXT_PUBLIC_STRIPE_SEMA_INJ_ANNUAL || 'price_sema_inj_annual_placeholder',
     },
     tablets: {
       monthly: 'price_1StAIVDfH4PWyxxdiKKHocUW',
       quarterly: 'price_1StAIUDfH4PWyxxdBr3ZAK50',
       sixMonth: 'price_1StAITDfH4PWyxxd0kpTnor1',
+      annual: process.env.NEXT_PUBLIC_STRIPE_SEMA_TAB_ANNUAL || 'price_sema_tab_annual_placeholder',
     },
   },
   tirzepatide: {
@@ -24,11 +26,13 @@ const STRIPE_PRICE_IDS: Record<
       monthly: 'price_1StAGdDfH4PWyxxdguJ3dcVa',
       quarterly: 'price_1StAGbDfH4PWyxxdYqbwetNF',
       sixMonth: 'price_1StAGaDfH4PWyxxdSvHqicEH',
+      annual: process.env.NEXT_PUBLIC_STRIPE_TIRZ_INJ_ANNUAL || 'price_tirz_inj_annual_placeholder',
     },
     tablets: {
       monthly: 'price_1StAGSDfH4PWyxxdcq4U4LIn',
       quarterly: 'price_1StAGQDfH4PWyxxdwUgpcciy',
       sixMonth: 'price_1StAGODfH4PWyxxduoLJXLd0',
+      annual: process.env.NEXT_PUBLIC_STRIPE_TIRZ_TAB_ANNUAL || 'price_tirz_tab_annual_placeholder',
     },
   },
 };
@@ -48,7 +52,7 @@ const ADDON_STRIPE_PRICE_IDS: Record<AddonId, string> = {
 export const getStripePriceId = (
   productName: ProductNameType,
   medicationType: MedicationType,
-  planType: 'monthly' | 'quarterly' | 'sixMonth',
+  planType: 'monthly' | 'quarterly' | 'sixMonth' | 'annual',
 ): string => {
   const product = STRIPE_PRICE_IDS[productName];
   if (!product) {

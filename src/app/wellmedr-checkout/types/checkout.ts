@@ -27,6 +27,8 @@ type PricingTier = {
   rotatedImage: string | StaticImageData;
 };
 
+export type PlanType = 'monthly' | 'quarterly' | 'sixMonth' | 'annual';
+
 export type Pricing = {
   injections: PricingTier;
   tablets: PricingTier;
@@ -47,12 +49,13 @@ export type PlanOptions = string;
 
 export type Plan = {
   id: PlanOptions;
-  plan_type: 'quarterly' | 'monthly' | 'sixMonth' | 'annual';
+  plan_type: PlanType;
   title: string;
   totalPayToday: number;
   monthlyPrice: number;
   originalPrice?: number;
   savings?: number;
+  isBestValue?: boolean;
 };
 
 // Address Types

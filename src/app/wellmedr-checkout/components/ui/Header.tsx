@@ -1,37 +1,20 @@
-import cn from '@/app/wellmedr-checkout/lib/cn';
-import Link from 'next/link';
-import Star from '../icons/Star';
 import Logo from '../icons/Logo';
-import { Fragment } from 'react/jsx-runtime';
 
-const Header = ({ className }: { className?: string }) => {
+const Header = () => {
   return (
-    <header
-      className={cn(
-        'w-full flex justify-between items-center pt-6 max-w-4xl mx-auto px-6 sm:px-8 gap-4',
-        className,
-      )}
-    >
-      <Link href="/" className="w-full max-w-[272px] h-[26px]">
+    <header className="w-full flex justify-between items-center py-4 px-6 sm:px-8 max-w-6xl mx-auto">
+      <a href="/" className="w-[160px] sm:w-[200px] h-[24px] sm:h-[28px]">
         <Logo className="w-full h-full" aria-label="Wellmedr Logo" />
-      </Link>
+      </a>
 
-      <div className="flex items-center gap-2 bg-white rounded-[40px] pl-4 pr-2 py-2 border border-[rgba(54,28,12,0.08)]">
-        <span className="sm:hidden text-[1.125rem] font-medium text-foreground leading-[148%] mt-0.5 tracking-[0%]">
-          4.8
-        </span>
-        <span className="hidden sm:inline text-lg font-medium text-foreground leading-[148%] tracking-[0%]">
-          Excellent 4.8
-        </span>
-        <span className="hidden sm:inline text-foreground opacity-80">|</span>
-        <Star className="w-5 h-5 sm:hidden text-secondary" />
-
-        <div className="hidden sm:flex sm:items-center">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <Fragment key={`hs__${i}`}>
-              <Star className="h-5 w-5 text-secondary" />
-            </Fragment>
-          ))}
+      <div className="flex items-center gap-4 sm:gap-6">
+        <div className="hidden sm:block text-right">
+          <p className="text-xs text-gray-500">Questions? Call us</p>
+          <p className="font-bold text-sm" style={{ color: '#101010' }}>1-888-397-6905</p>
+        </div>
+        <div className="flex items-center gap-1.5 text-green-600">
+          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" /></svg>
+          <span className="text-xs font-bold uppercase tracking-wide">Secure Payment</span>
         </div>
       </div>
     </header>
