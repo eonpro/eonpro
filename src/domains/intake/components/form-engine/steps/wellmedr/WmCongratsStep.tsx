@@ -88,7 +88,8 @@ export default function WmCongratsStep({
           <div className="rounded-2xl p-4" style={{ backgroundColor: '#f0dfa8' }}>
             <p className="text-xs font-medium mb-2" style={{ color: '#8a7d6e' }}>Today</p>
             <div className="flex items-start gap-2 mb-3">
-              <svg className="w-8 h-16 opacity-30" viewBox="0 0 30 60" fill="currentColor"><ellipse cx="15" cy="8" rx="6" ry="7"/><path d="M5,22 Q15,18 25,22 L23,50 Q15,52 7,50 Z"/></svg>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/assets/images/products/f94b3019-214c-4704-9fb5-e220fe7386dc.png" alt="" className="w-10 h-20 object-contain opacity-60" />
               <div className="space-y-1.5 flex-1">
                 <div className="rounded-lg px-3 py-1.5 bg-white/60"><p className="text-[10px] opacity-60">Weight</p><p className="text-sm font-bold">{weight} Lbs</p></div>
                 <div className="rounded-lg px-3 py-1.5 bg-white/60"><p className="text-[10px] opacity-60">BMI</p><p className="text-sm font-bold">{bmi}</p></div>
@@ -100,7 +101,8 @@ export default function WmCongratsStep({
           <div className="rounded-2xl p-4" style={{ backgroundColor: '#faf5e8' }}>
             <p className="text-xs font-medium mb-2" style={{ color: '#8a7d6e' }}>You, in 1 month</p>
             <div className="flex items-start gap-2 mb-3">
-              <svg className="w-8 h-16 opacity-30" viewBox="0 0 30 60" fill="currentColor"><ellipse cx="15" cy="8" rx="5" ry="6.5"/><path d="M7,22 Q15,19 23,22 L21,50 Q15,51 9,50 Z"/></svg>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/assets/images/products/1770d792-f769-42cf-b041-4cf11d975b7d.png" alt="" className="w-10 h-20 object-contain opacity-60" />
               <div className="space-y-1.5 flex-1">
                 <div className="rounded-lg px-3 py-1.5 bg-white/60"><p className="text-[10px] opacity-60">Weight</p><p className="text-sm font-bold" style={{ color: '#c5a55a' }}>{Math.round(weight * 0.95)} Lbs</p></div>
                 <div className="rounded-lg px-3 py-1.5 bg-white/60"><p className="text-[10px] opacity-60">BMI</p><p className="text-sm font-bold" style={{ color: '#c3b29e' }}>{projectedBmi}</p></div>

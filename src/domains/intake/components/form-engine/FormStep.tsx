@@ -61,6 +61,7 @@ import {
   WmMedicalReviewStep,
   WmContactInfoStep,
   WmGlp1TypeStep,
+  WmCurrentMedsStep,
 } from './steps/wellmedr';
 import {
   OptionButton,
@@ -463,6 +464,8 @@ export default function FormStep({
         return <WmContactInfoStep {...customProps} />;
       case 'WmGlp1TypeStep':
         return <WmGlp1TypeStep {...customProps} />;
+      case 'WmCurrentMedsStep':
+        return <WmCurrentMedsStep {...customProps} />;
     }
   }
 

@@ -483,14 +483,8 @@ const steps: FormStep[] = [
   {
     id: 'current-meds', path: 'current-meds',
     title: { en: 'Do you currently take any medications?', es: '' },
-    type: 'custom', component: 'WmYesNoDetailStep',
+    type: 'custom', component: 'WmCurrentMedsStep',
     fields: [], autoAdvance: false, showContinueButton: false, nextStep: 'motivation-level', prevStep: 'med-priority', progressPercent: 75,
-    props: {
-      question: 'Do you currently take any medications?',
-      detailPrompt: 'Please add some details about the current medicine you take.',
-      storageKey: 'current_medications',
-      detailStorageKey: 'current_medications_detail',
-    },
   },
 
   // 26. Motivation Level (image cards with emojis)
