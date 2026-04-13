@@ -16,7 +16,7 @@ interface ProductsContextValue {
   getStripePriceId: (
     productName: ProductNameType,
     medicationType: MedicationType,
-    planType: 'monthly' | 'quarterly' | 'sixMonth',
+    planType: 'monthly' | 'quarterly' | 'sixMonth' | 'annual',
   ) => string;
 }
 
@@ -38,7 +38,7 @@ export function ProductsProvider({
   const getStripePriceId = (
     productName: ProductNameType,
     medicationType: MedicationType,
-    planType: 'monthly' | 'quarterly' | 'sixMonth',
+    planType: 'monthly' | 'quarterly' | 'sixMonth' | 'annual',
   ): string => {
     if (priceIds) {
       const priceId = priceIds[productName]?.[medicationType]?.[planType];

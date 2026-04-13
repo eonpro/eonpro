@@ -23,6 +23,7 @@ const DEFAULT_YEAR_COLORS: Record<number, string> = {
   203194055: '#26b7b2',
   203666651: '#6e459b',
   203418766: '#1177b9',
+  203448974: '#2bb673',
 };
 
 type InjectableProduct = {

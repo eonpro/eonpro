@@ -111,7 +111,7 @@ export async function transcribeAudio(input: TranscribeAudioInput): Promise<Tran
   try {
     const openai = getOpenAI();
 
-    const audioFile = new File([input.audioBuffer], `audio.${ext}`, { type: mimeType });
+    const audioFile = new File([new Uint8Array(input.audioBuffer)], `audio.${ext}`, { type: mimeType });
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 25_000);

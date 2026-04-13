@@ -55,6 +55,7 @@ async function handleGet(req: NextRequest, user: AuthUser): Promise<Response> {
       return NextResponse.json(
         {
           clinicId: null,
+          clinicSubdomain: null,
           windowDays: DEFAULT_DAYS,
           pending: { total: 0, elite: 0, byProduct: {}, items: [] },
           processedRecent: { total: 0, elite: 0, byProduct: {}, items: [] },
@@ -73,6 +74,10 @@ async function handleGet(req: NextRequest, user: AuthUser): Promise<Response> {
       ? Math.min(Math.max(requestedLimit, 1), MAX_LIMIT)
       : DEFAULT_LIMIT;
     const since = new Date(Date.now() - windowDays * 24 * 60 * 60 * 1000);
+    const clinic = await prisma.clinic.findUnique({
+      where: { id: user.clinicId },
+      select: { subdomain: true },
+    });
 
     const baseAddonFilter = {
       clinicId: user.clinicId,
@@ -143,6 +148,7 @@ async function handleGet(req: NextRequest, user: AuthUser): Promise<Response> {
 
     const responseBody = {
       clinicId: user.clinicId,
+      clinicSubdomain: clinic?.subdomain || null,
       windowDays,
       asOf: new Date().toISOString(),
       pending: {

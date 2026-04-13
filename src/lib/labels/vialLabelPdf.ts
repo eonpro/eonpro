@@ -455,7 +455,7 @@ function drawLabel({
 
   const bits = getCode128Bits(batchNumber);
   const barsWidth = Math.min(barcodeWidth - 1, (barcodeWidth - 0.9) * 1.14);
-  const barsHeight = Math.min(contentHeight, ((fullHeight - 1.6) * 0.85) * 1.14);
+  const barsHeight = Math.min(contentHeight, ((fullHeight - 1.6) * 0.85) * 1.28);
   const barsX = barcodeX + (barcodeWidth - barsWidth) / 2 + 2;
   const barsY = contentBottom + (contentHeight - barsHeight) / 2;
   drawBarcodeBars(page, bits, barsX, barsY, barsWidth, barsHeight);
@@ -722,7 +722,7 @@ function drawTemplateLabel({
 
   const bits = getCode128Bits(batchNumber);
   const barsWidth = Math.min(barcodeWidth - 1, (barcodeWidth - 0.9) * 1.14);
-  const barsHeight = Math.min(contentHeight, ((fullHeight - 1.6) * 0.85) * 1.14);
+  const barsHeight = Math.min(contentHeight, ((fullHeight - 1.6) * 0.85) * 1.28);
   const barsX = barcodeX + (barcodeWidth - barsWidth) / 2 + 2;
   const barsY = contentBottom + (contentHeight - barsHeight) / 2;
   drawBarcodeBars(page, bits, barsX, barsY, barsWidth, barsHeight);

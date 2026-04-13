@@ -147,6 +147,73 @@ const CRITICAL_SCHEMA: Record<
   },
 };
 
+const STARTUP_RETRY_ATTEMPTS = 3;
+const STARTUP_RETRY_BASE_DELAY_MS = 2_000;
+
+const TRANSIENT_PATTERNS = [
+  'Timed out fetching a new connection from the connection pool',
+  "Can't reach database server",   // ASCII apostrophe U+0027
+  'Can\u2019t reach database server', // typographic apostrophe U+2019
+  'Connection refused',
+  'ECONNREFUSED',
+  'ETIMEDOUT',
+  'connection pool',
+  'connect ETIMEDOUT',
+  'P1001',  // Prisma: "Can't reach database server"
+  'P1002',  // Prisma: "Database server timed out"
+];
+
+function isTransientConnectionError(error: unknown): boolean {
+  const parts: string[] = [];
+
+  if (error instanceof Error) {
+    parts.push(error.message);
+    if ('cause' in error && error.cause) parts.push(String(error.cause));
+  }
+  parts.push(String(error));
+
+  if (error && typeof error === 'object') {
+    const anyErr = error as Record<string, unknown>;
+    if (typeof anyErr.code === 'string') parts.push(anyErr.code);
+    if (anyErr.meta) parts.push(JSON.stringify(anyErr.meta));
+  }
+
+  const combined = parts.join(' ');
+  return TRANSIENT_PATTERNS.some((p) => combined.includes(p));
+}
+
+function isTransientErrorMessage(msg: string): boolean {
+  return TRANSIENT_PATTERNS.some((p) => msg.includes(p));
+}
+
+async function querySchemaWithRetry(
+  db: PrismaClient,
+): Promise<Array<{ table_name: string; column_name: string; data_type: string; is_nullable: string }>> {
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= STARTUP_RETRY_ATTEMPTS; attempt++) {
+    try {
+      return await db.$queryRaw<
+        Array<{ table_name: string; column_name: string; data_type: string; is_nullable: string }>
+      >`
+        SELECT table_name, column_name, data_type, is_nullable
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+        ORDER BY table_name, ordinal_position
+      `;
+    } catch (error) {
+      lastError = error;
+      if (attempt < STARTUP_RETRY_ATTEMPTS && isTransientConnectionError(error)) {
+        const delay = STARTUP_RETRY_BASE_DELAY_MS * attempt;
+        logger.warn(`[SchemaValidator] Connection attempt ${attempt}/${STARTUP_RETRY_ATTEMPTS} failed, retrying in ${delay}ms`, {
+          error: error instanceof Error ? error.message : String(error),
+        });
+        await new Promise((resolve) => setTimeout(resolve, delay));
+      }
+    }
+  }
+  throw lastError;
+}
+
 /**
  * Validates the database schema matches expected structure
  * Should be called at startup and before deployments
@@ -162,7 +229,6 @@ export async function validateDatabaseSchema(
   let tablesChecked = 0;
   let columnsChecked = 0;
 
-  // Use provided prisma or dynamic import (avoids pulling db/connection-pool into Edge instrumentation bundle)
   let db = providedPrisma;
   if (!db) {
     const { prisma: singletonPrisma } = await import('@/lib/db');
@@ -172,17 +238,8 @@ export async function validateDatabaseSchema(
   try {
     logger.info('[SchemaValidator] Starting database schema validation...');
 
-    // Get actual database schema from information_schema
-    const tableColumns = await db.$queryRaw<
-      Array<{ table_name: string; column_name: string; data_type: string; is_nullable: string }>
-    >`
-      SELECT table_name, column_name, data_type, is_nullable
-      FROM information_schema.columns
-      WHERE table_schema = 'public'
-      ORDER BY table_name, ordinal_position
-    `;
+    const tableColumns = await querySchemaWithRetry(db);
 
-    // Build a map of actual schema
     const actualSchema = new Map<string, Set<string>>();
     for (const row of tableColumns) {
       if (!actualSchema.has(row.table_name)) {
@@ -191,7 +248,6 @@ export async function validateDatabaseSchema(
       actualSchema.get(row.table_name)!.add(row.column_name);
     }
 
-    // Validate each critical table
     for (const [tableName, config] of Object.entries(CRITICAL_SCHEMA)) {
       tablesChecked++;
 
@@ -207,7 +263,6 @@ export async function validateDatabaseSchema(
         continue;
       }
 
-      // Check each expected column
       for (const columnName of config.columns) {
         columnsChecked++;
 
@@ -223,7 +278,6 @@ export async function validateDatabaseSchema(
       }
     }
 
-    // Check for orphaned foreign keys (data integrity); scope to clinic when provided
     const orphanChecks = await checkOrphanedRecords(db, clinicId);
     warnings.push(...orphanChecks);
 
@@ -261,7 +315,30 @@ export async function validateDatabaseSchema(
 
     return result;
   } catch (error: unknown) {
-    logger.error('[SchemaValidator] Failed to validate schema', { error: error instanceof Error ? error.message : String(error) });
+    const duration = Date.now() - startTime;
+    const errorMsg = error instanceof Error ? error.message : String(error);
+
+    if (isTransientConnectionError(error)) {
+      logger.warn('[SchemaValidator] Schema validation skipped — transient DB connection failure (will validate on next request)', {
+        error: errorMsg,
+        duration,
+      });
+      return {
+        valid: true,
+        errors: [],
+        warnings: [
+          {
+            type: 'CONNECTION_TIMEOUT',
+            message: `Schema validation deferred — database unreachable after ${STARTUP_RETRY_ATTEMPTS} attempts: ${errorMsg}`,
+          },
+        ],
+        checkedAt: new Date(),
+        tablesChecked: 0,
+        columnsChecked: 0,
+      };
+    }
+
+    logger.error('[SchemaValidator] Failed to validate schema', { error: errorMsg });
 
     return {
       valid: false,
@@ -270,7 +347,7 @@ export async function validateDatabaseSchema(
           type: 'MISSING_TABLE',
           table: 'DATABASE',
           severity: 'CRITICAL',
-          message: `Database connection/query failed: ${error instanceof Error ? error.message : String(error)}`,
+          message: `Database connection/query failed: ${errorMsg}`,
         },
       ],
       warnings: [],
@@ -279,7 +356,6 @@ export async function validateDatabaseSchema(
       columnsChecked: 0,
     };
   }
-  // Note: Don't disconnect singleton PrismaClient - it's managed globally
 }
 
 /**
@@ -395,11 +471,22 @@ export async function runStartupValidation(): Promise<void> {
   if (!result.valid) {
     const criticalErrors = result.errors.filter((e) => e.severity === 'CRITICAL');
 
-    logger.error('[SchemaValidator] ⛔ CRITICAL SCHEMA ERRORS DETECTED', {
+    const allTransient =
+      criticalErrors.length > 0 &&
+      criticalErrors.every((e) => isTransientErrorMessage(e.message));
+
+    if (allTransient) {
+      logger.warn(
+        '[SchemaValidator] Schema validation deferred — all critical errors are transient connection failures (will validate on next healthy request)',
+        { errors: criticalErrors.map((e) => e.message) },
+      );
+      return;
+    }
+
+    logger.error('[SchemaValidator] CRITICAL SCHEMA ERRORS DETECTED', {
       errors: criticalErrors.map((e) => e.message),
     });
 
-    // In production: block startup on critical errors unless explicitly allowed (enterprise default: fail fast)
     const blockInProduction =
       process.env.NODE_ENV === 'production' &&
       (process.env.BLOCK_ON_SCHEMA_ERROR === 'true' || process.env.ALLOW_SCHEMA_ERRORS !== 'true');

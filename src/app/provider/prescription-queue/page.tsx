@@ -184,6 +184,7 @@ interface PrescriptionQueueStats {
 
 interface AddonActivityResponse {
   clinicId: number | null;
+  clinicSubdomain?: string | null;
   windowDays: number;
   asOf?: string;
   pending: {
@@ -1708,6 +1709,10 @@ export default function PrescriptionQueuePage() {
   const newScriptCount = readyItems.filter((i) => !i.hasPreviousRx && i.queueType !== 'refill' && !i.isRefill).length;
   const refillCount = readyItems.filter((i) => i.hasPreviousRx || i.queueType === 'refill' || i.isRefill).length;
   const duplicateCount = readyItems.filter((i) => i.recentPrescription?.hasDuplicate).length;
+  const queueClinicSubdomain = queueItems.find((item) => item.clinic?.subdomain)?.clinic?.subdomain?.toLowerCase() || '';
+  const addonActivityClinicSubdomain = addonActivity?.clinicSubdomain?.toLowerCase() || '';
+  const showAddonActivityCard =
+    queueClinicSubdomain.includes('wellmedr') || addonActivityClinicSubdomain.includes('wellmedr');
 
   return (
     <div className="min-h-[100dvh]" style={{ backgroundColor: '#efece7' }}>
@@ -1908,6 +1913,7 @@ export default function PrescriptionQueuePage() {
           </p>
         )}
 
+        {showAddonActivityCard && (
         <div className="rounded-2xl border border-gray-200/80 bg-white p-4 shadow-sm">
           <div className="flex items-center justify-between gap-3">
             <div>
@@ -1962,6 +1968,7 @@ export default function PrescriptionQueuePage() {
             </p>
           )}
         </div>
+        )}
 
         {/* Search - touch-friendly height on mobile */}
         <div className="relative">
