@@ -162,22 +162,22 @@ export default function WmCongratsStep({
         {/* Comparison cards — larger */}
         <div className="grid grid-cols-2 gap-3 w-full mb-10">
           {/* Today card */}
-          <div className="rounded-2xl p-5" style={{ backgroundColor: '#f0dfa8' }}>
+          <div className="rounded-2xl p-5" style={{ backgroundColor: '#fad69d' }}>
             <p className="text-xs font-semibold uppercase tracking-wide mb-3" style={{ color: '#6b7280' }}>Today</p>
             <div className="flex flex-col items-center mb-4">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src="/assets/images/products/f94b3019-214c-4704-9fb5-e220fe7386dc.png" alt="" className="w-16 h-32 sm:w-20 sm:h-40 object-contain opacity-50" />
             </div>
             <div className="space-y-2">
-              <div className="rounded-xl px-3 py-2 bg-white">
+              <div className="rounded-xl px-3 py-2" style={{ backgroundColor: '#fde7c5' }}>
                 <p className="text-[10px] uppercase tracking-wide" style={{ color: '#9ca3af' }}>Weight</p>
                 <p className="text-base sm:text-lg font-bold" style={{ color: '#101010' }}>{weight} Lbs</p>
               </div>
-              <div className="rounded-xl px-3 py-2 bg-white">
+              <div className="rounded-xl px-3 py-2" style={{ backgroundColor: '#fde7c5' }}>
                 <p className="text-[10px] uppercase tracking-wide" style={{ color: '#9ca3af' }}>BMI</p>
-                <p className="text-base sm:text-lg font-bold" style={{ color: '#101010' }}>{bmi}</p>
+                <p className="text-base sm:text-lg font-bold" style={{ color: '#101010' }}>{bmi} normal</p>
               </div>
-              <div className="rounded-xl px-3 py-2 bg-white">
+              <div className="rounded-xl px-3 py-2" style={{ backgroundColor: '#fde7c5' }}>
                 <p className="text-[10px] uppercase tracking-wide" style={{ color: '#9ca3af' }}>Cravings</p>
                 <p className="text-base sm:text-lg font-bold" style={{ color: '#101010' }}>Uncontrolled</p>
               </div>
@@ -185,7 +185,7 @@ export default function WmCongratsStep({
           </div>
 
           {/* Future card */}
-          <div className="rounded-2xl p-5" style={{ backgroundColor: '#faf5e8' }}>
+          <div className="rounded-2xl p-5" style={{ backgroundColor: '#ffe9c2' }}>
             <p className="text-xs font-semibold uppercase tracking-wide mb-3" style={{ color: GOLD }}>
               You, in {monthsToGoal} month{monthsToGoal !== 1 ? 's' : ''}
             </p>
@@ -194,15 +194,15 @@ export default function WmCongratsStep({
               <img src="/assets/images/products/1770d792-f769-42cf-b041-4cf11d975b7d.png" alt="" className="w-16 h-32 sm:w-20 sm:h-40 object-contain opacity-60" />
             </div>
             <div className="space-y-2">
-              <div className="rounded-xl px-3 py-2 bg-white">
+              <div className="rounded-xl px-3 py-2" style={{ backgroundColor: '#f3c77d' }}>
                 <p className="text-[10px] uppercase tracking-wide" style={{ color: '#9ca3af' }}>Weight</p>
                 <p className="text-base sm:text-lg font-bold" style={{ color: GOLD }}>{goalWeight} Lbs</p>
               </div>
-              <div className="rounded-xl px-3 py-2 bg-white">
+              <div className="rounded-xl px-3 py-2" style={{ backgroundColor: '#f3c77d' }}>
                 <p className="text-[10px] uppercase tracking-wide" style={{ color: '#9ca3af' }}>BMI</p>
                 <p className="text-base sm:text-lg font-bold" style={{ color: GOLD }}>{projectedBmi}</p>
               </div>
-              <div className="rounded-xl px-3 py-2 bg-white">
+              <div className="rounded-xl px-3 py-2" style={{ backgroundColor: '#f3c77d' }}>
                 <p className="text-[10px] uppercase tracking-wide" style={{ color: '#9ca3af' }}>Cravings</p>
                 <p className="text-base sm:text-lg font-bold" style={{ color: GOLD }}>Reduced</p>
               </div>
@@ -210,9 +210,23 @@ export default function WmCongratsStep({
           </div>
         </div>
 
+        {/* Continue to Checkout button — above Next Steps */}
+        <div className="w-full sm:max-w-[31rem] sm:mx-auto mb-10">
+          <button
+            onClick={handleContinue}
+            className="w-full wm-next-btn shine-button flex items-center justify-center gap-4 py-[18px] text-white font-semibold text-base sm:text-[1.125rem] rounded-full active:scale-[0.98] transition-transform"
+            style={{ height: 56, backgroundColor: NAVY, cursor: 'pointer' }}
+          >
+            Continue to Checkout
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" className="ml-1">
+              <path d="M7.5 4L13.5 10L7.5 16" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+        </div>
+
         {/* Next Steps */}
         <h2 className="text-xl sm:text-2xl font-bold text-center mb-4" style={{ color: '#101010' }}>
-          Your <span style={{ color: GOLD }}>Next Steps.</span>
+          Your <span style={{ color: '#dac09d' }}>Next Steps.</span>
         </h2>
         <div className="w-full space-y-3 mb-10">
           {[
@@ -345,17 +359,14 @@ export default function WmCongratsStep({
         </p>
       </div>
 
-      {/* Sticky CTA */}
+      {/* Bottom CTA (repeat) */}
       <div className="w-full max-w-[600px] sm:max-w-[31rem] sm:mx-auto mx-auto px-6 sm:px-8 pb-8">
         <button
           onClick={handleContinue}
-          className="w-full wm-next-btn shine-button flex items-center justify-center gap-4 py-[18px] text-white font-semibold text-base sm:text-[1.125rem] rounded-full active:scale-[0.98] transition-transform"
+          className="w-full wm-next-btn flex items-center justify-center gap-4 py-[18px] text-white font-semibold text-base sm:text-[1.125rem] rounded-full active:scale-[0.98] transition-transform"
           style={{ height: 56, backgroundColor: NAVY, cursor: 'pointer' }}
         >
           Continue to Checkout
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" className="ml-1">
-            <path d="M7.5 4L13.5 10L7.5 16" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
         </button>
       </div>
     </div>
