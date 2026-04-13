@@ -21,13 +21,18 @@ export default function WmMetabolicChartStep({
   const { markStepCompleted, setCurrentStep } = useIntakeActions();
 
   const handleBack = () => {
-    if (prevStep) { setCurrentStep(prevStep); router.push(`${basePath}/${prevStep}`); }
+    if (prevStep) {
+      setCurrentStep(prevStep);
+      router.push(`${basePath}/${prevStep}`);
+    }
   };
   const [mounted, setMounted] = useState(false);
   const [animDone, setAnimDone] = useState(false);
   const pathRef = useRef<SVGPathElement>(null);
 
-  useEffect(() => { requestAnimationFrame(() => setMounted(true)); }, []);
+  useEffect(() => {
+    requestAnimationFrame(() => setMounted(true));
+  }, []);
   const fadeInStyle = { opacity: mounted ? 1 : 0, transition: 'opacity 0.5s ease' };
 
   useEffect(() => {
@@ -45,7 +50,10 @@ export default function WmMetabolicChartStep({
     }, 400);
 
     const timer = setTimeout(() => setAnimDone(true), 2500);
-    return () => { clearTimeout(delay); clearTimeout(timer); };
+    return () => {
+      clearTimeout(delay);
+      clearTimeout(timer);
+    };
   }, []);
 
   useEffect(() => {
@@ -63,16 +71,40 @@ export default function WmMetabolicChartStep({
   };
 
   return (
-    <div className="min-h-[100dvh] flex flex-col" style={{ backgroundColor: '#F7F7F9' }}>
-      <div className="w-full h-[3px]" style={{ backgroundColor: '#e5e0d8' }}>
-        <div className="h-full" style={{ width: `${progressPercent}%`, backgroundColor: '#c3b29e', transition: 'width 0.8s cubic-bezier(0.4,0,0.2,1)' }} />
+    <div className="flex min-h-[100dvh] flex-col" style={{ backgroundColor: '#F7F7F9' }}>
+      <div className="h-[3px] w-full" style={{ backgroundColor: '#e5e0d8' }}>
+        <div
+          className="h-full"
+          style={{
+            width: `${progressPercent}%`,
+            backgroundColor: '#c3b29e',
+            transition: 'width 0.8s cubic-bezier(0.4,0,0.2,1)',
+          }}
+        />
       </div>
 
-      <div className="w-full max-w-[48rem] mx-auto px-6 pt-4 grid grid-cols-3 items-center">
+      <div className="mx-auto grid w-full max-w-[48rem] grid-cols-3 items-center px-6 pt-4">
         <div>
           {prevStep && (
-            <button onClick={handleBack} className="p-2.5 rounded-lg hover:bg-black/5 active:scale-95 transition-all" aria-label="Go back">
-              <svg className="w-5 h-5" style={{ color: '#101010' }} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
+            <button
+              onClick={handleBack}
+              className="rounded-lg p-2.5 transition-all hover:bg-black/5 active:scale-95"
+              aria-label="Go back"
+            >
+              <svg
+                className="h-5 w-5"
+                style={{ color: '#101010' }}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M15 19l-7-7 7-7"
+                />
+              </svg>
             </button>
           )}
         </div>
@@ -83,77 +115,131 @@ export default function WmMetabolicChartStep({
         <div />
       </div>
 
-      <div className="flex flex-1 flex-col justify-center w-full max-w-[600px] mx-auto px-6 sm:px-8 pb-6">
-        <h1 className="text-[1.5rem] sm:text-[2rem] font-bold text-center leading-tight mb-2" style={{ color: '#101010' }}>
+      <div className="mx-auto flex w-full max-w-[600px] flex-1 flex-col justify-center px-6 pb-6 sm:px-8">
+        <h1
+          className="mb-2 text-center text-[1.5rem] font-bold leading-tight sm:text-[2rem]"
+          style={{ color: '#101010' }}
+        >
           How will GLP-1{' '}
-          <span className="font-normal italic" style={{ color: '#7B95A9', fontFamily: "'BodoniSvtyTwo', serif" }}>work for you?</span>
+          <span
+            className="font-normal italic"
+            style={{ color: '#7B95A9', fontFamily: "'BodoniSvtyTwo', serif" }}
+          >
+            work for you?
+          </span>
         </h1>
 
-        <div className="w-full mt-6 rounded-2xl overflow-hidden" style={{ backgroundColor: '#6b6256' }}>
-          <svg viewBox="0 0 600 300" className="w-full" preserveAspectRatio="xMidYMid meet">
+        <div
+          className="mt-6 w-full overflow-hidden rounded-2xl"
+          style={{ backgroundColor: '#8a7d6e' }}
+        >
+          <svg viewBox="0 0 600 320" className="w-full" preserveAspectRatio="xMidYMid meet">
+            {/* Y axis arrow */}
+            <line x1="70" y1="260" x2="70" y2="30" stroke="rgba(255,255,255,0.4)" strokeWidth="1.5" />
+            <polygon points="70,25 65,35 75,35" fill="rgba(255,255,255,0.4)" />
+
+            {/* X axis */}
+            <line x1="70" y1="260" x2="560" y2="260" stroke="rgba(255,255,255,0.4)" strokeWidth="1.5" />
+
+            {/* Horizontal dashed grid lines */}
+            <line x1="70" y1="80" x2="560" y2="80" stroke="rgba(255,255,255,0.15)" strokeWidth="1" strokeDasharray="6,4" />
+            <line x1="70" y1="170" x2="560" y2="170" stroke="rgba(255,255,255,0.15)" strokeWidth="1" strokeDasharray="6,4" />
+
             {/* Y axis label */}
-            <text x="25" y="140" fill="rgba(255,255,255,0.45)" fontSize="9" textAnchor="middle" transform="rotate(-90 25 140)">Metabolic rate</text>
-
-            {/* Axes */}
-            <line x1="60" y1="250" x2="550" y2="250" stroke="rgba(255,255,255,0.2)" strokeWidth="1" />
-            <line x1="60" y1="250" x2="60" y2="30" stroke="rgba(255,255,255,0.2)" strokeWidth="1" />
-
-            {/* Week labels */}
-            {['Week 0', 'Week 4', 'Week 8', 'Week 12'].map((label, i) => (
-              <text key={label} x={60 + i * 163} y={272} fill="rgba(255,255,255,0.7)" fontSize="12" textAnchor="middle" fontWeight="500">{label}</text>
-            ))}
-
-            {/* Baseline dashed line */}
-            <line x1="60" y1="240" x2="350" y2="240" stroke="rgba(255,255,255,0.25)" strokeWidth="1.5" strokeDasharray="5,4" />
+            <text x="45" y="100" fill="white" fontSize="14" fontWeight="600" textAnchor="middle" transform="rotate(-90 45 150)">
+              Metabolic rate
+            </text>
 
             {/* Ease of weight loss label */}
-            <text x="530" y="105" fill="rgba(255,255,255,0.5)" fontSize="11" textAnchor="middle">Ease of</text>
-            <text x="530" y="120" fill="rgba(255,255,255,0.5)" fontSize="11" textAnchor="middle">weight loss</text>
+            <text x="480" y="150" fill="rgba(255,255,255,0.6)" fontSize="14" fontWeight="500" textAnchor="middle">
+              Ease of
+            </text>
+            <text x="480" y="168" fill="rgba(255,255,255,0.6)" fontSize="14" fontWeight="500" textAnchor="middle">
+              weight loss
+            </text>
+
+            {/* Filled area under curve */}
+            <path
+              d="M70,255 C110,254 160,252 210,245 C270,233 320,200 370,155 C420,110 450,80 500,60 L560,60 L560,260 L70,260 Z"
+              fill="rgba(255,255,255,0.08)"
+            />
 
             {/* Animated S-curve */}
             <path
               ref={pathRef}
-              d="M60,240 C100,239 150,237 200,230 C260,218 310,185 360,140 C410,95 440,70 490,55"
+              d="M70,255 C110,254 160,252 210,245 C270,233 320,200 370,155 C420,110 450,80 500,60"
               fill="none"
               stroke="white"
-              strokeWidth="2.5"
+              strokeWidth="3"
               strokeLinecap="round"
             />
 
+            {/* Week labels */}
+            {['Week 0', 'Week 4', 'Week 8', 'Week 12'].map((label, i) => (
+              <text
+                key={label}
+                x={70 + i * 163}
+                y={290}
+                fill="white"
+                fontSize="14"
+                textAnchor="middle"
+                fontWeight="600"
+              >
+                {label}
+              </text>
+            ))}
+
             {/* Start dot */}
-            <circle cx="60" cy="240" r="5" fill="white" opacity={1} />
+            <circle cx="70" cy="255" r="6" fill="white" opacity={1} />
 
             {/* End dot + badge — appear after animation */}
             <circle
-              cx="490" cy="55" r="6" fill="white" stroke="#7B95A9" strokeWidth="2.5"
+              cx="500"
+              cy="60"
+              r="7"
+              fill="white"
+              stroke="#7B95A9"
+              strokeWidth="3"
               opacity={animDone ? 1 : 0}
               style={{ transition: 'opacity 0.5s ease' }}
             />
             <g opacity={animDone ? 1 : 0} style={{ transition: 'opacity 0.5s ease 0.2s' }}>
-              <rect x="420" y="28" width="100" height="24" rx="12" fill="#7B95A9" />
-              <text x="470" y="44" fill="white" fontSize="11" fontWeight="600" textAnchor="middle">wellmedr.</text>
+              <rect x="430" y="28" width="110" height="28" rx="14" fill="#7B95A9" />
+              <text x="485" y="47" fill="white" fontSize="13" fontWeight="700" textAnchor="middle">
+                wellmedr.
+              </text>
             </g>
           </svg>
         </div>
 
-        <div className="mt-6 text-left w-full space-y-1">
-          <p className="text-base" style={{ color: '#101010' }}><strong>Week 1-4:</strong> Your body gets acclimated to GLP-1 medication</p>
-          <p className="text-base" style={{ color: '#101010' }}><strong>Week 4-8:</strong> Weight loss is increasing more and more</p>
-          <p className="text-base" style={{ color: '#101010' }}><strong>Week 9+:</strong> Your body has become a <u>fat burning machine</u></p>
+        <div className="mt-6 w-full space-y-1 text-left">
+          <p className="text-base" style={{ color: '#101010' }}>
+            <strong>Week 1-4:</strong> Your body gets acclimated to GLP-1 medication
+          </p>
+          <p className="text-base" style={{ color: '#101010' }}>
+            <strong>Week 4-8:</strong> Weight loss is increasing more and more
+          </p>
+          <p className="text-base" style={{ color: '#101010' }}>
+            <strong>Week 9+:</strong> Your body has become a <u>fat burning machine</u>
+          </p>
         </div>
 
-        <p className="mt-4 text-base text-left w-full" style={{ color: '#101010' }}>
-          We identify the root causes of your metabolic issues, so you get a long-term solution, not just another quick fix.
+        <p className="mt-4 w-full text-left text-base" style={{ color: '#101010' }}>
+          We identify the root causes of your metabolic issues, so you get a long-term solution, not
+          just another quick fix.
         </p>
       </div>
 
-      <div className="w-full max-w-[600px] sm:max-w-[31rem] sm:mx-auto mx-auto px-6 sm:px-8 pb-6">
+      <div className="mx-auto w-full max-w-[600px] px-6 pb-6 sm:mx-auto sm:max-w-[31rem] sm:px-8">
         <button
           onClick={handleContinue}
-          className="w-full wm-next-btn flex items-center justify-center gap-4 py-[18px] text-white font-normal text-base sm:text-[1.125rem] rounded-full active:scale-[0.98]"
+          className="wm-next-btn flex w-full items-center justify-center gap-4 rounded-full py-[18px] text-base font-normal text-white active:scale-[0.98] sm:text-[1.125rem]"
           style={{ height: 56, backgroundColor: '#0C2631', cursor: 'pointer' }}
         >
-          Next <span className="text-lg" aria-hidden="true">&#10132;</span>
+          Next{' '}
+          <span className="text-lg" aria-hidden="true">
+            &#10132;
+          </span>
         </button>
       </div>
     </div>
