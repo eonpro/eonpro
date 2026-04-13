@@ -354,19 +354,19 @@ export default function InvoicePage({ params }: { params: Promise<{ id: string }
                     </div>
                     <div className="flex justify-between border-t border-gray-200 py-2">
                       <span className="font-semibold text-gray-900">Total</span>
-                      <span className="font-semibold">{formatCurrency(invoice.amount)}</span>
+                      <span className="font-semibold">{formatCurrency(invoice.amount ?? 0)}</span>
                     </div>
                   </>
                 ) : (
                   <div className="flex justify-between py-2">
                     <span className="text-gray-600">Subtotal</span>
-                    <span className="font-medium">{formatCurrency(invoice.amount)}</span>
+                    <span className="font-medium">{formatCurrency(invoice.amount ?? 0)}</span>
                   </div>
                 )}
                 <div className="flex justify-between border-t border-gray-200 py-2">
                   <span className="text-gray-600">Amount Due</span>
                   <span className="text-lg font-bold">
-                    {formatCurrency(Math.max(0, invoice.amount - invoice.amountPaid))}
+                    {formatCurrency(Math.max(0, (invoice.amount ?? 0) - invoice.amountPaid))}
                   </span>
                 </div>
                 {invoice.amountPaid > 0 && (

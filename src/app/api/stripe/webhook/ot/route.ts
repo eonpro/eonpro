@@ -925,9 +925,10 @@ async function processOTWebhookEvent(
         // have a local invoice yet, extract payment data from the PI and run the
         // full matching pipeline so the invoice appears in the provider Rx queue.
         if (!dbInvoice && invoice.status === 'paid') {
-          const piId = typeof invoice.payment_intent === 'string'
-            ? invoice.payment_intent
-            : (invoice.payment_intent as Stripe.PaymentIntent | null)?.id;
+          const rawPi = (invoice as unknown as Record<string, unknown>).payment_intent;
+          const piId = typeof rawPi === 'string'
+            ? rawPi
+            : (rawPi as Stripe.PaymentIntent | null)?.id;
 
           if (piId) {
             logger.info('[OT STRIPE WEBHOOK] No local invoice for paid Stripe invoice — running processStripePayment via PI', {

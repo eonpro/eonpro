@@ -562,7 +562,7 @@ export default function PrescriptionForm({
         rawGender: form.patient.gender,
         normalizedGender: genderCheck,
         patientContextGender: patientContext?.gender,
-        charCodes: form.patient.gender ? Array.from(form.patient.gender).map((c: string) => c.charCodeAt(0)) : [],
+        charCodes: form.patient.gender ? [...form.patient.gender].map((c) => c.charCodeAt(0)) : [],
       });
       alert('Select patient gender before submitting.');
       return;

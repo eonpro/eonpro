@@ -6,9 +6,6 @@
 import type { FullConfig } from '@playwright/test';
 import fs from 'fs/promises';
 import path from 'path';
-import { fileURLToPath } from 'url';
-
-const __dirnameSafe = path.dirname(fileURLToPath(import.meta.url));
 
 async function globalTeardown(_config: FullConfig): Promise<void> {
   console.log('🧹 Starting E2E test teardown...');
@@ -23,7 +20,7 @@ async function globalTeardown(_config: FullConfig): Promise<void> {
 }
 
 async function cleanupAuthState(): Promise<void> {
-  const authFile = path.join(__dirnameSafe, '.auth/user.json');
+  const authFile = path.join(__dirname, '.auth/user.json');
   
   try {
     await fs.unlink(authFile);
