@@ -112,6 +112,7 @@ export const useIntakeStore = create<IntakeStore>()(
           responses: { ...state.responses, [key]: value },
           lastUpdatedAt: new Date().toISOString(),
         }));
+        persistResponsesToSession(get);
         scheduleDraftSync(get);
         scheduleAirtableSync(get);
       },
@@ -121,6 +122,7 @@ export const useIntakeStore = create<IntakeStore>()(
           responses: { ...state.responses, ...newResponses },
           lastUpdatedAt: new Date().toISOString(),
         }));
+        persistResponsesToSession(get);
         scheduleDraftSync(get);
         scheduleAirtableSync(get);
       },
@@ -149,13 +151,22 @@ export const useIntakeStore = create<IntakeStore>()(
           existing.clinicSlug === clinicSlug &&
           existing.currentStep
         ) {
+          // Session exists but responses may have been lost on rehydration
+          if (!existing.responses || Object.keys(existing.responses).length === 0) {
+            const restored = restoreResponsesFromSession();
+            if (Object.keys(restored).length > 0) {
+              set({ responses: restored });
+            }
+          }
           return;
         }
+        const restoredResponses = restoreResponsesFromSession();
         set({
           ...createInitialState(),
           templateId,
           clinicSlug,
           currentStep: startStep,
+          responses: restoredResponses,
         });
       },
 
@@ -235,6 +246,31 @@ export const useIntakeStore = create<IntakeStore>()(
     }
   )
 );
+
+// ---------------------------------------------------------------------------
+// Session-based response persistence (for WellMedR intake)
+// Responses contain PHI and are excluded from localStorage persistence.
+// We use sessionStorage instead — it's ephemeral (cleared on tab close)
+// but survives across client-side route changes within the same tab.
+// ---------------------------------------------------------------------------
+
+function persistResponsesToSession(getState: () => IntakeStore) {
+  try {
+    if (typeof sessionStorage === 'undefined') return;
+    const state = getState();
+    if (!state.responses || Object.keys(state.responses).length === 0) return;
+    sessionStorage.setItem('wm_intake_responses', JSON.stringify(state.responses));
+  } catch { /* quota exceeded or unavailable */ }
+}
+
+function restoreResponsesFromSession(): Record<string, unknown> {
+  try {
+    if (typeof sessionStorage === 'undefined') return {};
+    const stored = sessionStorage.getItem('wm_intake_responses');
+    if (stored) return JSON.parse(stored);
+  } catch { /* parse error */ }
+  return {};
+}
 
 // ---------------------------------------------------------------------------
 // Server draft sync (debounced)
