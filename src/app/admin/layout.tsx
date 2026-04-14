@@ -41,21 +41,25 @@ import {
 } from 'lucide-react';
 import dynamic from 'next/dynamic';
 const InternalChat = dynamic(() => import('@/components/InternalChat'), { ssr: false });
-import {
-  NotificationProvider,
-  NotificationToastContainer,
-} from '@/components/notifications';
-const NotificationCenter = dynamic(
-  () => import('@/components/notifications/NotificationCenter'),
-  { ssr: false, loading: () => <div className="h-8 w-8 animate-pulse rounded-full bg-gray-200" /> },
-);
+import { NotificationProvider, NotificationToastContainer } from '@/components/notifications';
+const NotificationCenter = dynamic(() => import('@/components/notifications/NotificationCenter'), {
+  ssr: false,
+  loading: () => <div className="h-8 w-8 animate-pulse rounded-full bg-gray-200" />,
+});
 import { ClinicBrandingProvider, useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
 import { SubdomainClinicBanner } from '@/components/SubdomainClinicBanner';
 import { getAdminNavConfig } from '@/lib/nav/adminNav';
 import { logger } from '@/lib/logger';
 import * as Sentry from '@sentry/nextjs';
 import { apiFetch, redirectToLogin } from '@/lib/api/fetch';
-import { EONPRO_LOGO, EONPRO_ICON, LOGOSRX, SIPAMED, isLogosRxHost as checkIsLogosRxHost, isSipaMedHost as checkIsSipaMedHost } from '@/lib/constants/brand-assets';
+import {
+  EONPRO_LOGO,
+  EONPRO_ICON,
+  LOGOSRX,
+  SIPAMED,
+  isLogosRxHost as checkIsLogosRxHost,
+  isSipaMedHost as checkIsSipaMedHost,
+} from '@/lib/constants/brand-assets';
 import { safeParseJsonString } from '@/lib/utils/safe-json';
 import { useAuthStore } from '@/lib/stores/authStore';
 
@@ -80,7 +84,9 @@ class AdminErrorBoundary extends Component<{ children: React.ReactNode }, ErrorB
   }
 
   override componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    logger.error('AdminErrorBoundary caught an error', error, { componentStack: errorInfo.componentStack });
+    logger.error('AdminErrorBoundary caught an error', error, {
+      componentStack: errorInfo.componentStack,
+    });
     Sentry.withScope((scope) => {
       scope.setContext('errorBoundary', { componentStack: errorInfo.componentStack });
       scope.setLevel('error');
@@ -198,11 +204,28 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
   const isPharmacyExperience = isPharmacyRep || isLogosRx;
 
   // Resolve brand assets: LogosRx > SIPAMed (local files) > API branding > EONPRO defaults
-  const primaryColor = isPharmacyExperience ? LOGOSRX_PRIMARY : (isSipaMed ? SIPAMED.PRIMARY : (branding?.primaryColor || '#4fa77e'));
-  const clinicLogo = isPharmacyExperience ? LOGOSRX_LOGO : (isSipaMed ? SIPAMED.LOGO : (branding?.logoUrl || EONPRO_LOGO));
-  const clinicIcon = isPharmacyExperience ? LOGOSRX_ICON : (isSipaMed ? SIPAMED.ICON : (branding?.iconUrl || branding?.faviconUrl || branding?.logoUrl || EONPRO_ICON));
-  const clinicName = isPharmacyExperience ? 'LogosRx' : (isSipaMed ? SIPAMED.NAME : (branding?.clinicName || 'EONPRO'));
-  const isWhiteLabeled = isPharmacyExperience || isSipaMed || (branding?.clinicName && branding.clinicName !== 'EONPRO');
+  const primaryColor = isPharmacyExperience
+    ? LOGOSRX_PRIMARY
+    : isSipaMed
+      ? SIPAMED.PRIMARY
+      : branding?.primaryColor || '#4fa77e';
+  const clinicLogo = isPharmacyExperience
+    ? LOGOSRX_LOGO
+    : isSipaMed
+      ? SIPAMED.LOGO
+      : branding?.logoUrl || EONPRO_LOGO;
+  const clinicIcon = isPharmacyExperience
+    ? LOGOSRX_ICON
+    : isSipaMed
+      ? SIPAMED.ICON
+      : branding?.iconUrl || branding?.faviconUrl || branding?.logoUrl || EONPRO_ICON;
+  const clinicName = isPharmacyExperience
+    ? 'LogosRx'
+    : isSipaMed
+      ? SIPAMED.NAME
+      : branding?.clinicName || 'EONPRO';
+  const isWhiteLabeled =
+    isPharmacyExperience || isSipaMed || (branding?.clinicName && branding.clinicName !== 'EONPRO');
 
   // Fetch user's clinic assignments
   const fetchUserClinics = async () => {
@@ -238,7 +261,14 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
     }
 
     const role = authRole;
-    const allowedAdminRoles = ['admin', 'super_admin', 'sales_rep', 'provider', 'staff', 'pharmacy_rep'];
+    const allowedAdminRoles = [
+      'admin',
+      'super_admin',
+      'sales_rep',
+      'provider',
+      'staff',
+      'pharmacy_rep',
+    ];
     if (!allowedAdminRoles.includes(role)) {
       setLoading(false);
       router.push('/login');
@@ -332,7 +362,13 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
   type NavItem = (typeof navItems)[number];
   type ProcessedNavEntry =
     | { type: 'item'; item: NavItem }
-    | { type: 'group'; key: string; label: string; icon: React.ComponentType<{ className?: string }>; children: NavItem[] };
+    | {
+        type: 'group';
+        key: string;
+        label: string;
+        icon: React.ComponentType<{ className?: string }>;
+        children: NavItem[];
+      };
 
   const processedNav = useMemo<ProcessedNavEntry[]>(() => {
     const result: ProcessedNavEntry[] = [];
@@ -363,15 +399,15 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
   }, [navItems]);
 
   const toggleGroup = (key: string) => {
-    setExpandedGroups(prev => ({ ...prev, [key]: !prev[key] }));
+    setExpandedGroups((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
   useEffect(() => {
-    setExpandedGroups(prev => {
+    setExpandedGroups((prev) => {
       const next = { ...prev };
       let changed = false;
       for (const entry of processedNav) {
-        if (entry.type === 'group' && entry.children.some(child => isActive(child.path))) {
+        if (entry.type === 'group' && entry.children.some((child) => isActive(child.path))) {
           if (!next[entry.key]) {
             next[entry.key] = true;
             changed = true;
@@ -380,7 +416,7 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
       }
       return changed ? next : prev;
     });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname]);
 
   // Pharmacy nav fix: Next.js App Router intercepts <a> clicks for client-side
@@ -435,28 +471,34 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      // Then switch clinic
-      const switchResponse = await apiFetch('/api/user/clinics', {
-        method: 'PUT',
+      // Switch the server-side httpOnly cookie via /api/clinic/switch
+      const clinicSwitchRes = await apiFetch('/api/clinic/switch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ clinicId: selectedClinicId }),
       });
 
-      if (switchResponse.ok) {
-        const data = await switchResponse.json();
-        setActiveClinicId(selectedClinicId);
-        setShowClinicSwitchModal(false);
-        setPassword('');
-        setSelectedClinicId(null);
-
-        // Update the selected-clinic cookie for data isolation
-        document.cookie = `selected-clinic=${selectedClinicId}; path=/; max-age=31536000`;
-
-        // Reload to refresh all data with new clinic context
-        window.location.reload();
-      } else {
-        const errorData = await switchResponse.json();
+      if (!clinicSwitchRes.ok) {
+        const errorData = await clinicSwitchRes.json().catch(() => ({}));
         setSwitchError(errorData.error || 'Failed to switch clinic');
+        return;
       }
+
+      // Also update user's activeClinicId in DB
+      await apiFetch('/api/user/clinics', {
+        method: 'PUT',
+        body: JSON.stringify({ clinicId: selectedClinicId }),
+      }).catch(() => {});
+
+      setActiveClinicId(selectedClinicId);
+      setShowClinicSwitchModal(false);
+      setPassword('');
+      setSelectedClinicId(null);
+
+      localStorage.setItem('activeClinicId', String(selectedClinicId));
+      document.cookie = `selected-clinic=${selectedClinicId}; path=/; max-age=31536000`;
+
+      window.location.reload();
     } catch (error) {
       setSwitchError('An error occurred while switching clinics');
     } finally {
@@ -534,21 +576,24 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
                     src={clinicLogo}
                     alt={clinicName}
                     className="h-10 w-auto max-w-[140px] object-contain"
-                    onError={(e) => { e.currentTarget.src = EONPRO_LOGO; }}
+                    onError={(e) => {
+                      e.currentTarget.src = EONPRO_LOGO;
+                    }}
                   />
                 ) : (
                   <img
                     src={clinicIcon}
                     alt={clinicName}
                     className="h-10 w-10 object-contain"
-                    onError={(e) => { e.currentTarget.src = EONPRO_ICON; }}
+                    onError={(e) => {
+                      e.currentTarget.src = EONPRO_ICON;
+                    }}
                   />
                 )}
               </a>
               {isWhiteLabeled && sidebarExpanded && (
-                <span className="mt-1 flex items-center justify-center gap-1 text-[10px] text-gray-400 whitespace-nowrap">
-                  Powered by{' '}
-                  <img src={EONPRO_LOGO} alt="EONPRO" className="h-[21px] w-auto" />
+                <span className="mt-1 flex items-center justify-center gap-1 whitespace-nowrap text-[10px] text-gray-400">
+                  Powered by <img src={EONPRO_LOGO} alt="EONPRO" className="h-[21px] w-auto" />
                 </span>
               )}
             </div>
@@ -570,7 +615,8 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
                   const Icon = item.icon;
                   const active = isActive(item.path);
                   const isClinicsTab = item.path === '/admin/clinics';
-                  const isClinicSwitch = isClinicsTab && hasMultipleClinics && userRole !== 'super_admin';
+                  const isClinicSwitch =
+                    isClinicsTab && hasMultipleClinics && userRole !== 'super_admin';
 
                   if (isClinicSwitch) {
                     return (
@@ -578,11 +624,13 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
                         key={item.path}
                         onClick={() => setShowClinicSwitchModal(true)}
                         title={!sidebarExpanded ? 'Switch Clinic' : undefined}
-                        className="flex w-full cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                        className="flex w-full cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 text-left text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
                       >
                         <Icon className="h-5 w-5 flex-shrink-0" />
                         {sidebarExpanded && (
-                          <span className="whitespace-nowrap text-sm font-medium">Switch Clinic</span>
+                          <span className="whitespace-nowrap text-sm font-medium">
+                            Switch Clinic
+                          </span>
                         )}
                       </button>
                     );
@@ -596,7 +644,9 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
                       className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left no-underline transition-colors ${
                         active ? '' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
                       }`}
-                      style={active ? { backgroundColor: `${primaryColor}15`, color: primaryColor } : {}}
+                      style={
+                        active ? { backgroundColor: `${primaryColor}15`, color: primaryColor } : {}
+                      }
                     >
                       <Icon className="h-5 w-5 flex-shrink-0" />
                       {sidebarExpanded && (
@@ -607,7 +657,7 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
                 }
 
                 const { key, label, icon: GroupIcon, children } = entry;
-                const groupActive = children.some(child => isActive(child.path));
+                const groupActive = children.some((child) => isActive(child.path));
                 const isGroupExpanded = expandedGroups[key] ?? false;
 
                 if (!sidebarExpanded) {
@@ -619,7 +669,11 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
                       className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left no-underline transition-colors ${
                         groupActive ? '' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
                       }`}
-                      style={groupActive ? { backgroundColor: `${primaryColor}15`, color: primaryColor } : {}}
+                      style={
+                        groupActive
+                          ? { backgroundColor: `${primaryColor}15`, color: primaryColor }
+                          : {}
+                      }
                     >
                       <GroupIcon className="h-5 w-5 flex-shrink-0" />
                     </a>
@@ -631,9 +685,15 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
                     <button
                       onClick={() => toggleGroup(key)}
                       className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors ${
-                        groupActive && !isGroupExpanded ? '' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
+                        groupActive && !isGroupExpanded
+                          ? ''
+                          : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
                       }`}
-                      style={groupActive && !isGroupExpanded ? { backgroundColor: `${primaryColor}10`, color: primaryColor } : {}}
+                      style={
+                        groupActive && !isGroupExpanded
+                          ? { backgroundColor: `${primaryColor}10`, color: primaryColor }
+                          : {}
+                      }
                     >
                       <GroupIcon className="h-5 w-5 flex-shrink-0" />
                       <span className="flex-1 whitespace-nowrap text-sm font-medium">{label}</span>
@@ -643,7 +703,7 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
                     </button>
                     {isGroupExpanded && (
                       <div className="ml-4 mt-0.5 space-y-0.5 border-l border-gray-200 pl-2">
-                        {children.map(child => {
+                        {children.map((child) => {
                           const ChildIcon = child.icon;
                           const childActive = isActive(child.path);
                           return (
@@ -651,12 +711,20 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
                               key={child.path}
                               href={child.path}
                               className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left no-underline transition-colors ${
-                                childActive ? '' : 'text-gray-400 hover:bg-gray-50 hover:text-gray-600'
+                                childActive
+                                  ? ''
+                                  : 'text-gray-400 hover:bg-gray-50 hover:text-gray-600'
                               }`}
-                              style={childActive ? { backgroundColor: `${primaryColor}15`, color: primaryColor } : {}}
+                              style={
+                                childActive
+                                  ? { backgroundColor: `${primaryColor}15`, color: primaryColor }
+                                  : {}
+                              }
                             >
                               <ChildIcon className="h-4 w-4 flex-shrink-0" />
-                              <span className="whitespace-nowrap text-xs font-medium">{child.label}</span>
+                              <span className="whitespace-nowrap text-xs font-medium">
+                                {child.label}
+                              </span>
                             </a>
                           );
                         })}
@@ -690,7 +758,9 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
       </aside>
 
       {/* Main Content */}
-      <main className={`flex-1 pb-20 transition-all duration-300 md:pb-0 ${sidebarExpanded ? 'md:ml-56' : 'md:ml-20'}`}>
+      <main
+        className={`flex-1 pb-20 transition-all duration-300 md:pb-0 ${sidebarExpanded ? 'md:ml-56' : 'md:ml-20'}`}
+      >
         {/* Top Notification Bar */}
         <div className="sticky top-0 z-40 border-b border-gray-200/50 bg-[#efece7]/95 px-4 py-2.5 backdrop-blur-sm md:px-6 md:py-3">
           <div className="flex items-center justify-between">
@@ -699,7 +769,9 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
                 notificationsPath="/admin/notifications"
                 dropdownPosition="left"
               />
-              <span className="hidden text-sm font-medium text-gray-600 sm:inline">Notifications</span>
+              <span className="hidden text-sm font-medium text-gray-600 sm:inline">
+                Notifications
+              </span>
             </div>
           </div>
         </div>
@@ -821,7 +893,8 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
                             className="h-8 w-8 flex-shrink-0 rounded-lg object-contain"
                             onError={(e) => {
                               e.currentTarget.style.display = 'none';
-                              const fallback = e.currentTarget.nextElementSibling as HTMLElement | null;
+                              const fallback = e.currentTarget
+                                .nextElementSibling as HTMLElement | null;
                               if (fallback) fallback.style.display = '';
                             }}
                           />
@@ -830,7 +903,8 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
                           className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg text-sm font-bold text-white"
                           style={{
                             backgroundColor: clinic.primaryColor || primaryColor,
-                            display: clinic.iconUrl || clinic.faviconUrl || clinic.logoUrl ? 'none' : '',
+                            display:
+                              clinic.iconUrl || clinic.faviconUrl || clinic.logoUrl ? 'none' : '',
                           }}
                         >
                           {clinic.name.charAt(0).toUpperCase()}

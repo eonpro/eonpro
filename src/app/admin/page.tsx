@@ -30,7 +30,7 @@ const USMapChart = dynamic_import(
   {
     ssr: false,
     loading: () => <div className="h-64 animate-pulse rounded-xl bg-gray-100" />,
-  },
+  }
 );
 
 // Helper to detect if data looks like encrypted PHI (base64:base64:base64 format)
@@ -95,7 +95,13 @@ export default function AdminPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [geoData, setGeoData] = useState<{
-    stateData: Record<string, { total: number; clinics: Array<{ clinicId: number; clinicName: string; color: string; count: number }> }>;
+    stateData: Record<
+      string,
+      {
+        total: number;
+        clinics: Array<{ clinicId: number; clinicName: string; color: string; count: number }>;
+      }
+    >;
     clinics: Array<{ id: number; name: string; color: string; totalPatients: number }>;
   } | null>(null);
   const [geoLoading, setGeoLoading] = useState(true);
@@ -144,7 +150,12 @@ export default function AdminPage() {
     if (storeClinics.length > 0 && storeActiveClinicId) {
       const clinic = storeClinics.find((c) => c.id === storeActiveClinicId);
       if (clinic) {
-        setActiveClinic({ id: clinic.id, name: clinic.name ?? '', subdomain: clinic.subdomain, logoUrl: clinic.logoUrl });
+        setActiveClinic({
+          id: clinic.id,
+          name: clinic.name ?? '',
+          subdomain: clinic.subdomain,
+          logoUrl: clinic.logoUrl,
+        });
       }
     }
   }, [isHydrated, isAuthenticated, authUser, storeClinics, storeActiveClinicId]);
@@ -216,7 +227,7 @@ export default function AdminPage() {
         const data = await res.json();
         if (cancelled) return;
         const clinics = Array.isArray(data?.clinics) ? data.clinics : [];
-        setPharmacyClinics(clinics.slice(0, 3));
+        setPharmacyClinics(clinics);
         setActiveClinicId(Number(data?.activeClinicId) || null);
       } catch {
         // Non-blocking; home still renders without clinic cards.
@@ -281,10 +292,9 @@ export default function AdminPage() {
     .slice(0, 8);
 
   const displayName =
-    (userData?.firstName as string) ||
-    (userData?.email as string)?.split('@')[0] ||
-    'there';
-  const isPharmacyRep = String((userData?.role as string | undefined) ?? '').toLowerCase() === 'pharmacy_rep';
+    (userData?.firstName as string) || (userData?.email as string)?.split('@')[0] || 'there';
+  const isPharmacyRep =
+    String((userData?.role as string | undefined) ?? '').toLowerCase() === 'pharmacy_rep';
   const isPharmacyExperience = isPharmacyRep || isLogosRxHost;
 
   if (isPharmacyExperience) {
@@ -326,7 +336,7 @@ export default function AdminPage() {
           {pharmacyClinics.length > 0 && (
             <div>
               <p className="mb-3 text-sm font-medium text-white/85">Quick clinic switch</p>
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+              <div className="grid max-h-64 grid-cols-1 gap-3 overflow-y-auto md:grid-cols-3">
                 {pharmacyClinics.map((clinic) => (
                   <button
                     key={clinic.id}
@@ -499,7 +509,9 @@ export default function AdminPage() {
             <CreditCard className="h-6 w-6 text-green-500" />
           </div>
           <div>
-            <p className="text-3xl font-bold text-gray-900">{formatCurrency(displayStats.totalRevenue)}</p>
+            <p className="text-3xl font-bold text-gray-900">
+              {formatCurrency(displayStats.totalRevenue)}
+            </p>
             <p className="text-sm text-gray-500">Total Revenue</p>
           </div>
         </div>
@@ -562,96 +574,96 @@ export default function AdminPage() {
 
         <div className="overflow-x-auto">
           <table className="w-full">
-              <thead>
-                <tr className="border-t border-gray-100">
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                    Name
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                    DOB
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                    Contact
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                    Actions
-                  </th>
+            <thead>
+              <tr className="border-t border-gray-100">
+                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                  Name
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                  DOB
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                  Contact
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {filteredIntakes.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="px-6 py-16 text-center">
+                    <Clock className="mx-auto mb-3 h-10 w-10 text-gray-300" />
+                    <p className="font-medium text-gray-500">
+                      No patient intakes in the last 24 hours
+                    </p>
+                    <p className="mt-1 text-sm text-gray-400">
+                      New intakes will appear here automatically
+                    </p>
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {filteredIntakes.length === 0 ? (
-                  <tr>
-                    <td colSpan={4} className="px-6 py-16 text-center">
-                      <Clock className="mx-auto mb-3 h-10 w-10 text-gray-300" />
-                      <p className="font-medium text-gray-500">
-                        No patient intakes in the last 24 hours
+              ) : (
+                filteredIntakes.map((patient) => (
+                  <tr
+                    key={patient.id}
+                    className="cursor-pointer transition-colors hover:bg-gray-50/50"
+                    onMouseEnter={() => prefetchRoute(`/admin/patients/${patient.id}`)}
+                    onClick={() => (window.location.href = `/admin/patients/${patient.id}`)}
+                  >
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <div
+                          className={`h-2 w-2 flex-shrink-0 rounded-full ${
+                            new Date(patient.createdAt).getTime() > Date.now() - 3600000
+                              ? 'bg-[#4fa77e]'
+                              : 'bg-amber-400'
+                          }`}
+                        />
+                        <div>
+                          <Link
+                            href={`/admin/patients/${patient.id}`}
+                            className="font-medium text-gray-900 hover:text-[#4fa77e]"
+                            onMouseEnter={() => prefetchRoute(`/admin/patients/${patient.id}`)}
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {patient.firstName} {patient.lastName}
+                          </Link>
+                          <p className="text-xs text-gray-400">
+                            #{formatPatientDisplayId(patient.patientId, patient.id)}
+                          </p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <p className="text-sm text-gray-600">
+                        {isEncryptedData(patient.dateOfBirth)
+                          ? '-'
+                          : formatDate(patient.dateOfBirth)}
                       </p>
-                      <p className="mt-1 text-sm text-gray-400">
-                        New intakes will appear here automatically
+                      <p className="text-xs text-gray-400">({formatGender(patient.gender)})</p>
+                    </td>
+                    <td className="px-6 py-4">
+                      <p className="text-sm text-gray-600">{displayContact(patient.phone)}</p>
+                      <p className="max-w-[180px] truncate text-xs text-gray-400">
+                        {displayContact(patient.email)}
                       </p>
                     </td>
+                    <td className="px-6 py-4">
+                      <Link
+                        href={`/admin/patients/${patient.id}`}
+                        className="text-sm font-medium text-[#4fa77e] hover:text-[#3d8a66]"
+                        onMouseEnter={() => prefetchRoute(`/admin/patients/${patient.id}`)}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        View profile
+                      </Link>
+                    </td>
                   </tr>
-                ) : (
-                  filteredIntakes.map((patient) => (
-                    <tr
-                      key={patient.id}
-                      className="cursor-pointer transition-colors hover:bg-gray-50/50"
-                      onMouseEnter={() => prefetchRoute(`/admin/patients/${patient.id}`)}
-                      onClick={() => (window.location.href = `/admin/patients/${patient.id}`)}
-                    >
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <div
-                            className={`h-2 w-2 flex-shrink-0 rounded-full ${
-                              new Date(patient.createdAt).getTime() > Date.now() - 3600000
-                                ? 'bg-[#4fa77e]'
-                                : 'bg-amber-400'
-                            }`}
-                          />
-                          <div>
-                            <Link
-                              href={`/admin/patients/${patient.id}`}
-                              className="font-medium text-gray-900 hover:text-[#4fa77e]"
-                              onMouseEnter={() => prefetchRoute(`/admin/patients/${patient.id}`)}
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              {patient.firstName} {patient.lastName}
-                            </Link>
-                            <p className="text-xs text-gray-400">
-                              #{formatPatientDisplayId(patient.patientId, patient.id)}
-                            </p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <p className="text-sm text-gray-600">
-                          {isEncryptedData(patient.dateOfBirth)
-                            ? '-'
-                            : formatDate(patient.dateOfBirth)}
-                        </p>
-                        <p className="text-xs text-gray-400">({formatGender(patient.gender)})</p>
-                      </td>
-                      <td className="px-6 py-4">
-                        <p className="text-sm text-gray-600">{displayContact(patient.phone)}</p>
-                        <p className="max-w-[180px] truncate text-xs text-gray-400">
-                          {displayContact(patient.email)}
-                        </p>
-                      </td>
-                      <td className="px-6 py-4">
-                        <Link
-                          href={`/admin/patients/${patient.id}`}
-                          className="text-sm font-medium text-[#4fa77e] hover:text-[#3d8a66]"
-                          onMouseEnter={() => prefetchRoute(`/admin/patients/${patient.id}`)}
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          View profile
-                        </Link>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
