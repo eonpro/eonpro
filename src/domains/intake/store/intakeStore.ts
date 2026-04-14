@@ -144,7 +144,11 @@ export const useIntakeStore = create<IntakeStore>()(
 
       initSession: (templateId: string, clinicSlug: string, startStep: string) => {
         const existing = get();
-        if (existing.templateId === templateId && existing.clinicSlug === clinicSlug && existing.currentStep) {
+        if (
+          existing.templateId === templateId &&
+          existing.clinicSlug === clinicSlug &&
+          existing.currentStep
+        ) {
           return;
         }
         set({
@@ -228,8 +232,8 @@ export const useIntakeStore = create<IntakeStore>()(
         // and synced server-side via the draft API. On hydration, responses
         // are reloaded from the server draft.
       }),
-    },
-  ),
+    }
+  )
 );
 
 // ---------------------------------------------------------------------------
@@ -271,12 +275,14 @@ function scheduleDraftSync(getState: () => IntakeStore) {
 // ---------------------------------------------------------------------------
 
 let airtableSyncTimeout: ReturnType<typeof setTimeout> | null = null;
-let airtableRecordId: string | null = null;
+let airtableRecordId: string | null = typeof sessionStorage !== 'undefined'
+  ? sessionStorage.getItem('wm_airtable_record_id')
+  : null;
 
 function scheduleAirtableSync(getState: () => IntakeStore) {
   if (airtableSyncTimeout) clearTimeout(airtableSyncTimeout);
 
-  airtableSyncTimeout = setTimeout(async () => {
+  airtableSyncTimeout = setTimeout(async () => { // 200ms debounce for fast sync before navigation
     const state = getState();
     if (!state.sessionId || state.clinicSlug !== 'wellmedr') return;
 
@@ -293,11 +299,14 @@ function scheduleAirtableSync(getState: () => IntakeStore) {
       const data = await res.json();
       if (data.recordId) {
         airtableRecordId = data.recordId;
+        if (typeof sessionStorage !== 'undefined') {
+          sessionStorage.setItem('wm_airtable_record_id', data.recordId);
+        }
       }
     } catch {
       // Non-blocking — errors don't affect the intake flow
     }
-  }, 500);
+  }, 200);
 }
 
 // ---------------------------------------------------------------------------
@@ -308,8 +317,7 @@ export const useSessionId = () => useIntakeStore((s) => s.sessionId);
 export const useCurrentStep = () => useIntakeStore((s) => s.currentStep);
 export const useCompletedSteps = () => useIntakeStore((s) => s.completedSteps);
 export const useResponses = () => useIntakeStore((s) => s.responses);
-export const useResponse = (key: string) =>
-  useIntakeStore((s) => s.responses[key]);
+export const useResponse = (key: string) => useIntakeStore((s) => s.responses[key]);
 
 export const useIntakeActions = () => {
   const setCurrentStep = useIntakeStore((s) => s.setCurrentStep);
