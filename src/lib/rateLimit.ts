@@ -206,10 +206,7 @@ export function rateLimit(config: RateLimitConfig = {}) {
           return await handler(req);
         } catch (innerError) {
           // Handler itself failed — return a generic 500
-          return NextResponse.json(
-            { error: 'Internal server error' },
-            { status: 500 }
-          );
+          return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
         }
       }
     };
@@ -254,12 +251,20 @@ export const relaxedRateLimit = rateLimit({
 
 /**
  * Rate limit for super-admin endpoints (analytics, global queries).
- * These are expensive cross-tenant queries that should be called infrequently.
+ * Super admins are authenticated & trusted — allow enough headroom for
+ * navigating across multiple pages/tabs without hitting 429s.
  */
 export const superAdminRateLimit = rateLimit({
   windowMs: 60 * 1000, // 1 minute
-  max: 30, // 30 requests per minute
+  max: 120, // 120 requests per minute
   message: 'Too many admin requests. Please try again shortly.',
+  keyGenerator: (req: NextRequest) => {
+    const forwarded = req.headers.get('x-forwarded-for');
+    const real = req.headers.get('x-real-ip');
+    const ip = forwarded?.split(',')[0]?.trim() || real || 'unknown';
+    const path = new URL(req.url).pathname;
+    return `ratelimit:super-admin:${path}:ip:${ip}`;
+  },
 });
 
 /**
