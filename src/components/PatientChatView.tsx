@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api/fetch';
 import { decodeHtmlEntities } from '@/lib/utils';
+import { linkifyText } from '@/lib/utils/linkify';
 
 interface Patient {
   id: number;
@@ -369,7 +370,9 @@ export default function PatientChatView({ patient }: PatientChatViewProps) {
                         )}
 
                         <p className="whitespace-pre-wrap break-words text-sm">
-                          {decodeHtmlEntities(message.message)}
+                          {linkifyText(decodeHtmlEntities(message.message), {
+                            className: `underline break-all ${isOutgoing ? 'text-blue-100 hover:text-white' : 'text-blue-600 hover:text-blue-800'}`,
+                          })}
                         </p>
 
                         <div

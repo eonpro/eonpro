@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { usePatientId } from '@/hooks/usePatientId';
 import { decodeHtmlEntities } from '@/lib/utils';
+import { linkifyText } from '@/lib/utils/linkify';
 import { useClinicBranding } from '@/lib/contexts/ClinicBrandingContext';
 import { usePatientPortalLanguage } from '@/lib/contexts/PatientPortalLanguageContext';
 import { portalFetch } from '@/lib/api/patient-portal-client';
@@ -220,7 +221,8 @@ export default function PatientChatPage() {
       }
 
       const parsed = await safeParseJson(response);
-      const sentMessage = parsed !== null && typeof parsed === 'object' ? (parsed as ChatMessage) : null;
+      const sentMessage =
+        parsed !== null && typeof parsed === 'object' ? (parsed as ChatMessage) : null;
 
       if (sentMessage) {
         setMessages((prev) => prev.map((m) => (m.id === tempMessage.id ? sentMessage : m)));
@@ -252,37 +254,43 @@ export default function PatientChatPage() {
     });
   }, []);
 
-  const formatDate = useCallback((dateString: string) => {
-    const date = new Date(dateString);
-    const today = new Date();
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
+  const formatDate = useCallback(
+    (dateString: string) => {
+      const date = new Date(dateString);
+      const today = new Date();
+      const yesterday = new Date(today);
+      yesterday.setDate(yesterday.getDate() - 1);
 
-    if (date.toDateString() === today.toDateString()) {
-      return t('chatToday');
-    } else if (date.toDateString() === yesterday.toDateString()) {
-      return t('chatYesterday');
-    } else {
-      return date.toLocaleDateString('en-US', {
-        weekday: 'long',
-        month: 'short',
-        day: 'numeric',
-      });
-    }
-  }, [t]);
+      if (date.toDateString() === today.toDateString()) {
+        return t('chatToday');
+      } else if (date.toDateString() === yesterday.toDateString()) {
+        return t('chatYesterday');
+      } else {
+        return date.toLocaleDateString('en-US', {
+          weekday: 'long',
+          month: 'short',
+          day: 'numeric',
+        });
+      }
+    },
+    [t]
+  );
 
-  const groupedMessages = useMemo(() =>
-    messages.reduce(
-      (groups, message) => {
-        const date = formatDate(message.createdAt);
-        if (!groups[date]) {
-          groups[date] = [];
-        }
-        groups[date].push(message);
-        return groups;
-      },
-      {} as Record<string, ChatMessage[]>
-    ), [messages, formatDate]);
+  const groupedMessages = useMemo(
+    () =>
+      messages.reduce(
+        (groups, message) => {
+          const date = formatDate(message.createdAt);
+          if (!groups[date]) {
+            groups[date] = [];
+          }
+          groups[date].push(message);
+          return groups;
+        },
+        {} as Record<string, ChatMessage[]>
+      ),
+    [messages, formatDate]
+  );
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -303,7 +311,7 @@ export default function PatientChatPage() {
 
   if (loading) {
     return (
-      <div className="flex h-[100dvh] flex-col bg-gray-50 animate-pulse">
+      <div className="flex h-[100dvh] animate-pulse flex-col bg-gray-50">
         {/* Header */}
         <div className="flex items-center gap-4 border-b border-gray-200 bg-white px-4 py-3">
           <div className="h-12 w-12 rounded-full bg-gray-200" />
@@ -318,12 +326,24 @@ export default function PatientChatPage() {
         </div>
         {/* Message area */}
         <div className="flex-1 space-y-4 overflow-hidden px-4 py-4">
-          <div className="flex justify-center"><div className="h-5 w-20 rounded-full bg-gray-200" /></div>
-          <div className="flex justify-start"><div className="h-16 w-3/5 rounded-2xl rounded-bl-md bg-white shadow-sm" /></div>
-          <div className="flex justify-end"><div className="h-12 w-2/5 rounded-2xl rounded-br-md bg-gray-200" /></div>
-          <div className="flex justify-start"><div className="h-20 w-1/2 rounded-2xl rounded-bl-md bg-white shadow-sm" /></div>
-          <div className="flex justify-end"><div className="h-10 w-1/3 rounded-2xl rounded-br-md bg-gray-200" /></div>
-          <div className="flex justify-start"><div className="h-14 w-3/5 rounded-2xl rounded-bl-md bg-white shadow-sm" /></div>
+          <div className="flex justify-center">
+            <div className="h-5 w-20 rounded-full bg-gray-200" />
+          </div>
+          <div className="flex justify-start">
+            <div className="h-16 w-3/5 rounded-2xl rounded-bl-md bg-white shadow-sm" />
+          </div>
+          <div className="flex justify-end">
+            <div className="h-12 w-2/5 rounded-2xl rounded-br-md bg-gray-200" />
+          </div>
+          <div className="flex justify-start">
+            <div className="h-20 w-1/2 rounded-2xl rounded-bl-md bg-white shadow-sm" />
+          </div>
+          <div className="flex justify-end">
+            <div className="h-10 w-1/3 rounded-2xl rounded-br-md bg-gray-200" />
+          </div>
+          <div className="flex justify-start">
+            <div className="h-14 w-3/5 rounded-2xl rounded-bl-md bg-white shadow-sm" />
+          </div>
         </div>
         {/* Input bar */}
         <div className="border-t border-gray-200 bg-white p-4">
@@ -368,7 +388,10 @@ export default function PatientChatPage() {
             <p className="text-xs text-gray-500">{t('chatUsuallyReplies')}</p>
           </div>
         </div>
-        <button aria-label="More options" className="flex h-10 w-10 items-center justify-center rounded-full text-gray-600 active:bg-gray-100">
+        <button
+          aria-label="More options"
+          className="flex h-10 w-10 items-center justify-center rounded-full text-gray-600 active:bg-gray-100"
+        >
           <MoreVertical className="h-5 w-5" />
         </button>
       </div>
@@ -383,10 +406,10 @@ export default function PatientChatPage() {
             >
               <MessageCircle className="h-8 w-8" style={{ color: primaryColor }} />
             </div>
-            <h2 className="mb-2 text-lg font-semibold text-gray-900">{t('chatStartConversation')}</h2>
-            <p className="max-w-[280px] text-sm text-gray-500">
-              {t('chatStartDesc')}
-            </p>
+            <h2 className="mb-2 text-lg font-semibold text-gray-900">
+              {t('chatStartConversation')}
+            </h2>
+            <p className="max-w-[280px] text-sm text-gray-500">{t('chatStartDesc')}</p>
           </div>
         ) : (
           <div className="space-y-6">
@@ -448,7 +471,9 @@ export default function PatientChatPage() {
 
                           {/* Message Content */}
                           <p className="whitespace-pre-wrap break-words text-[15px] leading-relaxed">
-                            {decodeHtmlEntities(message.message)}
+                            {linkifyText(decodeHtmlEntities(message.message), {
+                              className: `underline break-all ${isOutgoing ? 'text-white/90 hover:text-white' : 'text-blue-600 hover:text-blue-800'}`,
+                            })}
                           </p>
 
                           {/* Time and Status */}
