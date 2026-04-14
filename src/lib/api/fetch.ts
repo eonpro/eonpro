@@ -20,12 +20,13 @@ let refreshPromise: Promise<boolean> | null = null;
 const TOKEN_REFRESH_BUFFER_MS = 5 * 60 * 1000; // Refresh 5 minutes before expiry
 
 /**
- * Dispatch session expired event for global handling
+ * Dispatch session expired event for global handling.
+ * Skipped entirely on public-facing pages (e.g. /intake) where no session exists.
  */
 export function dispatchSessionExpired(reason: string = 'session_expired') {
-  if (typeof window !== 'undefined') {
-    window.dispatchEvent(new CustomEvent(SESSION_EXPIRED_EVENT, { detail: { reason } }));
-  }
+  if (typeof window === 'undefined') return;
+  if (isPublicRoute()) return;
+  window.dispatchEvent(new CustomEvent(SESSION_EXPIRED_EVENT, { detail: { reason } }));
 }
 
 /**
@@ -90,9 +91,7 @@ function isTokenExpiringSoon(token: string): boolean {
  * Optionally accepts a custom fetch function to bypass the patched
  * window.fetch (used by the interceptor to avoid infinite recursion).
  */
-export async function refreshAuthToken(
-  fetchFn?: typeof window.fetch
-): Promise<boolean> {
+export async function refreshAuthToken(fetchFn?: typeof window.fetch): Promise<boolean> {
   // If already refreshing, wait for that to complete
   if (isRefreshing && refreshPromise) {
     return refreshPromise;
@@ -140,7 +139,9 @@ export async function refreshAuthToken(
       logger.info('[Auth] Token refreshed successfully');
       return true;
     } catch (error) {
-      logger.error('[Auth] Token refresh failed', { error: error instanceof Error ? error.message : String(error) });
+      logger.error('[Auth] Token refresh failed', {
+        error: error instanceof Error ? error.message : String(error),
+      });
       return false;
     } finally {
       isRefreshing = false;
@@ -229,12 +230,38 @@ export function clearAuthTokens() {
   });
 }
 
+/** Routes that are public-facing and should never trigger a login redirect */
+const PUBLIC_REDIRECT_PREFIXES = [
+  '/intake',
+  '/affiliate/',
+  '/login',
+  '/patient-login',
+  '/register',
+  '/reset-password',
+  '/verify-email',
+  '/privacy-policy',
+  '/terms-of-service',
+  '/hipaa-notice',
+  '/checkout',
+];
+
+/**
+ * Returns true when the current page is public and must never be redirected to login.
+ */
+export function isPublicRoute(pathname?: string): boolean {
+  const p = pathname ?? (typeof window !== 'undefined' ? window.location.pathname : '');
+  return p === '/' || PUBLIC_REDIRECT_PREFIXES.some((prefix) => p.startsWith(prefix));
+}
+
 /**
  * Redirect to the appropriate login page with reason.
  * Patients are sent to /patient-login; all other roles go to /login.
+ * Skips redirect entirely on public-facing pages (e.g. /intake).
  */
 export function redirectToLogin(reason: string = 'session_expired') {
   if (typeof window === 'undefined') return;
+
+  if (isPublicRoute()) return;
 
   const isPatientContext =
     window.location.pathname.startsWith('/portal') ||
@@ -409,9 +436,7 @@ export async function apiFetch(
             h.delete('Authorization');
             h.delete('authorization');
           } else if (Array.isArray(h)) {
-            retryOptions.headers = h.filter(
-              ([k]) => k.toLowerCase() !== 'authorization'
-            );
+            retryOptions.headers = h.filter(([k]) => k.toLowerCase() !== 'authorization');
           } else {
             const { Authorization, authorization, ...rest } = h as Record<string, string>;
             retryOptions.headers = rest;
@@ -449,7 +474,9 @@ export async function apiFetch(
     }
 
     if (isNetworkError) {
-      logger.error('Network error', { error: error instanceof Error ? error.message : String(error) });
+      logger.error('Network error', {
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
 
     throw error;

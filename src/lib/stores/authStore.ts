@@ -1,7 +1,7 @@
 'use client';
 
 import { create } from 'zustand';
-import { clearAuthTokens, redirectToLogin, SESSION_EXPIRED_EVENT } from '@/lib/api/fetch';
+import { clearAuthTokens, redirectToLogin, isPublicRoute, SESSION_EXPIRED_EVENT } from '@/lib/api/fetch';
 import { safeParseJsonString } from '@/lib/utils/safe-json';
 
 export interface AuthUser {
@@ -126,6 +126,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 // ---------------------------------------------------------------------------
 if (typeof window !== 'undefined') {
   window.addEventListener(SESSION_EXPIRED_EVENT, () => {
+    if (isPublicRoute()) return;
+
     const { isAuthenticated } = useAuthStore.getState();
     if (isAuthenticated) {
       useAuthStore.setState({

@@ -6,7 +6,19 @@ import { dispatchSessionExpired, clearAuthTokens, refreshAuthToken } from '@/lib
 import { isBrowser, safeWindow } from '@/lib/utils/ssr-safe';
 
 /** Public routes where fetch interception for session expiry should be skipped */
-const PUBLIC_ROUTE_PREFIXES = ['/intake', '/affiliate/', '/login', '/patient-login', '/register', '/reset-password', '/verify-email', '/privacy-policy', '/terms-of-service', '/hipaa-notice', '/checkout'];
+const PUBLIC_ROUTE_PREFIXES = [
+  '/intake',
+  '/affiliate/',
+  '/login',
+  '/patient-login',
+  '/register',
+  '/reset-password',
+  '/verify-email',
+  '/privacy-policy',
+  '/terms-of-service',
+  '/hipaa-notice',
+  '/checkout',
+];
 
 /** Auth cookie names that may have stale hostname-scoped duplicates */
 const AUTH_COOKIE_NAMES = [
@@ -68,7 +80,12 @@ function clearStaleSubdomainCookies(): void {
  */
 export default function GlobalFetchInterceptor() {
   const pathname = usePathname();
-  const isPublicPage = pathname === '/' || PUBLIC_ROUTE_PREFIXES.some((prefix) => pathname?.startsWith(prefix));
+  // Treat null/empty pathname (hydration) as public to prevent session interception
+  // on pages like /intake that never require authentication.
+  const isPublicPage =
+    !pathname ||
+    pathname === '/' ||
+    PUBLIC_ROUTE_PREFIXES.some((prefix) => pathname.startsWith(prefix));
   const cookieCleanupDone = useRef(false);
   // Deduplicate: only one session-expiration flow runs at a time
   const sessionExpirationInProgress = useRef(false);
@@ -192,10 +209,13 @@ export default function GlobalFetchInterceptor() {
               clearAuthTokens();
               dispatchSessionExpired(errorMessage);
 
-              console.warn('[GlobalFetchInterceptor] Session expired (refresh failed), redirecting to login', {
-                url,
-                status: response.status,
-              });
+              console.warn(
+                '[GlobalFetchInterceptor] Session expired (refresh failed), redirecting to login',
+                {
+                  url,
+                  status: response.status,
+                }
+              );
             } finally {
               sessionExpirationInProgress.current = false;
             }
