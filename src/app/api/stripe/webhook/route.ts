@@ -67,8 +67,11 @@ export async function POST(request: NextRequest) {
       await import('@/services/affiliate/affiliateCommissionService');
 
     // Import sales rep commission service
-    const { processPaymentForSalesRepCommission, reverseSalesRepCommission, checkIfFirstPaymentForSalesRep } =
-      await import('@/services/sales-rep/salesRepCommissionService');
+    const {
+      processPaymentForSalesRepCommission,
+      reverseSalesRepCommission,
+      checkIfFirstPaymentForSalesRep,
+    } = await import('@/services/sales-rep/salesRepCommissionService');
 
     // Import refill queue service for payment auto-matching
     const { autoMatchPendingRefillsForPatient } =
@@ -137,11 +140,14 @@ export async function POST(request: NextRequest) {
           accountId: connectAccountId.substring(0, 12) + '…',
         });
       } else {
-        logger.warn('[STRIPE WEBHOOK] Connect event has unrecognized account — cannot resolve clinic', {
-          eventId: event.id,
-          eventType: event.type,
-          accountId: connectAccountId.substring(0, 12) + '…',
-        });
+        logger.warn(
+          '[STRIPE WEBHOOK] Connect event has unrecognized account — cannot resolve clinic',
+          {
+            eventId: event.id,
+            eventType: event.type,
+            accountId: connectAccountId.substring(0, 12) + '…',
+          }
+        );
       }
     }
 
@@ -155,11 +161,14 @@ export async function POST(request: NextRequest) {
       const fallback = parseInt(process.env.DEFAULT_CLINIC_ID, 10);
       if (!Number.isNaN(fallback) && fallback > 0) {
         clinicId = fallback;
-        logger.info('[STRIPE WEBHOOK] Using DEFAULT_CLINIC_ID fallback (platform-direct event, no metadata)', {
-          eventId: event.id,
-          eventType: event.type,
-          clinicId: fallback,
-        });
+        logger.info(
+          '[STRIPE WEBHOOK] Using DEFAULT_CLINIC_ID fallback (platform-direct event, no metadata)',
+          {
+            eventId: event.id,
+            eventType: event.type,
+            clinicId: fallback,
+          }
+        );
       }
     }
 
@@ -183,11 +192,18 @@ export async function POST(request: NextRequest) {
 
     // Enterprise rule: when clinic cannot be resolved and event impacts tenant data, do not write tenant-scoped records
     if (clinicId === 0 && CRITICAL_PAYMENT_EVENTS.includes(event.type)) {
-      logger.warn('[STRIPE WEBHOOK] Event would impact tenant data but clinicId unresolved — no-op + 200', {
-        eventId: event.id,
-        eventType: event.type,
-      });
-      await queueFailedEvent(event, 'CLINIC_UNRESOLVED: metadata.clinicId missing; no tenant write', body);
+      logger.warn(
+        '[STRIPE WEBHOOK] Event would impact tenant data but clinicId unresolved — no-op + 200',
+        {
+          eventId: event.id,
+          eventType: event.type,
+        }
+      );
+      await queueFailedEvent(
+        event,
+        'CLINIC_UNRESOLVED: metadata.clinicId missing; no tenant write',
+        body
+      );
       return NextResponse.json({
         received: true,
         eventId: event.id,
@@ -291,7 +307,9 @@ export async function POST(request: NextRequest) {
       eventId,
       eventType,
       error: errorMessage,
-      ...(process.env.NODE_ENV === 'development' && { stack: error instanceof Error ? error.stack : undefined }),
+      ...(process.env.NODE_ENV === 'development' && {
+        stack: error instanceof Error ? error.stack : undefined,
+      }),
       duration,
     });
 
@@ -332,18 +350,40 @@ interface ProcessingServices {
   processStripePayment: (
     paymentData: import('@/services/stripe/paymentMatchingService').StripePaymentData,
     stripeEventId?: string,
-    stripeEventType?: string,
+    stripeEventType?: string
   ) => Promise<import('@/services/stripe/paymentMatchingService').PaymentProcessingResult>;
-  extractPaymentDataFromCharge: (charge: Stripe.Charge) => import('@/services/stripe/paymentMatchingService').StripePaymentData;
-  extractPaymentDataFromPaymentIntent: (paymentIntent: Stripe.PaymentIntent) => Promise<import('@/services/stripe/paymentMatchingService').StripePaymentData>;
-  extractPaymentDataFromCheckoutSession: (session: Stripe.Checkout.Session) => import('@/services/stripe/paymentMatchingService').StripePaymentData;
-  processPaymentForCommission?: (data: import('@/services/affiliate/affiliateCommissionService').PaymentEventData) => Promise<import('@/services/affiliate/affiliateCommissionService').CommissionResult>;
-  reverseCommissionForRefund?: (data: import('@/services/affiliate/affiliateCommissionService').RefundEventData) => Promise<import('@/services/affiliate/affiliateCommissionService').CommissionResult>;
+  extractPaymentDataFromCharge: (
+    charge: Stripe.Charge
+  ) => import('@/services/stripe/paymentMatchingService').StripePaymentData;
+  extractPaymentDataFromPaymentIntent: (
+    paymentIntent: Stripe.PaymentIntent
+  ) => Promise<import('@/services/stripe/paymentMatchingService').StripePaymentData>;
+  extractPaymentDataFromCheckoutSession: (
+    session: Stripe.Checkout.Session
+  ) => import('@/services/stripe/paymentMatchingService').StripePaymentData;
+  processPaymentForCommission?: (
+    data: import('@/services/affiliate/affiliateCommissionService').PaymentEventData
+  ) => Promise<import('@/services/affiliate/affiliateCommissionService').CommissionResult>;
+  reverseCommissionForRefund?: (
+    data: import('@/services/affiliate/affiliateCommissionService').RefundEventData
+  ) => Promise<import('@/services/affiliate/affiliateCommissionService').CommissionResult>;
   checkIfFirstPayment?: (patientId: number, currentPaymentId?: string) => Promise<boolean>;
-  processPaymentForSalesRepCommission?: (data: import('@/services/sales-rep/salesRepCommissionService').SalesRepPaymentEventData) => Promise<import('@/services/sales-rep/salesRepCommissionService').SalesRepCommissionResult>;
-  reverseSalesRepCommission?: (data: import('@/services/sales-rep/salesRepCommissionService').SalesRepRefundEventData) => Promise<import('@/services/sales-rep/salesRepCommissionService').SalesRepCommissionResult>;
-  checkIfFirstPaymentForSalesRep?: (patientId: number, currentPaymentId?: string) => Promise<boolean>;
-  autoMatchPendingRefillsForPatient?: (patientId: number, clinicId: number, stripePaymentId?: string, invoiceId?: number) => Promise<number[]>;
+  processPaymentForSalesRepCommission?: (
+    data: import('@/services/sales-rep/salesRepCommissionService').SalesRepPaymentEventData
+  ) => Promise<import('@/services/sales-rep/salesRepCommissionService').SalesRepCommissionResult>;
+  reverseSalesRepCommission?: (
+    data: import('@/services/sales-rep/salesRepCommissionService').SalesRepRefundEventData
+  ) => Promise<import('@/services/sales-rep/salesRepCommissionService').SalesRepCommissionResult>;
+  checkIfFirstPaymentForSalesRep?: (
+    patientId: number,
+    currentPaymentId?: string
+  ) => Promise<boolean>;
+  autoMatchPendingRefillsForPatient?: (
+    patientId: number,
+    clinicId: number,
+    stripePaymentId?: string,
+    invoiceId?: number
+  ) => Promise<number[]>;
   isConnectEvent?: boolean;
 }
 
@@ -391,9 +431,10 @@ async function processWebhookEvent(
         await StripeInvoiceService.updateFromWebhook(invoice);
 
         // If this invoice is for a subscription renewal, trigger Rx refill
-        const invoiceSubscriptionId = typeof (invoice as any).subscription === 'string'
-          ? (invoice as any).subscription
-          : (invoice as any).subscription?.id;
+        const invoiceSubscriptionId =
+          typeof (invoice as any).subscription === 'string'
+            ? (invoice as any).subscription
+            : (invoice as any).subscription?.id;
 
         let refillTriggered = false;
 
@@ -414,17 +455,19 @@ async function processWebhookEvent(
             // script gaps. Without this, the refill would silently not trigger.
             // ────────────────────────────────────────────────────────────
             if (!localSub) {
-              logger.warn('[STRIPE WEBHOOK] Local subscription missing for renewal — attempting on-demand sync', {
-                stripeSubscriptionId: invoiceSubscriptionId,
-              });
+              logger.warn(
+                '[STRIPE WEBHOOK] Local subscription missing for renewal — attempting on-demand sync',
+                {
+                  stripeSubscriptionId: invoiceSubscriptionId,
+                }
+              );
               try {
                 const { getStripeClient } = await import('@/lib/stripe/config');
                 const stripeForSync = getStripeClient();
                 if (stripeForSync) {
                   const connectAcct = (event as Stripe.Event & { account?: string }).account;
-                  const requestOpts: import('stripe').default.RequestOptions | undefined = connectAcct
-                    ? { stripeAccount: connectAcct }
-                    : undefined;
+                  const requestOpts: import('stripe').default.RequestOptions | undefined =
+                    connectAcct ? { stripeAccount: connectAcct } : undefined;
                   const stripeSub = await stripeForSync.subscriptions.retrieve(
                     invoiceSubscriptionId,
                     { expand: ['items.data.price.product'] },
@@ -448,11 +491,14 @@ async function processWebhookEvent(
                       subscriptionId: syncResult.subscriptionId,
                     });
                   } else {
-                    logger.warn('[STRIPE WEBHOOK] On-demand subscription sync did not yield a local record', {
-                      stripeSubscriptionId: invoiceSubscriptionId,
-                      skipped: syncResult.skipped,
-                      reason: syncResult.reason,
-                    });
+                    logger.warn(
+                      '[STRIPE WEBHOOK] On-demand subscription sync did not yield a local record',
+                      {
+                        stripeSubscriptionId: invoiceSubscriptionId,
+                        skipped: syncResult.skipped,
+                        reason: syncResult.reason,
+                      }
+                    );
                   }
                 }
               } catch (syncErr) {
@@ -478,10 +524,13 @@ async function processWebhookEvent(
                 patientId: localSub.patientId,
               });
             } else {
-              logger.error('[STRIPE WEBHOOK] Cannot trigger refill: local subscription not found even after on-demand sync', {
-                stripeSubscriptionId: invoiceSubscriptionId,
-                billingReason: invoice.billing_reason,
-              });
+              logger.error(
+                '[STRIPE WEBHOOK] Cannot trigger refill: local subscription not found even after on-demand sync',
+                {
+                  stripeSubscriptionId: invoiceSubscriptionId,
+                  billingReason: invoice.billing_reason,
+                }
+              );
             }
           } catch (refillErr) {
             logger.error('[STRIPE WEBHOOK] Failed to trigger refill for subscription renewal', {
@@ -516,7 +565,7 @@ async function processWebhookEvent(
               const stripeSub = await stripeForAddon.subscriptions.retrieve(
                 invoiceSubscriptionId,
                 { expand: ['items.data.price.product'] },
-                requestOpts,
+                requestOpts
               );
 
               const priceId = stripeSub.items?.data?.[0]?.price?.id;
@@ -545,11 +594,15 @@ async function processWebhookEvent(
 
                 if (!patientId && customerId) {
                   try {
-                    const customer = await stripeForAddon.customers.retrieve(customerId, {}, requestOpts as any);
+                    const customer = await stripeForAddon.customers.retrieve(
+                      customerId,
+                      {},
+                      requestOpts as any
+                    );
                     if (customer && !customer.deleted && 'email' in customer && customer.email) {
                       const patient = await findPatientByEmail(
                         customer.email.trim().toLowerCase(),
-                        resolvedClinicId > 0 ? resolvedClinicId : undefined,
+                        resolvedClinicId > 0 ? resolvedClinicId : undefined
                       );
                       if (patient?.clinicId) {
                         patientId = patient.id;
@@ -568,12 +621,16 @@ async function processWebhookEvent(
                 }
 
                 if (patientId && clinicId) {
-                  const addonIds = addonPlan?.id === 'wm_addon_elite_bundle'
-                    ? ['elite_bundle']
-                    : addonPlan?.id === 'wm_addon_nad' ? ['nad_plus']
-                    : addonPlan?.id === 'wm_addon_sermorelin' ? ['sermorelin']
-                    : addonPlan?.id === 'wm_addon_b12' ? ['b12']
-                    : [];
+                  const addonIds =
+                    addonPlan?.id === 'wm_addon_elite_bundle'
+                      ? ['elite_bundle']
+                      : addonPlan?.id === 'wm_addon_nad'
+                        ? ['nad_plus']
+                        : addonPlan?.id === 'wm_addon_sermorelin'
+                          ? ['sermorelin']
+                          : addonPlan?.id === 'wm_addon_b12'
+                            ? ['b12']
+                            : [];
 
                   const amountCents = invoice.amount_paid || addonPlan?.price || 0;
                   const invoiceNumber = `WM-ADDON-${Date.now().toString(36).toUpperCase()}${Math.random().toString(36).slice(2, 5).toUpperCase()}`;
@@ -586,7 +643,48 @@ async function processWebhookEvent(
                     },
                   });
 
-                  if (!existingAddonInvoice) {
+                  // Check if a main invoice (e.g. from Airtable) already includes
+                  // these addons in its selectedAddons metadata. If so, skip creating
+                  // a duplicate addon-only invoice to avoid double queue items.
+                  let mainInvoiceCoversAddons = false;
+                  if (!existingAddonInvoice && addonIds.length > 0) {
+                    const recentMainInvoice = await prisma.invoice.findFirst({
+                      where: {
+                        patientId,
+                        clinicId,
+                        prescriptionProcessed: false,
+                        status: 'PAID',
+                        createdAt: { gte: new Date(Date.now() - 48 * 60 * 60 * 1000) },
+                        NOT: {
+                          OR: [
+                            { metadata: { path: ['source'], equals: 'stripe-connect-addon' } },
+                            { metadata: { path: ['source'], equals: 'stripe-connect-addon-cron' } },
+                          ],
+                        },
+                      },
+                      select: { id: true, metadata: true },
+                    });
+                    if (recentMainInvoice) {
+                      const mainMeta = recentMainInvoice.metadata as Record<string, unknown> | null;
+                      const mainAddons = Array.isArray(mainMeta?.selectedAddons)
+                        ? (mainMeta.selectedAddons as string[])
+                        : [];
+                      const covered = addonIds.every(
+                        (a) => mainAddons.includes(a) || mainAddons.includes('elite_bundle')
+                      );
+                      if (covered) {
+                        mainInvoiceCoversAddons = true;
+                        logger.info('[STRIPE WEBHOOK] Skipping addon Invoice — main invoice already covers these addons', {
+                          patientId,
+                          mainInvoiceId: recentMainInvoice.id,
+                          addonIds,
+                          stripeInvoiceId: invoice.id,
+                        });
+                      }
+                    }
+                  }
+
+                  if (!existingAddonInvoice && !mainInvoiceCoversAddons) {
                     await prisma.invoice.create({
                       data: {
                         patientId,
@@ -601,14 +699,16 @@ async function processWebhookEvent(
                         description: `${addonName} - Payment received`,
                         dueDate: new Date(),
                         prescriptionProcessed: false,
-                        lineItems: [{
-                          description: addonName,
-                          quantity: 1,
-                          unitPrice: amountCents,
-                          product: addonName,
-                          medicationType: 'add-on',
-                          plan: '',
-                        }],
+                        lineItems: [
+                          {
+                            description: addonName,
+                            quantity: 1,
+                            unitPrice: amountCents,
+                            product: addonName,
+                            medicationType: 'add-on',
+                            plan: '',
+                          },
+                        ],
                         metadata: {
                           invoiceNumber,
                           source: 'stripe-connect-addon',
@@ -631,20 +731,23 @@ async function processWebhookEvent(
                       stripeSubscriptionId: invoiceSubscriptionId,
                       amountCents,
                     });
-                  } else {
+                  } else if (existingAddonInvoice) {
                     logger.info('[STRIPE WEBHOOK] Addon Invoice already exists, skipping', {
                       existingInvoiceId: existingAddonInvoice.id,
                       stripeInvoiceId: invoice.id,
                     });
                   }
                 } else {
-                  logger.warn('[STRIPE WEBHOOK] Addon subscription detected but no patient found — cron will retry', {
-                    stripeSubscriptionId: invoiceSubscriptionId,
-                    addonName,
-                    priceId,
-                    customerId,
-                    resolvedClinicId,
-                  });
+                  logger.warn(
+                    '[STRIPE WEBHOOK] Addon subscription detected but no patient found — cron will retry',
+                    {
+                      stripeSubscriptionId: invoiceSubscriptionId,
+                      addonName,
+                      priceId,
+                      customerId,
+                      resolvedClinicId,
+                    }
+                  );
                 }
               }
             }
@@ -689,8 +792,7 @@ async function processWebhookEvent(
 
                 const billingReason = (invoice as any).billing_reason as string | undefined;
                 const isRecurringInvoice =
-                  billingReason === 'subscription_cycle' ||
-                  billingReason === 'subscription_update';
+                  billingReason === 'subscription_cycle' || billingReason === 'subscription_update';
 
                 salesRepCommResult = await processPaymentForSalesRepCommission({
                   clinicId: invClinicId,
@@ -759,11 +861,14 @@ async function processWebhookEvent(
 
         // Connect clinics handle invoice creation via their own automation (e.g. Airtable)
         if (skipInvoiceCreation) {
-          logger.info('[STRIPE WEBHOOK] Skipping invoice creation for Connect event (handled by external automation)', {
-            eventId: event.id,
-            paymentIntentId: paymentIntent.id,
-            clinicId: resolvedClinicId,
-          });
+          logger.info(
+            '[STRIPE WEBHOOK] Skipping invoice creation for Connect event (handled by external automation)',
+            {
+              eventId: event.id,
+              paymentIntentId: paymentIntent.id,
+              clinicId: resolvedClinicId,
+            }
+          );
           try {
             await StripePaymentService.updatePaymentFromIntent(paymentIntent);
           } catch (updateErr) {
@@ -775,7 +880,10 @@ async function processWebhookEvent(
           }
           return {
             success: true,
-            details: { skipped: true, reason: 'Connect event — invoice created by external automation' },
+            details: {
+              skipped: true,
+              reason: 'Connect event — invoice created by external automation',
+            },
           };
         }
 
@@ -785,11 +893,14 @@ async function processWebhookEvent(
         // would create a duplicate payment + invoice record (race condition).
         const isProcessFormPayment = !!paymentIntent.metadata?.paymentId;
         if (isProcessFormPayment) {
-          logger.info('[STRIPE WEBHOOK] PaymentIntent from Process Payment form — updating status only', {
-            eventId: event.id,
-            paymentIntentId: paymentIntent.id,
-            paymentId: paymentIntent.metadata.paymentId,
-          });
+          logger.info(
+            '[STRIPE WEBHOOK] PaymentIntent from Process Payment form — updating status only',
+            {
+              eventId: event.id,
+              paymentIntentId: paymentIntent.id,
+              paymentId: paymentIntent.metadata.paymentId,
+            }
+          );
           try {
             await StripePaymentService.updatePaymentFromIntent(paymentIntent);
           } catch (updateErr) {
@@ -827,10 +938,13 @@ async function processWebhookEvent(
                   isFirstPayment,
                 });
               } catch (e) {
-                logger.warn('[STRIPE WEBHOOK] Failed to process commission for process-form payment', {
-                  error: e instanceof Error ? e.message : 'Unknown error',
-                  patientId: patientForComm.id,
-                });
+                logger.warn(
+                  '[STRIPE WEBHOOK] Failed to process commission for process-form payment',
+                  {
+                    error: e instanceof Error ? e.message : 'Unknown error',
+                    patientId: patientForComm.id,
+                  }
+                );
               }
             }
             if (patientForComm?.clinicId && processPaymentForSalesRepCommission) {
@@ -849,10 +963,13 @@ async function processWebhookEvent(
                   isFirstPayment: isFirst,
                 });
               } catch (e) {
-                logger.warn('[STRIPE WEBHOOK] Failed to process sales rep commission for process-form payment', {
-                  error: e instanceof Error ? e.message : 'Unknown error',
-                  patientId: patientForComm.id,
-                });
+                logger.warn(
+                  '[STRIPE WEBHOOK] Failed to process sales rep commission for process-form payment',
+                  {
+                    error: e instanceof Error ? e.message : 'Unknown error',
+                    patientId: patientForComm.id,
+                  }
+                );
               }
             }
 
@@ -861,13 +978,16 @@ async function processWebhookEvent(
                 await autoMatchPendingRefillsForPatient(
                   patientForComm.id,
                   patientForComm.clinicId,
-                  paymentIntent.id,
+                  paymentIntent.id
                 );
               } catch (e) {
-                logger.warn('[STRIPE WEBHOOK] Failed to auto-match refills for process-form payment', {
-                  error: e instanceof Error ? e.message : 'Unknown error',
-                  patientId: patientForComm.id,
-                });
+                logger.warn(
+                  '[STRIPE WEBHOOK] Failed to auto-match refills for process-form payment',
+                  {
+                    error: e instanceof Error ? e.message : 'Unknown error',
+                    patientId: patientForComm.id,
+                  }
+                );
               }
             }
           }
@@ -885,7 +1005,10 @@ async function processWebhookEvent(
 
         const intentPaymentData = await extractPaymentDataFromPaymentIntent(paymentIntent);
         if (resolvedClinicId > 0 && !intentPaymentData.metadata?.clinicId) {
-          intentPaymentData.metadata = { ...intentPaymentData.metadata, clinicId: String(resolvedClinicId) };
+          intentPaymentData.metadata = {
+            ...intentPaymentData.metadata,
+            clinicId: String(resolvedClinicId),
+          };
         }
         const result = await processStripePayment(intentPaymentData, event.id, event.type);
 
@@ -1025,13 +1148,19 @@ async function processWebhookEvent(
           });
           return {
             success: true,
-            details: { skipped: true, reason: 'Connect event — invoice created by external automation' },
+            details: {
+              skipped: true,
+              reason: 'Connect event — invoice created by external automation',
+            },
           };
         }
 
         const chargePaymentData = extractPaymentDataFromCharge(charge);
         if (resolvedClinicId > 0 && !chargePaymentData.metadata?.clinicId) {
-          chargePaymentData.metadata = { ...chargePaymentData.metadata, clinicId: String(resolvedClinicId) };
+          chargePaymentData.metadata = {
+            ...chargePaymentData.metadata,
+            clinicId: String(resolvedClinicId),
+          };
         }
         const result = await processStripePayment(chargePaymentData, event.id, event.type);
 
@@ -1172,13 +1301,19 @@ async function processWebhookEvent(
           });
           return {
             success: true,
-            details: { skipped: true, reason: 'Connect event — invoice created by external automation' },
+            details: {
+              skipped: true,
+              reason: 'Connect event — invoice created by external automation',
+            },
           };
         }
 
         const sessionPaymentData = extractPaymentDataFromCheckoutSession(session);
         if (resolvedClinicId > 0 && !sessionPaymentData.metadata?.clinicId) {
-          sessionPaymentData.metadata = { ...sessionPaymentData.metadata, clinicId: String(resolvedClinicId) };
+          sessionPaymentData.metadata = {
+            ...sessionPaymentData.metadata,
+            clinicId: String(resolvedClinicId),
+          };
         }
         const result = await processStripePayment(sessionPaymentData, event.id, event.type);
 
@@ -1456,8 +1591,7 @@ async function processWebhookEvent(
       // ================================================================
       case 'payment_method.attached': {
         const pm = event.data.object as Stripe.PaymentMethod;
-        const { handlePaymentMethodAttached } =
-          await import('@/services/stripe/cardSyncService');
+        const { handlePaymentMethodAttached } = await import('@/services/stripe/cardSyncService');
         const attachResult = await handlePaymentMethodAttached(pm, resolvedClinicId);
         if (!attachResult.success) {
           return { success: false, error: attachResult.error, details: { paymentMethodId: pm.id } };
@@ -1470,8 +1604,7 @@ async function processWebhookEvent(
 
       case 'payment_method.detached': {
         const pm = event.data.object as Stripe.PaymentMethod;
-        const { handlePaymentMethodDetached } =
-          await import('@/services/stripe/cardSyncService');
+        const { handlePaymentMethodDetached } = await import('@/services/stripe/cardSyncService');
         const detachResult = await handlePaymentMethodDetached(pm);
         return {
           success: true,
@@ -1481,8 +1614,7 @@ async function processWebhookEvent(
 
       case 'payment_method.updated': {
         const pm = event.data.object as Stripe.PaymentMethod;
-        const { handlePaymentMethodUpdated } =
-          await import('@/services/stripe/cardSyncService');
+        const { handlePaymentMethodUpdated } = await import('@/services/stripe/cardSyncService');
         const updateResult = await handlePaymentMethodUpdated(pm);
         return {
           success: true,

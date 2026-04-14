@@ -19,10 +19,7 @@ import { prisma, runWithClinicContext } from '@/lib/db';
 import { handleApiError } from '@/domains/shared/errors';
 import { alertWarning } from '@/lib/observability/slack-alerts';
 import { computeEmailHash } from '@/lib/security/phi-encryption';
-import {
-  isWellMedrAddonPriceId,
-  getAddonPlanByStripePriceId,
-} from '@/config/billingPlans';
+import { isWellMedrAddonPriceId, getAddonPlanByStripePriceId } from '@/config/billingPlans';
 import type Stripe from 'stripe';
 
 export const dynamic = 'force-dynamic';
@@ -58,7 +55,10 @@ export async function GET(req: NextRequest) {
     });
 
     if (!clinic?.stripeAccountId) {
-      return NextResponse.json({ skipped: true, reason: 'No WellMedR clinic or no stripeAccountId' });
+      return NextResponse.json({
+        skipped: true,
+        reason: 'No WellMedR clinic or no stripeAccountId',
+      });
     }
 
     const { getStripeForClinic } = await import('@/lib/stripe/connect');
@@ -93,13 +93,16 @@ export async function GET(req: NextRequest) {
       let hasMore = true;
 
       while (hasMore) {
-        const page = await stripe.subscriptions.list({
-          price: addon.priceId,
-          status: 'active',
-          limit: 100,
-          expand: ['data.customer', 'data.latest_invoice'],
-          ...(startingAfter ? { starting_after: startingAfter } : {}),
-        }, connectOpts);
+        const page = await stripe.subscriptions.list(
+          {
+            price: addon.priceId,
+            status: 'active',
+            limit: 100,
+            expand: ['data.customer', 'data.latest_invoice'],
+            ...(startingAfter ? { starting_after: startingAfter } : {}),
+          },
+          connectOpts
+        );
 
         for (const sub of page.data) {
           const latestInvoiceRaw = sub.latest_invoice;
@@ -133,9 +136,10 @@ export async function GET(req: NextRequest) {
           const stripeInvoiceId = latestInvoiceRaw.id;
           const customer = sub.customer;
           const customerId = typeof customer === 'string' ? customer : customer?.id;
-          const email = (typeof customer !== 'string' && customer && 'email' in customer)
-            ? (customer as { email?: string | null }).email?.trim().toLowerCase() || null
-            : null;
+          const email =
+            typeof customer !== 'string' && customer && 'email' in customer
+              ? (customer as { email?: string | null }).email?.trim().toLowerCase() || null
+              : null;
 
           if (!email) {
             totalSkipped++;
@@ -162,6 +166,56 @@ export async function GET(req: NextRequest) {
                 select: { id: true },
               });
               if (existing) return 'exists';
+
+              // Check if a main invoice already includes this addon in its
+              // selectedAddons metadata to avoid creating a duplicate queue item.
+              let patientForDedup = await prisma.patient.findFirst({
+                where: { stripeCustomerId: customerId },
+                select: { id: true, clinicId: true },
+              });
+              if (!patientForDedup && emailHash) {
+                patientForDedup = await prisma.patient.findFirst({
+                  where: { emailHash, clinicId },
+                  select: { id: true, clinicId: true },
+                  orderBy: { createdAt: 'desc' },
+                });
+              }
+              if (patientForDedup) {
+                const recentMainInvoice = await prisma.invoice.findFirst({
+                  where: {
+                    patientId: patientForDedup.id,
+                    clinicId: patientForDedup.clinicId || clinicId,
+                    prescriptionProcessed: false,
+                    status: 'PAID',
+                    createdAt: { gte: new Date(Date.now() - 48 * 60 * 60 * 1000) },
+                    NOT: {
+                      OR: [
+                        { metadata: { path: ['source'], equals: 'stripe-connect-addon' } },
+                        { metadata: { path: ['source'], equals: 'stripe-connect-addon-cron' } },
+                      ],
+                    },
+                  },
+                  select: { id: true, metadata: true },
+                });
+                if (recentMainInvoice) {
+                  const mainMeta = recentMainInvoice.metadata as Record<string, unknown> | null;
+                  const mainAddons = Array.isArray(mainMeta?.selectedAddons)
+                    ? (mainMeta.selectedAddons as string[])
+                    : [];
+                  if (
+                    mainAddons.includes(addon.addonKey) ||
+                    mainAddons.includes('elite_bundle')
+                  ) {
+                    logger.info('[ADDON-SYNC] Skipping — main invoice already covers this addon', {
+                      patientId: patientForDedup.id,
+                      mainInvoiceId: recentMainInvoice.id,
+                      addonKey: addon.addonKey,
+                      stripeInvoiceId,
+                    });
+                    return 'exists';
+                  }
+                }
+              }
 
               let patient = await prisma.patient.findFirst({
                 where: { stripeCustomerId: customerId },
@@ -200,7 +254,16 @@ export async function GET(req: NextRequest) {
                   description: `${addonName} - Payment received`,
                   dueDate: paidAt,
                   prescriptionProcessed: false,
-                  lineItems: [{ description: addonName, quantity: 1, unitPrice: amountCents, product: addonName, medicationType: 'add-on', plan: '' }],
+                  lineItems: [
+                    {
+                      description: addonName,
+                      quantity: 1,
+                      unitPrice: amountCents,
+                      product: addonName,
+                      medicationType: 'add-on',
+                      plan: '',
+                    },
+                  ],
                   metadata: {
                     invoiceNumber,
                     source: 'stripe-connect-addon-cron',
